@@ -1104,15 +1104,15 @@ export function LinksTab() {
           <div className="p-5 space-y-4">
             {tempVideoUrl && (
               <>
-                {/* Video container showing original proportions */}
+                {/* Video container - video fills container with object-cover */}
                 <div
                   ref={videoContainerRef}
-                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden select-none"
+                  className="relative mx-auto bg-black rounded-xl overflow-hidden select-none"
                   style={{ width: '300px', height: '400px' }}
                 >
                   <video
                     src={tempVideoUrl}
-                    className="w-full h-full object-contain pointer-events-none"
+                    className="w-full h-full object-cover pointer-events-none"
                     autoPlay
                     loop
                     muted
