@@ -480,7 +480,8 @@ function PublicBlockRenderer({ block, theme, profile, onepageId, sellerId, isDes
         const heroWidth = isDesktop ? 'w-[calc(100%+56px)]' : 'w-[calc(100%+40px)]'
         
         return (
-          <div className={cn(heroWidth, "relative mb-4", heroMargin)}>
+          - <div className={cn(heroWidth, "relative mb-4", heroMargin)}>
++ <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)}>
             <div className="relative w-full" style={{ aspectRatio }}>
               {hasVideo ? (
                 <div className="w-full h-full overflow-hidden">
