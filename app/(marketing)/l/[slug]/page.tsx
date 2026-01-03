@@ -83,7 +83,7 @@ export default async function PublicOnePageRoute({ params }: Props) {
     slug: onepage.slug,
     avatar_url: publishedProfile?.avatar_url || onepage.avatar_url || null,
     avatar_video_url: publishedProfile?.avatar_video_url || onepage.avatar_video_url || null,
-    avatar_video_crop: publishedProfile?.avatar_video_crop || onepage.avatar_video_crop || null,
+    avatar_video_crop: publishedProfile?.avatar_video_crop || (onepage.settings as any)?.avatar_video_crop || null,
     theme: publishedTheme || onepage.theme || {
       background_type: "solid",
       background_color: "#ffffff",

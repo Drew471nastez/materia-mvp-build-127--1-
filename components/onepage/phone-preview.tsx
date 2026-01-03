@@ -82,6 +82,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
   const { title, bio, avatar_url, theme, draft_blocks, social_links, settings } = onepage
   const avatar_video_url = (onepage as any).avatar_video_url
+  const avatar_video_crop = (settings as any)?.avatar_video_crop || null
   const sellerName = title || "Creator"
 
   // Animated gradient - only when explicitly enabled
@@ -169,7 +170,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '24px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className={cn("flex flex-col items-center flex-1", theme.spacing === "compact" ? "gap-[10px]" : theme.spacing === "comfortable" ? "gap-[14px]" : "gap-[12px]")}>
                 {draft_blocks.filter((b) => b.enabled).sort((a, b) => a.sort_order - b.sort_order).map((block) => (
-                  <BlockRenderer key={block.id} block={block} theme={theme} profile={{ title, bio, avatar_url, avatar_video_url, social_links }} scale="small" />
+                  <BlockRenderer key={block.id} block={block} theme={theme} profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }} scale="small" />
                 ))}
               </div>
               {settings.show_branding && (
@@ -194,6 +195,7 @@ export function MobilePreviewContent() {
 
   const { title, bio, avatar_url, theme, draft_blocks, social_links, settings } = onepage
   const avatar_video_url = (onepage as any).avatar_video_url
+  const avatar_video_crop = (settings as any)?.avatar_video_crop || null
   const sellerName = title || "Creator"
 
   // Animated gradient - only when explicitly enabled
@@ -261,7 +263,7 @@ export function MobilePreviewContent() {
         <div className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-12 flex flex-col" style={{ minHeight: '100%' }}>
           <div className={cn("flex flex-col items-center flex-1", theme.spacing === "compact" ? "gap-3" : theme.spacing === "comfortable" ? "gap-5" : "gap-4")}>
             {draft_blocks.filter((b) => b.enabled).sort((a, b) => a.sort_order - b.sort_order).map((block) => (
-              <BlockRenderer key={block.id} block={block} theme={theme} profile={{ title, bio, avatar_url, avatar_video_url, social_links }} scale="normal" />
+              <BlockRenderer key={block.id} block={block} theme={theme} profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }} scale="normal" />
             ))}
           </div>
           {settings.show_branding && (
@@ -278,7 +280,7 @@ export function MobilePreviewContent() {
 interface BlockRendererProps {
   block: OnePageBlock
   theme: OnePageTheme
-  profile: { title: string; bio: string; avatar_url: string | null | undefined; avatar_video_url?: string | null; social_links: any }
+  profile: { title: string; bio: string; avatar_url: string | null | undefined; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null; social_links: any }
   scale?: "small" | "normal"
 }
 
@@ -426,7 +428,20 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
           {data.show_avatar && (
             hasVideo ? (
               <div className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg")} style={{ borderColor: `${theme.text_color}20` }}>
-                <video src={profile.avatar_video_url!} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+                <video
+                  src={profile.avatar_video_url!}
+                  className="object-cover"
+                  style={profile.avatar_video_crop ? {
+                    width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
+                    height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
+                    marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
+                    marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
+                  } : { width: '100%', height: '100%' }}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
               </div>
             ) : (
               <Avatar className={cn(s.avatar, "border-2 shadow-lg")} style={{ borderColor: `${theme.text_color}20` }}>

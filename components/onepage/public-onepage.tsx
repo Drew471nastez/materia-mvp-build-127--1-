@@ -610,10 +610,10 @@ function PublicBlockRenderer({ block, theme, profile, onepageId, sellerId, isDes
       }
       
       // When Hero layout: tighter spacing to match phone preview
-      const heroStyles = isHeroLayout ? "mt-[-70x] mb-[22px]" : ""
-      
+      const heroStyles = isHeroLayout ? "mt-[-8px] mb-[8px]" : ""
+
       return (
-        <div className={cn("flex items-center justify-center gap-3 sm:gap-4 flex-wrap", heroStyles)}>
+        <div className={cn("flex items-center justify-center gap-2 flex-wrap", heroStyles)}>
           {data.platforms.map(({ platform, url }) => {
             const Icon = SocialIconsSVG[platform]
             if (!Icon || !url) return null
