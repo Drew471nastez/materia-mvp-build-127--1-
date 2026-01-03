@@ -167,6 +167,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
           title: currentOnepage.title,
           bio: currentOnepage.bio,
           avatar_url: currentOnepage.avatar_url,
+          avatar_video_url: currentOnepage.avatar_video_url,
           social_links: currentOnepage.social_links,
         }),
       })
@@ -183,6 +184,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
             title: prev.title,
             bio: prev.bio,
             avatar_url: prev.avatar_url,
+            avatar_video_url: prev.avatar_video_url,
           },
           published_social_links: prev.social_links,
         } : prev)

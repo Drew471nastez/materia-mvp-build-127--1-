@@ -265,13 +265,12 @@ export function LinksTab() {
   const videoFileInputRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Crop state for images
-  const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 })
-  const [cropZoom, setCropZoom] = useState(1)
+  // Crop state for images - square style like design tab
+  const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
   const [isDraggingCrop, setIsDraggingCrop] = useState(false)
+  const [isResizingCrop, setIsResizingCrop] = useState(false)
   const [dragStartCrop, setDragStartCrop] = useState({ x: 0, y: 0 })
   const [imageSizeCrop, setImageSizeCrop] = useState({ width: 0, height: 0 })
-  const [baseImageSize, setBaseImageSize] = useState({ width: 0, height: 0 })
   const cropContainerRef = useRef<HTMLDivElement>(null)
 
   // Video crop state
@@ -830,15 +829,14 @@ export function LinksTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Image Crop Modal - with actual canvas cropping */}
+      {/* Image Crop Modal - Square style like Design tab */}
       <Dialog open={showAvatarCropModal} onOpenChange={(open) => {
         setShowAvatarCropModal(open)
         if (!open && tempImageUrl) {
           URL.revokeObjectURL(tempImageUrl)
           setTempImageUrl(null)
           setTempImageFile(null)
-          setCropPosition({ x: 0, y: 0 })
-          setCropZoom(1)
+          setCropBox({ x: 50, y: 50, size: 200 })
         }
       }}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
@@ -849,130 +847,125 @@ export function LinksTab() {
           <div className="p-5 space-y-4">
             {tempImageUrl && (
               <>
-                {/* Circular crop preview */}
+                {/* Square crop preview with draggable crop box */}
                 <div
                   ref={cropContainerRef}
-                  className={cn(
-                    "relative mx-auto rounded-full overflow-hidden border-4 cursor-move",
-                    isDraggingCrop ? "border-violet-500" : "border-gray-200"
-                  )}
-                  style={{ width: '280px', height: '280px', touchAction: 'none' }}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    setIsDraggingCrop(true)
-                    setDragStartCrop({ x: e.clientX - cropPosition.x, y: e.clientY - cropPosition.y })
-                  }}
+                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden"
+                  style={{ width: '300px', height: '300px' }}
                   onMouseMove={(e) => {
-                    if (!isDraggingCrop) return
-                    const newX = e.clientX - dragStartCrop.x
-                    const newY = e.clientY - dragStartCrop.y
-                    // Constrain position so image always covers the circle
-                    const containerSize = 280
-                    const scaledW = baseImageSize.width * cropZoom
-                    const scaledH = baseImageSize.height * cropZoom
-                    const maxX = Math.max(0, (scaledW - containerSize) / 2)
-                    const maxY = Math.max(0, (scaledH - containerSize) / 2)
-                    setCropPosition({
-                      x: Math.max(-maxX, Math.min(maxX, newX)),
-                      y: Math.max(-maxY, Math.min(maxY, newY))
-                    })
+                    if (!isDraggingCrop && !isResizingCrop) return
+                    const rect = cropContainerRef.current?.getBoundingClientRect()
+                    if (!rect) return
+
+                    if (isDraggingCrop) {
+                      const newX = e.clientX - rect.left - dragStartCrop.x
+                      const newY = e.clientY - rect.top - dragStartCrop.y
+                      // Constrain to image bounds
+                      const maxX = imageSizeCrop.width - cropBox.size
+                      const maxY = imageSizeCrop.height - cropBox.size
+                      const offsetX = (300 - imageSizeCrop.width) / 2
+                      const offsetY = (300 - imageSizeCrop.height) / 2
+                      setCropBox(prev => ({
+                        ...prev,
+                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
+                        y: Math.max(0, Math.min(maxY, newY - offsetY))
+                      }))
+                    } else if (isResizingCrop) {
+                      const dx = e.clientX - dragStartCrop.x
+                      const dy = e.clientY - dragStartCrop.y
+                      const delta = Math.max(dx, dy)
+                      const newSize = Math.max(50, Math.min(300, cropBox.size + delta))
+                      // Constrain to not exceed image bounds
+                      const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
+                      setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      setDragStartCrop({ x: e.clientX, y: e.clientY })
+                    }
                   }}
-                  onMouseUp={() => setIsDraggingCrop(false)}
-                  onMouseLeave={() => setIsDraggingCrop(false)}
-                  onTouchStart={(e) => {
-                    const t = e.touches[0]
-                    setIsDraggingCrop(true)
-                    setDragStartCrop({ x: t.clientX - cropPosition.x, y: t.clientY - cropPosition.y })
-                  }}
-                  onTouchMove={(e) => {
-                    if (!isDraggingCrop) return
-                    e.preventDefault()
-                    const t = e.touches[0]
-                    const newX = t.clientX - dragStartCrop.x
-                    const newY = t.clientY - dragStartCrop.y
-                    const containerSize = 280
-                    const scaledW = baseImageSize.width * cropZoom
-                    const scaledH = baseImageSize.height * cropZoom
-                    const maxX = Math.max(0, (scaledW - containerSize) / 2)
-                    const maxY = Math.max(0, (scaledH - containerSize) / 2)
-                    setCropPosition({
-                      x: Math.max(-maxX, Math.min(maxX, newX)),
-                      y: Math.max(-maxY, Math.min(maxY, newY))
-                    })
-                  }}
-                  onTouchEnd={() => setIsDraggingCrop(false)}
+                  onMouseUp={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
+                  onMouseLeave={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
                 >
+                  {/* Image */}
                   <img
                     src={tempImageUrl}
                     alt="Preview"
-                    draggable={false}
-                    className="absolute select-none pointer-events-none"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
                     style={{
-                      width: `${baseImageSize.width}px`,
-                      height: `${baseImageSize.height}px`,
-                      left: '50%',
-                      top: '50%',
-                      transform: `translate(-50%, -50%) scale(${cropZoom}) translate(${cropPosition.x / cropZoom}px, ${cropPosition.y / cropZoom}px)`,
-                      transformOrigin: 'center center',
-                      maxWidth: 'none',
-                      maxHeight: 'none'
+                      width: imageSizeCrop.width,
+                      height: imageSizeCrop.height,
+                      maxWidth: '300px',
+                      maxHeight: '300px',
+                      objectFit: 'contain'
                     }}
+                    draggable={false}
                     onLoad={(e) => {
                       const img = e.target as HTMLImageElement
                       const nw = img.naturalWidth
                       const nh = img.naturalHeight
-                      setImageSizeCrop({ width: nw, height: nh })
-                      // Calculate base size to cover 280px circle
-                      const containerSize = 280
-                      const coverScale = containerSize / Math.min(nw, nh)
-                      setBaseImageSize({ width: nw * coverScale, height: nh * coverScale })
-                      setCropZoom(1)
-                      setCropPosition({ x: 0, y: 0 })
+                      // Scale to fit container
+                      const scale = Math.min(300 / nw, 300 / nh)
+                      const displayW = nw * scale
+                      const displayH = nh * scale
+                      setImageSizeCrop({ width: displayW, height: displayH })
+                      // Center crop box
+                      const size = Math.min(displayW, displayH) * 0.8
+                      setCropBox({
+                        x: (displayW - size) / 2,
+                        y: (displayH - size) / 2,
+                        size
+                      })
                     }}
                   />
-                  {/* Drag hint overlay */}
-                  {!isDraggingCrop && (
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                      <div className="bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-medium">
-                        Drag to reposition
-                      </div>
+
+                  {/* Crop box with shadow overlay */}
+                  <div
+                    className="absolute cursor-move"
+                    style={{
+                      left: `${150 - imageSizeCrop.width/2 + cropBox.x}px`,
+                      top: `${150 - imageSizeCrop.height/2 + cropBox.y}px`,
+                      width: `${cropBox.size}px`,
+                      height: `${cropBox.size}px`,
+                      border: '2px solid #3b82f6',
+                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsDraggingCrop(true)
+                      const rect = (e.target as HTMLElement).getBoundingClientRect()
+                      setDragStartCrop({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                    }}
+                  >
+                    {/* Grid overlay */}
+                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
+                      {[...Array(9)].map((_, i) => (
+                        <div key={i} className="border border-white/30" />
+                      ))}
                     </div>
-                  )}
+
+                    {/* Corner handles */}
+                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div
+                      className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsResizingCrop(true)
+                        setDragStartCrop({ x: e.clientX, y: e.clientY })
+                      }}
+                    />
+                  </div>
                 </div>
 
-                {/* Zoom slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <ZoomOut className="h-4 w-4 text-gray-400" />
-                    <Slider
-                      value={[cropZoom]}
-                      onValueChange={([v]) => {
-                        setCropZoom(v)
-                        // Re-constrain position on zoom change
-                        const containerSize = 280
-                        const scaledW = baseImageSize.width * v
-                        const scaledH = baseImageSize.height * v
-                        const maxX = Math.max(0, (scaledW - containerSize) / 2)
-                        const maxY = Math.max(0, (scaledH - containerSize) / 2)
-                        setCropPosition(prev => ({
-                          x: Math.max(-maxX, Math.min(maxX, prev.x)),
-                          y: Math.max(-maxY, Math.min(maxY, prev.y))
-                        }))
-                      }}
-                      min={1}
-                      max={3}
-                      step={0.05}
-                      className="flex-1"
-                    />
-                    <ZoomIn className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <p className="text-xs text-center text-gray-500">Drag to move, use slider to zoom</p>
-                </div>
+                <p className="text-xs text-center text-muted-foreground">
+                  Drag to move, drag bottom-right corner to resize
+                </p>
 
                 <canvas ref={canvasRef} className="hidden" />
 
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="flex-1 h-12 rounded-xl">Cancel</Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="flex-1">Cancel</Button>
                   <Button
                     onClick={async () => {
                       if (!tempImageUrl || !canvasRef.current) return
@@ -984,7 +977,6 @@ export function LinksTab() {
 
                         // Output size (512x512 for crisp profile pictures)
                         const outputSize = 512
-                        const containerSize = 280
                         canvas.width = outputSize
                         canvas.height = outputSize
 
@@ -997,44 +989,18 @@ export function LinksTab() {
                           img.src = tempImageUrl
                         })
 
-                        const nw = imageSizeCrop.width || img.naturalWidth
-                        const nh = imageSizeCrop.height || img.naturalHeight
+                        // Calculate source rectangle from crop box
+                        const nw = img.naturalWidth
+                        const nh = img.naturalHeight
+                        const scale = Math.min(300 / nw, 300 / nh)
 
-                        // Scale from container to output
-                        const outScale = outputSize / containerSize
-
-                        // Base cover size
-                        const coverScale = containerSize / Math.min(nw, nh)
-                        const baseW = nw * coverScale
-                        const baseH = nh * coverScale
-
-                        // Constrain position
-                        const scaledW = baseW * cropZoom
-                        const scaledH = baseH * cropZoom
-                        const maxX = Math.max(0, (scaledW - containerSize) / 2)
-                        const maxY = Math.max(0, (scaledH - containerSize) / 2)
-                        const safePos = {
-                          x: Math.max(-maxX, Math.min(maxX, cropPosition.x)),
-                          y: Math.max(-maxY, Math.min(maxY, cropPosition.y))
-                        }
+                        // Convert crop box coordinates back to original image coordinates
+                        const srcX = cropBox.x / scale
+                        const srcY = cropBox.y / scale
+                        const srcSize = cropBox.size / scale
 
                         ctx.clearRect(0, 0, outputSize, outputSize)
-
-                        // Circular clip
-                        ctx.save()
-                        ctx.beginPath()
-                        ctx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2)
-                        ctx.closePath()
-                        ctx.clip()
-
-                        // Apply transforms matching preview
-                        ctx.translate(outputSize / 2, outputSize / 2)
-                        ctx.scale(outScale, outScale)
-                        ctx.scale(cropZoom, cropZoom)
-                        ctx.translate(safePos.x / cropZoom, safePos.y / cropZoom)
-                        ctx.scale(coverScale, coverScale)
-                        ctx.drawImage(img, -nw / 2, -nh / 2, nw, nh)
-                        ctx.restore()
+                        ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, outputSize, outputSize)
 
                         // Convert to blob and upload
                         const blob = await new Promise<Blob>((resolve, reject) => {
@@ -1059,8 +1025,7 @@ export function LinksTab() {
                         URL.revokeObjectURL(tempImageUrl)
                         setTempImageUrl(null)
                         setTempImageFile(null)
-                        setCropPosition({ x: 0, y: 0 })
-                        setCropZoom(1)
+                        setCropBox({ x: 50, y: 50, size: 200 })
                       } catch (error) {
                         console.error("Upload error:", error)
                         alert('Failed to upload image')
@@ -1068,7 +1033,7 @@ export function LinksTab() {
                         setUploading(false)
                       }
                     }}
-                    className="flex-1 bg-violet-600 hover:bg-violet-700 text-white h-12 rounded-xl"
+                    className="flex-1 bg-violet-600 hover:bg-violet-700"
                     disabled={uploading}
                   >
                     {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}

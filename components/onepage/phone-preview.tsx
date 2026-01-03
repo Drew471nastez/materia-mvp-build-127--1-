@@ -86,10 +86,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
   // Animated gradient - only when explicitly enabled
   const isAnimatedGradient = theme.background_type === "gradient" && theme.animated_gradient === true
+  // Use a unique key to force animation restart when toggled
+  const animationKey = isAnimatedGradient ? `animated-${Date.now()}` : 'static'
 
   return (
     <div className={cn("relative flex-shrink-0", className)} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', height: '580px', minHeight: '580px', maxHeight: '580px' }}>
-      {/* Animation keyframes */}
+      {/* Animation keyframes - more subtle animation */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes gradientShiftPreview {
           0% { background-position: 0% 50%; }
@@ -106,22 +108,23 @@ export function PhonePreview({ className }: PhonePreviewProps) {
         <div style={{ width: '100%', height: '100%', borderRadius: '34px', overflow: 'hidden', position: 'relative', backgroundColor: '#000' }}>
           <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', width: '84px', height: '25px', backgroundColor: '#000', borderRadius: '9999px', zIndex: 20 }} />
           
-          <div 
-            className="phone-screen-scroll" 
-            style={{ 
-              position: 'absolute', 
-              top: '0', 
-              left: '0', 
-              right: '0', 
-              bottom: '0', 
-              overflowY: 'auto', 
-              overflowX: 'hidden', 
-              background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color, 
-              fontFamily: theme.font_family || "Inter", 
-              scrollbarWidth: 'thin', 
+          <div
+            key={animationKey}
+            className="phone-screen-scroll"
+            style={{
+              position: 'absolute',
+              top: '0',
+              left: '0',
+              right: '0',
+              bottom: '0',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color,
+              fontFamily: theme.font_family || "Inter",
+              scrollbarWidth: 'thin',
               scrollbarColor: `${theme.text_color}40 transparent`,
-              backgroundSize: isAnimatedGradient ? "400% 400%" : undefined,
-              animation: isAnimatedGradient ? "gradientShiftPreview 6s ease infinite" : undefined
+              backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+              animation: isAnimatedGradient ? "gradientShiftPreview 12s ease-in-out infinite" : undefined
             }}
           >
             <style>{`.phone-screen-scroll::-webkit-scrollbar { width: 4px; } .phone-screen-scroll::-webkit-scrollbar-track { background: transparent; margin: 10px 0; } .phone-screen-scroll::-webkit-scrollbar-thumb { background: ${theme.text_color}40; border-radius: 4px; }`}</style>
@@ -195,6 +198,8 @@ export function MobilePreviewContent() {
 
   // Animated gradient - only when explicitly enabled
   const isAnimatedGradient = theme.background_type === "gradient" && theme.animated_gradient === true
+  // Use a unique key to force animation restart when toggled
+  const animationKey = isAnimatedGradient ? `animated-${Date.now()}` : 'static'
 
   return (
     <>
@@ -206,13 +211,14 @@ export function MobilePreviewContent() {
           100% { background-position: 0% 50%; }
         }
       `}} />
-      <div 
-        className="flex-1 overflow-y-auto overflow-x-hidden relative" 
-        style={{ 
-          background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color, 
+      <div
+        key={animationKey}
+        className="flex-1 overflow-y-auto overflow-x-hidden relative"
+        style={{
+          background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color,
           fontFamily: theme.font_family || "Inter",
-          backgroundSize: isAnimatedGradient ? "400% 400%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftFrame 6s ease infinite" : undefined
+          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+          animation: isAnimatedGradient ? "gradientShiftFrame 12s ease-in-out infinite" : undefined
         }}
       >
         {theme.background_type === "image" && theme.background_image_url && (

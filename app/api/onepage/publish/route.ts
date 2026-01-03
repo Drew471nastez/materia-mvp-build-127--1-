@@ -14,14 +14,15 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { 
-      id, 
+    const {
+      id,
       // Accept direct data to avoid race conditions
       draft_blocks,
       theme,
       title,
       bio,
       avatar_url,
+      avatar_video_url,
       social_links,
     } = body
 
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
           title: title || "",
           bio: bio || "",
           avatar_url: avatar_url || null,
+          avatar_video_url: avatar_video_url || null,
         },
         published_social_links: social_links || {},
       }
@@ -86,6 +88,7 @@ export async function POST(request: Request) {
           title: fullOnepage.title,
           bio: fullOnepage.bio,
           avatar_url: fullOnepage.avatar_url,
+          avatar_video_url: fullOnepage.avatar_video_url,
         },
         published_social_links: fullOnepage.social_links,
       }

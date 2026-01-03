@@ -305,13 +305,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       `}} />
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally */}
-      <div 
+      <div
         className="hidden md:block min-h-screen w-full relative overflow-hidden"
-        style={{ 
+        style={{
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
-          backgroundSize: isAnimatedGradient ? "400% 400%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 6s ease infinite" : undefined
+          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+          animation: isAnimatedGradient ? "gradientShiftLive 12s ease-in-out infinite" : undefined
         }}
       >
         {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -339,13 +339,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
           {/* Phone-like card - wider than before (500px instead of 420px) */}
-          <div 
+          <div
             className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-hidden relative"
-            style={{ 
+            style={{
               background: getBackgroundStyle(),
               boxShadow: '0 25px 80px -12px rgba(0, 0, 0, 0.35)',
-              backgroundSize: isAnimatedGradient ? "400% 400%" : undefined,
-              animation: isAnimatedGradient ? "gradientShiftLive 6s ease infinite" : undefined
+              backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+              animation: isAnimatedGradient ? "gradientShiftLive 12s ease-in-out infinite" : undefined
             }}
           >
             {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -389,13 +389,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       </div>
 
       {/* Mobile layout (full screen) */}
-      <div 
-        className="md:hidden min-h-screen w-full overflow-hidden relative" 
-        style={{ 
+      <div
+        className="md:hidden min-h-screen w-full overflow-hidden relative"
+        style={{
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
-          backgroundSize: isAnimatedGradient ? "400% 400%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 6s ease infinite" : undefined
+          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+          animation: isAnimatedGradient ? "gradientShiftLive 12s ease-in-out infinite" : undefined
         }}
       >
         {safeTheme.background_type === "image" && safeTheme.background_image_url && (
