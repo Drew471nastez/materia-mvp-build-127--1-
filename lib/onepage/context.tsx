@@ -32,7 +32,7 @@ interface OnePageContextType {
   setActiveSection: (section: ActiveSection) => void
   setSelectedBlockId: (id: string | null) => void
   
-  updateProfile: (updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null }) => void
+  updateProfile: (updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null }) => void
   
   updateTheme: (updates: Partial<OnePageTheme>) => void
   applyTemplate: (template: OnePageTemplate) => void
@@ -168,6 +168,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
           bio: currentOnepage.bio,
           avatar_url: currentOnepage.avatar_url,
           avatar_video_url: currentOnepage.avatar_video_url,
+          avatar_video_crop: (currentOnepage.settings as any)?.avatar_video_crop || null,
           social_links: currentOnepage.social_links,
         }),
       })
@@ -185,6 +186,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
             bio: prev.bio,
             avatar_url: prev.avatar_url,
             avatar_video_url: prev.avatar_video_url,
+            avatar_video_crop: (prev.settings as any)?.avatar_video_crop || null,
           },
           published_social_links: prev.social_links,
         } : prev)
@@ -220,9 +222,25 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     setSaveState("idle")
   }, [])
 
-  const updateProfile = useCallback((updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null }) => {
-    updateOnePage(updates)
-  }, [updateOnePage])
+  const updateProfile = useCallback((updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null }) => {
+    // Extract avatar_video_crop and store it in settings instead of top-level
+    const { avatar_video_crop, ...otherUpdates } = updates
+    if (avatar_video_crop !== undefined) {
+      setOnePageState((prev) => {
+        if (!prev) return prev
+        const newSettings = {
+          ...prev.settings,
+          avatar_video_crop
+        }
+        const newState = { ...prev, ...otherUpdates, settings: newSettings }
+        addToHistory(newState)
+        return newState
+      })
+      markDirty()
+    } else {
+      updateOnePage(otherUpdates)
+    }
+  }, [updateOnePage, addToHistory, markDirty])
 
   const updateTheme = useCallback((updates: Partial<OnePageTheme>) => {
     setOnePageState((prev) => {

@@ -116,6 +116,7 @@ export async function PUT(request: Request) {
       bio,
       avatar_url,
       avatar_video_url,
+      avatar_video_crop,
       theme,
       settings,
       social_links,
@@ -155,7 +156,13 @@ export async function PUT(request: Request) {
     if (avatar_url !== undefined) updates.avatar_url = avatar_url
     if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
-    if (settings !== undefined) updates.settings = settings
+    // Store avatar_video_crop inside settings to avoid database schema changes
+    if (settings !== undefined || avatar_video_crop !== undefined) {
+      updates.settings = {
+        ...(settings || {}),
+        avatar_video_crop: avatar_video_crop !== undefined ? avatar_video_crop : (settings?.avatar_video_crop || null)
+      }
+    }
     if (social_links !== undefined) updates.social_links = social_links
     if (draft_blocks !== undefined) updates.draft_blocks = draft_blocks
     if (slug !== undefined) updates.slug = slug

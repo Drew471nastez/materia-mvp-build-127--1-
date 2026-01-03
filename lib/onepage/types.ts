@@ -160,6 +160,7 @@ export interface OnePage {
   bio: string
   avatar_url?: string | null
   avatar_video_url?: string | null
+  avatar_video_crop?: { x: number; y: number; width: number; height: number } | null
   theme: OnePageTheme
   settings: OnePageSettings
   social_links: OnePageSocialLinks
@@ -171,6 +172,7 @@ export interface OnePage {
     bio: string
     avatar_url?: string | null
     avatar_video_url?: string | null
+    avatar_video_crop?: { x: number; y: number; width: number; height: number } | null
   } | null
   published_social_links?: OnePageSocialLinks | null
   status: "draft" | "published" | "archived"

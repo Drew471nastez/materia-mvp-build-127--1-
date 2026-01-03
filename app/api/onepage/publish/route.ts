@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       bio,
       avatar_url,
       avatar_video_url,
+      avatar_video_crop,
       social_links,
     } = body
 
@@ -63,9 +64,10 @@ export async function POST(request: Request) {
           bio: bio || "",
           avatar_url: avatar_url || null,
           avatar_video_url: avatar_video_url || null,
+          avatar_video_crop: avatar_video_crop || null,
         },
         published_social_links: social_links || {},
-      }
+      } as any
     } else {
       // Legacy: fetch from database
       const { data: fullOnepage, error: fullFetchError } = await supabase
@@ -89,9 +91,10 @@ export async function POST(request: Request) {
           bio: fullOnepage.bio,
           avatar_url: fullOnepage.avatar_url,
           avatar_video_url: fullOnepage.avatar_video_url,
+          avatar_video_crop: fullOnepage.settings?.avatar_video_crop || null,
         },
         published_social_links: fullOnepage.social_links,
-      }
+      } as any
     }
 
     // Publish by updating published fields

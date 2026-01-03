@@ -627,8 +627,8 @@ function HeaderSection() {
         console.log("Video uploaded successfully:", finalVideoUrl)
       }
       
-      // Update the profile with video URL
-      updateProfile({ avatar_video_url: finalVideoUrl })
+      // Update the profile with video URL and crop data
+      updateProfile({ avatar_video_url: finalVideoUrl, avatar_video_crop: videoCropBox })
       
       setShowVideoCropModal(false)
       setTempVideoUrl(null)
@@ -919,14 +919,14 @@ function HeaderSection() {
           <div className="p-5 space-y-4">
             {tempVideoUrl && (
               <>
-                <div 
+                <div
                   ref={videoCropContainerRef}
-                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden select-none" 
-                  style={{ width: '300px', height: '300px' }}
+                  className="relative mx-auto bg-black rounded-xl overflow-hidden select-none"
+                  style={{ width: '300px', height: '400px' }}
                 >
-                  <video 
+                  <video
                     ref={videoPreviewRef}
-                    src={tempVideoUrl} 
+                    src={tempVideoUrl}
                     className="w-full h-full object-cover pointer-events-none"
                     autoPlay
                     loop
