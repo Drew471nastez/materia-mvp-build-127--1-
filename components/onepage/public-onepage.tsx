@@ -727,9 +727,7 @@ function PublicBlockRenderer({
       }
 
       // Hero layout: move icons up more, Classic: add 2px padding top/bottom
-    const layoutStyles = isHeroLayout
-  ? "mt-[-18px] md:mt-[-22px] mb-4 md:mb-6"
-  : "mt-[2px] mb-[2px]"
+      const layoutStyles = isHeroLayout ? "mt-[-18px] md:mt-[-22px] mb-4 md:mb-6" : "mt-[2px] mb-[2px]"
 
       return (
         <div className={cn("flex items-center justify-center gap-2 flex-wrap", layoutStyles)}>
