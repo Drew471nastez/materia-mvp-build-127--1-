@@ -59,21 +59,26 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
   ),
 }
 
-// 10 unique working fonts for body text
+// 15 unique working fonts for body text
 const FONTS = [
   { name: "Inter", category: "sans", style: "Clean & Professional", value: "'Inter', sans-serif" },
   { name: "Poppins", category: "sans", style: "Rounded & Friendly", value: "'Poppins', sans-serif" },
   { name: "Montserrat", category: "sans", style: "Elegant & Bold", value: "'Montserrat', sans-serif" },
   { name: "Lato", category: "sans", style: "Balanced & Warm", value: "'Lato', sans-serif" },
   { name: "Open Sans", category: "sans", style: "Web Standard", value: "'Open Sans', sans-serif" },
+  { name: "Roboto", category: "sans", style: "Modern & Versatile", value: "'Roboto', sans-serif" },
+  { name: "Raleway", category: "sans", style: "Elegant & Thin", value: "'Raleway', sans-serif" },
+  { name: "Nunito", category: "sans", style: "Soft & Rounded", value: "'Nunito', sans-serif" },
   { name: "Playfair Display", category: "serif", style: "Elegant & Editorial", value: "'Playfair Display', serif" },
   { name: "Merriweather", category: "serif", style: "Traditional & Warm", value: "'Merriweather', serif" },
   { name: "Lora", category: "serif", style: "Classic & Readable", value: "'Lora', serif" },
+  { name: "Crimson Text", category: "serif", style: "Old Style & Elegant", value: "'Crimson Text', serif" },
+  { name: "Source Serif Pro", category: "serif", style: "Transitional Serif", value: "'Source Serif Pro', serif" },
   { name: "Oswald", category: "display", style: "Strong & Narrow", value: "'Oswald', sans-serif" },
   { name: "Dancing Script", category: "script", style: "Elegant Script", value: "'Dancing Script', cursive" },
 ]
 
-// Display fonts for Title customization - 10 unique working fonts
+// Display fonts for Title customization - 15 unique working fonts
 const TITLE_FONTS = [
   { name: "Default (Same as body)", value: null },
   { name: "Playfair Display", value: "'Playfair Display', serif" },
@@ -86,6 +91,11 @@ const TITLE_FONTS = [
   { name: "Bangers", value: "'Bangers', cursive" },
   { name: "Orbitron", value: "'Orbitron', sans-serif" },
   { name: "Anton", value: "'Anton', sans-serif" },
+  { name: "Righteous", value: "'Righteous', cursive" },
+  { name: "Alfa Slab One", value: "'Alfa Slab One', cursive" },
+  { name: "Russo One", value: "'Russo One', sans-serif" },
+  { name: "Abril Fatface", value: "'Abril Fatface', cursive" },
+  { name: "Satisfy", value: "'Satisfy', cursive" },
 ]
 
 const FONT_CATEGORIES = [
@@ -103,18 +113,18 @@ const SOCIAL_STYLES = [
 ]
 
 const BACKGROUND_IMAGES = [
-  { id: "gradient1", url: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=800&q=80", label: "Purple Gradient" },
-  { id: "gradient2", url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80", label: "Colorful Gradient" },
-  { id: "gradient3", url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=800&q=80", label: "Blue Gradient" },
-  { id: "abstract1", url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=800&q=80", label: "Abstract" },
-  { id: "abstract2", url: "https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=800&q=80", label: "Waves" },
-  { id: "mesh1", url: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80", label: "Mesh" },
-  { id: "dark1", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=800&q=80", label: "Dark" },
-  { id: "mountains", url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80", label: "Mountains" },
-  { id: "marble", url: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=800&q=80", label: "Marble" },
-  { id: "texture", url: "https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=800&q=80", label: "Texture" },
-  { id: "ocean", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", label: "Ocean" },
-  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=800&q=80", label: "Forest" },
+  { id: "gradient1", url: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1920&q=95", label: "Purple Gradient" },
+  { id: "gradient2", url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1920&q=95", label: "Colorful Gradient" },
+  { id: "gradient3", url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=1920&q=95", label: "Blue Gradient" },
+  { id: "abstract1", url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=1920&q=95", label: "Abstract" },
+  { id: "abstract2", url: "https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=1920&q=95", label: "Waves" },
+  { id: "mesh1", url: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=1920&q=95", label: "Mesh" },
+  { id: "dark1", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=95", label: "Dark" },
+  { id: "mountains", url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=95", label: "Mountains" },
+  { id: "marble", url: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=1920&q=95", label: "Marble" },
+  { id: "texture", url: "https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=1920&q=95", label: "Texture" },
+  { id: "ocean", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=95", label: "Ocean" },
+  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", label: "Forest" },
 ]
 
 const THEME_TEMPLATES = [
@@ -348,7 +358,7 @@ const THEME_TEMPLATES = [
       background_type: "image" as const,
       background_color: "#1a2e1a",
       background_gradient: "",
-      background_image_url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1200&q=80",
+      background_image_url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95",
       text_color: "#ffffff",
       secondary_text_color: "#d1fae5",
       button_color: "rgba(255, 255, 255, 0.9)",
@@ -365,8 +375,21 @@ const THEME_TEMPLATES = [
 ]
 
 export function DesignTab() {
-  const [activeSection, setActiveSection] = useState<DesignSection>("theme")
+  const [activeSection, setActiveSection] = useState<DesignSection>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('onepage-design-section')
+      if (saved && ['header', 'theme', 'wallpaper', 'text', 'buttons', 'socials', 'footer'].includes(saved)) {
+        return saved as DesignSection
+      }
+    }
+    return "theme"
+  })
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
+
+  // Save active section to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('onepage-design-section', activeSection)
+  }, [activeSection])
 
   const sections = [
     { id: "header" as const, label: "Header", icon: ImageIcon },
@@ -1682,11 +1705,19 @@ function WallpaperSection() {
       </div>
 
       {theme.background_type === "solid" && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <Label className="text-sm font-medium">Background color</Label>
-          <div className="flex items-center gap-3 p-3 border rounded-xl">
-            <Input type="color" value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-            <Input value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <input type="color" value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+              <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.background_color }} />
+            </div>
+            <Input value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+          </div>
+          <div className="flex gap-2 pt-1">
+            {['#ffffff', '#f8f9fa', '#e9ecef', '#1a1a1a', '#0f172a', '#fef3c7'].map((color) => (
+              <button key={color} onClick={() => updateTheme({ background_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.background_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+            ))}
           </div>
         </div>
       )}
@@ -1716,31 +1747,25 @@ function WallpaperSection() {
                 
                 {/* Color Pickers */}
                 <div className="flex-1 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      type="color" 
-                      value={gradientInfo.color1} 
-                      onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} 
-                      className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" 
-                    />
-                    <Input 
-                      value={gradientInfo.color1} 
-                      onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} 
-                      className="flex-1 font-mono text-xs h-8" 
-                    />
+                  <div className="space-y-1.5">
+                    <span className="text-xs text-muted-foreground">Start color</span>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <input type="color" value={gradientInfo.color1} onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <div className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: gradientInfo.color1 }} />
+                      </div>
+                      <Input value={gradientInfo.color1} onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} className="flex-1 font-mono text-xs h-10 rounded-lg" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      type="color" 
-                      value={gradientInfo.color2} 
-                      onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} 
-                      className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" 
-                    />
-                    <Input 
-                      value={gradientInfo.color2} 
-                      onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} 
-                      className="flex-1 font-mono text-xs h-8" 
-                    />
+                  <div className="space-y-1.5">
+                    <span className="text-xs text-muted-foreground">End color</span>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <input type="color" value={gradientInfo.color2} onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <div className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: gradientInfo.color2 }} />
+                      </div>
+                      <Input value={gradientInfo.color2} onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} className="flex-1 font-mono text-xs h-10 rounded-lg" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1760,18 +1785,39 @@ function WallpaperSection() {
           </div>
 
           {/* Noise Toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
-              </svg>
-              <span className="text-sm font-medium">Noise</span>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center gap-3">
+                <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
+                </svg>
+                <span className="text-sm font-medium">Noise</span>
+              </div>
+              <Switch
+                checked={theme.gradient_noise || false}
+                onCheckedChange={(checked) => updateTheme({ gradient_noise: checked })}
+              />
             </div>
-            <Switch
-              checked={theme.gradient_noise || false}
-              onCheckedChange={(checked) => updateTheme({ gradient_noise: checked })}
-            />
+            {theme.gradient_noise && (
+              <div className="px-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-sm font-medium">Noise strength</Label>
+                  <span className="text-sm text-muted-foreground">{(theme as any).noise_strength || 15}%</span>
+                </div>
+                <Slider
+                  value={[(theme as any).noise_strength || 15]}
+                  onValueChange={([value]) => updateTheme({ noise_strength: value } as any)}
+                  min={5}
+                  max={50}
+                  step={5}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Subtle</span>
+                  <span>Strong</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Gradient Presets */}
@@ -1998,18 +2044,34 @@ function TextSection() {
           </div>
         </DialogContent>
       </Dialog>
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Label className="text-sm font-medium">Text color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.text_color }} />
+          </div>
+          <Input value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ text_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
         </div>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Label className="text-sm font-medium">Secondary text color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.secondary_text_color || theme.text_color }} />
+          </div>
+          <Input value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#6b7280', '#9ca3af', '#d1d5db', '#374151', '#1f2937', '#111827'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ secondary_text_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme.secondary_text_color || theme.text_color) === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
         </div>
       </div>
     </div>
@@ -2032,11 +2094,19 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Label className="text-sm font-medium">Button color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.button_color }} />
+          </div>
+          <Input value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#000000', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ button_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
         </div>
       </div>
       <div className="space-y-3">
@@ -2048,11 +2118,19 @@ function ButtonsSection() {
         <div className="flex justify-between items-center"><Label className="text-sm font-medium">Border width</Label><span className="text-sm text-muted-foreground">{theme.button_border_width}px</span></div>
         <Slider value={[theme.button_border_width]} onValueChange={([value]) => updateTheme({ button_border_width: value })} min={0} max={4} step={1} />
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Label className="text-sm font-medium">Border color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.button_border_color }} />
+          </div>
+          <Input value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#000000', '#ffffff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ button_border_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_border_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
         </div>
       </div>
     </div>
@@ -2080,11 +2158,19 @@ function SocialsSection() {
           ))}
         </div>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Label className="text-sm font-medium">Icon color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" placeholder="#000000" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: socialColor }} />
+          </div>
+          <Input value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#000000', '#ffffff', '#3b82f6', '#e1306c', '#ff0000', '#1da1f2'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ social_icon_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", socialColor === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
         </div>
       </div>
       <div className="p-4 bg-gray-100 rounded-xl">

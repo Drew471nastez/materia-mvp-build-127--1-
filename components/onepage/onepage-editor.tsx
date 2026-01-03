@@ -452,19 +452,25 @@ function EditorLayout() {
         </div>
       )}
 
-      {/* Link Modal - Responsive */}
+      {/* Link Modal - Responsive with mobile fixes */}
       <Dialog open={showLinkModal} onOpenChange={setShowLinkModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-4 sm:p-5 border-b">
+        <DialogContent
+          className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[calc(100vh-48px)] overflow-y-auto"
+          style={{
+            marginTop: 'env(safe-area-inset-top, 0px)',
+            marginBottom: 'env(safe-area-inset-bottom, 0px)'
+          }}
+        >
+          <DialogHeader className="p-4 sm:p-5 border-b sticky top-0 bg-background z-10">
             <DialogTitle className="text-base sm:text-lg font-semibold text-center">Share your OnePage</DialogTitle>
           </DialogHeader>
-          
+
           <div className="p-4 sm:p-5 space-y-4">
             {/* Preview card */}
             <div className="bg-gray-900 rounded-xl p-4 sm:p-6 text-center">
               {onepage.avatar_url ? (
-                <img 
-                  src={onepage.avatar_url} 
+                <img
+                  src={onepage.avatar_url}
                   alt={onepage.title}
                   className="w-14 h-14 sm:w-16 sm:h-16 rounded-full mx-auto mb-2 sm:mb-3 object-cover"
                 />
@@ -481,14 +487,14 @@ function EditorLayout() {
 
             {/* URL copy section */}
             <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-xl border">
-              <span className="flex-1 text-xs sm:text-sm truncate min-w-0">{pageUrl.replace('https://', '').replace('http://', '')}</span>
+              <span className="flex-1 text-xs sm:text-sm truncate min-w-0 break-all">{pageUrl.replace('https://', '').replace('http://', '')}</span>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={copyLink}
-                className="shrink-0 h-7 sm:h-8 px-2 sm:px-3 rounded-lg text-xs sm:text-sm"
+                className="shrink-0 h-8 px-3 rounded-lg text-xs sm:text-sm touch-target"
               >
-                {copied ? <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 <span className="ml-1.5">{copied ? "Copied!" : "Copy"}</span>
               </Button>
             </div>
@@ -496,7 +502,7 @@ function EditorLayout() {
             {/* Open in new tab */}
             <Button
               variant="outline"
-              className="w-full justify-start h-10 sm:h-11 rounded-xl text-sm"
+              className="w-full justify-start h-11 sm:h-12 rounded-xl text-sm touch-target"
               onClick={viewLive}
             >
               <ExternalLink className="h-4 w-4 mr-3" />

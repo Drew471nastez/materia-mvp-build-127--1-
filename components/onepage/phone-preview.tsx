@@ -149,17 +149,17 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             
             {/* Noise overlay for gradient backgrounds */}
             {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-              <svg className="absolute inset-0 w-full h-full opacity-[0.29] pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1 }}>
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
                 <filter id="phone-noise-gradient">
                   <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
                 </filter>
                 <rect width="100%" height="100%" filter="url(#phone-noise-gradient)" />
               </svg>
             )}
-            
+
             {/* Noise overlay for image backgrounds */}
             {theme.background_type === "image" && (theme as any).image_noise && (
-              <svg className="absolute inset-0 w-full h-full opacity-[0.29] pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1 }}>
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
                 <filter id="phone-noise-image">
                   <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
                 </filter>
@@ -243,17 +243,17 @@ export function MobilePreviewContent() {
         
         {/* Noise overlay for gradient backgrounds */}
         {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-          <svg className="fixed inset-0 w-full h-full opacity-[0.29] pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1 }}>
+          <svg className="fixed inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
             <filter id="mobile-noise-gradient">
               <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
             </filter>
             <rect width="100%" height="100%" filter="url(#mobile-noise-gradient)" />
           </svg>
         )}
-        
+
         {/* Noise overlay for image backgrounds */}
         {theme.background_type === "image" && (theme as any).image_noise && (
-          <svg className="fixed inset-0 w-full h-full opacity-[0.29] pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1 }}>
+          <svg className="fixed inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
             <filter id="mobile-noise-image">
               <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
             </filter>

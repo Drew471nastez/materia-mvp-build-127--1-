@@ -252,11 +252,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     return safeTheme.background_color
   }
 
-  // Noise overlay SVG for gradient/image backgrounds - 40% MORE VISIBLE (opacity 0.21 instead of 0.15)
+  // Noise overlay SVG for gradient/image backgrounds - opacity controlled by noise_strength
+  const noiseStrength = (safeTheme as any).noise_strength || 15
+  const noiseOpacity = (noiseStrength / 100) * 2 // Convert 5-50% to 0.1-1.0 range
   const NoiseOverlay = () => (
     <svg
-      className="absolute inset-0 w-full h-full opacity-[0.36] pointer-events-none"
-      style={{ mixBlendMode: "overlay" }}
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      style={{ mixBlendMode: "overlay", opacity: noiseOpacity }}
     >
       <filter id="noise">
         <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
@@ -396,8 +398,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             {/* Noise overlay inside card */}
             {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && (
               <svg
-                className="absolute inset-0 w-full h-full opacity-[0.36] pointer-events-none rounded-[40px]"
-                style={{ mixBlendMode: "overlay" }}
+                className="absolute inset-0 w-full h-full pointer-events-none rounded-[40px]"
+                style={{ mixBlendMode: "overlay", opacity: noiseOpacity }}
               >
                 <filter id="card-noise">
                   <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
@@ -407,8 +409,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             )}
             {safeTheme.background_type === "image" && (safeTheme as any).image_noise && (
               <svg
-                className="absolute inset-0 w-full h-full opacity-[0.36] pointer-events-none rounded-[40px]"
-                style={{ mixBlendMode: "overlay" }}
+                className="absolute inset-0 w-full h-full pointer-events-none rounded-[40px]"
+                style={{ mixBlendMode: "overlay", opacity: noiseOpacity }}
               >
                 <filter id="card-noise-img">
                   <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
