@@ -85,40 +85,54 @@ const FONTS = [
   { name: "Sacramento", category: "script", style: "Flowing & Delicate" },
 ]
 
-// Display fonts for Title customization
+// Display fonts for Title customization - curated unique & stylish fonts
 const TITLE_FONTS = [
   { name: "Default (Same as body)", value: null },
-  { name: "Inter", value: "Inter" },
-  { name: "Playfair Display", value: "Playfair Display" },
-  { name: "Bebas Neue", value: "Bebas Neue" },
-  { name: "Oswald", value: "Oswald" },
-  { name: "Anton", value: "Anton" },
-  { name: "Montserrat", value: "Montserrat" },
+  // Modern Sans
   { name: "Poppins", value: "Poppins" },
-  { name: "Roboto", value: "Roboto" },
-  { name: "Lora", value: "Lora" },
-  { name: "Merriweather", value: "Merriweather" },
-  { name: "DM Sans", value: "DM Sans" },
+  { name: "Montserrat", value: "Montserrat" },
   { name: "Space Grotesk", value: "Space Grotesk" },
-  { name: "Archivo Black", value: "Archivo Black" },
-  { name: "Caveat", value: "Caveat" },
-  { name: "Dancing Script", value: "Dancing Script" },
-  { name: "Pacifico", value: "Pacifico" },
-  { name: "Sacramento", value: "Sacramento" },
-  { name: "Alfa Slab One", value: "Alfa Slab One" },
-  { name: "BioRhyme", value: "BioRhyme" },
-  { name: "Black Han Sans", value: "Black Han Sans" },
-  { name: "Chango", value: "Chango" },
-  { name: "Domine", value: "Domine" },
-  { name: "Gasoek One", value: "Gasoek One" },
-  { name: "IBM Plex Sans", value: "IBM Plex Sans" },
-  { name: "Kavivanar", value: "Kavivanar" },
   { name: "Manrope", value: "Manrope" },
-  { name: "Monofett", value: "Monofett" },
-  { name: "Nunito", value: "Nunito" },
-  { name: "Open Sans", value: "Open Sans" },
+  { name: "DM Sans", value: "DM Sans" },
+  // Bold Display
+  { name: "Bebas Neue", value: "Bebas Neue" },
+  { name: "Anton", value: "Anton" },
+  { name: "Oswald", value: "Oswald" },
+  { name: "Archivo Black", value: "Archivo Black" },
+  { name: "Black Han Sans", value: "Black Han Sans" },
+  { name: "Alfa Slab One", value: "Alfa Slab One" },
+  // Elegant Serif
+  { name: "Playfair Display", value: "Playfair Display" },
+  { name: "Lora", value: "Lora" },
+  { name: "Cormorant Garamond", value: "Cormorant Garamond" },
+  { name: "Libre Baskerville", value: "Libre Baskerville" },
+  // Creative & Unique
+  { name: "Righteous", value: "Righteous" },
+  { name: "Comfortaa", value: "Comfortaa" },
+  { name: "Fredoka One", value: "Fredoka One" },
+  { name: "Lobster", value: "Lobster" },
+  { name: "Permanent Marker", value: "Permanent Marker" },
+  { name: "Press Start 2P", value: "Press Start 2P" },
+  { name: "Bangers", value: "Bangers" },
+  { name: "Bungee", value: "Bungee" },
+  // Tech & Futuristic
   { name: "Orbitron", value: "Orbitron" },
   { name: "Oxanium", value: "Oxanium" },
+  { name: "Russo One", value: "Russo One" },
+  { name: "Audiowide", value: "Audiowide" },
+  { name: "Rajdhani", value: "Rajdhani" },
+  // Handwritten & Script
+  { name: "Pacifico", value: "Pacifico" },
+  { name: "Dancing Script", value: "Dancing Script" },
+  { name: "Caveat", value: "Caveat" },
+  { name: "Sacramento", value: "Sacramento" },
+  { name: "Great Vibes", value: "Great Vibes" },
+  { name: "Satisfy", value: "Satisfy" },
+  // Retro & Vintage
+  { name: "Abril Fatface", value: "Abril Fatface" },
+  { name: "Cinzel", value: "Cinzel" },
+  { name: "Monoton", value: "Monoton" },
+  { name: "Rubik Mono One", value: "Rubik Mono One" },
 ]
 
 const FONT_CATEGORIES = [
@@ -492,6 +506,14 @@ function HeaderSection() {
   // Title font modal state
   const [showTitleFontModal, setShowTitleFontModal] = useState(false)
 
+  // Title color picker state
+  const [showTitleColorPicker, setShowTitleColorPicker] = useState(false)
+  const [titleColorHue, setTitleColorHue] = useState(0)
+  const [titleColorSat, setTitleColorSat] = useState(50)
+  const [titleColorLight, setTitleColorLight] = useState(50)
+  const colorPickerRef = useRef<HTMLDivElement>(null)
+  const satLightRef = useRef<HTMLDivElement>(null)
+
   if (!onepage) return null
 
   const { theme } = onepage
@@ -711,6 +733,20 @@ function HeaderSection() {
       }
     }
   }, [isVideoDragging, isVideoResizing, handleVideoCropMouseMove, handleVideoCropMouseUp, handleVideoCropTouchMove, handleVideoCropTouchEnd])
+
+  // Click outside handler for color picker
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showTitleColorPicker && colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        const button = (e.target as HTMLElement).closest('button')
+        if (!button || !button.textContent?.includes((theme as any).title_color || theme.text_color)) {
+          setShowTitleColorPicker(false)
+        }
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showTitleColorPicker, theme])
 
   const handleVideoCropSave = async () => {
     if (!tempVideoUrl) return
@@ -1047,31 +1083,32 @@ function HeaderSection() {
               <>
                 <div
                   ref={videoCropContainerRef}
-                  className="relative mx-auto bg-black rounded-xl overflow-hidden select-none touch-none"
-                  style={{ width: '300px', height: '400px' }}
+                  className="relative mx-auto bg-black rounded-xl select-none"
+                  style={{ width: '300px', height: '400px', touchAction: 'none' }}
                 >
                   <video
                     ref={videoPreviewRef}
                     src={tempVideoUrl}
-                    className="w-full h-full object-cover pointer-events-none"
+                    className="w-full h-full object-cover pointer-events-none rounded-xl"
                     autoPlay
                     loop
                     muted
                     playsInline
                   />
                   {/* Dark overlay outside crop area */}
-                  <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
+                  <div className="absolute inset-0 pointer-events-none rounded-xl" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
 
                   {/* Crop box - draggable */}
                   <div
-                    className="absolute border-2 border-white border-dashed cursor-move touch-none"
+                    className="absolute border-2 border-white border-dashed cursor-move"
                     style={{
                       left: `${videoCropBox.x}%`,
                       top: `${videoCropBox.y}%`,
                       width: `${videoCropBox.width}%`,
                       height: `${videoCropBox.height}%`,
                       boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      background: 'transparent'
+                      background: 'transparent',
+                      touchAction: 'none'
                     }}
                     onMouseDown={(e) => handleVideoCropMouseDown(e, 'drag')}
                     onTouchStart={(e) => handleVideoCropTouchStart(e, 'drag')}
@@ -1083,48 +1120,56 @@ function HeaderSection() {
                       ))}
                     </div>
 
-                    {/* Corner resize handles - larger for mobile touch */}
+                    {/* Corner resize handles - much larger for mobile touch */}
                     <div
-                      className="absolute -top-3 -left-3 w-6 h-6 bg-white border-2 border-blue-500 rounded-sm cursor-nw-resize z-10 touch-none"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'top-left')}
-                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'top-left')}
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
+                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'top-left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'top-left') }}
                     />
                     <div
-                      className="absolute -top-3 -right-3 w-6 h-6 bg-white border-2 border-blue-500 rounded-sm cursor-ne-resize z-10 touch-none"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'top-right')}
-                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'top-right')}
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
+                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'top-right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'top-right') }}
                     />
                     <div
-                      className="absolute -bottom-3 -left-3 w-6 h-6 bg-white border-2 border-blue-500 rounded-sm cursor-sw-resize z-10 touch-none"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'bottom-left')}
-                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'bottom-left')}
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
+                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom-left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom-left') }}
                     />
                     <div
-                      className="absolute -bottom-3 -right-3 w-6 h-6 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize z-10 touch-none"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'bottom-right')}
-                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'bottom-right')}
+                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
+                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom-right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom-right') }}
                     />
 
                     {/* Edge resize handles - larger for mobile touch */}
                     <div
-                      className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-4 bg-white/80 rounded cursor-n-resize z-10 touch-none"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'top')}
-                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'top')}
+                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-n-resize z-50"
+                      style={{ top: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'top') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'top') }}
                     />
                     <div
-                      className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-10 h-4 bg-white/80 rounded cursor-s-resize z-10 touch-none"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'bottom')}
-                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'bottom')}
+                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-s-resize z-50"
+                      style={{ bottom: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom') }}
                     />
                     <div
-                      className="absolute top-1/2 -left-2 -translate-y-1/2 w-4 h-10 bg-white/80 rounded cursor-w-resize z-10 touch-none"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'left')}
-                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'left')}
+                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-w-resize z-50"
+                      style={{ left: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'left') }}
                     />
                     <div
-                      className="absolute top-1/2 -right-2 -translate-y-1/2 w-4 h-10 bg-white/80 rounded cursor-e-resize z-10 touch-none"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'right')}
-                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'right')}
+                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-e-resize z-50"
+                      style={{ right: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'right') }}
                     />
                   </div>
                 </div>
@@ -1325,33 +1370,153 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
-      {/* Title Color Picker */}
+      {/* Title Color Picker - Modern UI */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Title Color</Label>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <input
-              type="color"
-              value={(theme as any).title_color || theme.text_color}
-              onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
-              className="w-10 h-10 rounded-lg cursor-pointer border border-input"
+        <Label className="text-sm font-medium">Title color</Label>
+        <div className="relative">
+          <button
+            onClick={() => setShowTitleColorPicker(!showTitleColorPicker)}
+            className="w-full h-12 px-3 rounded-xl border border-input bg-background flex items-center gap-3 hover:bg-accent/50 transition-colors"
+          >
+            <div
+              className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm"
+              style={{ backgroundColor: (theme as any).title_color || theme.text_color }}
             />
-          </div>
-          <Input
-            value={(theme as any).title_color || theme.text_color}
-            onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
-            placeholder="#000000"
-            className="h-10 rounded-lg flex-1 font-mono text-sm"
-          />
-          {(theme as any).title_color && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => updateTheme({ title_color: null } as any)}
-              className="h-10 px-2"
+            <span className="font-mono text-sm text-muted-foreground flex-1 text-left">
+              {(theme as any).title_color || theme.text_color}
+            </span>
+          </button>
+
+          {showTitleColorPicker && (
+            <div
+              ref={colorPickerRef}
+              className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-xl border border-gray-200 p-4 w-full max-w-[320px]"
             >
-              <X className="h-4 w-4" />
-            </Button>
+              {/* Saturation-Brightness Gradient */}
+              <div
+                ref={satLightRef}
+                className="relative w-full h-48 rounded-xl cursor-crosshair overflow-hidden mb-3"
+                style={{
+                  background: `linear-gradient(to bottom, transparent, black),
+                               linear-gradient(to right, white, hsl(${titleColorHue}, 100%, 50%))`
+                }}
+                onClick={(e) => {
+                  const rect = satLightRef.current?.getBoundingClientRect()
+                  if (!rect) return
+                  const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+                  const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
+                  const sat = Math.round(x * 100)
+                  const light = Math.round((1 - y) * 50)
+                  setTitleColorSat(sat)
+                  setTitleColorLight(light)
+                  const color = `hsl(${titleColorHue}, ${sat}%, ${light}%)`
+                  // Convert to hex
+                  const canvas = document.createElement('canvas')
+                  canvas.width = 1
+                  canvas.height = 1
+                  const ctx = canvas.getContext('2d')
+                  if (ctx) {
+                    ctx.fillStyle = color
+                    ctx.fillRect(0, 0, 1, 1)
+                    const data = ctx.getImageData(0, 0, 1, 1).data
+                    const hex = '#' + [data[0], data[1], data[2]].map(x => x.toString(16).padStart(2, '0')).join('')
+                    updateTheme({ title_color: hex } as any)
+                  }
+                }}
+              >
+                {/* Picker Circle */}
+                <div
+                  className="absolute w-5 h-5 border-2 border-white rounded-full shadow-md pointer-events-none"
+                  style={{
+                    left: `${titleColorSat}%`,
+                    top: `${100 - titleColorLight * 2}%`,
+                    transform: 'translate(-50%, -50%)',
+                    backgroundColor: (theme as any).title_color || theme.text_color
+                  }}
+                />
+              </div>
+
+              {/* Hue Slider */}
+              <div className="relative mb-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="360"
+                  value={titleColorHue}
+                  onChange={(e) => {
+                    const hue = parseInt(e.target.value)
+                    setTitleColorHue(hue)
+                    const color = `hsl(${hue}, ${titleColorSat}%, ${titleColorLight}%)`
+                    const canvas = document.createElement('canvas')
+                    canvas.width = 1
+                    canvas.height = 1
+                    const ctx = canvas.getContext('2d')
+                    if (ctx) {
+                      ctx.fillStyle = color
+                      ctx.fillRect(0, 0, 1, 1)
+                      const data = ctx.getImageData(0, 0, 1, 1).data
+                      const hex = '#' + [data[0], data[1], data[2]].map(x => x.toString(16).padStart(2, '0')).join('')
+                      updateTheme({ title_color: hex } as any)
+                    }
+                  }}
+                  className="w-full h-3 rounded-full appearance-none cursor-pointer"
+                  style={{
+                    background: 'linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)'
+                  }}
+                />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-gray-300 rounded-full shadow pointer-events-none"
+                  style={{ left: `calc(${(titleColorHue / 360) * 100}% - 8px)` }}
+                />
+              </div>
+
+              {/* Hex Input */}
+              <div className="flex items-center gap-2 mb-4">
+                <Input
+                  value={(theme as any).title_color || theme.text_color}
+                  onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
+                  placeholder="#000000"
+                  className="h-11 rounded-xl flex-1 font-mono text-sm"
+                />
+                <button className="h-11 w-11 rounded-xl border border-input flex items-center justify-center hover:bg-accent transition-colors">
+                  <Link className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+
+              {/* Suggested Colors */}
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Suggested</p>
+                <div className="flex gap-2">
+                  {[theme.text_color, '#000000', '#1a1a1a', '#ffffff', '#3b82f6', '#ef4444'].map((color, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        updateTheme({ title_color: color } as any)
+                        setShowTitleColorPicker(false)
+                      }}
+                      className={cn(
+                        "w-10 h-10 rounded-full border-2 transition-transform hover:scale-110",
+                        (theme as any).title_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Reset Button */}
+              {(theme as any).title_color && (
+                <button
+                  onClick={() => {
+                    updateTheme({ title_color: null } as any)
+                    setShowTitleColorPicker(false)
+                  }}
+                  className="w-full mt-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Reset to default
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

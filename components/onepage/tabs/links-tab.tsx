@@ -335,19 +335,33 @@ export function LinksTab() {
   const handleDrop = (e: React.DragEvent, targetBlockId: string) => {
     e.preventDefault()
     if (draggedBlockId && draggedBlockId !== targetBlockId) {
+      const draggedBlock = sortedBlocks.find(b => b.id === draggedBlockId)
+      const targetBlock = sortedBlocks.find(b => b.id === targetBlockId)
       const draggedIndex = sortedBlocks.findIndex(b => b.id === draggedBlockId)
       const targetIndex = sortedBlocks.findIndex(b => b.id === targetBlockId)
-      
+
+      // Prevent social_row from being moved above header when Hero layout is active
+      const headerLayout = (onepage.theme as any)?.header_layout || "classic"
+      if (headerLayout === "hero" && draggedBlock?.type === "social_row") {
+        const headerIndex = sortedBlocks.findIndex(b => b.type === "header")
+        if (headerIndex !== -1 && targetIndex <= headerIndex) {
+          // Don't allow dropping above or at the header position
+          setDraggedBlockId(null)
+          setDragOverBlockId(null)
+          return
+        }
+      }
+
       if (draggedIndex !== -1 && targetIndex !== -1) {
         const newOrder = [...sortedBlocks]
         const [removed] = newOrder.splice(draggedIndex, 1)
         newOrder.splice(targetIndex, 0, removed)
-        
+
         const updatedBlocks = newOrder.map((block, index) => ({
           ...block,
           sort_order: index
         }))
-        
+
         reorderBlocks(updatedBlocks)
       }
     }
@@ -475,10 +489,20 @@ export function LinksTab() {
               isSelected={selectedBlockId === block.id}
               onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
               onRemove={() => removeBlock(block.id)}
-              onMoveUp={() => moveBlockUp(block.id)}
+              onMoveUp={() => {
+                // Prevent social_row from moving above header when Hero layout
+                const headerLayout = (onepage.theme as any)?.header_layout || "classic"
+                if (headerLayout === "hero" && block.type === "social_row") {
+                  const headerIndex = sortedBlocks.findIndex(b => b.type === "header")
+                  if (headerIndex !== -1 && index <= headerIndex + 1) {
+                    return // Block the move if it would place social_row above or at header
+                  }
+                }
+                moveBlockUp(block.id)
+              }}
               onMoveDown={() => moveBlockDown(block.id)}
               onToggle={() => toggleBlockEnabled(block.id)}
-              isFirst={index === 0}
+              isFirst={index === 0 || (block.type === "social_row" && (onepage.theme as any)?.header_layout === "hero" && index === sortedBlocks.findIndex(b => b.type === "header") + 1)}
               isLast={index === sortedBlocks.length - 1}
               socialLinks={social_links}
               onOpenImageLibrary={(blockId) => { setImageBlockId(blockId); setShowImageLibrary(true) }}
