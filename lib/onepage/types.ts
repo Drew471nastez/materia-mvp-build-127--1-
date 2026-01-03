@@ -27,6 +27,9 @@ export interface OnePageTheme {
   button_border_color: string
   button_hover_color?: string
   font_family: string
+  // Title customization
+  title_font?: string | null
+  title_color?: string | null
   card_width: "narrow" | "standard" | "wide"
   spacing: "compact" | "normal" | "comfortable"
   // New gradient properties

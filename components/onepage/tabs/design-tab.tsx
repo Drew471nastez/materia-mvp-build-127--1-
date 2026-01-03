@@ -85,6 +85,42 @@ const FONTS = [
   { name: "Sacramento", category: "script", style: "Flowing & Delicate" },
 ]
 
+// Display fonts for Title customization
+const TITLE_FONTS = [
+  { name: "Default (Same as body)", value: null },
+  { name: "Inter", value: "Inter" },
+  { name: "Playfair Display", value: "Playfair Display" },
+  { name: "Bebas Neue", value: "Bebas Neue" },
+  { name: "Oswald", value: "Oswald" },
+  { name: "Anton", value: "Anton" },
+  { name: "Montserrat", value: "Montserrat" },
+  { name: "Poppins", value: "Poppins" },
+  { name: "Roboto", value: "Roboto" },
+  { name: "Lora", value: "Lora" },
+  { name: "Merriweather", value: "Merriweather" },
+  { name: "DM Sans", value: "DM Sans" },
+  { name: "Space Grotesk", value: "Space Grotesk" },
+  { name: "Archivo Black", value: "Archivo Black" },
+  { name: "Caveat", value: "Caveat" },
+  { name: "Dancing Script", value: "Dancing Script" },
+  { name: "Pacifico", value: "Pacifico" },
+  { name: "Sacramento", value: "Sacramento" },
+  { name: "Alfa Slab One", value: "Alfa Slab One" },
+  { name: "BioRhyme", value: "BioRhyme" },
+  { name: "Black Han Sans", value: "Black Han Sans" },
+  { name: "Chango", value: "Chango" },
+  { name: "Domine", value: "Domine" },
+  { name: "Gasoek One", value: "Gasoek One" },
+  { name: "IBM Plex Sans", value: "IBM Plex Sans" },
+  { name: "Kavivanar", value: "Kavivanar" },
+  { name: "Manrope", value: "Manrope" },
+  { name: "Monofett", value: "Monofett" },
+  { name: "Nunito", value: "Nunito" },
+  { name: "Open Sans", value: "Open Sans" },
+  { name: "Orbitron", value: "Orbitron" },
+  { name: "Oxanium", value: "Oxanium" },
+]
+
 const FONT_CATEGORIES = [
   { id: "all", label: "All Fonts" },
   { id: "sans", label: "Sans Serif" },
@@ -453,6 +489,9 @@ function HeaderSection() {
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Title font modal state
+  const [showTitleFontModal, setShowTitleFontModal] = useState(false)
+
   if (!onepage) return null
 
   const { theme } = onepage
@@ -575,16 +614,103 @@ function HeaderSection() {
     setIsVideoResizing(null)
   }, [])
 
+  // Touch handlers for video cropper
+  const handleVideoCropTouchStart = (e: React.TouchEvent, type: 'drag' | 'resize', corner?: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const touch = e.touches[0]
+    const container = videoCropContainerRef.current
+    if (!container || !touch) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((touch.clientX - rect.left) / rect.width) * 100
+    const y = ((touch.clientY - rect.top) / rect.height) * 100
+
+    setVideoDragStart({
+      x,
+      y,
+      boxX: videoCropBox.x,
+      boxY: videoCropBox.y,
+      boxW: videoCropBox.width,
+      boxH: videoCropBox.height
+    })
+
+    if (type === 'drag') {
+      setIsVideoDragging(true)
+    } else {
+      setIsVideoResizing(corner || null)
+    }
+  }
+
+  const handleVideoCropTouchMove = useCallback((e: TouchEvent) => {
+    const touch = e.touches[0]
+    const container = videoCropContainerRef.current
+    if (!container || !touch) return
+
+    e.preventDefault()
+    const rect = container.getBoundingClientRect()
+    const x = ((touch.clientX - rect.left) / rect.width) * 100
+    const y = ((touch.clientY - rect.top) / rect.height) * 100
+
+    if (isVideoDragging) {
+      const deltaX = x - videoDragStart.x
+      const deltaY = y - videoDragStart.y
+
+      let newX = videoDragStart.boxX + deltaX
+      let newY = videoDragStart.boxY + deltaY
+
+      newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
+      newY = Math.max(0, Math.min(100 - videoCropBox.height, newY))
+
+      setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+    } else if (isVideoResizing) {
+      const deltaX = x - videoDragStart.x
+      const deltaY = y - videoDragStart.y
+
+      let newBox = { ...videoCropBox }
+
+      if (isVideoResizing.includes('right')) {
+        newBox.width = Math.max(20, Math.min(100 - videoDragStart.boxX, videoDragStart.boxW + deltaX))
+      }
+      if (isVideoResizing.includes('left')) {
+        const newWidth = Math.max(20, videoDragStart.boxW - deltaX)
+        const maxX = videoDragStart.boxX + videoDragStart.boxW - 20
+        newBox.x = Math.max(0, Math.min(maxX, videoDragStart.boxX + deltaX))
+        newBox.width = videoDragStart.boxX + videoDragStart.boxW - newBox.x
+      }
+      if (isVideoResizing.includes('bottom')) {
+        newBox.height = Math.max(20, Math.min(100 - videoDragStart.boxY, videoDragStart.boxH + deltaY))
+      }
+      if (isVideoResizing.includes('top')) {
+        const newHeight = Math.max(20, videoDragStart.boxH - deltaY)
+        const maxY = videoDragStart.boxY + videoDragStart.boxH - 20
+        newBox.y = Math.max(0, Math.min(maxY, videoDragStart.boxY + deltaY))
+        newBox.height = videoDragStart.boxY + videoDragStart.boxH - newBox.y
+      }
+
+      setVideoCropBox(newBox)
+    }
+  }, [isVideoDragging, isVideoResizing, videoDragStart, videoCropBox])
+
+  const handleVideoCropTouchEnd = useCallback(() => {
+    setIsVideoDragging(false)
+    setIsVideoResizing(null)
+  }, [])
+
   useEffect(() => {
     if (isVideoDragging || isVideoResizing) {
       window.addEventListener('mousemove', handleVideoCropMouseMove)
       window.addEventListener('mouseup', handleVideoCropMouseUp)
+      window.addEventListener('touchmove', handleVideoCropTouchMove, { passive: false })
+      window.addEventListener('touchend', handleVideoCropTouchEnd)
       return () => {
         window.removeEventListener('mousemove', handleVideoCropMouseMove)
         window.removeEventListener('mouseup', handleVideoCropMouseUp)
+        window.removeEventListener('touchmove', handleVideoCropTouchMove)
+        window.removeEventListener('touchend', handleVideoCropTouchEnd)
       }
     }
-  }, [isVideoDragging, isVideoResizing, handleVideoCropMouseMove, handleVideoCropMouseUp])
+  }, [isVideoDragging, isVideoResizing, handleVideoCropMouseMove, handleVideoCropMouseUp, handleVideoCropTouchMove, handleVideoCropTouchEnd])
 
   const handleVideoCropSave = async () => {
     if (!tempVideoUrl) return
@@ -921,7 +1047,7 @@ function HeaderSection() {
               <>
                 <div
                   ref={videoCropContainerRef}
-                  className="relative mx-auto bg-black rounded-xl overflow-hidden select-none"
+                  className="relative mx-auto bg-black rounded-xl overflow-hidden select-none touch-none"
                   style={{ width: '300px', height: '400px' }}
                 >
                   <video
@@ -935,10 +1061,10 @@ function HeaderSection() {
                   />
                   {/* Dark overlay outside crop area */}
                   <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
-                  
+
                   {/* Crop box - draggable */}
-                  <div 
-                    className="absolute border-2 border-white border-dashed cursor-move"
+                  <div
+                    className="absolute border-2 border-white border-dashed cursor-move touch-none"
                     style={{
                       left: `${videoCropBox.x}%`,
                       top: `${videoCropBox.y}%`,
@@ -948,6 +1074,7 @@ function HeaderSection() {
                       background: 'transparent'
                     }}
                     onMouseDown={(e) => handleVideoCropMouseDown(e, 'drag')}
+                    onTouchStart={(e) => handleVideoCropTouchStart(e, 'drag')}
                   >
                     {/* Grid lines */}
                     <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
@@ -955,41 +1082,49 @@ function HeaderSection() {
                         <div key={i} className="border border-white/30" />
                       ))}
                     </div>
-                    
-                    {/* Corner resize handles */}
-                    <div 
-                      className="absolute -top-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-nw-resize z-10"
+
+                    {/* Corner resize handles - larger for mobile touch */}
+                    <div
+                      className="absolute -top-3 -left-3 w-6 h-6 bg-white border-2 border-blue-500 rounded-sm cursor-nw-resize z-10 touch-none"
                       onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'top-left')}
+                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'top-left')}
                     />
-                    <div 
-                      className="absolute -top-2 -right-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-ne-resize z-10"
+                    <div
+                      className="absolute -top-3 -right-3 w-6 h-6 bg-white border-2 border-blue-500 rounded-sm cursor-ne-resize z-10 touch-none"
                       onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'top-right')}
+                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'top-right')}
                     />
-                    <div 
-                      className="absolute -bottom-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-sw-resize z-10"
+                    <div
+                      className="absolute -bottom-3 -left-3 w-6 h-6 bg-white border-2 border-blue-500 rounded-sm cursor-sw-resize z-10 touch-none"
                       onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'bottom-left')}
+                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'bottom-left')}
                     />
-                    <div 
-                      className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize z-10"
+                    <div
+                      className="absolute -bottom-3 -right-3 w-6 h-6 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize z-10 touch-none"
                       onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'bottom-right')}
+                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'bottom-right')}
                     />
-                    
-                    {/* Edge resize handles */}
-                    <div 
-                      className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-2 bg-white/80 rounded cursor-n-resize z-10"
+
+                    {/* Edge resize handles - larger for mobile touch */}
+                    <div
+                      className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-4 bg-white/80 rounded cursor-n-resize z-10 touch-none"
                       onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'top')}
+                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'top')}
                     />
-                    <div 
-                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-2 bg-white/80 rounded cursor-s-resize z-10"
+                    <div
+                      className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-10 h-4 bg-white/80 rounded cursor-s-resize z-10 touch-none"
                       onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'bottom')}
+                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'bottom')}
                     />
-                    <div 
-                      className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-8 bg-white/80 rounded cursor-w-resize z-10"
+                    <div
+                      className="absolute top-1/2 -left-2 -translate-y-1/2 w-4 h-10 bg-white/80 rounded cursor-w-resize z-10 touch-none"
                       onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'left')}
+                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'left')}
                     />
-                    <div 
-                      className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-8 bg-white/80 rounded cursor-e-resize z-10"
+                    <div
+                      className="absolute top-1/2 -right-2 -translate-y-1/2 w-4 h-10 bg-white/80 rounded cursor-e-resize z-10 touch-none"
                       onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'right')}
+                      onTouchStart={(e) => handleVideoCropTouchStart(e, 'resize', 'right')}
                     />
                   </div>
                 </div>
@@ -1133,6 +1268,92 @@ function HeaderSection() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Display Name</Label>
         <Input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder="Your name" className="h-10 rounded-lg" />
+      </div>
+
+      {/* Title Font Selector */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title Font</Label>
+        <button
+          onClick={() => setShowTitleFontModal(true)}
+          className="w-full h-10 px-3 rounded-lg border border-input bg-background flex items-center justify-between hover:bg-accent transition-colors"
+        >
+          <span
+            className="truncate"
+            style={{ fontFamily: (theme as any).title_font || theme.font_family }}
+          >
+            {(theme as any).title_font || "Default (Same as body)"}
+          </span>
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+        </button>
+      </div>
+
+      {/* Title Font Modal */}
+      <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Select Title Font</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto -mx-6 px-6">
+            <div className="space-y-1 py-2">
+              {TITLE_FONTS.map((font) => (
+                <button
+                  key={font.name}
+                  onClick={() => {
+                    updateTheme({ title_font: font.value } as any)
+                    setShowTitleFontModal(false)
+                  }}
+                  className={cn(
+                    "w-full px-3 py-3 rounded-lg text-left transition-colors flex items-center justify-between",
+                    (theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)
+                      ? "bg-primary/10 text-primary"
+                      : "hover:bg-accent"
+                  )}
+                >
+                  <span
+                    className="text-lg truncate"
+                    style={{ fontFamily: font.value || theme.font_family }}
+                  >
+                    {font.name}
+                  </span>
+                  {((theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)) && (
+                    <Check className="h-4 w-4 text-primary shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Title Color Picker */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title Color</Label>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <input
+              type="color"
+              value={(theme as any).title_color || theme.text_color}
+              onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
+              className="w-10 h-10 rounded-lg cursor-pointer border border-input"
+            />
+          </div>
+          <Input
+            value={(theme as any).title_color || theme.text_color}
+            onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
+            placeholder="#000000"
+            className="h-10 rounded-lg flex-1 font-mono text-sm"
+          />
+          {(theme as any).title_color && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => updateTheme({ title_color: null } as any)}
+              className="h-10 px-2"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-2">

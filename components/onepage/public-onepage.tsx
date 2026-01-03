@@ -611,7 +611,7 @@ function PublicBlockRenderer({
               {data.show_name !== false && profile.title && (
                 <h1
                   className={cn("font-bold", isDesktop ? "text-[31px]" : "text-[27px] sm:text-[31px]")}
-                  style={{ color: theme.text_color, textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}
+                  style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family, textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}
                 >
                   {profile.title}
                 </h1>
@@ -688,7 +688,7 @@ function PublicBlockRenderer({
           {data.show_name !== false && profile.title && (
             <h1
               className={cn("font-bold text-center", isDesktop ? "text-[31px]" : "text-[27px] sm:text-[31px]")}
-              style={{ color: theme.text_color }}
+              style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family }}
             >
               {profile.title}
             </h1>

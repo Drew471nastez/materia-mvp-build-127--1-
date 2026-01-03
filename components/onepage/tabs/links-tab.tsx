@@ -458,8 +458,8 @@ export function LinksTab() {
         {sortedBlocks.map((block, index) => (
           <div
             key={block.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, block.id)}
+            draggable={block.type !== "header"}
+            onDragStart={(e) => block.type !== "header" && handleDragStart(e, block.id)}
             onDragOver={(e) => handleDragOver(e, block.id)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, block.id)}
@@ -467,7 +467,7 @@ export function LinksTab() {
             className={cn(
               "transition-all duration-200",
               draggedBlockId === block.id && "opacity-50 scale-[0.98]",
-              dragOverBlockId === block.id && "border-t-2 border-violet-500"
+              dragOverBlockId === block.id && block.type !== "header" && "border-t-2 border-violet-500"
             )}
           >
             <BlockItem
@@ -850,7 +850,7 @@ export function LinksTab() {
                 {/* Square crop preview with draggable crop box */}
                 <div
                   ref={cropContainerRef}
-                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden"
+                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden touch-none"
                   style={{ width: '300px', height: '300px' }}
                   onMouseMove={(e) => {
                     if (!isDraggingCrop && !isResizingCrop) return
@@ -883,6 +883,36 @@ export function LinksTab() {
                   }}
                   onMouseUp={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
                   onMouseLeave={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
+                  onTouchMove={(e) => {
+                    if (!isDraggingCrop && !isResizingCrop) return
+                    e.preventDefault()
+                    const touch = e.touches[0]
+                    const rect = cropContainerRef.current?.getBoundingClientRect()
+                    if (!rect || !touch) return
+
+                    if (isDraggingCrop) {
+                      const newX = touch.clientX - rect.left - dragStartCrop.x
+                      const newY = touch.clientY - rect.top - dragStartCrop.y
+                      const maxX = imageSizeCrop.width - cropBox.size
+                      const maxY = imageSizeCrop.height - cropBox.size
+                      const offsetX = (300 - imageSizeCrop.width) / 2
+                      const offsetY = (300 - imageSizeCrop.height) / 2
+                      setCropBox(prev => ({
+                        ...prev,
+                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
+                        y: Math.max(0, Math.min(maxY, newY - offsetY))
+                      }))
+                    } else if (isResizingCrop) {
+                      const dx = touch.clientX - dragStartCrop.x
+                      const dy = touch.clientY - dragStartCrop.y
+                      const delta = Math.max(dx, dy)
+                      const newSize = Math.max(50, Math.min(300, cropBox.size + delta))
+                      const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
+                      setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      setDragStartCrop({ x: touch.clientX, y: touch.clientY })
+                    }
+                  }}
+                  onTouchEnd={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
                 >
                   {/* Image */}
                   <img
@@ -918,7 +948,7 @@ export function LinksTab() {
 
                   {/* Crop box with shadow overlay */}
                   <div
-                    className="absolute cursor-move"
+                    className="absolute cursor-move touch-none"
                     style={{
                       left: `${150 - imageSizeCrop.width/2 + cropBox.x}px`,
                       top: `${150 - imageSizeCrop.height/2 + cropBox.y}px`,
@@ -934,6 +964,14 @@ export function LinksTab() {
                       const rect = (e.target as HTMLElement).getBoundingClientRect()
                       setDragStartCrop({ x: e.clientX - rect.left, y: e.clientY - rect.top })
                     }}
+                    onTouchStart={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const touch = e.touches[0]
+                      setIsDraggingCrop(true)
+                      const rect = (e.target as HTMLElement).getBoundingClientRect()
+                      setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
+                    }}
                   >
                     {/* Grid overlay */}
                     <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
@@ -942,17 +980,24 @@ export function LinksTab() {
                       ))}
                     </div>
 
-                    {/* Corner handles */}
-                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
+                    {/* Corner handles - larger for mobile touch */}
+                    <div className="absolute -top-2 -left-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -bottom-2 -left-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
                     <div
-                      className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize"
+                      className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize touch-none"
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingCrop(true)
                         setDragStartCrop({ x: e.clientX, y: e.clientY })
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingCrop(true)
+                        setDragStartCrop({ x: touch.clientX, y: touch.clientY })
                       }}
                     />
                   </div>
@@ -1360,18 +1405,23 @@ function BlockItem({
   const preview = getBlockPreview()
   const Icon = preview.icon
 
+  const isHeaderBlock = block.type === "header"
+
   return (
     <div
       className={cn(
-        "border rounded-xl bg-white transition-all cursor-grab active:cursor-grabbing",
+        "border rounded-xl bg-white transition-all",
+        !isHeaderBlock && "cursor-grab active:cursor-grabbing",
         isSelected ? "ring-2 ring-violet-500 border-violet-200" : "hover:border-gray-300",
         !block.enabled && "opacity-50"
       )}
     >
       <div className="flex items-center gap-3 p-3">
-        <div className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing">
-          <GripVertical className="h-5 w-5" />
-        </div>
+        {!isHeaderBlock && (
+          <div className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing">
+            <GripVertical className="h-5 w-5" />
+          </div>
+        )}
 
         <div className="flex-1 flex items-center gap-3 cursor-pointer" onClick={onSelect}>
           <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
@@ -1388,31 +1438,33 @@ function BlockItem({
 
       {isSelected && (
         <div className="border-t p-4 space-y-4 bg-gray-50/50">
-          <BlockEditor 
-            block={block} 
-            socialLinks={socialLinks} 
+          <BlockEditor
+            block={block}
+            socialLinks={socialLinks}
             onOpenImageLibrary={onOpenImageLibrary}
             onOpenSocialModal={onOpenSocialModal}
           />
-          <div className="flex items-center justify-between pt-3 border-t">
-            <div className="flex gap-1">
-              <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={isFirst} className="h-8 w-8 p-0">
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={isLast} className="h-8 w-8 p-0">
-                <ChevronDown className="h-4 w-4" />
+          {!isHeaderBlock && (
+            <div className="flex items-center justify-between pt-3 border-t">
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={isFirst} className="h-8 w-8 p-0">
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={isLast} className="h-8 w-8 p-0">
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRemove}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Delete
               </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRemove}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
-            >
-              <Trash2 className="h-4 w-4 mr-1.5" />
-              Delete
-            </Button>
-          </div>
+          )}
         </div>
       )}
     </div>

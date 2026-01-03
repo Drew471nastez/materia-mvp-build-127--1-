@@ -412,7 +412,7 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
             </div>
             <div className="absolute bottom-3 left-0 right-0 text-center px-4">
               {data.show_name && profile.title && (
-                <h1 className={cn(s.title, "font-bold")} style={{ color: theme.text_color, textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>{profile.title}</h1>
+                <h1 className={cn(s.title, "font-bold")} style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family, textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>{profile.title}</h1>
               )}
               {data.show_bio && profile.bio && (
                 <p className={cn(s.bio, "text-center mt-1 mx-auto")} style={{ color: theme.secondary_text_color || theme.text_color, textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>{profile.bio}</p>
@@ -455,7 +455,7 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
             )
           )}
           {data.show_name && profile.title && (
-            <h1 className={cn(s.title, "font-bold text-center")} style={{ color: theme.text_color }}>{profile.title}</h1>
+            <h1 className={cn(s.title, "font-bold text-center")} style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family }}>{profile.title}</h1>
           )}
           {data.show_bio && profile.bio && (
             <p className={cn(s.bio, "text-center leading-relaxed mx-auto")} style={{ color: theme.secondary_text_color || `${theme.text_color}cc` }}>{profile.bio}</p>
