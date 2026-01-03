@@ -532,11 +532,11 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
       
       const headerLayout = (theme as any).header_layout || "classic"
       const isHeroLayout = headerLayout === "hero"
-      // When Hero layout: tighter spacing to match preview exactly
-      const heroStyles = isHeroLayout ? "mt-[-4px] mb-[2px]" : ""
+      // Hero layout: move icons up, Classic: add 2px padding top/bottom
+      const layoutStyles = isHeroLayout ? "mt-[-6px] mb-[2px]" : "mt-[2px] mb-[2px]"
 
       return (
-        <div className={cn("w-full flex justify-center flex-wrap", s.socialGap, heroStyles)} style={{ marginBottom: isHeroLayout ? '2px' : undefined }}>
+        <div className={cn("w-full flex justify-center flex-wrap", s.socialGap, layoutStyles)} style={{ marginBottom: isHeroLayout ? '2px' : undefined }}>
           {platforms.map((platform, idx) => {
             const IconComponent = SocialIconsSVG[platform.platform]
             return (

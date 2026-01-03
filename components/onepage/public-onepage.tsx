@@ -609,11 +609,11 @@ function PublicBlockRenderer({ block, theme, profile, onepageId, sellerId, isDes
         data.platforms = defaultLinks
       }
       
-      // When Hero layout: tighter spacing to match phone preview
-      const heroStyles = isHeroLayout ? "mt-[-8px] mb-[8px]" : ""
+      // Hero layout: move icons up more, Classic: add 2px padding top/bottom
+      const layoutStyles = isHeroLayout ? "mt-[-12px] mb-[4px]" : "mt-[2px] mb-[2px]"
 
       return (
-        <div className={cn("flex items-center justify-center gap-2 flex-wrap", heroStyles)}>
+        <div className={cn("flex items-center justify-center gap-2 flex-wrap", layoutStyles)}>
           {data.platforms.map(({ platform, url }) => {
             const Icon = SocialIconsSVG[platform]
             if (!Icon || !url) return null
