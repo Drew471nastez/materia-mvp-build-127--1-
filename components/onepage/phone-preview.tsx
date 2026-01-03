@@ -123,8 +123,8 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               fontFamily: theme.font_family || "Inter",
               scrollbarWidth: 'thin',
               scrollbarColor: `${theme.text_color}40 transparent`,
-              backgroundSize: isAnimatedGradient ? "150% 150%" : undefined,
-              animation: isAnimatedGradient ? "gradientShiftPreview 15s ease-in-out infinite" : undefined
+              backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+              animation: isAnimatedGradient ? "gradientShiftPreview 10s ease-in-out infinite" : undefined
             }}
           >
             <style>{`.phone-screen-scroll::-webkit-scrollbar { width: 4px; } .phone-screen-scroll::-webkit-scrollbar-track { background: transparent; margin: 10px 0; } .phone-screen-scroll::-webkit-scrollbar-thumb { background: ${theme.text_color}40; border-radius: 4px; }`}</style>
@@ -217,8 +217,8 @@ export function MobilePreviewContent() {
         style={{
           background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color,
           fontFamily: theme.font_family || "Inter",
-          backgroundSize: isAnimatedGradient ? "150% 150%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftFrame 15s ease-in-out infinite" : undefined
+          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+          animation: isAnimatedGradient ? "gradientShiftFrame 10s ease-in-out infinite" : undefined
         }}
       >
         {theme.background_type === "image" && theme.background_image_url && (

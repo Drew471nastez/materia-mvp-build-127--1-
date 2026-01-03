@@ -201,6 +201,7 @@ interface PublicOnePageProps {
     slug: string
     avatar_url: string | null
     avatar_video_url?: string | null
+    avatar_video_crop?: { x: number; y: number; width: number; height: number } | null
     theme: OnePageTheme
     blocks: OnePageBlock[]
     social_links: any
@@ -210,7 +211,7 @@ interface PublicOnePageProps {
 }
 
 export function PublicOnePage({ onepage }: PublicOnePageProps) {
-  const { title, bio, avatar_url, avatar_video_url, theme, blocks, social_links, settings, seller_id } = onepage
+  const { title, bio, avatar_url, avatar_video_url, avatar_video_crop, theme, blocks, social_links, settings, seller_id } = onepage
   const sellerName = title || "Creator"
 
   // Safe defaults
@@ -278,7 +279,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             key={block.id} 
             block={block} 
             theme={safeTheme} 
-            profile={{ title, bio, avatar_url, avatar_video_url, social_links }} 
+            profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }} 
             onepageId={onepage.id} 
             sellerId={seller_id}
             isDesktop={isDesktop}
@@ -310,8 +311,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         style={{
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
-          backgroundSize: isAnimatedGradient ? "150% 150%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 15s ease-in-out infinite" : undefined
+          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+          animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined
         }}
       >
         {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -394,8 +395,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         style={{
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
-          backgroundSize: isAnimatedGradient ? "150% 150%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 15s ease-in-out infinite" : undefined
+          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+          animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined
         }}
       >
         {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -426,7 +427,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 interface PublicBlockRendererProps {
   block: OnePageBlock
   theme: OnePageTheme
-  profile: { title: string; bio: string; avatar_url: string | null; avatar_video_url?: string | null; social_links: any }
+  profile: { title: string; bio: string; avatar_url: string | null; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null; social_links: any }
   onepageId: string
   sellerId: string
   isDesktop?: boolean
@@ -482,15 +483,23 @@ function PublicBlockRenderer({ block, theme, profile, onepageId, sellerId, isDes
           <div className={cn(heroWidth, "relative mb-4", heroMargin)}>
             <div className="relative w-full" style={{ aspectRatio }}>
               {hasVideo ? (
-                <video
-                  ref={videoRef}
-                  src={profile.avatar_video_url!}
-                  className="w-full h-full object-cover object-top"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                />
+                <div className="w-full h-full overflow-hidden">
+                  <video
+                    ref={videoRef}
+                    src={profile.avatar_video_url!}
+                    className="object-cover"
+                    style={profile.avatar_video_crop ? {
+                      width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
+                      height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
+                      marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
+                      marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
+                    } : { width: '100%', height: '100%' }}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                </div>
               ) : (
                 <img 
                   src={profile.avatar_url!} 
@@ -550,7 +559,13 @@ function PublicBlockRenderer({ block, theme, profile, onepageId, sellerId, isDes
                 <video
                   ref={videoRef}
                   src={profile.avatar_video_url!}
-                  className="w-full h-full object-cover"
+                  className="object-cover"
+                  style={profile.avatar_video_crop ? {
+                    width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
+                    height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
+                    marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
+                    marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
+                  } : { width: '100%', height: '100%' }}
                   autoPlay
                   loop
                   muted

@@ -273,11 +273,11 @@ export function LinksTab() {
   const [imageSizeCrop, setImageSizeCrop] = useState({ width: 0, height: 0 })
   const cropContainerRef = useRef<HTMLDivElement>(null)
 
-  // Video crop state
-  const [videoCropBox, setVideoCropBox] = useState({ x: 30, y: 30, size: 240 })
+  // Video crop state - portrait ratio (percentages)
+  const [videoCropBox, setVideoCropBox] = useState({ x: 10, y: 5, width: 60, height: 80 })
   const [isDraggingVideoCrop, setIsDraggingVideoCrop] = useState(false)
-  const [isResizingVideoCrop, setIsResizingVideoCrop] = useState(false)
-  const [videoDragStart, setVideoDragStart] = useState({ x: 0, y: 0 })
+  const [isResizingVideoCrop, setIsResizingVideoCrop] = useState<string | null>(null)
+  const [videoDragStart, setVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
   const videoContainerRef = useRef<HTMLDivElement>(null)
   const [videoNaturalSize, setVideoNaturalSize] = useState({ width: 0, height: 0 })
 
@@ -1086,14 +1086,14 @@ export function LinksTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Video Crop Modal - with square (1:1) aspect ratio */}
+      {/* Video Crop Modal - portrait ratio */}
       <Dialog open={showVideoCropModal} onOpenChange={(open) => {
         setShowVideoCropModal(open)
         if (!open && tempVideoUrl) {
           URL.revokeObjectURL(tempVideoUrl)
           setTempVideoUrl(null)
           setTempVideoFile(null)
-          setVideoCropBox({ x: 30, y: 30, size: 240 })
+          setVideoCropBox({ x: 10, y: 5, width: 60, height: 80 })
         }
       }}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
@@ -1104,104 +1104,155 @@ export function LinksTab() {
           <div className="p-5 space-y-4">
             {tempVideoUrl && (
               <>
-                {/* Square video container with draggable crop box */}
+                {/* Video container showing original proportions */}
                 <div
                   ref={videoContainerRef}
-                  className="relative mx-auto bg-black rounded-xl overflow-hidden"
-                  style={{ width: '300px', height: '300px' }}
-                  onMouseDown={(e) => {
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                    const x = e.clientX - rect.left
-                    const y = e.clientY - rect.top
-
-                    // Check if clicking on resize handle (bottom-right corner)
-                    const handleSize = 20
-                    const boxRight = videoCropBox.x + videoCropBox.size
-                    const boxBottom = videoCropBox.y + videoCropBox.size
-                    const isOnResizeHandle =
-                      x >= boxRight - handleSize && x <= boxRight + handleSize &&
-                      y >= boxBottom - handleSize && y <= boxBottom + handleSize
-
-                    if (isOnResizeHandle) {
-                      setIsResizingVideoCrop(true)
-                      setVideoDragStart({ x: e.clientX, y: e.clientY })
-                    } else if (
-                      x >= videoCropBox.x && x <= videoCropBox.x + videoCropBox.size &&
-                      y >= videoCropBox.y && y <= videoCropBox.y + videoCropBox.size
-                    ) {
-                      setIsDraggingVideoCrop(true)
-                      setVideoDragStart({ x: e.clientX - videoCropBox.x, y: e.clientY - videoCropBox.y })
-                    }
-                  }}
-                  onMouseMove={(e) => {
-                    const containerSize = 300
-                    const minSize = 100
-
-                    if (isDraggingVideoCrop) {
-                      const newX = e.clientX - videoDragStart.x
-                      const newY = e.clientY - videoDragStart.y
-                      setVideoCropBox(prev => ({
-                        ...prev,
-                        x: Math.max(0, Math.min(containerSize - prev.size, newX)),
-                        y: Math.max(0, Math.min(containerSize - prev.size, newY))
-                      }))
-                    } else if (isResizingVideoCrop) {
-                      const deltaX = e.clientX - videoDragStart.x
-                      const deltaY = e.clientY - videoDragStart.y
-                      const delta = Math.max(deltaX, deltaY)
-
-                      setVideoCropBox(prev => {
-                        const newSize = Math.max(minSize, Math.min(containerSize - prev.x, containerSize - prev.y, prev.size + delta))
-                        return { ...prev, size: newSize }
-                      })
-                      setVideoDragStart({ x: e.clientX, y: e.clientY })
-                    }
-                  }}
-                  onMouseUp={() => {
-                    setIsDraggingVideoCrop(false)
-                    setIsResizingVideoCrop(false)
-                  }}
-                  onMouseLeave={() => {
-                    setIsDraggingVideoCrop(false)
-                    setIsResizingVideoCrop(false)
-                  }}
+                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden select-none"
+                  style={{ width: '300px', height: '400px' }}
                 >
                   <video
                     src={tempVideoUrl}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain pointer-events-none"
                     autoPlay
                     loop
                     muted
                     playsInline
+                    onLoadedMetadata={(e) => {
+                      const video = e.target as HTMLVideoElement
+                      setVideoNaturalSize({ width: video.videoWidth, height: video.videoHeight })
+                    }}
                   />
-                  {/* Square crop overlay */}
+                  {/* Dark overlay outside crop area */}
+                  <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
+
+                  {/* Crop box - draggable (using percentages) */}
                   <div
-                    className={cn(
-                      "absolute border-2 border-dashed cursor-move transition-colors",
-                      isDraggingVideoCrop || isResizingVideoCrop ? "border-violet-400" : "border-white"
-                    )}
+                    className="absolute border-2 border-white border-dashed cursor-move"
                     style={{
-                      left: `${videoCropBox.x}px`,
-                      top: `${videoCropBox.y}px`,
-                      width: `${videoCropBox.size}px`,
-                      height: `${videoCropBox.size}px`,
-                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
+                      left: `${videoCropBox.x}%`,
+                      top: `${videoCropBox.y}%`,
+                      width: `${videoCropBox.width}%`,
+                      height: `${videoCropBox.height}%`,
+                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+                      background: 'transparent'
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsDraggingVideoCrop(true)
+                      const container = videoContainerRef.current
+                      if (!container) return
+                      const rect = container.getBoundingClientRect()
+                      setVideoDragStart({
+                        x: e.clientX,
+                        y: e.clientY,
+                        boxX: videoCropBox.x,
+                        boxY: videoCropBox.y,
+                        boxW: videoCropBox.width,
+                        boxH: videoCropBox.height
+                      })
                     }}
                   >
-                    {/* Rule of thirds grid */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+                    {/* Grid lines */}
+                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
                       {[...Array(9)].map((_, i) => (
                         <div key={i} className="border border-white/30" />
                       ))}
                     </div>
-                    {/* Corner handles */}
-                    <div className="absolute -top-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize" />
+
+                    {/* Corner resize handles */}
+                    <div
+                      className="absolute -top-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-nw-resize z-10"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsResizingVideoCrop('top-left')
+                        setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
+                    />
+                    <div
+                      className="absolute -top-2 -right-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-ne-resize z-10"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsResizingVideoCrop('top-right')
+                        setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
+                    />
+                    <div
+                      className="absolute -bottom-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-sw-resize z-10"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsResizingVideoCrop('bottom-left')
+                        setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
+                    />
+                    <div
+                      className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize z-10"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsResizingVideoCrop('bottom-right')
+                        setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
+                    />
                   </div>
+
+                  {/* Global mouse handlers */}
+                  {(isDraggingVideoCrop || isResizingVideoCrop) && (
+                    <div
+                      className="fixed inset-0 z-50"
+                      onMouseMove={(e) => {
+                        const container = videoContainerRef.current
+                        if (!container) return
+                        const rect = container.getBoundingClientRect()
+                        const deltaX = ((e.clientX - videoDragStart.x) / rect.width) * 100
+                        const deltaY = ((e.clientY - videoDragStart.y) / rect.height) * 100
+
+                        if (isDraggingVideoCrop) {
+                          let newX = videoDragStart.boxX + deltaX
+                          let newY = videoDragStart.boxY + deltaY
+                          newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
+                          newY = Math.max(0, Math.min(100 - videoCropBox.height, newY))
+                          setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+                        } else if (isResizingVideoCrop) {
+                          let newBox = { ...videoCropBox }
+                          const minSize = 20
+
+                          if (isResizingVideoCrop.includes('right')) {
+                            newBox.width = Math.max(minSize, Math.min(100 - videoDragStart.boxX, videoDragStart.boxW + deltaX))
+                          }
+                          if (isResizingVideoCrop.includes('bottom')) {
+                            newBox.height = Math.max(minSize, Math.min(100 - videoDragStart.boxY, videoDragStart.boxH + deltaY))
+                          }
+                          if (isResizingVideoCrop.includes('left')) {
+                            const newWidth = videoDragStart.boxW - deltaX
+                            if (newWidth >= minSize && videoDragStart.boxX + deltaX >= 0) {
+                              newBox.x = videoDragStart.boxX + deltaX
+                              newBox.width = newWidth
+                            }
+                          }
+                          if (isResizingVideoCrop.includes('top')) {
+                            const newHeight = videoDragStart.boxH - deltaY
+                            if (newHeight >= minSize && videoDragStart.boxY + deltaY >= 0) {
+                              newBox.y = videoDragStart.boxY + deltaY
+                              newBox.height = newHeight
+                            }
+                          }
+                          setVideoCropBox(newBox)
+                        }
+                      }}
+                      onMouseUp={() => {
+                        setIsDraggingVideoCrop(false)
+                        setIsResizingVideoCrop(null)
+                      }}
+                    />
+                  )}
                 </div>
+
                 <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize</p>
+
                 <Button
                   onClick={async () => {
                     if (!tempVideoFile) return
@@ -1216,12 +1267,17 @@ export function LinksTab() {
                       if (error) throw error
 
                       const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-                      updateProfile({ avatar_video_url: publicUrl, avatar_url: null })
+                      // Save video URL with crop data
+                      updateProfile({
+                        avatar_video_url: publicUrl,
+                        avatar_url: null,
+                        avatar_video_crop: videoCropBox
+                      })
                       setShowVideoCropModal(false)
                       if (tempVideoUrl) URL.revokeObjectURL(tempVideoUrl)
                       setTempVideoUrl(null)
                       setTempVideoFile(null)
-                      setVideoCropBox({ x: 30, y: 30, size: 240 })
+                      setVideoCropBox({ x: 10, y: 5, width: 60, height: 80 })
                     } catch (error) {
                       console.error("Upload error:", error)
                       alert('Failed to upload video')

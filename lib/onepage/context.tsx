@@ -32,7 +32,7 @@ interface OnePageContextType {
   setActiveSection: (section: ActiveSection) => void
   setSelectedBlockId: (id: string | null) => void
   
-  updateProfile: (updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null }) => void
+  updateProfile: (updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null }) => void
   
   updateTheme: (updates: Partial<OnePageTheme>) => void
   applyTemplate: (template: OnePageTemplate) => void
@@ -168,6 +168,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
           bio: currentOnepage.bio,
           avatar_url: currentOnepage.avatar_url,
           avatar_video_url: currentOnepage.avatar_video_url,
+          avatar_video_crop: currentOnepage.avatar_video_crop,
           social_links: currentOnepage.social_links,
         }),
       })
@@ -185,6 +186,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
             bio: prev.bio,
             avatar_url: prev.avatar_url,
             avatar_video_url: prev.avatar_video_url,
+            avatar_video_crop: prev.avatar_video_crop,
           },
           published_social_links: prev.social_links,
         } : prev)
@@ -220,7 +222,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     setSaveState("idle")
   }, [])
 
-  const updateProfile = useCallback((updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null }) => {
+  const updateProfile = useCallback((updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null }) => {
     updateOnePage(updates)
   }, [updateOnePage])
 
