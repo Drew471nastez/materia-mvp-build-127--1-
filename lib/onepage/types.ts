@@ -170,6 +170,7 @@ export interface OnePage {
     title: string
     bio: string
     avatar_url?: string | null
+    avatar_video_url?: string | null
   } | null
   published_social_links?: OnePageSocialLinks | null
   status: "draft" | "published" | "archived"

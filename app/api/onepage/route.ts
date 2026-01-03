@@ -115,6 +115,7 @@ export async function PUT(request: Request) {
       title,
       bio,
       avatar_url,
+      avatar_video_url,
       theme,
       settings,
       social_links,
@@ -152,6 +153,7 @@ export async function PUT(request: Request) {
     if (title !== undefined) updates.title = title
     if (bio !== undefined) updates.bio = bio
     if (avatar_url !== undefined) updates.avatar_url = avatar_url
+    if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
     if (settings !== undefined) updates.settings = settings
     if (social_links !== undefined) updates.social_links = social_links
