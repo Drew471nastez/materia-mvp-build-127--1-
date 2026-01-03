@@ -321,6 +321,14 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
     socialMarginBottom: "mb-4",
   }
 
+  const buttonShadow = (theme as any).button_shadow || "none"
+  const shadowStyles: Record<string, string> = {
+    none: "none",
+    subtle: "0 2px 4px rgba(0,0,0,0.1)",
+    strong: "0 4px 12px rgba(0,0,0,0.2)",
+    hard: "4px 4px 0px rgba(0,0,0,0.9)",
+  }
+
   const buttonStyles = {
     backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_style === "glass" ? "rgba(255, 255, 255, 0.15)" : theme.button_color,
     color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
@@ -329,6 +337,7 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
     borderStyle: "solid" as const,
     borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
     backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
+    boxShadow: shadowStyles[buttonShadow] || "none",
   }
 
   const socialStyle = (theme as any).social_icon_style || "filled"

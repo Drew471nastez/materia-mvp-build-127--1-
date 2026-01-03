@@ -129,6 +129,29 @@ const BACKGROUND_IMAGES = [
 
 const THEME_TEMPLATES = [
   {
+    id: "default",
+    name: "Default",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#ffffff",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#000000",
+      secondary_text_color: "#6b7280",
+      button_color: "#000000",
+      button_text_color: "#ffffff",
+      button_style: "filled" as const,
+      button_border_radius: 12,
+      button_border_width: 0,
+      button_border_color: "#000000",
+      font_family: "Inter",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+    },
+    profile_layout: "classic" as const,
+  },
+  {
     id: "air",
     name: "Air",
     category: "light",
@@ -1393,16 +1416,17 @@ function ThemeSection() {
 
   const handleApplyTemplate = (template: typeof THEME_TEMPLATES[0]) => {
     const config = template.theme_config
-    const needsClassicLayout = config.background_type === "gradient" || config.background_type === "image"
-    
-    // If current layout is Hero and new template has gradient/image background, show dialog
+    const templateLayout = (template as any).profile_layout
+    const needsClassicLayout = config.background_type === "gradient" || config.background_type === "image" || templateLayout === "classic"
+
+    // If current layout is Hero and new template requires classic layout, show dialog
     if (needsClassicLayout && currentHeaderLayout === "hero") {
       setPendingTemplate(template)
       setShowLayoutChangeDialog(true)
       return
     }
-    
-    // Apply template, ensuring Classic layout for gradient/image backgrounds
+
+    // Apply template, ensuring Classic layout for gradient/image backgrounds or if template specifies it
     const updatedConfig = { ...config, template_id: template.id }
     if (needsClassicLayout) {
       (updatedConfig as any).header_layout = "classic"
@@ -1909,18 +1933,39 @@ function WallpaperSection() {
               </div>
 
               {/* Noise Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
-                  </svg>
-                  <span className="text-sm font-medium">Noise</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
+                    </svg>
+                    <span className="text-sm font-medium">Noise</span>
+                  </div>
+                  <Switch
+                    checked={(theme as any).image_noise || false}
+                    onCheckedChange={(checked) => updateTheme({ image_noise: checked } as any)}
+                  />
                 </div>
-                <Switch 
-                  checked={(theme as any).image_noise || false} 
-                  onCheckedChange={(checked) => updateTheme({ image_noise: checked } as any)} 
-                />
+                {(theme as any).image_noise && (
+                  <div className="px-4 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-sm font-medium">Noise strength</Label>
+                      <span className="text-sm text-muted-foreground">{(theme as any).noise_strength || 15}%</span>
+                    </div>
+                    <Slider
+                      value={[(theme as any).noise_strength || 15]}
+                      onValueChange={([value]) => updateTheme({ noise_strength: value } as any)}
+                      min={5}
+                      max={50}
+                      step={5}
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Subtle</span>
+                      <span>Strong</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1992,11 +2037,13 @@ function WallpaperSection() {
 function TextSection() {
   const { onepage, updateTheme } = useOnePage()
   const [showFontModal, setShowFontModal] = useState(false)
+  const [showTitleFontModal, setShowTitleFontModal] = useState(false)
   const [fontFilter, setFontFilter] = useState<"all" | "sans" | "serif" | "display" | "mono" | "handwritten">("all")
   const [fontSearch, setFontSearch] = useState("")
 
   if (!onepage) return null
   const { theme } = onepage
+  const titleFont = (theme as any).title_font || null
 
   const filteredFonts = FONTS.filter(font => {
     const matchesFilter = fontFilter === "all" || font.category === fontFilter
@@ -2044,6 +2091,39 @@ function TextSection() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Title Font Selector */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Title font</Label>
+        <button onClick={() => setShowTitleFontModal(true)} className="w-full flex items-center justify-between p-4 border rounded-xl hover:bg-gray-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center"><Type className="h-5 w-5 text-gray-500" /></div>
+            <div className="text-left">
+              <p className="font-medium" style={{ fontFamily: titleFont || theme.font_family }}>
+                {titleFont ? TITLE_FONTS.find(f => f.value === titleFont)?.name || titleFont : "Default (Same as body)"}
+              </p>
+              <p className="text-xs text-muted-foreground">{titleFont ? "Custom title font" : "Uses body font"}</p>
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-gray-400" />
+        </button>
+      </div>
+      <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-lg font-semibold">Choose Title Font</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto max-h-[400px] p-2">
+            {TITLE_FONTS.map((font) => (
+              <button key={font.name} onClick={() => { updateTheme({ title_font: font.value } as any); setShowTitleFontModal(false) }} className={cn("w-full p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", titleFont === font.value && "bg-violet-50")}>
+                <div><p style={{ fontFamily: font.value || theme.font_family }} className="text-base">{font.name}</p></div>
+                {titleFont === font.value && <Check className="h-5 w-5 text-violet-500" />}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-2">
         <Label className="text-sm font-medium">Text color</Label>
         <div className="flex items-center gap-3">
@@ -2106,6 +2186,45 @@ function ButtonsSection() {
         <div className="flex gap-2 pt-1">
           {['#000000', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'].map((color) => (
             <button key={color} onClick={() => updateTheme({ button_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Button text color</Label>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.button_text_color} onChange={(e) => updateTheme({ button_text_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.button_text_color }} />
+          </div>
+          <Input value={theme.button_text_color} onChange={(e) => updateTheme({ button_text_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#ffffff', '#000000', '#1a1a1a', '#f8fafc', '#fef3c7', '#ecfdf5'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ button_text_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Shadows</Label>
+        <div className="grid grid-cols-4 gap-2">
+          {([
+            { id: "none", label: "None" },
+            { id: "subtle", label: "Subtle" },
+            { id: "strong", label: "Strong" },
+            { id: "hard", label: "Hard" },
+          ] as const).map((shadow) => (
+            <button
+              key={shadow.id}
+              onClick={() => updateTheme({ button_shadow: shadow.id } as any)}
+              className={cn(
+                "py-3 rounded-xl border-2 text-xs md:text-sm font-medium transition-colors",
+                (theme as any).button_shadow === shadow.id || (!((theme as any).button_shadow) && shadow.id === "none")
+                  ? "border-foreground bg-gray-50"
+                  : "border-gray-200 hover:border-gray-300"
+              )}
+            >
+              {shadow.label}
+            </button>
           ))}
         </div>
       </div>

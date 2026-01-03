@@ -766,6 +766,14 @@ function PublicBlockRenderer({
       const data = (block.data || { label: "", url: "" }) as LinkButtonBlockData
       if (!data.url) return null
 
+      const buttonShadow = (theme as any).button_shadow || "none"
+      const shadowStyles: Record<string, string> = {
+        none: "none",
+        subtle: "0 2px 4px rgba(0,0,0,0.1)",
+        strong: "0 4px 12px rgba(0,0,0,0.2)",
+        hard: "4px 4px 0px rgba(0,0,0,0.9)",
+      }
+
       const buttonStyles: React.CSSProperties = {
         backgroundColor:
           theme.button_style === "filled"
@@ -789,6 +797,7 @@ function PublicBlockRenderer({
               : "transparent",
         borderStyle: "solid",
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        boxShadow: shadowStyles[buttonShadow] || "none",
       }
 
       return (
