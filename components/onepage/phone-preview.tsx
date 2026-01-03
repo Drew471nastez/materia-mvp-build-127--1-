@@ -65,6 +65,65 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
   ),
 }
 
+// Background Pattern Component for rendering pattern overlays
+function BackgroundPattern({ pattern, color }: { pattern: string; color: string }) {
+  const patternSVGs: Record<string, React.ReactNode> = {
+    grid: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-grid-${pattern}`} width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-grid-${pattern})`} />
+      </svg>
+    ),
+    dots: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-dots-${pattern}`} width="16" height="16" patternUnits="userSpaceOnUse">
+            <circle cx="8" cy="8" r="2" fill={color} />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-dots-${pattern})`} />
+      </svg>
+    ),
+    waves: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-waves-${pattern}`} width="50" height="25" patternUnits="userSpaceOnUse">
+            <path d="M0 12.5 Q12.5 0, 25 12.5 T50 12.5" fill="none" stroke={color} strokeWidth="2" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-waves-${pattern})`} />
+      </svg>
+    ),
+    mesh: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-mesh-${pattern}`} width="30" height="30" patternUnits="userSpaceOnUse">
+            <path d="M0 0 L15 30 L30 0" fill="none" stroke={color} strokeWidth="1.5" />
+            <path d="M0 30 L15 0 L30 30" fill="none" stroke={color} strokeWidth="1.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-mesh-${pattern})`} />
+      </svg>
+    ),
+    circles: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-circles-${pattern}`} width="32" height="32" patternUnits="userSpaceOnUse">
+            <circle cx="16" cy="16" r="10" fill="none" stroke={color} strokeWidth="1.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-circles-${pattern})`} />
+      </svg>
+    ),
+  }
+
+  return patternSVGs[pattern] || null
+}
+
 interface PhonePreviewProps {
   className?: string
 }
@@ -167,6 +226,11 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               </svg>
             )}
 
+            {/* Pattern overlay */}
+            {(theme.background_type === "solid" || theme.background_type === "gradient") && (theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+              <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000015"} />
+            )}
+
             <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '24px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className={cn("flex flex-col items-center flex-1", theme.spacing === "compact" ? "gap-[10px]" : theme.spacing === "comfortable" ? "gap-[14px]" : "gap-[12px]")}>
                 {draft_blocks.filter((b) => b.enabled).sort((a, b) => a.sort_order - b.sort_order).map((block) => (
@@ -260,6 +324,14 @@ export function MobilePreviewContent() {
             <rect width="100%" height="100%" filter="url(#mobile-noise-image)" />
           </svg>
         )}
+
+        {/* Pattern overlay for mobile */}
+        {(theme.background_type === "solid" || theme.background_type === "gradient") && (theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+          <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+            <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000015"} />
+          </div>
+        )}
+
         <div className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-12 flex flex-col" style={{ minHeight: '100%' }}>
           <div className={cn("flex flex-col items-center flex-1", theme.spacing === "compact" ? "gap-3" : theme.spacing === "comfortable" ? "gap-5" : "gap-4")}>
             {draft_blocks.filter((b) => b.enabled).sort((a, b) => a.sort_order - b.sort_order).map((block) => (

@@ -267,6 +267,69 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     </svg>
   )
 
+  // Background pattern overlay component
+  const patternColor = (safeTheme as any).pattern_color || "#00000015"
+  const BackgroundPatternOverlay = () => {
+    const patternType = (safeTheme as any).background_pattern
+    if (!patternType || patternType === "none") return null
+
+    const patterns: Record<string, React.ReactNode> = {
+      grid: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="public-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke={patternColor} strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#public-grid)" />
+        </svg>
+      ),
+      dots: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="public-dots" width="16" height="16" patternUnits="userSpaceOnUse">
+              <circle cx="8" cy="8" r="2" fill={patternColor} />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#public-dots)" />
+        </svg>
+      ),
+      waves: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="public-waves" width="50" height="25" patternUnits="userSpaceOnUse">
+              <path d="M0 12.5 Q12.5 0, 25 12.5 T50 12.5" fill="none" stroke={patternColor} strokeWidth="2" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#public-waves)" />
+        </svg>
+      ),
+      mesh: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="public-mesh" width="30" height="30" patternUnits="userSpaceOnUse">
+              <path d="M0 0 L15 30 L30 0" fill="none" stroke={patternColor} strokeWidth="1.5" />
+              <path d="M0 30 L15 0 L30 30" fill="none" stroke={patternColor} strokeWidth="1.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#public-mesh)" />
+        </svg>
+      ),
+      circles: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="public-circles" width="32" height="32" patternUnits="userSpaceOnUse">
+              <circle cx="16" cy="16" r="10" fill="none" stroke={patternColor} strokeWidth="1.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#public-circles)" />
+        </svg>
+      ),
+    }
+
+    return patterns[patternType] || null
+  }
+
   const pageUrl = typeof window !== "undefined" ? `${window.location.origin}/l/${onepage.slug}` : `/l/${onepage.slug}`
 
   // Page content component
@@ -366,6 +429,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
         {/* Noise overlay for image backgrounds */}
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
+        {/* Pattern overlay for solid/gradient backgrounds */}
+        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay />}
 
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
@@ -418,6 +483,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 <rect width="100%" height="100%" filter="url(#card-noise-img)" />
               </svg>
             )}
+            {/* Pattern overlay inside card */}
+            {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay />}
             <PageContent isDesktop={true} />
           </div>
         </div>
@@ -460,6 +527,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {/* Noise overlays for mobile */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
+        {/* Pattern overlay for mobile */}
+        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay />}
         <PageContent />
       </div>
     </>

@@ -127,29 +127,45 @@ const BACKGROUND_IMAGES = [
   { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", label: "Forest" },
 ]
 
+const BACKGROUND_PATTERNS = [
+  { id: "none", name: "None", preview: null },
+  { id: "grid", name: "Grid", preview: "grid" },
+  { id: "dots", name: "Dots", preview: "dots" },
+  { id: "waves", name: "Waves", preview: "waves" },
+  { id: "mesh", name: "Mesh", preview: "mesh" },
+  { id: "circles", name: "Circles", preview: "circles" },
+]
+
 const THEME_TEMPLATES = [
   {
     id: "default",
     name: "Default",
     category: "light",
+    isDefault: true,
     theme_config: {
       background_type: "solid" as const,
       background_color: "#ffffff",
       background_gradient: "",
       background_image_url: "",
       text_color: "#000000",
-      secondary_text_color: "#6b7280",
+      secondary_text_color: "#000000",
       button_color: "#000000",
       button_text_color: "#ffffff",
       button_style: "filled" as const,
-      button_border_radius: 12,
+      button_border_radius: 8,
       button_border_width: 0,
       button_border_color: "#000000",
-      font_family: "Inter",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Inter', sans-serif",
+      title_color: "#000000",
+      social_icon_color: "#9a0909",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      header_layout: "classic",
     },
     profile_layout: "classic" as const,
+    skipLayoutDialog: true,
   },
   {
     id: "air",
@@ -1417,10 +1433,11 @@ function ThemeSection() {
   const handleApplyTemplate = (template: typeof THEME_TEMPLATES[0]) => {
     const config = template.theme_config
     const templateLayout = (template as any).profile_layout
+    const skipDialog = (template as any).skipLayoutDialog
     const needsClassicLayout = config.background_type === "gradient" || config.background_type === "image" || templateLayout === "classic"
 
-    // If current layout is Hero and new template requires classic layout, show dialog
-    if (needsClassicLayout && currentHeaderLayout === "hero") {
+    // If current layout is Hero and new template requires classic layout, show dialog (unless skipLayoutDialog is true)
+    if (needsClassicLayout && currentHeaderLayout === "hero" && !skipDialog) {
       setPendingTemplate(template)
       setShowLayoutChangeDialog(true)
       return
@@ -1458,9 +1475,24 @@ function ThemeSection() {
           const config = template.theme_config
           if (!config) return null
           const isSelected = theme.template_id === template.id
-          const bgStyle = config.background_type === "image" && config.background_image_url 
+          const isDefaultTheme = (template as any).isDefault
+          const bgStyle = config.background_type === "image" && config.background_image_url
             ? { backgroundImage: `url(${config.background_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
             : { background: config.background_type === "gradient" && config.background_gradient ? config.background_gradient : config.background_color }
+
+          // Special rendering for Default theme
+          if (isDefaultTheme) {
+            return (
+              <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group border-2", isSelected ? "ring-2 ring-violet-500 ring-offset-2 border-gray-200" : "border-gray-200 hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
+                <div className="absolute inset-0 bg-white" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-base md:text-lg font-semibold text-gray-800">Default</span>
+                </div>
+                {isSelected && <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center"><Check className="h-3 w-3 text-white" /></div>}
+              </button>
+            )
+          }
+
           return (
             <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group", isSelected ? "ring-2 ring-violet-500 ring-offset-2" : "hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
               <div className="absolute inset-0" style={bgStyle} />
@@ -1528,6 +1560,65 @@ function ThemeSection() {
       </Dialog>
     </div>
   )
+}
+
+// Pattern Preview Component for showing pattern thumbnails
+function PatternPreview({ pattern, color }: { pattern: string; color: string }) {
+  const patternSVGs: Record<string, React.ReactNode> = {
+    grid: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`grid-${color}`} width="16" height="16" patternUnits="userSpaceOnUse">
+            <path d="M 16 0 L 0 0 0 16" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#grid-${color})`} />
+      </svg>
+    ),
+    dots: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`dots-${color}`} width="12" height="12" patternUnits="userSpaceOnUse">
+            <circle cx="6" cy="6" r="1.5" fill={color} />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#dots-${color})`} />
+      </svg>
+    ),
+    waves: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`waves-${color}`} width="40" height="20" patternUnits="userSpaceOnUse">
+            <path d="M0 10 Q10 0, 20 10 T40 10" fill="none" stroke={color} strokeWidth="1.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#waves-${color})`} />
+      </svg>
+    ),
+    mesh: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`mesh-${color}`} width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M0 0 L10 20 L20 0" fill="none" stroke={color} strokeWidth="1" />
+            <path d="M0 20 L10 0 L20 20" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#mesh-${color})`} />
+      </svg>
+    ),
+    circles: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`circles-${color}`} width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="12" cy="12" r="8" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#circles-${color})`} />
+      </svg>
+    ),
+  }
+
+  return patternSVGs[pattern] || null
 }
 
 function WallpaperSection() {
@@ -1729,20 +1820,72 @@ function WallpaperSection() {
       </div>
 
       {theme.background_type === "solid" && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Background color</Label>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <input type="color" value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-              <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.background_color }} />
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Background color</Label>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input type="color" value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.background_color }} />
+              </div>
+              <Input value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
             </div>
-            <Input value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+            <div className="flex gap-2 pt-1">
+              {['#ffffff', '#f8f9fa', '#e9ecef', '#1a1a1a', '#0f172a', '#fef3c7'].map((color) => (
+                <button key={color} onClick={() => updateTheme({ background_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.background_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2 pt-1">
-            {['#ffffff', '#f8f9fa', '#e9ecef', '#1a1a1a', '#0f172a', '#fef3c7'].map((color) => (
-              <button key={color} onClick={() => updateTheme({ background_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.background_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-            ))}
+
+          {/* Pattern Selector */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Pattern</Label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {BACKGROUND_PATTERNS.map((pattern) => {
+                const currentPattern = (theme as any).background_pattern || "none"
+                const patternColor = (theme as any).pattern_color || "#00000015"
+                return (
+                  <button
+                    key={pattern.id}
+                    onClick={() => updateTheme({ background_pattern: pattern.id } as any)}
+                    className={cn(
+                      "aspect-square rounded-xl border-2 overflow-hidden transition-all relative",
+                      currentPattern === pattern.id ? "border-foreground ring-1 ring-foreground" : "border-gray-200 hover:border-gray-300"
+                    )}
+                    style={{ backgroundColor: theme.background_color }}
+                  >
+                    {pattern.id === "none" ? (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <X className="w-4 h-4 text-gray-400" />
+                      </div>
+                    ) : (
+                      <PatternPreview pattern={pattern.id} color={patternColor} />
+                    )}
+                    <span className="absolute bottom-1 left-0 right-0 text-[9px] font-medium text-center text-gray-600">{pattern.name}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
+
+          {/* Pattern Color */}
+          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pattern color</Label>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#000000"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "20" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#00000020" }} />
+                </div>
+                <Input value={(theme as any).pattern_color || "#00000020"} onChange={(e) => updateTheme({ pattern_color: e.target.value } as any)} placeholder="#00000020" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                {['#00000015', '#ffffff30', '#3b82f620', '#10b98120', '#f59e0b20', '#ef444420'].map((color) => (
+                  <button key={color} onClick={() => updateTheme({ pattern_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme as any).pattern_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1870,6 +2013,56 @@ function WallpaperSection() {
               ))}
             </div>
           </div>
+
+          {/* Pattern Selector for Gradient */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Pattern</Label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {BACKGROUND_PATTERNS.map((pattern) => {
+                const currentPattern = (theme as any).background_pattern || "none"
+                const patternColor = (theme as any).pattern_color || "#ffffff20"
+                return (
+                  <button
+                    key={pattern.id}
+                    onClick={() => updateTheme({ background_pattern: pattern.id } as any)}
+                    className={cn(
+                      "aspect-square rounded-xl border-2 overflow-hidden transition-all relative",
+                      currentPattern === pattern.id ? "border-white ring-1 ring-white" : "border-white/30 hover:border-white/50"
+                    )}
+                    style={{ background: theme.background_gradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}
+                  >
+                    {pattern.id === "none" ? (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <X className="w-4 h-4 text-white/60" />
+                      </div>
+                    ) : (
+                      <PatternPreview pattern={pattern.id} color={patternColor} />
+                    )}
+                    <span className="absolute bottom-1 left-0 right-0 text-[9px] font-medium text-center text-white/80">{pattern.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Pattern Color for Gradient */}
+          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pattern color</Label>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#ffffff"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "25" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#ffffff25" }} />
+                </div>
+                <Input value={(theme as any).pattern_color || "#ffffff25"} onChange={(e) => updateTheme({ pattern_color: e.target.value } as any)} placeholder="#ffffff25" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                {['#ffffff20', '#ffffff40', '#00000015', '#00000030', '#3b82f625', '#f59e0b25'].map((color) => (
+                  <button key={color} onClick={() => updateTheme({ pattern_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme as any).pattern_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
