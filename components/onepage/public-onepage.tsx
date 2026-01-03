@@ -304,25 +304,34 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           <rect width="100%" height="100%" fill="url(#public-waves)" />
         </svg>
       ),
-      mesh: (
+      zigzag: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="public-mesh" width="30" height="30" patternUnits="userSpaceOnUse">
-              <path d="M0 0 L15 30 L30 0" fill="none" stroke={patternColor} strokeWidth="1.5" />
-              <path d="M0 30 L15 0 L30 30" fill="none" stroke={patternColor} strokeWidth="1.5" />
+            <pattern id="public-zigzag" width="20" height="12" patternUnits="userSpaceOnUse">
+              <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={patternColor} strokeWidth="1.5" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-mesh)" />
+          <rect width="100%" height="100%" fill="url(#public-zigzag)" />
         </svg>
       ),
-      circles: (
+      cross: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="public-circles" width="32" height="32" patternUnits="userSpaceOnUse">
-              <circle cx="16" cy="16" r="10" fill="none" stroke={patternColor} strokeWidth="1.5" />
+            <pattern id="public-cross" width="16" height="16" patternUnits="userSpaceOnUse">
+              <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={patternColor} strokeWidth="1" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-circles)" />
+          <rect width="100%" height="100%" fill="url(#public-cross)" />
+        </svg>
+      ),
+      diagonal: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="public-diagonal" width="10" height="10" patternUnits="userSpaceOnUse">
+              <path d="M0 10 L10 0" fill="none" stroke={patternColor} strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#public-diagonal)" />
         </svg>
       ),
     }

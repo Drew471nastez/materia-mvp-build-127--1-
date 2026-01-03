@@ -98,25 +98,34 @@ function BackgroundPattern({ pattern, color }: { pattern: string; color: string 
         <rect width="100%" height="100%" fill={`url(#bg-waves-${pattern})`} />
       </svg>
     ),
-    mesh: (
+    zigzag: (
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <pattern id={`bg-mesh-${pattern}`} width="30" height="30" patternUnits="userSpaceOnUse">
-            <path d="M0 0 L15 30 L30 0" fill="none" stroke={color} strokeWidth="1.5" />
-            <path d="M0 30 L15 0 L30 30" fill="none" stroke={color} strokeWidth="1.5" />
+          <pattern id={`bg-zigzag-${pattern}`} width="20" height="12" patternUnits="userSpaceOnUse">
+            <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={color} strokeWidth="1.5" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-mesh-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-zigzag-${pattern})`} />
       </svg>
     ),
-    circles: (
+    cross: (
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <pattern id={`bg-circles-${pattern}`} width="32" height="32" patternUnits="userSpaceOnUse">
-            <circle cx="16" cy="16" r="10" fill="none" stroke={color} strokeWidth="1.5" />
+          <pattern id={`bg-cross-${pattern}`} width="16" height="16" patternUnits="userSpaceOnUse">
+            <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={color} strokeWidth="1" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-circles-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-cross-${pattern})`} />
+      </svg>
+    ),
+    diagonal: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-diagonal-${pattern}`} width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M0 10 L10 0" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-diagonal-${pattern})`} />
       </svg>
     ),
   }

@@ -7,8 +7,7 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
+import { Slider as BaseSlider } from "@/components/ui/slider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -39,6 +38,70 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { OnePageTheme } from "@/lib/onepage/types"
 
 type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
+
+// Custom Toggle Component with modern styling
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <label className="relative inline-block w-[52px] h-[28px] cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onCheckedChange(e.target.checked)}
+        className="opacity-0 w-0 h-0"
+      />
+      <span
+        className={cn(
+          "absolute inset-0 rounded-full transition-all duration-300",
+          checked ? "bg-blue-500" : "bg-white border border-gray-300"
+        )}
+      >
+        <span
+          className={cn(
+            "absolute w-[20px] h-[20px] rounded-full transition-all duration-300",
+            checked
+              ? "bg-white left-[28px] top-[4px]"
+              : "bg-gray-400 left-[4px] top-[4px]"
+          )}
+        />
+      </span>
+    </label>
+  )
+}
+
+// Custom Slider Component with modern styling
+function Slider({ value, onValueChange, min = 0, max = 100, step = 1 }: {
+  value: number[];
+  onValueChange: (value: number[]) => void;
+  min?: number;
+  max?: number;
+  step?: number
+}) {
+  const percentage = ((value[0] - min) / (max - min)) * 100
+
+  return (
+    <div className="relative w-full h-6 flex items-center">
+      <div className="relative w-full h-[6px] bg-gray-200 rounded-full">
+        <div
+          className="absolute h-full bg-blue-500 rounded-full"
+          style={{ width: `${percentage}%` }}
+        />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value[0]}
+          onChange={(e) => onValueChange([Number(e.target.value)])}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        />
+        <div
+          className="absolute w-[18px] h-[18px] bg-white border-2 border-blue-500 rounded-full shadow-md -translate-y-1/2 top-1/2 pointer-events-none"
+          style={{ left: `calc(${percentage}% - 9px)` }}
+        />
+      </div>
+    </div>
+  )
+}
 
 // Social icons SVG components for preview in design tab
 const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>> = {
@@ -132,8 +195,9 @@ const BACKGROUND_PATTERNS = [
   { id: "grid", name: "Grid", preview: "grid" },
   { id: "dots", name: "Dots", preview: "dots" },
   { id: "waves", name: "Waves", preview: "waves" },
-  { id: "mesh", name: "Mesh", preview: "mesh" },
-  { id: "circles", name: "Circles", preview: "circles" },
+  { id: "zigzag", name: "Zigzag", preview: "zigzag" },
+  { id: "cross", name: "Cross", preview: "cross" },
+  { id: "diagonal", name: "Diagonal", preview: "diagonal" },
 ]
 
 const THEME_TEMPLATES = [
@@ -159,7 +223,7 @@ const THEME_TEMPLATES = [
       font_family: "'Inter', sans-serif",
       title_font: "'Inter', sans-serif",
       title_color: "#000000",
-      social_icon_color: "#9a0909",
+      social_icon_color: "#000000",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
@@ -184,7 +248,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 8,
       button_border_width: 0,
       button_border_color: "#0f172a",
-      font_family: "Inter",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Inter', sans-serif",
+      title_color: "#0f172a",
+      social_icon_color: "#64748b",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -206,7 +274,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 1,
       button_border_color: "#3f3f46",
-      font_family: "Inter",
+      button_shadow: "none",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Montserrat', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#a1a1aa",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -228,7 +300,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 0,
       button_border_color: "#ffffff",
-      font_family: "Inter",
+      button_shadow: "strong",
+      font_family: "'Poppins', sans-serif",
+      title_font: "'Poppins', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#ffffff",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -250,7 +326,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 0,
       button_border_color: "#38bdf8",
-      font_family: "Inter",
+      button_shadow: "subtle",
+      font_family: "'Nunito', sans-serif",
+      title_font: "'Nunito', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#bae6fd",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -272,7 +352,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 16,
       button_border_width: 0,
       button_border_color: "#ffffff",
-      font_family: "Poppins",
+      button_shadow: "strong",
+      font_family: "'Poppins', sans-serif",
+      title_font: "'Playfair Display', serif",
+      title_color: "#ffffff",
+      social_icon_color: "#ffffff",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -294,7 +378,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 10,
       button_border_width: 0,
       button_border_color: "#3b82f6",
-      font_family: "Inter",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Oswald', sans-serif",
+      title_color: "#f8fafc",
+      social_icon_color: "#3b82f6",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -316,7 +404,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 24,
       button_border_width: 2,
       button_border_color: "#1c1917",
-      font_family: "DM Sans",
+      button_shadow: "none",
+      font_family: "'Lora', serif",
+      title_font: "'Playfair Display', serif",
+      title_color: "#1c1917",
+      social_icon_color: "#78716c",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -338,7 +430,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 1,
       button_border_color: "rgba(255, 255, 255, 0.2)",
-      font_family: "Inter",
+      button_shadow: "none",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Raleway', sans-serif",
+      title_color: "#e0e7ff",
+      social_icon_color: "#a5b4fc",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -360,7 +456,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 16,
       button_border_width: 1,
       button_border_color: "rgba(139, 92, 246, 0.5)",
-      font_family: "Space Grotesk",
+      button_shadow: "none",
+      font_family: "'Space Grotesk', sans-serif",
+      title_font: "'Space Grotesk', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#a78bfa",
       spacing: "normal" as const,
       card_width: "standard" as const,
       animated_gradient: true,
@@ -383,7 +483,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 8,
       button_border_width: 1,
       button_border_color: "#22d3ee",
-      font_family: "JetBrains Mono",
+      button_shadow: "hard",
+      font_family: "'JetBrains Mono', monospace",
+      title_font: "'Orbitron', sans-serif",
+      title_color: "#22d3ee",
+      social_icon_color: "#22d3ee",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "hero",
@@ -406,7 +510,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 24,
       button_border_width: 0,
       button_border_color: "#ffffff",
-      font_family: "Nunito",
+      button_shadow: "subtle",
+      font_family: "'Nunito', sans-serif",
+      title_font: "'Lora', serif",
+      title_color: "#ffffff",
+      social_icon_color: "#d1fae5",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -1486,7 +1594,7 @@ function ThemeSection() {
               <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group border-2", isSelected ? "ring-2 ring-violet-500 ring-offset-2 border-gray-200" : "border-gray-200 hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
                 <div className="absolute inset-0 bg-white" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-base md:text-lg font-semibold text-gray-800">Default</span>
+                  <span className="text-[11px] font-medium text-gray-400">Default</span>
                 </div>
                 {isSelected && <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center"><Check className="h-3 w-3 text-white" /></div>}
               </button>
@@ -1595,25 +1703,34 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
         <rect width="100%" height="100%" fill={`url(#waves-${color})`} />
       </svg>
     ),
-    mesh: (
+    zigzag: (
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <pattern id={`mesh-${color}`} width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M0 0 L10 20 L20 0" fill="none" stroke={color} strokeWidth="1" />
-            <path d="M0 20 L10 0 L20 20" fill="none" stroke={color} strokeWidth="1" />
+          <pattern id={`zigzag-${color}`} width="20" height="12" patternUnits="userSpaceOnUse">
+            <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={color} strokeWidth="1.5" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#mesh-${color})`} />
+        <rect width="100%" height="100%" fill={`url(#zigzag-${color})`} />
       </svg>
     ),
-    circles: (
+    cross: (
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <pattern id={`circles-${color}`} width="24" height="24" patternUnits="userSpaceOnUse">
-            <circle cx="12" cy="12" r="8" fill="none" stroke={color} strokeWidth="1" />
+          <pattern id={`cross-${color}`} width="16" height="16" patternUnits="userSpaceOnUse">
+            <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={color} strokeWidth="1" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#circles-${color})`} />
+        <rect width="100%" height="100%" fill={`url(#cross-${color})`} />
+      </svg>
+    ),
+    diagonal: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`diagonal-${color}`} width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M0 10 L10 0" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#diagonal-${color})`} />
       </svg>
     ),
   }
@@ -1945,7 +2062,7 @@ function WallpaperSection() {
               <Sparkles className="h-5 w-5 text-gray-500" />
               <span className="text-sm font-medium">Animate</span>
             </div>
-            <Switch
+            <Toggle
               checked={theme.animated_gradient || false}
               onCheckedChange={(checked) => updateTheme({ animated_gradient: checked })}
             />
@@ -1961,7 +2078,7 @@ function WallpaperSection() {
                 </svg>
                 <span className="text-sm font-medium">Noise</span>
               </div>
-              <Switch
+              <Toggle
                 checked={theme.gradient_noise || false}
                 onCheckedChange={(checked) => updateTheme({ gradient_noise: checked })}
               />
@@ -2135,7 +2252,7 @@ function WallpaperSection() {
                     </svg>
                     <span className="text-sm font-medium">Noise</span>
                   </div>
-                  <Switch
+                  <Toggle
                     checked={(theme as any).image_noise || false}
                     onCheckedChange={(checked) => updateTheme({ image_noise: checked } as any)}
                   />
@@ -2522,11 +2639,11 @@ function FooterSection() {
       <div className="space-y-3 md:space-y-4">
         <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
           <div><p className="font-medium text-sm">Show Materia branding</p><p className="text-xs text-muted-foreground mt-0.5">Display "Powered by Materia"</p></div>
-          <Switch checked={settings.show_branding} onCheckedChange={(checked) => updateSettings({ show_branding: checked })} />
+          <Toggle checked={settings.show_branding} onCheckedChange={(checked) => updateSettings({ show_branding: checked })} />
         </div>
         <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
           <div><p className="font-medium text-sm">Analytics</p><p className="text-xs text-muted-foreground mt-0.5">Track page views</p></div>
-          <Switch checked={settings.analytics_enabled} onCheckedChange={(checked) => updateSettings({ analytics_enabled: checked })} />
+          <Toggle checked={settings.analytics_enabled} onCheckedChange={(checked) => updateSettings({ analytics_enabled: checked })} />
         </div>
       </div>
     </div>
