@@ -310,8 +310,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         style={{
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
-          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 12s ease-in-out infinite" : undefined
+          backgroundSize: isAnimatedGradient ? "150% 150%" : undefined,
+          animation: isAnimatedGradient ? "gradientShiftLive 15s ease-in-out infinite" : undefined
         }}
       >
         {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -394,8 +394,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         style={{
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
-          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 12s ease-in-out infinite" : undefined
+          backgroundSize: isAnimatedGradient ? "150% 150%" : undefined,
+          animation: isAnimatedGradient ? "gradientShiftLive 15s ease-in-out infinite" : undefined
         }}
       >
         {safeTheme.background_type === "image" && safeTheme.background_image_url && (
