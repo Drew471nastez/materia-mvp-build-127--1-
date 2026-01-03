@@ -1176,12 +1176,12 @@ export function LinksTab() {
                 {/* Video container - video fills container with object-cover */}
                 <div
                   ref={videoContainerRef}
-                  className="relative mx-auto bg-black rounded-xl overflow-hidden select-none"
-                  style={{ width: '300px', height: '400px' }}
+                  className="relative mx-auto bg-black rounded-xl select-none"
+                  style={{ width: '300px', height: '400px', touchAction: 'none' }}
                 >
                   <video
                     src={tempVideoUrl}
-                    className="w-full h-full object-cover pointer-events-none"
+                    className="w-full h-full object-cover pointer-events-none rounded-xl"
                     autoPlay
                     loop
                     muted
@@ -1192,7 +1192,7 @@ export function LinksTab() {
                     }}
                   />
                   {/* Dark overlay outside crop area */}
-                  <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
+                  <div className="absolute inset-0 pointer-events-none rounded-xl" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
 
                   {/* Crop box - draggable (using percentages) */}
                   <div
@@ -1203,18 +1203,30 @@ export function LinksTab() {
                       width: `${videoCropBox.width}%`,
                       height: `${videoCropBox.height}%`,
                       boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      background: 'transparent'
+                      background: 'transparent',
+                      touchAction: 'none'
                     }}
                     onMouseDown={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
                       setIsDraggingVideoCrop(true)
-                      const container = videoContainerRef.current
-                      if (!container) return
-                      const rect = container.getBoundingClientRect()
                       setVideoDragStart({
                         x: e.clientX,
                         y: e.clientY,
+                        boxX: videoCropBox.x,
+                        boxY: videoCropBox.y,
+                        boxW: videoCropBox.width,
+                        boxH: videoCropBox.height
+                      })
+                    }}
+                    onTouchStart={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const touch = e.touches[0]
+                      setIsDraggingVideoCrop(true)
+                      setVideoDragStart({
+                        x: touch.clientX,
+                        y: touch.clientY,
                         boxX: videoCropBox.x,
                         boxY: videoCropBox.y,
                         boxW: videoCropBox.width,
@@ -1229,49 +1241,82 @@ export function LinksTab() {
                       ))}
                     </div>
 
-                    {/* Corner resize handles */}
+                    {/* Corner resize handles - larger for mobile touch */}
                     <div
-                      className="absolute -top-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-nw-resize z-10"
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
+                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingVideoCrop('top-left')
                         setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingVideoCrop('top-left')
+                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
                     />
                     <div
-                      className="absolute -top-2 -right-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-ne-resize z-10"
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
+                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingVideoCrop('top-right')
                         setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingVideoCrop('top-right')
+                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
                     />
                     <div
-                      className="absolute -bottom-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-sw-resize z-10"
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
+                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingVideoCrop('bottom-left')
                         setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingVideoCrop('bottom-left')
+                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
                     />
                     <div
-                      className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize z-10"
+                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
+                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingVideoCrop('bottom-right')
                         setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingVideoCrop('bottom-right')
+                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
                     />
                   </div>
 
-                  {/* Global mouse handlers */}
+                  {/* Global mouse and touch handlers */}
                   {(isDraggingVideoCrop || isResizingVideoCrop) && (
                     <div
                       className="fixed inset-0 z-50"
+                      style={{ touchAction: 'none' }}
                       onMouseMove={(e) => {
                         const container = videoContainerRef.current
                         if (!container) return
@@ -1313,6 +1358,52 @@ export function LinksTab() {
                         }
                       }}
                       onMouseUp={() => {
+                        setIsDraggingVideoCrop(false)
+                        setIsResizingVideoCrop(null)
+                      }}
+                      onTouchMove={(e) => {
+                        e.preventDefault()
+                        const touch = e.touches[0]
+                        const container = videoContainerRef.current
+                        if (!container || !touch) return
+                        const rect = container.getBoundingClientRect()
+                        const deltaX = ((touch.clientX - videoDragStart.x) / rect.width) * 100
+                        const deltaY = ((touch.clientY - videoDragStart.y) / rect.height) * 100
+
+                        if (isDraggingVideoCrop) {
+                          let newX = videoDragStart.boxX + deltaX
+                          let newY = videoDragStart.boxY + deltaY
+                          newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
+                          newY = Math.max(0, Math.min(100 - videoCropBox.height, newY))
+                          setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+                        } else if (isResizingVideoCrop) {
+                          let newBox = { ...videoCropBox }
+                          const minSize = 20
+
+                          if (isResizingVideoCrop.includes('right')) {
+                            newBox.width = Math.max(minSize, Math.min(100 - videoDragStart.boxX, videoDragStart.boxW + deltaX))
+                          }
+                          if (isResizingVideoCrop.includes('bottom')) {
+                            newBox.height = Math.max(minSize, Math.min(100 - videoDragStart.boxY, videoDragStart.boxH + deltaY))
+                          }
+                          if (isResizingVideoCrop.includes('left')) {
+                            const newWidth = videoDragStart.boxW - deltaX
+                            if (newWidth >= minSize && videoDragStart.boxX + deltaX >= 0) {
+                              newBox.x = videoDragStart.boxX + deltaX
+                              newBox.width = newWidth
+                            }
+                          }
+                          if (isResizingVideoCrop.includes('top')) {
+                            const newHeight = videoDragStart.boxH - deltaY
+                            if (newHeight >= minSize && videoDragStart.boxY + deltaY >= 0) {
+                              newBox.y = videoDragStart.boxY + deltaY
+                              newBox.height = newHeight
+                            }
+                          }
+                          setVideoCropBox(newBox)
+                        }
+                      }}
+                      onTouchEnd={() => {
                         setIsDraggingVideoCrop(false)
                         setIsResizingVideoCrop(null)
                       }}

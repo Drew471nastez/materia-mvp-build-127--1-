@@ -12,14 +12,14 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { 
-  ImageIcon, 
-  Droplets, 
-  ChevronRight, 
-  ChevronLeft, 
-  Layers, 
-  Type, 
-  RectangleHorizontal, 
+import {
+  ImageIcon,
+  Droplets,
+  ChevronRight,
+  ChevronLeft,
+  Layers,
+  Type,
+  RectangleHorizontal,
   Sparkles,
   Check,
   Loader2,
@@ -31,6 +31,7 @@ import {
   Upload,
   Move,
   X,
+  Pipette,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -58,81 +59,33 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
   ),
 }
 
+// 10 unique working fonts for body text
 const FONTS = [
-  // Sans Serif - Most Popular
-  { name: "Inter", category: "sans", style: "Clean & Professional" },
-  { name: "Roboto", category: "sans", style: "Modern & Versatile" },
-  { name: "Poppins", category: "sans", style: "Rounded & Friendly" },
-  { name: "Montserrat", category: "sans", style: "Elegant & Bold" },
-  { name: "Open Sans", category: "sans", style: "Web Standard" },
-  { name: "Lato", category: "sans", style: "Balanced & Warm" },
-  { name: "DM Sans", category: "sans", style: "Geometric & Sharp" },
-  { name: "Nunito", category: "sans", style: "Soft & Rounded" },
-  // Serif
-  { name: "Playfair Display", category: "serif", style: "Elegant & Editorial" },
-  { name: "Merriweather", category: "serif", style: "Traditional & Warm" },
-  { name: "Lora", category: "serif", style: "Classic & Readable" },
-  { name: "Georgia", category: "serif", style: "Web Classic" },
-  // Display
-  { name: "Bebas Neue", category: "display", style: "Tall & Condensed" },
-  { name: "Oswald", category: "display", style: "Strong & Narrow" },
-  { name: "Anton", category: "display", style: "Bold Impact" },
-  { name: "Archivo Black", category: "display", style: "Heavy & Modern" },
-  // Script / Handwritten
-  { name: "Caveat", category: "script", style: "Casual & Personal" },
-  { name: "Dancing Script", category: "script", style: "Elegant Script" },
-  { name: "Pacifico", category: "script", style: "Fun & Friendly" },
-  { name: "Sacramento", category: "script", style: "Flowing & Delicate" },
+  { name: "Inter", category: "sans", style: "Clean & Professional", value: "'Inter', sans-serif" },
+  { name: "Poppins", category: "sans", style: "Rounded & Friendly", value: "'Poppins', sans-serif" },
+  { name: "Montserrat", category: "sans", style: "Elegant & Bold", value: "'Montserrat', sans-serif" },
+  { name: "Lato", category: "sans", style: "Balanced & Warm", value: "'Lato', sans-serif" },
+  { name: "Open Sans", category: "sans", style: "Web Standard", value: "'Open Sans', sans-serif" },
+  { name: "Playfair Display", category: "serif", style: "Elegant & Editorial", value: "'Playfair Display', serif" },
+  { name: "Merriweather", category: "serif", style: "Traditional & Warm", value: "'Merriweather', serif" },
+  { name: "Lora", category: "serif", style: "Classic & Readable", value: "'Lora', serif" },
+  { name: "Oswald", category: "display", style: "Strong & Narrow", value: "'Oswald', sans-serif" },
+  { name: "Dancing Script", category: "script", style: "Elegant Script", value: "'Dancing Script', cursive" },
 ]
 
-// Display fonts for Title customization - curated unique & stylish fonts
+// Display fonts for Title customization - 10 unique working fonts
 const TITLE_FONTS = [
   { name: "Default (Same as body)", value: null },
-  // Modern Sans
-  { name: "Poppins", value: "Poppins" },
-  { name: "Montserrat", value: "Montserrat" },
-  { name: "Space Grotesk", value: "Space Grotesk" },
-  { name: "Manrope", value: "Manrope" },
-  { name: "DM Sans", value: "DM Sans" },
-  // Bold Display
-  { name: "Bebas Neue", value: "Bebas Neue" },
-  { name: "Anton", value: "Anton" },
-  { name: "Oswald", value: "Oswald" },
-  { name: "Archivo Black", value: "Archivo Black" },
-  { name: "Black Han Sans", value: "Black Han Sans" },
-  { name: "Alfa Slab One", value: "Alfa Slab One" },
-  // Elegant Serif
-  { name: "Playfair Display", value: "Playfair Display" },
-  { name: "Lora", value: "Lora" },
-  { name: "Cormorant Garamond", value: "Cormorant Garamond" },
-  { name: "Libre Baskerville", value: "Libre Baskerville" },
-  // Creative & Unique
-  { name: "Righteous", value: "Righteous" },
-  { name: "Comfortaa", value: "Comfortaa" },
-  { name: "Fredoka One", value: "Fredoka One" },
-  { name: "Lobster", value: "Lobster" },
-  { name: "Permanent Marker", value: "Permanent Marker" },
-  { name: "Press Start 2P", value: "Press Start 2P" },
-  { name: "Bangers", value: "Bangers" },
-  { name: "Bungee", value: "Bungee" },
-  // Tech & Futuristic
-  { name: "Orbitron", value: "Orbitron" },
-  { name: "Oxanium", value: "Oxanium" },
-  { name: "Russo One", value: "Russo One" },
-  { name: "Audiowide", value: "Audiowide" },
-  { name: "Rajdhani", value: "Rajdhani" },
-  // Handwritten & Script
-  { name: "Pacifico", value: "Pacifico" },
-  { name: "Dancing Script", value: "Dancing Script" },
-  { name: "Caveat", value: "Caveat" },
-  { name: "Sacramento", value: "Sacramento" },
-  { name: "Great Vibes", value: "Great Vibes" },
-  { name: "Satisfy", value: "Satisfy" },
-  // Retro & Vintage
-  { name: "Abril Fatface", value: "Abril Fatface" },
-  { name: "Cinzel", value: "Cinzel" },
-  { name: "Monoton", value: "Monoton" },
-  { name: "Rubik Mono One", value: "Rubik Mono One" },
+  { name: "Playfair Display", value: "'Playfair Display', serif" },
+  { name: "Bebas Neue", value: "'Bebas Neue', sans-serif" },
+  { name: "Pacifico", value: "'Pacifico', cursive" },
+  { name: "Oswald", value: "'Oswald', sans-serif" },
+  { name: "Lobster", value: "'Lobster', cursive" },
+  { name: "Dancing Script", value: "'Dancing Script', cursive" },
+  { name: "Permanent Marker", value: "'Permanent Marker', cursive" },
+  { name: "Bangers", value: "'Bangers', cursive" },
+  { name: "Orbitron", value: "'Orbitron', sans-serif" },
+  { name: "Anton", value: "'Anton', sans-serif" },
 ]
 
 const FONT_CATEGORIES = [
@@ -506,14 +459,6 @@ function HeaderSection() {
   // Title font modal state
   const [showTitleFontModal, setShowTitleFontModal] = useState(false)
 
-  // Title color picker state
-  const [showTitleColorPicker, setShowTitleColorPicker] = useState(false)
-  const [titleColorHue, setTitleColorHue] = useState(0)
-  const [titleColorSat, setTitleColorSat] = useState(50)
-  const [titleColorLight, setTitleColorLight] = useState(50)
-  const colorPickerRef = useRef<HTMLDivElement>(null)
-  const satLightRef = useRef<HTMLDivElement>(null)
-
   if (!onepage) return null
 
   const { theme } = onepage
@@ -733,20 +678,6 @@ function HeaderSection() {
       }
     }
   }, [isVideoDragging, isVideoResizing, handleVideoCropMouseMove, handleVideoCropMouseUp, handleVideoCropTouchMove, handleVideoCropTouchEnd])
-
-  // Click outside handler for color picker
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (showTitleColorPicker && colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
-        const button = (e.target as HTMLElement).closest('button')
-        if (!button || !button.textContent?.includes((theme as any).title_color || theme.text_color)) {
-          setShowTitleColorPicker(false)
-        }
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showTitleColorPicker, theme])
 
   const handleVideoCropSave = async () => {
     if (!tempVideoUrl) return
@@ -1370,154 +1301,52 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
-      {/* Title Color Picker - Modern UI */}
+      {/* Title Color Picker - Simple & Reliable */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title color</Label>
-        <div className="relative">
-          <button
-            onClick={() => setShowTitleColorPicker(!showTitleColorPicker)}
-            className="w-full h-12 px-3 rounded-xl border border-input bg-background flex items-center gap-3 hover:bg-accent/50 transition-colors"
-          >
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input
+              type="color"
+              value={(theme as any).title_color || theme.text_color}
+              onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
             <div
-              className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm"
+              className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
               style={{ backgroundColor: (theme as any).title_color || theme.text_color }}
             />
-            <span className="font-mono text-sm text-muted-foreground flex-1 text-left">
-              {(theme as any).title_color || theme.text_color}
-            </span>
-          </button>
-
-          {showTitleColorPicker && (
-            <div
-              ref={colorPickerRef}
-              className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-xl border border-gray-200 p-4 w-full max-w-[320px]"
+          </div>
+          <Input
+            value={(theme as any).title_color || theme.text_color}
+            onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
+            placeholder="#000000"
+            className="h-12 rounded-xl flex-1 font-mono text-sm"
+          />
+          {(theme as any).title_color && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => updateTheme({ title_color: null } as any)}
+              className="h-12 px-3"
             >
-              {/* Saturation-Brightness Gradient */}
-              <div
-                ref={satLightRef}
-                className="relative w-full h-48 rounded-xl cursor-crosshair overflow-hidden mb-3"
-                style={{
-                  background: `linear-gradient(to bottom, transparent, black),
-                               linear-gradient(to right, white, hsl(${titleColorHue}, 100%, 50%))`
-                }}
-                onClick={(e) => {
-                  const rect = satLightRef.current?.getBoundingClientRect()
-                  if (!rect) return
-                  const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-                  const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
-                  const sat = Math.round(x * 100)
-                  const light = Math.round((1 - y) * 50)
-                  setTitleColorSat(sat)
-                  setTitleColorLight(light)
-                  const color = `hsl(${titleColorHue}, ${sat}%, ${light}%)`
-                  // Convert to hex
-                  const canvas = document.createElement('canvas')
-                  canvas.width = 1
-                  canvas.height = 1
-                  const ctx = canvas.getContext('2d')
-                  if (ctx) {
-                    ctx.fillStyle = color
-                    ctx.fillRect(0, 0, 1, 1)
-                    const data = ctx.getImageData(0, 0, 1, 1).data
-                    const hex = '#' + [data[0], data[1], data[2]].map(x => x.toString(16).padStart(2, '0')).join('')
-                    updateTheme({ title_color: hex } as any)
-                  }
-                }}
-              >
-                {/* Picker Circle */}
-                <div
-                  className="absolute w-5 h-5 border-2 border-white rounded-full shadow-md pointer-events-none"
-                  style={{
-                    left: `${titleColorSat}%`,
-                    top: `${100 - titleColorLight * 2}%`,
-                    transform: 'translate(-50%, -50%)',
-                    backgroundColor: (theme as any).title_color || theme.text_color
-                  }}
-                />
-              </div>
-
-              {/* Hue Slider */}
-              <div className="relative mb-4">
-                <input
-                  type="range"
-                  min="0"
-                  max="360"
-                  value={titleColorHue}
-                  onChange={(e) => {
-                    const hue = parseInt(e.target.value)
-                    setTitleColorHue(hue)
-                    const color = `hsl(${hue}, ${titleColorSat}%, ${titleColorLight}%)`
-                    const canvas = document.createElement('canvas')
-                    canvas.width = 1
-                    canvas.height = 1
-                    const ctx = canvas.getContext('2d')
-                    if (ctx) {
-                      ctx.fillStyle = color
-                      ctx.fillRect(0, 0, 1, 1)
-                      const data = ctx.getImageData(0, 0, 1, 1).data
-                      const hex = '#' + [data[0], data[1], data[2]].map(x => x.toString(16).padStart(2, '0')).join('')
-                      updateTheme({ title_color: hex } as any)
-                    }
-                  }}
-                  className="w-full h-3 rounded-full appearance-none cursor-pointer"
-                  style={{
-                    background: 'linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)'
-                  }}
-                />
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-gray-300 rounded-full shadow pointer-events-none"
-                  style={{ left: `calc(${(titleColorHue / 360) * 100}% - 8px)` }}
-                />
-              </div>
-
-              {/* Hex Input */}
-              <div className="flex items-center gap-2 mb-4">
-                <Input
-                  value={(theme as any).title_color || theme.text_color}
-                  onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
-                  placeholder="#000000"
-                  className="h-11 rounded-xl flex-1 font-mono text-sm"
-                />
-                <button className="h-11 w-11 rounded-xl border border-input flex items-center justify-center hover:bg-accent transition-colors">
-                  <Link className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </div>
-
-              {/* Suggested Colors */}
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Suggested</p>
-                <div className="flex gap-2">
-                  {[theme.text_color, '#000000', '#1a1a1a', '#ffffff', '#3b82f6', '#ef4444'].map((color, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        updateTheme({ title_color: color } as any)
-                        setShowTitleColorPicker(false)
-                      }}
-                      className={cn(
-                        "w-10 h-10 rounded-full border-2 transition-transform hover:scale-110",
-                        (theme as any).title_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                      )}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Reset Button */}
-              {(theme as any).title_color && (
-                <button
-                  onClick={() => {
-                    updateTheme({ title_color: null } as any)
-                    setShowTitleColorPicker(false)
-                  }}
-                  className="w-full mt-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Reset to default
-                </button>
-              )}
-            </div>
+              <X className="h-4 w-4" />
+            </Button>
           )}
+        </div>
+        {/* Suggested Colors */}
+        <div className="flex gap-2 pt-1">
+          {['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'].map((color) => (
+            <button
+              key={color}
+              onClick={() => updateTheme({ title_color: color } as any)}
+              className={cn(
+                "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                (theme as any).title_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+              )}
+              style={{ backgroundColor: color }}
+            />
+          ))}
         </div>
       </div>
 
@@ -2138,8 +1967,8 @@ function TextSection() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center"><Type className="h-5 w-5 text-gray-500" /></div>
             <div className="text-left">
-              <p className="font-medium" style={{ fontFamily: theme.font_family }}>{theme.font_family}</p>
-              <p className="text-xs text-muted-foreground">{FONTS.find(f => f.name === theme.font_family)?.style || "Custom"}</p>
+              <p className="font-medium" style={{ fontFamily: theme.font_family }}>{FONTS.find(f => f.value === theme.font_family)?.name || theme.font_family}</p>
+              <p className="text-xs text-muted-foreground">{FONTS.find(f => f.value === theme.font_family)?.style || "Custom"}</p>
             </div>
           </div>
           <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -2161,9 +1990,9 @@ function TextSection() {
           </DialogHeader>
           <div className="overflow-y-auto max-h-[400px] p-2">
             {filteredFonts.map((font) => (
-              <button key={font.name} onClick={() => { updateTheme({ font_family: font.name }); setShowFontModal(false) }} className={cn("w-full p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", theme.font_family === font.name && "bg-violet-50")}>
-                <div><p style={{ fontFamily: font.name }} className="text-base">{font.name}</p><p className="text-xs text-muted-foreground">{font.style}</p></div>
-                {theme.font_family === font.name && <Check className="h-5 w-5 text-violet-500" />}
+              <button key={font.name} onClick={() => { updateTheme({ font_family: font.value }); setShowFontModal(false) }} className={cn("w-full p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", theme.font_family === font.value && "bg-violet-50")}>
+                <div><p style={{ fontFamily: font.value }} className="text-base">{font.name}</p><p className="text-xs text-muted-foreground">{font.style}</p></div>
+                {theme.font_family === font.value && <Check className="h-5 w-5 text-violet-500" />}
               </button>
             ))}
           </div>
