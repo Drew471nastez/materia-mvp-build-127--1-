@@ -590,7 +590,8 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                     maxHeight: (theme as any).title_size === "large" ? (scale === "small" ? '54px' : '62px') : (scale === "small" ? '46px' : '54px'),
                     maxWidth: (theme as any).title_size === "large" ? (scale === "small" ? '180px' : '220px') : (scale === "small" ? '160px' : '200px'),
                     objectFit: 'contain',
-                    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))"
+                    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))",
+                    marginTop: (theme as any).logo_position === "more_up" ? '-5px' : undefined
                   }}
                 />
               ) : profile.title && (
@@ -664,7 +665,8 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
               style={{
                 maxHeight: (theme as any).title_size === "large" ? (scale === "small" ? '54px' : '62px') : (scale === "small" ? '46px' : '54px'),
                 maxWidth: (theme as any).title_size === "large" ? (scale === "small" ? '180px' : '220px') : (scale === "small" ? '160px' : '200px'),
-                objectFit: 'contain'
+                objectFit: 'contain',
+                marginTop: (theme as any).logo_position === "more_up" ? '-5px' : undefined
               }}
             />
           ) : profile.title && (

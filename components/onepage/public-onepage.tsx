@@ -780,7 +780,8 @@ function PublicBlockRenderer({
                     maxHeight: (theme as any).title_size === "large" ? (isDesktop ? '70px' : '60px') : (isDesktop ? '60px' : '52px'),
                     maxWidth: (theme as any).title_size === "large" ? (isDesktop ? '260px' : '230px') : (isDesktop ? '230px' : '200px'),
                     objectFit: 'contain',
-                    filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))"
+                    filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))",
+                    marginTop: (theme as any).logo_position === "more_up" ? '-5px' : undefined
                   }}
                 />
               ) : profile.title && (
@@ -887,7 +888,8 @@ function PublicBlockRenderer({
               style={{
                 maxHeight: (theme as any).title_size === "large" ? (isDesktop ? '70px' : '60px') : (isDesktop ? '60px' : '52px'),
                 maxWidth: (theme as any).title_size === "large" ? (isDesktop ? '260px' : '230px') : (isDesktop ? '230px' : '200px'),
-                objectFit: 'contain'
+                objectFit: 'contain',
+                marginTop: (theme as any).logo_position === "more_up" ? '-5px' : undefined
               }}
             />
           ) : profile.title && (

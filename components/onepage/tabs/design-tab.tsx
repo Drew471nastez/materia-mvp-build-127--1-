@@ -454,7 +454,7 @@ const THEME_TEMPLATES = [
       title_color: "#e0e7ff",
       social_icon_color: "#a5b4fc",
       background_pattern: "dots",
-      pattern_color: "#ffffff15",
+      pattern_color: "#ffffff90",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -482,7 +482,7 @@ const THEME_TEMPLATES = [
       title_color: "#ffffff",
       social_icon_color: "#a78bfa",
       background_pattern: "morph",
-      pattern_color: "#ffffff10",
+      pattern_color: "#ffffff90",
       spacing: "normal" as const,
       card_width: "standard" as const,
       animated_gradient: true,
@@ -1990,6 +1990,35 @@ function HeaderSection() {
             <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5" />
             <span>For best results, use a logo with a transparent background (PNG format)</span>
           </p>
+
+          {/* Logo Position */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Logo Position</Label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => updateTheme({ logo_position: "default" } as any)}
+                className={cn(
+                  "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                  (theme as any).logo_position !== "more_up"
+                    ? "bg-white border-gray-900 text-gray-900"
+                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                )}
+              >
+                Default
+              </button>
+              <button
+                onClick={() => updateTheme({ logo_position: "more_up" } as any)}
+                className={cn(
+                  "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                  (theme as any).logo_position === "more_up"
+                    ? "bg-white border-gray-900 text-gray-900"
+                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                )}
+              >
+                More Up
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2395,7 +2424,7 @@ function WallpaperSection() {
   const wallpaperVideoCropContainerRef = useRef<HTMLDivElement>(null)
 
   // Video crop state for wallpaper
-  const [wallpaperVideoCropBox, setWallpaperVideoCropBox] = useState({ x: 0, y: 0, width: 56.25, height: 100 }) // 9:16 aspect default
+  const [wallpaperVideoCropBox, setWallpaperVideoCropBox] = useState({ x: 28.90625, y: 0, width: 42.1875, height: 100 }) // 9:16 aspect locked, centered
   const [isWallpaperVideoDragging, setIsWallpaperVideoDragging] = useState(false)
   const [isWallpaperVideoResizing, setIsWallpaperVideoResizing] = useState<string | null>(null)
   const [wallpaperVideoDragStart, setWallpaperVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
@@ -2568,28 +2597,47 @@ function WallpaperSection() {
 
       setWallpaperVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
     } else if (isWallpaperVideoResizing) {
-      const deltaX = x - wallpaperVideoDragStart.x
       const deltaY = y - wallpaperVideoDragStart.y
+
+      // 9:16 aspect ratio locked - calculate width from height
+      // Container is 300x225 pixels, for 9:16 crop: width% = height% * (9/16) * (225/300)
+      const aspectFactor = (9 / 16) * (225 / 300) // = 0.421875
 
       let newBox = { ...wallpaperVideoCropBox }
 
-      if (isWallpaperVideoResizing.includes('right')) {
-        newBox.width = Math.max(20, Math.min(100 - wallpaperVideoDragStart.boxX, wallpaperVideoDragStart.boxW + deltaX))
-      }
-      if (isWallpaperVideoResizing.includes('left')) {
-        const newWidth = Math.max(20, wallpaperVideoDragStart.boxW - deltaX)
-        const maxX = wallpaperVideoDragStart.boxX + wallpaperVideoDragStart.boxW - 20
-        newBox.x = Math.max(0, Math.min(maxX, wallpaperVideoDragStart.boxX + deltaX))
-        newBox.width = wallpaperVideoDragStart.boxX + wallpaperVideoDragStart.boxW - newBox.x
-      }
+      // Only allow vertical resizing, width adjusts automatically
       if (isWallpaperVideoResizing.includes('bottom')) {
-        newBox.height = Math.max(20, Math.min(100 - wallpaperVideoDragStart.boxY, wallpaperVideoDragStart.boxH + deltaY))
+        const newHeight = Math.max(30, Math.min(100 - wallpaperVideoDragStart.boxY, wallpaperVideoDragStart.boxH + deltaY))
+        const newWidth = newHeight * aspectFactor
+        if (newBox.x + newWidth <= 100) {
+          newBox.height = newHeight
+          newBox.width = newWidth
+        }
       }
       if (isWallpaperVideoResizing.includes('top')) {
-        const newHeight = Math.max(20, wallpaperVideoDragStart.boxH - deltaY)
-        const maxY = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - 20
-        newBox.y = Math.max(0, Math.min(maxY, wallpaperVideoDragStart.boxY + deltaY))
-        newBox.height = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - newBox.y
+        const proposedHeight = wallpaperVideoDragStart.boxH - deltaY
+        const newHeight = Math.max(30, proposedHeight)
+        const newWidth = newHeight * aspectFactor
+        if (newWidth <= 100) {
+          const maxY = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - 30
+          newBox.y = Math.max(0, Math.min(maxY, wallpaperVideoDragStart.boxY + deltaY))
+          newBox.height = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - newBox.y
+          newBox.width = newBox.height * aspectFactor
+          // Adjust x if needed to keep within bounds
+          if (newBox.x + newBox.width > 100) {
+            newBox.x = 100 - newBox.width
+          }
+        }
+      }
+      // Corner resizing also respects locked ratio
+      if (isWallpaperVideoResizing.includes('right') || isWallpaperVideoResizing.includes('left')) {
+        // Still use height-based calculation for corners
+        const newHeight = Math.max(30, Math.min(100 - newBox.y, wallpaperVideoDragStart.boxH + deltaY))
+        const newWidth = newHeight * aspectFactor
+        if (newBox.x + newWidth <= 100) {
+          newBox.height = newHeight
+          newBox.width = newWidth
+        }
       }
 
       setWallpaperVideoCropBox(newBox)
@@ -3248,19 +3296,30 @@ function WallpaperSection() {
                 <button onClick={handleRemoveWallpaperVideo} className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full hover:bg-black/70 transition-colors"><X className="h-4 w-4 text-white" /></button>
               </div>
 
-              {/* Video Brightness Slider */}
+              {/* Video Brightness Options */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Brightness</Label>
-                  <span className="text-xs text-muted-foreground">{(theme as any).video_brightness || 100}%</span>
+                <Label className="text-sm font-medium">Brightness</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { label: "Normal", value: 100 },
+                    { label: "Medium", value: 85 },
+                    { label: "Low", value: 70 },
+                    { label: "Very Low", value: 40 },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => updateTheme({ video_brightness: option.value } as any)}
+                      className={cn(
+                        "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                        ((theme as any).video_brightness || 100) === option.value
+                          ? "bg-white border-gray-900 text-gray-900"
+                          : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
-                <Slider
-                  value={[(theme as any).video_brightness || 100]}
-                  onValueChange={(v) => updateTheme({ video_brightness: v[0] } as any)}
-                  min={20}
-                  max={150}
-                  step={5}
-                />
               </div>
 
               {/* Change Video Button */}
@@ -3386,7 +3445,7 @@ function WallpaperSection() {
                   </div>
                 </div>
 
-                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize (portrait 9:16 default)</p>
+                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize (9:16 portrait ratio locked)</p>
 
                 <Button onClick={handleWallpaperVideoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingWallpaperVideo}>
                   {uploadingWallpaperVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
