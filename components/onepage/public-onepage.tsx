@@ -244,6 +244,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   // Animated gradient - only when explicitly enabled
   const isAnimatedGradient = safeTheme.background_type === "gradient" && safeTheme.animated_gradient === true
 
+  // Check if background is dark for footer link color
+  const isDarkBackground = (() => {
+    const color = safeTheme.background_color || "#ffffff"
+    // Parse hex color and calculate luminance
+    const hex = color.replace("#", "")
+    const r = parseInt(hex.substring(0, 2), 16) || 255
+    const g = parseInt(hex.substring(2, 4), 16) || 255
+    const b = parseInt(hex.substring(4, 6), 16) || 255
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance < 0.5 || safeTheme.background_type === "image" || safeTheme.background_type === "video"
+  })()
+
   // Get background style
   const getBackgroundStyle = () => {
     if (safeTheme.background_type === "gradient" && safeTheme.background_gradient) {
@@ -271,7 +283,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const patternColor = (safeTheme as any).pattern_color || "#00000090"
   const patternOpacity = (safeTheme as any).pattern_opacity || "medium"
   const patternOpacityValue = patternOpacity === "low" ? 0.4 : patternOpacity === "hard" ? 1 : patternOpacity === "very_hard" ? 1.5 : 0.7
-  const BackgroundPatternOverlay = () => {
+  const BackgroundPatternOverlay = ({ idPrefix = "public" }: { idPrefix?: string }) => {
     const patternType = (safeTheme as any).background_pattern
     if (!patternType || patternType === "none") return null
 
@@ -279,67 +291,67 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       grid: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="public-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <pattern id={`${idPrefix}-grid`} width="20" height="20" patternUnits="userSpaceOnUse">
               <path d="M 20 0 L 0 0 0 20" fill="none" stroke={patternColor} strokeWidth="1" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-grid)" />
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-grid)`} />
         </svg>
       ),
       dots: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="public-dots" width="16" height="16" patternUnits="userSpaceOnUse">
+            <pattern id={`${idPrefix}-dots`} width="16" height="16" patternUnits="userSpaceOnUse">
               <circle cx="8" cy="8" r="2" fill={patternColor} />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-dots)" />
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-dots)`} />
         </svg>
       ),
       waves: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="public-waves" width="50" height="25" patternUnits="userSpaceOnUse">
+            <pattern id={`${idPrefix}-waves`} width="50" height="25" patternUnits="userSpaceOnUse">
               <path d="M0 12.5 Q12.5 0, 25 12.5 T50 12.5" fill="none" stroke={patternColor} strokeWidth="2" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-waves)" />
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-waves)`} />
         </svg>
       ),
       zigzag: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="public-zigzag" width="20" height="12" patternUnits="userSpaceOnUse">
+            <pattern id={`${idPrefix}-zigzag`} width="20" height="12" patternUnits="userSpaceOnUse">
               <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={patternColor} strokeWidth="1.5" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-zigzag)" />
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-zigzag)`} />
         </svg>
       ),
       cross: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="public-cross" width="16" height="16" patternUnits="userSpaceOnUse">
+            <pattern id={`${idPrefix}-cross`} width="16" height="16" patternUnits="userSpaceOnUse">
               <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={patternColor} strokeWidth="1" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-cross)" />
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-cross)`} />
         </svg>
       ),
       diagonal: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="public-diagonal" width="10" height="10" patternUnits="userSpaceOnUse">
+            <pattern id={`${idPrefix}-diagonal`} width="10" height="10" patternUnits="userSpaceOnUse">
               <path d="M0 10 L10 0" fill="none" stroke={patternColor} strokeWidth="1" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-diagonal)" />
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-diagonal)`} />
         </svg>
       ),
       morph: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
           <defs>
-            <pattern id="public-morph" width="200" height="200" patternUnits="userSpaceOnUse">
+            <pattern id={`${idPrefix}-morph`} width="200" height="200" patternUnits="userSpaceOnUse">
               <path d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180" fill="none" stroke={patternColor} strokeWidth="2" opacity="0.5" />
               <path d="M120 10 Q140 30, 160 20 Q180 40, 160 60 Q180 80, 160 100 Q140 80, 120 100 Q100 80, 120 60" fill="none" stroke={patternColor} strokeWidth="2" opacity="0.4" />
               <path d="M100 140 Q120 160, 140 150 Q160 170, 140 190 Q120 170, 100 180" fill="none" stroke={patternColor} strokeWidth="2" opacity="0.45" />
@@ -350,13 +362,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               <rect x="10" y="100" width="15" height="2" fill={patternColor} opacity="0.35" rx="1" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-morph)" />
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-morph)`} />
         </svg>
       ),
       organic: (
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
           <defs>
-            <pattern id="public-organic" width="200" height="200" patternUnits="userSpaceOnUse">
+            <pattern id={`${idPrefix}-organic`} width="200" height="200" patternUnits="userSpaceOnUse">
               <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={patternColor} opacity="0.35" />
               <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={patternColor} opacity="0.3" />
               <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={patternColor} opacity="0.32" />
@@ -364,7 +376,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               <path d="M20 160 Q35 150, 45 165 Q50 180, 35 190 Q20 185, 15 175 Q12 165, 20 160" fill={patternColor} opacity="0.25" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-organic)" />
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-organic)`} />
         </svg>
       ),
     }
@@ -422,6 +434,36 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           </a>
         </div>
       )}
+      {/* Footer Links */}
+      <div className="mt-6 flex items-center justify-center gap-4 text-xs">
+        <a
+          href="https://materiathemes.com/cookies"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline transition-colors"
+          style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
+        >
+          Cookies
+        </a>
+        <a
+          href="https://materiathemes.com/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline transition-colors"
+          style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
+        >
+          Privacy
+        </a>
+        <a
+          href="https://materiathemes.com/report"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline transition-colors"
+          style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
+        >
+          Report
+        </a>
+      </div>
     </div>
   )
 
@@ -495,7 +537,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {/* Noise overlay for image backgrounds */}
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
         {/* Pattern overlay for solid/gradient backgrounds */}
-        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay />}
+        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay idPrefix="desktop-bg" />}
 
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
@@ -572,7 +614,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               </svg>
             )}
             {/* Pattern overlay inside card */}
-            {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay />}
+            {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay idPrefix="desktop-card" />}
             <PageContent isDesktop={true} />
           </div>
         </div>
@@ -640,7 +682,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
         {/* Pattern overlay for mobile */}
-        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay />}
+        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay idPrefix="mobile" />}
         <PageContent />
       </div>
     </>

@@ -190,6 +190,17 @@ export function PhonePreview({ className }: PhonePreviewProps) {
   // Use animation toggle state in key to force re-render and restart animation
   const animationKey = `gradient-${String(theme.animated_gradient)}-${theme.background_gradient || 'none'}`
 
+  // Check if background is dark for footer link color
+  const isDarkBackground = (() => {
+    const color = theme.background_color || "#ffffff"
+    const hex = color.replace("#", "")
+    const r = parseInt(hex.substring(0, 2), 16) || 255
+    const g = parseInt(hex.substring(2, 4), 16) || 255
+    const b = parseInt(hex.substring(4, 6), 16) || 255
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance < 0.5 || theme.background_type === "image" || theme.background_type === "video"
+  })()
+
   return (
     <div className={cn("relative flex-shrink-0", className)} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', height: '580px', minHeight: '580px', maxHeight: '580px' }}>
       {/* Animation keyframes - subtle animation */}
@@ -307,6 +318,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                   <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[9px] font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
                 </div>
               )}
+              {/* Footer Links */}
+              <div className="mt-3 flex items-center justify-center gap-2 text-[8px]">
+                <a href="https://materiathemes.com/cookies" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Cookies</a>
+                <a href="https://materiathemes.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Privacy</a>
+                <a href="https://materiathemes.com/report" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Report</a>
+              </div>
             </div>
           </div>
         </div>
@@ -331,6 +348,17 @@ export function MobilePreviewContent() {
   const isAnimatedGradient = theme.background_type === "gradient" && theme.animated_gradient === true
   // Use animation toggle state in key to force re-render and restart animation
   const animationKey = `gradient-${String(theme.animated_gradient)}-${theme.background_gradient || 'none'}`
+
+  // Check if background is dark for footer link color
+  const isDarkBackground = (() => {
+    const color = theme.background_color || "#ffffff"
+    const hex = color.replace("#", "")
+    const r = parseInt(hex.substring(0, 2), 16) || 255
+    const g = parseInt(hex.substring(2, 4), 16) || 255
+    const b = parseInt(hex.substring(4, 6), 16) || 255
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance < 0.5 || theme.background_type === "image" || theme.background_type === "video"
+  })()
 
   return (
     <>
@@ -433,6 +461,12 @@ export function MobilePreviewContent() {
               <span className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
             </div>
           )}
+          {/* Footer Links */}
+          <div className="mt-4 flex items-center justify-center gap-4 text-xs">
+            <a href="https://materiathemes.com/cookies" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Cookies</a>
+            <a href="https://materiathemes.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Privacy</a>
+            <a href="https://materiathemes.com/report" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Report</a>
+          </div>
         </div>
       </div>
     </>
