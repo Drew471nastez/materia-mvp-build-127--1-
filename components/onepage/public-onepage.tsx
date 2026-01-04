@@ -639,12 +639,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {/* Noise overlays for mobile */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
-        {/* Pattern overlay for mobile - uses fixed positioning */}
-        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && (safeTheme as any).background_pattern && (safeTheme as any).background_pattern !== "none" && (
-          <div className="fixed inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-            <BackgroundPatternOverlay />
-          </div>
-        )}
+        {/* Pattern overlay for mobile */}
+        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay />}
         <PageContent />
       </div>
     </>
@@ -853,7 +849,7 @@ function PublicBlockRenderer({
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")}>
           {data.show_avatar !== false && (
-            <div className="relative" style={{ width: avatarSize, height: avatarSize, marginTop: isDesktop ? 22 : 0 }}>
+            <div className="relative" style={{ width: avatarSize, height: avatarSize, marginTop: isDesktop ? 25 : 0 }}>
               {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>
