@@ -128,6 +128,35 @@ function BackgroundPattern({ pattern, color }: { pattern: string; color: string 
         <rect width="100%" height="100%" fill={`url(#bg-diagonal-${pattern})`} />
       </svg>
     ),
+    grain: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id={`bg-grain-filter-${pattern}`}>
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" result="noise" />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+          <pattern id={`bg-grain-${pattern}`} width="100" height="100" patternUnits="userSpaceOnUse">
+            <rect width="100" height="100" filter={`url(#bg-grain-filter-${pattern})`} opacity="0.4" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={color} opacity="0.3" />
+        <rect width="100%" height="100%" fill={`url(#bg-grain-${pattern})`} />
+      </svg>
+    ),
+    blob: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`bg-blob-${pattern}`} width="100" height="100" patternUnits="userSpaceOnUse">
+            <ellipse cx="25" cy="30" rx="20" ry="15" fill={color} opacity="0.6" />
+            <ellipse cx="70" cy="25" rx="18" ry="22" fill={color} opacity="0.5" />
+            <ellipse cx="50" cy="65" rx="25" ry="18" fill={color} opacity="0.55" />
+            <ellipse cx="15" cy="75" rx="15" ry="12" fill={color} opacity="0.45" />
+            <ellipse cx="85" cy="70" rx="14" ry="16" fill={color} opacity="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-blob-${pattern})`} />
+      </svg>
+    ),
   }
 
   return patternSVGs[pattern] || null
@@ -517,7 +546,13 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
         <div className="flex flex-col items-center gap-2 w-full text-center">
           {data.show_avatar && (
             hasVideo ? (
-              <div className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg")} style={{ borderColor: `${theme.text_color}20` }}>
+              <div
+                className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg")}
+                style={{
+                  borderColor: `${theme.text_color}20`,
+                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                }}
+              >
                 <video
                   src={profile.avatar_video_url!}
                   className="object-cover"
@@ -526,7 +561,12 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                     height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
                     marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
                     marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
-                  } : { width: '100%', height: '100%' }}
+                    transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                  } : {
+                    width: '100%',
+                    height: '100%',
+                    transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                  }}
                   autoPlay
                   loop
                   muted
@@ -534,11 +574,20 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                 />
               </div>
             ) : (
-              <Avatar className={cn(s.avatar, "border-2 shadow-lg")} style={{ borderColor: `${theme.text_color}20` }}>
-                <AvatarImage 
-                  src={profile.avatar_url || undefined} 
+              <Avatar
+                className={cn(s.avatar, "border-2 shadow-lg")}
+                style={{
+                  borderColor: `${theme.text_color}20`,
+                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                }}
+              >
+                <AvatarImage
+                  src={profile.avatar_url || undefined}
                   className="object-cover"
-                  style={{ imageRendering: 'auto' }}
+                  style={{
+                    imageRendering: 'auto',
+                    transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                  }}
                 />
                 <AvatarFallback className={cn(s.avatarFallback, "font-semibold")} style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}>{profile.title?.charAt(0)?.toUpperCase() || "?"}</AvatarFallback>
               </Avatar>

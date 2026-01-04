@@ -334,6 +334,35 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           <rect width="100%" height="100%" fill="url(#public-diagonal)" />
         </svg>
       ),
+      grain: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="public-grain-filter">
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" result="noise" />
+              <feColorMatrix type="saturate" values="0" />
+            </filter>
+            <pattern id="public-grain" width="100" height="100" patternUnits="userSpaceOnUse">
+              <rect width="100" height="100" filter="url(#public-grain-filter)" opacity="0.4" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill={patternColor} opacity="0.3" />
+          <rect width="100%" height="100%" fill="url(#public-grain)" />
+        </svg>
+      ),
+      blob: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <pattern id="public-blob" width="100" height="100" patternUnits="userSpaceOnUse">
+              <ellipse cx="25" cy="30" rx="20" ry="15" fill={patternColor} opacity="0.6" />
+              <ellipse cx="70" cy="25" rx="18" ry="22" fill={patternColor} opacity="0.5" />
+              <ellipse cx="50" cy="65" rx="25" ry="18" fill={patternColor} opacity="0.55" />
+              <ellipse cx="15" cy="75" rx="15" ry="12" fill={patternColor} opacity="0.45" />
+              <ellipse cx="85" cy="70" rx="14" ry="16" fill={patternColor} opacity="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#public-blob)" />
+        </svg>
+      ),
     }
 
     return patterns[patternType] || null
@@ -714,15 +743,18 @@ function PublicBlockRenderer({
 
       // Classic layout - AVATAR 10px BIGGER mobile, 5px BIGGER desktop, TITLE 5px BIGGER
       return (
-        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center", isDesktop && "pt-1")}>
+        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center", isDesktop && "pt-2")}>
           {data.show_avatar !== false &&
             (hasVideo ? (
               <div
                 className={cn(
                   "rounded-full overflow-hidden border-2 shadow-lg",
-                  isDesktop ? "h-[107px] w-[107px] mt-1" : "h-[96px] w-[96px] sm:h-[107px] sm:w-[107px]",
+                  isDesktop ? "h-[107px] w-[107px] mt-2" : "h-[96px] w-[96px] sm:h-[107px] sm:w-[107px]",
                 )}
-                style={{ borderColor: `${theme.text_color}20` }}
+                style={{
+                  borderColor: `${theme.text_color}20`,
+                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                }}
               >
                 <video
                   ref={videoRef}
@@ -735,8 +767,13 @@ function PublicBlockRenderer({
                           height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
                           marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
                           marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
+                          transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
                         }
-                      : { width: "100%", height: "100%" }
+                      : {
+                          width: "100%",
+                          height: "100%",
+                          transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                        }
                   }
                   autoPlay
                   loop
@@ -748,14 +785,20 @@ function PublicBlockRenderer({
               <Avatar
                 className={cn(
                   "border-2 shadow-lg",
-                  isDesktop ? "h-[107px] w-[107px] mt-1" : "h-[96px] w-[96px] sm:h-[107px] sm:w-[107px]",
+                  isDesktop ? "h-[107px] w-[107px] mt-2" : "h-[96px] w-[96px] sm:h-[107px] sm:w-[107px]",
                 )}
-                style={{ borderColor: `${theme.text_color}20` }}
+                style={{
+                  borderColor: `${theme.text_color}20`,
+                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                }}
               >
                 <AvatarImage
                   src={profile.avatar_url || undefined}
                   className="object-cover"
-                  style={{ imageRendering: "auto" }}
+                  style={{
+                    imageRendering: "auto",
+                    transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                  }}
                 />
                 <AvatarFallback
                   className="text-2xl sm:text-3xl font-semibold"

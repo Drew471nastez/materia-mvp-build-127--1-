@@ -198,6 +198,8 @@ const BACKGROUND_PATTERNS = [
   { id: "zigzag", name: "Zigzag", preview: "zigzag" },
   { id: "cross", name: "Cross", preview: "cross" },
   { id: "diagonal", name: "Diagonal", preview: "diagonal" },
+  { id: "grain", name: "Grain", preview: "grain" },
+  { id: "blob", name: "Blob", preview: "blob" },
 ]
 
 const THEME_TEMPLATES = [
@@ -435,6 +437,8 @@ const THEME_TEMPLATES = [
       title_font: "'Raleway', sans-serif",
       title_color: "#e0e7ff",
       social_icon_color: "#a5b4fc",
+      background_pattern: "dots",
+      pattern_color: "#ffffff15",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -461,6 +465,8 @@ const THEME_TEMPLATES = [
       title_font: "'Space Grotesk', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#a78bfa",
+      background_pattern: "grain",
+      pattern_color: "#ffffff10",
       spacing: "normal" as const,
       card_width: "standard" as const,
       animated_gradient: true,
@@ -628,6 +634,9 @@ function HeaderSection() {
 
   // Title font modal state
   const [showTitleFontModal, setShowTitleFontModal] = useState(false)
+
+  // Reposition modal state
+  const [showRepositionModal, setShowRepositionModal] = useState(false)
 
   if (!onepage) return null
 
@@ -1111,10 +1120,16 @@ function HeaderSection() {
             </>
           )}
         </Avatar>
-        <Button variant="outline" onClick={() => setShowEditModal(true)} disabled={uploading} className="h-9 rounded-lg" data-avatar-edit>
-          <ImageIcon className="h-4 w-4 mr-2" />
-          {uploading ? "Uploading..." : "Edit"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowEditModal(true)} disabled={uploading} className="h-9 rounded-lg" data-avatar-edit>
+            <ImageIcon className="h-4 w-4 mr-2" />
+            {uploading ? "Uploading..." : "Edit"}
+          </Button>
+          <Button variant="outline" onClick={() => setShowRepositionModal(true)} className="h-9 rounded-lg">
+            <Move className="h-4 w-4 mr-2" />
+            Reposition
+          </Button>
+        </div>
       </div>
 
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
@@ -1524,6 +1539,104 @@ function HeaderSection() {
         <Label className="text-sm font-medium">Bio</Label>
         <Input value={onepage.bio || ""} onChange={(e) => updateProfile({ bio: e.target.value })} placeholder="A short bio..." className="h-10 rounded-lg" />
       </div>
+
+      {/* Reposition Modal */}
+      <Dialog open={showRepositionModal} onOpenChange={setShowRepositionModal}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b">
+            <DialogTitle className="text-lg font-semibold text-center">Reposition Profile Image</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-6">
+            {/* Preview */}
+            <div className="flex justify-center">
+              <div
+                className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100"
+                style={{
+                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                }}
+              >
+                {avatarVideoUrl ? (
+                  <video
+                    src={avatarVideoUrl}
+                    className="w-full h-full object-cover"
+                    style={{
+                      transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                    }}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                ) : onepage.avatar_url ? (
+                  <img
+                    src={onepage.avatar_url}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    style={{
+                      transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-gray-400">
+                    {onepage.title?.charAt(0) || "?"}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Vertical Position Slider */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="text-sm font-medium">Vertical Position</Label>
+                <span className="text-sm text-muted-foreground">{(theme as any).avatar_offset_y || 0}px</span>
+              </div>
+              <Slider
+                value={[(theme as any).avatar_offset_y || 0]}
+                onValueChange={([value]) => updateTheme({ avatar_offset_y: value } as any)}
+                min={-50}
+                max={50}
+                step={1}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Up</span>
+                <span>Down</span>
+              </div>
+            </div>
+
+            {/* Scale Slider */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="text-sm font-medium">Zoom</Label>
+                <span className="text-sm text-muted-foreground">{(theme as any).avatar_scale || 100}%</span>
+              </div>
+              <Slider
+                value={[(theme as any).avatar_scale || 100]}
+                onValueChange={([value]) => updateTheme({ avatar_scale: value } as any)}
+                min={80}
+                max={150}
+                step={5}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Smaller</span>
+                <span>Larger</span>
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                className="w-full rounded-xl"
+                onClick={() => {
+                  updateTheme({ avatar_offset_y: 0, avatar_scale: 100 } as any)
+                }}
+              >
+                Reset to Default
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -1731,6 +1844,35 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={`url(#diagonal-${color})`} />
+      </svg>
+    ),
+    grain: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id={`grain-filter-${color}`}>
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" result="noise" />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+          <pattern id={`grain-${color}`} width="100" height="100" patternUnits="userSpaceOnUse">
+            <rect width="100" height="100" filter={`url(#grain-filter-${color})`} opacity="0.4" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={color} opacity="0.3" />
+        <rect width="100%" height="100%" fill={`url(#grain-${color})`} />
+      </svg>
+    ),
+    blob: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`blob-${color}`} width="100" height="100" patternUnits="userSpaceOnUse">
+            <ellipse cx="25" cy="30" rx="20" ry="15" fill={color} opacity="0.6" />
+            <ellipse cx="70" cy="25" rx="18" ry="22" fill={color} opacity="0.5" />
+            <ellipse cx="50" cy="65" rx="25" ry="18" fill={color} opacity="0.55" />
+            <ellipse cx="15" cy="75" rx="15" ry="12" fill={color} opacity="0.45" />
+            <ellipse cx="85" cy="70" rx="14" ry="16" fill={color} opacity="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#blob-${color})`} />
       </svg>
     ),
   }
