@@ -87,10 +87,10 @@ function Slider({ value, onValueChange, min = 0, max = 100, step = 1 }: {
         />
         {/* Thumb */}
         <div
-          className="absolute w-[16px] h-[16px] bg-white rounded-full -translate-y-1/2 top-1/2 pointer-events-none"
+          className="absolute w-[21px] h-[21px] bg-white rounded-full -translate-y-1/2 top-1/2 pointer-events-none"
           style={{
-            left: `calc(${percentage}% - 8px)`,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1)'
+            left: `calc(${percentage}% - 10.5px)`,
+            boxShadow: '0 2px 5px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)'
           }}
         />
       </div>

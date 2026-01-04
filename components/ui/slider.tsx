@@ -66,9 +66,9 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
-          className="block size-[16px] shrink-0 rounded-full bg-white transition-shadow focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
+          className="block size-[21px] shrink-0 rounded-full bg-white transition-shadow focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
           style={{
-            boxShadow: '0 1px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1)',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)',
             border: 'none'
           }}
         />

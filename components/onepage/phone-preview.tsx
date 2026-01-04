@@ -622,15 +622,15 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
       const laserGlowEnabled = (theme as any).laser_glow_enabled
       const laserGlowColor = (theme as any).laser_glow_color || "#3b82f6"
       const laserGlowIntensity = (theme as any).laser_glow_intensity || "medium"
-      // Glow intensity settings - more powerful and glowish
-      const glowSpread = laserGlowIntensity === "low" ? 6 : laserGlowIntensity === "hard" ? 14 : 10
+      // Glow intensity settings - reduced spread by 40%
+      const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 8 : 6
       const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
       const avatarSize = scale === "small" ? 72 : 88
 
       return (
         <div className="flex flex-col items-center gap-2 w-full text-center">
           {data.show_avatar && (
-            <div className="relative" style={{ width: avatarSize, height: avatarSize }}>
+            <div className="relative" style={{ width: avatarSize, height: avatarSize, marginTop: 6 }}>
               {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>
