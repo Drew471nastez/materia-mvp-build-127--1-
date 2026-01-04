@@ -467,6 +467,29 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           />
         )}
 
+        {/* Video background for desktop */}
+        {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
+          <video
+            src={(safeTheme as any).background_video_url}
+            style={{
+              position: "fixed",
+              top: "0",
+              left: "0",
+              right: "0",
+              bottom: "0",
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              zIndex: 0,
+              filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+            }}
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+        )}
+
         {/* Noise overlay for gradient backgrounds */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
         {/* Noise overlay for image backgrounds */}
@@ -566,6 +589,30 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             }}
           />
         )}
+
+        {/* Video background for mobile */}
+        {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
+          <video
+            src={(safeTheme as any).background_video_url}
+            style={{
+              position: "fixed",
+              top: "0",
+              left: "0",
+              right: "0",
+              bottom: "0",
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              zIndex: 0,
+              filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+            }}
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+        )}
+
         {/* Noise overlays for mobile */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
@@ -728,13 +775,13 @@ function PublicBlockRenderer({
                 <img
                   src={(theme as any).title_logo_url}
                   alt={profile.title || "Logo"}
-                  className={cn(
-                    "mx-auto object-contain",
-                    (theme as any).title_size === "large"
-                      ? (isDesktop ? "h-16 max-w-[220px]" : "h-14 max-w-[200px] sm:h-16 sm:max-w-[220px]")
-                      : (isDesktop ? "h-14 max-w-[200px]" : "h-12 max-w-[180px] sm:h-14 sm:max-w-[200px]")
-                  )}
-                  style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))" }}
+                  className="mx-auto w-auto"
+                  style={{
+                    maxHeight: (theme as any).title_size === "large" ? (isDesktop ? '70px' : '60px') : (isDesktop ? '60px' : '52px'),
+                    maxWidth: (theme as any).title_size === "large" ? (isDesktop ? '260px' : '230px') : (isDesktop ? '230px' : '200px'),
+                    objectFit: 'contain',
+                    filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))"
+                  }}
                 />
               ) : profile.title && (
                 <h1
@@ -836,12 +883,12 @@ function PublicBlockRenderer({
             <img
               src={(theme as any).title_logo_url}
               alt={profile.title || "Logo"}
-              className={cn(
-                "mx-auto object-contain my-2",
-                (theme as any).title_size === "large"
-                  ? (isDesktop ? "h-16 max-w-[220px]" : "h-14 max-w-[200px] sm:h-16 sm:max-w-[220px]")
-                  : (isDesktop ? "h-14 max-w-[200px]" : "h-12 max-w-[180px] sm:h-14 sm:max-w-[200px]")
-              )}
+              className="mx-auto w-auto my-2"
+              style={{
+                maxHeight: (theme as any).title_size === "large" ? (isDesktop ? '70px' : '60px') : (isDesktop ? '60px' : '52px'),
+                maxWidth: (theme as any).title_size === "large" ? (isDesktop ? '260px' : '230px') : (isDesktop ? '230px' : '200px'),
+                objectFit: 'contain'
+              }}
             />
           ) : profile.title && (
             <h1

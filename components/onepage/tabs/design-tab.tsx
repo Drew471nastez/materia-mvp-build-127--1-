@@ -675,7 +675,7 @@ function HeaderSection() {
 
   const { theme } = onepage
   const headerLayout = (theme as any).header_layout || "classic"
-  const effectiveLayout = theme.background_type === "image" ? "classic" : headerLayout
+  const effectiveLayout = (theme.background_type === "image" || theme.background_type === "video") ? "classic" : headerLayout
   const avatarVideoUrl = (onepage as any).avatar_video_url
 
   const handleVideoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1054,7 +1054,7 @@ function HeaderSection() {
   }
 
   const handleLayoutChange = (layout: string) => {
-    if (layout === "hero" && (theme.background_type === "image" || theme.background_type === "gradient")) return
+    if (layout === "hero" && (theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video")) return
     // Block switching to Hero if pattern is active
     if (layout === "hero" && (theme as any).background_pattern && (theme as any).background_pattern !== "none") {
       return // Silently block - pattern takes precedence
@@ -1062,17 +1062,42 @@ function HeaderSection() {
     updateTheme({ header_layout: layout } as any)
   }
 
-  // Logo file selection handler
+  // Logo file selection handler - detects image aspect ratio
   const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const url = URL.createObjectURL(file)
-    setTempLogoUrl(url)
-    setTempLogoFile(file)
-    setShowLogoUploadModal(false)
-    setShowLogoCropModal(true)
-    // Reset to centered square crop box (percentage based)
-    setLogoCropBox({ x: 10, y: 10, width: 80, height: 80 })
+
+    // Load image to detect dimensions and set appropriate crop box
+    const img = new Image()
+    img.onload = () => {
+      const imgWidth = img.width
+      const imgHeight = img.height
+      const aspectRatio = imgWidth / imgHeight
+
+      setLogoImageSize({ width: imgWidth, height: imgHeight })
+      setTempLogoUrl(url)
+      setTempLogoFile(file)
+      setShowLogoUploadModal(false)
+      setShowLogoCropModal(true)
+
+      // Set crop box based on aspect ratio - adapts to image shape
+      // For wide images (aspect > 1.2), use wider crop
+      // For tall images (aspect < 0.8), use taller crop
+      // Otherwise use square-ish crop
+      if (aspectRatio > 1.2) {
+        // Wide image - use wide crop box
+        setLogoCropBox({ x: 5, y: 15, width: 90, height: 70 })
+      } else if (aspectRatio < 0.8) {
+        // Tall image - use tall crop box
+        setLogoCropBox({ x: 15, y: 5, width: 70, height: 90 })
+      } else {
+        // Square-ish - use centered square
+        setLogoCropBox({ x: 10, y: 10, width: 80, height: 80 })
+      }
+    }
+    img.src = url
+
     // Reset file input for next selection
     e.target.value = ''
   }
@@ -1297,10 +1322,24 @@ function HeaderSection() {
       const actualWidth = (logoCropBox.width / 100) * img.width
       const actualHeight = (logoCropBox.height / 100) * img.height
 
-      // Output size for high quality logo
-      const outputSize = 400
-      canvas.width = outputSize
-      canvas.height = outputSize
+      // Output size - preserve aspect ratio for high quality logo (no distortion)
+      const maxOutputDimension = 500
+      const cropAspectRatio = actualWidth / actualHeight
+      let outputWidth: number
+      let outputHeight: number
+
+      if (cropAspectRatio >= 1) {
+        // Wide or square - constrain by width
+        outputWidth = maxOutputDimension
+        outputHeight = Math.round(maxOutputDimension / cropAspectRatio)
+      } else {
+        // Tall - constrain by height
+        outputHeight = maxOutputDimension
+        outputWidth = Math.round(maxOutputDimension * cropAspectRatio)
+      }
+
+      canvas.width = outputWidth
+      canvas.height = outputHeight
 
       if (ctx) {
         ctx.imageSmoothingEnabled = true
@@ -1308,7 +1347,7 @@ function HeaderSection() {
         ctx.drawImage(
           img,
           actualX, actualY, actualWidth, actualHeight,
-          0, 0, outputSize, outputSize
+          0, 0, outputWidth, outputHeight
         )
       }
 
@@ -1846,7 +1885,7 @@ function HeaderSection() {
                   </div>
                 </div>
 
-                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize (square crop)</p>
+                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize freely</p>
 
                 <Button onClick={handleLogoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingLogo}>
                   {uploadingLogo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
@@ -1864,13 +1903,14 @@ function HeaderSection() {
             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center"><User className="h-5 w-5 text-gray-400" /></div>
             <span className="text-xs md:text-sm font-medium">Classic</span>
           </button>
-          <button onClick={() => handleLayoutChange("hero")} disabled={theme.background_type === "image" || theme.background_type === "gradient" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")} className={cn("border-2 rounded-xl p-4 md:p-5 flex flex-col items-center gap-2 md:gap-3 transition-all relative", effectiveLayout === "hero" ? "border-foreground bg-white" : "border-gray-200 hover:border-gray-300", (theme.background_type === "image" || theme.background_type === "gradient" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")) && "opacity-50 cursor-not-allowed")}>
+          <button onClick={() => handleLayoutChange("hero")} disabled={theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")} className={cn("border-2 rounded-xl p-4 md:p-5 flex flex-col items-center gap-2 md:gap-3 transition-all relative", effectiveLayout === "hero" ? "border-foreground bg-white" : "border-gray-200 hover:border-gray-300", (theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")) && "opacity-50 cursor-not-allowed")}>
             <div className="w-full h-10 bg-gradient-to-b from-gray-300 to-gray-100 rounded-lg flex items-end justify-center pb-1"><Move className="h-4 w-4 text-gray-400" /></div>
             <span className="text-xs md:text-sm font-medium">Hero</span>
           </button>
         </div>
         {theme.background_type === "image" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using an image wallpaper.</p>}
         {theme.background_type === "gradient" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using a gradient wallpaper.</p>}
+        {theme.background_type === "video" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using a video wallpaper.</p>}
         {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using a pattern. Switch to Classic to use patterns.</p>}
         {effectiveLayout === "hero" && theme.background_type === "solid" && !((theme as any).background_pattern && (theme as any).background_pattern !== "none") && <p className="text-xs text-muted-foreground">Hero displays your avatar as a full-width background with fade</p>}
       </div>
@@ -2341,8 +2381,24 @@ function WallpaperSection() {
   const { onepage, updateTheme } = useOnePage()
   const [uploading, setUploading] = useState(false)
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
-  const [pendingBgType, setPendingBgType] = useState<"gradient" | "image" | null>(null)
+  const [pendingBgType, setPendingBgType] = useState<"gradient" | "image" | "video" | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Video wallpaper states
+  const [showWallpaperVideoModal, setShowWallpaperVideoModal] = useState(false)
+  const [showWallpaperVideoCropModal, setShowWallpaperVideoCropModal] = useState(false)
+  const [tempWallpaperVideoUrl, setTempWallpaperVideoUrl] = useState<string | null>(null)
+  const [tempWallpaperVideoFile, setTempWallpaperVideoFile] = useState<File | null>(null)
+  const [uploadingWallpaperVideo, setUploadingWallpaperVideo] = useState(false)
+  const wallpaperVideoFileInputRef = useRef<HTMLInputElement>(null)
+  const wallpaperVideoPreviewRef = useRef<HTMLVideoElement>(null)
+  const wallpaperVideoCropContainerRef = useRef<HTMLDivElement>(null)
+
+  // Video crop state for wallpaper
+  const [wallpaperVideoCropBox, setWallpaperVideoCropBox] = useState({ x: 0, y: 0, width: 56.25, height: 100 }) // 9:16 aspect default
+  const [isWallpaperVideoDragging, setIsWallpaperVideoDragging] = useState(false)
+  const [isWallpaperVideoResizing, setIsWallpaperVideoResizing] = useState<string | null>(null)
+  const [wallpaperVideoDragStart, setWallpaperVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
 
   if (!onepage) return null
   const { theme } = onepage
@@ -2361,20 +2417,32 @@ function WallpaperSection() {
 
   const gradientInfo = parseGradient(theme.background_gradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)")
 
-  const handleBgTypeChange = (type: "solid" | "gradient" | "image") => {
-    // If switching to gradient or image and Hero layout is active, show dialog
-    if ((type === "gradient" || type === "image") && currentHeaderLayout === "hero") {
+  const handleBgTypeChange = (type: "solid" | "gradient" | "image" | "video") => {
+    // If switching to gradient, image, or video and Hero layout is active, show dialog
+    if ((type === "gradient" || type === "image" || type === "video") && currentHeaderLayout === "hero") {
       setPendingBgType(type)
       setShowLayoutChangeDialog(true)
       return
     }
-    
+
+    // For video type, open the video picker modal
+    if (type === "video") {
+      setShowWallpaperVideoModal(true)
+      return
+    }
+
     updateTheme({ background_type: type })
   }
 
   const handleConfirmLayoutChange = () => {
     if (pendingBgType) {
-      updateTheme({ background_type: pendingBgType, header_layout: "classic" } as any)
+      // For video, also open the video picker modal after confirming layout change
+      if (pendingBgType === "video") {
+        updateTheme({ header_layout: "classic" } as any)
+        setShowWallpaperVideoModal(true)
+      } else {
+        updateTheme({ background_type: pendingBgType, header_layout: "classic" } as any)
+      }
     }
     setShowLayoutChangeDialog(false)
     setPendingBgType(null)
@@ -2424,6 +2492,168 @@ function WallpaperSection() {
       return
     }
     updateTheme({ background_image_url: url })
+  }
+
+  // Wallpaper video handlers
+  const handleWallpaperVideoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v', 'video/mpeg']
+    if (!validTypes.includes(file.type) && !file.type.startsWith('video/')) {
+      alert('Please select a valid video file (MP4, WebM, or MOV)')
+      return
+    }
+
+    // Validate file size (max 100MB)
+    if (file.size > 100 * 1024 * 1024) {
+      alert('Video file must be less than 100MB')
+      return
+    }
+
+    const url = URL.createObjectURL(file)
+    setTempWallpaperVideoUrl(url)
+    setTempWallpaperVideoFile(file)
+    // Default to portrait 9:16 aspect ratio crop box (centered)
+    setWallpaperVideoCropBox({ x: 21.875, y: 0, width: 56.25, height: 100 })
+    setShowWallpaperVideoModal(false)
+    setShowWallpaperVideoCropModal(true)
+    e.target.value = ''
+  }
+
+  const handleWallpaperVideoCropMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize', corner?: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const container = wallpaperVideoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    setWallpaperVideoDragStart({
+      x,
+      y,
+      boxX: wallpaperVideoCropBox.x,
+      boxY: wallpaperVideoCropBox.y,
+      boxW: wallpaperVideoCropBox.width,
+      boxH: wallpaperVideoCropBox.height
+    })
+
+    if (type === 'drag') {
+      setIsWallpaperVideoDragging(true)
+    } else {
+      setIsWallpaperVideoResizing(corner || null)
+    }
+  }
+
+  const handleWallpaperVideoCropMouseMove = useCallback((e: MouseEvent) => {
+    const container = wallpaperVideoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    if (isWallpaperVideoDragging) {
+      const deltaX = x - wallpaperVideoDragStart.x
+      const deltaY = y - wallpaperVideoDragStart.y
+
+      let newX = wallpaperVideoDragStart.boxX + deltaX
+      let newY = wallpaperVideoDragStart.boxY + deltaY
+
+      newX = Math.max(0, Math.min(100 - wallpaperVideoCropBox.width, newX))
+      newY = Math.max(0, Math.min(100 - wallpaperVideoCropBox.height, newY))
+
+      setWallpaperVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+    } else if (isWallpaperVideoResizing) {
+      const deltaX = x - wallpaperVideoDragStart.x
+      const deltaY = y - wallpaperVideoDragStart.y
+
+      let newBox = { ...wallpaperVideoCropBox }
+
+      if (isWallpaperVideoResizing.includes('right')) {
+        newBox.width = Math.max(20, Math.min(100 - wallpaperVideoDragStart.boxX, wallpaperVideoDragStart.boxW + deltaX))
+      }
+      if (isWallpaperVideoResizing.includes('left')) {
+        const newWidth = Math.max(20, wallpaperVideoDragStart.boxW - deltaX)
+        const maxX = wallpaperVideoDragStart.boxX + wallpaperVideoDragStart.boxW - 20
+        newBox.x = Math.max(0, Math.min(maxX, wallpaperVideoDragStart.boxX + deltaX))
+        newBox.width = wallpaperVideoDragStart.boxX + wallpaperVideoDragStart.boxW - newBox.x
+      }
+      if (isWallpaperVideoResizing.includes('bottom')) {
+        newBox.height = Math.max(20, Math.min(100 - wallpaperVideoDragStart.boxY, wallpaperVideoDragStart.boxH + deltaY))
+      }
+      if (isWallpaperVideoResizing.includes('top')) {
+        const newHeight = Math.max(20, wallpaperVideoDragStart.boxH - deltaY)
+        const maxY = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - 20
+        newBox.y = Math.max(0, Math.min(maxY, wallpaperVideoDragStart.boxY + deltaY))
+        newBox.height = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - newBox.y
+      }
+
+      setWallpaperVideoCropBox(newBox)
+    }
+  }, [isWallpaperVideoDragging, isWallpaperVideoResizing, wallpaperVideoDragStart, wallpaperVideoCropBox.width, wallpaperVideoCropBox.height])
+
+  const handleWallpaperVideoCropMouseUp = useCallback(() => {
+    setIsWallpaperVideoDragging(false)
+    setIsWallpaperVideoResizing(null)
+  }, [])
+
+  useEffect(() => {
+    if (isWallpaperVideoDragging || isWallpaperVideoResizing) {
+      window.addEventListener('mousemove', handleWallpaperVideoCropMouseMove)
+      window.addEventListener('mouseup', handleWallpaperVideoCropMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleWallpaperVideoCropMouseMove)
+        window.removeEventListener('mouseup', handleWallpaperVideoCropMouseUp)
+      }
+    }
+  }, [isWallpaperVideoDragging, isWallpaperVideoResizing, handleWallpaperVideoCropMouseMove, handleWallpaperVideoCropMouseUp])
+
+  const handleWallpaperVideoCropSave = async () => {
+    if (!tempWallpaperVideoFile || !tempWallpaperVideoUrl) return
+    setUploadingWallpaperVideo(true)
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const fileName = `${user.id}/wallpaper-video-${Date.now()}.${tempWallpaperVideoFile.name.split('.').pop()}`
+      const { error } = await supabase.storage.from("onepage-assets").upload(fileName, tempWallpaperVideoFile, { upsert: true })
+      if (error) throw error
+
+      const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
+
+      // Save video URL and crop data to theme
+      updateTheme({
+        background_type: "video",
+        background_video_url: publicUrl,
+        background_video_crop: wallpaperVideoCropBox
+      } as any)
+
+      setShowWallpaperVideoCropModal(false)
+    } catch (error) {
+      console.error("Wallpaper video upload error:", error)
+      alert('Failed to upload video. Please try again.')
+    } finally {
+      setUploadingWallpaperVideo(false)
+      if (tempWallpaperVideoUrl) {
+        URL.revokeObjectURL(tempWallpaperVideoUrl)
+        setTempWallpaperVideoUrl(null)
+        setTempWallpaperVideoFile(null)
+      }
+    }
+  }
+
+  const handleRemoveWallpaperVideo = () => {
+    updateTheme({
+      background_type: "solid",
+      background_video_url: null,
+      background_video_crop: null
+    } as any)
   }
 
   // Gradient direction component - improved with better UX
@@ -2528,8 +2758,8 @@ function WallpaperSection() {
 
       <div className="space-y-3">
         <Label className="text-sm font-medium">Type</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {(["solid", "gradient", "image"] as const).map((type) => (
+        <div className="grid grid-cols-4 gap-2">
+          {(["solid", "gradient", "image", "video"] as const).map((type) => (
             <button key={type} onClick={() => handleBgTypeChange(type)} className={cn("py-3 md:py-3.5 rounded-xl border-2 text-xs md:text-sm font-medium capitalize transition-colors", theme.background_type === type ? "border-foreground bg-gray-50" : "border-gray-200 hover:border-gray-300")}>{type}</button>
           ))}
         </div>
@@ -2559,7 +2789,7 @@ function WallpaperSection() {
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {BACKGROUND_PATTERNS.map((pattern) => {
                 const currentPattern = (theme as any).background_pattern || "none"
-                const patternColor = (theme as any).pattern_color || "#00000015"
+                const patternColor = (theme as any).pattern_color || "#00000090"
                 return (
                   <button
                     key={pattern.id}
@@ -2590,13 +2820,13 @@ function WallpaperSection() {
               <Label className="text-sm font-medium">Pattern color</Label>
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#000000"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "20" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#00000020" }} />
+                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#000000"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "90" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#00000090" }} />
                 </div>
-                <Input value={(theme as any).pattern_color || "#00000020"} onChange={(e) => updateTheme({ pattern_color: e.target.value } as any)} placeholder="#00000020" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+                <Input value={(theme as any).pattern_color || "#00000090"} onChange={(e) => updateTheme({ pattern_color: e.target.value } as any)} placeholder="#00000090" className="h-12 rounded-xl flex-1 font-mono text-sm" />
               </div>
               <div className="flex gap-2 pt-1">
-                {['#00000015', '#ffffff30', '#3b82f620', '#10b98120', '#f59e0b20', '#ef444420'].map((color) => (
+                {['#00000090', '#ffffff90', '#3b82f690', '#10b98190', '#f59e0b90', '#ef444490'].map((color) => (
                   <button key={color} onClick={() => updateTheme({ pattern_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme as any).pattern_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
                 ))}
               </div>
@@ -2789,7 +3019,7 @@ function WallpaperSection() {
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {BACKGROUND_PATTERNS.map((pattern) => {
                 const currentPattern = (theme as any).background_pattern || "none"
-                const patternColor = (theme as any).pattern_color || "#ffffff20"
+                const patternColor = (theme as any).pattern_color || "#ffffff90"
                 return (
                   <button
                     key={pattern.id}
@@ -2820,13 +3050,13 @@ function WallpaperSection() {
               <Label className="text-sm font-medium">Pattern color</Label>
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#ffffff"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "25" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#ffffff25" }} />
+                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#ffffff"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "90" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#ffffff90" }} />
                 </div>
-                <Input value={(theme as any).pattern_color || "#ffffff25"} onChange={(e) => updateTheme({ pattern_color: e.target.value } as any)} placeholder="#ffffff25" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+                <Input value={(theme as any).pattern_color || "#ffffff90"} onChange={(e) => updateTheme({ pattern_color: e.target.value } as any)} placeholder="#ffffff90" className="h-12 rounded-xl flex-1 font-mono text-sm" />
               </div>
               <div className="flex gap-2 pt-1">
-                {['#ffffff20', '#ffffff40', '#00000015', '#00000030', '#3b82f625', '#f59e0b25'].map((color) => (
+                {['#ffffff90', '#00000090', '#3b82f690', '#10b98190', '#f59e0b90', '#ef444490'].map((color) => (
                   <button key={color} onClick={() => updateTheme({ pattern_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme as any).pattern_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
                 ))}
               </div>
@@ -2997,6 +3227,175 @@ function WallpaperSection() {
           </div>
         </div>
       )}
+
+      {theme.background_type === "video" && (
+        <div className="space-y-5">
+          {/* Video Preview */}
+          {(theme as any).background_video_url ? (
+            <>
+              <div className="relative rounded-xl overflow-hidden aspect-[9/16] max-h-[300px] mx-auto">
+                <video
+                  src={(theme as any).background_video_url}
+                  className="w-full h-full object-cover"
+                  style={{
+                    filter: `brightness(${(theme as any).video_brightness || 100}%)`
+                  }}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+                <button onClick={handleRemoveWallpaperVideo} className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full hover:bg-black/70 transition-colors"><X className="h-4 w-4 text-white" /></button>
+              </div>
+
+              {/* Video Brightness Slider */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Brightness</Label>
+                  <span className="text-xs text-muted-foreground">{(theme as any).video_brightness || 100}%</span>
+                </div>
+                <Slider
+                  value={[(theme as any).video_brightness || 100]}
+                  onValueChange={(v) => updateTheme({ video_brightness: v[0] } as any)}
+                  min={20}
+                  max={150}
+                  step={5}
+                />
+              </div>
+
+              {/* Change Video Button */}
+              <Button
+                variant="outline"
+                onClick={() => setShowWallpaperVideoModal(true)}
+                className="w-full h-12 rounded-xl"
+              >
+                <Video className="h-4 w-4 mr-2" />
+                Change Video
+              </Button>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Background video</Label>
+              <div onClick={() => setShowWallpaperVideoModal(true)} className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
+                <Video className="h-8 w-8 text-gray-300 mb-2" />
+                <p className="text-sm text-gray-500">Upload video</p>
+                <p className="text-xs text-gray-400 mt-1">MP4, WebM, or MOV (max 100MB)</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Video Picker Modal */}
+      <Dialog open={showWallpaperVideoModal} onOpenChange={setShowWallpaperVideoModal}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => setShowWallpaperVideoModal(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Video</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-3">
+            <button onClick={() => wallpaperVideoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
+              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><Upload className="h-6 w-6 text-gray-600" /></div>
+              <div className="flex-1 text-left">
+                <p className="font-medium">Upload from device</p>
+                <p className="text-sm text-gray-500">MP4, WebM, or MOV</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </button>
+            <input ref={wallpaperVideoFileInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleWallpaperVideoFileSelect} className="hidden" />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Crop Modal */}
+      <Dialog open={showWallpaperVideoCropModal} onOpenChange={(open) => {
+        setShowWallpaperVideoCropModal(open)
+        if (!open) {
+          if (tempWallpaperVideoUrl) URL.revokeObjectURL(tempWallpaperVideoUrl)
+          setTempWallpaperVideoUrl(null)
+          setTempWallpaperVideoFile(null)
+          setIsWallpaperVideoDragging(false)
+          setIsWallpaperVideoResizing(null)
+        }
+      }}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => { setShowWallpaperVideoCropModal(false); setShowWallpaperVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-4">
+            {tempWallpaperVideoUrl && (
+              <>
+                <div
+                  ref={wallpaperVideoCropContainerRef}
+                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
+                  style={{ width: '300px', height: '225px', touchAction: 'none' }}
+                >
+                  <video
+                    ref={wallpaperVideoPreviewRef}
+                    src={tempWallpaperVideoUrl}
+                    className="w-full h-full object-cover pointer-events-none rounded-xl"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+
+                  {/* Crop box - draggable */}
+                  <div
+                    className="absolute border-2 border-white border-dashed cursor-move"
+                    style={{
+                      left: `${wallpaperVideoCropBox.x}%`,
+                      top: `${wallpaperVideoCropBox.y}%`,
+                      width: `${wallpaperVideoCropBox.width}%`,
+                      height: `${wallpaperVideoCropBox.height}%`,
+                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+                      background: 'transparent',
+                      touchAction: 'none'
+                    }}
+                    onMouseDown={(e) => handleWallpaperVideoCropMouseDown(e, 'drag')}
+                  >
+                    {/* Grid lines */}
+                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
+                      {[...Array(9)].map((_, i) => (
+                        <div key={i} className="border border-white/30" />
+                      ))}
+                    </div>
+
+                    {/* Corner resize handles */}
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
+                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'top-left') }}
+                    />
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
+                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'top-right') }}
+                    />
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
+                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'bottom-left') }}
+                    />
+                    <div
+                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
+                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'bottom-right') }}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize (portrait 9:16 default)</p>
+
+                <Button onClick={handleWallpaperVideoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingWallpaperVideo}>
+                  {uploadingWallpaperVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Layout Change Dialog */}
       <Dialog open={showLayoutChangeDialog} onOpenChange={setShowLayoutChangeDialog}>

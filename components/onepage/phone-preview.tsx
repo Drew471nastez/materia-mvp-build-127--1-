@@ -231,22 +231,45 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             <style>{`.phone-screen-scroll::-webkit-scrollbar { width: 4px; } .phone-screen-scroll::-webkit-scrollbar-track { background: transparent; margin: 10px 0; } .phone-screen-scroll::-webkit-scrollbar-thumb { background: ${theme.text_color}40; border-radius: 4px; }`}</style>
             
             {theme.background_type === "image" && theme.background_image_url && (
-              <div 
-                style={{ 
-                  position: 'absolute', 
-                  top: '-30px', 
-                  left: '-30px', 
-                  right: '-30px', 
-                  bottom: '-30px', 
-                  backgroundImage: `url(${theme.background_image_url})`, 
-                  backgroundSize: 'cover', 
-                  backgroundPosition: 'center', 
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-30px',
+                  left: '-30px',
+                  right: '-30px',
+                  bottom: '-30px',
+                  backgroundImage: `url(${theme.background_image_url})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
                   zIndex: 0,
                   filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`
-                }} 
+                }}
               />
             )}
-            
+
+            {/* Video background */}
+            {theme.background_type === "video" && (theme as any).background_video_url && (
+              <video
+                src={(theme as any).background_video_url}
+                style={{
+                  position: 'absolute',
+                  top: '-30px',
+                  left: '-30px',
+                  right: '-30px',
+                  bottom: '-30px',
+                  width: 'calc(100% + 60px)',
+                  height: 'calc(100% + 60px)',
+                  objectFit: 'cover',
+                  zIndex: 0,
+                  filter: `brightness(${(theme as any).video_brightness || 100}%)`
+                }}
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+            )}
+
             {/* Noise overlay for gradient backgrounds */}
             {theme.background_type === "gradient" && (theme as any).gradient_noise && (
               <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
@@ -329,23 +352,47 @@ export function MobilePreviewContent() {
         }}
       >
         {theme.background_type === "image" && theme.background_image_url && (
-          <div 
-            style={{ 
-              position: 'fixed', 
-              top: '-50px', 
-              left: '-50px', 
-              right: '-50px', 
-              bottom: '-50px', 
-              backgroundImage: `url(${theme.background_image_url})`, 
-              backgroundSize: 'cover', 
-              backgroundPosition: 'center', 
-              zIndex: 0, 
+          <div
+            style={{
+              position: 'fixed',
+              top: '-50px',
+              left: '-50px',
+              right: '-50px',
+              bottom: '-50px',
+              backgroundImage: `url(${theme.background_image_url})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              zIndex: 0,
               pointerEvents: 'none',
               filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`
-            }} 
+            }}
           />
         )}
-        
+
+        {/* Video background */}
+        {theme.background_type === "video" && (theme as any).background_video_url && (
+          <video
+            src={(theme as any).background_video_url}
+            style={{
+              position: 'fixed',
+              top: '-50px',
+              left: '-50px',
+              right: '-50px',
+              bottom: '-50px',
+              width: 'calc(100% + 100px)',
+              height: 'calc(100% + 100px)',
+              objectFit: 'cover',
+              zIndex: 0,
+              pointerEvents: 'none',
+              filter: `brightness(${(theme as any).video_brightness || 100}%)`
+            }}
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+        )}
+
         {/* Noise overlay for gradient backgrounds */}
         {theme.background_type === "gradient" && (theme as any).gradient_noise && (
           <svg className="fixed inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
@@ -538,13 +585,13 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                 <img
                   src={(theme as any).title_logo_url}
                   alt={profile.title || "Logo"}
-                  className={cn(
-                    "mx-auto object-contain",
-                    (theme as any).title_size === "large"
-                      ? (scale === "small" ? "h-12 max-w-[160px]" : "h-14 max-w-[200px]")
-                      : (scale === "small" ? "h-10 max-w-[140px]" : "h-12 max-w-[180px]")
-                  )}
-                  style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))" }}
+                  className="mx-auto w-auto"
+                  style={{
+                    maxHeight: (theme as any).title_size === "large" ? (scale === "small" ? '54px' : '62px') : (scale === "small" ? '46px' : '54px'),
+                    maxWidth: (theme as any).title_size === "large" ? (scale === "small" ? '180px' : '220px') : (scale === "small" ? '160px' : '200px'),
+                    objectFit: 'contain',
+                    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))"
+                  }}
                 />
               ) : profile.title && (
                 <h1 className={cn(s.title, "font-bold", (theme as any).title_size === "large" && (scale === "small" ? "text-[19px]" : "text-2xl"))} style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family, textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>{profile.title}</h1>
@@ -613,12 +660,12 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
             <img
               src={(theme as any).title_logo_url}
               alt={profile.title || "Logo"}
-              className={cn(
-                "mx-auto object-contain my-1",
-                (theme as any).title_size === "large"
-                  ? (scale === "small" ? "h-12 max-w-[160px]" : "h-14 max-w-[200px]")
-                  : (scale === "small" ? "h-10 max-w-[140px]" : "h-12 max-w-[180px]")
-              )}
+              className="mx-auto w-auto my-1"
+              style={{
+                maxHeight: (theme as any).title_size === "large" ? (scale === "small" ? '54px' : '62px') : (scale === "small" ? '46px' : '54px'),
+                maxWidth: (theme as any).title_size === "large" ? (scale === "small" ? '180px' : '220px') : (scale === "small" ? '160px' : '200px'),
+                objectFit: 'contain'
+              }}
             />
           ) : profile.title && (
             <h1 className={cn(s.title, "font-bold text-center", (theme as any).title_size === "large" && (scale === "small" ? "text-[19px]" : "text-2xl"))} style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family }}>{profile.title}</h1>
