@@ -257,6 +257,11 @@ export function LinksTab() {
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null)
   
+  // Name/Bio edit state
+  const [showNameBioModal, setShowNameBioModal] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editBio, setEditBio] = useState("")
+
   // Avatar edit state
   const [showAvatarEditModal, setShowAvatarEditModal] = useState(false)
   const [showAvatarUploadModal, setShowAvatarUploadModal] = useState(false)
@@ -427,8 +432,31 @@ export function LinksTab() {
             <Pencil className="h-4 w-4 text-white" />
           </div>
         </div>
-        <div>
-          <h2 className="font-semibold">{title || "Your Name"}</h2>
+        <div className="flex-1 min-w-0">
+          <button
+            onClick={() => {
+              setEditName(title || "")
+              setEditBio(onepage.bio || "")
+              setShowNameBioModal(true)
+            }}
+            className="text-left group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+          >
+            <h2 className="font-semibold">{title || "Your Name"}</h2>
+            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+          {onepage.bio && (
+            <button
+              onClick={() => {
+                setEditName(title || "")
+                setEditBio(onepage.bio || "")
+                setShowNameBioModal(true)
+              }}
+              className="text-left mt-0.5 group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+            >
+              <p className="text-sm text-muted-foreground line-clamp-2">{onepage.bio}</p>
+              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+            </button>
+          )}
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
             {activeSocials.slice(0, 5).map(([platform]) => {
               const config = SOCIAL_PLATFORMS.find(p => p.id === platform)
@@ -769,6 +797,58 @@ export function LinksTab() {
                 })()}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Name & Bio Edit Modal */}
+      <Dialog open={showNameBioModal} onOpenChange={setShowNameBioModal}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-4 sm:p-5 border-b">
+            <DialogTitle className="text-base sm:text-lg font-semibold">Edit Profile</DialogTitle>
+          </DialogHeader>
+
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Name</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Your display name"
+                className="h-11 border-2 border-gray-200 focus:border-gray-900 rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Bio</Label>
+              <Textarea
+                value={editBio}
+                onChange={(e) => setEditBio(e.target.value)}
+                placeholder="A short bio about yourself..."
+                className="min-h-[100px] border-2 border-gray-200 focus:border-gray-900 rounded-xl resize-none"
+                rows={4}
+              />
+              <p className="text-xs text-muted-foreground">This will appear below your name on your page</p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowNameBioModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                onClick={() => {
+                  updateProfile({ title: editName, bio: editBio })
+                  setShowNameBioModal(false)
+                }}
+              >
+                Save
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

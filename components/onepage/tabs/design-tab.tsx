@@ -480,7 +480,7 @@ const THEME_TEMPLATES = [
       pattern_color: "#ffffff90",
       spacing: "normal" as const,
       card_width: "standard" as const,
-      animated_gradient: true,
+      animated_gradient: false,
     },
   },
   {

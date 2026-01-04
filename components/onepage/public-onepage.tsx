@@ -588,7 +588,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
       {/* Mobile layout (full screen) */}
       <div
-        className="md:hidden min-h-screen w-full overflow-hidden relative"
+        className="md:hidden min-h-screen w-full overflow-x-hidden relative"
         style={{
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
