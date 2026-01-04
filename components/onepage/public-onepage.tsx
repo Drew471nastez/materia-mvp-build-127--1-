@@ -270,7 +270,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   // Background pattern overlay component
   const patternColor = (safeTheme as any).pattern_color || "#00000015"
   const patternOpacity = (safeTheme as any).pattern_opacity || "medium"
-  const patternOpacityValue = patternOpacity === "low" ? 0.4 : patternOpacity === "hard" ? 1 : 0.7
+  const patternOpacityValue = patternOpacity === "low" ? 0.4 : patternOpacity === "hard" ? 1 : patternOpacity === "very_hard" ? 1.5 : 0.7
   const BackgroundPatternOverlay = () => {
     const patternType = (safeTheme as any).background_pattern
     if (!patternType || patternType === "none") return null
@@ -731,8 +731,8 @@ function PublicBlockRenderer({
                   className={cn(
                     "mx-auto object-contain",
                     (theme as any).title_size === "large"
-                      ? (isDesktop ? "h-14 max-w-[200px]" : "h-12 max-w-[180px] sm:h-14 sm:max-w-[200px]")
-                      : (isDesktop ? "h-12 max-w-[180px]" : "h-10 max-w-[160px] sm:h-12 sm:max-w-[180px]")
+                      ? (isDesktop ? "h-16 max-w-[220px]" : "h-14 max-w-[200px] sm:h-16 sm:max-w-[220px]")
+                      : (isDesktop ? "h-14 max-w-[200px]" : "h-12 max-w-[180px] sm:h-14 sm:max-w-[200px]")
                   )}
                   style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))" }}
                 />
@@ -837,10 +837,10 @@ function PublicBlockRenderer({
               src={(theme as any).title_logo_url}
               alt={profile.title || "Logo"}
               className={cn(
-                "mx-auto object-contain",
+                "mx-auto object-contain my-2",
                 (theme as any).title_size === "large"
-                  ? (isDesktop ? "h-14 max-w-[200px]" : "h-12 max-w-[180px] sm:h-14 sm:max-w-[200px]")
-                  : (isDesktop ? "h-12 max-w-[180px]" : "h-10 max-w-[160px] sm:h-12 sm:max-w-[180px]")
+                  ? (isDesktop ? "h-16 max-w-[220px]" : "h-14 max-w-[200px] sm:h-16 sm:max-w-[220px]")
+                  : (isDesktop ? "h-14 max-w-[200px]" : "h-12 max-w-[180px] sm:h-14 sm:max-w-[200px]")
               )}
             />
           ) : profile.title && (

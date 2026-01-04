@@ -66,8 +66,8 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
 }
 
 // Background Pattern Component for rendering pattern overlays
-function BackgroundPattern({ pattern, color, opacity = "medium" }: { pattern: string; color: string; opacity?: "low" | "medium" | "hard" }) {
-  const opacityValue = opacity === "low" ? 0.4 : opacity === "hard" ? 1 : 0.7
+function BackgroundPattern({ pattern, color, opacity = "medium" }: { pattern: string; color: string; opacity?: "low" | "medium" | "hard" | "very_hard" }) {
+  const opacityValue = opacity === "low" ? 0.4 : opacity === "hard" ? 1 : opacity === "very_hard" ? 1.5 : 0.7
   const patternSVGs: Record<string, React.ReactNode> = {
     grid: (
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
@@ -541,8 +541,8 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                   className={cn(
                     "mx-auto object-contain",
                     (theme as any).title_size === "large"
-                      ? (scale === "small" ? "h-10 max-w-[140px]" : "h-12 max-w-[180px]")
-                      : (scale === "small" ? "h-8 max-w-[120px]" : "h-10 max-w-[160px]")
+                      ? (scale === "small" ? "h-12 max-w-[160px]" : "h-14 max-w-[200px]")
+                      : (scale === "small" ? "h-10 max-w-[140px]" : "h-12 max-w-[180px]")
                   )}
                   style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))" }}
                 />
@@ -614,10 +614,10 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
               src={(theme as any).title_logo_url}
               alt={profile.title || "Logo"}
               className={cn(
-                "mx-auto object-contain",
+                "mx-auto object-contain my-1",
                 (theme as any).title_size === "large"
-                  ? (scale === "small" ? "h-10 max-w-[140px]" : "h-12 max-w-[180px]")
-                  : (scale === "small" ? "h-8 max-w-[120px]" : "h-10 max-w-[160px]")
+                  ? (scale === "small" ? "h-12 max-w-[160px]" : "h-14 max-w-[200px]")
+                  : (scale === "small" ? "h-10 max-w-[140px]" : "h-12 max-w-[180px]")
               )}
             />
           ) : profile.title && (

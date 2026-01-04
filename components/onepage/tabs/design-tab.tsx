@@ -660,12 +660,15 @@ function HeaderSection() {
   const logoFileInputRef = useRef<HTMLInputElement>(null)
   const logoCropContainerRef = useRef<HTMLDivElement>(null)
 
-  // Logo crop state
-  const [logoCropBox, setLogoCropBox] = useState({ x: 10, y: 10, size: 80 })
+  // Logo crop state - percentage based like video cropper
+  const [logoCropBox, setLogoCropBox] = useState({ x: 10, y: 10, width: 80, height: 80 })
   const [isLogoDragging, setIsLogoDragging] = useState(false)
   const [isLogoResizing, setIsLogoResizing] = useState<string | null>(null)
-  const [logoDragStart, setLogoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxSize: 0 })
+  const [logoDragStart, setLogoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
   const [logoImageSize, setLogoImageSize] = useState({ width: 0, height: 0 })
+
+  // Pattern/Hero conflict dialog state
+  const [showPatternHeroConflict, setShowPatternHeroConflict] = useState(false)
 
 
   if (!onepage) return null
@@ -1052,6 +1055,10 @@ function HeaderSection() {
 
   const handleLayoutChange = (layout: string) => {
     if (layout === "hero" && (theme.background_type === "image" || theme.background_type === "gradient")) return
+    // Block switching to Hero if pattern is active
+    if (layout === "hero" && (theme as any).background_pattern && (theme as any).background_pattern !== "none") {
+      return // Silently block - pattern takes precedence
+    }
     updateTheme({ header_layout: layout } as any)
   }
 
@@ -1064,28 +1071,13 @@ function HeaderSection() {
     setTempLogoFile(file)
     setShowLogoUploadModal(false)
     setShowLogoCropModal(true)
-
-    // Load image to get dimensions and set initial crop box
-    const img = new Image()
-    img.onload = () => {
-      const containerSize = 300
-      const scale = Math.min(containerSize / img.width, containerSize / img.height)
-      const displayWidth = img.width * scale
-      const displayHeight = img.height * scale
-      setLogoImageSize({ width: displayWidth, height: displayHeight })
-
-      // Initial crop box centered and square
-      const initialSize = Math.min(displayWidth, displayHeight) * 0.8
-      setLogoCropBox({
-        x: (displayWidth - initialSize) / 2,
-        y: (displayHeight - initialSize) / 2,
-        size: initialSize
-      })
-    }
-    img.src = url
+    // Reset to centered square crop box (percentage based)
+    setLogoCropBox({ x: 10, y: 10, width: 80, height: 80 })
+    // Reset file input for next selection
+    e.target.value = ''
   }
 
-  // Logo crop drag handlers
+  // Logo crop drag handlers - percentage based like video cropper
   const handleLogoCropMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize', corner?: string) => {
     e.preventDefault()
     e.stopPropagation()
@@ -1093,12 +1085,16 @@ function HeaderSection() {
     if (!container) return
 
     const rect = container.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
     setLogoDragStart({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x,
+      y,
       boxX: logoCropBox.x,
       boxY: logoCropBox.y,
-      boxSize: logoCropBox.size
+      boxW: logoCropBox.width,
+      boxH: logoCropBox.height
     })
 
     if (type === 'drag') {
@@ -1115,12 +1111,16 @@ function HeaderSection() {
     if (!container || !touch) return
 
     const rect = container.getBoundingClientRect()
+    const x = ((touch.clientX - rect.left) / rect.width) * 100
+    const y = ((touch.clientY - rect.top) / rect.height) * 100
+
     setLogoDragStart({
-      x: touch.clientX - rect.left,
-      y: touch.clientY - rect.top,
+      x,
+      y,
       boxX: logoCropBox.x,
       boxY: logoCropBox.y,
-      boxSize: logoCropBox.size
+      boxW: logoCropBox.width,
+      boxH: logoCropBox.height
     })
 
     if (type === 'drag') {
@@ -1135,8 +1135,8 @@ function HeaderSection() {
     if (!container) return
 
     const rect = container.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
 
     if (isLogoDragging) {
       const deltaX = x - logoDragStart.x
@@ -1145,42 +1145,56 @@ function HeaderSection() {
       let newX = logoDragStart.boxX + deltaX
       let newY = logoDragStart.boxY + deltaY
 
-      // Constrain to image bounds
-      newX = Math.max(0, Math.min(logoImageSize.width - logoCropBox.size, newX))
-      newY = Math.max(0, Math.min(logoImageSize.height - logoCropBox.size, newY))
+      // Constrain to container
+      newX = Math.max(0, Math.min(100 - logoCropBox.width, newX))
+      newY = Math.max(0, Math.min(100 - logoCropBox.height, newY))
 
       setLogoCropBox(prev => ({ ...prev, x: newX, y: newY }))
     } else if (isLogoResizing) {
       const deltaX = x - logoDragStart.x
       const deltaY = y - logoDragStart.y
-      const delta = Math.max(deltaX, deltaY)
 
-      let newSize = logoDragStart.boxSize
-      let newX = logoDragStart.boxX
-      let newY = logoDragStart.boxY
+      let newBox = { ...logoCropBox }
 
-      if (isLogoResizing === 'bottom-right') {
-        newSize = Math.max(50, logoDragStart.boxSize + delta)
-      } else if (isLogoResizing === 'top-left') {
-        newSize = Math.max(50, logoDragStart.boxSize - delta)
-        newX = logoDragStart.boxX + (logoDragStart.boxSize - newSize)
-        newY = logoDragStart.boxY + (logoDragStart.boxSize - newSize)
-      } else if (isLogoResizing === 'top-right') {
-        newSize = Math.max(50, logoDragStart.boxSize + deltaX)
-        newY = logoDragStart.boxY + (logoDragStart.boxSize - newSize)
-      } else if (isLogoResizing === 'bottom-left') {
-        newSize = Math.max(50, logoDragStart.boxSize - deltaX)
-        newX = logoDragStart.boxX + (logoDragStart.boxSize - newSize)
+      if (isLogoResizing.includes('right')) {
+        newBox.width = Math.max(20, Math.min(100 - logoDragStart.boxX, logoDragStart.boxW + deltaX))
+      }
+      if (isLogoResizing.includes('left')) {
+        const newWidth = Math.max(20, logoDragStart.boxW - deltaX)
+        const maxWidth = logoDragStart.boxX + logoDragStart.boxW
+        newBox.width = Math.min(newWidth, maxWidth)
+        newBox.x = logoDragStart.boxX + logoDragStart.boxW - newBox.width
+      }
+      if (isLogoResizing.includes('bottom')) {
+        newBox.height = Math.max(20, Math.min(100 - logoDragStart.boxY, logoDragStart.boxH + deltaY))
+      }
+      if (isLogoResizing.includes('top')) {
+        const newHeight = Math.max(20, logoDragStart.boxH - deltaY)
+        const maxHeight = logoDragStart.boxY + logoDragStart.boxH
+        newBox.height = Math.min(newHeight, maxHeight)
+        newBox.y = logoDragStart.boxY + logoDragStart.boxH - newBox.height
       }
 
-      // Constrain to bounds
-      newSize = Math.min(newSize, logoImageSize.width - newX, logoImageSize.height - newY)
-      newX = Math.max(0, newX)
-      newY = Math.max(0, newY)
+      // Keep square aspect ratio
+      const size = Math.min(newBox.width, newBox.height)
+      if (isLogoResizing.includes('right') || isLogoResizing.includes('bottom')) {
+        newBox.width = size
+        newBox.height = size
+      } else {
+        // Adjust position when resizing from left/top
+        if (isLogoResizing.includes('left')) {
+          newBox.x = logoDragStart.boxX + logoDragStart.boxW - size
+        }
+        if (isLogoResizing.includes('top')) {
+          newBox.y = logoDragStart.boxY + logoDragStart.boxH - size
+        }
+        newBox.width = size
+        newBox.height = size
+      }
 
-      setLogoCropBox({ x: newX, y: newY, size: newSize })
+      setLogoCropBox(newBox)
     }
-  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.size, logoImageSize])
+  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.width, logoCropBox.height])
 
   const handleLogoCropTouchMove = useCallback((e: TouchEvent) => {
     const touch = e.touches[0]
@@ -1189,8 +1203,8 @@ function HeaderSection() {
     if (!container) return
 
     const rect = container.getBoundingClientRect()
-    const x = touch.clientX - rect.left
-    const y = touch.clientY - rect.top
+    const x = ((touch.clientX - rect.left) / rect.width) * 100
+    const y = ((touch.clientY - rect.top) / rect.height) * 100
 
     if (isLogoDragging) {
       const deltaX = x - logoDragStart.x
@@ -1199,34 +1213,43 @@ function HeaderSection() {
       let newX = logoDragStart.boxX + deltaX
       let newY = logoDragStart.boxY + deltaY
 
-      newX = Math.max(0, Math.min(logoImageSize.width - logoCropBox.size, newX))
-      newY = Math.max(0, Math.min(logoImageSize.height - logoCropBox.size, newY))
+      newX = Math.max(0, Math.min(100 - logoCropBox.width, newX))
+      newY = Math.max(0, Math.min(100 - logoCropBox.height, newY))
 
       setLogoCropBox(prev => ({ ...prev, x: newX, y: newY }))
     } else if (isLogoResizing) {
       const deltaX = x - logoDragStart.x
       const deltaY = y - logoDragStart.y
-      const delta = Math.max(deltaX, deltaY)
 
-      let newSize = logoDragStart.boxSize
-      let newX = logoDragStart.boxX
-      let newY = logoDragStart.boxY
+      let newBox = { ...logoCropBox }
 
-      if (isLogoResizing === 'bottom-right') {
-        newSize = Math.max(50, logoDragStart.boxSize + delta)
-      } else if (isLogoResizing === 'top-left') {
-        newSize = Math.max(50, logoDragStart.boxSize - delta)
-        newX = logoDragStart.boxX + (logoDragStart.boxSize - newSize)
-        newY = logoDragStart.boxY + (logoDragStart.boxSize - newSize)
+      if (isLogoResizing.includes('right')) {
+        newBox.width = Math.max(20, Math.min(100 - logoDragStart.boxX, logoDragStart.boxW + deltaX))
+      }
+      if (isLogoResizing.includes('left')) {
+        const newWidth = Math.max(20, logoDragStart.boxW - deltaX)
+        const maxWidth = logoDragStart.boxX + logoDragStart.boxW
+        newBox.width = Math.min(newWidth, maxWidth)
+        newBox.x = logoDragStart.boxX + logoDragStart.boxW - newBox.width
+      }
+      if (isLogoResizing.includes('bottom')) {
+        newBox.height = Math.max(20, Math.min(100 - logoDragStart.boxY, logoDragStart.boxH + deltaY))
+      }
+      if (isLogoResizing.includes('top')) {
+        const newHeight = Math.max(20, logoDragStart.boxH - deltaY)
+        const maxHeight = logoDragStart.boxY + logoDragStart.boxH
+        newBox.height = Math.min(newHeight, maxHeight)
+        newBox.y = logoDragStart.boxY + logoDragStart.boxH - newBox.height
       }
 
-      newSize = Math.min(newSize, logoImageSize.width - newX, logoImageSize.height - newY)
-      newX = Math.max(0, newX)
-      newY = Math.max(0, newY)
+      // Keep square aspect ratio
+      const size = Math.min(newBox.width, newBox.height)
+      newBox.width = size
+      newBox.height = size
 
-      setLogoCropBox({ x: newX, y: newY, size: newSize })
+      setLogoCropBox(newBox)
     }
-  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.size, logoImageSize])
+  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.width, logoCropBox.height])
 
   const handleLogoCropMouseUp = useCallback(() => {
     setIsLogoDragging(false)
@@ -1268,14 +1291,11 @@ function HeaderSection() {
         img.src = tempLogoUrl
       })
 
-      // Calculate the actual image coordinates from the crop box
-      const containerSize = 300
-      const scale = Math.min(containerSize / img.width, containerSize / img.height)
-
-      // Convert crop box coordinates back to original image coordinates
-      const actualX = logoCropBox.x / scale
-      const actualY = logoCropBox.y / scale
-      const actualSize = logoCropBox.size / scale
+      // Convert percentage-based crop box to actual image coordinates
+      const actualX = (logoCropBox.x / 100) * img.width
+      const actualY = (logoCropBox.y / 100) * img.height
+      const actualWidth = (logoCropBox.width / 100) * img.width
+      const actualHeight = (logoCropBox.height / 100) * img.height
 
       // Output size for high quality logo
       const outputSize = 400
@@ -1287,7 +1307,7 @@ function HeaderSection() {
         ctx.imageSmoothingQuality = 'high'
         ctx.drawImage(
           img,
-          actualX, actualY, actualSize, actualSize,
+          actualX, actualY, actualWidth, actualHeight,
           0, 0, outputSize, outputSize
         )
       }
@@ -1491,7 +1511,7 @@ function HeaderSection() {
               <>
                 <div
                   ref={videoCropContainerRef}
-                  className="relative mx-auto bg-black rounded-xl select-none"
+                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
                   style={{ width: '300px', height: '400px', touchAction: 'none' }}
                 >
                   <video
@@ -1742,30 +1762,24 @@ function HeaderSection() {
                   className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden select-none"
                   style={{ width: '300px', height: '300px', touchAction: 'none' }}
                 >
-                  {/* Image */}
+                  {/* Image fills container */}
                   <img
                     src={tempLogoUrl}
                     alt="Preview"
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
-                    style={{
-                      width: logoImageSize.width,
-                      height: logoImageSize.height,
-                      maxWidth: '300px',
-                      maxHeight: '300px',
-                      objectFit: 'contain'
-                    }}
+                    className="w-full h-full object-contain pointer-events-none select-none"
                     draggable={false}
                   />
 
-                  {/* Crop box */}
+                  {/* Crop box - percentage based like video cropper */}
                   <div
-                    className="absolute border-2 border-blue-500 cursor-move"
+                    className="absolute border-2 border-white border-dashed cursor-move"
                     style={{
-                      left: `${150 - logoImageSize.width/2 + logoCropBox.x}px`,
-                      top: `${150 - logoImageSize.height/2 + logoCropBox.y}px`,
-                      width: `${logoCropBox.size}px`,
-                      height: `${logoCropBox.size}px`,
+                      left: `${logoCropBox.x}%`,
+                      top: `${logoCropBox.y}%`,
+                      width: `${logoCropBox.width}%`,
+                      height: `${logoCropBox.height}%`,
                       boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+                      background: 'transparent',
                       touchAction: 'none'
                     }}
                     onMouseDown={(e) => handleLogoCropMouseDown(e, 'drag')}
@@ -1778,30 +1792,56 @@ function HeaderSection() {
                       ))}
                     </div>
 
-                    {/* Corner resize handles */}
+                    {/* Corner resize handles - larger for mobile touch */}
                     <div
                       className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
-                      style={{ top: '-10px', left: '-10px', width: '20px', height: '20px', touchAction: 'none' }}
+                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top-left') }}
                       onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top-left') }}
                     />
                     <div
                       className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
-                      style={{ top: '-10px', right: '-10px', width: '20px', height: '20px', touchAction: 'none' }}
+                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top-right') }}
                       onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top-right') }}
                     />
                     <div
                       className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
-                      style={{ bottom: '-10px', left: '-10px', width: '20px', height: '20px', touchAction: 'none' }}
+                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom-left') }}
                       onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom-left') }}
                     />
                     <div
                       className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
-                      style={{ bottom: '-10px', right: '-10px', width: '20px', height: '20px', touchAction: 'none' }}
+                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom-right') }}
                       onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom-right') }}
+                    />
+
+                    {/* Edge resize handles */}
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-n-resize z-50"
+                      style={{ top: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top') }}
+                    />
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-s-resize z-50"
+                      style={{ bottom: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom') }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-w-resize z-50"
+                      style={{ left: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'left') }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-e-resize z-50"
+                      style={{ right: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'right') }}
                     />
                   </div>
                 </div>
@@ -1824,14 +1864,15 @@ function HeaderSection() {
             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center"><User className="h-5 w-5 text-gray-400" /></div>
             <span className="text-xs md:text-sm font-medium">Classic</span>
           </button>
-          <button onClick={() => handleLayoutChange("hero")} disabled={theme.background_type === "image" || theme.background_type === "gradient"} className={cn("border-2 rounded-xl p-4 md:p-5 flex flex-col items-center gap-2 md:gap-3 transition-all relative", effectiveLayout === "hero" ? "border-foreground bg-white" : "border-gray-200 hover:border-gray-300", (theme.background_type === "image" || theme.background_type === "gradient") && "opacity-50 cursor-not-allowed")}>
+          <button onClick={() => handleLayoutChange("hero")} disabled={theme.background_type === "image" || theme.background_type === "gradient" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")} className={cn("border-2 rounded-xl p-4 md:p-5 flex flex-col items-center gap-2 md:gap-3 transition-all relative", effectiveLayout === "hero" ? "border-foreground bg-white" : "border-gray-200 hover:border-gray-300", (theme.background_type === "image" || theme.background_type === "gradient" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")) && "opacity-50 cursor-not-allowed")}>
             <div className="w-full h-10 bg-gradient-to-b from-gray-300 to-gray-100 rounded-lg flex items-end justify-center pb-1"><Move className="h-4 w-4 text-gray-400" /></div>
             <span className="text-xs md:text-sm font-medium">Hero</span>
           </button>
         </div>
         {theme.background_type === "image" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using an image wallpaper.</p>}
         {theme.background_type === "gradient" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using a gradient wallpaper.</p>}
-        {effectiveLayout === "hero" && theme.background_type === "solid" && <p className="text-xs text-muted-foreground">Hero displays your avatar as a full-width background with fade</p>}
+        {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using a pattern. Switch to Classic to use patterns.</p>}
+        {effectiveLayout === "hero" && theme.background_type === "solid" && !((theme as any).background_pattern && (theme as any).background_pattern !== "none") && <p className="text-xs text-muted-foreground">Hero displays your avatar as a full-width background with fade</p>}
       </div>
 
       <div className="space-y-2">
@@ -2566,11 +2607,11 @@ function WallpaperSection() {
           {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">Pattern opacity</Label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => updateTheme({ pattern_opacity: "low" } as any)}
                   className={cn(
-                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
                     (theme as any).pattern_opacity === "low"
                       ? "bg-white border-gray-900 text-gray-900"
                       : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
@@ -2581,7 +2622,7 @@ function WallpaperSection() {
                 <button
                   onClick={() => updateTheme({ pattern_opacity: "medium" } as any)}
                   className={cn(
-                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
                     ((theme as any).pattern_opacity || "medium") === "medium"
                       ? "bg-white border-gray-900 text-gray-900"
                       : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
@@ -2592,13 +2633,24 @@ function WallpaperSection() {
                 <button
                   onClick={() => updateTheme({ pattern_opacity: "hard" } as any)}
                   className={cn(
-                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
                     (theme as any).pattern_opacity === "hard"
                       ? "bg-white border-gray-900 text-gray-900"
                       : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
                   )}
                 >
                   Hard
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "very_hard" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "very_hard"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  V.Hard
                 </button>
               </div>
             </div>
@@ -2785,11 +2837,11 @@ function WallpaperSection() {
           {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">Pattern opacity</Label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => updateTheme({ pattern_opacity: "low" } as any)}
                   className={cn(
-                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
                     (theme as any).pattern_opacity === "low"
                       ? "bg-white border-gray-900 text-gray-900"
                       : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
@@ -2800,7 +2852,7 @@ function WallpaperSection() {
                 <button
                   onClick={() => updateTheme({ pattern_opacity: "medium" } as any)}
                   className={cn(
-                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
                     ((theme as any).pattern_opacity || "medium") === "medium"
                       ? "bg-white border-gray-900 text-gray-900"
                       : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
@@ -2811,13 +2863,24 @@ function WallpaperSection() {
                 <button
                   onClick={() => updateTheme({ pattern_opacity: "hard" } as any)}
                   className={cn(
-                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
                     (theme as any).pattern_opacity === "hard"
                       ? "bg-white border-gray-900 text-gray-900"
                       : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
                   )}
                 >
                   Hard
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "very_hard" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "very_hard"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  V.Hard
                 </button>
               </div>
             </div>
@@ -3102,6 +3165,23 @@ function TextSection() {
           >
             Large
           </button>
+        </div>
+      </div>
+
+      {/* Title color */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title color</Label>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={(theme as any).title_color || theme.text_color} onChange={(e) => updateTheme({ title_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).title_color || theme.text_color }} />
+          </div>
+          <Input value={(theme as any).title_color || theme.text_color} onChange={(e) => updateTheme({ title_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ title_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", ((theme as any).title_color || theme.text_color) === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
         </div>
       </div>
 
