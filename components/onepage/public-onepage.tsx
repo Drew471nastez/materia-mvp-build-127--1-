@@ -268,7 +268,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   )
 
   // Background pattern overlay component
-  const patternColor = (safeTheme as any).pattern_color || "#00000015"
+  const patternColor = (safeTheme as any).pattern_color || "#00000090"
   const patternOpacity = (safeTheme as any).pattern_opacity || "medium"
   const patternOpacityValue = patternOpacity === "low" ? 0.4 : patternOpacity === "hard" ? 1 : patternOpacity === "very_hard" ? 1.5 : 0.7
   const BackgroundPatternOverlay = () => {
@@ -781,7 +781,7 @@ function PublicBlockRenderer({
                     maxWidth: (theme as any).title_size === "large" ? (isDesktop ? '260px' : '230px') : (isDesktop ? '230px' : '200px'),
                     objectFit: 'contain',
                     filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))",
-                    marginTop: (theme as any).logo_position === "more_up" ? '-5px' : undefined
+                    marginTop: (theme as any).logo_position === "more_up" ? '-10px' : undefined
                   }}
                 />
               ) : profile.title && (

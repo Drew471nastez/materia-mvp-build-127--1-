@@ -2424,7 +2424,7 @@ function WallpaperSection() {
   const wallpaperVideoCropContainerRef = useRef<HTMLDivElement>(null)
 
   // Video crop state for wallpaper
-  const [wallpaperVideoCropBox, setWallpaperVideoCropBox] = useState({ x: 28.90625, y: 0, width: 42.1875, height: 100 }) // 9:16 aspect locked, centered
+  const [wallpaperVideoCropBox, setWallpaperVideoCropBox] = useState({ x: 0, y: 0, width: 100, height: 100 }) // 9:16 container, full coverage default
   const [isWallpaperVideoDragging, setIsWallpaperVideoDragging] = useState(false)
   const [isWallpaperVideoResizing, setIsWallpaperVideoResizing] = useState<string | null>(null)
   const [wallpaperVideoDragStart, setWallpaperVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
@@ -2599,13 +2599,13 @@ function WallpaperSection() {
     } else if (isWallpaperVideoResizing) {
       const deltaY = y - wallpaperVideoDragStart.y
 
-      // 9:16 aspect ratio locked - calculate width from height
-      // Container is 300x225 pixels, for 9:16 crop: width% = height% * (9/16) * (225/300)
-      const aspectFactor = (9 / 16) * (225 / 300) // = 0.421875
+      // 9:16 aspect ratio locked - container is 200x356 (portrait 9:16)
+      // For 9:16 crop on 9:16 container: width% = height% (approximately 1:1 ratio in percentages)
+      const aspectFactor = 1 // Since container is already 9:16, percentages match
 
       let newBox = { ...wallpaperVideoCropBox }
 
-      // Only allow vertical resizing, width adjusts automatically
+      // Resize maintains square percentage (which gives 9:16 actual ratio)
       if (isWallpaperVideoResizing.includes('bottom')) {
         const newHeight = Math.max(30, Math.min(100 - wallpaperVideoDragStart.boxY, wallpaperVideoDragStart.boxH + deltaY))
         const newWidth = newHeight * aspectFactor
@@ -2623,15 +2623,13 @@ function WallpaperSection() {
           newBox.y = Math.max(0, Math.min(maxY, wallpaperVideoDragStart.boxY + deltaY))
           newBox.height = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - newBox.y
           newBox.width = newBox.height * aspectFactor
-          // Adjust x if needed to keep within bounds
           if (newBox.x + newBox.width > 100) {
             newBox.x = 100 - newBox.width
           }
         }
       }
-      // Corner resizing also respects locked ratio
+      // Corner resizing
       if (isWallpaperVideoResizing.includes('right') || isWallpaperVideoResizing.includes('left')) {
-        // Still use height-based calculation for corners
         const newHeight = Math.max(30, Math.min(100 - newBox.y, wallpaperVideoDragStart.boxH + deltaY))
         const newWidth = newHeight * aspectFactor
         if (newBox.x + newWidth <= 100) {
@@ -2871,7 +2869,7 @@ function WallpaperSection() {
                   <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#000000"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "90" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#00000090" }} />
                 </div>
-                <Input value={(theme as any).pattern_color || "#00000090"} onChange={(e) => updateTheme({ pattern_color: e.target.value } as any)} placeholder="#00000090" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+                <Input value={(theme as any).pattern_color || "#00000090"} onChange={(e) => { const val = e.target.value; const normalized = val.match(/^#[0-9a-f]{6}/i) ? val.slice(0, 7) + "90" : val; updateTheme({ pattern_color: normalized } as any) }} placeholder="#00000090" className="h-12 rounded-xl flex-1 font-mono text-sm" />
               </div>
               <div className="flex gap-2 pt-1">
                 {['#00000090', '#ffffff90', '#3b82f690', '#10b98190', '#f59e0b90', '#ef444490'].map((color) => (
@@ -3101,7 +3099,7 @@ function WallpaperSection() {
                   <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#ffffff"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "90" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#ffffff90" }} />
                 </div>
-                <Input value={(theme as any).pattern_color || "#ffffff90"} onChange={(e) => updateTheme({ pattern_color: e.target.value } as any)} placeholder="#ffffff90" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+                <Input value={(theme as any).pattern_color || "#ffffff90"} onChange={(e) => { const val = e.target.value; const normalized = val.match(/^#[0-9a-f]{6}/i) ? val.slice(0, 7) + "90" : val; updateTheme({ pattern_color: normalized } as any) }} placeholder="#ffffff90" className="h-12 rounded-xl flex-1 font-mono text-sm" />
               </div>
               <div className="flex gap-2 pt-1">
                 {['#ffffff90', '#00000090', '#3b82f690', '#10b98190', '#f59e0b90', '#ef444490'].map((color) => (
@@ -3388,7 +3386,7 @@ function WallpaperSection() {
                 <div
                   ref={wallpaperVideoCropContainerRef}
                   className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
-                  style={{ width: '300px', height: '225px', touchAction: 'none' }}
+                  style={{ width: '200px', height: '356px', touchAction: 'none' }}
                 >
                   <video
                     ref={wallpaperVideoPreviewRef}

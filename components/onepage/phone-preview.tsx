@@ -292,7 +292,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
             {/* Pattern overlay */}
             {(theme.background_type === "solid" || theme.background_type === "gradient") && (theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
-              <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000015"} opacity={(theme as any).pattern_opacity || "medium"} />
+              <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000090"} opacity={(theme as any).pattern_opacity || "medium"} />
             )}
 
             <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '24px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -416,7 +416,7 @@ export function MobilePreviewContent() {
         {/* Pattern overlay for mobile */}
         {(theme.background_type === "solid" || theme.background_type === "gradient") && (theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
           <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-            <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000015"} opacity={(theme as any).pattern_opacity || "medium"} />
+            <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000090"} opacity={(theme as any).pattern_opacity || "medium"} />
           </div>
         )}
 
@@ -591,7 +591,7 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                     maxWidth: (theme as any).title_size === "large" ? (scale === "small" ? '180px' : '220px') : (scale === "small" ? '160px' : '200px'),
                     objectFit: 'contain',
                     filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))",
-                    marginTop: (theme as any).logo_position === "more_up" ? '-5px' : undefined
+                    marginTop: (theme as any).logo_position === "more_up" ? '-10px' : undefined
                   }}
                 />
               ) : profile.title && (
