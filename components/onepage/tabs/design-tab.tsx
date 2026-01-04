@@ -51,7 +51,7 @@ function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChang
   )
 }
 
-// Custom Slider Component with modern styling
+// Custom Slider Component with premium minimal styling
 function Slider({ value, onValueChange, min = 0, max = 100, step = 1 }: {
   value: number[];
   onValueChange: (value: number[]) => void;
@@ -60,14 +60,22 @@ function Slider({ value, onValueChange, min = 0, max = 100, step = 1 }: {
   step?: number
 }) {
   const percentage = ((value[0] - min) / (max - min)) * 100
+  const numTicks = 5
+  const ticks = Array.from({ length: numTicks }, (_, i) => (i / (numTicks - 1)) * 100)
 
   return (
     <div className="relative w-full h-6 flex items-center">
-      <div className="relative w-full h-[6px] bg-gray-200 rounded-full">
-        <div
-          className="absolute h-full bg-blue-500 rounded-full"
-          style={{ width: `${percentage}%` }}
-        />
+      {/* Track */}
+      <div className="relative w-full h-[4px] bg-[#f0f0f0] rounded-full">
+        {/* Tick markers */}
+        {ticks.map((pos, i) => (
+          <div
+            key={i}
+            className="absolute w-[6px] h-[6px] bg-[#e0e0e0] rounded-full -translate-y-1/2 top-1/2"
+            style={{ left: `calc(${pos}% - 3px)` }}
+          />
+        ))}
+        {/* Hidden input for interaction */}
         <input
           type="range"
           min={min}
@@ -75,11 +83,15 @@ function Slider({ value, onValueChange, min = 0, max = 100, step = 1 }: {
           step={step}
           value={value[0]}
           onChange={(e) => onValueChange([Number(e.target.value)])}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         />
+        {/* Thumb */}
         <div
-          className="absolute w-[18px] h-[18px] bg-white border-2 border-blue-500 rounded-full shadow-md -translate-y-1/2 top-1/2 pointer-events-none"
-          style={{ left: `calc(${percentage}% - 9px)` }}
+          className="absolute w-[16px] h-[16px] bg-white rounded-full -translate-y-1/2 top-1/2 pointer-events-none"
+          style={{
+            left: `calc(${percentage}% - 8px)`,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1)'
+          }}
         />
       </div>
     </div>

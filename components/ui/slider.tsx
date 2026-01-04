@@ -23,6 +23,9 @@ function Slider({
     [value, defaultValue, min, max],
   )
 
+  // Generate tick positions (5 ticks)
+  const ticks = [0, 25, 50, 75, 100]
+
   return (
     <SliderPrimitive.Root
       data-slot="slider"
@@ -38,22 +41,36 @@ function Slider({
     >
       <SliderPrimitive.Track
         data-slot="slider-track"
-        className={
-          'bg-muted relative grow overflow-hidden rounded-full data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5'
-        }
+        className="relative grow overflow-visible rounded-full data-[orientation=horizontal]:h-[4px] data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-[4px]"
+        style={{ backgroundColor: '#f0f0f0' }}
       >
+        {/* Tick markers */}
+        {ticks.map((pos) => (
+          <div
+            key={pos}
+            className="absolute w-[6px] h-[6px] rounded-full -translate-y-1/2 top-1/2"
+            style={{
+              left: `calc(${pos}% - 3px)`,
+              backgroundColor: '#e0e0e0'
+            }}
+          />
+        ))}
+        {/* Hidden range - no colored fill for minimal look */}
         <SliderPrimitive.Range
           data-slot="slider-range"
-          className={
-            'bg-primary absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full'
-          }
+          className="absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
+          style={{ backgroundColor: 'transparent' }}
         />
       </SliderPrimitive.Track>
       {Array.from({ length: _values.length }, (_, index) => (
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
-          className="border-primary ring-ring/50 block size-4 shrink-0 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
+          className="block size-[16px] shrink-0 rounded-full bg-white transition-shadow focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
+          style={{
+            boxShadow: '0 1px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1)',
+            border: 'none'
+          }}
         />
       ))}
     </SliderPrimitive.Root>

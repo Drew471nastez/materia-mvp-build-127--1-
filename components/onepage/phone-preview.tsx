@@ -631,29 +631,41 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
         <div className="flex flex-col items-center gap-2 w-full text-center">
           {data.show_avatar && (
             <div className="relative" style={{ width: avatarSize, height: avatarSize }}>
-              {/* Laser Glow Effect - rotating gradient on border */}
+              {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>
-                  {/* Outer glow layer for more intense effect */}
+                  {/* Trail layer 3 - farthest behind */}
                   <div
                     className="absolute rounded-full"
                     style={{
-                      inset: -2,
-                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 300deg, ${laserGlowColor}66 330deg, ${laserGlowColor} 360deg)`,
+                      inset: 0,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 200deg, ${laserGlowColor}22 260deg, ${laserGlowColor}44 300deg, ${laserGlowColor}66 340deg, ${laserGlowColor} 360deg)`,
+                      animation: 'laserGlowRotate 3.25s linear infinite',
+                      filter: `blur(${glowSpread + 4}px)`,
+                      opacity: glowOpacity * 0.4,
+                    }}
+                  />
+                  {/* Trail layer 2 */}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      inset: 0,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 260deg, ${laserGlowColor}44 300deg, ${laserGlowColor}88 340deg, ${laserGlowColor} 360deg)`,
                       animation: 'laserGlowRotate 3.25s linear infinite',
                       filter: `blur(${glowSpread + 2}px)`,
                       opacity: glowOpacity * 0.6,
                     }}
                   />
-                  {/* Main glow layer */}
+                  {/* Main glow layer - brightest point */}
                   <div
                     className="absolute rounded-full"
                     style={{
-                      inset: -1,
-                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 310deg, ${laserGlowColor}88 340deg, ${laserGlowColor} 360deg)`,
+                      inset: 0,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 320deg, ${laserGlowColor}88 345deg, ${laserGlowColor} 360deg)`,
                       animation: 'laserGlowRotate 3.25s linear infinite',
                       filter: `blur(${glowSpread}px)`,
                       opacity: glowOpacity,
+                      boxShadow: `0 0 ${glowSpread * 2}px ${laserGlowColor}`,
                     }}
                   />
                 </>

@@ -847,32 +847,44 @@ function PublicBlockRenderer({
       const avatarSize = isDesktop ? 107 : 96
 
       return (
-        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center", isDesktop && "pt-3")}>
+        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")}>
           {data.show_avatar !== false && (
-            <div className="relative" style={{ width: avatarSize, height: avatarSize }}>
-              {/* Laser Glow Effect - rotating gradient on border */}
+            <div className="relative" style={{ width: avatarSize, height: avatarSize, marginTop: isDesktop ? 16 : 0 }}>
+              {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>
-                  {/* Outer glow layer for more intense effect */}
+                  {/* Trail layer 3 - farthest behind */}
                   <div
                     className="absolute rounded-full"
                     style={{
-                      inset: -2,
-                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 300deg, ${laserGlowColor}66 330deg, ${laserGlowColor} 360deg)`,
+                      inset: 0,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 200deg, ${laserGlowColor}22 260deg, ${laserGlowColor}44 300deg, ${laserGlowColor}66 340deg, ${laserGlowColor} 360deg)`,
+                      animation: 'laserGlowRotate 3.25s linear infinite',
+                      filter: `blur(${glowSpread + 4}px)`,
+                      opacity: glowOpacity * 0.4,
+                    }}
+                  />
+                  {/* Trail layer 2 */}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      inset: 0,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 260deg, ${laserGlowColor}44 300deg, ${laserGlowColor}88 340deg, ${laserGlowColor} 360deg)`,
                       animation: 'laserGlowRotate 3.25s linear infinite',
                       filter: `blur(${glowSpread + 2}px)`,
                       opacity: glowOpacity * 0.6,
                     }}
                   />
-                  {/* Main glow layer */}
+                  {/* Main glow layer - brightest point */}
                   <div
                     className="absolute rounded-full"
                     style={{
-                      inset: -1,
-                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 310deg, ${laserGlowColor}88 340deg, ${laserGlowColor} 360deg)`,
+                      inset: 0,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 320deg, ${laserGlowColor}88 345deg, ${laserGlowColor} 360deg)`,
                       animation: 'laserGlowRotate 3.25s linear infinite',
                       filter: `blur(${glowSpread}px)`,
                       opacity: glowOpacity,
+                      boxShadow: `0 0 ${glowSpread * 2}px ${laserGlowColor}`,
                     }}
                   />
                 </>
@@ -881,10 +893,7 @@ function PublicBlockRenderer({
               <div className="absolute inset-0">
                 {hasVideo ? (
                   <div
-                    className={cn(
-                      "rounded-full overflow-hidden border-2 shadow-lg w-full h-full",
-                      isDesktop && "mt-2"
-                    )}
+                    className="rounded-full overflow-hidden border-2 shadow-lg w-full h-full"
                     style={{
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
@@ -917,10 +926,7 @@ function PublicBlockRenderer({
                   </div>
                 ) : (
                   <Avatar
-                    className={cn(
-                      "border-2 shadow-lg w-full h-full",
-                      isDesktop && "mt-2"
-                    )}
+                    className="border-2 shadow-lg w-full h-full"
                     style={{
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
