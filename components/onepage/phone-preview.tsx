@@ -616,53 +616,42 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
           </div>
         )
       }
-      
+
       // Classic layout
-      // Laser glow settings - small border-sized pointer with intense glow
+      // Laser glow settings - glow travels along the avatar border
       const laserGlowEnabled = (theme as any).laser_glow_enabled
       const laserGlowColor = (theme as any).laser_glow_color || "#3b82f6"
       const laserGlowIntensity = (theme as any).laser_glow_intensity || "medium"
-      // Small pointer size (2-4px) like border width, with intense glow
-      const glowSize = laserGlowIntensity === "low" ? 2 : laserGlowIntensity === "hard" ? 4 : 3
-      const glowBlur = laserGlowIntensity === "low" ? 8 : laserGlowIntensity === "hard" ? 16 : 12
+      // Glow intensity settings
+      const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 10 : 6
+      const glowOpacity = laserGlowIntensity === "low" ? 0.6 : laserGlowIntensity === "hard" ? 1 : 0.8
       const avatarSize = scale === "small" ? 72 : 88
 
       return (
         <div className="flex flex-col items-center gap-2 w-full text-center">
           {data.show_avatar && (
-            <div className="relative" style={{ width: avatarSize + 20, height: avatarSize + 20 }}>
-              {/* Laser Glow Effect */}
+            <div className="relative" style={{ width: avatarSize, height: avatarSize }}>
+              {/* Laser Glow Effect - rotating gradient on border */}
               {laserGlowEnabled && (
                 <div
-                  className="absolute inset-0 rounded-full"
+                  className="absolute rounded-full"
                   style={{
-                    animation: 'laserGlowRotate 3s linear infinite',
+                    inset: -3,
+                    background: `conic-gradient(from 0deg, transparent 0deg, transparent 340deg, ${laserGlowColor} 360deg)`,
+                    animation: 'laserGlowRotate 2.5s linear infinite',
+                    filter: `blur(${glowSpread}px)`,
+                    opacity: glowOpacity,
                   }}
-                >
-                  <div
-                    className="absolute rounded-full"
-                    style={{
-                      width: glowSize,
-                      height: glowSize,
-                      background: laserGlowColor,
-                      boxShadow: `0 0 ${glowBlur}px ${glowBlur}px ${laserGlowColor}, 0 0 ${glowBlur*2}px ${glowBlur*1.5}px ${laserGlowColor}, 0 0 ${glowBlur*3}px ${glowBlur*2}px ${laserGlowColor}`,
-                      top: '50%',
-                      left: '50%',
-                      transform: `translate(-50%, -50%) translateY(-${(avatarSize + 20) / 2}px)`,
-                    }}
-                  />
-                </div>
+                />
               )}
               {/* Avatar container */}
-              <div className="absolute inset-[10px]">
+              <div className="absolute inset-0">
                 {hasVideo ? (
                   <div
-                    className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg")}
+                    className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg w-full h-full")}
                     style={{
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
-                      width: avatarSize,
-                      height: avatarSize,
                     }}
                   >
                     <video
@@ -687,12 +676,10 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                   </div>
                 ) : (
                   <Avatar
-                    className={cn(s.avatar, "border-2 shadow-lg")}
+                    className={cn(s.avatar, "border-2 shadow-lg w-full h-full")}
                     style={{
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
-                      width: avatarSize,
-                      height: avatarSize,
                     }}
                   >
                     <AvatarImage
