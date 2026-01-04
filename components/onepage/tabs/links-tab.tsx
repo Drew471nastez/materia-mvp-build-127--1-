@@ -17,7 +17,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
+// Custom Toggle Component with theme-style design
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox"
+    />
+  )
+}
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import {
@@ -247,6 +257,11 @@ export function LinksTab() {
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null)
   
+  // Name/Bio edit state
+  const [showNameBioModal, setShowNameBioModal] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editBio, setEditBio] = useState("")
+
   // Avatar edit state
   const [showAvatarEditModal, setShowAvatarEditModal] = useState(false)
   const [showAvatarUploadModal, setShowAvatarUploadModal] = useState(false)
@@ -280,6 +295,9 @@ export function LinksTab() {
   const [videoDragStart, setVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
   const videoContainerRef = useRef<HTMLDivElement>(null)
   const [videoNaturalSize, setVideoNaturalSize] = useState({ width: 0, height: 0 })
+
+  // Add button animation state
+  const [addButtonClicked, setAddButtonClicked] = useState(false)
 
   if (!onepage) return null
 
@@ -335,19 +353,33 @@ export function LinksTab() {
   const handleDrop = (e: React.DragEvent, targetBlockId: string) => {
     e.preventDefault()
     if (draggedBlockId && draggedBlockId !== targetBlockId) {
+      const draggedBlock = sortedBlocks.find(b => b.id === draggedBlockId)
+      const targetBlock = sortedBlocks.find(b => b.id === targetBlockId)
       const draggedIndex = sortedBlocks.findIndex(b => b.id === draggedBlockId)
       const targetIndex = sortedBlocks.findIndex(b => b.id === targetBlockId)
-      
+
+      // Prevent social_row from being moved above header when Hero layout is active
+      const headerLayout = (onepage.theme as any)?.header_layout || "classic"
+      if (headerLayout === "hero" && draggedBlock?.type === "social_row") {
+        const headerIndex = sortedBlocks.findIndex(b => b.type === "header")
+        if (headerIndex !== -1 && targetIndex <= headerIndex) {
+          // Don't allow dropping above or at the header position
+          setDraggedBlockId(null)
+          setDragOverBlockId(null)
+          return
+        }
+      }
+
       if (draggedIndex !== -1 && targetIndex !== -1) {
         const newOrder = [...sortedBlocks]
         const [removed] = newOrder.splice(draggedIndex, 1)
         newOrder.splice(targetIndex, 0, removed)
-        
+
         const updatedBlocks = newOrder.map((block, index) => ({
           ...block,
           sort_order: index
         }))
-        
+
         reorderBlocks(updatedBlocks)
       }
     }
@@ -403,8 +435,31 @@ export function LinksTab() {
             <Pencil className="h-4 w-4 text-white" />
           </div>
         </div>
-        <div>
-          <h2 className="font-semibold">{title || "Your Name"}</h2>
+        <div className="flex-1 min-w-0">
+          <button
+            onClick={() => {
+              setEditName(title || "")
+              setEditBio(onepage.bio || "")
+              setShowNameBioModal(true)
+            }}
+            className="text-left group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+          >
+            <h2 className="font-semibold">{title || "Your Name"}</h2>
+            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+          {onepage.bio && (
+            <button
+              onClick={() => {
+                setEditName(title || "")
+                setEditBio(onepage.bio || "")
+                setShowNameBioModal(true)
+              }}
+              className="text-left mt-0.5 group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+            >
+              <p className="text-sm text-muted-foreground line-clamp-2">{onepage.bio}</p>
+              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+            </button>
+          )}
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
             {activeSocials.slice(0, 5).map(([platform]) => {
               const config = SOCIAL_PLATFORMS.find(p => p.id === platform)
@@ -434,13 +489,22 @@ export function LinksTab() {
       </div>
 
       {/* Add Button */}
-      <Button
-        onClick={() => setShowAddModal(true)}
-        className="w-full h-11 bg-violet-600 hover:bg-violet-700 text-white font-medium"
+      <button
+        onClick={() => {
+          setAddButtonClicked(true)
+          setTimeout(() => setAddButtonClicked(false), 300)
+          setShowAddModal(true)
+        }}
+        className="w-full h-11 bg-blue-500 hover:bg-gray-900 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group"
       >
-        <Plus className="h-5 w-5 mr-2" />
+        <Plus
+          className={cn(
+            "h-5 w-5 transition-transform duration-300 ease-out group-hover:text-white",
+            addButtonClicked && "rotate-90"
+          )}
+        />
         Add
-      </Button>
+      </button>
 
       {/* Quick Actions */}
       <div className="flex gap-2">
@@ -458,8 +522,8 @@ export function LinksTab() {
         {sortedBlocks.map((block, index) => (
           <div
             key={block.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, block.id)}
+            draggable={block.type !== "header"}
+            onDragStart={(e) => block.type !== "header" && handleDragStart(e, block.id)}
             onDragOver={(e) => handleDragOver(e, block.id)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, block.id)}
@@ -467,7 +531,7 @@ export function LinksTab() {
             className={cn(
               "transition-all duration-200",
               draggedBlockId === block.id && "opacity-50 scale-[0.98]",
-              dragOverBlockId === block.id && "border-t-2 border-violet-500"
+              dragOverBlockId === block.id && block.type !== "header" && "border-t-2 border-violet-500"
             )}
           >
             <BlockItem
@@ -475,10 +539,20 @@ export function LinksTab() {
               isSelected={selectedBlockId === block.id}
               onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
               onRemove={() => removeBlock(block.id)}
-              onMoveUp={() => moveBlockUp(block.id)}
+              onMoveUp={() => {
+                // Prevent social_row from moving above header when Hero layout
+                const headerLayout = (onepage.theme as any)?.header_layout || "classic"
+                if (headerLayout === "hero" && block.type === "social_row") {
+                  const headerIndex = sortedBlocks.findIndex(b => b.type === "header")
+                  if (headerIndex !== -1 && index <= headerIndex + 1) {
+                    return // Block the move if it would place social_row above or at header
+                  }
+                }
+                moveBlockUp(block.id)
+              }}
               onMoveDown={() => moveBlockDown(block.id)}
               onToggle={() => toggleBlockEnabled(block.id)}
-              isFirst={index === 0}
+              isFirst={index === 0 || (block.type === "social_row" && (onepage.theme as any)?.header_layout === "hero" && index === sortedBlocks.findIndex(b => b.type === "header") + 1)}
               isLast={index === sortedBlocks.length - 1}
               socialLinks={social_links}
               onOpenImageLibrary={(blockId) => { setImageBlockId(blockId); setShowImageLibrary(true) }}
@@ -739,6 +813,58 @@ export function LinksTab() {
         </DialogContent>
       </Dialog>
 
+      {/* Name & Bio Edit Modal */}
+      <Dialog open={showNameBioModal} onOpenChange={setShowNameBioModal}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-4 sm:p-5 border-b">
+            <DialogTitle className="text-base sm:text-lg font-semibold">Edit Profile</DialogTitle>
+          </DialogHeader>
+
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Name</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Your display name"
+                className="h-11 border-2 border-gray-200 focus:border-gray-900 rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Bio</Label>
+              <Textarea
+                value={editBio}
+                onChange={(e) => setEditBio(e.target.value)}
+                placeholder="A short bio about yourself..."
+                className="min-h-[100px] border-2 border-gray-200 focus:border-gray-900 rounded-xl resize-none"
+                rows={4}
+              />
+              <p className="text-xs text-muted-foreground">This will appear below your name on your page</p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowNameBioModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                onClick={() => {
+                  updateProfile({ title: editName, bio: editBio })
+                  setShowNameBioModal(false)
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Image Library Modal */}
       <Dialog open={showImageLibrary} onOpenChange={setShowImageLibrary}>
         <DialogContent className="w-[calc(100%-32px)] max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
@@ -850,7 +976,7 @@ export function LinksTab() {
                 {/* Square crop preview with draggable crop box */}
                 <div
                   ref={cropContainerRef}
-                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden"
+                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden touch-none"
                   style={{ width: '300px', height: '300px' }}
                   onMouseMove={(e) => {
                     if (!isDraggingCrop && !isResizingCrop) return
@@ -883,6 +1009,36 @@ export function LinksTab() {
                   }}
                   onMouseUp={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
                   onMouseLeave={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
+                  onTouchMove={(e) => {
+                    if (!isDraggingCrop && !isResizingCrop) return
+                    e.preventDefault()
+                    const touch = e.touches[0]
+                    const rect = cropContainerRef.current?.getBoundingClientRect()
+                    if (!rect || !touch) return
+
+                    if (isDraggingCrop) {
+                      const newX = touch.clientX - rect.left - dragStartCrop.x
+                      const newY = touch.clientY - rect.top - dragStartCrop.y
+                      const maxX = imageSizeCrop.width - cropBox.size
+                      const maxY = imageSizeCrop.height - cropBox.size
+                      const offsetX = (300 - imageSizeCrop.width) / 2
+                      const offsetY = (300 - imageSizeCrop.height) / 2
+                      setCropBox(prev => ({
+                        ...prev,
+                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
+                        y: Math.max(0, Math.min(maxY, newY - offsetY))
+                      }))
+                    } else if (isResizingCrop) {
+                      const dx = touch.clientX - dragStartCrop.x
+                      const dy = touch.clientY - dragStartCrop.y
+                      const delta = Math.max(dx, dy)
+                      const newSize = Math.max(50, Math.min(300, cropBox.size + delta))
+                      const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
+                      setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      setDragStartCrop({ x: touch.clientX, y: touch.clientY })
+                    }
+                  }}
+                  onTouchEnd={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
                 >
                   {/* Image */}
                   <img
@@ -918,7 +1074,7 @@ export function LinksTab() {
 
                   {/* Crop box with shadow overlay */}
                   <div
-                    className="absolute cursor-move"
+                    className="absolute cursor-move touch-none"
                     style={{
                       left: `${150 - imageSizeCrop.width/2 + cropBox.x}px`,
                       top: `${150 - imageSizeCrop.height/2 + cropBox.y}px`,
@@ -934,6 +1090,14 @@ export function LinksTab() {
                       const rect = (e.target as HTMLElement).getBoundingClientRect()
                       setDragStartCrop({ x: e.clientX - rect.left, y: e.clientY - rect.top })
                     }}
+                    onTouchStart={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const touch = e.touches[0]
+                      setIsDraggingCrop(true)
+                      const rect = (e.target as HTMLElement).getBoundingClientRect()
+                      setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
+                    }}
                   >
                     {/* Grid overlay */}
                     <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
@@ -942,17 +1106,24 @@ export function LinksTab() {
                       ))}
                     </div>
 
-                    {/* Corner handles */}
-                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
+                    {/* Corner handles - larger for mobile touch */}
+                    <div className="absolute -top-2 -left-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -bottom-2 -left-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
                     <div
-                      className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize"
+                      className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize touch-none"
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingCrop(true)
                         setDragStartCrop({ x: e.clientX, y: e.clientY })
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingCrop(true)
+                        setDragStartCrop({ x: touch.clientX, y: touch.clientY })
                       }}
                     />
                   </div>
@@ -1107,12 +1278,12 @@ export function LinksTab() {
                 {/* Video container - video fills container with object-cover */}
                 <div
                   ref={videoContainerRef}
-                  className="relative mx-auto bg-black rounded-xl overflow-hidden select-none"
-                  style={{ width: '300px', height: '400px' }}
+                  className="relative mx-auto bg-black rounded-xl select-none"
+                  style={{ width: '300px', height: '400px', touchAction: 'none' }}
                 >
                   <video
                     src={tempVideoUrl}
-                    className="w-full h-full object-cover pointer-events-none"
+                    className="w-full h-full object-cover pointer-events-none rounded-xl"
                     autoPlay
                     loop
                     muted
@@ -1123,7 +1294,7 @@ export function LinksTab() {
                     }}
                   />
                   {/* Dark overlay outside crop area */}
-                  <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
+                  <div className="absolute inset-0 pointer-events-none rounded-xl" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
 
                   {/* Crop box - draggable (using percentages) */}
                   <div
@@ -1134,18 +1305,30 @@ export function LinksTab() {
                       width: `${videoCropBox.width}%`,
                       height: `${videoCropBox.height}%`,
                       boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      background: 'transparent'
+                      background: 'transparent',
+                      touchAction: 'none'
                     }}
                     onMouseDown={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
                       setIsDraggingVideoCrop(true)
-                      const container = videoContainerRef.current
-                      if (!container) return
-                      const rect = container.getBoundingClientRect()
                       setVideoDragStart({
                         x: e.clientX,
                         y: e.clientY,
+                        boxX: videoCropBox.x,
+                        boxY: videoCropBox.y,
+                        boxW: videoCropBox.width,
+                        boxH: videoCropBox.height
+                      })
+                    }}
+                    onTouchStart={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const touch = e.touches[0]
+                      setIsDraggingVideoCrop(true)
+                      setVideoDragStart({
+                        x: touch.clientX,
+                        y: touch.clientY,
                         boxX: videoCropBox.x,
                         boxY: videoCropBox.y,
                         boxW: videoCropBox.width,
@@ -1160,49 +1343,82 @@ export function LinksTab() {
                       ))}
                     </div>
 
-                    {/* Corner resize handles */}
+                    {/* Corner resize handles - larger for mobile touch */}
                     <div
-                      className="absolute -top-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-nw-resize z-10"
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
+                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingVideoCrop('top-left')
                         setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingVideoCrop('top-left')
+                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
                     />
                     <div
-                      className="absolute -top-2 -right-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-ne-resize z-10"
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
+                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingVideoCrop('top-right')
                         setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingVideoCrop('top-right')
+                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
                     />
                     <div
-                      className="absolute -bottom-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-sw-resize z-10"
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
+                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingVideoCrop('bottom-left')
                         setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingVideoCrop('bottom-left')
+                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
                     />
                     <div
-                      className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize z-10"
+                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
+                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsResizingVideoCrop('bottom-right')
                         setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingVideoCrop('bottom-right')
+                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
                     />
                   </div>
 
-                  {/* Global mouse handlers */}
+                  {/* Global mouse and touch handlers */}
                   {(isDraggingVideoCrop || isResizingVideoCrop) && (
                     <div
                       className="fixed inset-0 z-50"
+                      style={{ touchAction: 'none' }}
                       onMouseMove={(e) => {
                         const container = videoContainerRef.current
                         if (!container) return
@@ -1244,6 +1460,52 @@ export function LinksTab() {
                         }
                       }}
                       onMouseUp={() => {
+                        setIsDraggingVideoCrop(false)
+                        setIsResizingVideoCrop(null)
+                      }}
+                      onTouchMove={(e) => {
+                        e.preventDefault()
+                        const touch = e.touches[0]
+                        const container = videoContainerRef.current
+                        if (!container || !touch) return
+                        const rect = container.getBoundingClientRect()
+                        const deltaX = ((touch.clientX - videoDragStart.x) / rect.width) * 100
+                        const deltaY = ((touch.clientY - videoDragStart.y) / rect.height) * 100
+
+                        if (isDraggingVideoCrop) {
+                          let newX = videoDragStart.boxX + deltaX
+                          let newY = videoDragStart.boxY + deltaY
+                          newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
+                          newY = Math.max(0, Math.min(100 - videoCropBox.height, newY))
+                          setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+                        } else if (isResizingVideoCrop) {
+                          let newBox = { ...videoCropBox }
+                          const minSize = 20
+
+                          if (isResizingVideoCrop.includes('right')) {
+                            newBox.width = Math.max(minSize, Math.min(100 - videoDragStart.boxX, videoDragStart.boxW + deltaX))
+                          }
+                          if (isResizingVideoCrop.includes('bottom')) {
+                            newBox.height = Math.max(minSize, Math.min(100 - videoDragStart.boxY, videoDragStart.boxH + deltaY))
+                          }
+                          if (isResizingVideoCrop.includes('left')) {
+                            const newWidth = videoDragStart.boxW - deltaX
+                            if (newWidth >= minSize && videoDragStart.boxX + deltaX >= 0) {
+                              newBox.x = videoDragStart.boxX + deltaX
+                              newBox.width = newWidth
+                            }
+                          }
+                          if (isResizingVideoCrop.includes('top')) {
+                            const newHeight = videoDragStart.boxH - deltaY
+                            if (newHeight >= minSize && videoDragStart.boxY + deltaY >= 0) {
+                              newBox.y = videoDragStart.boxY + deltaY
+                              newBox.height = newHeight
+                            }
+                          }
+                          setVideoCropBox(newBox)
+                        }
+                      }}
+                      onTouchEnd={() => {
                         setIsDraggingVideoCrop(false)
                         setIsResizingVideoCrop(null)
                       }}
@@ -1360,18 +1622,23 @@ function BlockItem({
   const preview = getBlockPreview()
   const Icon = preview.icon
 
+  const isHeaderBlock = block.type === "header"
+
   return (
     <div
       className={cn(
-        "border rounded-xl bg-white transition-all cursor-grab active:cursor-grabbing",
+        "border rounded-xl bg-white transition-all",
+        !isHeaderBlock && "cursor-grab active:cursor-grabbing",
         isSelected ? "ring-2 ring-violet-500 border-violet-200" : "hover:border-gray-300",
         !block.enabled && "opacity-50"
       )}
     >
       <div className="flex items-center gap-3 p-3">
-        <div className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing">
-          <GripVertical className="h-5 w-5" />
-        </div>
+        {!isHeaderBlock && (
+          <div className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing">
+            <GripVertical className="h-5 w-5" />
+          </div>
+        )}
 
         <div className="flex-1 flex items-center gap-3 cursor-pointer" onClick={onSelect}>
           <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
@@ -1383,36 +1650,38 @@ function BlockItem({
           </div>
         </div>
 
-        <Switch checked={block.enabled} onCheckedChange={onToggle} />
+        <Toggle checked={block.enabled} onCheckedChange={onToggle} />
       </div>
 
       {isSelected && (
         <div className="border-t p-4 space-y-4 bg-gray-50/50">
-          <BlockEditor 
-            block={block} 
-            socialLinks={socialLinks} 
+          <BlockEditor
+            block={block}
+            socialLinks={socialLinks}
             onOpenImageLibrary={onOpenImageLibrary}
             onOpenSocialModal={onOpenSocialModal}
           />
-          <div className="flex items-center justify-between pt-3 border-t">
-            <div className="flex gap-1">
-              <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={isFirst} className="h-8 w-8 p-0">
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={isLast} className="h-8 w-8 p-0">
-                <ChevronDown className="h-4 w-4" />
+          {!isHeaderBlock && (
+            <div className="flex items-center justify-between pt-3 border-t">
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={isFirst} className="h-8 w-8 p-0">
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={isLast} className="h-8 w-8 p-0">
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRemove}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Delete
               </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRemove}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
-            >
-              <Trash2 className="h-4 w-4 mr-1.5" />
-              Delete
-            </Button>
-          </div>
+          )}
         </div>
       )}
     </div>
@@ -1605,15 +1874,15 @@ function BlockEditor({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-xs">Show Avatar</Label>
-            <Switch checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
+            <Toggle checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
           </div>
           <div className="flex items-center justify-between">
             <Label className="text-xs">Show Name</Label>
-            <Switch checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
+            <Toggle checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
           </div>
           <div className="flex items-center justify-between">
             <Label className="text-xs">Show Bio</Label>
-            <Switch checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
+            <Toggle checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
           </div>
         </div>
       )

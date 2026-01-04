@@ -65,6 +65,106 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
   ),
 }
 
+// Background Pattern Component for rendering pattern overlays
+function BackgroundPattern({ pattern, color, opacity = "medium" }: { pattern: string; color: string; opacity?: "low" | "medium" | "hard" | "very_hard" }) {
+  const opacityValue = opacity === "low" ? 0.4 : opacity === "hard" ? 1 : opacity === "very_hard" ? 1.5 : 0.7
+  const patternSVGs: Record<string, React.ReactNode> = {
+    grid: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-grid-${pattern}`} width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-grid-${pattern})`} />
+      </svg>
+    ),
+    dots: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-dots-${pattern}`} width="16" height="16" patternUnits="userSpaceOnUse">
+            <circle cx="8" cy="8" r="2" fill={color} />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-dots-${pattern})`} />
+      </svg>
+    ),
+    waves: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-waves-${pattern}`} width="50" height="25" patternUnits="userSpaceOnUse">
+            <path d="M0 12.5 Q12.5 0, 25 12.5 T50 12.5" fill="none" stroke={color} strokeWidth="2" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-waves-${pattern})`} />
+      </svg>
+    ),
+    zigzag: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-zigzag-${pattern}`} width="20" height="12" patternUnits="userSpaceOnUse">
+            <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={color} strokeWidth="1.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-zigzag-${pattern})`} />
+      </svg>
+    ),
+    cross: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-cross-${pattern}`} width="16" height="16" patternUnits="userSpaceOnUse">
+            <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-cross-${pattern})`} />
+      </svg>
+    ),
+    diagonal: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`bg-diagonal-${pattern}`} width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M0 10 L10 0" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-diagonal-${pattern})`} />
+      </svg>
+    ),
+    morph: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`bg-morph-${pattern}`} width="200" height="200" patternUnits="userSpaceOnUse">
+            <path d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180" fill="none" stroke={color} strokeWidth="2" opacity="0.5" />
+            <path d="M120 10 Q140 30, 160 20 Q180 40, 160 60 Q180 80, 160 100 Q140 80, 120 100 Q100 80, 120 60" fill="none" stroke={color} strokeWidth="2" opacity="0.4" />
+            <path d="M100 140 Q120 160, 140 150 Q160 170, 140 190 Q120 170, 100 180" fill="none" stroke={color} strokeWidth="2" opacity="0.45" />
+            <circle cx="50" cy="50" r="8" fill={color} opacity="0.3" />
+            <circle cx="150" cy="70" r="6" fill={color} opacity="0.25" />
+            <circle cx="100" cy="160" r="5" fill={color} opacity="0.3" />
+            <rect x="170" y="150" width="20" height="2" fill={color} opacity="0.4" rx="1" />
+            <rect x="10" y="100" width="15" height="2" fill={color} opacity="0.35" rx="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-morph-${pattern})`} />
+      </svg>
+    ),
+    organic: (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`bg-organic-${pattern}`} width="200" height="200" patternUnits="userSpaceOnUse">
+            <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={color} opacity="0.35" />
+            <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={color} opacity="0.3" />
+            <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={color} opacity="0.32" />
+            <path d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140" fill={color} opacity="0.28" />
+            <path d="M20 160 Q35 150, 45 165 Q50 180, 35 190 Q20 185, 15 175 Q12 165, 20 160" fill={color} opacity="0.25" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-organic-${pattern})`} />
+      </svg>
+    ),
+  }
+
+  return patternSVGs[pattern] || null
+}
+
 interface PhonePreviewProps {
   className?: string
 }
@@ -89,6 +189,17 @@ export function PhonePreview({ className }: PhonePreviewProps) {
   const isAnimatedGradient = theme.background_type === "gradient" && theme.animated_gradient === true
   // Use animation toggle state in key to force re-render and restart animation
   const animationKey = `gradient-${String(theme.animated_gradient)}-${theme.background_gradient || 'none'}`
+
+  // Check if background is dark for footer link color
+  const isDarkBackground = (() => {
+    const color = theme.background_color || "#ffffff"
+    const hex = color.replace("#", "")
+    const r = parseInt(hex.substring(0, 2), 16) || 255
+    const g = parseInt(hex.substring(2, 4), 16) || 255
+    const b = parseInt(hex.substring(4, 6), 16) || 255
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance < 0.5 || theme.background_type === "image" || theme.background_type === "video"
+  })()
 
   return (
     <div className={cn("relative flex-shrink-0", className)} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', height: '580px', minHeight: '580px', maxHeight: '580px' }}>
@@ -131,35 +242,59 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             <style>{`.phone-screen-scroll::-webkit-scrollbar { width: 4px; } .phone-screen-scroll::-webkit-scrollbar-track { background: transparent; margin: 10px 0; } .phone-screen-scroll::-webkit-scrollbar-thumb { background: ${theme.text_color}40; border-radius: 4px; }`}</style>
             
             {theme.background_type === "image" && theme.background_image_url && (
-              <div 
-                style={{ 
-                  position: 'absolute', 
-                  top: '-30px', 
-                  left: '-30px', 
-                  right: '-30px', 
-                  bottom: '-30px', 
-                  backgroundImage: `url(${theme.background_image_url})`, 
-                  backgroundSize: 'cover', 
-                  backgroundPosition: 'center', 
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-30px',
+                  left: '-30px',
+                  right: '-30px',
+                  bottom: '-30px',
+                  backgroundImage: `url(${theme.background_image_url})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
                   zIndex: 0,
                   filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`
-                }} 
+                }}
               />
             )}
-            
+
+            {/* Video background */}
+            {theme.background_type === "video" && (theme as any).background_video_url && (
+              <video
+                src={(theme as any).background_video_url}
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  minWidth: '100%',
+                  minHeight: '100%',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'cover',
+                  zIndex: 0,
+                  filter: `brightness(${(theme as any).video_brightness || 100}%)`
+                }}
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+            )}
+
             {/* Noise overlay for gradient backgrounds */}
             {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-              <svg className="absolute inset-0 w-full h-full opacity-[0.29] pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1 }}>
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
                 <filter id="phone-noise-gradient">
                   <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
                 </filter>
                 <rect width="100%" height="100%" filter="url(#phone-noise-gradient)" />
               </svg>
             )}
-            
+
             {/* Noise overlay for image backgrounds */}
             {theme.background_type === "image" && (theme as any).image_noise && (
-              <svg className="absolute inset-0 w-full h-full opacity-[0.29] pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1 }}>
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
                 <filter id="phone-noise-image">
                   <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
                 </filter>
@@ -167,17 +302,31 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               </svg>
             )}
 
-            <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '24px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div className={cn("flex flex-col items-center flex-1", theme.spacing === "compact" ? "gap-[10px]" : theme.spacing === "comfortable" ? "gap-[14px]" : "gap-[12px]")}>
+            {/* Pattern overlay */}
+            {(theme.background_type === "solid" || theme.background_type === "gradient") && (theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+              <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000090"} opacity={(theme as any).pattern_opacity || "medium"} />
+            )}
+
+            <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '12px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div className={cn("flex flex-col items-center", theme.spacing === "compact" ? "gap-[10px]" : theme.spacing === "comfortable" ? "gap-[14px]" : "gap-[12px]")}>
                 {draft_blocks.filter((b) => b.enabled).sort((a, b) => a.sort_order - b.sort_order).map((block) => (
                   <BlockRenderer key={block.id} block={block} theme={theme} profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }} scale="small" />
                 ))}
               </div>
-              {settings.show_branding && (
-                <div className="mt-6 text-center">
-                  <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[9px] font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
+              {/* Footer - pushed to bottom */}
+              <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
+                {settings.show_branding && (
+                  <div className="text-center mb-2">
+                    <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[9px] font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
+                  </div>
+                )}
+                {/* Footer Links */}
+                <div className="flex items-center justify-center gap-2 text-[8px]">
+                  <a href="https://materiathemes.com/cookies" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Cookies</a>
+                  <a href="https://materiathemes.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Privacy</a>
+                  <a href="https://materiathemes.com/report" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Report</a>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -203,6 +352,17 @@ export function MobilePreviewContent() {
   // Use animation toggle state in key to force re-render and restart animation
   const animationKey = `gradient-${String(theme.animated_gradient)}-${theme.background_gradient || 'none'}`
 
+  // Check if background is dark for footer link color
+  const isDarkBackground = (() => {
+    const color = theme.background_color || "#ffffff"
+    const hex = color.replace("#", "")
+    const r = parseInt(hex.substring(0, 2), 16) || 255
+    const g = parseInt(hex.substring(2, 4), 16) || 255
+    const b = parseInt(hex.substring(4, 6), 16) || 255
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance < 0.5 || theme.background_type === "image" || theme.background_type === "video"
+  })()
+
   return (
     <>
       {/* Animation keyframes */}
@@ -224,53 +384,95 @@ export function MobilePreviewContent() {
         }}
       >
         {theme.background_type === "image" && theme.background_image_url && (
-          <div 
-            style={{ 
-              position: 'fixed', 
-              top: '-50px', 
-              left: '-50px', 
-              right: '-50px', 
-              bottom: '-50px', 
-              backgroundImage: `url(${theme.background_image_url})`, 
-              backgroundSize: 'cover', 
-              backgroundPosition: 'center', 
-              zIndex: 0, 
+          <div
+            style={{
+              position: 'fixed',
+              top: '-50px',
+              left: '-50px',
+              right: '-50px',
+              bottom: '-50px',
+              backgroundImage: `url(${theme.background_image_url})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              zIndex: 0,
               pointerEvents: 'none',
               filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`
-            }} 
+            }}
           />
         )}
-        
+
+        {/* Video background */}
+        {theme.background_type === "video" && (theme as any).background_video_url && (
+          <video
+            src={(theme as any).background_video_url}
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              minWidth: '100%',
+              minHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'cover',
+              zIndex: 0,
+              pointerEvents: 'none',
+              filter: `brightness(${(theme as any).video_brightness || 100}%)`
+            }}
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+        )}
+
         {/* Noise overlay for gradient backgrounds */}
         {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-          <svg className="fixed inset-0 w-full h-full opacity-[0.29] pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1 }}>
+          <svg className="fixed inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
             <filter id="mobile-noise-gradient">
               <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
             </filter>
             <rect width="100%" height="100%" filter="url(#mobile-noise-gradient)" />
           </svg>
         )}
-        
+
         {/* Noise overlay for image backgrounds */}
         {theme.background_type === "image" && (theme as any).image_noise && (
-          <svg className="fixed inset-0 w-full h-full opacity-[0.29] pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1 }}>
+          <svg className="fixed inset-0 w-full h-full pointer-events-none" style={{ mixBlendMode: 'overlay', zIndex: 1, opacity: ((theme as any).noise_strength || 15) / 100 * 2 }}>
             <filter id="mobile-noise-image">
               <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
             </filter>
             <rect width="100%" height="100%" filter="url(#mobile-noise-image)" />
           </svg>
         )}
-        <div className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-12 flex flex-col" style={{ minHeight: '100%' }}>
-          <div className={cn("flex flex-col items-center flex-1", theme.spacing === "compact" ? "gap-3" : theme.spacing === "comfortable" ? "gap-5" : "gap-4")}>
+
+        {/* Pattern overlay for mobile */}
+        {(theme.background_type === "solid" || theme.background_type === "gradient") && (theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+          <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+            <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000090"} opacity={(theme as any).pattern_opacity || "medium"} />
+          </div>
+        )}
+
+        <div className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-5 flex flex-col" style={{ minHeight: '100vh' }}>
+          <div className={cn("flex flex-col items-center", theme.spacing === "compact" ? "gap-3" : theme.spacing === "comfortable" ? "gap-5" : "gap-4")}>
             {draft_blocks.filter((b) => b.enabled).sort((a, b) => a.sort_order - b.sort_order).map((block) => (
               <BlockRenderer key={block.id} block={block} theme={theme} profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }} scale="normal" />
             ))}
           </div>
-          {settings.show_branding && (
-            <div className="mt-8 text-center">
-              <span className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
+          {/* Footer - pushed to bottom */}
+          <div className="mt-auto pt-8">
+            {settings.show_branding && (
+              <div className="text-center mb-4">
+                <span className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
+              </div>
+            )}
+            {/* Footer Links */}
+            <div className="flex items-center justify-center gap-4 text-xs">
+              <a href="https://materiathemes.com/cookies" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Cookies</a>
+              <a href="https://materiathemes.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Privacy</a>
+              <a href="https://materiathemes.com/report" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Report</a>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </>
@@ -321,6 +523,22 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
     socialMarginBottom: "mb-4",
   }
 
+  const buttonShadow = (theme as any).button_shadow || "none"
+  const shadowColor = (theme as any).button_shadow_color || "#000000"
+  // Convert hex to rgba for shadow
+  const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r},${g},${b},${alpha})`
+  }
+  const shadowStyles: Record<string, string> = {
+    none: "none",
+    subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
+    strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
+    hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
+  }
+
   const buttonStyles = {
     backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_style === "glass" ? "rgba(255, 255, 255, 0.15)" : theme.button_color,
     color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
@@ -329,6 +547,7 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
     borderStyle: "solid" as const,
     borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
     backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
+    boxShadow: shadowStyles[buttonShadow] || "none",
   }
 
   const socialStyle = (theme as any).social_icon_style || "filled"
@@ -365,20 +584,21 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
           <div className={cn(heroWidth, "relative mb-2", heroMargin)}>
             <div className="relative w-full" style={{ aspectRatio: heroAspect }}>
               {hasVideo ? (
-                <video 
-                  src={profile.avatar_video_url!} 
-                  className="w-full h-full object-cover object-top" 
-                  autoPlay 
-                  loop 
-                  muted 
-                  playsInline 
+                <video
+                  src={profile.avatar_video_url!}
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
                 />
               ) : (
-                <img 
-                  src={profile.avatar_url!} 
-                  alt="" 
-                  className="w-full h-full object-cover object-top"
-                  style={{ imageRendering: 'auto' }}
+                <img
+                  src={profile.avatar_url!}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  style={{ imageRendering: 'auto', objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
                 />
               )}
               {/* Smooth gradient fade overlay using CSS mask for gradient backgrounds */}
@@ -410,10 +630,25 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                 />
               )}
             </div>
-            <div className="absolute bottom-3 left-0 right-0 text-center px-4">
-              {data.show_name && profile.title && (
-                <h1 className={cn(s.title, "font-bold")} style={{ color: theme.text_color, textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>{profile.title}</h1>
-              )}
+            <div
+              className="absolute bottom-3 left-0 right-0 text-center px-4"
+            >
+              {data.show_name && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
+                <img
+                  src={(theme as any).title_logo_url}
+                  alt={profile.title || "Logo"}
+                  className="mx-auto w-auto"
+                  style={{
+                    maxHeight: (theme as any).title_size === "large" ? (scale === "small" ? '54px' : '62px') : (scale === "small" ? '46px' : '54px'),
+                    maxWidth: (theme as any).title_size === "large" ? (scale === "small" ? '180px' : '220px') : (scale === "small" ? '160px' : '200px'),
+                    objectFit: 'contain',
+                    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))",
+                    marginTop: (theme as any).logo_position === "more_up" ? '-10px' : undefined
+                  }}
+                />
+              ) : profile.title && (
+                <h1 className={cn(s.title, "font-bold", (theme as any).title_size === "large" && (scale === "small" ? "text-[19px]" : "text-2xl"))} style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family, textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>{profile.title}</h1>
+              ))}
               {data.show_bio && profile.bio && (
                 <p className={cn(s.bio, "text-center mt-1 mx-auto")} style={{ color: theme.secondary_text_color || theme.text_color, textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>{profile.bio}</p>
               )}
@@ -421,42 +656,127 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
           </div>
         )
       }
-      
+
       // Classic layout
+      // Laser glow settings - glow travels along the avatar border
+      const laserGlowEnabled = (theme as any).laser_glow_enabled
+      const laserGlowColor = (theme as any).laser_glow_color || "#3b82f6"
+      const laserGlowIntensity = (theme as any).laser_glow_intensity || "medium"
+      // Glow intensity settings - reduced spread by 40%
+      const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 8 : 6
+      const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
+      const avatarSize = scale === "small" ? 72 : 88
+
       return (
         <div className="flex flex-col items-center gap-2 w-full text-center">
           {data.show_avatar && (
-            hasVideo ? (
-              <div className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg")} style={{ borderColor: `${theme.text_color}20` }}>
-                <video
-                  src={profile.avatar_video_url!}
-                  className="object-cover"
-                  style={profile.avatar_video_crop ? {
-                    width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
-                    height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
-                    marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
-                    marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
-                  } : { width: '100%', height: '100%' }}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                />
+            <div className="relative" style={{ width: avatarSize, height: avatarSize, marginTop: 6 }}>
+              {/* Laser Glow Effect - rotating gradient on border with trail */}
+              {laserGlowEnabled && (
+                <>
+                  {/* Trail layer 3 - farthest behind */}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      inset: 0,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 200deg, ${laserGlowColor}22 260deg, ${laserGlowColor}44 300deg, ${laserGlowColor}66 340deg, ${laserGlowColor} 360deg)`,
+                      animation: 'laserGlowRotate 3.25s linear infinite',
+                      filter: `blur(${glowSpread + 4}px)`,
+                      opacity: glowOpacity * 0.4,
+                    }}
+                  />
+                  {/* Trail layer 2 */}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      inset: 0,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 260deg, ${laserGlowColor}44 300deg, ${laserGlowColor}88 340deg, ${laserGlowColor} 360deg)`,
+                      animation: 'laserGlowRotate 3.25s linear infinite',
+                      filter: `blur(${glowSpread + 2}px)`,
+                      opacity: glowOpacity * 0.6,
+                    }}
+                  />
+                  {/* Main glow layer - brightest point */}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      inset: 0,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 320deg, ${laserGlowColor}88 345deg, ${laserGlowColor} 360deg)`,
+                      animation: 'laserGlowRotate 3.25s linear infinite',
+                      filter: `blur(${glowSpread}px)`,
+                      opacity: glowOpacity,
+                      boxShadow: `0 0 ${glowSpread * 2}px ${laserGlowColor}`,
+                    }}
+                  />
+                </>
+              )}
+              {/* Avatar container */}
+              <div className="absolute inset-0">
+                {hasVideo ? (
+                  <div
+                    className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg w-full h-full")}
+                    style={{
+                      borderColor: `${theme.text_color}20`,
+                      transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                    }}
+                  >
+                    <video
+                      src={profile.avatar_video_url!}
+                      className="object-cover"
+                      style={profile.avatar_video_crop ? {
+                        width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
+                        height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
+                        marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
+                        marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
+                        transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                      } : {
+                        width: '100%',
+                        height: '100%',
+                        transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                      }}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                  </div>
+                ) : (
+                  <Avatar
+                    className={cn(s.avatar, "border-2 shadow-lg w-full h-full")}
+                    style={{
+                      borderColor: `${theme.text_color}20`,
+                      transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                    }}
+                  >
+                    <AvatarImage
+                      src={profile.avatar_url || undefined}
+                      className="object-cover"
+                      style={{
+                        imageRendering: 'auto',
+                        transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                      }}
+                    />
+                    <AvatarFallback className={cn(s.avatarFallback, "font-semibold")} style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}>{profile.title?.charAt(0)?.toUpperCase() || "?"}</AvatarFallback>
+                  </Avatar>
+                )}
               </div>
-            ) : (
-              <Avatar className={cn(s.avatar, "border-2 shadow-lg")} style={{ borderColor: `${theme.text_color}20` }}>
-                <AvatarImage 
-                  src={profile.avatar_url || undefined} 
-                  className="object-cover"
-                  style={{ imageRendering: 'auto' }}
-                />
-                <AvatarFallback className={cn(s.avatarFallback, "font-semibold")} style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}>{profile.title?.charAt(0)?.toUpperCase() || "?"}</AvatarFallback>
-              </Avatar>
-            )
+            </div>
           )}
-          {data.show_name && profile.title && (
-            <h1 className={cn(s.title, "font-bold text-center")} style={{ color: theme.text_color }}>{profile.title}</h1>
-          )}
+          {data.show_name && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
+            <img
+              src={(theme as any).title_logo_url}
+              alt={profile.title || "Logo"}
+              className="mx-auto w-auto my-1"
+              style={{
+                maxHeight: (theme as any).title_size === "large" ? (scale === "small" ? '54px' : '62px') : (scale === "small" ? '46px' : '54px'),
+                maxWidth: (theme as any).title_size === "large" ? (scale === "small" ? '180px' : '220px') : (scale === "small" ? '160px' : '200px'),
+                objectFit: 'contain',
+                marginTop: (theme as any).logo_position === "more_up" ? '-5px' : undefined
+              }}
+            />
+          ) : profile.title && (
+            <h1 className={cn(s.title, "font-bold text-center", (theme as any).title_size === "large" && (scale === "small" ? "text-[19px]" : "text-2xl"))} style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family }}>{profile.title}</h1>
+          ))}
           {data.show_bio && profile.bio && (
             <p className={cn(s.bio, "text-center leading-relaxed mx-auto")} style={{ color: theme.secondary_text_color || `${theme.text_color}cc` }}>{profile.bio}</p>
           )}

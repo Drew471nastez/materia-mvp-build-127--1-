@@ -6,7 +6,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
+// Custom Toggle Component with theme-style design
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox"
+    />
+  )
+}
 import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
@@ -385,21 +395,21 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <Label>Show Avatar</Label>
-            <Switch
+            <Toggle
               checked={data.show_avatar}
               onCheckedChange={(checked) => updateData({ show_avatar: checked })}
             />
           </div>
           <div className="flex items-center justify-between">
             <Label>Show Name</Label>
-            <Switch
+            <Toggle
               checked={data.show_name}
               onCheckedChange={(checked) => updateData({ show_name: checked })}
             />
           </div>
           <div className="flex items-center justify-between">
             <Label>Show Bio</Label>
-            <Switch
+            <Toggle
               checked={data.show_bio}
               onCheckedChange={(checked) => updateData({ show_bio: checked })}
             />
