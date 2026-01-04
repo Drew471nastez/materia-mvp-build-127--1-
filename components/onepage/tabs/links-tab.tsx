@@ -17,7 +17,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
+// Custom Toggle Component with theme-style design
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox"
+    />
+  )
+}
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import {
@@ -1548,7 +1558,7 @@ function BlockItem({
           </div>
         </div>
 
-        <Switch checked={block.enabled} onCheckedChange={onToggle} />
+        <Toggle checked={block.enabled} onCheckedChange={onToggle} />
       </div>
 
       {isSelected && (
@@ -1772,15 +1782,15 @@ function BlockEditor({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-xs">Show Avatar</Label>
-            <Switch checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
+            <Toggle checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
           </div>
           <div className="flex items-center justify-between">
             <Label className="text-xs">Show Name</Label>
-            <Switch checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
+            <Toggle checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
           </div>
           <div className="flex items-center justify-between">
             <Label className="text-xs">Show Bio</Label>
-            <Switch checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
+            <Toggle checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
           </div>
         </div>
       )

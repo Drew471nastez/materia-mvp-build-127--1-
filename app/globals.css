@@ -308,3 +308,45 @@
     transform: rotate(360deg);
   }
 }
+
+/* Theme Toggle Styles */
+.theme-checkbox {
+  --toggle-size: 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 3.8em;
+  height: 1.9em;
+  background: linear-gradient(to right, #c8c8c8 50%, #1a1a1a 50%);
+  background-size: 205%;
+  background-position: 0;
+  transition: 0.4s;
+  border-radius: 99em;
+  position: relative;
+  cursor: pointer;
+  font-size: var(--toggle-size);
+}
+
+.theme-checkbox::before {
+  content: "";
+  width: 1.4em;
+  height: 1.4em;
+  position: absolute;
+  top: 0.25em;
+  left: 0.25em;
+  background: linear-gradient(to right, #c8c8c8 50%, #1a1a1a 50%);
+  background-size: 205%;
+  background-position: 100%;
+  border-radius: 50%;
+  transition: 0.4s;
+  font-size: 10px;
+}
+
+.theme-checkbox:checked::before {
+  left: calc(100% - 1.4em - 0.25em);
+  background-position: 0;
+}
+
+.theme-checkbox:checked {
+  background-position: 100%;
+}

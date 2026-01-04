@@ -39,32 +39,15 @@ import type { OnePageTheme } from "@/lib/onepage/types"
 
 type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
-// Custom Toggle Component with modern styling
+// Custom Toggle Component with theme-style design
 function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
   return (
-    <label className="relative inline-block w-[52px] h-[28px] cursor-pointer">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onCheckedChange(e.target.checked)}
-        className="opacity-0 w-0 h-0"
-      />
-      <span
-        className={cn(
-          "absolute inset-0 rounded-full transition-all duration-300",
-          checked ? "bg-blue-500" : "bg-white border border-gray-300"
-        )}
-      >
-        <span
-          className={cn(
-            "absolute w-[20px] h-[20px] rounded-full transition-all duration-300",
-            checked
-              ? "bg-white left-[28px] top-[4px]"
-              : "bg-gray-400 left-[4px] top-[4px]"
-          )}
-        />
-      </span>
-    </label>
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox"
+    />
   )
 }
 

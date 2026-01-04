@@ -841,9 +841,9 @@ function PublicBlockRenderer({
       const laserGlowEnabled = (theme as any).laser_glow_enabled
       const laserGlowColor = (theme as any).laser_glow_color || "#3b82f6"
       const laserGlowIntensity = (theme as any).laser_glow_intensity || "medium"
-      // Glow intensity settings
-      const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 10 : 6
-      const glowOpacity = laserGlowIntensity === "low" ? 0.6 : laserGlowIntensity === "hard" ? 1 : 0.8
+      // Glow intensity settings - more powerful and glowish
+      const glowSpread = laserGlowIntensity === "low" ? 6 : laserGlowIntensity === "hard" ? 14 : 10
+      const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
       const avatarSize = isDesktop ? 107 : 96
 
       return (
@@ -852,16 +852,30 @@ function PublicBlockRenderer({
             <div className="relative" style={{ width: avatarSize, height: avatarSize }}>
               {/* Laser Glow Effect - rotating gradient on border */}
               {laserGlowEnabled && (
-                <div
-                  className="absolute rounded-full"
-                  style={{
-                    inset: -3,
-                    background: `conic-gradient(from 0deg, transparent 0deg, transparent 340deg, ${laserGlowColor} 360deg)`,
-                    animation: 'laserGlowRotate 2.5s linear infinite',
-                    filter: `blur(${glowSpread}px)`,
-                    opacity: glowOpacity,
-                  }}
-                />
+                <>
+                  {/* Outer glow layer for more intense effect */}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      inset: -5,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 300deg, ${laserGlowColor}66 330deg, ${laserGlowColor} 360deg)`,
+                      animation: 'laserGlowRotate 3.25s linear infinite',
+                      filter: `blur(${glowSpread + 4}px)`,
+                      opacity: glowOpacity * 0.6,
+                    }}
+                  />
+                  {/* Main glow layer */}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      inset: -3,
+                      background: `conic-gradient(from 0deg, transparent 0deg, transparent 310deg, ${laserGlowColor}88 340deg, ${laserGlowColor} 360deg)`,
+                      animation: 'laserGlowRotate 3.25s linear infinite',
+                      filter: `blur(${glowSpread}px)`,
+                      opacity: glowOpacity,
+                    }}
+                  />
+                </>
               )}
               {/* Avatar container */}
               <div className="absolute inset-0">
