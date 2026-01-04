@@ -766,10 +766,12 @@ function PublicBlockRenderer({
               )}
             </div>
             <div
-              className={cn(
-                "absolute left-0 right-0 text-center px-6",
-                isDesktop ? "bottom-8" : "bottom-4 sm:bottom-6",
-              )}
+              className="absolute left-0 right-0 text-center px-6"
+              style={{
+                bottom: (theme as any).logo_position === "more_up"
+                  ? (isDesktop ? '42px' : '26px')
+                  : (isDesktop ? '32px' : '16px')
+              }}
             >
               {data.show_name !== false && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
                 <img
@@ -780,8 +782,7 @@ function PublicBlockRenderer({
                     maxHeight: (theme as any).title_size === "large" ? (isDesktop ? '70px' : '60px') : (isDesktop ? '60px' : '52px'),
                     maxWidth: (theme as any).title_size === "large" ? (isDesktop ? '260px' : '230px') : (isDesktop ? '230px' : '200px'),
                     objectFit: 'contain',
-                    filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))",
-                    marginTop: (theme as any).logo_position === "more_up" ? '-10px' : undefined
+                    filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))"
                   }}
                 />
               ) : profile.title && (

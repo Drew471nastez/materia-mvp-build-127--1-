@@ -253,12 +253,13 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 src={(theme as any).background_video_url}
                 style={{
                   position: 'absolute',
-                  top: '-30px',
-                  left: '-30px',
-                  right: '-30px',
-                  bottom: '-30px',
-                  width: 'calc(100% + 60px)',
-                  height: 'calc(100% + 60px)',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  minWidth: '100%',
+                  minHeight: '100%',
+                  width: 'auto',
+                  height: 'auto',
                   objectFit: 'cover',
                   zIndex: 0,
                   filter: `brightness(${(theme as any).video_brightness || 100}%)`
@@ -375,12 +376,13 @@ export function MobilePreviewContent() {
             src={(theme as any).background_video_url}
             style={{
               position: 'fixed',
-              top: '-50px',
-              left: '-50px',
-              right: '-50px',
-              bottom: '-50px',
-              width: 'calc(100% + 100px)',
-              height: 'calc(100% + 100px)',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              minWidth: '100%',
+              minHeight: '100%',
+              width: 'auto',
+              height: 'auto',
               objectFit: 'cover',
               zIndex: 0,
               pointerEvents: 'none',
@@ -580,7 +582,10 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                 />
               )}
             </div>
-            <div className="absolute bottom-3 left-0 right-0 text-center px-4">
+            <div
+              className="absolute left-0 right-0 text-center px-4"
+              style={{ bottom: (theme as any).logo_position === "more_up" ? '22px' : '12px' }}
+            >
               {data.show_name && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
                 <img
                   src={(theme as any).title_logo_url}
@@ -590,8 +595,7 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                     maxHeight: (theme as any).title_size === "large" ? (scale === "small" ? '54px' : '62px') : (scale === "small" ? '46px' : '54px'),
                     maxWidth: (theme as any).title_size === "large" ? (scale === "small" ? '180px' : '220px') : (scale === "small" ? '160px' : '200px'),
                     objectFit: 'contain',
-                    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))",
-                    marginTop: (theme as any).logo_position === "more_up" ? '-10px' : undefined
+                    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))"
                   }}
                 />
               ) : profile.title && (
