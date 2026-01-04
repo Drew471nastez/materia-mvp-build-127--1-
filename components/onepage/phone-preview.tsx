@@ -66,10 +66,11 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
 }
 
 // Background Pattern Component for rendering pattern overlays
-function BackgroundPattern({ pattern, color }: { pattern: string; color: string }) {
+function BackgroundPattern({ pattern, color, opacity = "medium" }: { pattern: string; color: string; opacity?: "low" | "medium" | "hard" }) {
+  const opacityValue = opacity === "low" ? 0.4 : opacity === "hard" ? 1 : 0.7
   const patternSVGs: Record<string, React.ReactNode> = {
     grid: (
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id={`bg-grid-${pattern}`} width="20" height="20" patternUnits="userSpaceOnUse">
             <path d="M 20 0 L 0 0 0 20" fill="none" stroke={color} strokeWidth="1" />
@@ -79,7 +80,7 @@ function BackgroundPattern({ pattern, color }: { pattern: string; color: string 
       </svg>
     ),
     dots: (
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id={`bg-dots-${pattern}`} width="16" height="16" patternUnits="userSpaceOnUse">
             <circle cx="8" cy="8" r="2" fill={color} />
@@ -89,7 +90,7 @@ function BackgroundPattern({ pattern, color }: { pattern: string; color: string 
       </svg>
     ),
     waves: (
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id={`bg-waves-${pattern}`} width="50" height="25" patternUnits="userSpaceOnUse">
             <path d="M0 12.5 Q12.5 0, 25 12.5 T50 12.5" fill="none" stroke={color} strokeWidth="2" />
@@ -99,7 +100,7 @@ function BackgroundPattern({ pattern, color }: { pattern: string; color: string 
       </svg>
     ),
     zigzag: (
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id={`bg-zigzag-${pattern}`} width="20" height="12" patternUnits="userSpaceOnUse">
             <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={color} strokeWidth="1.5" />
@@ -109,7 +110,7 @@ function BackgroundPattern({ pattern, color }: { pattern: string; color: string 
       </svg>
     ),
     cross: (
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id={`bg-cross-${pattern}`} width="16" height="16" patternUnits="userSpaceOnUse">
             <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={color} strokeWidth="1" />
@@ -119,7 +120,7 @@ function BackgroundPattern({ pattern, color }: { pattern: string; color: string 
       </svg>
     ),
     diagonal: (
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id={`bg-diagonal-${pattern}`} width="10" height="10" patternUnits="userSpaceOnUse">
             <path d="M0 10 L10 0" fill="none" stroke={color} strokeWidth="1" />
@@ -129,7 +130,7 @@ function BackgroundPattern({ pattern, color }: { pattern: string; color: string 
       </svg>
     ),
     morph: (
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
         <defs>
           <pattern id={`bg-morph-${pattern}`} width="200" height="200" patternUnits="userSpaceOnUse">
             <path d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180" fill="none" stroke={color} strokeWidth="2" opacity="0.5" />
@@ -146,7 +147,7 @@ function BackgroundPattern({ pattern, color }: { pattern: string; color: string 
       </svg>
     ),
     organic: (
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: opacityValue }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
         <defs>
           <pattern id={`bg-organic-${pattern}`} width="200" height="200" patternUnits="userSpaceOnUse">
             <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={color} opacity="0.35" />
@@ -268,7 +269,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
             {/* Pattern overlay */}
             {(theme.background_type === "solid" || theme.background_type === "gradient") && (theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
-              <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000015"} />
+              <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000015"} opacity={(theme as any).pattern_opacity || "medium"} />
             )}
 
             <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '24px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -368,7 +369,7 @@ export function MobilePreviewContent() {
         {/* Pattern overlay for mobile */}
         {(theme.background_type === "solid" || theme.background_type === "gradient") && (theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
           <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-            <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000015"} />
+            <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000015"} opacity={(theme as any).pattern_opacity || "medium"} />
           </div>
         )}
 
@@ -533,9 +534,21 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
               )}
             </div>
             <div className="absolute bottom-3 left-0 right-0 text-center px-4">
-              {data.show_name && profile.title && (
+              {data.show_name && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
+                <img
+                  src={(theme as any).title_logo_url}
+                  alt={profile.title || "Logo"}
+                  className={cn(
+                    "mx-auto object-contain",
+                    (theme as any).title_size === "large"
+                      ? (scale === "small" ? "h-10 max-w-[140px]" : "h-12 max-w-[180px]")
+                      : (scale === "small" ? "h-8 max-w-[120px]" : "h-10 max-w-[160px]")
+                  )}
+                  style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))" }}
+                />
+              ) : profile.title && (
                 <h1 className={cn(s.title, "font-bold", (theme as any).title_size === "large" && (scale === "small" ? "text-[19px]" : "text-2xl"))} style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family, textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>{profile.title}</h1>
-              )}
+              ))}
               {data.show_bio && profile.bio && (
                 <p className={cn(s.bio, "text-center mt-1 mx-auto")} style={{ color: theme.secondary_text_color || theme.text_color, textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>{profile.bio}</p>
               )}
@@ -596,9 +609,20 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
               </Avatar>
             )
           )}
-          {data.show_name && profile.title && (
+          {data.show_name && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
+            <img
+              src={(theme as any).title_logo_url}
+              alt={profile.title || "Logo"}
+              className={cn(
+                "mx-auto object-contain",
+                (theme as any).title_size === "large"
+                  ? (scale === "small" ? "h-10 max-w-[140px]" : "h-12 max-w-[180px]")
+                  : (scale === "small" ? "h-8 max-w-[120px]" : "h-10 max-w-[160px]")
+              )}
+            />
+          ) : profile.title && (
             <h1 className={cn(s.title, "font-bold text-center", (theme as any).title_size === "large" && (scale === "small" ? "text-[19px]" : "text-2xl"))} style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family }}>{profile.title}</h1>
-          )}
+          ))}
           {data.show_bio && profile.bio && (
             <p className={cn(s.bio, "text-center leading-relaxed mx-auto")} style={{ color: theme.secondary_text_color || `${theme.text_color}cc` }}>{profile.bio}</p>
           )}

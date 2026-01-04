@@ -269,13 +269,15 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
   // Background pattern overlay component
   const patternColor = (safeTheme as any).pattern_color || "#00000015"
+  const patternOpacity = (safeTheme as any).pattern_opacity || "medium"
+  const patternOpacityValue = patternOpacity === "low" ? 0.4 : patternOpacity === "hard" ? 1 : 0.7
   const BackgroundPatternOverlay = () => {
     const patternType = (safeTheme as any).background_pattern
     if (!patternType || patternType === "none") return null
 
     const patterns: Record<string, React.ReactNode> = {
       grid: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="public-grid" width="20" height="20" patternUnits="userSpaceOnUse">
               <path d="M 20 0 L 0 0 0 20" fill="none" stroke={patternColor} strokeWidth="1" />
@@ -285,7 +287,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         </svg>
       ),
       dots: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="public-dots" width="16" height="16" patternUnits="userSpaceOnUse">
               <circle cx="8" cy="8" r="2" fill={patternColor} />
@@ -295,7 +297,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         </svg>
       ),
       waves: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="public-waves" width="50" height="25" patternUnits="userSpaceOnUse">
               <path d="M0 12.5 Q12.5 0, 25 12.5 T50 12.5" fill="none" stroke={patternColor} strokeWidth="2" />
@@ -305,7 +307,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         </svg>
       ),
       zigzag: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="public-zigzag" width="20" height="12" patternUnits="userSpaceOnUse">
               <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={patternColor} strokeWidth="1.5" />
@@ -315,7 +317,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         </svg>
       ),
       cross: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="public-cross" width="16" height="16" patternUnits="userSpaceOnUse">
               <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={patternColor} strokeWidth="1" />
@@ -325,7 +327,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         </svg>
       ),
       diagonal: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="public-diagonal" width="10" height="10" patternUnits="userSpaceOnUse">
               <path d="M0 10 L10 0" fill="none" stroke={patternColor} strokeWidth="1" />
@@ -335,7 +337,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         </svg>
       ),
       morph: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
           <defs>
             <pattern id="public-morph" width="200" height="200" patternUnits="userSpaceOnUse">
               <path d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180" fill="none" stroke={patternColor} strokeWidth="2" opacity="0.5" />
@@ -352,7 +354,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         </svg>
       ),
       organic: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, opacity: patternOpacityValue }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
           <defs>
             <pattern id="public-organic" width="200" height="200" patternUnits="userSpaceOnUse">
               <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={patternColor} opacity="0.35" />
@@ -722,7 +724,19 @@ function PublicBlockRenderer({
                 isDesktop ? "bottom-8" : "bottom-4 sm:bottom-6",
               )}
             >
-              {data.show_name !== false && profile.title && (
+              {data.show_name !== false && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
+                <img
+                  src={(theme as any).title_logo_url}
+                  alt={profile.title || "Logo"}
+                  className={cn(
+                    "mx-auto object-contain",
+                    (theme as any).title_size === "large"
+                      ? (isDesktop ? "h-14 max-w-[200px]" : "h-12 max-w-[180px] sm:h-14 sm:max-w-[200px]")
+                      : (isDesktop ? "h-12 max-w-[180px]" : "h-10 max-w-[160px] sm:h-12 sm:max-w-[180px]")
+                  )}
+                  style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))" }}
+                />
+              ) : profile.title && (
                 <h1
                   className={cn(
                     "font-bold",
@@ -734,7 +748,7 @@ function PublicBlockRenderer({
                 >
                   {profile.title}
                 </h1>
-              )}
+              ))}
               {data.show_bio !== false && profile.bio && (
                 <p
                   className={cn("mt-2 max-w-sm mx-auto", isDesktop ? "text-base" : "text-sm sm:text-base")}
@@ -818,7 +832,18 @@ function PublicBlockRenderer({
                 </AvatarFallback>
               </Avatar>
             ))}
-          {data.show_name !== false && profile.title && (
+          {data.show_name !== false && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
+            <img
+              src={(theme as any).title_logo_url}
+              alt={profile.title || "Logo"}
+              className={cn(
+                "mx-auto object-contain",
+                (theme as any).title_size === "large"
+                  ? (isDesktop ? "h-14 max-w-[200px]" : "h-12 max-w-[180px] sm:h-14 sm:max-w-[200px]")
+                  : (isDesktop ? "h-12 max-w-[180px]" : "h-10 max-w-[160px] sm:h-12 sm:max-w-[180px]")
+              )}
+            />
+          ) : profile.title && (
             <h1
               className={cn(
                 "font-bold text-center",
@@ -830,7 +855,7 @@ function PublicBlockRenderer({
             >
               {profile.title}
             </h1>
-          )}
+          ))}
           {data.show_bio !== false && profile.bio && (
             <p
               className="text-sm sm:text-base text-center leading-relaxed max-w-sm mx-auto"

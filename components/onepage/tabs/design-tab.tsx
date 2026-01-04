@@ -122,7 +122,7 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
   ),
 }
 
-// 15 unique working fonts for body text
+// Body text fonts
 const FONTS = [
   { name: "Inter", category: "sans", style: "Clean & Professional", value: "'Inter', sans-serif" },
   { name: "Poppins", category: "sans", style: "Rounded & Friendly", value: "'Poppins', sans-serif" },
@@ -134,6 +134,9 @@ const FONTS = [
   { name: "Nunito", category: "sans", style: "Soft & Rounded", value: "'Nunito', sans-serif" },
   { name: "Quicksand", category: "sans", style: "Geometric & Friendly", value: "'Quicksand', sans-serif" },
   { name: "Comfortaa", category: "sans", style: "Round & Geometric", value: "'Comfortaa', cursive" },
+  { name: "DM Sans", category: "sans", style: "Modern & Clean", value: "'DM Sans', sans-serif" },
+  { name: "Space Grotesk", category: "sans", style: "Geometric Modern", value: "'Space Grotesk', sans-serif" },
+  { name: "Sora", category: "sans", style: "Contemporary Clean", value: "'Sora', sans-serif" },
   { name: "Playfair Display", category: "serif", style: "Elegant & Editorial", value: "'Playfair Display', serif" },
   { name: "Merriweather", category: "serif", style: "Traditional & Warm", value: "'Merriweather', serif" },
   { name: "Lora", category: "serif", style: "Classic & Readable", value: "'Lora', serif" },
@@ -146,7 +149,7 @@ const FONTS = [
   { name: "Caveat", category: "script", style: "Natural Handwriting", value: "'Caveat', cursive" },
 ]
 
-// Display fonts for Title customization - 20 unique working fonts
+// Display fonts for Title customization
 const TITLE_FONTS = [
   { name: "Default (Same as body)", value: null },
   { name: "Playfair Display", value: "'Playfair Display', serif" },
@@ -169,6 +172,9 @@ const TITLE_FONTS = [
   { name: "Comfortaa", value: "'Comfortaa', cursive" },
   { name: "Caveat", value: "'Caveat', cursive" },
   { name: "Barlow Condensed", value: "'Barlow Condensed', sans-serif" },
+  { name: "DM Sans", value: "'DM Sans', sans-serif" },
+  { name: "Space Grotesk", value: "'Space Grotesk', sans-serif" },
+  { name: "Sora", value: "'Sora', sans-serif" },
 ]
 
 const FONT_CATEGORIES = [
@@ -645,8 +651,22 @@ function HeaderSection() {
   // Title font modal state
   const [showTitleFontModal, setShowTitleFontModal] = useState(false)
 
-  // Reposition modal state
-  const [showRepositionModal, setShowRepositionModal] = useState(false)
+  // Logo upload/crop states
+  const [showLogoUploadModal, setShowLogoUploadModal] = useState(false)
+  const [showLogoCropModal, setShowLogoCropModal] = useState(false)
+  const [tempLogoUrl, setTempLogoUrl] = useState<string | null>(null)
+  const [tempLogoFile, setTempLogoFile] = useState<File | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const logoFileInputRef = useRef<HTMLInputElement>(null)
+  const logoCropContainerRef = useRef<HTMLDivElement>(null)
+
+  // Logo crop state
+  const [logoCropBox, setLogoCropBox] = useState({ x: 10, y: 10, size: 80 })
+  const [isLogoDragging, setIsLogoDragging] = useState(false)
+  const [isLogoResizing, setIsLogoResizing] = useState<string | null>(null)
+  const [logoDragStart, setLogoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxSize: 0 })
+  const [logoImageSize, setLogoImageSize] = useState({ width: 0, height: 0 })
+
 
   if (!onepage) return null
 
@@ -909,8 +929,8 @@ function HeaderSection() {
         console.log("Video uploaded successfully:", finalVideoUrl)
       }
       
-      // Update the profile with video URL and crop data
-      updateProfile({ avatar_video_url: finalVideoUrl, avatar_video_crop: videoCropBox })
+      // Update the profile with video URL and crop data, clear image when uploading video
+      updateProfile({ avatar_video_url: finalVideoUrl, avatar_video_crop: videoCropBox, avatar_url: null })
       
       setShowVideoCropModal(false)
       setTempVideoUrl(null)
@@ -1010,7 +1030,8 @@ function HeaderSection() {
       if (error) throw error
 
       const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-      updateProfile({ avatar_url: publicUrl })
+      // Clear video when uploading an image to replace it
+      updateProfile({ avatar_url: publicUrl, avatar_video_url: null })
       setShowCropModal(false)
     } catch (error) {
       console.error("Upload error:", error)
@@ -1032,6 +1053,271 @@ function HeaderSection() {
   const handleLayoutChange = (layout: string) => {
     if (layout === "hero" && (theme.background_type === "image" || theme.background_type === "gradient")) return
     updateTheme({ header_layout: layout } as any)
+  }
+
+  // Logo file selection handler
+  const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    setTempLogoUrl(url)
+    setTempLogoFile(file)
+    setShowLogoUploadModal(false)
+    setShowLogoCropModal(true)
+
+    // Load image to get dimensions and set initial crop box
+    const img = new Image()
+    img.onload = () => {
+      const containerSize = 300
+      const scale = Math.min(containerSize / img.width, containerSize / img.height)
+      const displayWidth = img.width * scale
+      const displayHeight = img.height * scale
+      setLogoImageSize({ width: displayWidth, height: displayHeight })
+
+      // Initial crop box centered and square
+      const initialSize = Math.min(displayWidth, displayHeight) * 0.8
+      setLogoCropBox({
+        x: (displayWidth - initialSize) / 2,
+        y: (displayHeight - initialSize) / 2,
+        size: initialSize
+      })
+    }
+    img.src = url
+  }
+
+  // Logo crop drag handlers
+  const handleLogoCropMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize', corner?: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const container = logoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    setLogoDragStart({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      boxX: logoCropBox.x,
+      boxY: logoCropBox.y,
+      boxSize: logoCropBox.size
+    })
+
+    if (type === 'drag') {
+      setIsLogoDragging(true)
+    } else {
+      setIsLogoResizing(corner || null)
+    }
+  }
+
+  const handleLogoCropTouchStart = (e: React.TouchEvent, type: 'drag' | 'resize', corner?: string) => {
+    e.stopPropagation()
+    const touch = e.touches[0]
+    const container = logoCropContainerRef.current
+    if (!container || !touch) return
+
+    const rect = container.getBoundingClientRect()
+    setLogoDragStart({
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+      boxX: logoCropBox.x,
+      boxY: logoCropBox.y,
+      boxSize: logoCropBox.size
+    })
+
+    if (type === 'drag') {
+      setIsLogoDragging(true)
+    } else {
+      setIsLogoResizing(corner || null)
+    }
+  }
+
+  const handleLogoCropMouseMove = useCallback((e: MouseEvent) => {
+    const container = logoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+
+    if (isLogoDragging) {
+      const deltaX = x - logoDragStart.x
+      const deltaY = y - logoDragStart.y
+
+      let newX = logoDragStart.boxX + deltaX
+      let newY = logoDragStart.boxY + deltaY
+
+      // Constrain to image bounds
+      newX = Math.max(0, Math.min(logoImageSize.width - logoCropBox.size, newX))
+      newY = Math.max(0, Math.min(logoImageSize.height - logoCropBox.size, newY))
+
+      setLogoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+    } else if (isLogoResizing) {
+      const deltaX = x - logoDragStart.x
+      const deltaY = y - logoDragStart.y
+      const delta = Math.max(deltaX, deltaY)
+
+      let newSize = logoDragStart.boxSize
+      let newX = logoDragStart.boxX
+      let newY = logoDragStart.boxY
+
+      if (isLogoResizing === 'bottom-right') {
+        newSize = Math.max(50, logoDragStart.boxSize + delta)
+      } else if (isLogoResizing === 'top-left') {
+        newSize = Math.max(50, logoDragStart.boxSize - delta)
+        newX = logoDragStart.boxX + (logoDragStart.boxSize - newSize)
+        newY = logoDragStart.boxY + (logoDragStart.boxSize - newSize)
+      } else if (isLogoResizing === 'top-right') {
+        newSize = Math.max(50, logoDragStart.boxSize + deltaX)
+        newY = logoDragStart.boxY + (logoDragStart.boxSize - newSize)
+      } else if (isLogoResizing === 'bottom-left') {
+        newSize = Math.max(50, logoDragStart.boxSize - deltaX)
+        newX = logoDragStart.boxX + (logoDragStart.boxSize - newSize)
+      }
+
+      // Constrain to bounds
+      newSize = Math.min(newSize, logoImageSize.width - newX, logoImageSize.height - newY)
+      newX = Math.max(0, newX)
+      newY = Math.max(0, newY)
+
+      setLogoCropBox({ x: newX, y: newY, size: newSize })
+    }
+  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.size, logoImageSize])
+
+  const handleLogoCropTouchMove = useCallback((e: TouchEvent) => {
+    const touch = e.touches[0]
+    if (!touch) return
+    const container = logoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = touch.clientX - rect.left
+    const y = touch.clientY - rect.top
+
+    if (isLogoDragging) {
+      const deltaX = x - logoDragStart.x
+      const deltaY = y - logoDragStart.y
+
+      let newX = logoDragStart.boxX + deltaX
+      let newY = logoDragStart.boxY + deltaY
+
+      newX = Math.max(0, Math.min(logoImageSize.width - logoCropBox.size, newX))
+      newY = Math.max(0, Math.min(logoImageSize.height - logoCropBox.size, newY))
+
+      setLogoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+    } else if (isLogoResizing) {
+      const deltaX = x - logoDragStart.x
+      const deltaY = y - logoDragStart.y
+      const delta = Math.max(deltaX, deltaY)
+
+      let newSize = logoDragStart.boxSize
+      let newX = logoDragStart.boxX
+      let newY = logoDragStart.boxY
+
+      if (isLogoResizing === 'bottom-right') {
+        newSize = Math.max(50, logoDragStart.boxSize + delta)
+      } else if (isLogoResizing === 'top-left') {
+        newSize = Math.max(50, logoDragStart.boxSize - delta)
+        newX = logoDragStart.boxX + (logoDragStart.boxSize - newSize)
+        newY = logoDragStart.boxY + (logoDragStart.boxSize - newSize)
+      }
+
+      newSize = Math.min(newSize, logoImageSize.width - newX, logoImageSize.height - newY)
+      newX = Math.max(0, newX)
+      newY = Math.max(0, newY)
+
+      setLogoCropBox({ x: newX, y: newY, size: newSize })
+    }
+  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.size, logoImageSize])
+
+  const handleLogoCropMouseUp = useCallback(() => {
+    setIsLogoDragging(false)
+    setIsLogoResizing(null)
+  }, [])
+
+  // Add/remove logo crop event listeners
+  useEffect(() => {
+    if (isLogoDragging || isLogoResizing) {
+      window.addEventListener('mousemove', handleLogoCropMouseMove)
+      window.addEventListener('mouseup', handleLogoCropMouseUp)
+      window.addEventListener('touchmove', handleLogoCropTouchMove, { passive: false })
+      window.addEventListener('touchend', handleLogoCropMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleLogoCropMouseMove)
+        window.removeEventListener('mouseup', handleLogoCropMouseUp)
+        window.removeEventListener('touchmove', handleLogoCropTouchMove)
+        window.removeEventListener('touchend', handleLogoCropMouseUp)
+      }
+    }
+  }, [isLogoDragging, isLogoResizing, handleLogoCropMouseMove, handleLogoCropTouchMove, handleLogoCropMouseUp])
+
+  const handleLogoCropSave = async () => {
+    if (!tempLogoFile || !tempLogoUrl) return
+    setUploadingLogo(true)
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = reject
+        img.src = tempLogoUrl
+      })
+
+      // Calculate the actual image coordinates from the crop box
+      const containerSize = 300
+      const scale = Math.min(containerSize / img.width, containerSize / img.height)
+
+      // Convert crop box coordinates back to original image coordinates
+      const actualX = logoCropBox.x / scale
+      const actualY = logoCropBox.y / scale
+      const actualSize = logoCropBox.size / scale
+
+      // Output size for high quality logo
+      const outputSize = 400
+      canvas.width = outputSize
+      canvas.height = outputSize
+
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(
+          img,
+          actualX, actualY, actualSize, actualSize,
+          0, 0, outputSize, outputSize
+        )
+      }
+
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob!), 'image/png', 1.0)
+      })
+
+      const fileName = `${user.id}/logo-${Date.now()}.png`
+      const { error } = await supabase.storage.from("onepage-assets").upload(fileName, blob, { upsert: true })
+      if (error) throw error
+
+      const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
+      updateTheme({ title_logo_url: publicUrl, title_style: 'logo' } as any)
+      setShowLogoCropModal(false)
+    } catch (error) {
+      console.error("Logo upload error:", error)
+      alert('Failed to save logo. Please try again.')
+    } finally {
+      setUploadingLogo(false)
+      if (tempLogoUrl) {
+        URL.revokeObjectURL(tempLogoUrl)
+        setTempLogoUrl(null)
+        setTempLogoFile(null)
+      }
+    }
+  }
+
+  const handleRemoveLogo = () => {
+    updateTheme({ title_logo_url: null, title_style: 'text' } as any)
   }
 
   // Mouse/Touch handlers for crop box
@@ -1135,10 +1421,6 @@ function HeaderSection() {
             <ImageIcon className="h-4 w-4 mr-2" />
             {uploading ? "Uploading..." : "Edit"}
           </Button>
-          <Button variant="outline" onClick={() => setShowRepositionModal(true)} className="h-9 rounded-lg">
-            <Move className="h-4 w-4 mr-2" />
-            Reposition
-          </Button>
         </div>
       </div>
 
@@ -1221,8 +1503,6 @@ function HeaderSection() {
                     muted
                     playsInline
                   />
-                  {/* Dark overlay outside crop area */}
-                  <div className="absolute inset-0 pointer-events-none rounded-xl" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
 
                   {/* Crop box - draggable */}
                   <div
@@ -1419,6 +1699,124 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
+      {/* Logo Upload Modal */}
+      <Dialog open={showLogoUploadModal} onOpenChange={setShowLogoUploadModal}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => setShowLogoUploadModal(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Logo</DialogTitle>
+          </DialogHeader>
+          <div className="p-5">
+            <div onClick={() => logoFileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
+              <Upload className="h-12 w-12 text-gray-300 mb-4" />
+              <p className="font-medium text-gray-600">Select logo to upload,</p>
+              <p className="font-medium text-gray-600">or drag-and-drop file</p>
+              <p className="text-sm text-gray-400 mt-2">PNG with transparent background recommended</p>
+            </div>
+            <input ref={logoFileInputRef} type="file" accept="image/*" onChange={handleLogoFileSelect} className="hidden" />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logo Crop Modal */}
+      <Dialog open={showLogoCropModal} onOpenChange={(open) => {
+        setShowLogoCropModal(open)
+        if (!open && tempLogoUrl) {
+          URL.revokeObjectURL(tempLogoUrl)
+          setTempLogoUrl(null)
+          setTempLogoFile(null)
+          setIsLogoDragging(false)
+          setIsLogoResizing(null)
+        }
+      }}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => { setShowLogoCropModal(false); setShowLogoUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Logo</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-4">
+            {tempLogoUrl && (
+              <>
+                <div
+                  ref={logoCropContainerRef}
+                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden select-none"
+                  style={{ width: '300px', height: '300px', touchAction: 'none' }}
+                >
+                  {/* Image */}
+                  <img
+                    src={tempLogoUrl}
+                    alt="Preview"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
+                    style={{
+                      width: logoImageSize.width,
+                      height: logoImageSize.height,
+                      maxWidth: '300px',
+                      maxHeight: '300px',
+                      objectFit: 'contain'
+                    }}
+                    draggable={false}
+                  />
+
+                  {/* Crop box */}
+                  <div
+                    className="absolute border-2 border-blue-500 cursor-move"
+                    style={{
+                      left: `${150 - logoImageSize.width/2 + logoCropBox.x}px`,
+                      top: `${150 - logoImageSize.height/2 + logoCropBox.y}px`,
+                      width: `${logoCropBox.size}px`,
+                      height: `${logoCropBox.size}px`,
+                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+                      touchAction: 'none'
+                    }}
+                    onMouseDown={(e) => handleLogoCropMouseDown(e, 'drag')}
+                    onTouchStart={(e) => handleLogoCropTouchStart(e, 'drag')}
+                  >
+                    {/* Grid lines */}
+                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
+                      {[...Array(9)].map((_, i) => (
+                        <div key={i} className="border border-white/30" />
+                      ))}
+                    </div>
+
+                    {/* Corner resize handles */}
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
+                      style={{ top: '-10px', left: '-10px', width: '20px', height: '20px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top-left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top-left') }}
+                    />
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
+                      style={{ top: '-10px', right: '-10px', width: '20px', height: '20px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top-right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top-right') }}
+                    />
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
+                      style={{ bottom: '-10px', left: '-10px', width: '20px', height: '20px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom-left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom-left') }}
+                    />
+                    <div
+                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
+                      style={{ bottom: '-10px', right: '-10px', width: '20px', height: '20px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom-right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom-right') }}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize (square crop)</p>
+
+                <Button onClick={handleLogoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingLogo}>
+                  {uploadingLogo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-3">
         <Label className="text-sm font-medium">Profile image layout</Label>
         <div className="grid grid-cols-2 gap-2 md:gap-3">
@@ -1440,6 +1838,79 @@ function HeaderSection() {
         <Label className="text-sm font-medium">Display Name</Label>
         <Input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder="Your name" className="h-10 rounded-lg" />
       </div>
+
+      {/* Title Style Selector */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title Style</Label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => updateTheme({ title_style: "text" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              ((theme as any).title_style || "text") === "text"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            Text Based
+          </button>
+          <button
+            onClick={() => updateTheme({ title_style: "logo" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              (theme as any).title_style === "logo"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            Logo Based
+          </button>
+        </div>
+      </div>
+
+      {/* Logo Upload - only show when Logo Based is selected */}
+      {(theme as any).title_style === "logo" && (
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">Logo Image</Label>
+          {(theme as any).title_logo_url ? (
+            <div className="flex items-center gap-3">
+              <div className="w-16 h-16 rounded-xl border-2 border-gray-200 overflow-hidden bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/10px_10px]">
+                <img src={(theme as any).title_logo_url} alt="Logo" className="w-full h-full object-contain" />
+              </div>
+              <div className="flex-1 flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowLogoUploadModal(true)}
+                  className="flex-1 h-9 rounded-lg"
+                >
+                  Change
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRemoveLogo}
+                  className="h-9 w-9 p-0 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLogoUploadModal(true)}
+              className="w-full py-4 px-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors flex flex-col items-center justify-center gap-2"
+            >
+              <Upload className="h-8 w-8 text-gray-400" />
+              <span className="text-sm font-medium text-gray-600">Upload Logo</span>
+            </button>
+          )}
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg flex items-start gap-2">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>For best results, use a logo with a transparent background (PNG format)</span>
+          </p>
+        </div>
+      )}
 
       {/* Title Font Selector */}
       <div className="space-y-2">
@@ -1496,17 +1967,17 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
-      {/* Title Size Selector */}
+      {/* Title & Logo Size Selector */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Title size</Label>
+        <Label className="text-sm font-medium">Title & Logo size</Label>
         <div className="flex gap-2">
           <button
             onClick={() => updateTheme({ title_size: "default" } as any)}
             className={cn(
               "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
               ((theme as any).title_size || "default") === "default"
-                ? "bg-blue-500 text-white border-blue-500"
-                : "bg-white border-gray-200 hover:border-gray-300"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
             )}
           >
             Default
@@ -1516,8 +1987,8 @@ function HeaderSection() {
             className={cn(
               "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
               (theme as any).title_size === "large"
-                ? "bg-blue-500 text-white border-blue-500"
-                : "bg-white border-gray-200 hover:border-gray-300"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
             )}
           >
             Large
@@ -1578,246 +2049,6 @@ function HeaderSection() {
         <Label className="text-sm font-medium">Bio</Label>
         <Input value={onepage.bio || ""} onChange={(e) => updateProfile({ bio: e.target.value })} placeholder="A short bio..." className="h-10 rounded-lg" />
       </div>
-
-      {/* Reposition Modal - Interactive Drag Interface */}
-      <Dialog open={showRepositionModal} onOpenChange={setShowRepositionModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-5 border-b">
-            <DialogTitle className="text-lg font-semibold text-center">
-              Reposition Image
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground text-center mt-1">
-              Drag to adjust position
-            </p>
-          </DialogHeader>
-          <div className="p-5 space-y-5">
-            {/* Interactive Preview - Different for Hero vs Classic */}
-            {headerLayout === "hero" ? (
-              /* Hero Layout - Rectangle Preview */
-              <div className="relative">
-                <div
-                  className="relative w-full overflow-hidden rounded-xl bg-gray-100 cursor-move select-none"
-                  style={{ aspectRatio: "4/3" }}
-                  onMouseDown={(e) => {
-                    const startY = e.clientY
-                    const startPos = (theme as any).hero_position_y ?? 50
-                    const onMove = (moveE: MouseEvent) => {
-                      const deltaY = moveE.clientY - startY
-                      const newPos = Math.max(0, Math.min(100, startPos + deltaY * 0.5))
-                      updateTheme({ hero_position_y: Math.round(newPos) } as any)
-                    }
-                    const onUp = () => {
-                      document.removeEventListener("mousemove", onMove)
-                      document.removeEventListener("mouseup", onUp)
-                    }
-                    document.addEventListener("mousemove", onMove)
-                    document.addEventListener("mouseup", onUp)
-                  }}
-                  onTouchStart={(e) => {
-                    const startY = e.touches[0].clientY
-                    const startPos = (theme as any).hero_position_y ?? 50
-                    const onMove = (moveE: TouchEvent) => {
-                      const deltaY = moveE.touches[0].clientY - startY
-                      const newPos = Math.max(0, Math.min(100, startPos + deltaY * 0.5))
-                      updateTheme({ hero_position_y: Math.round(newPos) } as any)
-                    }
-                    const onEnd = () => {
-                      document.removeEventListener("touchmove", onMove)
-                      document.removeEventListener("touchend", onEnd)
-                    }
-                    document.addEventListener("touchmove", onMove)
-                    document.addEventListener("touchend", onEnd)
-                  }}
-                >
-                  {avatarVideoUrl ? (
-                    <video
-                      src={avatarVideoUrl}
-                      className="w-full h-full object-cover pointer-events-none"
-                      style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                    />
-                  ) : onepage.avatar_url ? (
-                    <img
-                      src={onepage.avatar_url}
-                      alt="Profile"
-                      className="w-full h-full object-cover pointer-events-none"
-                      style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl font-semibold text-gray-400">
-                      {onepage.title?.charAt(0) || "?"}
-                    </div>
-                  )}
-                  {/* Drag indicator overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/10">
-                    <div className="bg-white/90 rounded-full p-3 shadow-lg">
-                      <Move className="h-5 w-5 text-gray-600" />
-                    </div>
-                  </div>
-                  {/* Fade overlay preview */}
-                  <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      background: `linear-gradient(to bottom, transparent 50%, ${theme.background_color || '#ffffff'} 100%)`
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-center text-muted-foreground mt-3">
-                  Position: {(theme as any).hero_position_y ?? 50}% from top
-                </p>
-              </div>
-            ) : (
-              /* Classic Layout - Circle Preview */
-              <div className="relative">
-                <div
-                  className="relative w-32 h-32 mx-auto rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100 cursor-move select-none"
-                  onMouseDown={(e) => {
-                    const startY = e.clientY
-                    const startOffset = (theme as any).avatar_offset_y || 0
-                    const onMove = (moveE: MouseEvent) => {
-                      const deltaY = moveE.clientY - startY
-                      const newOffset = Math.max(-30, Math.min(30, startOffset + deltaY * 0.5))
-                      updateTheme({ avatar_offset_y: Math.round(newOffset) } as any)
-                    }
-                    const onUp = () => {
-                      document.removeEventListener("mousemove", onMove)
-                      document.removeEventListener("mouseup", onUp)
-                    }
-                    document.addEventListener("mousemove", onMove)
-                    document.addEventListener("mouseup", onUp)
-                  }}
-                  onTouchStart={(e) => {
-                    const startY = e.touches[0].clientY
-                    const startOffset = (theme as any).avatar_offset_y || 0
-                    const onMove = (moveE: TouchEvent) => {
-                      const deltaY = moveE.touches[0].clientY - startY
-                      const newOffset = Math.max(-30, Math.min(30, startOffset + deltaY * 0.5))
-                      updateTheme({ avatar_offset_y: Math.round(newOffset) } as any)
-                    }
-                    const onEnd = () => {
-                      document.removeEventListener("touchmove", onMove)
-                      document.removeEventListener("touchend", onEnd)
-                    }
-                    document.addEventListener("touchmove", onMove)
-                    document.addEventListener("touchend", onEnd)
-                  }}
-                >
-                  {avatarVideoUrl ? (
-                    <video
-                      src={avatarVideoUrl}
-                      className="w-full h-full object-cover pointer-events-none"
-                      style={{ transform: `translateY(${(theme as any).avatar_offset_y || 0}px)` }}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                    />
-                  ) : onepage.avatar_url ? (
-                    <img
-                      src={onepage.avatar_url}
-                      alt="Profile"
-                      className="w-full h-full object-cover pointer-events-none"
-                      style={{ transform: `translateY(${(theme as any).avatar_offset_y || 0}px)` }}
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl font-semibold text-gray-400">
-                      {onepage.title?.charAt(0) || "?"}
-                    </div>
-                  )}
-                  {/* Drag indicator overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/10 rounded-full">
-                    <div className="bg-white/90 rounded-full p-2 shadow-lg">
-                      <Move className="h-4 w-4 text-gray-600" />
-                    </div>
-                  </div>
-                </div>
-                <p className="text-xs text-center text-muted-foreground mt-3">
-                  Offset: {(theme as any).avatar_offset_y || 0}px
-                </p>
-              </div>
-            )}
-
-            {/* Quick Position Buttons */}
-            <div className="flex justify-center gap-2">
-              {headerLayout === "hero" ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg text-xs"
-                    onClick={() => updateTheme({ hero_position_y: 0 } as any)}
-                  >
-                    Top
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg text-xs"
-                    onClick={() => updateTheme({ hero_position_y: 50 } as any)}
-                  >
-                    Center
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg text-xs"
-                    onClick={() => updateTheme({ hero_position_y: 100 } as any)}
-                  >
-                    Bottom
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg text-xs"
-                    onClick={() => updateTheme({ avatar_offset_y: -20 } as any)}
-                  >
-                    Up
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg text-xs"
-                    onClick={() => updateTheme({ avatar_offset_y: 0 } as any)}
-                  >
-                    Center
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-lg text-xs"
-                    onClick={() => updateTheme({ avatar_offset_y: 20 } as any)}
-                  >
-                    Down
-                  </Button>
-                </>
-              )}
-            </div>
-
-            {/* Reset Button */}
-            <Button
-              variant="outline"
-              className="w-full rounded-xl"
-              onClick={() => {
-                if (headerLayout === "hero") {
-                  updateTheme({ hero_position_y: 50 } as any)
-                } else {
-                  updateTheme({ avatar_offset_y: 0 } as any)
-                }
-              }}
-            >
-              Reset to Default
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
@@ -2330,6 +2561,48 @@ function WallpaperSection() {
               </div>
             </div>
           )}
+
+          {/* Pattern Opacity */}
+          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pattern opacity</Label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "low" } as any)}
+                  className={cn(
+                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "low"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Low
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "medium" } as any)}
+                  className={cn(
+                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    ((theme as any).pattern_opacity || "medium") === "medium"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Medium
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "hard" } as any)}
+                  className={cn(
+                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "hard"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Hard
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2504,6 +2777,48 @@ function WallpaperSection() {
                 {['#ffffff20', '#ffffff40', '#00000015', '#00000030', '#3b82f625', '#f59e0b25'].map((color) => (
                   <button key={color} onClick={() => updateTheme({ pattern_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme as any).pattern_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pattern Opacity for Gradient */}
+          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pattern opacity</Label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "low" } as any)}
+                  className={cn(
+                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "low"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Low
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "medium" } as any)}
+                  className={cn(
+                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    ((theme as any).pattern_opacity || "medium") === "medium"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Medium
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "hard" } as any)}
+                  className={cn(
+                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "hard"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Hard
+                </button>
               </div>
             </div>
           )}
@@ -2761,17 +3076,17 @@ function TextSection() {
         </DialogContent>
       </Dialog>
 
-      {/* Title Size Selector */}
+      {/* Title & Logo Size Selector */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Title size</Label>
+        <Label className="text-sm font-medium">Title & Logo size</Label>
         <div className="flex gap-2">
           <button
             onClick={() => updateTheme({ title_size: "default" } as any)}
             className={cn(
               "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
               ((theme as any).title_size || "default") === "default"
-                ? "bg-blue-500 text-white border-blue-500"
-                : "bg-white border-gray-200 hover:border-gray-300"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
             )}
           >
             Default
@@ -2781,8 +3096,8 @@ function TextSection() {
             className={cn(
               "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
               (theme as any).title_size === "large"
-                ? "bg-blue-500 text-white border-blue-500"
-                : "bg-white border-gray-200 hover:border-gray-300"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
             )}
           >
             Large
