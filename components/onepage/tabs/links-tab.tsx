@@ -296,6 +296,9 @@ export function LinksTab() {
   const videoContainerRef = useRef<HTMLDivElement>(null)
   const [videoNaturalSize, setVideoNaturalSize] = useState({ width: 0, height: 0 })
 
+  // Add button animation state
+  const [addButtonClicked, setAddButtonClicked] = useState(false)
+
   if (!onepage) return null
 
   const { draft_blocks, title, avatar_url, social_links } = onepage
@@ -486,13 +489,22 @@ export function LinksTab() {
       </div>
 
       {/* Add Button */}
-      <Button
-        onClick={() => setShowAddModal(true)}
-        className="w-full h-11 bg-violet-600 hover:bg-violet-700 text-white font-medium"
+      <button
+        onClick={() => {
+          setAddButtonClicked(true)
+          setTimeout(() => setAddButtonClicked(false), 300)
+          setShowAddModal(true)
+        }}
+        className="w-full h-11 bg-blue-500 hover:bg-gray-900 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group"
       >
-        <Plus className="h-5 w-5 mr-2" />
+        <Plus
+          className={cn(
+            "h-5 w-5 transition-transform duration-300 ease-out group-hover:text-white",
+            addButtonClicked && "rotate-90"
+          )}
+        />
         Add
-      </Button>
+      </button>
 
       {/* Quick Actions */}
       <div className="flex gap-2">

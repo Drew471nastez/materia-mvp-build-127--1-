@@ -2107,38 +2107,36 @@ function HeaderSection() {
 
       {/* Title Font Modal */}
       <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Select Title Font</DialogTitle>
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
+          <DialogHeader className="p-4 border-b shrink-0">
+            <DialogTitle className="text-lg font-semibold">Select Title Font</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto -mx-6 px-6">
-            <div className="space-y-1 py-2">
-              {TITLE_FONTS.map((font) => (
-                <button
-                  key={font.name}
-                  onClick={() => {
-                    updateTheme({ title_font: font.value } as any)
-                    setShowTitleFontModal(false)
-                  }}
-                  className={cn(
-                    "w-full px-3 py-3 rounded-lg text-left transition-colors flex items-center justify-between",
-                    (theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-accent"
-                  )}
+          <div className="flex-1 overflow-y-auto p-2 pb-[max(8px,env(safe-area-inset-bottom))]">
+            {TITLE_FONTS.map((font) => (
+              <button
+                key={font.name}
+                onClick={() => {
+                  updateTheme({ title_font: font.value } as any)
+                  setShowTitleFontModal(false)
+                }}
+                className={cn(
+                  "w-full p-4 sm:p-3 rounded-lg text-left transition-colors flex items-center justify-between",
+                  (theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)
+                    ? "bg-violet-50"
+                    : "hover:bg-gray-50"
+                )}
+              >
+                <span
+                  className="text-base sm:text-lg truncate flex-1 min-w-0"
+                  style={{ fontFamily: font.value || theme.font_family }}
                 >
-                  <span
-                    className="text-lg truncate"
-                    style={{ fontFamily: font.value || theme.font_family }}
-                  >
-                    {font.name}
-                  </span>
-                  {((theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)) && (
-                    <Check className="h-4 w-4 text-primary shrink-0" />
-                  )}
-                </button>
-              ))}
-            </div>
+                  {font.name}
+                </span>
+                {((theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)) && (
+                  <Check className="h-5 w-5 text-violet-500 shrink-0 ml-2" />
+                )}
+              </button>
+            ))}
           </div>
         </DialogContent>
       </Dialog>
@@ -3646,15 +3644,26 @@ function TextSection() {
         </button>
       </div>
       <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-4 border-b">
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
+          <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle className="text-lg font-semibold">Choose Title Font</DialogTitle>
           </DialogHeader>
-          <div className="overflow-y-auto max-h-[400px] p-2">
+          <div className="overflow-y-auto flex-1 p-2 pb-[max(8px,env(safe-area-inset-bottom))]">
             {TITLE_FONTS.map((font) => (
-              <button key={font.name} onClick={() => { updateTheme({ title_font: font.value } as any); setShowTitleFontModal(false) }} className={cn("w-full p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", titleFont === font.value && "bg-violet-50")}>
-                <div><p style={{ fontFamily: font.value || theme.font_family }} className="text-base">{font.name}</p></div>
-                {titleFont === font.value && <Check className="h-5 w-5 text-violet-500" />}
+              <button
+                key={font.name}
+                onClick={() => { updateTheme({ title_font: font.value } as any); setShowTitleFontModal(false) }}
+                className={cn(
+                  "w-full p-4 sm:p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors",
+                  titleFont === font.value && "bg-violet-50"
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <p style={{ fontFamily: font.value || theme.font_family }} className="text-base sm:text-base truncate">
+                    {font.name}
+                  </p>
+                </div>
+                {titleFont === font.value && <Check className="h-5 w-5 text-violet-500 shrink-0 ml-2" />}
               </button>
             ))}
           </div>
