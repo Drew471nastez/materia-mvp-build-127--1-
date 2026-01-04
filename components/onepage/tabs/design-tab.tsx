@@ -132,16 +132,21 @@ const FONTS = [
   { name: "Roboto", category: "sans", style: "Modern & Versatile", value: "'Roboto', sans-serif" },
   { name: "Raleway", category: "sans", style: "Elegant & Thin", value: "'Raleway', sans-serif" },
   { name: "Nunito", category: "sans", style: "Soft & Rounded", value: "'Nunito', sans-serif" },
+  { name: "Quicksand", category: "sans", style: "Geometric & Friendly", value: "'Quicksand', sans-serif" },
+  { name: "Comfortaa", category: "sans", style: "Round & Geometric", value: "'Comfortaa', cursive" },
   { name: "Playfair Display", category: "serif", style: "Elegant & Editorial", value: "'Playfair Display', serif" },
   { name: "Merriweather", category: "serif", style: "Traditional & Warm", value: "'Merriweather', serif" },
   { name: "Lora", category: "serif", style: "Classic & Readable", value: "'Lora', serif" },
   { name: "Crimson Text", category: "serif", style: "Old Style & Elegant", value: "'Crimson Text', serif" },
   { name: "Source Serif Pro", category: "serif", style: "Transitional Serif", value: "'Source Serif Pro', serif" },
   { name: "Oswald", category: "display", style: "Strong & Narrow", value: "'Oswald', sans-serif" },
+  { name: "Archivo Black", category: "display", style: "Bold & Impact", value: "'Archivo Black', sans-serif" },
+  { name: "Barlow Condensed", category: "display", style: "Modern Condensed", value: "'Barlow Condensed', sans-serif" },
   { name: "Dancing Script", category: "script", style: "Elegant Script", value: "'Dancing Script', cursive" },
+  { name: "Caveat", category: "script", style: "Natural Handwriting", value: "'Caveat', cursive" },
 ]
 
-// Display fonts for Title customization - 15 unique working fonts
+// Display fonts for Title customization - 20 unique working fonts
 const TITLE_FONTS = [
   { name: "Default (Same as body)", value: null },
   { name: "Playfair Display", value: "'Playfair Display', serif" },
@@ -159,6 +164,11 @@ const TITLE_FONTS = [
   { name: "Russo One", value: "'Russo One', sans-serif" },
   { name: "Abril Fatface", value: "'Abril Fatface', cursive" },
   { name: "Satisfy", value: "'Satisfy', cursive" },
+  { name: "Archivo Black", value: "'Archivo Black', sans-serif" },
+  { name: "Quicksand", value: "'Quicksand', sans-serif" },
+  { name: "Comfortaa", value: "'Comfortaa', cursive" },
+  { name: "Caveat", value: "'Caveat', cursive" },
+  { name: "Barlow Condensed", value: "'Barlow Condensed', sans-serif" },
 ]
 
 const FONT_CATEGORIES = [
@@ -198,8 +208,8 @@ const BACKGROUND_PATTERNS = [
   { id: "zigzag", name: "Zigzag", preview: "zigzag" },
   { id: "cross", name: "Cross", preview: "cross" },
   { id: "diagonal", name: "Diagonal", preview: "diagonal" },
-  { id: "grain", name: "Grain", preview: "grain" },
-  { id: "blob", name: "Blob", preview: "blob" },
+  { id: "morph", name: "Morph", preview: "morph" },
+  { id: "organic", name: "Organic", preview: "organic" },
 ]
 
 const THEME_TEMPLATES = [
@@ -465,7 +475,7 @@ const THEME_TEMPLATES = [
       title_font: "'Space Grotesk', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#a78bfa",
-      background_pattern: "grain",
+      background_pattern: "morph",
       pattern_color: "#ffffff10",
       spacing: "normal" as const,
       card_width: "standard" as const,
@@ -1486,6 +1496,35 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
+      {/* Title Size Selector */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title size</Label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => updateTheme({ title_size: "default" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              ((theme as any).title_size || "default") === "default"
+                ? "bg-blue-500 text-white border-blue-500"
+                : "bg-white border-gray-200 hover:border-gray-300"
+            )}
+          >
+            Default
+          </button>
+          <button
+            onClick={() => updateTheme({ title_size: "large" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              (theme as any).title_size === "large"
+                ? "bg-blue-500 text-white border-blue-500"
+                : "bg-white border-gray-200 hover:border-gray-300"
+            )}
+          >
+            Large
+          </button>
+        </div>
+      </div>
+
       {/* Title Color Picker - Simple & Reliable */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title color</Label>
@@ -1540,100 +1579,242 @@ function HeaderSection() {
         <Input value={onepage.bio || ""} onChange={(e) => updateProfile({ bio: e.target.value })} placeholder="A short bio..." className="h-10 rounded-lg" />
       </div>
 
-      {/* Reposition Modal */}
+      {/* Reposition Modal - Interactive Drag Interface */}
       <Dialog open={showRepositionModal} onOpenChange={setShowRepositionModal}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
           <DialogHeader className="p-5 border-b">
-            <DialogTitle className="text-lg font-semibold text-center">Reposition Profile Image</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-center">
+              Reposition Image
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground text-center mt-1">
+              Drag to adjust position
+            </p>
           </DialogHeader>
-          <div className="p-5 space-y-6">
-            {/* Preview */}
-            <div className="flex justify-center">
-              <div
-                className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100"
-                style={{
-                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
-                }}
-              >
-                {avatarVideoUrl ? (
-                  <video
-                    src={avatarVideoUrl}
-                    className="w-full h-full object-cover"
-                    style={{
-                      transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                    }}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-                ) : onepage.avatar_url ? (
-                  <img
-                    src={onepage.avatar_url}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                    style={{
-                      transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-gray-400">
-                    {onepage.title?.charAt(0) || "?"}
+          <div className="p-5 space-y-5">
+            {/* Interactive Preview - Different for Hero vs Classic */}
+            {headerLayout === "hero" ? (
+              /* Hero Layout - Rectangle Preview */
+              <div className="relative">
+                <div
+                  className="relative w-full overflow-hidden rounded-xl bg-gray-100 cursor-move select-none"
+                  style={{ aspectRatio: "4/3" }}
+                  onMouseDown={(e) => {
+                    const startY = e.clientY
+                    const startPos = (theme as any).hero_position_y ?? 50
+                    const onMove = (moveE: MouseEvent) => {
+                      const deltaY = moveE.clientY - startY
+                      const newPos = Math.max(0, Math.min(100, startPos + deltaY * 0.5))
+                      updateTheme({ hero_position_y: Math.round(newPos) } as any)
+                    }
+                    const onUp = () => {
+                      document.removeEventListener("mousemove", onMove)
+                      document.removeEventListener("mouseup", onUp)
+                    }
+                    document.addEventListener("mousemove", onMove)
+                    document.addEventListener("mouseup", onUp)
+                  }}
+                  onTouchStart={(e) => {
+                    const startY = e.touches[0].clientY
+                    const startPos = (theme as any).hero_position_y ?? 50
+                    const onMove = (moveE: TouchEvent) => {
+                      const deltaY = moveE.touches[0].clientY - startY
+                      const newPos = Math.max(0, Math.min(100, startPos + deltaY * 0.5))
+                      updateTheme({ hero_position_y: Math.round(newPos) } as any)
+                    }
+                    const onEnd = () => {
+                      document.removeEventListener("touchmove", onMove)
+                      document.removeEventListener("touchend", onEnd)
+                    }
+                    document.addEventListener("touchmove", onMove)
+                    document.addEventListener("touchend", onEnd)
+                  }}
+                >
+                  {avatarVideoUrl ? (
+                    <video
+                      src={avatarVideoUrl}
+                      className="w-full h-full object-cover pointer-events-none"
+                      style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                  ) : onepage.avatar_url ? (
+                    <img
+                      src={onepage.avatar_url}
+                      alt="Profile"
+                      className="w-full h-full object-cover pointer-events-none"
+                      style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl font-semibold text-gray-400">
+                      {onepage.title?.charAt(0) || "?"}
+                    </div>
+                  )}
+                  {/* Drag indicator overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/10">
+                    <div className="bg-white/90 rounded-full p-3 shadow-lg">
+                      <Move className="h-5 w-5 text-gray-600" />
+                    </div>
                   </div>
-                )}
+                  {/* Fade overlay preview */}
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      background: `linear-gradient(to bottom, transparent 50%, ${theme.background_color || '#ffffff'} 100%)`
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-center text-muted-foreground mt-3">
+                  Position: {(theme as any).hero_position_y ?? 50}% from top
+                </p>
               </div>
-            </div>
+            ) : (
+              /* Classic Layout - Circle Preview */
+              <div className="relative">
+                <div
+                  className="relative w-32 h-32 mx-auto rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100 cursor-move select-none"
+                  onMouseDown={(e) => {
+                    const startY = e.clientY
+                    const startOffset = (theme as any).avatar_offset_y || 0
+                    const onMove = (moveE: MouseEvent) => {
+                      const deltaY = moveE.clientY - startY
+                      const newOffset = Math.max(-30, Math.min(30, startOffset + deltaY * 0.5))
+                      updateTheme({ avatar_offset_y: Math.round(newOffset) } as any)
+                    }
+                    const onUp = () => {
+                      document.removeEventListener("mousemove", onMove)
+                      document.removeEventListener("mouseup", onUp)
+                    }
+                    document.addEventListener("mousemove", onMove)
+                    document.addEventListener("mouseup", onUp)
+                  }}
+                  onTouchStart={(e) => {
+                    const startY = e.touches[0].clientY
+                    const startOffset = (theme as any).avatar_offset_y || 0
+                    const onMove = (moveE: TouchEvent) => {
+                      const deltaY = moveE.touches[0].clientY - startY
+                      const newOffset = Math.max(-30, Math.min(30, startOffset + deltaY * 0.5))
+                      updateTheme({ avatar_offset_y: Math.round(newOffset) } as any)
+                    }
+                    const onEnd = () => {
+                      document.removeEventListener("touchmove", onMove)
+                      document.removeEventListener("touchend", onEnd)
+                    }
+                    document.addEventListener("touchmove", onMove)
+                    document.addEventListener("touchend", onEnd)
+                  }}
+                >
+                  {avatarVideoUrl ? (
+                    <video
+                      src={avatarVideoUrl}
+                      className="w-full h-full object-cover pointer-events-none"
+                      style={{ transform: `translateY(${(theme as any).avatar_offset_y || 0}px)` }}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                  ) : onepage.avatar_url ? (
+                    <img
+                      src={onepage.avatar_url}
+                      alt="Profile"
+                      className="w-full h-full object-cover pointer-events-none"
+                      style={{ transform: `translateY(${(theme as any).avatar_offset_y || 0}px)` }}
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-3xl font-semibold text-gray-400">
+                      {onepage.title?.charAt(0) || "?"}
+                    </div>
+                  )}
+                  {/* Drag indicator overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/10 rounded-full">
+                    <div className="bg-white/90 rounded-full p-2 shadow-lg">
+                      <Move className="h-4 w-4 text-gray-600" />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-center text-muted-foreground mt-3">
+                  Offset: {(theme as any).avatar_offset_y || 0}px
+                </p>
+              </div>
+            )}
 
-            {/* Vertical Position Slider */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <Label className="text-sm font-medium">Vertical Position</Label>
-                <span className="text-sm text-muted-foreground">{(theme as any).avatar_offset_y || 0}px</span>
-              </div>
-              <Slider
-                value={[(theme as any).avatar_offset_y || 0]}
-                onValueChange={([value]) => updateTheme({ avatar_offset_y: value } as any)}
-                min={-50}
-                max={50}
-                step={1}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Up</span>
-                <span>Down</span>
-              </div>
-            </div>
-
-            {/* Scale Slider */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <Label className="text-sm font-medium">Zoom</Label>
-                <span className="text-sm text-muted-foreground">{(theme as any).avatar_scale || 100}%</span>
-              </div>
-              <Slider
-                value={[(theme as any).avatar_scale || 100]}
-                onValueChange={([value]) => updateTheme({ avatar_scale: value } as any)}
-                min={80}
-                max={150}
-                step={5}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Smaller</span>
-                <span>Larger</span>
-              </div>
+            {/* Quick Position Buttons */}
+            <div className="flex justify-center gap-2">
+              {headerLayout === "hero" ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg text-xs"
+                    onClick={() => updateTheme({ hero_position_y: 0 } as any)}
+                  >
+                    Top
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg text-xs"
+                    onClick={() => updateTheme({ hero_position_y: 50 } as any)}
+                  >
+                    Center
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg text-xs"
+                    onClick={() => updateTheme({ hero_position_y: 100 } as any)}
+                  >
+                    Bottom
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg text-xs"
+                    onClick={() => updateTheme({ avatar_offset_y: -20 } as any)}
+                  >
+                    Up
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg text-xs"
+                    onClick={() => updateTheme({ avatar_offset_y: 0 } as any)}
+                  >
+                    Center
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg text-xs"
+                    onClick={() => updateTheme({ avatar_offset_y: 20 } as any)}
+                  >
+                    Down
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Reset Button */}
-            <div className="pt-2">
-              <Button
-                variant="outline"
-                className="w-full rounded-xl"
-                onClick={() => {
-                  updateTheme({ avatar_offset_y: 0, avatar_scale: 100 } as any)
-                }}
-              >
-                Reset to Default
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              className="w-full rounded-xl"
+              onClick={() => {
+                if (headerLayout === "hero") {
+                  updateTheme({ hero_position_y: 50 } as any)
+                } else {
+                  updateTheme({ avatar_offset_y: 0 } as any)
+                }
+              }}
+            >
+              Reset to Default
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1846,33 +2027,37 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
         <rect width="100%" height="100%" fill={`url(#diagonal-${color})`} />
       </svg>
     ),
-    grain: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+    morph: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
         <defs>
-          <filter id={`grain-filter-${color}`}>
-            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" result="noise" />
-            <feColorMatrix type="saturate" values="0" />
-          </filter>
-          <pattern id={`grain-${color}`} width="100" height="100" patternUnits="userSpaceOnUse">
-            <rect width="100" height="100" filter={`url(#grain-filter-${color})`} opacity="0.4" />
+          <pattern id={`morph-${color}`} width="200" height="200" patternUnits="userSpaceOnUse">
+            {/* Futuristic melting/morphing shapes - tech aesthetic */}
+            <path d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180" fill="none" stroke={color} strokeWidth="2" opacity="0.5" />
+            <path d="M120 10 Q140 30, 160 20 Q180 40, 160 60 Q180 80, 160 100 Q140 80, 120 100 Q100 80, 120 60" fill="none" stroke={color} strokeWidth="2" opacity="0.4" />
+            <path d="M100 140 Q120 160, 140 150 Q160 170, 140 190 Q120 170, 100 180" fill="none" stroke={color} strokeWidth="2" opacity="0.45" />
+            <circle cx="50" cy="50" r="8" fill={color} opacity="0.3" />
+            <circle cx="150" cy="70" r="6" fill={color} opacity="0.25" />
+            <circle cx="100" cy="160" r="5" fill={color} opacity="0.3" />
+            <rect x="170" y="150" width="20" height="2" fill={color} opacity="0.4" rx="1" />
+            <rect x="10" y="100" width="15" height="2" fill={color} opacity="0.35" rx="1" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={color} opacity="0.3" />
-        <rect width="100%" height="100%" fill={`url(#grain-${color})`} />
+        <rect width="100%" height="100%" fill={`url(#morph-${color})`} />
       </svg>
     ),
-    blob: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+    organic: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
         <defs>
-          <pattern id={`blob-${color}`} width="100" height="100" patternUnits="userSpaceOnUse">
-            <ellipse cx="25" cy="30" rx="20" ry="15" fill={color} opacity="0.6" />
-            <ellipse cx="70" cy="25" rx="18" ry="22" fill={color} opacity="0.5" />
-            <ellipse cx="50" cy="65" rx="25" ry="18" fill={color} opacity="0.55" />
-            <ellipse cx="15" cy="75" rx="15" ry="12" fill={color} opacity="0.45" />
-            <ellipse cx="85" cy="70" rx="14" ry="16" fill={color} opacity="0.5" />
+          <pattern id={`organic-${color}`} width="200" height="200" patternUnits="userSpaceOnUse">
+            {/* Natural, soft, irregular organic shapes */}
+            <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={color} opacity="0.35" />
+            <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={color} opacity="0.3" />
+            <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={color} opacity="0.32" />
+            <path d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140" fill={color} opacity="0.28" />
+            <path d="M20 160 Q35 150, 45 165 Q50 180, 35 190 Q20 185, 15 175 Q12 165, 20 160" fill={color} opacity="0.25" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#blob-${color})`} />
+        <rect width="100%" height="100%" fill={`url(#organic-${color})`} />
       </svg>
     ),
   }
@@ -2575,6 +2760,35 @@ function TextSection() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Title Size Selector */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title size</Label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => updateTheme({ title_size: "default" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              ((theme as any).title_size || "default") === "default"
+                ? "bg-blue-500 text-white border-blue-500"
+                : "bg-white border-gray-200 hover:border-gray-300"
+            )}
+          >
+            Default
+          </button>
+          <button
+            onClick={() => updateTheme({ title_size: "large" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              (theme as any).title_size === "large"
+                ? "bg-blue-500 text-white border-blue-500"
+                : "bg-white border-gray-200 hover:border-gray-300"
+            )}
+          >
+            Large
+          </button>
+        </div>
+      </div>
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Text color</Label>

@@ -334,33 +334,35 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           <rect width="100%" height="100%" fill="url(#public-diagonal)" />
         </svg>
       ),
-      grain: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg">
+      morph: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
           <defs>
-            <filter id="public-grain-filter">
-              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" result="noise" />
-              <feColorMatrix type="saturate" values="0" />
-            </filter>
-            <pattern id="public-grain" width="100" height="100" patternUnits="userSpaceOnUse">
-              <rect width="100" height="100" filter="url(#public-grain-filter)" opacity="0.4" />
+            <pattern id="public-morph" width="200" height="200" patternUnits="userSpaceOnUse">
+              <path d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180" fill="none" stroke={patternColor} strokeWidth="2" opacity="0.5" />
+              <path d="M120 10 Q140 30, 160 20 Q180 40, 160 60 Q180 80, 160 100 Q140 80, 120 100 Q100 80, 120 60" fill="none" stroke={patternColor} strokeWidth="2" opacity="0.4" />
+              <path d="M100 140 Q120 160, 140 150 Q160 170, 140 190 Q120 170, 100 180" fill="none" stroke={patternColor} strokeWidth="2" opacity="0.45" />
+              <circle cx="50" cy="50" r="8" fill={patternColor} opacity="0.3" />
+              <circle cx="150" cy="70" r="6" fill={patternColor} opacity="0.25" />
+              <circle cx="100" cy="160" r="5" fill={patternColor} opacity="0.3" />
+              <rect x="170" y="150" width="20" height="2" fill={patternColor} opacity="0.4" rx="1" />
+              <rect x="10" y="100" width="15" height="2" fill={patternColor} opacity="0.35" rx="1" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill={patternColor} opacity="0.3" />
-          <rect width="100%" height="100%" fill="url(#public-grain)" />
+          <rect width="100%" height="100%" fill="url(#public-morph)" />
         </svg>
       ),
-      blob: (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+      organic: (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
           <defs>
-            <pattern id="public-blob" width="100" height="100" patternUnits="userSpaceOnUse">
-              <ellipse cx="25" cy="30" rx="20" ry="15" fill={patternColor} opacity="0.6" />
-              <ellipse cx="70" cy="25" rx="18" ry="22" fill={patternColor} opacity="0.5" />
-              <ellipse cx="50" cy="65" rx="25" ry="18" fill={patternColor} opacity="0.55" />
-              <ellipse cx="15" cy="75" rx="15" ry="12" fill={patternColor} opacity="0.45" />
-              <ellipse cx="85" cy="70" rx="14" ry="16" fill={patternColor} opacity="0.5" />
+            <pattern id="public-organic" width="200" height="200" patternUnits="userSpaceOnUse">
+              <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={patternColor} opacity="0.35" />
+              <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={patternColor} opacity="0.3" />
+              <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={patternColor} opacity="0.32" />
+              <path d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140" fill={patternColor} opacity="0.28" />
+              <path d="M20 160 Q35 150, 45 165 Q50 180, 35 190 Q20 185, 15 175 Q12 165, 20 160" fill={patternColor} opacity="0.25" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#public-blob)" />
+          <rect width="100%" height="100%" fill="url(#public-organic)" />
         </svg>
       ),
     }
@@ -658,7 +660,7 @@ function PublicBlockRenderer({
                   <video
                     ref={videoRef}
                     src={profile.avatar_video_url!}
-                    className="object-cover"
+                    className="w-full h-full object-cover"
                     style={
                       profile.avatar_video_crop
                         ? {
@@ -667,7 +669,7 @@ function PublicBlockRenderer({
                             marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
                             marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
                           }
-                        : { width: "100%", height: "100%" }
+                        : { objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }
                     }
                     autoPlay
                     loop
@@ -679,8 +681,11 @@ function PublicBlockRenderer({
                 <img
                   src={profile.avatar_url! || "/placeholder.svg"}
                   alt=""
-                  className="w-full h-full object-cover object-top"
-                  style={{ imageRendering: "auto" }}
+                  className="w-full h-full object-cover"
+                  style={{
+                    imageRendering: "auto",
+                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`
+                  }}
                   loading="eager"
                 />
               )}
@@ -719,7 +724,12 @@ function PublicBlockRenderer({
             >
               {data.show_name !== false && profile.title && (
                 <h1
-                  className={cn("font-bold", isDesktop ? "text-[31px]" : "text-[27px] sm:text-[31px]")}
+                  className={cn(
+                    "font-bold",
+                    (theme as any).title_size === "large"
+                      ? (isDesktop ? "text-[36px]" : "text-[33px] sm:text-[37px]")
+                      : (isDesktop ? "text-[31px]" : "text-[27px] sm:text-[31px]")
+                  )}
                   style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family, textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}
                 >
                   {profile.title}
@@ -810,7 +820,12 @@ function PublicBlockRenderer({
             ))}
           {data.show_name !== false && profile.title && (
             <h1
-              className={cn("font-bold text-center", isDesktop ? "text-[31px]" : "text-[27px] sm:text-[31px]")}
+              className={cn(
+                "font-bold text-center",
+                (theme as any).title_size === "large"
+                  ? (isDesktop ? "text-[36px]" : "text-[33px] sm:text-[37px]")
+                  : (isDesktop ? "text-[31px]" : "text-[27px] sm:text-[31px]")
+              )}
               style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family }}
             >
               {profile.title}
