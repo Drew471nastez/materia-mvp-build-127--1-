@@ -337,7 +337,7 @@ function EditorLayout() {
             className={cn(
               "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-all",
               saveState === "saved" && !isDirty
-                ? "bg-emerald-600 hover:bg-emerald-600 text-white cursor-default"
+                ? "bg-gray-900 hover:bg-gray-900 text-white cursor-default"
                 : isDirty
                   ? "bg-violet-600 hover:bg-violet-700 text-white"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"

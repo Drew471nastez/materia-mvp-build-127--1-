@@ -120,21 +120,39 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
     </svg>
   ),
+  threads: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M12.186 3.077c-.844 0-1.656.2-2.362.552a4.842 4.842 0 0 0-1.753 1.544 4.958 4.958 0 0 0-.654 2.439h2.194c.04-.656.28-1.232.714-1.717.434-.485 1.022-.727 1.76-.727.7 0 1.262.214 1.682.64.42.427.63.984.63 1.67 0 .635-.196 1.14-.59 1.513-.392.373-.963.56-1.712.56h-.795v1.96h.795c.895 0 1.603.2 2.122.6.52.4.78.97.78 1.71 0 .78-.28 1.4-.84 1.86-.56.46-1.295.69-2.205.69-.91 0-1.645-.23-2.205-.69-.56-.46-.84-1.08-.84-1.86h-2.194c0 .88.232 1.67.695 2.37.463.7 1.093 1.25 1.89 1.65.797.4 1.683.6 2.658.6 1.015 0 1.917-.21 2.706-.63.79-.42 1.405-1 1.845-1.74.44-.74.66-1.57.66-2.49 0-.86-.198-1.61-.595-2.25-.397-.64-.952-1.14-1.665-1.5.558-.33 1.002-.77 1.332-1.32.33-.55.495-1.18.495-1.89 0-.84-.21-1.57-.63-2.19-.42-.62-.998-1.1-1.735-1.44-.737-.34-1.565-.51-2.484-.51z"/>
+    </svg>
+  ),
+  pinterest: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0z"/>
+    </svg>
+  ),
+  snapchat: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3 0 .719-.186.915-.28.243-.117.513-.235.797-.235.274 0 .53.102.763.301.262.223.407.533.419.857.006.162-.022.324-.035.477-.01.117-.019.235-.015.355.012.524.238.875.595 1.155.3.237.682.467 1.038.68.11.067.223.136.335.207.316.198.65.432.78.727.062.142.098.298.098.459 0 .37-.166.718-.456.96-.32.265-.76.41-1.213.39-.377-.015-.754-.131-1.124-.241l-.09-.027c-.332-.103-.68-.209-1.02-.209-.134 0-.267.016-.395.043-.12.025-.654.199-.902.283-.493.167-1.003.34-1.526.42-.076.011-.16.016-.246.016-.336 0-.607-.105-.828-.32-.208-.201-.305-.479-.258-.743.045-.242.123-.486.185-.717l.008-.03c.054-.206.117-.447.13-.694.01-.184-.015-.369-.075-.54-.169-.48-.653-.795-1.254-.795-.603 0-1.086.315-1.254.795-.061.171-.086.356-.075.54.013.247.076.488.13.694l.008.03c.062.231.14.475.185.717.047.264-.05.542-.258.743-.221.215-.492.32-.828.32-.085 0-.17-.005-.245-.016-.524-.08-1.034-.253-1.527-.42-.248-.084-.783-.258-.902-.283-.128-.027-.261-.043-.395-.043-.34 0-.688.106-1.02.209l-.09.027c-.37.11-.747.226-1.124.241-.453.02-.893-.125-1.213-.39-.29-.242-.456-.59-.456-.96 0-.161.036-.317.098-.459.13-.295.464-.529.78-.727.112-.071.225-.14.335-.207.356-.213.738-.443 1.038-.68.357-.28.583-.631.595-1.155.004-.12-.005-.238-.015-.355-.013-.153-.041-.315-.035-.477.012-.324.157-.634.419-.857.233-.199.489-.301.763-.301.284 0 .554.118.797.235.196.094.615.28.915.28.198 0 .326-.045.401-.09-.008-.165-.018-.33-.03-.51l-.003-.06c-.104-1.628-.23-3.654.299-4.847C7.859 1.069 11.216.793 12.206.793z"/>
+    </svg>
+  ),
 }
 
 // Social platforms configuration with SVG icons
 const SOCIAL_PLATFORMS = [
-  { id: "instagram", label: "Instagram", placeholder: "https://instagram.com/username", color: "#E4405F" },
-  { id: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@username", color: "#000000" },
-  { id: "youtube", label: "YouTube", placeholder: "https://youtube.com/@channel", color: "#FF0000" },
-  { id: "twitter", label: "X (Twitter)", placeholder: "https://x.com/username", color: "#000000" },
-  { id: "spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/...", color: "#1DB954" },
-  { id: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username", color: "#0A66C2" },
-  { id: "facebook", label: "Facebook", placeholder: "https://facebook.com/page", color: "#1877F2" },
-  { id: "github", label: "GitHub", placeholder: "https://github.com/username", color: "#333333" },
-  { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF" },
-  { id: "website", label: "Website", placeholder: "https://yourwebsite.com", color: "#6366F1" },
-  { id: "email", label: "Email", placeholder: "mailto:you@email.com", color: "#EA4335" },
+  { id: "threads", label: "Threads", placeholder: "https://threads.net/@username", color: "#000000", domains: ["threads.net"] },
+  { id: "instagram", label: "Instagram", placeholder: "https://instagram.com/username", color: "#E4405F", domains: ["instagram.com", "www.instagram.com"] },
+  { id: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@username", color: "#000000", domains: ["tiktok.com", "www.tiktok.com"] },
+  { id: "youtube", label: "YouTube", placeholder: "https://youtube.com/@channel", color: "#FF0000", domains: ["youtube.com", "www.youtube.com", "youtu.be"] },
+  { id: "twitter", label: "X (Twitter)", placeholder: "https://x.com/username", color: "#000000", domains: ["x.com", "twitter.com", "www.x.com", "www.twitter.com"] },
+  { id: "spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/...", color: "#1DB954", domains: ["open.spotify.com", "spotify.com"] },
+  { id: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username", color: "#0A66C2", domains: ["linkedin.com", "www.linkedin.com"] },
+  { id: "facebook", label: "Facebook", placeholder: "https://facebook.com/page", color: "#1877F2", domains: ["facebook.com", "www.facebook.com", "fb.com"] },
+  { id: "pinterest", label: "Pinterest", placeholder: "https://pinterest.com/username", color: "#E60023", domains: ["pinterest.com", "www.pinterest.com", "pin.it"] },
+  { id: "snapchat", label: "Snapchat", placeholder: "https://snapchat.com/add/username", color: "#FFFC00", domains: ["snapchat.com", "www.snapchat.com"] },
+  { id: "github", label: "GitHub", placeholder: "https://github.com/username", color: "#333333", domains: ["github.com", "www.github.com"] },
+  { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF", domains: ["twitch.tv", "www.twitch.tv"] },
+  { id: "website", label: "Website", placeholder: "https://yourwebsite.com", color: "#6366F1", domains: [] },
+  { id: "email", label: "Email", placeholder: "mailto:you@email.com", color: "#EA4335", domains: [] },
 ]
 
 // Default background images library
@@ -303,7 +321,27 @@ export function LinksTab() {
 
   const handleAddSocial = () => {
     if (!selectedSocial || !socialUrl) return
-    
+
+    // Validate URL matches platform domain
+    const platform = SOCIAL_PLATFORMS.find(p => p.id === selectedSocial)
+    if (platform && platform.domains.length > 0) {
+      try {
+        const url = new URL(socialUrl.startsWith('http') ? socialUrl : `https://${socialUrl}`)
+        const hostname = url.hostname.toLowerCase()
+        const isValid = platform.domains.some(domain =>
+          hostname === domain || hostname.endsWith(`.${domain}`)
+        )
+
+        if (!isValid) {
+          alert(`Please enter a valid ${platform.label} URL (e.g., ${platform.placeholder})`)
+          return
+        }
+      } catch (e) {
+        alert(`Please enter a valid URL for ${platform.label}`)
+        return
+      }
+    }
+
     updateSocialLinks({ [selectedSocial]: socialUrl } as Partial<OnePageSocialLinks>)
     setSelectedSocial(null)
     setSocialUrl("")
@@ -436,7 +474,7 @@ export function LinksTab() {
       {/* Add Button */}
       <Button
         onClick={() => setShowAddModal(true)}
-        className="w-full h-11 bg-violet-600 hover:bg-violet-700 text-white font-medium"
+        className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white font-medium transition-all"
       >
         <Plus className="h-5 w-5 mr-2" />
         Add
@@ -711,19 +749,31 @@ export function LinksTab() {
                           Back
                         </Button>
                         {social_links?.[selectedSocial as keyof typeof social_links] && (
-                          <Button
-                            variant="outline"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          <button
                             onClick={() => {
                               handleRemoveSocial(selectedSocial)
                               setSelectedSocial(null)
                             }}
+                            className="group relative inline-flex flex-col justify-center items-center p-4 border-0 rounded-[1.25em] transition-all duration-200"
+                            style={{ backgroundColor: 'rgba(100,77,237,0.08)' }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = '3.4px 2.5px 4.9px rgba(0, 0, 0, 0.025), 8.6px 6.3px 12.4px rgba(0, 0, 0, 0.035), 17.5px 12.8px 25.3px rgba(0, 0, 0, 0.045), 36.1px 26.3px 52.2px rgba(0, 0, 0, 0.055), 99px 72px 143px rgba(0, 0, 0, 0.08)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = ''
+                            }}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" height="25" width="25">
+                              <path fill="#6361D9" d="M8.78842 5.03866C8.86656 4.96052 8.97254 4.91663 9.08305 4.91663H11.4164C11.5269 4.91663 11.6329 4.96052 11.711 5.03866C11.7892 5.11681 11.833 5.22279 11.833 5.33329V5.74939H8.66638V5.33329C8.66638 5.22279 8.71028 5.11681 8.78842 5.03866ZM7.16638 5.74939V5.33329C7.16638 4.82496 7.36832 4.33745 7.72776 3.978C8.08721 3.61856 8.57472 3.41663 9.08305 3.41663H11.4164C11.9247 3.41663 12.4122 3.61856 12.7717 3.978C13.1311 4.33745 13.333 4.82496 13.333 5.33329V5.74939H15.5C15.9142 5.74939 16.25 6.08518 16.25 6.49939C16.25 6.9136 15.9142 7.24939 15.5 7.24939H15.0105L14.2492 14.7095C14.2382 15.2023 14.0377 15.6726 13.6883 16.0219C13.3289 16.3814 12.8414 16.5833 12.333 16.5833H8.16638C7.65805 16.5833 7.17054 16.3814 6.81109 16.0219C6.46176 15.6726 6.2612 15.2023 6.25019 14.7095L5.48896 7.24939H5C4.58579 7.24939 4.25 6.9136 4.25 6.49939C4.25 6.08518 4.58579 5.74939 5 5.74939H6.16667H7.16638ZM7.91638 7.24996H12.583H13.5026L12.7536 14.5905C12.751 14.6158 12.7497 14.6412 12.7497 14.6666C12.7497 14.7771 12.7058 14.8831 12.6277 14.9613C12.5495 15.0394 12.4436 15.0833 12.333 15.0833H8.16638C8.05588 15.0833 7.94989 15.0394 7.87175 14.9613C7.79361 14.8831 7.74972 14.7771 7.74972 14.6666C7.74972 14.6412 7.74842 14.6158 7.74584 14.5905L6.99681 7.24996H7.91638Z" clipRule="evenodd" fillRule="evenodd"></path>
+                            </svg>
+                            <span className="invisible group-hover:visible absolute z-10 w-16 bg-black/25 text-white text-center rounded-md py-1 text-xs left-full ml-2 top-1/4">
+                              remove
+                              <span className="absolute top-1/2 right-full -mt-1 border-[5px] border-transparent border-r-black/25"></span>
+                            </span>
+                          </button>
                         )}
                         <Button
-                          className="flex-1 bg-violet-600 hover:bg-violet-700"
+                          className="flex-1 bg-gray-900 hover:bg-gray-800"
                           onClick={handleAddSocial}
                           disabled={!socialUrl}
                         >
