@@ -1915,6 +1915,57 @@ function HeaderSection() {
         {effectiveLayout === "hero" && theme.background_type === "solid" && !((theme as any).background_pattern && (theme as any).background_pattern !== "none") && <p className="text-xs text-muted-foreground">Hero displays your avatar as a full-width background with fade</p>}
       </div>
 
+      {/* Laser Glow Avatar */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-blue-500" />
+            <Label className="text-sm font-medium">Laser Glow Avatar</Label>
+          </div>
+          <Toggle
+            checked={(theme as any).laser_glow_enabled || false}
+            onCheckedChange={(checked) => updateTheme({ laser_glow_enabled: checked } as any)}
+          />
+        </div>
+        {(theme as any).laser_glow_enabled && (
+          <div className="space-y-3 pl-6">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Glow Color</Label>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input type="color" value={(theme as any).laser_glow_color || "#3b82f6"} onChange={(e) => updateTheme({ laser_glow_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <div className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).laser_glow_color || "#3b82f6" }} />
+                </div>
+                <Input value={(theme as any).laser_glow_color || "#3b82f6"} onChange={(e) => updateTheme({ laser_glow_color: e.target.value } as any)} placeholder="#3b82f6" className="h-10 rounded-lg flex-1 font-mono text-sm" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Intensity</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { id: "low", label: "Low" },
+                  { id: "medium", label: "Medium" },
+                  { id: "hard", label: "Hard" },
+                ] as const).map((intensity) => (
+                  <button
+                    key={intensity.id}
+                    onClick={() => updateTheme({ laser_glow_intensity: intensity.id } as any)}
+                    className={cn(
+                      "py-2 rounded-lg border-2 text-xs font-medium transition-colors",
+                      ((theme as any).laser_glow_intensity || "medium") === intensity.id
+                        ? "border-foreground bg-gray-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    )}
+                  >
+                    {intensity.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-2">
         <Label className="text-sm font-medium">Display Name</Label>
         <Input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder="Your name" className="h-10 rounded-lg" />
@@ -3745,6 +3796,19 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
+      {/* Shadow Color - only show when shadow is enabled */}
+      {(theme as any).button_shadow && (theme as any).button_shadow !== "none" && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Shadow color</Label>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <input type="color" value={(theme as any).button_shadow_color || "#000000"} onChange={(e) => updateTheme({ button_shadow_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+              <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).button_shadow_color || "#000000" }} />
+            </div>
+            <Input value={(theme as any).button_shadow_color || "#000000"} onChange={(e) => updateTheme({ button_shadow_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+          </div>
+        </div>
+      )}
       <div className="space-y-3">
         <div className="flex justify-between items-center"><Label className="text-sm font-medium">Corners</Label><span className="text-sm text-muted-foreground">{theme.button_border_radius}px</span></div>
         <Slider value={[theme.button_border_radius]} onValueChange={([value]) => updateTheme({ button_border_radius: value })} min={0} max={24} step={2} />

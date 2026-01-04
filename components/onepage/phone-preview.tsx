@@ -484,11 +484,19 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
   }
 
   const buttonShadow = (theme as any).button_shadow || "none"
+  const shadowColor = (theme as any).button_shadow_color || "#000000"
+  // Convert hex to rgba for shadow
+  const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r},${g},${b},${alpha})`
+  }
   const shadowStyles: Record<string, string> = {
     none: "none",
-    subtle: "0 2px 4px rgba(0,0,0,0.1)",
-    strong: "0 4px 12px rgba(0,0,0,0.2)",
-    hard: "4px 4px 0px rgba(0,0,0,0.9)",
+    subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
+    strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
+    hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
   }
 
   const buttonStyles = {
@@ -583,8 +591,7 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
               )}
             </div>
             <div
-              className="absolute left-0 right-0 text-center px-4"
-              style={{ bottom: (theme as any).logo_position === "more_up" ? '22px' : '12px' }}
+              className="absolute bottom-3 left-0 right-0 text-center px-4"
             >
               {data.show_name && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
                 <img
@@ -595,7 +602,8 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                     maxHeight: (theme as any).title_size === "large" ? (scale === "small" ? '54px' : '62px') : (scale === "small" ? '46px' : '54px'),
                     maxWidth: (theme as any).title_size === "large" ? (scale === "small" ? '180px' : '220px') : (scale === "small" ? '160px' : '200px'),
                     objectFit: 'contain',
-                    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))"
+                    filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))",
+                    marginTop: (theme as any).logo_position === "more_up" ? '-10px' : undefined
                   }}
                 />
               ) : profile.title && (
@@ -610,56 +618,95 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
       }
       
       // Classic layout
+      // Laser glow settings
+      const laserGlowEnabled = (theme as any).laser_glow_enabled
+      const laserGlowColor = (theme as any).laser_glow_color || "#3b82f6"
+      const laserGlowIntensity = (theme as any).laser_glow_intensity || "medium"
+      const glowSize = laserGlowIntensity === "low" ? 8 : laserGlowIntensity === "hard" ? 16 : 12
+      const glowBlur = laserGlowIntensity === "low" ? 6 : laserGlowIntensity === "hard" ? 14 : 10
+      const avatarSize = scale === "small" ? 72 : 88
+
       return (
         <div className="flex flex-col items-center gap-2 w-full text-center">
           {data.show_avatar && (
-            hasVideo ? (
-              <div
-                className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg")}
-                style={{
-                  borderColor: `${theme.text_color}20`,
-                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
-                }}
-              >
-                <video
-                  src={profile.avatar_video_url!}
-                  className="object-cover"
-                  style={profile.avatar_video_crop ? {
-                    width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
-                    height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
-                    marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
-                    marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
-                    transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                  } : {
-                    width: '100%',
-                    height: '100%',
-                    transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                  }}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                />
-              </div>
-            ) : (
-              <Avatar
-                className={cn(s.avatar, "border-2 shadow-lg")}
-                style={{
-                  borderColor: `${theme.text_color}20`,
-                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
-                }}
-              >
-                <AvatarImage
-                  src={profile.avatar_url || undefined}
-                  className="object-cover"
+            <div className="relative" style={{ width: avatarSize + 20, height: avatarSize + 20 }}>
+              {/* Laser Glow Effect */}
+              {laserGlowEnabled && (
+                <div
+                  className="absolute inset-0 rounded-full"
                   style={{
-                    imageRendering: 'auto',
-                    transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                    animation: 'laserGlowRotate 3s linear infinite',
                   }}
-                />
-                <AvatarFallback className={cn(s.avatarFallback, "font-semibold")} style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}>{profile.title?.charAt(0)?.toUpperCase() || "?"}</AvatarFallback>
-              </Avatar>
-            )
+                >
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      width: glowSize,
+                      height: glowSize,
+                      background: laserGlowColor,
+                      boxShadow: `0 0 ${glowBlur}px ${glowBlur/2}px ${laserGlowColor}, 0 0 ${glowBlur*2}px ${glowBlur}px ${laserGlowColor}`,
+                      top: '50%',
+                      left: '50%',
+                      transform: `translate(-50%, -50%) translateY(-${(avatarSize + 20) / 2}px)`,
+                    }}
+                  />
+                </div>
+              )}
+              {/* Avatar container */}
+              <div className="absolute inset-[10px]">
+                {hasVideo ? (
+                  <div
+                    className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg")}
+                    style={{
+                      borderColor: `${theme.text_color}20`,
+                      transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                      width: avatarSize,
+                      height: avatarSize,
+                    }}
+                  >
+                    <video
+                      src={profile.avatar_video_url!}
+                      className="object-cover"
+                      style={profile.avatar_video_crop ? {
+                        width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
+                        height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
+                        marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
+                        marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
+                        transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                      } : {
+                        width: '100%',
+                        height: '100%',
+                        transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                      }}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                  </div>
+                ) : (
+                  <Avatar
+                    className={cn(s.avatar, "border-2 shadow-lg")}
+                    style={{
+                      borderColor: `${theme.text_color}20`,
+                      transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                      width: avatarSize,
+                      height: avatarSize,
+                    }}
+                  >
+                    <AvatarImage
+                      src={profile.avatar_url || undefined}
+                      className="object-cover"
+                      style={{
+                        imageRendering: 'auto',
+                        transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                      }}
+                    />
+                    <AvatarFallback className={cn(s.avatarFallback, "font-semibold")} style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}>{profile.title?.charAt(0)?.toUpperCase() || "?"}</AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
+            </div>
           )}
           {data.show_name && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
             <img

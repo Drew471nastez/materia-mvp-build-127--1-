@@ -525,6 +525,28 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 }}
               />
             )}
+            {/* Video background inside card with blur */}
+            {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
+              <video
+                src={(safeTheme as any).background_video_url}
+                style={{
+                  position: "absolute",
+                  top: "-30px",
+                  left: "-30px",
+                  right: "-30px",
+                  bottom: "-30px",
+                  width: "calc(100% + 60px)",
+                  height: "calc(100% + 60px)",
+                  objectFit: "cover",
+                  zIndex: 0,
+                  filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(8px)`,
+                }}
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+            )}
             {/* Noise overlay inside card */}
             {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && (
               <svg
@@ -766,12 +788,10 @@ function PublicBlockRenderer({
               )}
             </div>
             <div
-              className="absolute left-0 right-0 text-center px-6"
-              style={{
-                bottom: (theme as any).logo_position === "more_up"
-                  ? (isDesktop ? '42px' : '26px')
-                  : (isDesktop ? '32px' : '16px')
-              }}
+              className={cn(
+                "absolute left-0 right-0 text-center px-6",
+                isDesktop ? "bottom-8" : "bottom-4 sm:bottom-6"
+              )}
             >
               {data.show_name !== false && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
                 <img
@@ -782,7 +802,8 @@ function PublicBlockRenderer({
                     maxHeight: (theme as any).title_size === "large" ? (isDesktop ? '70px' : '60px') : (isDesktop ? '60px' : '52px'),
                     maxWidth: (theme as any).title_size === "large" ? (isDesktop ? '260px' : '230px') : (isDesktop ? '230px' : '200px'),
                     objectFit: 'contain',
-                    filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))"
+                    filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))",
+                    marginTop: (theme as any).logo_position === "more_up" ? '-10px' : undefined
                   }}
                 />
               ) : profile.title && (
@@ -815,72 +836,100 @@ function PublicBlockRenderer({
       }
 
       // Classic layout - AVATAR 10px BIGGER mobile, 5px BIGGER desktop, TITLE 5px BIGGER
+      // Laser glow settings
+      const laserGlowEnabled = (theme as any).laser_glow_enabled
+      const laserGlowColor = (theme as any).laser_glow_color || "#3b82f6"
+      const laserGlowIntensity = (theme as any).laser_glow_intensity || "medium"
+      const glowSize = laserGlowIntensity === "low" ? 8 : laserGlowIntensity === "hard" ? 16 : 12
+      const glowBlur = laserGlowIntensity === "low" ? 6 : laserGlowIntensity === "hard" ? 14 : 10
+      const avatarSize = isDesktop ? 107 : 96
+
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center", isDesktop && "pt-2")}>
-          {data.show_avatar !== false &&
-            (hasVideo ? (
-              <div
-                className={cn(
-                  "rounded-full overflow-hidden border-2 shadow-lg",
-                  isDesktop ? "h-[107px] w-[107px] mt-2" : "h-[96px] w-[96px] sm:h-[107px] sm:w-[107px]",
-                )}
-                style={{
-                  borderColor: `${theme.text_color}20`,
-                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
-                }}
-              >
-                <video
-                  ref={videoRef}
-                  src={profile.avatar_video_url!}
-                  className="object-cover"
-                  style={
-                    profile.avatar_video_crop
-                      ? {
-                          width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
-                          height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
-                          marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
-                          marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
-                          transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                        }
-                      : {
-                          width: "100%",
-                          height: "100%",
-                          transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                        }
-                  }
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                />
-              </div>
-            ) : (
-              <Avatar
-                className={cn(
-                  "border-2 shadow-lg",
-                  isDesktop ? "h-[107px] w-[107px] mt-2" : "h-[96px] w-[96px] sm:h-[107px] sm:w-[107px]",
-                )}
-                style={{
-                  borderColor: `${theme.text_color}20`,
-                  transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
-                }}
-              >
-                <AvatarImage
-                  src={profile.avatar_url || undefined}
-                  className="object-cover"
-                  style={{
-                    imageRendering: "auto",
-                    transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                  }}
-                />
-                <AvatarFallback
-                  className="text-2xl sm:text-3xl font-semibold"
-                  style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+          {data.show_avatar !== false && (
+            <div className="relative" style={{ width: avatarSize + 20, height: avatarSize + 20 }}>
+              {/* Laser Glow Effect */}
+              {laserGlowEnabled && (
+                <div
+                  className="absolute inset-0 rounded-full"
+                  style={{ animation: 'laserGlowRotate 3s linear infinite' }}
                 >
-                  {profile.title?.charAt(0)?.toUpperCase() || "?"}
-                </AvatarFallback>
-              </Avatar>
-            ))}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      width: glowSize,
+                      height: glowSize,
+                      background: laserGlowColor,
+                      boxShadow: `0 0 ${glowBlur}px ${glowBlur/2}px ${laserGlowColor}, 0 0 ${glowBlur*2}px ${glowBlur}px ${laserGlowColor}`,
+                      top: '50%',
+                      left: '50%',
+                      transform: `translate(-50%, -50%) translateY(-${(avatarSize + 20) / 2}px)`,
+                    }}
+                  />
+                </div>
+              )}
+              {/* Avatar container */}
+              <div className="absolute inset-[10px]">
+                {hasVideo ? (
+                  <div
+                    className="rounded-full overflow-hidden border-2 shadow-lg w-full h-full"
+                    style={{
+                      borderColor: `${theme.text_color}20`,
+                      transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                    }}
+                  >
+                    <video
+                      ref={videoRef}
+                      src={profile.avatar_video_url!}
+                      className="object-cover"
+                      style={
+                        profile.avatar_video_crop
+                          ? {
+                              width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
+                              height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
+                              marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
+                              marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
+                              transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                            }
+                          : {
+                              width: "100%",
+                              height: "100%",
+                              transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                            }
+                      }
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                  </div>
+                ) : (
+                  <Avatar
+                    className="border-2 shadow-lg w-full h-full"
+                    style={{
+                      borderColor: `${theme.text_color}20`,
+                      transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                    }}
+                  >
+                    <AvatarImage
+                      src={profile.avatar_url || undefined}
+                      className="object-cover"
+                      style={{
+                        imageRendering: "auto",
+                        transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                      }}
+                    />
+                    <AvatarFallback
+                      className="text-2xl sm:text-3xl font-semibold"
+                      style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                    >
+                      {profile.title?.charAt(0)?.toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
+            </div>
+          )}
           {data.show_name !== false && ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
             <img
               src={(theme as any).title_logo_url}
@@ -978,11 +1027,19 @@ function PublicBlockRenderer({
       if (!data.url) return null
 
       const buttonShadow = (theme as any).button_shadow || "none"
+      const shadowColor = (theme as any).button_shadow_color || "#000000"
+      // Convert hex to rgba for shadow
+      const hexToRgba = (hex: string, alpha: number) => {
+        const r = parseInt(hex.slice(1, 3), 16)
+        const g = parseInt(hex.slice(3, 5), 16)
+        const b = parseInt(hex.slice(5, 7), 16)
+        return `rgba(${r},${g},${b},${alpha})`
+      }
       const shadowStyles: Record<string, string> = {
         none: "none",
-        subtle: "0 2px 4px rgba(0,0,0,0.1)",
-        strong: "0 4px 12px rgba(0,0,0,0.2)",
-        hard: "4px 4px 0px rgba(0,0,0,0.9)",
+        subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
+        strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
+        hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
 
       const buttonStyles: React.CSSProperties = {
