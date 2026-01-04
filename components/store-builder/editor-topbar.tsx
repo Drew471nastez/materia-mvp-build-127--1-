@@ -174,12 +174,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     switch (saveState) {
       case "unsaved":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             onClick={handleSave}
           >
             {isMobile ? (
@@ -194,12 +194,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "saving":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-blue-500 text-white",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             disabled
           >
             {isMobile ? (
@@ -214,10 +214,10 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "saved":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200",
               isMobile ? "h-9 px-3" : "h-9"
             )}
             onClick={handlePublish}
@@ -227,12 +227,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "publishing":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-blue-500 text-white",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             disabled
           >
             {isMobile ? (
@@ -247,12 +247,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "published":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-green-600/80 text-white hover:bg-green-600/80 cursor-default",
+              "bg-gray-900 text-white hover:bg-gray-900 cursor-default pointer-events-none",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             disabled
           >
             {isMobile ? (
