@@ -307,22 +307,25 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000090"} opacity={(theme as any).pattern_opacity || "medium"} />
             )}
 
-            <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '24px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div className={cn("flex flex-col items-center flex-1", theme.spacing === "compact" ? "gap-[10px]" : theme.spacing === "comfortable" ? "gap-[14px]" : "gap-[12px]")}>
+            <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '12px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div className={cn("flex flex-col items-center", theme.spacing === "compact" ? "gap-[10px]" : theme.spacing === "comfortable" ? "gap-[14px]" : "gap-[12px]")}>
                 {draft_blocks.filter((b) => b.enabled).sort((a, b) => a.sort_order - b.sort_order).map((block) => (
                   <BlockRenderer key={block.id} block={block} theme={theme} profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }} scale="small" />
                 ))}
               </div>
-              {settings.show_branding && (
-                <div className="mt-6 text-center">
-                  <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[9px] font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
+              {/* Footer - pushed to bottom */}
+              <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
+                {settings.show_branding && (
+                  <div className="text-center mb-2">
+                    <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[9px] font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
+                  </div>
+                )}
+                {/* Footer Links */}
+                <div className="flex items-center justify-center gap-2 text-[8px]">
+                  <a href="https://materiathemes.com/cookies" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Cookies</a>
+                  <a href="https://materiathemes.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Privacy</a>
+                  <a href="https://materiathemes.com/report" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Report</a>
                 </div>
-              )}
-              {/* Footer Links */}
-              <div className="mt-3 flex items-center justify-center gap-2 text-[8px]">
-                <a href="https://materiathemes.com/cookies" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Cookies</a>
-                <a href="https://materiathemes.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Privacy</a>
-                <a href="https://materiathemes.com/report" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Report</a>
               </div>
             </div>
           </div>
@@ -450,22 +453,25 @@ export function MobilePreviewContent() {
           </div>
         )}
 
-        <div className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-12 flex flex-col" style={{ minHeight: '100%' }}>
-          <div className={cn("flex flex-col items-center flex-1", theme.spacing === "compact" ? "gap-3" : theme.spacing === "comfortable" ? "gap-5" : "gap-4")}>
+        <div className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-5 flex flex-col" style={{ minHeight: '100vh' }}>
+          <div className={cn("flex flex-col items-center", theme.spacing === "compact" ? "gap-3" : theme.spacing === "comfortable" ? "gap-5" : "gap-4")}>
             {draft_blocks.filter((b) => b.enabled).sort((a, b) => a.sort_order - b.sort_order).map((block) => (
               <BlockRenderer key={block.id} block={block} theme={theme} profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }} scale="normal" />
             ))}
           </div>
-          {settings.show_branding && (
-            <div className="mt-8 text-center">
-              <span className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
+          {/* Footer - pushed to bottom */}
+          <div className="mt-auto pt-8">
+            {settings.show_branding && (
+              <div className="text-center mb-4">
+                <span className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900">{sellerName} on Storelib</span>
+              </div>
+            )}
+            {/* Footer Links */}
+            <div className="flex items-center justify-center gap-4 text-xs">
+              <a href="https://materiathemes.com/cookies" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Cookies</a>
+              <a href="https://materiathemes.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Privacy</a>
+              <a href="https://materiathemes.com/report" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Report</a>
             </div>
-          )}
-          {/* Footer Links */}
-          <div className="mt-4 flex items-center justify-center gap-4 text-xs">
-            <a href="https://materiathemes.com/cookies" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Cookies</a>
-            <a href="https://materiathemes.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Privacy</a>
-            <a href="https://materiathemes.com/report" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}>Report</a>
           </div>
         </div>
       </div>

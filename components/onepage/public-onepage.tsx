@@ -389,17 +389,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   // Page content component
   const PageContent = ({ isDesktop = false }: { isDesktop?: boolean }) => (
     <div
-      className={cn("relative z-10 w-full flex flex-col", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
+      className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
       style={{
         paddingLeft: isDesktop ? "28px" : "20px",
         paddingRight: isDesktop ? "28px" : "20px",
         paddingTop: isDesktop ? "0" : "32px",
-        paddingBottom: isDesktop ? "40px" : "80px",
+        paddingBottom: "20px",
+        minHeight: isDesktop ? "100%" : "100vh",
       }}
     >
       <div
         className={cn(
-          "flex flex-col items-center flex-1",
+          "flex flex-col items-center",
           safeTheme.spacing === "compact"
             ? "gap-3 sm:gap-4"
             : safeTheme.spacing === "comfortable"
@@ -422,47 +423,50 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             />
           ))}
       </div>
-      {safeSettings.show_branding && (
-        <div className="mt-10 sm:mt-12 text-center">
+      {/* Footer - pushed to bottom */}
+      <div className="mt-auto pt-10 pb-4">
+        {safeSettings.show_branding && (
+          <div className="text-center mb-4">
+            <a
+              href="https://materia.so"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900 hover:bg-gray-100 transition-colors shadow-sm"
+            >
+              {sellerName} on Storelib
+            </a>
+          </div>
+        )}
+        {/* Footer Links */}
+        <div className="flex items-center justify-center gap-4 text-xs">
           <a
-            href="https://materia.so"
+            href="https://materiathemes.com/cookies"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900 hover:bg-gray-100 transition-colors shadow-sm"
+            className="hover:underline transition-colors"
+            style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
           >
-            {sellerName} on Storelib
+            Cookies
+          </a>
+          <a
+            href="https://materiathemes.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline transition-colors"
+            style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
+          >
+            Privacy
+          </a>
+          <a
+            href="https://materiathemes.com/report"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline transition-colors"
+            style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
+          >
+            Report
           </a>
         </div>
-      )}
-      {/* Footer Links */}
-      <div className="mt-6 flex items-center justify-center gap-4 text-xs">
-        <a
-          href="https://materiathemes.com/cookies"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline transition-colors"
-          style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
-        >
-          Cookies
-        </a>
-        <a
-          href="https://materiathemes.com/privacy"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline transition-colors"
-          style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
-        >
-          Privacy
-        </a>
-        <a
-          href="https://materiathemes.com/report"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline transition-colors"
-          style={{ color: isDarkBackground ? "#9ca3af" : "#1f2937" }}
-        >
-          Report
-        </a>
       </div>
     </div>
   )
