@@ -847,7 +847,7 @@ function PublicBlockRenderer({
       const avatarSize = isDesktop ? 107 : 96
 
       return (
-        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center", isDesktop && "pt-2")}>
+        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center", isDesktop && "pt-3")}>
           {data.show_avatar !== false && (
             <div className="relative" style={{ width: avatarSize, height: avatarSize }}>
               {/* Laser Glow Effect - rotating gradient on border */}
@@ -857,10 +857,10 @@ function PublicBlockRenderer({
                   <div
                     className="absolute rounded-full"
                     style={{
-                      inset: -5,
+                      inset: -2,
                       background: `conic-gradient(from 0deg, transparent 0deg, transparent 300deg, ${laserGlowColor}66 330deg, ${laserGlowColor} 360deg)`,
                       animation: 'laserGlowRotate 3.25s linear infinite',
-                      filter: `blur(${glowSpread + 4}px)`,
+                      filter: `blur(${glowSpread + 2}px)`,
                       opacity: glowOpacity * 0.6,
                     }}
                   />
@@ -868,7 +868,7 @@ function PublicBlockRenderer({
                   <div
                     className="absolute rounded-full"
                     style={{
-                      inset: -3,
+                      inset: -1,
                       background: `conic-gradient(from 0deg, transparent 0deg, transparent 310deg, ${laserGlowColor}88 340deg, ${laserGlowColor} 360deg)`,
                       animation: 'laserGlowRotate 3.25s linear infinite',
                       filter: `blur(${glowSpread}px)`,

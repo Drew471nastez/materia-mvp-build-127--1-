@@ -638,10 +638,10 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                   <div
                     className="absolute rounded-full"
                     style={{
-                      inset: -5,
+                      inset: -2,
                       background: `conic-gradient(from 0deg, transparent 0deg, transparent 300deg, ${laserGlowColor}66 330deg, ${laserGlowColor} 360deg)`,
                       animation: 'laserGlowRotate 3.25s linear infinite',
-                      filter: `blur(${glowSpread + 4}px)`,
+                      filter: `blur(${glowSpread + 2}px)`,
                       opacity: glowOpacity * 0.6,
                     }}
                   />
@@ -649,7 +649,7 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                   <div
                     className="absolute rounded-full"
                     style={{
-                      inset: -3,
+                      inset: -1,
                       background: `conic-gradient(from 0deg, transparent 0deg, transparent 310deg, ${laserGlowColor}88 340deg, ${laserGlowColor} 360deg)`,
                       animation: 'laserGlowRotate 3.25s linear infinite',
                       filter: `blur(${glowSpread}px)`,
