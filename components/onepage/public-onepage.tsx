@@ -639,8 +639,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {/* Noise overlays for mobile */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
-        {/* Pattern overlay for mobile */}
-        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && <BackgroundPatternOverlay />}
+        {/* Pattern overlay for mobile - uses fixed positioning */}
+        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && (safeTheme as any).background_pattern && (safeTheme as any).background_pattern !== "none" && (
+          <div className="fixed inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+            <BackgroundPatternOverlay />
+          </div>
+        )}
         <PageContent />
       </div>
     </>

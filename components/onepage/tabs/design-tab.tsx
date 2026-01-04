@@ -1903,10 +1903,50 @@ function HeaderSection() {
             <span className="text-xs md:text-sm font-medium">Hero</span>
           </button>
         </div>
-        {theme.background_type === "image" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using an image wallpaper.</p>}
-        {theme.background_type === "gradient" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using a gradient wallpaper.</p>}
-        {theme.background_type === "video" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using a video wallpaper.</p>}
-        {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using a pattern. Switch to Classic to use patterns.</p>}
+        {theme.background_type === "image" && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+            Hero layout is disabled when using an image wallpaper.{" "}
+            <button
+              onClick={() => updateTheme({ background_type: "solid" })}
+              className="underline font-medium hover:text-amber-700"
+            >
+              Disable
+            </button>
+          </p>
+        )}
+        {theme.background_type === "gradient" && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+            Hero layout is disabled when using a gradient wallpaper.{" "}
+            <button
+              onClick={() => updateTheme({ background_type: "solid" })}
+              className="underline font-medium hover:text-amber-700"
+            >
+              Disable
+            </button>
+          </p>
+        )}
+        {theme.background_type === "video" && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+            Hero layout is disabled when using a video wallpaper.{" "}
+            <button
+              onClick={() => updateTheme({ background_type: "solid" })}
+              className="underline font-medium hover:text-amber-700"
+            >
+              Disable
+            </button>
+          </p>
+        )}
+        {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+            Hero layout is disabled when using a pattern. Switch to Classic to use patterns.{" "}
+            <button
+              onClick={() => updateTheme({ background_pattern: "none" } as any)}
+              className="underline font-medium hover:text-amber-700"
+            >
+              Disable
+            </button>
+          </p>
+        )}
         {effectiveLayout === "hero" && theme.background_type === "solid" && !((theme as any).background_pattern && (theme as any).background_pattern !== "none") && <p className="text-xs text-muted-foreground">Hero displays your avatar as a full-width background with fade</p>}
       </div>
 
