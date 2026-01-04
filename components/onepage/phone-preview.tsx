@@ -618,12 +618,13 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
       }
       
       // Classic layout
-      // Laser glow settings
+      // Laser glow settings - small border-sized pointer with intense glow
       const laserGlowEnabled = (theme as any).laser_glow_enabled
       const laserGlowColor = (theme as any).laser_glow_color || "#3b82f6"
       const laserGlowIntensity = (theme as any).laser_glow_intensity || "medium"
-      const glowSize = laserGlowIntensity === "low" ? 8 : laserGlowIntensity === "hard" ? 16 : 12
-      const glowBlur = laserGlowIntensity === "low" ? 6 : laserGlowIntensity === "hard" ? 14 : 10
+      // Small pointer size (2-4px) like border width, with intense glow
+      const glowSize = laserGlowIntensity === "low" ? 2 : laserGlowIntensity === "hard" ? 4 : 3
+      const glowBlur = laserGlowIntensity === "low" ? 8 : laserGlowIntensity === "hard" ? 16 : 12
       const avatarSize = scale === "small" ? 72 : 88
 
       return (
@@ -644,7 +645,7 @@ function BlockRenderer({ block, theme, profile, scale = "small" }: BlockRenderer
                       width: glowSize,
                       height: glowSize,
                       background: laserGlowColor,
-                      boxShadow: `0 0 ${glowBlur}px ${glowBlur/2}px ${laserGlowColor}, 0 0 ${glowBlur*2}px ${glowBlur}px ${laserGlowColor}`,
+                      boxShadow: `0 0 ${glowBlur}px ${glowBlur}px ${laserGlowColor}, 0 0 ${glowBlur*2}px ${glowBlur*1.5}px ${laserGlowColor}, 0 0 ${glowBlur*3}px ${glowBlur*2}px ${laserGlowColor}`,
                       top: '50%',
                       left: '50%',
                       transform: `translate(-50%, -50%) translateY(-${(avatarSize + 20) / 2}px)`,

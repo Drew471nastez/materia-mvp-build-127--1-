@@ -467,21 +467,21 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           />
         )}
 
-        {/* Video background for desktop */}
+        {/* Video background for desktop - BLURRED in background outside card */}
         {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
           <video
             src={(safeTheme as any).background_video_url}
             style={{
               position: "fixed",
-              top: "0",
-              left: "0",
-              right: "0",
-              bottom: "0",
-              width: "100%",
-              height: "100%",
+              top: "-50px",
+              left: "-50px",
+              right: "-50px",
+              bottom: "-50px",
+              width: "calc(100% + 100px)",
+              height: "calc(100% + 100px)",
               objectFit: "cover",
               zIndex: 0,
-              filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+              filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(20px)`,
             }}
             autoPlay
             loop
@@ -525,21 +525,22 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 }}
               />
             )}
-            {/* Video background inside card with blur */}
+            {/* Video background inside card - NO blur, cover fit */}
             {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
               <video
                 src={(safeTheme as any).background_video_url}
                 style={{
                   position: "absolute",
-                  top: "-30px",
-                  left: "-30px",
-                  right: "-30px",
-                  bottom: "-30px",
-                  width: "calc(100% + 60px)",
-                  height: "calc(100% + 60px)",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  minWidth: "100%",
+                  minHeight: "100%",
+                  width: "auto",
+                  height: "auto",
                   objectFit: "cover",
                   zIndex: 0,
-                  filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(8px)`,
+                  filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
                 }}
                 autoPlay
                 loop
@@ -836,12 +837,13 @@ function PublicBlockRenderer({
       }
 
       // Classic layout - AVATAR 10px BIGGER mobile, 5px BIGGER desktop, TITLE 5px BIGGER
-      // Laser glow settings
+      // Laser glow settings - small border-sized pointer with intense glow
       const laserGlowEnabled = (theme as any).laser_glow_enabled
       const laserGlowColor = (theme as any).laser_glow_color || "#3b82f6"
       const laserGlowIntensity = (theme as any).laser_glow_intensity || "medium"
-      const glowSize = laserGlowIntensity === "low" ? 8 : laserGlowIntensity === "hard" ? 16 : 12
-      const glowBlur = laserGlowIntensity === "low" ? 6 : laserGlowIntensity === "hard" ? 14 : 10
+      // Small pointer size (2-4px) like border width, with intense glow
+      const glowSize = laserGlowIntensity === "low" ? 2 : laserGlowIntensity === "hard" ? 4 : 3
+      const glowBlur = laserGlowIntensity === "low" ? 8 : laserGlowIntensity === "hard" ? 16 : 12
       const avatarSize = isDesktop ? 107 : 96
 
       return (
@@ -860,7 +862,7 @@ function PublicBlockRenderer({
                       width: glowSize,
                       height: glowSize,
                       background: laserGlowColor,
-                      boxShadow: `0 0 ${glowBlur}px ${glowBlur/2}px ${laserGlowColor}, 0 0 ${glowBlur*2}px ${glowBlur}px ${laserGlowColor}`,
+                      boxShadow: `0 0 ${glowBlur}px ${glowBlur}px ${laserGlowColor}, 0 0 ${glowBlur*2}px ${glowBlur*1.5}px ${laserGlowColor}, 0 0 ${glowBlur*3}px ${glowBlur*2}px ${laserGlowColor}`,
                       top: '50%',
                       left: '50%',
                       transform: `translate(-50%, -50%) translateY(-${(avatarSize + 20) / 2}px)`,
