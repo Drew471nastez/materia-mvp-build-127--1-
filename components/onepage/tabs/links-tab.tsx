@@ -135,24 +135,102 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
       <path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3 0 .719-.186.915-.28.243-.117.513-.235.797-.235.274 0 .53.102.763.301.262.223.407.533.419.857.006.162-.022.324-.035.477-.01.117-.019.235-.015.355.012.524.238.875.595 1.155.3.237.682.467 1.038.68.11.067.223.136.335.207.316.198.65.432.78.727.062.142.098.298.098.459 0 .37-.166.718-.456.96-.32.265-.76.41-1.213.39-.377-.015-.754-.131-1.124-.241l-.09-.027c-.332-.103-.68-.209-1.02-.209-.134 0-.267.016-.395.043-.12.025-.654.199-.902.283-.493.167-1.003.34-1.526.42-.076.011-.16.016-.246.016-.336 0-.607-.105-.828-.32-.208-.201-.305-.479-.258-.743.045-.242.123-.486.185-.717l.008-.03c.054-.206.117-.447.13-.694.01-.184-.015-.369-.075-.54-.169-.48-.653-.795-1.254-.795-.603 0-1.086.315-1.254.795-.061.171-.086.356-.075.54.013.247.076.488.13.694l.008.03c.062.231.14.475.185.717.047.264-.05.542-.258.743-.221.215-.492.32-.828.32-.085 0-.17-.005-.245-.016-.524-.08-1.034-.253-1.527-.42-.248-.084-.783-.258-.902-.283-.128-.027-.261-.043-.395-.043-.34 0-.688.106-1.02.209l-.09.027c-.37.11-.747.226-1.124.241-.453.02-.893-.125-1.213-.39-.29-.242-.456-.59-.456-.96 0-.161.036-.317.098-.459.13-.295.464-.529.78-.727.112-.071.225-.14.335-.207.356-.213.738-.443 1.038-.68.357-.28.583-.631.595-1.155.004-.12-.005-.238-.015-.355-.013-.153-.041-.315-.035-.477.012-.324.157-.634.419-.857.233-.199.489-.301.763-.301.284 0 .554.118.797.235.196.094.615.28.915.28.198 0 .326-.045.401-.09-.008-.165-.018-.33-.03-.51l-.003-.06c-.104-1.628-.23-3.654.299-4.847C7.859 1.069 11.216.793 12.206.793z"/>
     </svg>
   ),
+  whatsapp: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.304-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+    </svg>
+  ),
+  discord: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0 a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
+    </svg>
+  ),
+  telegram: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+    </svg>
+  ),
+  soundcloud: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.016-.054-.055-.1-.107-.1zm-.899.828c-.047 0-.084.036-.092.085l-.203 1.328.203 1.251c.008.05.045.086.092.086.046 0 .084-.036.092-.086l.225-1.251-.225-1.328c-.008-.049-.046-.085-.092-.085zm1.754-.828c-.056 0-.1.044-.108.102l-.248 2.152.248 2.106c.008.056.052.097.108.097.053 0 .096-.04.104-.097l.272-2.106-.272-2.152c-.008-.058-.051-.102-.104-.102zm.899 0c-.056 0-.104.046-.109.104l-.252 2.15.252 2.104c.005.059.053.101.109.101.059 0 .102-.042.107-.101l.282-2.104-.282-2.15c-.005-.058-.048-.104-.107-.104zm.859-.022c-.063 0-.11.048-.117.111l-.219 2.172.219 2.105c.007.062.054.11.117.11.057 0 .107-.048.114-.11l.247-2.105-.247-2.172c-.007-.063-.057-.111-.114-.111zm.902.022c-.063 0-.11.048-.117.11l-.221 2.15.221 2.105c.007.06.054.111.117.111.06 0 .107-.051.114-.111l.248-2.105-.248-2.15c-.007-.062-.054-.11-.114-.11zm.89 0c-.065 0-.114.048-.119.11l-.204 2.15.204 2.105c.005.062.054.111.119.111.061 0 .113-.049.119-.111l.232-2.105-.232-2.15c-.006-.062-.058-.11-.119-.11zm.934.011c-.062 0-.109.05-.114.112l-.192 2.139.192 2.104c.005.061.052.11.114.11.058 0 .108-.049.114-.11l.218-2.104-.218-2.139c-.006-.062-.056-.112-.114-.112zm.896 0c-.066 0-.116.05-.121.112l-.191 2.139.191 2.104c.005.061.055.11.121.11.062 0 .111-.049.116-.11l.22-2.104-.22-2.139c-.005-.062-.054-.112-.116-.112zm1.769-.228c-.065 0-.115.057-.123.123l-.216 2.367.216 2.055c.008.064.058.121.123.121.063 0 .113-.057.121-.121l.246-2.055-.246-2.367c-.008-.066-.058-.123-.121-.123zm.899.218c-.063 0-.112.055-.121.119l-.183 2.147.183 2.054c.009.062.058.119.121.119.064 0 .114-.055.121-.119l.211-2.054-.211-2.147c-.007-.064-.057-.119-.121-.119zm-3.547.342c-.068 0-.118.05-.127.117l-.197 1.828.197 1.875c.009.066.059.117.127.117.066 0 .115-.051.123-.117l.223-1.875-.223-1.828c-.008-.066-.057-.117-.123-.117z"/>
+    </svg>
+  ),
+  patreon: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M15.386.524c-4.764 0-8.64 3.876-8.64 8.64 0 4.75 3.876 8.613 8.64 8.613 4.75 0 8.614-3.864 8.614-8.613C24 4.4 20.136.524 15.386.524M.003 23.537h4.22V.524H.003"/>
+    </svg>
+  ),
+  substack: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M22.539 8.242H1.46V5.406h21.08zM1.46 10.812V24L12 18.11 22.54 24V10.812zM22.54 0H1.46v2.836h21.08z"/>
+    </svg>
+  ),
+  mastodon: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M23.268 5.313c-.35-2.578-2.617-4.61-5.304-5.004C17.51.242 15.792 0 11.813 0h-.03c-3.98 0-4.835.242-5.288.309C3.882.692 1.496 2.518.917 5.127.64 6.412.61 7.837.661 9.143c.074 1.874.088 3.745.26 5.611.118 1.24.325 2.47.62 3.68.55 2.237 2.777 4.098 4.96 4.857 2.336.792 4.849.923 7.256.38.265-.061.527-.132.786-.213.585-.184 1.27-.39 1.774-.753a.057.057 0 0 0 .023-.043v-1.809a.052.052 0 0 0-.02-.041.053.053 0 0 0-.046-.01 20.282 20.282 0 0 1-4.709.545c-2.73 0-3.463-1.284-3.674-1.818a5.593 5.593 0 0 1-.319-1.433.053.053 0 0 1 .066-.054c1.517.363 3.072.546 4.632.546.376 0 .75 0 1.125-.01 1.57-.044 3.224-.124 4.768-.422.038-.008.077-.015.11-.024 2.435-.464 4.753-1.92 4.989-5.604.008-.145.03-1.52.03-1.67.002-.512.167-3.63-.024-5.545zm-3.748 9.195h-2.561V8.29c0-1.309-.55-1.976-1.67-1.976-1.23 0-1.846.79-1.846 2.35v3.403h-2.546V8.663c0-1.56-.617-2.35-1.848-2.35-1.112 0-1.668.668-1.67 1.977v6.218H4.822V8.102c0-1.31.337-2.35 1.011-3.12.696-.77 1.608-1.164 2.74-1.164 1.311 0 2.302.5 2.962 1.498l.638 1.06.638-1.06c.66-.999 1.65-1.498 2.96-1.498 1.13 0 2.043.395 2.74 1.164.675.77 1.012 1.81 1.012 3.12z"/>
+    </svg>
+  ),
+  bluesky: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.206-.659-.298-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z"/>
+    </svg>
+  ),
+  etsy: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M16.47 12.02c-.05-.41-.06-.54-.06-.67 0-.09.02-.13.06-.13.03 0 .05.01.09.03l.02.01c.81.44 1.61.66 2.45.66 1.07 0 1.66-.51 1.66-1.39 0-1.19-1.23-1.44-2.47-1.73-1.95-.46-4.15-.98-4.15-3.47 0-1.72 1.23-3.08 3.43-3.08.8 0 1.53.16 2.2.47.25.12.43.17.52.17.12 0 .18-.08.2-.32l.04-.47c.02-.17.06-.23.15-.23.1 0 .16.04.24.18.37.63.61 1.23.72 1.85.04.23.04.41.01.55-.02.15-.08.23-.17.23-.12 0-.21-.11-.25-.32-.37-1.8-1.42-2.59-3.06-2.59-1.01 0-1.6.51-1.6 1.31 0 1.12 1.23 1.38 2.47 1.67 1.95.45 4.15.96 4.15 3.45 0 1.82-1.28 3.22-3.58 3.22-.86 0-1.68-.17-2.46-.51-.32-.14-.52-.22-.66-.22-.13 0-.19.09-.22.33l-.07.66c-.02.16-.08.23-.17.23-.09 0-.16-.05-.23-.18a8.37 8.37 0 0 1-.76-2.06zM3.1 17.16c-.14.02-.21-.05-.21-.2V15.7c0-.15.07-.21.21-.21h.47c.3 0 .46.13.6.49l2.5 7.08c.06.18.13.25.27.25.15 0 .2-.07.26-.25l2.61-7.16c.11-.31.24-.41.5-.41h.44c.14 0 .21.06.21.21v1.26c0 .15-.07.22-.21.2-.99-.09-1.29.29-1.46.76l-2.65 7.24c-.16.44-.32.65-.74.65H5.1c-.42 0-.58-.21-.74-.65L1.71 17.92c-.17-.47-.47-.85-1.46-.76z"/>
+    </svg>
+  ),
+  phone: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+    </svg>
+  ),
 }
 
 // Social platforms configuration with SVG icons
 const SOCIAL_PLATFORMS = [
   { id: "threads", label: "Threads", placeholder: "https://threads.net/@username", color: "#000000", domains: ["threads.net"] },
-  { id: "instagram", label: "Instagram", placeholder: "https://instagram.com/username", color: "#E4405F", domains: ["instagram.com", "www.instagram.com"] },
-  { id: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@username", color: "#000000", domains: ["tiktok.com", "www.tiktok.com"] },
-  { id: "youtube", label: "YouTube", placeholder: "https://youtube.com/@channel", color: "#FF0000", domains: ["youtube.com", "www.youtube.com", "youtu.be"] },
-  { id: "twitter", label: "X (Twitter)", placeholder: "https://x.com/username", color: "#000000", domains: ["x.com", "twitter.com", "www.x.com", "www.twitter.com"] },
-  { id: "spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/...", color: "#1DB954", domains: ["open.spotify.com", "spotify.com"] },
-  { id: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username", color: "#0A66C2", domains: ["linkedin.com", "www.linkedin.com"] },
-  { id: "facebook", label: "Facebook", placeholder: "https://facebook.com/page", color: "#1877F2", domains: ["facebook.com", "www.facebook.com", "fb.com"] },
-  { id: "pinterest", label: "Pinterest", placeholder: "https://pinterest.com/username", color: "#E60023", domains: ["pinterest.com", "www.pinterest.com", "pin.it"] },
-  { id: "snapchat", label: "Snapchat", placeholder: "https://snapchat.com/add/username", color: "#FFFC00", domains: ["snapchat.com", "www.snapchat.com"] },
-  { id: "github", label: "GitHub", placeholder: "https://github.com/username", color: "#333333", domains: ["github.com", "www.github.com"] },
-  { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF", domains: ["twitch.tv", "www.twitch.tv"] },
-  { id: "website", label: "Website", placeholder: "https://yourwebsite.com", color: "#6366F1", domains: [] },
   { id: "email", label: "Email", placeholder: "mailto:you@email.com", color: "#EA4335", domains: [] },
+  { id: "facebook", label: "Facebook", placeholder: "https://facebook.com/page", color: "#1877F2", domains: ["facebook.com", "www.facebook.com", "fb.com"] },
+  { id: "youtube", label: "YouTube", placeholder: "https://youtube.com/@channel", color: "#FF0000", domains: ["youtube.com", "www.youtube.com", "youtu.be"] },
+  { id: "twitter", label: "X (formerly Twitter)", placeholder: "https://x.com/username", color: "#000000", domains: ["x.com", "twitter.com", "www.x.com", "www.twitter.com"] },
+  { id: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@username", color: "#000000", domains: ["tiktok.com", "www.tiktok.com"] },
+  { id: "whatsapp", label: "WhatsApp", placeholder: "https://wa.me/1234567890", color: "#25D366", domains: ["wa.me", "whatsapp.com"] },
+  { id: "whatsappchannel", label: "WhatsApp Channel", placeholder: "https://whatsapp.com/channel/...", color: "#25D366", domains: ["whatsapp.com"] },
+  { id: "snapchat", label: "Snapchat", placeholder: "https://snapchat.com/add/username", color: "#FFFC00", domains: ["snapchat.com", "www.snapchat.com"] },
+  { id: "airchat", label: "Airchat", placeholder: "https://airchat.com/username", color: "#FFA500", domains: ["airchat.com"] },
+  { id: "amazon", label: "Amazon", placeholder: "https://amazon.com/...", color: "#FF9900", domains: ["amazon.com", "www.amazon.com", "amzn.to"] },
+  { id: "playstore", label: "Android Play Store", placeholder: "https://play.google.com/store/apps/details?id=...", color: "#34A853", domains: ["play.google.com"] },
+  { id: "appstore", label: "Apple App Store", placeholder: "https://apps.apple.com/app/...", color: "#0D96F6", domains: ["apps.apple.com"] },
+  { id: "applemusic", label: "Apple Music", placeholder: "https://music.apple.com/...", color: "#FA243C", domains: ["music.apple.com"] },
+  { id: "applepodcast", label: "Apple Podcast", placeholder: "https://podcasts.apple.com/...", color: "#9933CC", domains: ["podcasts.apple.com"] },
+  { id: "bandcamp", label: "Bandcamp", placeholder: "https://username.bandcamp.com", color: "#629AA9", domains: ["bandcamp.com"] },
+  { id: "bereal", label: "BeReal", placeholder: "https://bereal.com/...", color: "#000000", domains: ["bereal.com"] },
+  { id: "bluesky", label: "Bluesky", placeholder: "https://bsky.app/profile/username", color: "#1285FE", domains: ["bsky.app"] },
+  { id: "cameo", label: "Cameo", placeholder: "https://cameo.com/username", color: "#BB44FF", domains: ["cameo.com"] },
+  { id: "clubhouse", label: "Clubhouse", placeholder: "https://clubhouse.com/@username", color: "#F1EEE1", domains: ["clubhouse.com"] },
+  { id: "discord", label: "Discord", placeholder: "https://discord.gg/...", color: "#5865F2", domains: ["discord.gg", "discord.com"] },
+  { id: "etsy", label: "Etsy", placeholder: "https://etsy.com/shop/...", color: "#F1641E", domains: ["etsy.com"] },
+  { id: "github", label: "GitHub", placeholder: "https://github.com/username", color: "#333333", domains: ["github.com", "www.github.com"] },
+  { id: "kick", label: "Kick", placeholder: "https://kick.com/username", color: "#53FC18", domains: ["kick.com"] },
+  { id: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username", color: "#0A66C2", domains: ["linkedin.com", "www.linkedin.com"] },
+  { id: "mastodon", label: "Mastodon", placeholder: "https://mastodon.social/@username", color: "#6364FF", domains: ["mastodon.social", "mastodon.online"] },
+  { id: "patreon", label: "Patreon", placeholder: "https://patreon.com/username", color: "#FF424D", domains: ["patreon.com"] },
+  { id: "payment", label: "Payment", placeholder: "https://paypal.me/username", color: "#6366F1", domains: [] },
+  { id: "phone", label: "Phone", placeholder: "tel:+1234567890", color: "#10B981", domains: [] },
+  { id: "pinterest", label: "Pinterest", placeholder: "https://pinterest.com/username", color: "#E60023", domains: ["pinterest.com", "www.pinterest.com", "pin.it"] },
+  { id: "poshmark", label: "Poshmark", placeholder: "https://poshmark.com/closet/...", color: "#8B3B96", domains: ["poshmark.com"] },
+  { id: "signal", label: "Signal", placeholder: "https://signal.me/#p/...", color: "#3A76F0", domains: ["signal.me"] },
+  { id: "soundcloud", label: "Soundcloud", placeholder: "https://soundcloud.com/username", color: "#FF5500", domains: ["soundcloud.com"] },
+  { id: "spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/...", color: "#1DB954", domains: ["open.spotify.com", "spotify.com"] },
+  { id: "substack", label: "Substack", placeholder: "https://username.substack.com", color: "#FF6719", domains: ["substack.com"] },
+  { id: "telegram", label: "Telegram", placeholder: "https://t.me/username", color: "#26A5E4", domains: ["t.me", "telegram.me"] },
+  { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF", domains: ["twitch.tv", "www.twitch.tv"] },
+  { id: "website", label: "Personal Website", placeholder: "https://yourwebsite.com", color: "#6366F1", domains: [] },
+  { id: "rednote", label: "Red Note", placeholder: "https://rednote.com/...", color: "#FF0000", domains: ["rednote.com"] },
+  { id: "lemon8", label: "Lemon8", placeholder: "https://lemon8-app.com/...", color: "#FFE500", domains: ["lemon8-app.com"] },
+  { id: "bandsintown", label: "Bandsintown", placeholder: "https://bandsintown.com/a/...", color: "#00CEC8", domains: ["bandsintown.com"] },
+  { id: "instagram", label: "Instagram", placeholder: "https://instagram.com/username", color: "#E4405F", domains: ["instagram.com", "www.instagram.com"] },
 ]
 
 // Default background images library
@@ -471,14 +549,14 @@ export function LinksTab() {
         </div>
       </div>
 
-      {/* Add Button */}
-      <Button
+      {/* Add Button - Blue with Smooth Hover Animation */}
+      <button
         onClick={() => setShowAddModal(true)}
-        className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white font-medium transition-all"
+        className="group w-full h-11 bg-violet-600 hover:bg-gray-900 text-white font-medium rounded-lg transition-all duration-300 flex items-center justify-center"
       >
-        <Plus className="h-5 w-5 mr-2" />
+        <Plus className="h-5 w-5 mr-2 transition-transform duration-300 group-hover:rotate-90" />
         Add
-      </Button>
+      </button>
 
       {/* Quick Actions */}
       <div className="flex gap-2">
@@ -670,45 +748,48 @@ export function LinksTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Social Links Modal with Real SVG Icons */}
+      {/* Social Links Modal with Scrollable Vertical Layout */}
       <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); } }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-4 sm:p-5 border-b">
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[85vh]">
+          <DialogHeader className="p-4 sm:p-5 border-b sticky top-0 bg-white z-10">
             <DialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? "Edit Social Link" : "Add Social Link"}
             </DialogTitle>
           </DialogHeader>
-          
-          <div className="p-4 sm:p-5">
+
+          <div className={selectedSocial ? "p-4 sm:p-5" : ""}>
             {!selectedSocial ? (
-              // Platform selection grid with Real SVG Icons
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {SOCIAL_PLATFORMS.map((platform) => {
-                  const isActive = !!social_links?.[platform.id as keyof typeof social_links]
-                  return (
-                    <button
-                      key={platform.id}
-                      onClick={() => {
-                        setSelectedSocial(platform.id)
-                        setSocialUrl(social_links?.[platform.id as keyof typeof social_links] || "")
-                      }}
-                      className={cn(
-                        "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all",
-                        isActive 
-                          ? "border-green-500 bg-green-50" 
-                          : "border-gray-200 hover:border-gray-300"
-                      )}
-                    >
-                      <div 
-                        className="w-9 h-9 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: platform.color }}
+              // Platform selection - Scrollable Vertical List with Colored Icons
+              <div className="max-h-[60vh] overflow-y-auto px-4 sm:px-5">
+                <div className="space-y-1 py-3">
+                  {SOCIAL_PLATFORMS.map((platform) => {
+                    const isActive = !!social_links?.[platform.id as keyof typeof social_links]
+                    return (
+                      <button
+                        key={platform.id}
+                        onClick={() => {
+                          setSelectedSocial(platform.id)
+                          setSocialUrl(social_links?.[platform.id as keyof typeof social_links] || "")
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-4 p-3.5 rounded-xl transition-all hover:bg-gray-50",
+                          isActive && "bg-gray-50"
+                        )}
                       >
-                        <RenderSocialIcon platform={platform.id} size={18} color="#ffffff" />
-                      </div>
-                      <span className="text-xs font-medium truncate w-full text-center">{platform.label}</span>
-                    </button>
-                  )
-                })}
+                        <div
+                          className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: platform.color }}
+                        >
+                          <RenderSocialIcon platform={platform.id} size={22} color="#ffffff" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="font-medium text-sm">{platform.label}</p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             ) : (
               // URL input for selected platform
