@@ -304,6 +304,7 @@ export function LinksTab() {
   const [showSocialModal, setShowSocialModal] = useState(false)
   const [selectedSocial, setSelectedSocial] = useState<string | null>(null)
   const [socialUrl, setSocialUrl] = useState("")
+  const [socialUrlError, setSocialUrlError] = useState<string | null>(null)
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
   
@@ -375,12 +376,244 @@ export function LinksTab() {
     setInsertAfterId(null)
   }
 
+  // Social link validation rules
+  const validateSocialUrl = (platform: string, url: string): { valid: boolean; error?: string; transformedUrl?: string } => {
+    const trimmedUrl = url.trim()
+
+    // Platform-specific validation patterns
+    const platformRules: Record<string, {
+      patterns: RegExp[];
+      errorMsg: string;
+      transform?: (url: string) => string
+    }> = {
+      instagram: {
+        patterns: [
+          /^https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9_.]+\/?$/,
+          /^@?[a-zA-Z0-9_.]+$/ // Allow @username or just username
+        ],
+        errorMsg: "Enter a valid Instagram URL or @username",
+        transform: (url: string) => {
+          // Transform @username to full URL
+          if (url.startsWith('@') || (!url.includes('http') && !url.includes('/'))) {
+            const username = url.replace('@', '')
+            return `https://instagram.com/${username}`
+          }
+          return url
+        }
+      },
+      twitter: {
+        patterns: [
+          /^https?:\/\/(www\.)?(twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/?$/,
+          /^@?[a-zA-Z0-9_]+$/ // Allow @username
+        ],
+        errorMsg: "Enter a valid X/Twitter URL or @username",
+        transform: (url: string) => {
+          if (url.startsWith('@') || (!url.includes('http') && !url.includes('/'))) {
+            const username = url.replace('@', '')
+            return `https://x.com/${username}`
+          }
+          return url
+        }
+      },
+      threads: {
+        patterns: [
+          /^https?:\/\/(www\.)?threads\.net\/@?[a-zA-Z0-9_.]+\/?$/,
+          /^@?[a-zA-Z0-9_.]+$/
+        ],
+        errorMsg: "Enter a valid Threads URL or @username",
+        transform: (url: string) => {
+          if (url.startsWith('@') || (!url.includes('http') && !url.includes('/'))) {
+            const username = url.replace('@', '')
+            return `https://threads.net/@${username}`
+          }
+          return url
+        }
+      },
+      tiktok: {
+        patterns: [
+          /^https?:\/\/(www\.)?(tiktok\.com|vm\.tiktok\.com)\/@?[a-zA-Z0-9_.]+\/?.*$/,
+          /^@?[a-zA-Z0-9_.]+$/
+        ],
+        errorMsg: "Enter a valid TikTok URL or @username",
+        transform: (url: string) => {
+          if (url.startsWith('@') || (!url.includes('http') && !url.includes('/'))) {
+            const username = url.replace('@', '')
+            return `https://tiktok.com/@${username}`
+          }
+          return url
+        }
+      },
+      youtube: {
+        patterns: [
+          /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+$/
+        ],
+        errorMsg: "Enter a valid YouTube URL"
+      },
+      facebook: {
+        patterns: [
+          /^https?:\/\/(www\.)?(facebook\.com|fb\.com)\/.+$/
+        ],
+        errorMsg: "Enter a valid Facebook URL"
+      },
+      linkedin: {
+        patterns: [
+          /^https?:\/\/(www\.)?linkedin\.com\/(in|company)\/.+$/
+        ],
+        errorMsg: "Enter a valid LinkedIn URL"
+      },
+      spotify: {
+        patterns: [
+          /^https?:\/\/(open\.)?spotify\.com\/.+$/
+        ],
+        errorMsg: "Enter a valid Spotify URL"
+      },
+      soundcloud: {
+        patterns: [
+          /^https?:\/\/(www\.)?soundcloud\.com\/.+$/
+        ],
+        errorMsg: "Enter a valid SoundCloud URL"
+      },
+      pinterest: {
+        patterns: [
+          /^https?:\/\/(www\.)?pinterest\.(com|ca|co\.uk)\/.+$/
+        ],
+        errorMsg: "Enter a valid Pinterest URL"
+      },
+      twitch: {
+        patterns: [
+          /^https?:\/\/(www\.)?twitch\.tv\/[a-zA-Z0-9_]+\/?$/
+        ],
+        errorMsg: "Enter a valid Twitch URL"
+      },
+      kick: {
+        patterns: [
+          /^https?:\/\/(www\.)?kick\.com\/[a-zA-Z0-9_]+\/?$/
+        ],
+        errorMsg: "Enter a valid Kick URL"
+      },
+      discord: {
+        patterns: [
+          /^https?:\/\/(www\.)?(discord\.(gg|com\/invite)|discordapp\.com\/invite)\/.+$/
+        ],
+        errorMsg: "Enter a valid Discord invite URL"
+      },
+      telegram: {
+        patterns: [
+          /^https?:\/\/(www\.)?(t\.me|telegram\.me)\/.+$/,
+          /^@?[a-zA-Z0-9_]+$/
+        ],
+        errorMsg: "Enter a valid Telegram URL or @username",
+        transform: (url: string) => {
+          if (url.startsWith('@') || (!url.includes('http') && !url.includes('/'))) {
+            const username = url.replace('@', '')
+            return `https://t.me/${username}`
+          }
+          return url
+        }
+      },
+      whatsapp: {
+        patterns: [
+          /^https?:\/\/(wa\.me|api\.whatsapp\.com|chat\.whatsapp\.com)\/.+$/,
+          /^\+?[0-9]+$/ // Allow phone number
+        ],
+        errorMsg: "Enter a valid WhatsApp URL or phone number",
+        transform: (url: string) => {
+          if (/^\+?[0-9]+$/.test(url)) {
+            const number = url.replace(/\D/g, '')
+            return `https://wa.me/${number}`
+          }
+          return url
+        }
+      },
+      snapchat: {
+        patterns: [
+          /^https?:\/\/(www\.)?snapchat\.com\/add\/[a-zA-Z0-9_.]+\/?$/,
+          /^[a-zA-Z0-9_.]+$/
+        ],
+        errorMsg: "Enter a valid Snapchat URL or username",
+        transform: (url: string) => {
+          if (!url.includes('http') && !url.includes('/')) {
+            return `https://snapchat.com/add/${url}`
+          }
+          return url
+        }
+      },
+      github: {
+        patterns: [
+          /^https?:\/\/(www\.)?github\.com\/[a-zA-Z0-9-]+\/?$/
+        ],
+        errorMsg: "Enter a valid GitHub URL"
+      },
+      patreon: {
+        patterns: [
+          /^https?:\/\/(www\.)?patreon\.com\/[a-zA-Z0-9_]+\/?$/
+        ],
+        errorMsg: "Enter a valid Patreon URL"
+      },
+      email: {
+        patterns: [
+          /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/,
+          /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        ],
+        errorMsg: "Enter a valid email address",
+        transform: (url: string) => {
+          if (!url.startsWith('mailto:')) {
+            return `mailto:${url}`
+          }
+          return url
+        }
+      },
+      website: {
+        patterns: [
+          /^https?:\/\/.+\..+$/
+        ],
+        errorMsg: "Enter a valid website URL",
+        transform: (url: string) => {
+          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            return `https://${url}`
+          }
+          return url
+        }
+      }
+    }
+
+    const rules = platformRules[platform]
+    if (!rules) {
+      // No specific rules, accept any URL
+      return { valid: true, transformedUrl: trimmedUrl }
+    }
+
+    // Apply transform if available
+    let finalUrl = rules.transform ? rules.transform(trimmedUrl) : trimmedUrl
+
+    // Check if matches any pattern
+    const isValid = rules.patterns.some(pattern => pattern.test(trimmedUrl) || pattern.test(finalUrl))
+
+    if (!isValid) {
+      return { valid: false, error: rules.errorMsg }
+    }
+
+    return { valid: true, transformedUrl: finalUrl }
+  }
+
   const handleAddSocial = () => {
     if (!selectedSocial || !socialUrl) return
-    
-    updateSocialLinks({ [selectedSocial]: socialUrl } as Partial<OnePageSocialLinks>)
+
+    // Validate the URL
+    const validation = validateSocialUrl(selectedSocial, socialUrl)
+
+    if (!validation.valid) {
+      setSocialUrlError(validation.error || "Invalid URL")
+      return
+    }
+
+    // Use transformed URL if available
+    const urlToSave = validation.transformedUrl || socialUrl
+
+    updateSocialLinks({ [selectedSocial]: urlToSave } as Partial<OnePageSocialLinks>)
     setSelectedSocial(null)
     setSocialUrl("")
+    setSocialUrlError(null)
     setShowSocialModal(false)
   }
 
@@ -552,12 +785,12 @@ export function LinksTab() {
           setTimeout(() => setAddButtonClicked(false), 300)
           setShowAddModal(true)
         }}
-        className="w-full h-11 bg-blue-500 hover:bg-gray-900 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group"
+        className="w-full h-11 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group"
       >
         <Plus
           className={cn(
-            "h-5 w-5 transition-transform duration-300 ease-out group-hover:text-white",
-            addButtonClicked && "rotate-90"
+            "h-5 w-5 transition-transform duration-300 ease-out group-hover:rotate-90",
+            addButtonClicked && "rotate-180"
           )}
         />
         Add
@@ -786,7 +1019,7 @@ export function LinksTab() {
       </Dialog>
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
-      <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); } }}>
+      <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); setSocialUrlError(null); } }}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[85vh] flex flex-col">
           <DialogHeader className="p-4 sm:p-5 border-b shrink-0">
             <DialogTitle className="text-base sm:text-lg font-semibold">
@@ -891,10 +1124,24 @@ export function LinksTab() {
                       <Label className="text-sm">URL</Label>
                       <Input
                         value={socialUrl}
-                        onChange={(e) => setSocialUrl(e.target.value)}
+                        onChange={(e) => {
+                          setSocialUrl(e.target.value)
+                          if (socialUrlError) setSocialUrlError(null)
+                        }}
                         placeholder={platform?.placeholder}
-                        className="h-11 rounded-xl"
+                        className={cn(
+                          "h-11 rounded-xl",
+                          socialUrlError && "border-red-500 focus-visible:ring-red-500"
+                        )}
                       />
+                      {socialUrlError && (
+                        <p className="text-xs text-red-500">{socialUrlError}</p>
+                      )}
+                      {(selectedSocial === 'instagram' || selectedSocial === 'twitter' || selectedSocial === 'threads' || selectedSocial === 'tiktok' || selectedSocial === 'telegram') && (
+                        <p className="text-xs text-muted-foreground">
+                          Tip: You can enter just @username
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -905,6 +1152,7 @@ export function LinksTab() {
                           onClick={() => {
                             handleRemoveSocial(selectedSocial)
                             setSelectedSocial(null)
+                            setSocialUrlError(null)
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -914,6 +1162,7 @@ export function LinksTab() {
                         variant="outline"
                         className="flex-1 rounded-xl w-full sm:w-auto"
                         onClick={() => setSelectedSocial(null)}
+                        onClick={() => { setSelectedSocial(null); setSocialUrlError(null); }}
                       >
                         Back
                       </Button>
