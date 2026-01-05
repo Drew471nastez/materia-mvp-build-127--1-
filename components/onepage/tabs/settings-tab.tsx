@@ -21,6 +21,7 @@ import {
   Loader2,
   Bell,
   BadgeCheck,
+  Send,
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -48,6 +49,7 @@ const SETTINGS_SECTIONS = [
   { id: "basic", label: "Basic Info", icon: FileText },
   { id: "seo", label: "SEO", icon: Globe },
   { id: "subscribe", label: "Subscribe", icon: Bell },
+  { id: "share", label: "Share", icon: Send },
   { id: "verified", label: "Verified Badge", icon: BadgeCheck },
   { id: "billing", label: "Billing", icon: CreditCard },
 ]
@@ -83,6 +85,10 @@ export function SettingsTab() {
   const [subscribeEnabled, setSubscribeEnabled] = useState(onepage?.settings?.subscribe_enabled ?? true)
   const [subscribeStyle, setSubscribeStyle] = useState<"glass" | "white" | "black">(onepage?.settings?.subscribe_style || "glass")
 
+  // Share states
+  const [shareEnabled, setShareEnabled] = useState(onepage?.settings?.share_enabled ?? true)
+  const [shareStyle, setShareStyle] = useState<"glass" | "white" | "black">(onepage?.settings?.share_style || "white")
+
   // Verified badge states
   const [verifiedEnabled, setVerifiedEnabled] = useState((onepage?.settings as any)?.verified_badge_enabled ?? false)
   const [verifiedType, setVerifiedType] = useState<string>((onepage?.settings as any)?.verified_badge_type || "verified_creator")
@@ -98,6 +104,8 @@ export function SettingsTab() {
       setOgImage(onepage.settings?.social_image_url || "")
       setSubscribeEnabled(onepage.settings?.subscribe_enabled ?? true)
       setSubscribeStyle(onepage.settings?.subscribe_style || "glass")
+      setShareEnabled(onepage.settings?.share_enabled ?? true)
+      setShareStyle(onepage.settings?.share_style || "white")
       setVerifiedEnabled((onepage.settings as any)?.verified_badge_enabled ?? false)
       setVerifiedType((onepage.settings as any)?.verified_badge_type || "verified_creator")
     }
@@ -170,6 +178,32 @@ export function SettingsTab() {
     updateSettings({
       subscribe_enabled: enabled ?? subscribeEnabled,
       subscribe_style: style ?? subscribeStyle,
+    })
+  }
+
+  const handleSaveShare = async () => {
+    setLocalSaveState("saving")
+    try {
+      updateSettings({
+        share_enabled: shareEnabled,
+        share_style: shareStyle,
+      })
+      await save()
+      setLocalSaveState("saved")
+      setTimeout(() => setLocalSaveState("idle"), 2000)
+    } catch {
+      setLocalSaveState("error")
+      setTimeout(() => setLocalSaveState("idle"), 3000)
+    }
+  }
+
+  // Live update share settings (instant preview)
+  const updateShareSettings = (enabled?: boolean, style?: "glass" | "white" | "black") => {
+    if (enabled !== undefined) setShareEnabled(enabled)
+    if (style !== undefined) setShareStyle(style)
+    updateSettings({
+      share_enabled: enabled ?? shareEnabled,
+      share_style: style ?? shareStyle,
     })
   }
 
@@ -543,6 +577,118 @@ export function SettingsTab() {
     )
   }
 
+  const renderShare = () => {
+    const styleOptions = [
+      {
+        id: "glass" as const,
+        label: "Glassmorphism",
+        desc: "Modern frosted glass effect",
+        preview: "rgba(255, 255, 255, 0.15)",
+        border: "rgba(255, 255, 255, 0.2)"
+      },
+      {
+        id: "white" as const,
+        label: "White",
+        desc: "Clean white style (default)",
+        preview: "rgba(255, 255, 255, 0.95)",
+        border: "rgba(0, 0, 0, 0.1)"
+      },
+      {
+        id: "black" as const,
+        label: "Black",
+        desc: "Dark sleek style",
+        preview: "rgba(0, 0, 0, 0.75)",
+        border: "rgba(255, 255, 255, 0.1)"
+      },
+    ]
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-base font-semibold mb-1">Share</h3>
+          <p className="text-sm text-gray-500">Let visitors share your page</p>
+        </div>
+
+        {/* Enable Share Toggle */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm text-gray-900">Enable Share button</p>
+            <p className="text-xs text-gray-500 mt-0.5">Show a share button so visitors can share your page</p>
+          </div>
+          <Toggle
+            checked={shareEnabled}
+            onCheckedChange={(checked) => updateShareSettings(checked, undefined)}
+          />
+        </div>
+
+        {shareEnabled && (
+          <>
+            {/* Style Options */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700">Button Style</Label>
+              <div className="grid gap-3">
+                {styleOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => updateShareSettings(undefined, option.id)}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left",
+                      shareStyle === option.id
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    )}
+                  >
+                    {/* Preview circle */}
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                      style={{
+                        background: option.preview,
+                        border: `1px solid ${option.border}`,
+                        backdropFilter: option.id === "glass" ? "blur(8px)" : undefined,
+                      }}
+                    >
+                      <Send className={cn(
+                        "h-4 w-4",
+                        option.id === "black" ? "text-white/80" : "text-gray-600"
+                      )} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-gray-900">{option.label}</p>
+                      <p className="text-xs text-gray-500">{option.desc}</p>
+                    </div>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                      shareStyle === option.id ? "border-blue-500" : "border-gray-300"
+                    )}>
+                      {shareStyle === option.id && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Info box */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <p className="text-xs text-gray-500">
+                The share button appears in the top-left corner of your page.
+                Visitors can share your page via social media, copy link, or messaging apps.
+              </p>
+            </div>
+          </>
+        )}
+
+        <Button
+          onClick={handleSaveShare}
+          disabled={isSaving}
+          className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
+        >
+          {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {getSaveButtonText()}
+        </Button>
+      </div>
+    )
+  }
+
   const renderVerified = () => {
     const selectedBadge = BADGE_TYPES.find(b => b.id === verifiedType) || BADGE_TYPES[0]
 
@@ -745,6 +891,7 @@ export function SettingsTab() {
           {activeSection === "basic" && renderBasicInfo()}
           {activeSection === "seo" && renderSeo()}
           {activeSection === "subscribe" && renderSubscribe()}
+          {activeSection === "share" && renderShare()}
           {activeSection === "verified" && renderVerified()}
           {activeSection === "billing" && renderBilling()}
         </div>

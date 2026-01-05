@@ -57,19 +57,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
   }
 
+  // Social image fallback: social_image_url > avatar_url > profile avatar
+  const socialImageUrl = settings?.social_image_url || profile?.avatar_url || onepage.avatar_url || faviconUrl || undefined
+
   return {
     title: pageTitle,
     description: settings?.seo_description || profile?.bio || undefined,
     openGraph: {
       title: pageTitle,
       description: settings?.seo_description || profile?.bio || undefined,
-      images: settings?.social_image_url ? [settings.social_image_url] : undefined,
+      images: socialImageUrl ? [socialImageUrl] : undefined,
     },
     twitter: {
-      card: "summary_large_image",
+      card: socialImageUrl ? "summary_large_image" : "summary",
       title: pageTitle,
       description: settings?.seo_description || profile?.bio || undefined,
-      images: settings?.social_image_url ? [settings.social_image_url] : undefined,
+      images: socialImageUrl ? [socialImageUrl] : undefined,
     },
     ...(faviconUrl && {
       icons: {

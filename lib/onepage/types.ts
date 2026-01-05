@@ -60,6 +60,8 @@ export interface OnePageSettings {
   analytics_enabled: boolean
   subscribe_enabled?: boolean
   subscribe_style?: "glass" | "white" | "black"
+  share_enabled?: boolean
+  share_style?: "glass" | "white" | "black"
   verified_badge_enabled?: boolean
   verified_badge_type?: "verified_creator" | "verified_brand" | "verified_business" | "official_page" | "verified_artist"
 }
@@ -277,6 +279,8 @@ export const defaultSettings: OnePageSettings = {
   analytics_enabled: true,
   subscribe_enabled: true,
   subscribe_style: "glass",
+  share_enabled: true,
+  share_style: "white",
   verified_badge_enabled: false,
   verified_badge_type: "verified_creator",
 }
