@@ -64,7 +64,7 @@ export async function GET() {
       const newOnepage = {
         owner_id: user.id,
         creator_id: creator?.id || null,
-        seller_id: creator?.id || null, // Also set seller_id for subscribe functionality
+        seller_id: creator?.id || null, // Set seller_id for subscribe functionality
         slug,
         title: profile?.display_name || profile?.username || "My Page",
         bio: "",
@@ -88,6 +88,18 @@ export async function GET() {
       }
 
       onepage = created
+    } else if (!onepage.seller_id && creator?.id) {
+      // Update existing onepage with seller_id if missing
+      const { data: updated } = await supabase
+        .from("onepages")
+        .update({ seller_id: creator.id, creator_id: creator.id })
+        .eq("id", onepage.id)
+        .select()
+        .single()
+
+      if (updated) {
+        onepage = updated
+      }
     }
 
     return NextResponse.json({ onepage })
@@ -125,10 +137,10 @@ export async function PUT(request: Request) {
       slug,
     } = body
 
-    // Verify ownership and get existing data
+    // Get existing record with current settings
     const { data: existing } = await supabase
       .from("onepages")
-      .select("id, slug, settings")
+      .select("id, slug, settings, seller_id, creator_id")
       .eq("id", id)
       .eq("owner_id", user.id)
       .single()
@@ -137,7 +149,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "OnePage not found" }, { status: 404 })
     }
 
-    // Check if slug is being changed and if it's unique
+    // Check slug uniqueness if changed
     if (slug && slug !== existing.slug) {
       const { data: slugExists } = await supabase
         .from("onepages")
@@ -151,35 +163,47 @@ export async function PUT(request: Request) {
       }
     }
 
-    const updates: Partial<OnePage> = {}
+    const updates: Partial<OnePage> & { seller_id?: string; creator_id?: string } = {}
+    
     if (title !== undefined) updates.title = title
     if (bio !== undefined) updates.bio = bio
     if (avatar_url !== undefined) updates.avatar_url = avatar_url
     if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
-    
-    // FIXED: Properly merge settings with existing settings from database
-    // This ensures that updating one setting (like seo_title) doesn't wipe out others (like subscribe_enabled)
-    if (settings !== undefined || avatar_video_crop !== undefined) {
-      // Get existing settings from database
-      const existingSettings = existing.settings as any || {}
-      
-      // Merge: existing settings -> new settings -> avatar_video_crop override
-      updates.settings = {
-        ...existingSettings,
-        ...(settings || {}),
-        // Handle avatar_video_crop specially - it can come from either settings or as separate param
-        avatar_video_crop: avatar_video_crop !== undefined 
-          ? avatar_video_crop 
-          : (settings?.avatar_video_crop !== undefined 
-              ? settings.avatar_video_crop 
-              : existingSettings.avatar_video_crop || null)
-      }
-    }
-    
     if (social_links !== undefined) updates.social_links = social_links
     if (draft_blocks !== undefined) updates.draft_blocks = draft_blocks
     if (slug !== undefined) updates.slug = slug
+    
+    // PROPERLY MERGE SETTINGS - don't overwrite, merge with existing
+    if (settings !== undefined || avatar_video_crop !== undefined) {
+      const existingSettings = (existing.settings as any) || {}
+      const newSettings = settings || {}
+      
+      updates.settings = {
+        ...existingSettings,
+        ...newSettings,
+        // Handle avatar_video_crop specially
+        avatar_video_crop: avatar_video_crop !== undefined 
+          ? avatar_video_crop 
+          : (newSettings.avatar_video_crop !== undefined 
+              ? newSettings.avatar_video_crop 
+              : existingSettings.avatar_video_crop || null)
+      }
+    }
+
+    // Ensure seller_id is set if missing
+    if (!existing.seller_id) {
+      const { data: creator } = await supabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", user.id)
+        .single()
+
+      if (creator) {
+        updates.seller_id = creator.id
+        updates.creator_id = creator.id
+      }
+    }
 
     const { data: updated, error } = await supabase
       .from("onepages")
