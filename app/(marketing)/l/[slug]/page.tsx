@@ -30,9 +30,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = onepage.published_profile as any
   const settings = onepage.settings as any
 
-  // Build title: SEO title > published_profile title > onepage.title > Seller Name
-  const sellerName = profile?.title || onepage.title || "Creator"
-  const pageTitle = settings?.seo_title || `${sellerName} | Storelib`
+  // Priority: 1. SEO Page Title (if explicitly set and not empty)
+  //           2. Display Name from published_profile.title
+  //           3. OnePage title
+  //           4. "Creator"
+  const displayName = profile?.title || onepage.title || "Creator"
+  const seoTitle = settings?.seo_title?.trim()
+
+  // If SEO title is set, use it. Otherwise use Display Name with Storelib suffix
+  const pageTitle = seoTitle || `${displayName} | Storelib`
 
   // Determine favicon URL - priority: avatar_url, then store builder avatar
   let faviconUrl = profile?.avatar_url || onepage.avatar_url
@@ -55,11 +61,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         faviconUrl = headerSettings.faviconUrl
       } else {
         // Fall back to creator profile avatar
-        const { data: creator } = await supabase
-          .from("creators")
-          .select("user_id")
-          .eq("id", onepage.seller_id)
-          .single()
+        const { data: creator } = await supabase.from("creators").select("user_id").eq("id", onepage.seller_id).single()
 
         if (creator?.user_id) {
           const { data: profileData } = await supabase
@@ -141,27 +143,28 @@ export default async function PublicOnePageRoute({ params }: Props) {
     avatar_url: publishedProfile?.avatar_url || onepage.avatar_url || null,
     avatar_video_url: publishedProfile?.avatar_video_url || onepage.avatar_video_url || null,
     avatar_video_crop: publishedProfile?.avatar_video_crop || (onepage.settings as any)?.avatar_video_crop || null,
-    theme: publishedTheme || onepage.theme || {
-      background_type: "solid",
-      background_color: "#ffffff",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#000000",
-      secondary_text_color: "#666666",
-      button_color: "#000000",
-      button_text_color: "#ffffff",
-      button_style: "filled",
-      button_border_radius: 8,
-      button_border_width: 0,
-      button_border_color: "#000000",
-      font_family: "Inter",
-      spacing: "normal",
-      card_width: "standard",
-    },
+    theme: publishedTheme ||
+      onepage.theme || {
+        background_type: "solid",
+        background_color: "#ffffff",
+        background_gradient: "",
+        background_image_url: "",
+        text_color: "#000000",
+        secondary_text_color: "#666666",
+        button_color: "#000000",
+        button_text_color: "#ffffff",
+        button_style: "filled",
+        button_border_radius: 8,
+        button_border_width: 0,
+        button_border_color: "#000000",
+        font_family: "Inter",
+        spacing: "normal",
+        card_width: "standard",
+      },
     blocks: publishedBlocks || onepage.draft_blocks || [],
     social_links: publishedProfile?.social_links || onepage.social_links || {},
-    settings: onepage.settings || { show_branding: true, analytics_enabled: true },
-    seller_id: onepage.seller_id,
+    settings: onepage.settings || { show_branding: true, analytics_enabled: true, subscribe_enabled: true },
+    seller_id: onepage.seller_id || onepage.owner_id || onepage.creator_id, // Fallback to owner_id or creator_id if seller_id is null
   }
 
   return <PublicOnePage onepage={transformedOnepage} />

@@ -4,27 +4,40 @@ import { v4 as uuidv4 } from "uuid"
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name, source, source_id, creator_id, consent_text } = await request.json()
+    const body = await request.json()
+    const { email, name, source, source_id, creator_id, consent_text } = body
 
-    if (!email || !source || !creator_id) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    if (!email) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 })
+    }
+    if (!source) {
+      return NextResponse.json({ error: "Source is required" }, { status: 400 })
+    }
+    if (!creator_id) {
+      return NextResponse.json({ error: "Creator ID is required" }, { status: 400 })
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    const cleanEmail = email.toLowerCase().trim()
+    if (!emailRegex.test(cleanEmail)) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
     const adminSupabase = createAdminClient()
 
-    // Check if subscriber already exists
-    const { data: existingSubscriber } = await adminSupabase
+    // Check if subscriber already exists for this creator
+    const { data: existingSubscriber, error: checkError } = await adminSupabase
       .from("subscribers")
       .select("id, status")
       .eq("creator_id", creator_id)
-      .eq("email", email.toLowerCase().trim())
-      .single()
+      .eq("email", cleanEmail)
+      .maybeSingle()
+
+    if (checkError) {
+      console.error("Error checking existing subscriber:", checkError)
+      return NextResponse.json({ error: "Failed to check subscription status" }, { status: 500 })
+    }
 
     if (existingSubscriber) {
       // If already subscribed, return success
@@ -57,7 +70,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await adminSupabase
       .from("subscribers")
       .insert({
-        email: email.toLowerCase().trim(),
+        email: cleanEmail,
         name: name || null,
         source,
         source_id: source_id || null,
