@@ -12,7 +12,6 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
 
-  // Use admin client for metadata to bypass RLS issues in metadata context
   const supabase = createAdminClient()
 
   const { data: onepage, error } = await supabase
@@ -23,38 +22,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .single()
 
   if (error || !onepage) {
-    // Fallback title using the slug
     return { title: slug ? `${slug} | Storelib` : "Page Not Found" }
   }
 
   const profile = onepage.published_profile as any
   const settings = onepage.settings as any
 
-  // PRIORITY ORDER FOR PAGE TITLE:
-  // 1. SEO Page Title (if explicitly set and not empty in settings)
-  // 2. Display Name from published_profile.title
-  // 3. Fallback to onepage.title
-  // 4. Default "Creator"
-  
+  // SEO Title Priority: seo_title > display name > title > "Creator"
   const displayName = profile?.title || onepage.title || "Creator"
-  
-  // Check if SEO title is explicitly set (not empty, not null, not just whitespace)
   const seoTitle = settings?.seo_title?.trim()
-  
-  // If SEO title exists and is not empty, use it directly
-  // Otherwise, append "| Storelib" to the display name
   const pageTitle = seoTitle || `${displayName} | Storelib`
 
-  // Determine favicon URL - priority: avatar_url, then store builder avatar
+  // Favicon
   let faviconUrl = profile?.avatar_url || onepage.avatar_url
-
-  // Get effective seller_id for favicon lookup
   const effectiveSellerId = onepage.seller_id || onepage.creator_id || null
 
-  // If no avatar, try to get store builder avatar
   if (!faviconUrl && effectiveSellerId) {
     try {
-      // Try to get store builder config avatar
       const { data: storeConfig } = await supabase
         .from("store_builder_configs")
         .select("published_config")
@@ -67,22 +51,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         faviconUrl = headerSettings.avatarUrl
       } else if (headerSettings?.faviconUrl) {
         faviconUrl = headerSettings.faviconUrl
-      } else {
-        // Fall back to creator profile avatar
-        const { data: creator } = await supabase.from("creators").select("user_id").eq("id", effectiveSellerId).single()
-
-        if (creator?.user_id) {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("avatar_url")
-            .eq("id", creator.user_id)
-            .single()
-
-          faviconUrl = profileData?.avatar_url
-        }
       }
     } catch {
-      // Ignore favicon fetching errors
+      // Ignore
     }
   }
 
@@ -112,7 +83,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PublicOnePageRoute({ params }: Props) {
   const { slug } = await params
 
-  // Use admin client to bypass RLS for public page access
   const adminSupabase = createAdminClient()
 
   const { data: onepage, error } = await adminSupabase
@@ -126,7 +96,7 @@ export default async function PublicOnePageRoute({ params }: Props) {
     notFound()
   }
 
-  // Track view (fire and forget) - use admin client
+  // Track view
   try {
     await adminSupabase.from("onepage_views").insert({
       onepage_id: onepage.id,
@@ -134,18 +104,35 @@ export default async function PublicOnePageRoute({ params }: Props) {
       referrer: null,
     })
   } catch {
-    // Ignore view tracking errors
+    // Ignore
   }
 
-  // Transform database data to component props
   const publishedProfile = onepage.published_profile as any
   const publishedTheme = onepage.published_theme as any
   const publishedBlocks = onepage.published_blocks as any[]
 
-  // IMPORTANT: Get the correct creator_id for subscribe functionality
-  // Priority: seller_id > creator_id > owner_id
-  // The seller_id should be a creator_id (UUID from creators table)
-  const effectiveSellerId = onepage.seller_id || onepage.creator_id || null
+  // IMPORTANT: Resolve the correct creator_id for subscribe functionality
+  // Priority: seller_id > creator_id > lookup from owner_id
+  let resolvedCreatorId = onepage.seller_id || onepage.creator_id || null
+
+  // If no direct creator reference, look up creator by owner_id (user_id)
+  if (!resolvedCreatorId && onepage.owner_id) {
+    const { data: creator } = await adminSupabase
+      .from("creators")
+      .select("id")
+      .eq("user_id", onepage.owner_id)
+      .maybeSingle()
+
+    if (creator) {
+      resolvedCreatorId = creator.id
+
+      // Also update the onepage record so future lookups are faster
+      await adminSupabase
+        .from("onepages")
+        .update({ seller_id: creator.id, creator_id: creator.id })
+        .eq("id", onepage.id)
+    }
+  }
 
   const transformedOnepage = {
     id: onepage.id,
@@ -175,9 +162,8 @@ export default async function PublicOnePageRoute({ params }: Props) {
       },
     blocks: publishedBlocks || onepage.draft_blocks || [],
     social_links: publishedProfile?.social_links || onepage.social_links || {},
-    // Pass the FULL settings object so subscribe_enabled and other settings work on live page
     settings: onepage.settings || { show_branding: true, analytics_enabled: true, subscribe_enabled: true },
-    seller_id: effectiveSellerId,
+    seller_id: resolvedCreatorId,
   }
 
   return <PublicOnePage onepage={transformedOnepage} />
