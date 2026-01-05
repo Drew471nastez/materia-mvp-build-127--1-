@@ -258,8 +258,8 @@ function EditorLayout() {
       style={{ zIndex: 10 }}
     >
       {/* Header - ALWAYS visible with solid background */}
-      <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30">
-        <div className="flex items-center gap-2 sm:gap-3">
+      <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {/* Mobile menu button */}
           <Button
             variant="ghost"
@@ -333,10 +333,10 @@ function EditorLayout() {
         </div>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Unsaved changes indicator - Desktop only */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Unsaved changes indicator - Only show on larger screens to prevent overlap */}
           {isDirty && saveState !== "saving" && (
-            <span className="hidden sm:inline text-xs text-amber-600 font-medium">
+            <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0">
               Unsaved changes
             </span>
           )}

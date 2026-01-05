@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import {
   Globe,
   Copy,
   Check,
   ChevronRight,
+  ChevronDown,
   Upload,
   Image as ImageIcon,
   CreditCard,
@@ -19,6 +21,7 @@ import {
   X,
   Loader2,
   Bell,
+  BadgeCheck,
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -29,35 +32,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-// Custom Toggle Component
-function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onCheckedChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-        checked ? "bg-green-500" : "bg-gray-300"
-      )}
-    >
-      <span
-        className={cn(
-          "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform",
-          checked ? "translate-x-5" : "translate-x-0.5"
-        )}
-      />
-    </button>
-  )
-}
-
 // Settings sections with Linktree-style icons
 const SETTINGS_SECTIONS = [
   { id: "basic", label: "Basic Info", icon: FileText },
   { id: "seo", label: "SEO", icon: Globe },
   { id: "subscribe", label: "Subscribe", icon: Bell },
+  { id: "verified", label: "Verified Badge", icon: BadgeCheck },
   { id: "billing", label: "Billing", icon: CreditCard },
+]
+
+// Badge type options
+const BADGE_TYPES = [
+  { id: "verified_creator", label: "Verified Creator" },
+  { id: "verified_brand", label: "Verified Brand" },
+  { id: "verified_business", label: "Verified Business" },
+  { id: "official_page", label: "Official Page" },
+  { id: "verified_artist", label: "Verified Artist" },
 ]
 
 export function SettingsTab() {
@@ -82,6 +72,11 @@ export function SettingsTab() {
   const [subscribeEnabled, setSubscribeEnabled] = useState(onepage?.settings?.subscribe_enabled ?? true)
   const [subscribeStyle, setSubscribeStyle] = useState<"glass" | "white" | "black">(onepage?.settings?.subscribe_style || "glass")
 
+  // Verified badge states
+  const [verifiedEnabled, setVerifiedEnabled] = useState((onepage?.settings as any)?.verified_badge_enabled ?? false)
+  const [verifiedType, setVerifiedType] = useState<string>((onepage?.settings as any)?.verified_badge_type || "verified_creator")
+  const [showBadgeDropdown, setShowBadgeDropdown] = useState(false)
+
   // Update local state when onepage changes
   useEffect(() => {
     if (onepage) {
@@ -92,6 +87,8 @@ export function SettingsTab() {
       setOgImage(onepage.settings?.social_image_url || "")
       setSubscribeEnabled(onepage.settings?.subscribe_enabled ?? true)
       setSubscribeStyle(onepage.settings?.subscribe_style || "glass")
+      setVerifiedEnabled((onepage.settings as any)?.verified_badge_enabled ?? false)
+      setVerifiedType((onepage.settings as any)?.verified_badge_type || "verified_creator")
     }
   }, [onepage])
 
@@ -163,6 +160,33 @@ export function SettingsTab() {
       subscribe_enabled: enabled ?? subscribeEnabled,
       subscribe_style: style ?? subscribeStyle,
     })
+  }
+
+  // Verified badge handlers
+  const handleSaveVerified = async () => {
+    setLocalSaveState("saving")
+    try {
+      updateSettings({
+        verified_badge_enabled: verifiedEnabled,
+        verified_badge_type: verifiedType,
+      } as any)
+      await save()
+      setLocalSaveState("saved")
+      setTimeout(() => setLocalSaveState("idle"), 2000)
+    } catch {
+      setLocalSaveState("error")
+      setTimeout(() => setLocalSaveState("idle"), 3000)
+    }
+  }
+
+  // Live update verified badge settings (instant preview)
+  const updateVerifiedSettings = (enabled?: boolean, type?: string) => {
+    if (enabled !== undefined) setVerifiedEnabled(enabled)
+    if (type !== undefined) setVerifiedType(type)
+    updateSettings({
+      verified_badge_enabled: enabled ?? verifiedEnabled,
+      verified_badge_type: type ?? verifiedType,
+    } as any)
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -429,14 +453,15 @@ export function SettingsTab() {
         </div>
 
         {/* Enable Subscribe Toggle */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
-          <div>
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 gap-3">
+          <div className="flex-1 min-w-0">
             <p className="font-medium text-sm text-gray-900">Let visitors subscribe</p>
             <p className="text-xs text-gray-500 mt-0.5">Add a button so visitors can subscribe to your page</p>
           </div>
-          <Toggle
+          <Switch
             checked={subscribeEnabled}
             onCheckedChange={(checked) => updateSubscribeSettings(checked, undefined)}
+            className="shrink-0"
           />
         </div>
 
@@ -498,6 +523,113 @@ export function SettingsTab() {
 
         <Button
           onClick={handleSaveSubscribe}
+          disabled={isSaving}
+          className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
+        >
+          {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {getSaveButtonText()}
+        </Button>
+      </div>
+    )
+  }
+
+  const renderVerified = () => {
+    const selectedBadge = BADGE_TYPES.find(b => b.id === verifiedType) || BADGE_TYPES[0]
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-base font-semibold mb-1">Verified Badge</h3>
+          <p className="text-sm text-gray-500">Show a verification badge next to your name</p>
+        </div>
+
+        {/* Enable Verified Badge Toggle */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm text-gray-900">Enable Verified Badge</p>
+            <p className="text-xs text-gray-500 mt-0.5">Display a blue checkmark next to your page name</p>
+          </div>
+          <Switch
+            checked={verifiedEnabled}
+            onCheckedChange={(checked) => updateVerifiedSettings(checked, undefined)}
+            className="shrink-0"
+          />
+        </div>
+
+        {verifiedEnabled && (
+          <>
+            {/* Badge Type Dropdown */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700">Badge Type</Label>
+              <div className="relative">
+                <button
+                  onClick={() => setShowBadgeDropdown(!showBadgeDropdown)}
+                  className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-white hover:border-gray-300 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                      <svg viewBox="0 0 22 22" className="w-5 h-5 text-blue-500" fill="currentColor">
+                        <path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/>
+                      </svg>
+                    </div>
+                    <span className="font-medium text-sm text-gray-900">{selectedBadge.label}</span>
+                  </div>
+                  <ChevronDown className={cn("h-4 w-4 text-gray-400 transition-transform", showBadgeDropdown && "rotate-180")} />
+                </button>
+
+                {showBadgeDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-10 overflow-hidden">
+                    {BADGE_TYPES.map((badge) => (
+                      <button
+                        key={badge.id}
+                        onClick={() => {
+                          updateVerifiedSettings(undefined, badge.id)
+                          setShowBadgeDropdown(false)
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors text-left",
+                          verifiedType === badge.id && "bg-blue-50"
+                        )}
+                      >
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center",
+                          verifiedType === badge.id ? "bg-blue-100" : "bg-gray-100"
+                        )}>
+                          <svg viewBox="0 0 22 22" className={cn("w-5 h-5", verifiedType === badge.id ? "text-blue-500" : "text-gray-400")} fill="currentColor">
+                            <path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/>
+                          </svg>
+                        </div>
+                        <span className={cn(
+                          "font-medium text-sm",
+                          verifiedType === badge.id ? "text-blue-600" : "text-gray-900"
+                        )}>{badge.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-3">Preview</p>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-900">{onepage.title || "Your Name"}</span>
+                <div className="group relative">
+                  <svg viewBox="0 0 22 22" className="w-4 h-4 text-blue-500 cursor-pointer" fill="currentColor">
+                    <path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/>
+                  </svg>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    {selectedBadge.label}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        <Button
+          onClick={handleSaveVerified}
           disabled={isSaving}
           className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
         >
@@ -604,6 +736,7 @@ export function SettingsTab() {
           {activeSection === "basic" && renderBasicInfo()}
           {activeSection === "seo" && renderSeo()}
           {activeSection === "subscribe" && renderSubscribe()}
+          {activeSection === "verified" && renderVerified()}
           {activeSection === "billing" && renderBilling()}
         </div>
       </div>
