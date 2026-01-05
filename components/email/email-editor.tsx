@@ -28,15 +28,24 @@ import {
   Italic,
   Strikethrough,
   List,
-  Image,
+  Image as ImageIcon,
   Link2,
-  Heading1,
-  Sparkles,
+  Type,
   ShoppingBag,
   Check,
   X,
   Mail,
   CheckCircle2,
+  Trash2,
+  Maximize2,
+  Minimize2,
+  Square,
+  AlignLeft,
+  AlignCenter,
+  ListOrdered,
+  Quote,
+  Undo,
+  Redo,
 } from "lucide-react"
 import {
   Dialog,
@@ -46,6 +55,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
@@ -102,14 +116,6 @@ const subjectVariables = [
   { id: "my_username", label: "My Username", icon: AtSign, placeholder: "{{my_username}}" },
 ]
 
-// Body personalization variables
-const bodyVariables = [
-  { id: "name", label: "Subscriber Name", placeholder: "{{name}}" },
-  { id: "email", label: "Subscriber Email", placeholder: "{{email}}" },
-  { id: "my_name", label: "My Name", placeholder: "{{my_name}}" },
-  { id: "my_username", label: "My Username", placeholder: "{{my_username}}" },
-]
-
 export function EmailEditor({
   onBack,
   onSave,
@@ -132,6 +138,7 @@ export function EmailEditor({
   const editorRef = useRef<HTMLDivElement>(null)
   const [subject, setSubject] = useState(initialSubject)
   const [previewText, setPreviewText] = useState(initialPreviewText)
+  const [editorContent, setEditorContent] = useState("")
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop")
   const [scheduledAt, setScheduledAt] = useState("")
   const [showScheduleDialog, setShowScheduleDialog] = useState(false)
@@ -145,7 +152,6 @@ export function EmailEditor({
   const [segmentName, setSegmentName] = useState("")
   const [subscriberSearch, setSubscriberSearch] = useState("")
   const [loadingSubscribers, setLoadingSubscribers] = useState(false)
-  const [showPersonalizeMenu, setShowPersonalizeMenu] = useState(false)
   const [showProductDialog, setShowProductDialog] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
@@ -153,11 +159,22 @@ export function EmailEditor({
   const [showLinkDialog, setShowLinkDialog] = useState(false)
   const [linkUrl, setLinkUrl] = useState("")
   const [linkText, setLinkText] = useState("")
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null)
+  const [showImageMenu, setShowImageMenu] = useState(false)
+  const [imageMenuPosition, setImageMenuPosition] = useState({ x: 0, y: 0 })
 
   // Initialize editor content
   useEffect(() => {
     if (editorRef.current && initialBody) {
       editorRef.current.innerHTML = initialBody
+      setEditorContent(initialBody)
+    }
+  }, [])
+
+  // Real-time content sync
+  const handleEditorInput = useCallback(() => {
+    if (editorRef.current) {
+      setEditorContent(editorRef.current.innerHTML)
     }
   }, [])
 
@@ -172,6 +189,18 @@ export function EmailEditor({
       loadProducts()
     }
   }, [showProductDialog, creatorId])
+
+  // Handle click outside image menu
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showImageMenu && !(e.target as HTMLElement).closest('.image-menu')) {
+        setShowImageMenu(false)
+        setSelectedImage(null)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showImageMenu])
 
   const loadSubscribers = async () => {
     if (!creatorId) return
@@ -221,27 +250,20 @@ export function EmailEditor({
   const execCommand = (command: string, value?: string) => {
     document.execCommand(command, false, value)
     editorRef.current?.focus()
+    handleEditorInput()
   }
 
-  const insertHeading = () => {
-    execCommand("formatBlock", "h2")
-  }
-
-  const insertBold = () => {
-    execCommand("bold")
-  }
-
-  const insertItalic = () => {
-    execCommand("italic")
-  }
-
-  const insertStrikethrough = () => {
-    execCommand("strikeThrough")
-  }
-
-  const insertList = () => {
-    execCommand("insertUnorderedList")
-  }
+  const insertHeading = () => execCommand("formatBlock", "h2")
+  const insertBold = () => execCommand("bold")
+  const insertItalic = () => execCommand("italic")
+  const insertStrikethrough = () => execCommand("strikeThrough")
+  const insertList = () => execCommand("insertUnorderedList")
+  const insertOrderedList = () => execCommand("insertOrderedList")
+  const insertQuote = () => execCommand("formatBlock", "blockquote")
+  const alignLeft = () => execCommand("justifyLeft")
+  const alignCenter = () => execCommand("justifyCenter")
+  const undoAction = () => execCommand("undo")
+  const redoAction = () => execCommand("redo")
 
   const insertLink = () => {
     const selection = window.getSelection()
@@ -255,7 +277,7 @@ export function EmailEditor({
     if (linkUrl) {
       const fullUrl = linkUrl.startsWith("http") ? linkUrl : `https://${linkUrl}`
       if (linkText) {
-        execCommand("insertHTML", `<a href="${fullUrl}" style="color: #6366f1; text-decoration: underline;">${linkText}</a>`)
+        execCommand("insertHTML", `<a href="${fullUrl}" style="color: #2563eb; text-decoration: underline;">${linkText}</a>`)
       } else {
         execCommand("createLink", fullUrl)
       }
@@ -272,10 +294,10 @@ export function EmailEditor({
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (file) {
-        // For now, insert a placeholder - in production, you'd upload to storage
         const reader = new FileReader()
         reader.onload = () => {
-          execCommand("insertHTML", `<img src="${reader.result}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;" />`)
+          const imgHtml = `<img src="${reader.result}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
+          execCommand("insertHTML", imgHtml)
         }
         reader.readAsDataURL(file)
       }
@@ -283,53 +305,86 @@ export function EmailEditor({
     input.click()
   }
 
-  const insertPersonalization = (variable: { label: string; placeholder: string }) => {
-    const pillHtml = `<span contenteditable="false" style="display: inline-block; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #4338ca; padding: 2px 10px; border-radius: 20px; font-size: 13px; font-weight: 500; margin: 0 2px; border: 1px solid #a5b4fc;">${variable.label}</span>`
-    execCommand("insertHTML", pillHtml + " ")
-    setShowPersonalizeMenu(false)
+  // Handle image click for menu
+  const handleEditorClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (target.tagName === 'IMG') {
+      e.preventDefault()
+      const img = target as HTMLImageElement
+      setSelectedImage(img)
+      const rect = img.getBoundingClientRect()
+      const editorRect = editorRef.current?.getBoundingClientRect()
+      if (editorRect) {
+        setImageMenuPosition({
+          x: rect.left - editorRect.left + rect.width / 2,
+          y: rect.top - editorRect.top - 10
+        })
+      }
+      setShowImageMenu(true)
+    } else {
+      setShowImageMenu(false)
+      setSelectedImage(null)
+    }
+  }
+
+  const resizeImage = (size: 'small' | 'medium' | 'large' | 'normal') => {
+    if (selectedImage) {
+      const sizes = {
+        small: '200px',
+        medium: '350px',
+        large: '500px',
+        normal: '100%'
+      }
+      selectedImage.style.maxWidth = sizes[size]
+      selectedImage.setAttribute('data-size', size)
+      handleEditorInput()
+    }
+    setShowImageMenu(false)
+  }
+
+  const deleteImage = () => {
+    if (selectedImage) {
+      selectedImage.remove()
+      handleEditorInput()
+    }
+    setShowImageMenu(false)
+    setSelectedImage(null)
   }
 
   const insertProductLink = (product: Product) => {
     const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
     const productUrl = `${baseUrl}/p/${product.slug}`
-    const linkHtml = `<a href="${productUrl}" style="color: #6366f1; text-decoration: underline; font-weight: 500;">${product.title}</a>`
+    const linkHtml = `<a href="${productUrl}" style="color: #2563eb; text-decoration: underline; font-weight: 500;">${product.title}</a>`
     execCommand("insertHTML", linkHtml + " ")
     setShowProductDialog(false)
     setProductSearch("")
   }
 
   const getEditorContent = () => {
-    return editorRef.current?.innerHTML || ""
+    return editorRef.current?.innerHTML || editorContent
   }
 
-  const generatePreviewHTML = () => {
+  const generatePreviewHTML = useCallback(() => {
     const previewSubject = subject
       .replace(/\{\{my_name\}\}/g, sellerInfo?.name || "Your Name")
       .replace(/\{\{my_username\}\}/g, sellerInfo?.username || "username")
 
-    let previewBody = getEditorContent()
+    let previewBody = (editorRef.current?.innerHTML || editorContent)
       .replace(/\{\{my_name\}\}/g, sellerInfo?.name || "Your Name")
       .replace(/\{\{my_username\}\}/g, sellerInfo?.username || "username")
       .replace(/\{\{name\}\}/g, "Alex")
       .replace(/\{\{email\}\}/g, "alex@example.com")
 
-    // Convert pills to their placeholder values for preview
-    previewBody = previewBody.replace(/Subscriber Name/g, "Alex")
-    previewBody = previewBody.replace(/Subscriber Email/g, "alex@example.com")
-    previewBody = previewBody.replace(/My Name/g, sellerInfo?.name || "Your Name")
-    previewBody = previewBody.replace(/My Username/g, sellerInfo?.username || "username")
-
     return { previewSubject, previewBody }
-  }
+  }, [subject, editorContent, sellerInfo])
 
   const generateEmailHTML = () => {
     let content = getEditorContent()
-    // Replace pill HTML with actual placeholders
     content = content.replace(/<span[^>]*>Subscriber Name<\/span>/g, "{{name}}")
     content = content.replace(/<span[^>]*>Subscriber Email<\/span>/g, "{{email}}")
     content = content.replace(/<span[^>]*>My Name<\/span>/g, "{{my_name}}")
     content = content.replace(/<span[^>]*>My Username<\/span>/g, "{{my_username}}")
-    return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.7; color: #333;">${content}</div>`
+    return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.7; color: #374151;">${content}</div>`
   }
 
   const handleSave = async () => {
@@ -363,54 +418,31 @@ export function EmailEditor({
   }
 
   // Segment quick select functions
-  const selectAllSubscribers = () => {
-    setSelectedSubscriberIds(subscribers.map((s) => s.id))
-  }
-
+  const selectAllSubscribers = () => setSelectedSubscriberIds(subscribers.map((s) => s.id))
   const selectPast7Days = () => {
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    const ids = subscribers
-      .filter((s) => s.subscribed_at && new Date(s.subscribed_at) >= sevenDaysAgo)
-      .map((s) => s.id)
-    setSelectedSubscriberIds(ids)
+    setSelectedSubscriberIds(subscribers.filter((s) => s.subscribed_at && new Date(s.subscribed_at) >= sevenDaysAgo).map((s) => s.id))
   }
-
   const selectPast30Days = () => {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const ids = subscribers
-      .filter((s) => s.subscribed_at && new Date(s.subscribed_at) >= thirtyDaysAgo)
-      .map((s) => s.id)
-    setSelectedSubscriberIds(ids)
+    setSelectedSubscriberIds(subscribers.filter((s) => s.subscribed_at && new Date(s.subscribed_at) >= thirtyDaysAgo).map((s) => s.id))
   }
 
   const handleCreateSegment = async () => {
     if (!segmentName.trim() || selectedSubscriberIds.length === 0) {
-      toast({
-        title: "Invalid segment",
-        description: "Please enter a segment name and select at least one subscriber",
-        variant: "destructive",
-      })
+      toast({ title: "Invalid segment", description: "Please enter a segment name and select at least one subscriber", variant: "destructive" })
       return
     }
 
-    const newSegment: Segment = {
-      id: `custom_${Date.now()}`,
-      name: segmentName,
-      subscriber_ids: selectedSubscriberIds,
-    }
+    const newSegment: Segment = { id: `custom_${Date.now()}`, name: segmentName, subscriber_ids: selectedSubscriberIds }
 
     if (creatorId) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from("email_segments")
-        .insert({
-          creator_id: creatorId,
-          name: segmentName,
-          filters: { subscriber_ids: selectedSubscriberIds },
-          subscriber_count: selectedSubscriberIds.length,
-        })
+        .insert({ creator_id: creatorId, name: segmentName, filters: { subscriber_ids: selectedSubscriberIds }, subscriber_count: selectedSubscriberIds.length })
         .select()
         .single()
 
@@ -418,10 +450,7 @@ export function EmailEditor({
         toast({ title: "Error", description: "Failed to create segment", variant: "destructive" })
         return
       }
-
-      if (data) {
-        newSegment.id = data.id
-      }
+      if (data) newSegment.id = data.id
     }
 
     onSegmentsChange?.([...segments, newSegment])
@@ -440,50 +469,38 @@ export function EmailEditor({
     (s) => s.email.toLowerCase().includes(subscriberSearch.toLowerCase()) || (s.name && s.name.toLowerCase().includes(subscriberSearch.toLowerCase()))
   )
 
-  const filteredProducts = products.filter(
-    (p) => p.title.toLowerCase().includes(productSearch.toLowerCase())
-  )
+  const filteredProducts = products.filter((p) => p.title.toLowerCase().includes(productSearch.toLowerCase()))
 
   const { previewSubject, previewBody } = generatePreviewHTML()
-
   const hasContent = subject.trim() && getEditorContent().trim()
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#fafafa]">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-20 shadow-sm">
-        <div className="px-3 sm:px-6 py-3">
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 flex-shrink-0">
-                <ArrowLeft className="h-4 w-4" />
+      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-20">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={onBack} className="h-10 w-10 rounded-xl hover:bg-gray-100">
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
               </Button>
-              <span className="text-base sm:text-lg font-semibold text-gray-900 truncate">New Email</span>
-            </div>
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              <div className="hidden md:flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                <Button variant={previewMode === "desktop" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setPreviewMode("desktop")}>
-                  <Monitor className="h-4 w-4" />
-                </Button>
-                <Button variant={previewMode === "mobile" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setPreviewMode("mobile")}>
-                  <Smartphone className="h-4 w-4" />
-                </Button>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">New Email</h1>
+                <p className="text-xs text-gray-500">Create and send your email campaign</p>
               </div>
-              <Button variant="outline" onClick={() => setShowTestDialog(true)} disabled={!hasContent} className="h-9 px-2 sm:px-3 text-xs sm:text-sm">
-                <Mail className="h-4 w-4 sm:mr-1.5" />
-                <span className="hidden sm:inline">Test</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => setShowTestDialog(true)} disabled={!hasContent} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100">
+                <Mail className="h-4 w-4 mr-2" />Send Test
               </Button>
-              <Button variant="outline" onClick={handleSave} disabled={!subject.trim() || isSaving} className="h-9 px-2 sm:px-3 text-xs sm:text-sm">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 sm:mr-1.5" />}
-                <span className="hidden sm:inline">Draft</span>
+              <Button variant="ghost" onClick={handleSave} disabled={!subject.trim() || isSaving} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}Save Draft
               </Button>
-              <Button variant="outline" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="h-9 px-2 sm:px-3 text-xs sm:text-sm hidden sm:flex">
-                <Clock className="h-4 w-4 sm:mr-1.5" />
-                <span className="hidden md:inline">Schedule</span>
+              <Button variant="ghost" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100">
+                <Clock className="h-4 w-4 mr-2" />Schedule
               </Button>
-              <Button onClick={handleSend} disabled={!hasContent || isSending} className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 px-3 sm:px-4 text-xs sm:text-sm">
-                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 sm:mr-1.5" />}
-                <span className="hidden sm:inline">Send</span>
+              <Button onClick={handleSend} disabled={!hasContent || isSending} className="h-10 px-5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-sm">
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}Send Email
               </Button>
             </div>
           </div>
@@ -491,260 +508,257 @@ export function EmailEditor({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Editor Panel */}
-        <div className="flex-1 flex flex-col overflow-hidden lg:border-r">
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-              {/* Subject Line */}
-              <div className="space-y-3">
-                <Label htmlFor="email-subject" className="text-sm font-semibold text-gray-900">Email Subject</Label>
-                <Input
-                  id="email-subject"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Enter your email subject..."
-                  className="h-12 text-base border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
-                />
-                <div className="flex flex-wrap gap-2">
-                  {subjectVariables.map((variable) => {
-                    const Icon = variable.icon
-                    return (
-                      <Button
-                        key={variable.id}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => insertVariable(variable.placeholder)}
-                        className="h-8 text-xs gap-1.5 border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300"
-                      >
-                        <Icon className="h-3.5 w-3.5" />{variable.label}
-                      </Button>
-                    )
-                  })}
-                </div>
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Editor Panel */}
+          <div className="space-y-5">
+            {/* Subject Card */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">Subject Line</Label>
+              <Input
+                id="email-subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="What's your email about?"
+                className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
+              />
+              <div className="flex gap-2 mt-3">
+                {subjectVariables.map((variable) => {
+                  const Icon = variable.icon
+                  return (
+                    <Button key={variable.id} variant="outline" size="sm" onClick={() => insertVariable(variable.placeholder)} className="h-8 rounded-lg border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300">
+                      <Icon className="h-3.5 w-3.5 mr-1.5" />{variable.label}
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Preview Text Card */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                Preview Text <span className="text-gray-400 font-normal">(optional)</span>
+              </Label>
+              <Input
+                value={previewText}
+                onChange={(e) => setPreviewText(e.target.value)}
+                placeholder="Brief text shown in inbox preview..."
+                className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
+              />
+            </div>
+
+            {/* Email Body Card */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50">
+                <Label className="text-sm font-medium text-gray-700">Email Content</Label>
               </div>
 
-              {/* Preview Text */}
-              <div className="space-y-3">
-                <Label htmlFor="preview-text" className="text-sm font-semibold text-gray-900">
-                  Preview Text <span className="text-gray-400 font-normal text-xs">(shows in inbox preview)</span>
-                </Label>
-                <Input
-                  id="preview-text"
-                  value={previewText}
-                  onChange={(e) => setPreviewText(e.target.value)}
-                  placeholder="Brief preview shown in email clients..."
-                  className="h-12 text-base border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
-                />
-              </div>
-
-              {/* Email Body Editor */}
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-900">Email Body</Label>
-                <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                  {/* Toolbar */}
-                  <div className="flex flex-wrap items-center gap-1 p-2 sm:p-3 border-b bg-gray-50/80">
-                    <Button variant="ghost" size="icon" onClick={insertHeading} className="h-9 w-9 hover:bg-gray-200" title="Heading">
-                      <Heading1 className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={insertBold} className="h-9 w-9 hover:bg-gray-200" title="Bold">
-                      <Bold className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={insertStrikethrough} className="h-9 w-9 hover:bg-gray-200" title="Strikethrough">
-                      <Strikethrough className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={insertItalic} className="h-9 w-9 hover:bg-gray-200" title="Italic">
-                      <Italic className="h-4 w-4" />
-                    </Button>
-                    <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block" />
-                    <Button variant="ghost" size="icon" onClick={insertList} className="h-9 w-9 hover:bg-gray-200" title="Bullet List">
-                      <List className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={insertImage} className="h-9 w-9 hover:bg-gray-200" title="Insert Image">
-                      <Image className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={insertLink} className="h-9 w-9 hover:bg-gray-200" title="Insert Link">
-                      <Link2 className="h-4 w-4" />
-                    </Button>
-                    <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block" />
-                    <div className="relative">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowPersonalizeMenu(!showPersonalizeMenu)}
-                        className="h-9 px-3 gap-1.5 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        <span className="hidden sm:inline">+ Personalize</span>
-                      </Button>
-                      {showPersonalizeMenu && (
-                        <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg py-1 z-10 min-w-[180px]">
-                          {bodyVariables.map((v) => (
-                            <button
-                              key={v.id}
-                              onClick={() => insertPersonalization(v)}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                            >
-                              <span className="inline-block w-2 h-2 rounded-full bg-indigo-400" />
-                              {v.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowProductDialog(true)}
-                      className="h-9 px-3 gap-1.5 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                    >
-                      <ShoppingBag className="h-4 w-4" />
-                      <span className="hidden sm:inline">Add Product Link</span>
-                    </Button>
-                  </div>
-
-                  {/* Editor Content Area */}
-                  <div
-                    ref={editorRef}
-                    contentEditable
-                    className="min-h-[350px] sm:min-h-[400px] p-4 sm:p-6 focus:outline-none text-base leading-relaxed prose prose-sm max-w-none"
-                    style={{ wordBreak: "break-word" }}
-                    onBlur={() => setShowPersonalizeMenu(false)}
-                    data-placeholder="Hi {{name}}!
-
-I'm so excited for you to take your first step on this journey.
-
-[Insert a few lines introducing yourself and sharing your story here!]
-
-Best,
-{{my_name}}"
-                  />
-                </div>
-                <p className="text-xs text-gray-500">
-                  Use the <span className="text-indigo-600 font-medium">+ Personalize</span> button to insert dynamic fields that will be replaced with subscriber info.
-                </p>
-              </div>
-
-              {/* Audience Selection */}
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-900">Audience</Label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Select value={audienceType} onValueChange={onAudienceChange}>
-                    <SelectTrigger className="flex-1 h-12 border-gray-200">
-                      <SelectValue placeholder="Select audience" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Subscribers</SelectItem>
-                      <SelectItem value="store_builder">Store Builder Subscribers</SelectItem>
-                      <SelectItem value="onepage">OnePage Subscribers</SelectItem>
-                      {segments.map((segment) => (
-                        <SelectItem key={segment.id} value={`segment:${segment.id}`}>{segment.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" onClick={() => setShowSegmentDialog(true)} className="h-12 px-4 border-gray-200">
-                    <Plus className="h-4 w-4 mr-2" />Custom Segment
+              {/* Rich Text Toolbar */}
+              <div className="flex flex-wrap items-center gap-1 px-4 py-2.5 border-b border-gray-100 bg-white">
+                <div className="flex items-center gap-0.5 mr-2">
+                  <Button variant="ghost" size="icon" onClick={undoAction} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Undo">
+                    <Undo className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={redoAction} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Redo">
+                    <Redo className="h-4 w-4 text-gray-500" />
                   </Button>
                 </div>
+                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <Button variant="ghost" size="icon" onClick={insertHeading} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Heading">
+                  <Type className="h-4 w-4 text-gray-500" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={insertBold} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Bold">
+                  <Bold className="h-4 w-4 text-gray-500" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={insertItalic} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Italic">
+                  <Italic className="h-4 w-4 text-gray-500" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={insertStrikethrough} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Strikethrough">
+                  <Strikethrough className="h-4 w-4 text-gray-500" />
+                </Button>
+                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <Button variant="ghost" size="icon" onClick={alignLeft} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Align Left">
+                  <AlignLeft className="h-4 w-4 text-gray-500" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={alignCenter} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Align Center">
+                  <AlignCenter className="h-4 w-4 text-gray-500" />
+                </Button>
+                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <Button variant="ghost" size="icon" onClick={insertList} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Bullet List">
+                  <List className="h-4 w-4 text-gray-500" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={insertOrderedList} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Numbered List">
+                  <ListOrdered className="h-4 w-4 text-gray-500" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={insertQuote} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Quote">
+                  <Quote className="h-4 w-4 text-gray-500" />
+                </Button>
+                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <Button variant="ghost" size="icon" onClick={insertLink} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Link">
+                  <Link2 className="h-4 w-4 text-gray-500" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={insertImage} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Image">
+                  <ImageIcon className="h-4 w-4 text-gray-500" />
+                </Button>
+                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <Button variant="outline" size="sm" onClick={() => setShowProductDialog(true)} className="h-8 px-3 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300">
+                  <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />Product Link
+                </Button>
               </div>
 
-              {/* Mobile-only buttons */}
-              <div className="flex sm:hidden gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="flex-1 h-11">
-                  <Clock className="h-4 w-4 mr-2" />Schedule
+              {/* Editor Area */}
+              <div className="relative">
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  className="min-h-[400px] p-6 focus:outline-none text-base leading-relaxed text-gray-700"
+                  style={{ wordBreak: "break-word" }}
+                  onInput={handleEditorInput}
+                  onClick={handleEditorClick}
+                  data-placeholder="Start writing your email...
+
+Use the toolbar above to format your text, add images, or insert product links.
+
+Tips:
+• Keep your message clear and concise
+• Add a clear call-to-action
+• Personalize with subscriber names"
+                />
+
+                {/* Image Edit Menu */}
+                {showImageMenu && selectedImage && (
+                  <div
+                    className="image-menu absolute bg-white rounded-xl shadow-lg border border-gray-200 p-2 flex items-center gap-1 z-10"
+                    style={{ left: imageMenuPosition.x, top: imageMenuPosition.y, transform: 'translate(-50%, -100%)' }}
+                  >
+                    <Button variant="ghost" size="sm" onClick={() => resizeImage('small')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs">
+                      <Minimize2 className="h-3.5 w-3.5 mr-1" />Small
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => resizeImage('medium')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs">
+                      <Square className="h-3.5 w-3.5 mr-1" />Medium
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => resizeImage('large')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs">
+                      <Maximize2 className="h-3.5 w-3.5 mr-1" />Large
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => resizeImage('normal')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs">
+                      Full
+                    </Button>
+                    <div className="w-px h-5 bg-gray-200 mx-1" />
+                    <Button variant="ghost" size="sm" onClick={deleteImage} className="h-8 px-2 rounded-lg hover:bg-red-50 text-red-500 text-xs">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Audience Card */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">Send To</Label>
+              <div className="flex gap-3">
+                <Select value={audienceType} onValueChange={onAudienceChange}>
+                  <SelectTrigger className="flex-1 h-12 rounded-xl border-gray-200">
+                    <SelectValue placeholder="Select audience" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="all">All Subscribers</SelectItem>
+                    <SelectItem value="store_builder">Store Builder Subscribers</SelectItem>
+                    <SelectItem value="onepage">OnePage Subscribers</SelectItem>
+                    {segments.map((segment) => (
+                      <SelectItem key={segment.id} value={`segment:${segment.id}`}>{segment.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={() => setShowSegmentDialog(true)} className="h-12 px-4 rounded-xl border-gray-200 hover:bg-gray-50">
+                  <Plus className="h-4 w-4 mr-2" />Custom
                 </Button>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Preview Panel */}
-        <div className="hidden lg:flex lg:w-[480px] xl:w-[520px] flex-col bg-gradient-to-b from-gray-100 to-gray-50">
-          <div className="p-4 border-b bg-white/80 backdrop-blur flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-700">Email Preview</span>
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              <Button
-                variant={previewMode === "desktop" ? "secondary" : "ghost"}
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setPreviewMode("desktop")}
-              >
-                <Monitor className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant={previewMode === "mobile" ? "secondary" : "ghost"}
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setPreviewMode("mobile")}
-              >
-                <Smartphone className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 flex justify-center items-start">
-            <div className={cn(
-              "bg-white shadow-xl rounded-2xl overflow-hidden transition-all duration-300",
-              previewMode === "mobile" ? "w-[320px]" : "w-full max-w-[460px]"
-            )}>
-              {/* Email Client Header */}
-              <div className="px-4 py-3 border-b bg-gradient-to-r from-gray-50 to-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center overflow-hidden ring-2 ring-white shadow-sm">
-                    {sellerInfo?.avatarUrl ? (
-                      <img src={sellerInfo.avatarUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-sm font-semibold text-indigo-600">
-                        {sellerInfo?.name?.charAt(0) || "Y"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{sellerInfo?.name || "Your Name"}</p>
-                    <p className="text-xs text-gray-500 truncate">{previewSubject || "Email subject..."}</p>
-                  </div>
+          {/* Preview Panel */}
+          <div className="lg:sticky lg:top-24 lg:h-fit">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                <Label className="text-sm font-medium text-gray-700">Live Preview</Label>
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                  <Button
+                    variant={previewMode === "desktop" ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn("h-7 px-3 rounded-md text-xs", previewMode === "desktop" ? "bg-white shadow-sm" : "")}
+                    onClick={() => setPreviewMode("desktop")}
+                  >
+                    <Monitor className="h-3.5 w-3.5 mr-1.5" />Desktop
+                  </Button>
+                  <Button
+                    variant={previewMode === "mobile" ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn("h-7 px-3 rounded-md text-xs", previewMode === "mobile" ? "bg-white shadow-sm" : "")}
+                    onClick={() => setPreviewMode("mobile")}
+                  >
+                    <Smartphone className="h-3.5 w-3.5 mr-1.5" />Mobile
+                  </Button>
                 </div>
               </div>
 
-              {/* Email Body */}
-              <div className={cn(
-                "p-4 sm:p-6",
-                previewMode === "mobile" ? "p-4" : "p-6"
-              )}>
-                <div
-                  className="prose prose-sm max-w-none text-gray-700"
-                  style={{ fontSize: previewMode === "mobile" ? "14px" : "15px", lineHeight: "1.7" }}
-                  dangerouslySetInnerHTML={{
-                    __html: previewBody || '<span class="text-gray-400 italic">Your email content will appear here...</span>'
-                  }}
-                />
-              </div>
-
-              {/* Email Footer */}
-              <div className={cn(
-                "px-4 py-5 border-t bg-gradient-to-b from-gray-50 to-gray-100",
-                previewMode === "mobile" ? "px-4 py-4" : "px-6 py-5"
-              )}>
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden ring-1 ring-gray-200">
-                      {sellerInfo?.avatarUrl ? (
-                        <img src={sellerInfo.avatarUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs font-medium text-gray-500">
-                          {sellerInfo?.name?.charAt(0) || "Y"}
-                        </div>
-                      )}
+              <div className="p-5 bg-gray-50/50 flex justify-center min-h-[500px]">
+                <div className={cn(
+                  "bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 border border-gray-100",
+                  previewMode === "mobile" ? "w-[320px]" : "w-full max-w-[480px]"
+                )}>
+                  {/* Email Header Preview */}
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center overflow-hidden">
+                        {sellerInfo?.avatarUrl ? (
+                          <img src={sellerInfo.avatarUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-sm font-semibold text-blue-600">{sellerInfo?.name?.charAt(0) || "Y"}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{sellerInfo?.name || "Your Name"}</p>
+                        <p className="text-xs text-gray-500 truncate">{previewSubject || "Email subject..."}</p>
+                      </div>
                     </div>
-                    <span className="text-sm text-gray-700 font-medium">{sellerInfo?.name || "Your Name"}</span>
                   </div>
-                  <div className="text-xs text-gray-400">
-                    <span className="text-gray-500 font-medium">Storelib</span>
-                    <span className="mx-2">·</span>
-                    <span>Powered by Storelib</span>
+
+                  {/* Email Body Preview */}
+                  <div className={cn("p-5", previewMode === "mobile" ? "p-4" : "p-5")}>
+                    <div
+                      className="prose prose-sm max-w-none text-gray-700"
+                      style={{ fontSize: previewMode === "mobile" ? "14px" : "15px", lineHeight: "1.7" }}
+                      dangerouslySetInnerHTML={{
+                        __html: previewBody || '<span class="text-gray-400 italic">Your email content will appear here...</span>'
+                      }}
+                    />
                   </div>
-                  <a href="#" className="text-xs text-gray-400 hover:text-gray-500 underline underline-offset-2" onClick={(e) => e.preventDefault()}>
-                    Unsubscribe
-                  </a>
+
+                  {/* Email Footer Preview */}
+                  <div className="px-5 py-4 border-t border-gray-100 bg-gray-50/80">
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden">
+                          {sellerInfo?.avatarUrl ? (
+                            <img src={sellerInfo.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs font-medium text-gray-500">
+                              {sellerInfo?.name?.charAt(0) || "Y"}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-600 font-medium">{sellerInfo?.name || "Your Name"}</span>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        <span className="text-gray-500">Storelib</span>
+                        <span className="mx-1.5">·</span>
+                        <span>Powered by Storelib</span>
+                      </div>
+                      <a href="#" className="text-xs text-gray-400 hover:text-gray-500 underline" onClick={(e) => e.preventDefault()}>
+                        Unsubscribe
+                      </a>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -754,26 +768,18 @@ Best,
 
       {/* Schedule Dialog */}
       <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Schedule Email</DialogTitle>
             <DialogDescription>Choose when you want this email to be sent.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Date & Time</Label>
-              <Input
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
-                min={new Date().toISOString().slice(0, 16)}
-                className="h-12"
-              />
-            </div>
+          <div className="py-4">
+            <Label className="text-sm text-gray-600 mb-2 block">Date & Time</Label>
+            <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} min={new Date().toISOString().slice(0, 16)} className="h-12 rounded-xl" />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>Cancel</Button>
-            <Button onClick={handleSchedule} disabled={!scheduledAt || isSaving} className="bg-indigo-600 hover:bg-indigo-700">
+            <Button variant="outline" onClick={() => setShowScheduleDialog(false)} className="rounded-xl">Cancel</Button>
+            <Button onClick={handleSchedule} disabled={!scheduledAt || isSaving} className="bg-blue-500 hover:bg-blue-600 rounded-xl">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Schedule
             </Button>
           </DialogFooter>
@@ -782,7 +788,7 @@ Best,
 
       {/* Test Email Dialog */}
       <Dialog open={showTestDialog} onOpenChange={setShowTestDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Send Test Email</DialogTitle>
             <DialogDescription>Send a test email to preview how it will look.</DialogDescription>
@@ -799,23 +805,14 @@ Best,
             </div>
           ) : (
             <>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Email Address</Label>
-                  <Input
-                    type="email"
-                    value={testEmail}
-                    onChange={(e) => setTestEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="h-12"
-                  />
-                </div>
+              <div className="py-4">
+                <Label className="text-sm text-gray-600 mb-2 block">Email Address</Label>
+                <Input type="email" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="your@email.com" className="h-12 rounded-xl" />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowTestDialog(false)}>Cancel</Button>
-                <Button onClick={handleSendTest} disabled={!testEmail || isSendingTest} className="bg-indigo-600 hover:bg-indigo-700">
-                  {isSendingTest ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                  Send Test
+                <Button variant="outline" onClick={() => setShowTestDialog(false)} className="rounded-xl">Cancel</Button>
+                <Button onClick={handleSendTest} disabled={!testEmail || isSendingTest} className="bg-blue-500 hover:bg-blue-600 rounded-xl">
+                  {isSendingTest ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}Send Test
                 </Button>
               </DialogFooter>
             </>
@@ -825,43 +822,31 @@ Best,
 
       {/* Link Dialog */}
       <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Insert Link</DialogTitle>
             <DialogDescription>Add a link to your email content.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Link Text</Label>
-              <Input
-                value={linkText}
-                onChange={(e) => setLinkText(e.target.value)}
-                placeholder="Click here"
-                className="h-11"
-              />
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">Link Text</Label>
+              <Input value={linkText} onChange={(e) => setLinkText(e.target.value)} placeholder="Click here" className="h-11 rounded-xl" />
             </div>
-            <div className="space-y-2">
-              <Label>URL</Label>
-              <Input
-                value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
-                placeholder="https://example.com"
-                className="h-11"
-              />
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">URL</Label>
+              <Input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com" className="h-11 rounded-xl" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLinkDialog(false)}>Cancel</Button>
-            <Button onClick={confirmInsertLink} disabled={!linkUrl} className="bg-indigo-600 hover:bg-indigo-700">
-              Insert Link
-            </Button>
+            <Button variant="outline" onClick={() => setShowLinkDialog(false)} className="rounded-xl">Cancel</Button>
+            <Button onClick={confirmInsertLink} disabled={!linkUrl} className="bg-blue-500 hover:bg-blue-600 rounded-xl">Insert Link</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Product Selector Dialog */}
       <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col rounded-2xl">
           <DialogHeader>
             <DialogTitle>Add Product Link</DialogTitle>
             <DialogDescription>Select a product to insert a link into your email.</DialogDescription>
@@ -869,39 +854,22 @@ Best,
           <div className="space-y-4 py-4 flex-1 overflow-hidden flex flex-col">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Search products..."
-                className="pl-10 h-11"
-              />
+              <Input value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Search products..." className="pl-10 h-11 rounded-xl" />
             </div>
-            <div className="flex-1 overflow-y-auto border rounded-lg min-h-0">
+            <div className="flex-1 overflow-y-auto rounded-xl border border-gray-200 min-h-0">
               {loadingProducts ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                </div>
+                <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
               ) : filteredProducts.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <ShoppingBag className="h-10 w-10 mx-auto text-gray-300 mb-3" />
                   <p className="text-sm">{products.length === 0 ? "No products found" : "No matching products"}</p>
                 </div>
               ) : (
-                <div className="divide-y">
+                <div className="divide-y divide-gray-100">
                   {filteredProducts.map((product) => (
-                    <button
-                      key={product.id}
-                      onClick={() => insertProductLink(product)}
-                      className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 text-left transition-colors"
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                        {product.thumbnail_url ? (
-                          <img src={product.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ShoppingBag className="h-5 w-5 text-gray-400" />
-                          </div>
-                        )}
+                    <button key={product.id} onClick={() => insertProductLink(product)} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 text-left transition-colors">
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+                        {product.thumbnail_url ? <img src={product.thumbnail_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><ShoppingBag className="h-5 w-5 text-gray-400" /></div>}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
@@ -919,131 +887,72 @@ Best,
 
       {/* Custom Segment Dialog */}
       <Dialog open={showSegmentDialog} onOpenChange={setShowSegmentDialog}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col rounded-2xl">
           <DialogHeader>
             <DialogTitle>Create Custom Segment</DialogTitle>
             <DialogDescription>Select subscribers to include in this segment.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 flex-1 overflow-hidden flex flex-col">
-            <div className="space-y-2">
-              <Label>Segment Name</Label>
-              <Input
-                value={segmentName}
-                onChange={(e) => setSegmentName(e.target.value)}
-                placeholder="e.g., VIP Customers, Early Adopters"
-                className="h-11"
-              />
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">Segment Name</Label>
+              <Input value={segmentName} onChange={(e) => setSegmentName(e.target.value)} placeholder="e.g., VIP Customers" className="h-11 rounded-xl" />
             </div>
-
-            {/* Quick Select Buttons */}
-            <div className="space-y-2">
-              <Label className="text-sm">Quick Select</Label>
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">Quick Select</Label>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={selectAllSubscribers} className="h-9">
-                  Select All
-                </Button>
-                <Button variant="outline" size="sm" onClick={selectPast7Days} className="h-9">
-                  Past 7 Days
-                </Button>
-                <Button variant="outline" size="sm" onClick={selectPast30Days} className="h-9">
-                  Past 30 Days
-                </Button>
+                <Button variant="outline" size="sm" onClick={selectAllSubscribers} className="h-8 rounded-lg">Select All</Button>
+                <Button variant="outline" size="sm" onClick={selectPast7Days} className="h-8 rounded-lg">Past 7 Days</Button>
+                <Button variant="outline" size="sm" onClick={selectPast30Days} className="h-8 rounded-lg">Past 30 Days</Button>
                 {selectedSubscriberIds.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedSubscriberIds([])} className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50">
-                    <X className="h-3.5 w-3.5 mr-1" />Clear All
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedSubscriberIds([])} className="h-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50">
+                    <X className="h-3.5 w-3.5 mr-1" />Clear
                   </Button>
                 )}
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label>Search Subscribers</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  value={subscriberSearch}
-                  onChange={(e) => setSubscriberSearch(e.target.value)}
-                  placeholder="Search by email or name..."
-                  className="pl-10 h-11"
-                />
-              </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input value={subscriberSearch} onChange={(e) => setSubscriberSearch(e.target.value)} placeholder="Search subscribers..." className="pl-10 h-11 rounded-xl" />
             </div>
-
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-sm font-medium">
-                  Subscribers
-                  <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs">
-                    {selectedSubscriberIds.length} selected
-                  </span>
-                </Label>
-              </div>
-              <div className="flex-1 overflow-y-auto border rounded-lg">
-                {loadingSubscribers ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                  </div>
-                ) : filteredSubscribers.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <User className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-                    <p className="text-sm">{subscribers.length === 0 ? "No subscribers found" : "No matching subscribers"}</p>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {filteredSubscribers.map((subscriber) => (
-                      <label
-                        key={subscriber.id}
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-3 hover:bg-gray-50 cursor-pointer transition-colors",
-                          selectedSubscriberIds.includes(subscriber.id) && "bg-indigo-50 hover:bg-indigo-50"
-                        )}
-                      >
-                        <Checkbox
-                          checked={selectedSubscriberIds.includes(subscriber.id)}
-                          onCheckedChange={() => toggleSubscriber(subscriber.id)}
-                          className="data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900 truncate font-medium">{subscriber.email}</p>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                            {subscriber.name && <span>{subscriber.name}</span>}
-                            <span className={cn(
-                              "px-1.5 py-0.5 rounded-full text-xs",
-                              subscriber.source === "onepage" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
-                            )}>
-                              {subscriber.source === "onepage" ? "OnePage" : "Store"}
-                            </span>
-                            {subscriber.subscribed_at && (
-                              <span className="text-gray-400">
-                                {new Date(subscriber.subscribed_at).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
+            <div className="flex-1 overflow-y-auto rounded-xl border border-gray-200 min-h-0">
+              {loadingSubscribers ? (
+                <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+              ) : filteredSubscribers.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <User className="h-10 w-10 mx-auto text-gray-300 mb-3" />
+                  <p className="text-sm">{subscribers.length === 0 ? "No subscribers found" : "No matching subscribers"}</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {filteredSubscribers.map((subscriber) => (
+                    <label key={subscriber.id} className={cn("flex items-center gap-3 px-3 py-3 hover:bg-gray-50 cursor-pointer transition-colors", selectedSubscriberIds.includes(subscriber.id) && "bg-blue-50 hover:bg-blue-50")}>
+                      <Checkbox checked={selectedSubscriberIds.includes(subscriber.id)} onCheckedChange={() => toggleSubscriber(subscriber.id)} className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900 truncate font-medium">{subscriber.email}</p>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                          {subscriber.name && <span>{subscriber.name}</span>}
+                          <span className={cn("px-1.5 py-0.5 rounded-full text-xs", subscriber.source === "onepage" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600")}>
+                            {subscriber.source === "onepage" ? "OnePage" : "Store"}
+                          </span>
                         </div>
-                        {selectedSubscriberIds.includes(subscriber.id) && (
-                          <Check className="h-4 w-4 text-indigo-600 flex-shrink-0" />
-                        )}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      </div>
+                      {selectedSubscriberIds.includes(subscriber.id) && <Check className="h-4 w-4 text-blue-500 flex-shrink-0" />}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-          <DialogFooter className="border-t pt-4">
-            <Button variant="outline" onClick={() => setShowSegmentDialog(false)}>Cancel</Button>
-            <Button
-              onClick={handleCreateSegment}
-              disabled={!segmentName.trim() || selectedSubscriberIds.length === 0}
-              className="bg-indigo-600 hover:bg-indigo-700"
-            >
+          <DialogFooter className="border-t border-gray-100 pt-4">
+            <Button variant="outline" onClick={() => setShowSegmentDialog(false)} className="rounded-xl">Cancel</Button>
+            <Button onClick={handleCreateSegment} disabled={!segmentName.trim() || selectedSubscriberIds.length === 0} className="bg-blue-500 hover:bg-blue-600 rounded-xl">
               Create Segment ({selectedSubscriberIds.length})
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* CSS for placeholder */}
+      {/* CSS for placeholder and editor styles */}
       <style jsx global>{`
         [contenteditable]:empty:before {
           content: attr(data-placeholder);
@@ -1055,21 +964,39 @@ Best,
         [contenteditable] h2 {
           font-size: 1.25rem;
           font-weight: 600;
-          margin: 0.5rem 0;
+          margin: 0.75rem 0;
+          color: #1f2937;
         }
         [contenteditable] a {
-          color: #6366f1;
+          color: #2563eb;
           text-decoration: underline;
         }
-        [contenteditable] ul {
-          list-style-type: disc;
+        [contenteditable] ul, [contenteditable] ol {
           padding-left: 1.5rem;
-          margin: 0.5rem 0;
+          margin: 0.75rem 0;
+        }
+        [contenteditable] li {
+          margin-bottom: 0.25rem;
         }
         [contenteditable] img {
           max-width: 100%;
           height: auto;
-          border-radius: 8px;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: box-shadow 0.2s;
+        }
+        [contenteditable] img:hover {
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+        [contenteditable] blockquote {
+          border-left: 3px solid #e5e7eb;
+          padding-left: 1rem;
+          margin: 0.75rem 0;
+          color: #6b7280;
+          font-style: italic;
+        }
+        .prose img {
+          border-radius: 12px;
         }
       `}</style>
     </div>

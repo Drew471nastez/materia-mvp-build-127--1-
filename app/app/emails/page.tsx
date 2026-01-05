@@ -26,6 +26,7 @@ import {
   X,
   Copy,
   RefreshCw,
+  Download,
 } from "lucide-react"
 import { EmailEditor } from "@/components/email/email-editor"
 import {
@@ -776,15 +777,50 @@ export default function EmailsPage() {
               </div>
             </div>
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search subscribers..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-10 rounded-lg"
-              />
+            {/* Search and Export */}
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search subscribers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-10 rounded-lg"
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const activeSubscribers = subscribers.filter(s => s.status === "subscribed")
+                  if (activeSubscribers.length === 0) {
+                    toast({ title: "No subscribers", description: "There are no subscribers to export", variant: "destructive" })
+                    return
+                  }
+                  const headers = ["Email", "Name", "Source", "Status", "Subscribed Date"]
+                  const rows = activeSubscribers.map(s => [
+                    s.email,
+                    s.name || "",
+                    s.source === "onepage" ? "OnePage" : "Store Builder",
+                    s.status,
+                    s.subscribed_at ? new Date(s.subscribed_at).toLocaleDateString() : ""
+                  ])
+                  const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n")
+                  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+                  const url = URL.createObjectURL(blob)
+                  const link = document.createElement("a")
+                  link.href = url
+                  link.download = `subscribers-${new Date().toISOString().split("T")[0]}.csv`
+                  document.body.appendChild(link)
+                  link.click()
+                  document.body.removeChild(link)
+                  URL.revokeObjectURL(url)
+                  toast({ title: "Export complete", description: `Exported ${activeSubscribers.length} subscribers to CSV` })
+                }}
+                className="h-10 px-4 rounded-lg"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
             </div>
 
             {/* Subscribers List */}
