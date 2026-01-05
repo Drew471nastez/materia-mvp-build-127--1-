@@ -17,6 +17,120 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect } from "react"
 
+// Dynamic Favicon Component for OnePage
+// Priority: 1. avatar_url, 2. video frame, 3. store builder profile image
+interface OnePageDynamicFaviconProps {
+  avatarUrl?: string | null
+  videoUrl?: string | null
+  sellerId?: string
+}
+
+function OnePageDynamicFavicon({ avatarUrl, videoUrl, sellerId }: OnePageDynamicFaviconProps) {
+  const [storeAvatarUrl, setStoreAvatarUrl] = useState<string | null>(null)
+  const [videoFrameUrl, setVideoFrameUrl] = useState<string | null>(null)
+
+  // Fetch store builder profile image if needed
+  useEffect(() => {
+    if (!avatarUrl && !videoUrl && sellerId) {
+      // Fetch the seller's store builder profile image
+      fetch(`/api/onepage/seller-avatar?seller_id=${sellerId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.avatar_url) {
+            setStoreAvatarUrl(data.avatar_url)
+          }
+        })
+        .catch(() => {
+          // Ignore errors
+        })
+    }
+  }, [avatarUrl, videoUrl, sellerId])
+
+  // Extract frame from video if no avatar
+  useEffect(() => {
+    if (!avatarUrl && videoUrl) {
+      const video = document.createElement('video')
+      video.crossOrigin = 'anonymous'
+      video.muted = true
+      video.playsInline = true
+
+      video.onloadeddata = () => {
+        // Seek to 0.5 second to get a good frame
+        video.currentTime = 0.5
+      }
+
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = 64
+          canvas.height = 64
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            // Draw video frame centered and cropped to square
+            const size = Math.min(video.videoWidth, video.videoHeight)
+            const sx = (video.videoWidth - size) / 2
+            const sy = (video.videoHeight - size) / 2
+            ctx.drawImage(video, sx, sy, size, size, 0, 0, 64, 64)
+            const dataUrl = canvas.toDataURL('image/png')
+            setVideoFrameUrl(dataUrl)
+          }
+        } catch (e) {
+          // Canvas might fail due to CORS
+          console.error('Failed to extract video frame:', e)
+        }
+      }
+
+      video.src = videoUrl
+      video.load()
+
+      return () => {
+        video.src = ''
+      }
+    }
+  }, [avatarUrl, videoUrl])
+
+  // Determine which URL to use for favicon
+  const faviconUrl = avatarUrl || videoFrameUrl || storeAvatarUrl
+
+  // Apply favicon
+  useEffect(() => {
+    if (!faviconUrl) return
+
+    // Find existing favicon links
+    const existingLinks = document.querySelectorAll("link[rel*='icon']")
+
+    // Remove existing favicons
+    existingLinks.forEach((link) => link.remove())
+
+    // Create new favicon link
+    const link = document.createElement("link")
+    link.rel = "icon"
+    link.href = faviconUrl
+    link.type = faviconUrl.startsWith('data:') ? "image/png" : "image/x-icon"
+    document.head.appendChild(link)
+
+    // Also add apple-touch-icon for iOS
+    const appleLink = document.createElement("link")
+    appleLink.rel = "apple-touch-icon"
+    appleLink.href = faviconUrl
+    document.head.appendChild(appleLink)
+
+    // Cleanup on unmount - restore default favicon
+    return () => {
+      const addedLinks = document.querySelectorAll("link[rel*='icon']")
+      addedLinks.forEach((link) => link.remove())
+
+      // Restore default favicon
+      const defaultLink = document.createElement("link")
+      defaultLink.rel = "icon"
+      defaultLink.href = "/favicon.ico"
+      document.head.appendChild(defaultLink)
+    }
+  }, [faviconUrl])
+
+  return null
+}
+
 const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>> = {
   instagram: ({ size = 20, color = "currentColor" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
@@ -473,6 +587,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
   return (
     <>
+      {/* Dynamic Favicon - uses avatar, video frame, or store builder avatar */}
+      <OnePageDynamicFavicon
+        avatarUrl={avatar_url}
+        videoUrl={avatar_video_url}
+        sellerId={seller_id}
+      />
+
       {/* Animation keyframes for gradient */}
       <style
         dangerouslySetInnerHTML={{
