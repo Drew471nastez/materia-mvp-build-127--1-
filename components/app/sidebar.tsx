@@ -4,22 +4,25 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  LayoutGrid,
+  LayoutDashboard,
   Package,
   Settings,
+  ExternalLink,
   LogOut,
   ShoppingCart,
   BarChart3,
   Mail,
   CreditCard,
   Compass,
-  HelpCircle,
+  Library,
   Menu,
   Palette,
   Link2,
-  ChevronDown,
   Users,
+  HelpCircle,
   Zap,
+  ChevronDown,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -30,11 +33,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface SidebarProps {
   creatorSlug?: string
+  username?: string
+  storePublished?: boolean
+  avatarUrl?: string
   displayName?: string
-  avatarUrl?: string | null
 }
 
-export function AppSidebar({ creatorSlug, displayName, avatarUrl }: SidebarProps) {
+export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -46,9 +51,8 @@ export function AppSidebar({ creatorSlug, displayName, avatarUrl }: SidebarProps
     setProfileDropdownOpen(false)
   }, [pathname])
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false)
       }
@@ -65,10 +69,8 @@ export function AppSidebar({ creatorSlug, displayName, avatarUrl }: SidebarProps
     router.push("/")
   }
 
-  const userName = displayName || creatorSlug || "User"
-
   const mainNavItems = [
-    { href: "/app", label: "Home", icon: LayoutGrid },
+    { href: "/app", label: "Home", icon: LayoutDashboard },
     { href: "/app/products", label: "Products", icon: Package },
     { href: "/app/orders", label: "Sales", icon: ShoppingCart },
     { href: "/app/customers", label: "Customers", icon: Users },
@@ -78,12 +80,21 @@ export function AppSidebar({ creatorSlug, displayName, avatarUrl }: SidebarProps
     { href: "/app/emails", label: "Emails", icon: Mail },
   ]
 
+  const discoverNavItems = [
+    { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/library", label: "Library", icon: Library },
+  ]
+
   const profileDropdownItems = [
     { href: "/app/settings", label: "Settings", icon: Settings },
     { href: "/app/settings/payments", label: "Billing", icon: CreditCard },
     { href: "/help", label: "Help", icon: HelpCircle },
     { href: "/explore", label: "Discover", icon: Compass },
   ]
+
+  const storeUrl = username || creatorSlug
+  const userDisplayName = displayName || username || creatorSlug || "User"
+  const userInitials = userDisplayName.slice(0, 2).toUpperCase()
 
   const NavItem = ({ item, onClick }: { item: (typeof mainNavItems)[0]; onClick?: () => void }) => {
     const Icon = item.icon
@@ -94,120 +105,144 @@ export function AppSidebar({ creatorSlug, displayName, avatarUrl }: SidebarProps
         href={item.href}
         onClick={onClick}
         className={cn(
-          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-all duration-150",
-          isActive
-            ? "bg-[#f5f0ed] text-[#1a1a1a]"
-            : "text-[#6b6b6b] hover:bg-[#f8f8f8] hover:text-[#1a1a1a]"
+          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium transition-all duration-200",
+          isActive 
+            ? "bg-neutral-100 text-neutral-900" 
+            : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900",
         )}
       >
-        <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
+        <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
         <span>{item.label}</span>
       </Link>
     )
   }
 
   const ProfileDropdown = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <div
-      className={cn(
-        "absolute left-3 right-3 top-[70px] z-50 overflow-hidden rounded-xl bg-white shadow-lg border border-[#f0f0f0] transition-all duration-200 ease-out",
-        profileDropdownOpen
-          ? "opacity-100 translate-y-0 pointer-events-auto"
-          : "opacity-0 -translate-y-2 pointer-events-none"
-      )}
-      style={{
-        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04)"
-      }}
+    <div 
+      ref={dropdownRef}
+      className="relative"
     >
-      <div className="py-1.5">
-        {profileDropdownItems.map((item) => {
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
+      <button
+        onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-200",
+          profileDropdownOpen 
+            ? "bg-neutral-100" 
+            : "hover:bg-neutral-50"
+        )}
+      >
+        <Avatar className="h-9 w-9 ring-2 ring-neutral-100">
+          <AvatarImage src={avatarUrl} alt={userDisplayName} />
+          <AvatarFallback className="bg-gradient-to-br from-neutral-100 to-neutral-200 text-neutral-600 text-sm font-medium">
+            {userInitials}
+          </AvatarFallback>
+        </Avatar>
+        <span className="flex-1 text-[15px] font-medium text-neutral-900 truncate">{userDisplayName}</span>
+        <ChevronDown 
+          className={cn(
+            "h-4 w-4 text-neutral-400 transition-transform duration-200",
+            profileDropdownOpen && "rotate-180"
+          )} 
+        />
+      </button>
+
+      {profileDropdownOpen && (
+        <div className="absolute left-0 right-0 top-full mt-2 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
+          <div className="rounded-xl border border-neutral-200/80 bg-white p-1.5 shadow-lg shadow-neutral-200/50">
+            {profileDropdownItems.map((item) => {
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => {
+                    setProfileDropdownOpen(false)
+                    onItemClick?.()
+                  }}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                >
+                  <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
+            <div className="my-1.5 h-px bg-neutral-100" />
+            <button
               onClick={() => {
                 setProfileDropdownOpen(false)
-                onItemClick?.()
+                handleSignOut()
               }}
-              className="flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#4a4a4a] hover:bg-[#f8f8f8] transition-colors"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
             >
-              <Icon className="h-[16px] w-[16px] text-[#888]" strokeWidth={1.8} />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
-        <div className="my-1.5 mx-3 h-px bg-[#f0f0f0]" />
-        <button
-          onClick={() => {
-            setProfileDropdownOpen(false)
-            handleSignOut()
-          }}
-          className="flex w-full items-center gap-3 px-4 py-2.5 text-[14px] text-[#e74c3c] hover:bg-[#fff5f5] transition-colors"
-        >
-          <LogOut className="h-[16px] w-[16px]" strokeWidth={1.8} />
-          <span>Logout</span>
-        </button>
-      </div>
+              <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <div className="flex h-full flex-col bg-[#fafafa]" ref={dropdownRef}>
-      {/* Profile Section */}
-      <div className="relative">
-        <button
-          onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-          className="flex w-full items-center gap-3 px-4 py-4 hover:bg-[#f5f5f5] transition-colors"
-        >
-          <Avatar className="h-9 w-9 shrink-0">
-            <AvatarImage src={avatarUrl || undefined} alt={userName} />
-            <AvatarFallback className="bg-[#e8e4e1] text-[#6b6b6b] text-sm font-medium">
-              {userName.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <span className="flex-1 text-left text-[15px] font-medium text-[#1a1a1a] truncate">
-            {userName}
-          </span>
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 text-[#888] transition-transform duration-200",
-              profileDropdownOpen && "rotate-180"
-            )}
-            strokeWidth={2}
-          />
-        </button>
+    <div className="flex h-full flex-col bg-neutral-50/50">
+      <div className="px-3 pt-4 pb-2">
         <ProfileDropdown onItemClick={onItemClick} />
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-2">
+      <nav className="flex-1 overflow-y-auto px-3 py-2">
         <div className="space-y-0.5">
           {mainNavItems.map((item) => (
             <NavItem key={item.href} item={item} onClick={onItemClick} />
           ))}
         </div>
-      </nav>
 
-      {/* Bottom Section */}
-      <div className="px-3 pb-4">
-        {/* Upgrade to Pro Card */}
-        <div className="mb-4 rounded-xl bg-[#f5f0ed] p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[14px] font-semibold text-[#1a1a1a]">Upgrade to Pro</p>
-              <p className="text-[12px] text-[#888] mt-0.5">Unlock more benefits</p>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ede7e3]">
-              <Zap className="h-4 w-4 text-[#7c6f64]" strokeWidth={2} />
-            </div>
+        <div className="mt-6">
+          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            Discover
+          </p>
+          <div className="space-y-0.5">
+            {discoverNavItems.map((item) => (
+              <NavItem key={item.href} item={item} onClick={onItemClick} />
+            ))}
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[16px] font-semibold text-[#1a1a1a] tracking-tight">storelib</span>
-          <button className="p-1 hover:bg-[#f0f0f0] rounded-full transition-colors">
-            <HelpCircle className="h-5 w-5 text-[#888]" strokeWidth={1.5} />
+        {storeUrl && !storePublished && (
+          <div className="mt-6 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5">
+            <p className="text-[13px] text-amber-700">
+              Store is unpublished. Go to Settings to publish.
+            </p>
+          </div>
+        )}
+      </nav>
+
+      <div className="px-3 pb-3">
+        <Link
+          href="/upgrade"
+          onClick={onItemClick}
+          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-100/80 px-4 py-3 transition-all duration-200 hover:from-violet-100 hover:to-purple-100"
+        >
+          <div>
+            <p className="text-[14px] font-semibold text-neutral-900">Upgrade to Pro</p>
+            <p className="text-[12px] text-neutral-500">Unlock more benefits</p>
+          </div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 group-hover:bg-violet-200 transition-colors">
+            <Zap className="h-4 w-4 text-violet-600" strokeWidth={2} />
+          </div>
+        </Link>
+      </div>
+
+      <div className="border-t border-neutral-200/60 px-4 py-4">
+        <div className="flex items-center justify-between">
+          <Link 
+            href="/" 
+            onClick={onItemClick}
+            className="text-[18px] font-semibold tracking-tight text-violet-600 hover:text-violet-700 transition-colors"
+          >
+            storelib
+          </Link>
+          <button className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors">
+            <HelpCircle className="h-4 w-4" strokeWidth={1.75} />
           </button>
         </div>
       </div>
@@ -216,40 +251,33 @@ export function AppSidebar({ creatorSlug, displayName, avatarUrl }: SidebarProps
 
   return (
     <>
-      {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-[#f0f0f0] bg-[#fafafa] px-4 pt-[env(safe-area-inset-top)] md:hidden">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8 shrink-0">
-            <AvatarImage src={avatarUrl || undefined} alt={userName} />
-            <AvatarFallback className="bg-[#e8e4e1] text-[#6b6b6b] text-sm font-medium">
-              {userName.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-[15px] font-semibold text-[#1a1a1a]">{userName}</span>
-        </div>
+      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-neutral-200/60 bg-white/80 backdrop-blur-xl px-4 pt-[env(safe-area-inset-top)] md:hidden">
+        <Link href="/app" className="flex items-center gap-2">
+          <span className="text-lg font-semibold tracking-tight text-violet-600">storelib</span>
+        </Link>
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 shrink-0 hover:bg-[#f0f0f0]"
+          className="h-10 w-10 shrink-0 rounded-xl"
           onClick={() => setMobileMenuOpen(true)}
           aria-label="Open menu"
         >
-          <Menu className="h-5 w-5 text-[#1a1a1a]" />
+          <Menu className="h-5 w-5" />
         </Button>
       </header>
 
-      {/* Mobile Sheet */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-[280px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)] border-none">
+        <SheetContent side="left" className="w-[280px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)] border-neutral-200/60">
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
           </SheetHeader>
-          <SidebarContent onItemClick={() => setMobileMenuOpen(false)} />
+          <div className="flex h-full flex-col">
+            <SidebarContent onItemClick={() => setMobileMenuOpen(false)} />
+          </div>
         </SheetContent>
       </Sheet>
 
-      {/* Desktop Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-svh w-64 flex-col border-r border-[#f0f0f0] bg-[#fafafa] md:flex">
+      <aside className="fixed left-0 top-0 z-40 hidden h-svh w-[260px] flex-col border-r border-neutral-200/60 bg-white md:flex">
         <SidebarContent />
       </aside>
     </>
