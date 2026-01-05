@@ -64,6 +64,7 @@ export async function GET() {
       const newOnepage = {
         owner_id: user.id,
         creator_id: creator?.id || null,
+        seller_id: creator?.id || null, // Also set seller_id for subscribe functionality
         slug,
         title: profile?.display_name || profile?.username || "My Page",
         bio: "",
@@ -124,10 +125,10 @@ export async function PUT(request: Request) {
       slug,
     } = body
 
-    // Verify ownership
+    // Verify ownership and get existing data
     const { data: existing } = await supabase
       .from("onepages")
-      .select("id, slug")
+      .select("id, slug, settings")
       .eq("id", id)
       .eq("owner_id", user.id)
       .single()
@@ -156,13 +157,26 @@ export async function PUT(request: Request) {
     if (avatar_url !== undefined) updates.avatar_url = avatar_url
     if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
-    // Store avatar_video_crop inside settings to avoid database schema changes
+    
+    // FIXED: Properly merge settings with existing settings from database
+    // This ensures that updating one setting (like seo_title) doesn't wipe out others (like subscribe_enabled)
     if (settings !== undefined || avatar_video_crop !== undefined) {
+      // Get existing settings from database
+      const existingSettings = existing.settings as any || {}
+      
+      // Merge: existing settings -> new settings -> avatar_video_crop override
       updates.settings = {
+        ...existingSettings,
         ...(settings || {}),
-        avatar_video_crop: avatar_video_crop !== undefined ? avatar_video_crop : (settings?.avatar_video_crop || null)
+        // Handle avatar_video_crop specially - it can come from either settings or as separate param
+        avatar_video_crop: avatar_video_crop !== undefined 
+          ? avatar_video_crop 
+          : (settings?.avatar_video_crop !== undefined 
+              ? settings.avatar_video_crop 
+              : existingSettings.avatar_video_crop || null)
       }
     }
+    
     if (social_links !== undefined) updates.social_links = social_links
     if (draft_blocks !== undefined) updates.draft_blocks = draft_blocks
     if (slug !== undefined) updates.slug = slug
