@@ -18,7 +18,7 @@ import { Globe, Bell, X } from "lucide-react"
 import { useState } from "react"
 
 // Notification Bell Component with Subscribe Form
-function NotificationBell({ sellerName, scale = "small" }: { sellerName: string; scale?: "small" | "normal" }) {
+function NotificationBell({ sellerName, scale = "small", style = "glass" }: { sellerName: string; scale?: "small" | "normal"; style?: "glass" | "white" | "black" }) {
   const [isOpen, setIsOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -41,23 +41,71 @@ function NotificationBell({ sellerName, scale = "small" }: { sellerName: string;
 
   const size = scale === "small" ? { bell: 28, icon: 14, panel: 160 } : { bell: 36, icon: 18, panel: 200 }
 
+  // Style configurations
+  const styles = {
+    glass: {
+      buttonBg: 'rgba(255, 255, 255, 0.15)',
+      buttonBorder: '1px solid rgba(255, 255, 255, 0.2)',
+      panelBg: 'rgba(255, 255, 255, 0.2)',
+      panelBorder: '1px solid rgba(255, 255, 255, 0.3)',
+      iconColor: 'text-white/80',
+      textColor: 'text-white/90',
+      inputBg: 'bg-white/20',
+      inputBorder: 'border-white/30',
+      inputText: 'text-white',
+      inputPlaceholder: 'placeholder-white/50',
+      buttonSubmitBg: 'bg-white/30 hover:bg-white/40',
+      dotColor: 'bg-white/60',
+    },
+    white: {
+      buttonBg: 'rgba(255, 255, 255, 0.9)',
+      buttonBorder: '1px solid rgba(255, 255, 255, 0.95)',
+      panelBg: 'rgba(255, 255, 255, 0.95)',
+      panelBorder: '1px solid rgba(0, 0, 0, 0.1)',
+      iconColor: 'text-gray-700',
+      textColor: 'text-gray-900',
+      inputBg: 'bg-gray-100',
+      inputBorder: 'border-gray-200',
+      inputText: 'text-gray-900',
+      inputPlaceholder: 'placeholder-gray-400',
+      buttonSubmitBg: 'bg-gray-900 hover:bg-gray-800 text-white',
+      dotColor: 'bg-blue-500',
+    },
+    black: {
+      buttonBg: 'rgba(0, 0, 0, 0.75)',
+      buttonBorder: '1px solid rgba(255, 255, 255, 0.1)',
+      panelBg: 'rgba(0, 0, 0, 0.85)',
+      panelBorder: '1px solid rgba(255, 255, 255, 0.15)',
+      iconColor: 'text-white/90',
+      textColor: 'text-white/90',
+      inputBg: 'bg-white/10',
+      inputBorder: 'border-white/20',
+      inputText: 'text-white',
+      inputPlaceholder: 'placeholder-white/40',
+      buttonSubmitBg: 'bg-white/20 hover:bg-white/30',
+      dotColor: 'bg-white/70',
+    },
+  }
+
+  const s = styles[style]
+
   return (
     <div className="absolute top-12 right-3 z-30">
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative flex items-center justify-center rounded-full backdrop-blur-md transition-all duration-300 hover:scale-105"
+        className={cn("relative flex items-center justify-center rounded-full transition-all duration-300 hover:scale-105", style === "glass" && "backdrop-blur-md")}
         style={{
           width: size.bell,
           height: size.bell,
-          background: 'rgba(255, 255, 255, 0.15)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
+          background: s.buttonBg,
+          border: s.buttonBorder,
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
         }}
       >
         <Bell
           size={size.icon}
-          className="text-white/80 animate-pulse"
+          className={cn(s.iconColor, "animate-pulse")}
           style={{
             animationDuration: '3s',
             animationIterationCount: 'infinite',
@@ -65,21 +113,22 @@ function NotificationBell({ sellerName, scale = "small" }: { sellerName: string;
         />
         {/* Subtle glow dot */}
         <span
-          className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-white/60 rounded-full"
-          style={{ boxShadow: '0 0 6px rgba(255, 255, 255, 0.5)' }}
+          className={cn("absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full", s.dotColor)}
+          style={{ boxShadow: style === "glass" ? '0 0 6px rgba(255, 255, 255, 0.5)' : '0 0 6px rgba(0, 0, 0, 0.2)' }}
         />
       </button>
 
       {/* Subscribe Panel - Slides from bell */}
       <div
         className={cn(
-          "absolute top-0 right-0 overflow-hidden transition-all duration-300 ease-out rounded-xl backdrop-blur-lg",
+          "absolute top-0 right-0 overflow-hidden transition-all duration-300 ease-out rounded-xl",
+          style === "glass" && "backdrop-blur-lg",
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
         style={{
           width: isOpen ? size.panel : size.bell,
-          background: 'rgba(255, 255, 255, 0.2)',
-          border: '1px solid rgba(255, 255, 255, 0.3)',
+          background: s.panelBg,
+          border: s.panelBorder,
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
           transformOrigin: 'top right',
           transform: isOpen ? 'scale(1)' : 'scale(0.5)',
@@ -87,20 +136,20 @@ function NotificationBell({ sellerName, scale = "small" }: { sellerName: string;
       >
         <div className="p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-medium text-white/90 truncate pr-2">
+            <span className={cn("text-[10px] font-medium truncate pr-2", s.textColor)}>
               Subscribe to {sellerName}
             </span>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-0.5 rounded-full hover:bg-white/20 transition-colors"
+              className={cn("p-0.5 rounded-full transition-colors", style === "white" ? "hover:bg-gray-100" : "hover:bg-white/20")}
             >
-              <X size={12} className="text-white/70" />
+              <X size={12} className={style === "white" ? "text-gray-500" : "text-white/70"} />
             </button>
           </div>
 
           {submitted ? (
             <div className="text-center py-2">
-              <span className="text-[10px] text-white/90">✓ Subscribed!</span>
+              <span className={cn("text-[10px]", s.textColor)}>✓ Subscribed!</span>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-2">
@@ -109,13 +158,13 @@ function NotificationBell({ sellerName, scale = "small" }: { sellerName: string;
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full px-2 py-1.5 text-[10px] rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
+                className={cn("w-full px-2 py-1.5 text-[10px] rounded-lg border focus:outline-none", s.inputBg, s.inputBorder, s.inputText, s.inputPlaceholder)}
                 required
               />
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-1.5 text-[10px] font-medium rounded-lg bg-white/30 hover:bg-white/40 text-white transition-colors disabled:opacity-50"
+                className={cn("w-full py-1.5 text-[10px] font-medium rounded-lg transition-colors disabled:opacity-50", s.buttonSubmitBg, style !== "white" && "text-white")}
               >
                 {isSubmitting ? "..." : "Submit"}
               </button>
@@ -422,8 +471,10 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000090"} opacity={(theme as any).pattern_opacity || "medium"} />
             )}
 
-            {/* Notification Bell */}
-            <NotificationBell sellerName={sellerName} scale="small" />
+            {/* Notification Bell - conditionally rendered based on subscribe settings */}
+            {settings?.subscribe_enabled !== false && (
+              <NotificationBell sellerName={sellerName} scale="small" style={(settings as any)?.subscribe_style || "glass"} />
+            )}
 
             <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '12px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className={cn("flex flex-col items-center", theme.spacing === "compact" ? "gap-[10px]" : theme.spacing === "comfortable" ? "gap-[14px]" : "gap-[12px]")}>

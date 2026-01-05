@@ -74,11 +74,46 @@ import { createClient } from "@/lib/supabase/client"
 function validateSocialUrl(platform: keyof OnePageSocialLinks, url: string): { valid: boolean; error?: string; transformedUrl?: string } {
   if (!url) return { valid: true }
 
+  // Platform base URLs for @username transformation
+  const platformBaseUrls: Record<string, string> = {
+    instagram: "https://instagram.com/",
+    tiktok: "https://tiktok.com/@",
+    twitter: "https://x.com/",
+    youtube: "https://youtube.com/@",
+    threads: "https://threads.net/@",
+    facebook: "https://facebook.com/",
+    github: "https://github.com/",
+    linkedin: "https://linkedin.com/in/",
+    twitch: "https://twitch.tv/",
+    snapchat: "https://snapchat.com/add/",
+    pinterest: "https://pinterest.com/",
+    soundcloud: "https://soundcloud.com/",
+    kick: "https://kick.com/",
+    patreon: "https://patreon.com/",
+    discord: "https://discord.gg/",
+  }
+
+  // Handle @username format - transform to full URL
+  if (url.startsWith('@')) {
+    const username = url.slice(1) // Remove the @ symbol
+    const baseUrl = platformBaseUrls[platform]
+    if (baseUrl && username) {
+      // For platforms that already include @ in URL (tiktok, youtube, threads), don't double it
+      return { valid: true, transformedUrl: baseUrl + username }
+    }
+  }
+
+  // Handle plain username (no @ prefix, no URL) for supported platforms
+  if (!url.includes('/') && !url.includes('.') && !url.includes(':') && platformBaseUrls[platform]) {
+    const baseUrl = platformBaseUrls[platform]
+    return { valid: true, transformedUrl: baseUrl + url }
+  }
+
   // Basic URL validation
   try {
     new URL(url.startsWith('http') ? url : `https://${url}`)
   } catch {
-    return { valid: false, error: "Please enter a valid URL" }
+    return { valid: false, error: "Please enter a valid URL or @username" }
   }
 
   const patterns: Record<keyof OnePageSocialLinks, RegExp> = {

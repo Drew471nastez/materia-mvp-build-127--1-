@@ -58,6 +58,8 @@ export interface OnePageSettings {
   social_image_url?: string | null
   custom_domain?: string | null
   analytics_enabled: boolean
+  subscribe_enabled?: boolean
+  subscribe_style?: "glass" | "white" | "black"
 }
 
 export interface OnePageSocialLinks {
@@ -271,6 +273,8 @@ export const defaultSettings: OnePageSettings = {
   social_image_url: null,
   custom_domain: null,
   analytics_enabled: true,
+  subscribe_enabled: true,
+  subscribe_style: "glass",
 }
 
 export const defaultSocialLinks: OnePageSocialLinks = {

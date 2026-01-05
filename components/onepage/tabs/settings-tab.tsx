@@ -18,6 +18,7 @@ import {
   Sparkles,
   X,
   Loader2,
+  Bell,
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -28,10 +29,34 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
+// Custom Toggle Component
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onCheckedChange(!checked)}
+      className={cn(
+        "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+        checked ? "bg-green-500" : "bg-gray-300"
+      )}
+    >
+      <span
+        className={cn(
+          "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform",
+          checked ? "translate-x-5" : "translate-x-0.5"
+        )}
+      />
+    </button>
+  )
+}
+
 // Settings sections with Linktree-style icons
 const SETTINGS_SECTIONS = [
   { id: "basic", label: "Basic Info", icon: FileText },
   { id: "seo", label: "SEO", icon: Globe },
+  { id: "subscribe", label: "Subscribe", icon: Bell },
   { id: "billing", label: "Billing", icon: CreditCard },
 ]
 
@@ -53,6 +78,9 @@ export function SettingsTab() {
   const [metaDescription, setMetaDescription] = useState(onepage?.settings?.seo_description || onepage?.bio || "")
   const [ogImage, setOgImage] = useState(onepage?.settings?.social_image_url || "")
 
+  // Subscribe states
+  const [subscribeEnabled, setSubscribeEnabled] = useState(onepage?.settings?.subscribe_enabled ?? true)
+  const [subscribeStyle, setSubscribeStyle] = useState<"glass" | "white" | "black">(onepage?.settings?.subscribe_style || "glass")
 
   // Update local state when onepage changes
   useEffect(() => {
@@ -62,7 +90,8 @@ export function SettingsTab() {
       setMetaTitle(onepage.settings?.seo_title || onepage.title || "")
       setMetaDescription(onepage.settings?.seo_description || onepage.bio || "")
       setOgImage(onepage.settings?.social_image_url || "")
-      setContactEmail(onepage.social_links?.email || "")
+      setSubscribeEnabled(onepage.settings?.subscribe_enabled ?? true)
+      setSubscribeStyle(onepage.settings?.subscribe_style || "glass")
     }
   }, [onepage])
 
@@ -108,6 +137,32 @@ export function SettingsTab() {
       setLocalSaveState("error")
       setTimeout(() => setLocalSaveState("idle"), 3000)
     }
+  }
+
+  const handleSaveSubscribe = async () => {
+    setLocalSaveState("saving")
+    try {
+      updateSettings({
+        subscribe_enabled: subscribeEnabled,
+        subscribe_style: subscribeStyle,
+      })
+      await save()
+      setLocalSaveState("saved")
+      setTimeout(() => setLocalSaveState("idle"), 2000)
+    } catch {
+      setLocalSaveState("error")
+      setTimeout(() => setLocalSaveState("idle"), 3000)
+    }
+  }
+
+  // Live update subscribe settings (instant preview)
+  const updateSubscribeSettings = (enabled?: boolean, style?: "glass" | "white" | "black") => {
+    if (enabled !== undefined) setSubscribeEnabled(enabled)
+    if (style !== undefined) setSubscribeStyle(style)
+    updateSettings({
+      subscribe_enabled: enabled ?? subscribeEnabled,
+      subscribe_style: style ?? subscribeStyle,
+    })
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -341,6 +396,118 @@ export function SettingsTab() {
     </div>
   )
 
+  const renderSubscribe = () => {
+    const styleOptions = [
+      {
+        id: "glass" as const,
+        label: "Glassmorphism",
+        desc: "Modern frosted glass effect",
+        preview: "rgba(255, 255, 255, 0.15)",
+        border: "rgba(255, 255, 255, 0.2)"
+      },
+      {
+        id: "white" as const,
+        label: "White",
+        desc: "Clean white transparency",
+        preview: "rgba(255, 255, 255, 0.85)",
+        border: "rgba(255, 255, 255, 0.9)"
+      },
+      {
+        id: "black" as const,
+        label: "Black",
+        desc: "Dark sleek style",
+        preview: "rgba(0, 0, 0, 0.7)",
+        border: "rgba(255, 255, 255, 0.1)"
+      },
+    ]
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-base font-semibold mb-1">Subscribe</h3>
+          <p className="text-sm text-gray-500">Let visitors subscribe to your updates</p>
+        </div>
+
+        {/* Enable Subscribe Toggle */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div>
+            <p className="font-medium text-sm text-gray-900">Let visitors subscribe</p>
+            <p className="text-xs text-gray-500 mt-0.5">Add a button so visitors can subscribe to your page</p>
+          </div>
+          <Toggle
+            checked={subscribeEnabled}
+            onCheckedChange={(checked) => updateSubscribeSettings(checked, undefined)}
+          />
+        </div>
+
+        {subscribeEnabled && (
+          <>
+            {/* Style Options */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700">Button Style</Label>
+              <div className="grid gap-3">
+                {styleOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => updateSubscribeSettings(undefined, option.id)}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left",
+                      subscribeStyle === option.id
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    )}
+                  >
+                    {/* Preview circle */}
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                      style={{
+                        background: option.preview,
+                        border: `1px solid ${option.border}`,
+                        backdropFilter: option.id === "glass" ? "blur(8px)" : undefined,
+                      }}
+                    >
+                      <Bell className={cn(
+                        "h-4 w-4",
+                        option.id === "black" ? "text-white/80" : "text-gray-600"
+                      )} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-gray-900">{option.label}</p>
+                      <p className="text-xs text-gray-500">{option.desc}</p>
+                    </div>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                      subscribeStyle === option.id ? "border-blue-500" : "border-gray-300"
+                    )}>
+                      {subscribeStyle === option.id && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Info box */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <p className="text-xs text-gray-500">
+                Turning off this feature will not affect your current subscriber count.
+                The subscribe button appears in the top-right corner of your page.
+              </p>
+            </div>
+          </>
+        )}
+
+        <Button
+          onClick={handleSaveSubscribe}
+          disabled={isSaving}
+          className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
+        >
+          {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {getSaveButtonText()}
+        </Button>
+      </div>
+    )
+  }
+
   const renderBilling = () => (
     <div className="space-y-6">
       <div>
@@ -436,6 +603,7 @@ export function SettingsTab() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           {activeSection === "basic" && renderBasicInfo()}
           {activeSection === "seo" && renderSeo()}
+          {activeSection === "subscribe" && renderSubscribe()}
           {activeSection === "billing" && renderBilling()}
         </div>
       </div>
