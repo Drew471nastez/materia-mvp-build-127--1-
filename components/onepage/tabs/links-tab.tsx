@@ -304,6 +304,7 @@ export function LinksTab() {
   const [showSocialModal, setShowSocialModal] = useState(false)
   const [selectedSocial, setSelectedSocial] = useState<string | null>(null)
   const [socialUrl, setSocialUrl] = useState("")
+  const [socialUrlError, setSocialUrlError] = useState<string | null>(null)
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
   
@@ -377,10 +378,22 @@ export function LinksTab() {
 
   const handleAddSocial = () => {
     if (!selectedSocial || !socialUrl) return
-    
-    updateSocialLinks({ [selectedSocial]: socialUrl } as Partial<OnePageSocialLinks>)
+
+    // Validate the URL
+    const validation = validateSocialUrl(selectedSocial, socialUrl)
+
+    if (!validation.valid) {
+      setSocialUrlError(validation.error || "Invalid URL")
+      return
+    }
+
+    // Use transformed URL if available
+    const urlToSave = validation.transformedUrl || socialUrl
+
+    updateSocialLinks({ [selectedSocial]: urlToSave } as Partial<OnePageSocialLinks>)
     setSelectedSocial(null)
     setSocialUrl("")
+    setSocialUrlError(null)
     setShowSocialModal(false)
   }
 
@@ -552,12 +565,12 @@ export function LinksTab() {
           setTimeout(() => setAddButtonClicked(false), 300)
           setShowAddModal(true)
         }}
-        className="w-full h-11 bg-blue-500 hover:bg-gray-900 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group"
+        className="w-full h-11 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group"
       >
         <Plus
           className={cn(
-            "h-5 w-5 transition-transform duration-300 ease-out group-hover:text-white",
-            addButtonClicked && "rotate-90"
+            "h-5 w-5 transition-transform duration-300 ease-out group-hover:rotate-90",
+            addButtonClicked && "rotate-180"
           )}
         />
         Add
@@ -619,6 +632,7 @@ export function LinksTab() {
 
             {index < sortedBlocks.length - 1 && (
               <div className="relative h-0 -my-3 -mx-1 group/add-divider">
+              <div className="relative h-10 -mx-1 group/add-divider">
                 <button
                   type="button"
                   onClick={() => {
@@ -626,6 +640,7 @@ export function LinksTab() {
                     setShowAddModal(true)
                   }}
                   className="pointer-events-auto absolute inset-0 flex items-center justify-center px-1 focus:outline-none -translate-y-1/2"
+                  className="absolute inset-0 flex items-center justify-center px-1 focus:outline-none"
                   tabIndex={0}
                   aria-label="Add block here"
                 >
@@ -786,7 +801,7 @@ export function LinksTab() {
       </Dialog>
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
-      <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); } }}>
+      <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); setSocialUrlError(null); } }}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[85vh] flex flex-col">
           <DialogHeader className="p-4 sm:p-5 border-b shrink-0">
             <DialogTitle className="text-base sm:text-lg font-semibold">
@@ -891,10 +906,24 @@ export function LinksTab() {
                       <Label className="text-sm">URL</Label>
                       <Input
                         value={socialUrl}
-                        onChange={(e) => setSocialUrl(e.target.value)}
+                        onChange={(e) => {
+                          setSocialUrl(e.target.value)
+                          if (socialUrlError) setSocialUrlError(null)
+                        }}
                         placeholder={platform?.placeholder}
-                        className="h-11 rounded-xl"
+                        className={cn(
+                          "h-11 rounded-xl",
+                          socialUrlError && "border-red-500 focus-visible:ring-red-500"
+                        )}
                       />
+                      {socialUrlError && (
+                        <p className="text-xs text-red-500">{socialUrlError}</p>
+                      )}
+                      {(selectedSocial === 'instagram' || selectedSocial === 'twitter' || selectedSocial === 'threads' || selectedSocial === 'tiktok' || selectedSocial === 'telegram') && (
+                        <p className="text-xs text-muted-foreground">
+                          Tip: You can enter just @username
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -905,6 +934,7 @@ export function LinksTab() {
                           onClick={() => {
                             handleRemoveSocial(selectedSocial)
                             setSelectedSocial(null)
+                            setSocialUrlError(null)
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
