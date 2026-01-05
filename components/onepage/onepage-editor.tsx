@@ -5,6 +5,7 @@ import { PhonePreview, MobilePreviewContent } from "./phone-preview"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
 import { ProductsTab } from "./tabs/products-tab"
+import { SettingsTab } from "./tabs/settings-tab"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -21,6 +22,7 @@ import {
   Save,
   Eye,
   Edit3,
+  Settings,
 } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
 import type { OnePage } from "@/lib/onepage/types"
@@ -31,6 +33,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+
+// Settings Filter Icon SVG Component
+const SettingsFilterIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 512 512" className={className} fill="currentColor">
+    <path d="M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z" />
+  </svg>
+)
 
 interface OnePageEditorProps {
   initialOnePage: OnePage
@@ -44,7 +53,7 @@ export function OnePageEditor({ initialOnePage }: OnePageEditorProps) {
   )
 }
 
-type TabType = "design" | "links" | "products"
+type TabType = "design" | "links" | "products" | "settings"
 
 // Unsaved Changes Dialog Component
 function UnsavedChangesDialog({ 
@@ -307,6 +316,20 @@ function EditorLayout() {
               )
             })}
           </div>
+
+          {/* Settings Button - Desktop */}
+          <button
+            onClick={() => setActiveTab("settings")}
+            title="Settings"
+            className={cn(
+              "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-all duration-200",
+              activeTab === "settings"
+                ? "bg-gray-900 border-gray-900 text-white"
+                : "bg-white border-gray-200 text-gray-600 hover:bg-gray-900 hover:border-gray-900 hover:text-white shadow-sm hover:shadow-md"
+            )}
+          >
+            <SettingsFilterIcon className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Right side actions */}
@@ -384,39 +407,45 @@ function EditorLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
         {/* Editor Panel - Hidden when mobile preview is active */}
-        <div 
+        <div
           className={cn(
             "flex-1 bg-white overflow-y-auto",
             showMobilePreview ? "hidden" : "block"
           )}
           style={{ scrollbarWidth: 'thin' }}
         >
-          <div className="max-w-xl mx-auto p-4 md:p-6 md:pr-8 pb-32 md:pb-6">
+          <div className={cn(
+            "mx-auto p-4 md:p-6 md:pr-8 pb-32 md:pb-6",
+            activeTab === "settings" ? "max-w-2xl" : "max-w-xl"
+          )}>
             {activeTab === "design" && <DesignTab />}
             {activeTab === "links" && <LinksTab />}
             {activeTab === "products" && <ProductsTab />}
+            {activeTab === "settings" && <SettingsTab />}
           </div>
         </div>
 
-        {/* Preview Panel - Desktop ONLY with phone mockup */}
-        <div 
-          className="hidden md:block border-l bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 overflow-auto"
-          style={{
-            width: '360px',
-            minWidth: '360px',
-            flexShrink: 0,
-          }}
-        >
-          <div 
-            className="flex items-center justify-center"
+        {/* Preview Panel - Desktop ONLY with phone mockup (hidden on Settings) */}
+        {activeTab !== "settings" && (
+          <div
+            className="hidden md:block border-l bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 overflow-auto"
             style={{
-              minHeight: '100%',
-              padding: '20px 24px',
+              width: '360px',
+              minWidth: '360px',
+              flexShrink: 0,
             }}
           >
-            <PhonePreview />
+            <div
+              className="flex items-center justify-center"
+              style={{
+                minHeight: '100%',
+                padding: '20px 24px',
+              }}
+            >
+              <PhonePreview />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Mobile Preview - NO phone mockup, just real page content like Linktree */}
         {showMobilePreview && (
@@ -448,6 +477,18 @@ function EditorLayout() {
                 </button>
               )
             })}
+            {/* Settings Button - Mobile */}
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={cn(
+                "flex items-center justify-center w-11 h-11 rounded-xl transition-all",
+                activeTab === "settings"
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-600"
+              )}
+            >
+              <SettingsFilterIcon className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}
