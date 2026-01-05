@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // POST - Send an email campaign
 export async function POST(request: NextRequest) {
@@ -11,6 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     // Get the current user
     const {
@@ -131,7 +133,7 @@ export async function POST(request: NextRequest) {
       status: "pending",
     }))
 
-    const { data: sends, error: sendsError } = await supabase
+    const { data: sends, error: sendsError } = await adminSupabase
       .from("email_sends")
       .insert(sendRecords)
       .select("id, email, subscriber_id")
