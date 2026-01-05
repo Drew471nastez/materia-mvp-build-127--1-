@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import {
   Globe,
@@ -31,6 +30,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+
+// Toggle component using theme-checkbox (same as Links tab)
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox"
+    />
+  )
+}
 
 // Settings sections with Linktree-style icons
 const SETTINGS_SECTIONS = [
@@ -458,10 +469,9 @@ export function SettingsTab() {
             <p className="font-medium text-sm text-gray-900">Let visitors subscribe</p>
             <p className="text-xs text-gray-500 mt-0.5">Add a button so visitors can subscribe to your page</p>
           </div>
-          <Switch
+          <Toggle
             checked={subscribeEnabled}
             onCheckedChange={(checked) => updateSubscribeSettings(checked, undefined)}
-            className="shrink-0"
           />
         </div>
 
@@ -549,10 +559,9 @@ export function SettingsTab() {
             <p className="font-medium text-sm text-gray-900">Enable Verified Badge</p>
             <p className="text-xs text-gray-500 mt-0.5">Display a blue checkmark next to your page name</p>
           </div>
-          <Switch
+          <Toggle
             checked={verifiedEnabled}
             onCheckedChange={(checked) => updateVerifiedSettings(checked, undefined)}
-            className="shrink-0"
           />
         </div>
 

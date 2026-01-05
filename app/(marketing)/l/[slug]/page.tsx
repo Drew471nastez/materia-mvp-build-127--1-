@@ -27,6 +27,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = onepage.published_profile as any
   const settings = onepage.settings as any
 
+  // Build title: SEO title > "Seller Name | Storelib"
+  const sellerName = profile?.title || "Creator"
+  const pageTitle = settings?.seo_title || `${sellerName} | Storelib`
+
   // Determine favicon URL - priority: avatar_url, then store builder avatar
   let faviconUrl = profile?.avatar_url || onepage.avatar_url
 
@@ -66,16 +70,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   return {
-    title: settings?.seo_title || profile?.title || "OnePage",
+    title: pageTitle,
     description: settings?.seo_description || profile?.bio || undefined,
     openGraph: {
-      title: settings?.seo_title || profile?.title || "OnePage",
+      title: pageTitle,
       description: settings?.seo_description || profile?.bio || undefined,
       images: settings?.social_image_url ? [settings.social_image_url] : undefined,
     },
     twitter: {
       card: "summary_large_image",
-      title: settings?.seo_title || profile?.title || "OnePage",
+      title: pageTitle,
       description: settings?.seo_description || profile?.bio || undefined,
       images: settings?.social_image_url ? [settings.social_image_url] : undefined,
     },

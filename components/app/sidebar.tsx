@@ -55,6 +55,7 @@ export function AppSidebar({ creatorSlug, username, storePublished }: SidebarPro
     { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/app/onepage", label: "OnePage", icon: Link2 },
     { href: "/store-builder", label: "Store Builder", icon: Palette },
+    { href: "/app/emails", label: "Emails", icon: Mail },
   ]
 
   const settingsNavItems = [

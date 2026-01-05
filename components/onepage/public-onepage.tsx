@@ -19,25 +19,47 @@ import { useState, useRef, useEffect } from "react"
 import { Bell, X } from "lucide-react"
 
 // Notification Bell Component with Subscribe Form
-function NotificationBell({ sellerName }: { sellerName: string }) {
+function NotificationBell({ sellerName, sellerId, onepageId }: { sellerName: string; sellerId: string; onepageId: string }) {
   const [isOpen, setIsOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
+    setError("")
     setIsSubmitting(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800))
-    setIsSubmitting(false)
-    setSubmitted(true)
-    setTimeout(() => {
-      setIsOpen(false)
-      setSubmitted(false)
-      setEmail("")
-    }, 1500)
+
+    try {
+      const response = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          source: "onepage",
+          source_id: onepageId,
+          creator_id: sellerId,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to subscribe")
+      }
+
+      setSubmitted(true)
+      setTimeout(() => {
+        setIsOpen(false)
+        setSubmitted(false)
+        setEmail("")
+      }, 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to subscribe")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -721,7 +743,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       />
 
       {/* Notification Bell - Subscribe */}
-      <NotificationBell sellerName={sellerName} />
+      <NotificationBell sellerName={sellerName} sellerId={seller_id} onepageId={onepage.id} />
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally */}
       <div
