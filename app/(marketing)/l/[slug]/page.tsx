@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
@@ -102,10 +101,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PublicOnePageRoute({ params }: Props) {
   const { slug } = await params
-  const supabase = await createClient()
 
-  // Fetch published onepage
-  const { data: onepage, error } = await supabase
+  // Use admin client to bypass RLS for public page access
+  const adminSupabase = createAdminClient()
+
+  // Fetch published onepage using admin client to ensure all data is available
+  const { data: onepage, error } = await adminSupabase
     .from("onepages")
     .select("*")
     .eq("slug", slug)
@@ -116,9 +117,9 @@ export default async function PublicOnePageRoute({ params }: Props) {
     notFound()
   }
 
-  // Track view (fire and forget)
+  // Track view (fire and forget) - use admin client
   try {
-    await supabase.from("onepage_views").insert({
+    await adminSupabase.from("onepage_views").insert({
       onepage_id: onepage.id,
       visitor_id: null,
       referrer: null,

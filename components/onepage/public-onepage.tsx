@@ -748,8 +748,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         }}
       />
 
-      {/* Notification Bell - Subscribe */}
-      <NotificationBell sellerName={sellerName} sellerId={seller_id} onepageId={onepage.id} />
+      {/* Notification Bell - Subscribe (only show if enabled and seller_id exists) */}
+      {(safeSettings.subscribe_enabled !== false) && seller_id && (
+        <NotificationBell sellerName={sellerName} sellerId={seller_id} onepageId={onepage.id} />
+      )}
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally */}
       <div
