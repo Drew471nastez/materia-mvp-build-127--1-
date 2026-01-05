@@ -19,7 +19,7 @@ import { useState, useRef, useEffect } from "react"
 import { Bell, X } from "lucide-react"
 
 // Notification Bell Component with Subscribe Form
-function NotificationBell({ sellerName, sellerId, onepageId }: { sellerName: string; sellerId: string; onepageId: string }) {
+function NotificationBell({ sellerName, sellerId, onepageId }: { sellerName: string; sellerId: string | null; onepageId: string }) {
   const [isOpen, setIsOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -29,6 +29,10 @@ function NotificationBell({ sellerName, sellerId, onepageId }: { sellerName: str
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
+    if (!sellerId) {
+      setError("Unable to subscribe - missing seller info")
+      return
+    }
     setError("")
     setIsSubmitting(true)
 
@@ -44,8 +48,9 @@ function NotificationBell({ sellerName, sellerId, onepageId }: { sellerName: str
         }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const data = await response.json()
         throw new Error(data.error || "Failed to subscribe")
       }
 
@@ -129,6 +134,9 @@ function NotificationBell({ sellerName, sellerId, onepageId }: { sellerName: str
                 className="w-full px-3 py-2 text-sm rounded-xl bg-white/20 border border-white/30 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
                 required
               />
+              {error && (
+                <p className="text-xs text-red-300 text-center">{error}</p>
+              )}
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -157,7 +165,7 @@ function NotificationBell({ sellerName, sellerId, onepageId }: { sellerName: str
 interface OnePageDynamicFaviconProps {
   avatarUrl?: string | null
   videoUrl?: string | null
-  sellerId?: string
+  sellerId?: string | null
 }
 
 function OnePageDynamicFavicon({ avatarUrl, videoUrl, sellerId }: OnePageDynamicFaviconProps) {
@@ -454,7 +462,7 @@ interface PublicOnePageProps {
     blocks: OnePageBlock[]
     social_links: any
     settings: any
-    seller_id: string
+    seller_id: string | null
   }
 }
 
@@ -972,7 +980,7 @@ interface PublicBlockRendererProps {
     social_links: any
   }
   onepageId: string
-  sellerId: string
+  sellerId: string | null
   isDesktop?: boolean
   settings?: any
 }
