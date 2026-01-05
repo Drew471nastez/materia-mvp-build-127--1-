@@ -70,6 +70,54 @@ import {
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 
+// Validate social URL and transform if needed
+function validateSocialUrl(platform: keyof OnePageSocialLinks, url: string): { valid: boolean; error?: string; transformedUrl?: string } {
+  if (!url) return { valid: true }
+
+  // Basic URL validation
+  try {
+    new URL(url.startsWith('http') ? url : `https://${url}`)
+  } catch {
+    return { valid: false, error: "Please enter a valid URL" }
+  }
+
+  const patterns: Record<keyof OnePageSocialLinks, RegExp> = {
+    instagram: /instagram\.com/i,
+    tiktok: /tiktok\.com/i,
+    youtube: /youtube\.com|youtu\.be/i,
+    twitter: /x\.com|twitter\.com/i,
+    spotify: /spotify\.com/i,
+    website: /.*/,
+    email: /^[^\s@]+@[^\s@]+\.[^\s@]+$|mailto:/i,
+  }
+
+  const pattern = patterns[platform]
+  if (!pattern) return { valid: true, transformedUrl: url }
+
+  // For email, handle mailto: prefix
+  if (platform === 'email') {
+    if (url.includes('@') && !url.startsWith('mailto:')) {
+      return { valid: true, transformedUrl: `mailto:${url}` }
+    }
+    return { valid: true }
+  }
+
+  if (!pattern.test(url)) {
+    const platformNames: Record<keyof OnePageSocialLinks, string> = {
+      instagram: "Instagram",
+      tiktok: "TikTok",
+      youtube: "YouTube",
+      twitter: "X (Twitter)",
+      spotify: "Spotify",
+      website: "website",
+      email: "email",
+    }
+    return { valid: false, error: `URL doesn't appear to be a ${platformNames[platform]} link` }
+  }
+
+  return { valid: true }
+}
+
 // Real SVG social icons for brand accuracy
 const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; className?: string }>> = {
   instagram: ({ size = 20, color = "currentColor", className }) => (
@@ -631,15 +679,13 @@ export function LinksTab() {
             </div>
 
             {index < sortedBlocks.length - 1 && (
-              <div className="relative h-0 -my-3 -mx-1 group/add-divider">
-              <div className="relative h-10 -mx-1 group/add-divider">
+              <div className="relative h-6 -mx-1 group/add-divider">
                 <button
                   type="button"
                   onClick={() => {
                     setInsertAfterId(block.id)
                     setShowAddModal(true)
                   }}
-                  className="pointer-events-auto absolute inset-0 flex items-center justify-center px-1 focus:outline-none -translate-y-1/2"
                   className="absolute inset-0 flex items-center justify-center px-1 focus:outline-none"
                   tabIndex={0}
                   aria-label="Add block here"
@@ -1861,7 +1907,7 @@ function BlockEditor({
       const data = block.data as SocialRowBlockData
       const activeSocials = Object.entries(socialLinks || {})
         .filter(([_, url]) => url)
-        .map(([platform, url]) => ({ platform, url: url as string }))
+        .map(([platform, url]) => ({ platform: platform as keyof OnePageSocialLinks, url: url as string }))
       
       // Only update if there are new platforms not in the current order
       const currentPlatforms = new Set((data.platforms || []).map(p => p.platform))
