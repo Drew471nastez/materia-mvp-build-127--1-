@@ -425,27 +425,25 @@ function EditorLayout() {
           </div>
         </div>
 
-        {/* Preview Panel - Desktop ONLY with phone mockup (hidden on Settings) */}
-        {activeTab !== "settings" && (
+        {/* Preview Panel - Desktop with phone mockup */}
+        <div
+          className="hidden md:block border-l bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 overflow-auto"
+          style={{
+            width: '360px',
+            minWidth: '360px',
+            flexShrink: 0,
+          }}
+        >
           <div
-            className="hidden md:block border-l bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 overflow-auto"
+            className="flex items-center justify-center"
             style={{
-              width: '360px',
-              minWidth: '360px',
-              flexShrink: 0,
+              minHeight: '100%',
+              padding: '20px 24px',
             }}
           >
-            <div
-              className="flex items-center justify-center"
-              style={{
-                minHeight: '100%',
-                padding: '20px 24px',
-              }}
-            >
-              <PhonePreview />
-            </div>
+            <PhonePreview />
           </div>
-        )}
+        </div>
 
         {/* Mobile Preview - NO phone mockup, just real page content like Linktree */}
         {showMobilePreview && (

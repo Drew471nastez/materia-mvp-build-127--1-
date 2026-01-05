@@ -9,8 +9,6 @@ import { cn } from "@/lib/utils"
 import {
   Globe,
   Lock,
-  Eye,
-  EyeOff,
   Copy,
   Check,
   ChevronRight,
@@ -19,14 +17,13 @@ import {
   Mail,
   Phone,
   CreditCard,
-  Settings2,
-  Search as SearchIcon,
-  Share2,
   FileText,
-  Users,
-  X,
+  Share2,
+  Search as SearchIcon,
+  BarChart3,
+  Sparkles,
 } from "lucide-react"
-import { useState, useRef } from "react"
+import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -34,28 +31,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-// Settings sections
+// Settings sections with Linktree-style icons
 const SETTINGS_SECTIONS = [
   { id: "basic", label: "Basic Info", icon: FileText },
-  { id: "seo", label: "SEO & Sharing", icon: SearchIcon },
+  { id: "seo", label: "SEO", icon: SearchIcon },
   { id: "social", label: "Social & Contact", icon: Share2 },
+  { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "billing", label: "Billing", icon: CreditCard },
 ]
 
-// Custom Toggle Component
-function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onCheckedChange(e.target.checked)}
-      className="theme-checkbox"
-    />
-  )
-}
-
 export function SettingsTab() {
-  const { onepage, updateProfile } = useOnePage()
+  const { onepage, updateProfile, updateSettings } = useOnePage()
   const [activeSection, setActiveSection] = useState("basic")
   const [copied, setCopied] = useState(false)
   const [showOgImageModal, setShowOgImageModal] = useState(false)
@@ -76,8 +62,6 @@ export function SettingsTab() {
   const [contactEmail, setContactEmail] = useState("")
   const [contactPhone, setContactPhone] = useState("")
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
   if (!onepage) return null
 
   const pageUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/l/${onepage.slug}`
@@ -90,150 +74,158 @@ export function SettingsTab() {
 
   const handleSaveBasicInfo = () => {
     updateProfile({ title: pageName })
-    // Note: slug update would require backend API call
   }
 
   const handleSaveSeo = () => {
-    // Save SEO settings - would require backend integration
-    console.log("Saving SEO:", { metaTitle, metaDescription, ogImage })
+    if (updateSettings) {
+      updateSettings({
+        seo_title: metaTitle,
+        seo_description: metaDescription,
+        social_image_url: ogImage || undefined,
+      })
+    }
   }
 
   const handleSaveContact = () => {
-    // Save contact info - would require backend integration
     console.log("Saving Contact:", { contactEmail, contactPhone })
+  }
+
+  // Sidebar navigation item component
+  const NavItem = ({ section }: { section: typeof SETTINGS_SECTIONS[0] }) => {
+    const Icon = section.icon
+    const isActive = activeSection === section.id
+
+    return (
+      <button
+        onClick={() => setActiveSection(section.id)}
+        className={cn(
+          "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left",
+          isActive
+            ? "bg-gray-100 text-gray-900"
+            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+        )}
+      >
+        <Icon className="h-4 w-4 flex-shrink-0" />
+        <span>{section.label}</span>
+        {isActive && <ChevronRight className="h-4 w-4 ml-auto" />}
+      </button>
+    )
   }
 
   const renderBasicInfo = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-1">Basic Page Info</h3>
-        <p className="text-sm text-muted-foreground">Manage your page identity and visibility</p>
+        <h3 className="text-base font-semibold mb-1">Basic Info</h3>
+        <p className="text-sm text-gray-500">Manage your page settings</p>
       </div>
 
       {/* Page Name */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Page Name</Label>
+        <Label className="text-sm font-medium text-gray-700">Page Name</Label>
         <Input
           value={pageName}
           onChange={(e) => setPageName(e.target.value)}
           placeholder="My OnePage"
-          className="h-11 rounded-xl"
+          className="h-10 rounded-lg border-gray-200 focus:border-gray-400 focus:ring-gray-400"
         />
       </div>
 
       {/* Public URL / Slug */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Public URL</Label>
+        <Label className="text-sm font-medium text-gray-700">Public URL</Label>
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center bg-gray-50 rounded-xl border px-3 h-11">
-            <span className="text-sm text-muted-foreground">{typeof window !== "undefined" ? window.location.origin : ""}/l/</span>
+          <div className="flex-1 flex items-center bg-gray-50 rounded-lg border border-gray-200 px-3 h-10">
+            <span className="text-sm text-gray-500">{typeof window !== "undefined" ? window.location.host : ""}/l/</span>
             <Input
               value={pageSlug}
               onChange={(e) => setPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
               placeholder="your-page"
-              className="border-0 bg-transparent h-full px-0 focus-visible:ring-0 text-sm font-medium"
+              className="border-0 bg-transparent h-full px-1 focus-visible:ring-0 text-sm font-medium"
             />
           </div>
           <button
             onClick={copyUrl}
-            className="h-11 w-11 rounded-xl border flex items-center justify-center hover:bg-gray-50 transition-colors"
+            className="h-10 w-10 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
           >
-            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-gray-500" />}
+            {copied ? <Check className="h-4 w-4 text-gray-700" /> : <Copy className="h-4 w-4 text-gray-500" />}
           </button>
         </div>
       </div>
 
       {/* Page Status */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Page Status</Label>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-700">Page Status</Label>
         <div className="flex gap-2">
           <button
             onClick={() => setPageStatus("draft")}
             className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all border",
               pageStatus === "draft"
-                ? "bg-amber-50 border-amber-500 text-amber-700"
+                ? "bg-gray-900 border-gray-900 text-white"
                 : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
             )}
           >
-            <EyeOff className="h-4 w-4 mx-auto mb-1" />
             Draft
           </button>
           <button
             onClick={() => setPageStatus("published")}
             className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all border",
               pageStatus === "published"
-                ? "bg-green-50 border-green-500 text-green-700"
+                ? "bg-gray-900 border-gray-900 text-white"
                 : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
             )}
           >
-            <Eye className="h-4 w-4 mx-auto mb-1" />
             Published
           </button>
         </div>
       </div>
 
       {/* Visibility */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Visibility</Label>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-700">Visibility</Label>
         <div className="space-y-2">
-          <button
-            onClick={() => setVisibility("public")}
-            className={cn(
-              "w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left",
-              visibility === "public"
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-200 hover:border-gray-300"
-            )}
-          >
-            <Globe className="h-5 w-5 text-blue-500" />
-            <div>
-              <p className="font-medium text-sm">Public</p>
-              <p className="text-xs text-muted-foreground">Anyone can view your page</p>
-            </div>
-          </button>
-          <button
-            onClick={() => setVisibility("private")}
-            className={cn(
-              "w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left",
-              visibility === "private"
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-200 hover:border-gray-300"
-            )}
-          >
-            <Lock className="h-5 w-5 text-gray-500" />
-            <div>
-              <p className="font-medium text-sm">Private</p>
-              <p className="text-xs text-muted-foreground">Only you can view this page</p>
-            </div>
-          </button>
-          <button
-            onClick={() => setVisibility("password")}
-            className={cn(
-              "w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left",
-              visibility === "password"
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-200 hover:border-gray-300"
-            )}
-          >
-            <Lock className="h-5 w-5 text-amber-500" />
-            <div>
-              <p className="font-medium text-sm">Password Protected</p>
-              <p className="text-xs text-muted-foreground">Visitors need a password to view</p>
-            </div>
-          </button>
+          {[
+            { id: "public", label: "Public", desc: "Anyone can view", icon: Globe },
+            { id: "private", label: "Private", desc: "Only you", icon: Lock },
+            { id: "password", label: "Password", desc: "Requires password", icon: Lock },
+          ].map((option) => {
+            const Icon = option.icon
+            return (
+              <button
+                key={option.id}
+                onClick={() => setVisibility(option.id as any)}
+                className={cn(
+                  "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
+                  visibility === option.id
+                    ? "border-gray-900 bg-gray-50"
+                    : "border-gray-200 hover:border-gray-300"
+                )}
+              >
+                <Icon className="h-4 w-4 text-gray-500" />
+                <div className="flex-1">
+                  <p className="font-medium text-sm text-gray-900">{option.label}</p>
+                  <p className="text-xs text-gray-500">{option.desc}</p>
+                </div>
+                <div className={cn(
+                  "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                  visibility === option.id ? "border-gray-900" : "border-gray-300"
+                )}>
+                  {visibility === option.id && <div className="w-2 h-2 rounded-full bg-gray-900" />}
+                </div>
+              </button>
+            )
+          })}
         </div>
 
         {visibility === "password" && (
           <div className="mt-3">
-            <Label className="text-sm font-medium">Password</Label>
             <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
-              className="h-11 rounded-xl mt-2"
+              className="h-10 rounded-lg border-gray-200"
             />
           </div>
         )}
@@ -241,7 +233,7 @@ export function SettingsTab() {
 
       <Button
         onClick={handleSaveBasicInfo}
-        className="w-full h-11 bg-blue-500 hover:bg-blue-600 rounded-xl"
+        className="w-full h-10 bg-gray-900 hover:bg-gray-800 rounded-lg text-sm"
       >
         Save Changes
       </Button>
@@ -251,76 +243,75 @@ export function SettingsTab() {
   const renderSeo = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-1">SEO & Sharing</h3>
-        <p className="text-sm text-muted-foreground">Optimize how your page appears in search and social media</p>
+        <h3 className="text-base font-semibold mb-1">SEO</h3>
+        <p className="text-sm text-gray-500">Optimize for search engines</p>
       </div>
 
       {/* Meta Title */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Page Title</Label>
+        <Label className="text-sm font-medium text-gray-700">Page Title</Label>
         <Input
           value={metaTitle}
           onChange={(e) => setMetaTitle(e.target.value)}
-          placeholder="My Awesome Page"
-          className="h-11 rounded-xl"
+          placeholder="My Page Title"
+          className="h-10 rounded-lg border-gray-200"
         />
-        <p className="text-xs text-muted-foreground">Appears in browser tabs and search results</p>
+        <p className="text-xs text-gray-500">Appears in browser tabs and search results</p>
       </div>
 
       {/* Meta Description */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Meta Description</Label>
+        <Label className="text-sm font-medium text-gray-700">Meta Description</Label>
         <Textarea
           value={metaDescription}
           onChange={(e) => setMetaDescription(e.target.value)}
-          placeholder="A brief description of your page..."
-          className="rounded-xl resize-none"
+          placeholder="A brief description..."
+          className="rounded-lg resize-none border-gray-200"
           rows={3}
         />
-        <p className="text-xs text-muted-foreground">{metaDescription.length}/160 characters recommended</p>
+        <p className="text-xs text-gray-500">{metaDescription.length}/160 characters</p>
       </div>
 
       {/* Social Share Image */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Social Share Image (OG Image)</Label>
+        <Label className="text-sm font-medium text-gray-700">Social Image</Label>
         <button
           onClick={() => setShowOgImageModal(true)}
-          className="w-full aspect-video rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50"
+          className="w-full aspect-video rounded-lg border border-dashed border-gray-300 hover:border-gray-400 transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50"
         >
           {ogImage ? (
-            <img src={ogImage} alt="OG Preview" className="w-full h-full object-cover rounded-xl" />
+            <img src={ogImage} alt="OG Preview" className="w-full h-full object-cover rounded-lg" />
           ) : (
             <>
-              <ImageIcon className="h-8 w-8 text-gray-400" />
-              <span className="text-sm text-muted-foreground">Click to upload image</span>
-              <span className="text-xs text-muted-foreground">Recommended: 1200x630px</span>
+              <ImageIcon className="h-6 w-6 text-gray-400" />
+              <span className="text-sm text-gray-500">Upload image</span>
+              <span className="text-xs text-gray-400">1200x630px recommended</span>
             </>
           )}
         </button>
       </div>
 
-      {/* Preview Card */}
+      {/* Preview */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Preview</Label>
-        <div className="border rounded-xl overflow-hidden bg-white">
+        <Label className="text-sm font-medium text-gray-700">Preview</Label>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
           <div className="aspect-video bg-gray-100 flex items-center justify-center">
             {ogImage ? (
               <img src={ogImage} alt="Preview" className="w-full h-full object-cover" />
             ) : (
-              <ImageIcon className="h-12 w-12 text-gray-300" />
+              <ImageIcon className="h-8 w-8 text-gray-300" />
             )}
           </div>
-          <div className="p-3">
-            <p className="font-medium text-sm truncate">{metaTitle || "Your Page Title"}</p>
-            <p className="text-xs text-muted-foreground line-clamp-2">{metaDescription || "Your page description will appear here..."}</p>
-            <p className="text-xs text-blue-600 mt-1">{pageUrl}</p>
+          <div className="p-3 bg-white">
+            <p className="font-medium text-sm truncate text-gray-900">{metaTitle || "Page Title"}</p>
+            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{metaDescription || "Description..."}</p>
           </div>
         </div>
       </div>
 
       <Button
         onClick={handleSaveSeo}
-        className="w-full h-11 bg-blue-500 hover:bg-blue-600 rounded-xl"
+        className="w-full h-10 bg-gray-900 hover:bg-gray-800 rounded-lg text-sm"
       >
         Save SEO Settings
       </Button>
@@ -330,13 +321,13 @@ export function SettingsTab() {
   const renderSocial = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-1">Social & Contact</h3>
-        <p className="text-sm text-muted-foreground">Default contact info used across your page</p>
+        <h3 className="text-base font-semibold mb-1">Social & Contact</h3>
+        <p className="text-sm text-gray-500">Contact information</p>
       </div>
 
       {/* Email */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Email Address</Label>
+        <Label className="text-sm font-medium text-gray-700">Email</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -344,14 +335,14 @@ export function SettingsTab() {
             value={contactEmail}
             onChange={(e) => setContactEmail(e.target.value)}
             placeholder="hello@example.com"
-            className="h-11 rounded-xl pl-10"
+            className="h-10 rounded-lg pl-10 border-gray-200"
           />
         </div>
       </div>
 
       {/* Phone */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Phone Number</Label>
+        <Label className="text-sm font-medium text-gray-700">Phone</Label>
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -359,19 +350,19 @@ export function SettingsTab() {
             value={contactPhone}
             onChange={(e) => setContactPhone(e.target.value)}
             placeholder="+1 (555) 123-4567"
-            className="h-11 rounded-xl pl-10"
+            className="h-10 rounded-lg pl-10 border-gray-200"
           />
         </div>
       </div>
 
-      {/* Social Links Info */}
-      <div className="bg-blue-50 rounded-xl p-4">
+      {/* Info box */}
+      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="flex items-start gap-3">
-          <Share2 className="h-5 w-5 text-blue-500 mt-0.5" />
+          <Share2 className="h-4 w-4 text-gray-500 mt-0.5" />
           <div>
-            <p className="font-medium text-sm text-blue-900">Social Links</p>
-            <p className="text-xs text-blue-700 mt-1">
-              Manage your social links in the Links tab. They will be available across your entire page.
+            <p className="font-medium text-sm text-gray-900">Social Links</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Manage your social links in the Links tab.
             </p>
           </div>
         </div>
@@ -379,144 +370,187 @@ export function SettingsTab() {
 
       <Button
         onClick={handleSaveContact}
-        className="w-full h-11 bg-blue-500 hover:bg-blue-600 rounded-xl"
+        className="w-full h-10 bg-gray-900 hover:bg-gray-800 rounded-lg text-sm"
       >
         Save Contact Info
       </Button>
     </div>
   )
 
+  const renderAnalytics = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-base font-semibold mb-1">Analytics</h3>
+        <p className="text-sm text-gray-500">Track your page performance</p>
+      </div>
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <p className="text-2xl font-bold text-gray-900">0</p>
+          <p className="text-xs text-gray-500 mt-1">Total Views</p>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <p className="text-2xl font-bold text-gray-900">0</p>
+          <p className="text-xs text-gray-500 mt-1">Link Clicks</p>
+        </div>
+      </div>
+
+      {/* Enable Analytics Toggle */}
+      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <div>
+          <p className="font-medium text-sm text-gray-900">Enable Analytics</p>
+          <p className="text-xs text-gray-500 mt-0.5">Track views and clicks</p>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" defaultChecked className="sr-only peer" />
+          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gray-900"></div>
+        </label>
+      </div>
+
+      {/* Coming Soon */}
+      <div className="text-center py-8 border border-gray-200 rounded-lg bg-gray-50">
+        <BarChart3 className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+        <p className="text-sm font-medium text-gray-500">Detailed analytics coming soon</p>
+      </div>
+    </div>
+  )
+
   const renderBilling = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-1">Billing</h3>
-        <p className="text-sm text-muted-foreground">Manage your subscription and payment methods</p>
+        <h3 className="text-base font-semibold mb-1">Billing</h3>
+        <p className="text-sm text-gray-500">Manage your subscription</p>
       </div>
 
       {/* Current Plan */}
-      <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-5 text-white">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-sm font-medium text-gray-300">Current Plan</span>
-          <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-medium rounded-full">Active</span>
+      <div className="bg-gray-900 rounded-lg p-4 text-white">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-medium text-gray-400">Current Plan</span>
+          <span className="px-2 py-0.5 bg-white/10 text-white text-xs font-medium rounded-full">Active</span>
         </div>
-        <p className="text-2xl font-bold">Free Plan</p>
-        <p className="text-sm text-gray-400 mt-1">Basic features for getting started</p>
+        <p className="text-xl font-bold">Free</p>
+        <p className="text-sm text-gray-400 mt-1">Basic features</p>
       </div>
 
       {/* Upgrade Card */}
-      <div className="border rounded-xl p-5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
-            <CreditCard className="h-5 w-5 text-violet-600" />
+      <div className="border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+            <Sparkles className="h-4 w-4 text-gray-600" />
           </div>
           <div>
-            <p className="font-medium">Upgrade to Pro</p>
-            <p className="text-sm text-muted-foreground">Unlock all features</p>
+            <p className="font-medium text-sm text-gray-900">Pro Plan</p>
+            <p className="text-xs text-gray-500">$9/month</p>
           </div>
         </div>
         <ul className="space-y-2 mb-4">
-          <li className="flex items-center gap-2 text-sm">
-            <Check className="h-4 w-4 text-green-500" />
-            Remove branding
-          </li>
-          <li className="flex items-center gap-2 text-sm">
-            <Check className="h-4 w-4 text-green-500" />
-            Custom domain
-          </li>
-          <li className="flex items-center gap-2 text-sm">
-            <Check className="h-4 w-4 text-green-500" />
-            Advanced analytics
-          </li>
-          <li className="flex items-center gap-2 text-sm">
-            <Check className="h-4 w-4 text-green-500" />
-            Priority support
-          </li>
+          {["Remove branding", "Custom domain", "Advanced analytics", "Priority support"].map((feature) => (
+            <li key={feature} className="flex items-center gap-2 text-sm text-gray-600">
+              <Check className="h-3.5 w-3.5 text-gray-400" />
+              {feature}
+            </li>
+          ))}
         </ul>
-        <Button className="w-full h-11 bg-violet-600 hover:bg-violet-700 rounded-xl">
-          Upgrade to Pro - $9/mo
+        <Button className="w-full h-10 bg-gray-900 hover:bg-gray-800 rounded-lg text-sm">
+          Upgrade to Pro
         </Button>
       </div>
 
       {/* Payment Method */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Payment Method</Label>
-        <button className="w-full flex items-center justify-between p-4 border rounded-xl hover:bg-gray-50 transition-colors">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-700">Payment Method</Label>
+        <button className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-6 bg-gray-100 rounded flex items-center justify-center">
-              <CreditCard className="h-4 w-4 text-gray-500" />
-            </div>
-            <span className="text-sm text-muted-foreground">No payment method added</span>
+            <CreditCard className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-500">No payment method</span>
           </div>
           <ChevronRight className="h-4 w-4 text-gray-400" />
         </button>
-      </div>
-
-      {/* Billing History */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Billing History</Label>
-        <div className="text-center py-8 border rounded-xl">
-          <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">No billing history yet</p>
-        </div>
       </div>
     </div>
   )
 
   return (
-    <div className="space-y-6">
-      {/* Section Navigation - Horizontal scroll on mobile */}
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-        {SETTINGS_SECTIONS.map((section) => {
-          const Icon = section.icon
-          return (
-            <button
-              key={section.id}
-              onClick={() => setActiveSection(section.id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
-                activeSection === section.id
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {section.label}
-            </button>
-          )
-        })}
+    <div className="flex flex-col md:flex-row gap-6">
+      {/* Sidebar Navigation - Hidden on mobile, shown inline */}
+      <div className="hidden md:block w-48 flex-shrink-0">
+        <nav className="space-y-1 sticky top-0">
+          {SETTINGS_SECTIONS.map((section) => (
+            <NavItem key={section.id} section={section} />
+          ))}
+        </nav>
       </div>
 
-      {/* Section Content */}
-      <div className="bg-white rounded-xl border p-4 sm:p-6">
-        {activeSection === "basic" && renderBasicInfo()}
-        {activeSection === "seo" && renderSeo()}
-        {activeSection === "social" && renderSocial()}
-        {activeSection === "billing" && renderBilling()}
+      {/* Mobile Navigation - Horizontal scroll */}
+      <div className="md:hidden -mx-4 px-4 mb-4">
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {SETTINGS_SECTIONS.map((section) => {
+            const Icon = section.icon
+            return (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+                  activeSection === section.id
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {section.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 min-w-0">
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          {activeSection === "basic" && renderBasicInfo()}
+          {activeSection === "seo" && renderSeo()}
+          {activeSection === "social" && renderSocial()}
+          {activeSection === "analytics" && renderAnalytics()}
+          {activeSection === "billing" && renderBilling()}
+        </div>
       </div>
 
       {/* OG Image Upload Modal */}
       <Dialog open={showOgImageModal} onOpenChange={setShowOgImageModal}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-4 sm:p-5 border-b">
-            <DialogTitle className="text-base sm:text-lg font-semibold">Upload Social Image</DialogTitle>
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-base font-semibold">Upload Image</DialogTitle>
           </DialogHeader>
-          <div className="p-4 sm:p-5 space-y-4">
-            <div className="aspect-video rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors">
-              <Upload className="h-8 w-8 text-gray-400" />
-              <span className="text-sm text-muted-foreground">Click to upload</span>
-              <span className="text-xs text-muted-foreground">PNG, JPG up to 5MB</span>
+          <div className="p-4 space-y-4">
+            <div className="aspect-video rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors">
+              <Upload className="h-6 w-6 text-gray-400" />
+              <span className="text-sm text-gray-500">Click to upload</span>
+              <span className="text-xs text-gray-400">PNG, JPG up to 5MB</span>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowOgImageModal(false)}>
+              <Button variant="outline" className="flex-1 rounded-lg h-10" onClick={() => setShowOgImageModal(false)}>
                 Cancel
               </Button>
-              <Button className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl">
+              <Button className="flex-1 bg-gray-900 hover:bg-gray-800 rounded-lg h-10">
                 Upload
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add custom scrollbar hiding CSS */}
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   )
 }
