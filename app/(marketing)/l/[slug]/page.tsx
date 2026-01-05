@@ -30,15 +30,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = onepage.published_profile as any
   const settings = onepage.settings as any
 
-  // Priority: 1. SEO Page Title (if explicitly set and not empty)
-  //           2. Display Name from published_profile.title
-  //           3. OnePage title
-  //           4. "Creator"
+  // Priority: SEO title (if set) > Display Name > onepage.title > "Creator"
+  // Display Name comes from published_profile.title
   const displayName = profile?.title || onepage.title || "Creator"
-  const seoTitle = settings?.seo_title?.trim()
 
-  // If SEO title is set, use it. Otherwise use Display Name with Storelib suffix
-  const pageTitle = seoTitle || `${displayName} | Storelib`
+  // If SEO title is explicitly set and not empty, use it. Otherwise use Display Name
+  const seoTitle = settings?.seo_title?.trim()
+  const pageTitle = seoTitle ? seoTitle : `${displayName} | Storelib`
 
   // Determine favicon URL - priority: avatar_url, then store builder avatar
   let faviconUrl = profile?.avatar_url || onepage.avatar_url
@@ -107,7 +105,6 @@ export default async function PublicOnePageRoute({ params }: Props) {
   // Use admin client to bypass RLS for public page access
   const adminSupabase = createAdminClient()
 
-  // Fetch published onepage using admin client to ensure all data is available
   const { data: onepage, error } = await adminSupabase
     .from("onepages")
     .select("*")
@@ -134,6 +131,8 @@ export default async function PublicOnePageRoute({ params }: Props) {
   const publishedProfile = onepage.published_profile as any
   const publishedTheme = onepage.published_theme as any
   const publishedBlocks = onepage.published_blocks as any[]
+
+  const effectiveSellerId = onepage.seller_id || onepage.creator_id || onepage.owner_id || null
 
   const transformedOnepage = {
     id: onepage.id,
@@ -163,8 +162,8 @@ export default async function PublicOnePageRoute({ params }: Props) {
       },
     blocks: publishedBlocks || onepage.draft_blocks || [],
     social_links: publishedProfile?.social_links || onepage.social_links || {},
-    settings: onepage.settings || { show_branding: true, analytics_enabled: true, subscribe_enabled: true },
-    seller_id: onepage.seller_id || onepage.owner_id || onepage.creator_id, // Fallback to owner_id or creator_id if seller_id is null
+    settings: onepage.settings || { show_branding: true, analytics_enabled: true },
+    seller_id: effectiveSellerId,
   }
 
   return <PublicOnePage onepage={transformedOnepage} />
