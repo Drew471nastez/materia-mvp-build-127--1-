@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS email_sends (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create indexes
+-- Create indexes (IF NOT EXISTS handles duplicates)
 CREATE INDEX IF NOT EXISTS idx_subscribers_creator_id ON subscribers(creator_id);
 CREATE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email);
 CREATE INDEX IF NOT EXISTS idx_subscribers_source ON subscribers(source);
@@ -60,6 +60,18 @@ CREATE INDEX IF NOT EXISTS idx_email_sends_subscriber_id ON email_sends(subscrib
 ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_sends ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to avoid conflicts (safe to run multiple times)
+DROP POLICY IF EXISTS "Creators can view their own subscribers" ON subscribers;
+DROP POLICY IF EXISTS "Creators can insert their own subscribers" ON subscribers;
+DROP POLICY IF EXISTS "Creators can update their own subscribers" ON subscribers;
+DROP POLICY IF EXISTS "Creators can delete their own subscribers" ON subscribers;
+DROP POLICY IF EXISTS "Anyone can subscribe via public forms" ON subscribers;
+DROP POLICY IF EXISTS "Creators can view their own campaigns" ON email_campaigns;
+DROP POLICY IF EXISTS "Creators can insert their own campaigns" ON email_campaigns;
+DROP POLICY IF EXISTS "Creators can update their own campaigns" ON email_campaigns;
+DROP POLICY IF EXISTS "Creators can delete their own campaigns" ON email_campaigns;
+DROP POLICY IF EXISTS "Creators can view their own email sends" ON email_sends;
 
 -- RLS policies for subscribers
 CREATE POLICY "Creators can view their own subscribers"
@@ -108,6 +120,10 @@ CREATE POLICY "Creators can view their own email sends"
       SELECT id FROM creators WHERE user_id = auth.uid()
     )
   ));
+
+-- Drop existing triggers to avoid conflicts
+DROP TRIGGER IF EXISTS subscribers_updated_at ON subscribers;
+DROP TRIGGER IF EXISTS email_campaigns_updated_at ON email_campaigns;
 
 -- Trigger for updated_at
 CREATE OR REPLACE FUNCTION update_subscribers_updated_at()
