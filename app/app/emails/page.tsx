@@ -13,7 +13,6 @@ import {
   Mail,
   Calendar,
   Eye,
-  Edit,
   Trash2,
   MoreHorizontal,
   Search,
@@ -21,12 +20,12 @@ import {
   Store,
   Loader2,
   ArrowLeft,
-  ChevronDown,
   BarChart3,
   MousePointerClick,
   Check,
   X,
 } from "lucide-react"
+import { EmailBuilder } from "@/components/email/email-builder"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,15 +41,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 
 type TabType = "published" | "scheduled" | "drafts" | "subscribers"
 type ViewType = "list" | "editor" | "analytics"
@@ -519,174 +509,144 @@ export default function EmailsPage() {
     )
   }
 
-  // Editor View
+  // Editor View - Using the new EmailBuilder component
   if (view === "editor") {
+    const handleBuilderSave = async (data: { subject: string; body: string; previewText: string }) => {
+      if (!creatorId) return
+
+      setIsSaving(true)
+      const supabase = createClient()
+
+      const campaignData = {
+        creator_id: creatorId,
+        subject: data.subject,
+        body: data.body,
+        preview_text: data.previewText || null,
+        status: "draft" as const,
+        audience_type: audienceType,
+        segment_id: selectedSegment || null,
+      }
+
+      if (editingCampaign) {
+        await supabase
+          .from("email_campaigns")
+          .update(campaignData)
+          .eq("id", editingCampaign.id)
+      } else {
+        await supabase.from("email_campaigns").insert(campaignData)
+      }
+
+      setIsSaving(false)
+      setView("list")
+      setActiveTab("drafts")
+      loadData()
+    }
+
+    const handleBuilderSend = async (data: { subject: string; body: string; previewText: string }) => {
+      if (!creatorId) return
+
+      setIsSending(true)
+      const supabase = createClient()
+
+      try {
+        let campaignId = editingCampaign?.id
+
+        const campaignData = {
+          creator_id: creatorId,
+          subject: data.subject,
+          body: data.body,
+          preview_text: data.previewText || null,
+          audience_type: audienceType,
+          segment_id: selectedSegment || null,
+        }
+
+        if (editingCampaign) {
+          await supabase
+            .from("email_campaigns")
+            .update(campaignData)
+            .eq("id", editingCampaign.id)
+        } else {
+          const { data: newCampaign } = await supabase
+            .from("email_campaigns")
+            .insert({ ...campaignData, status: "draft" })
+            .select()
+            .single()
+          campaignId = newCampaign?.id
+        }
+
+        if (!campaignId) {
+          throw new Error("Failed to create campaign")
+        }
+
+        const response = await fetch("/api/email/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ campaign_id: campaignId }),
+        })
+
+        if (!response.ok) {
+          const responseData = await response.json()
+          throw new Error(responseData.error || "Failed to send campaign")
+        }
+
+        setView("list")
+        setActiveTab("published")
+        loadData()
+      } catch (error) {
+        console.error("Send error:", error)
+        alert(error instanceof Error ? error.message : "Failed to send email")
+      } finally {
+        setIsSending(false)
+      }
+    }
+
+    const handleBuilderSchedule = async (data: { subject: string; body: string; previewText: string; scheduledAt: string }) => {
+      if (!creatorId) return
+
+      setIsSaving(true)
+      const supabase = createClient()
+
+      const campaignData = {
+        creator_id: creatorId,
+        subject: data.subject,
+        body: data.body,
+        preview_text: data.previewText || null,
+        status: "scheduled" as const,
+        audience_type: audienceType,
+        segment_id: selectedSegment || null,
+        scheduled_at: new Date(data.scheduledAt).toISOString(),
+      }
+
+      if (editingCampaign) {
+        await supabase
+          .from("email_campaigns")
+          .update(campaignData)
+          .eq("id", editingCampaign.id)
+      } else {
+        await supabase.from("email_campaigns").insert(campaignData)
+      }
+
+      setIsSaving(false)
+      setView("list")
+      setActiveTab("scheduled")
+      loadData()
+    }
+
     return (
-      <div className="min-h-screen bg-gray-50/50">
-        <div className="bg-white border-b sticky top-0 z-10">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setView("list")}
-                  className="h-9 w-9"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {editingCampaign ? "Edit Email" : "New Email"}
-                </h1>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleSaveDraft}
-                  disabled={!subject.trim() || isSaving}
-                  className="h-9"
-                >
-                  {isSaving ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <FileText className="h-4 w-4 mr-2" />
-                  )}
-                  Save Draft
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      disabled={!subject.trim() || isSending}
-                      className="bg-gray-900 hover:bg-gray-800 text-white h-9"
-                    >
-                      {isSending ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4 mr-2" />
-                      )}
-                      Send
-                      <ChevronDown className="h-4 w-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleSendNow}>
-                      <Send className="h-4 w-4 mr-2" />
-                      Send Now
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        const modal = document.getElementById("schedule-modal")
-                        if (modal) modal.click()
-                      }}
-                    >
-                      <Clock className="h-4 w-4 mr-2" />
-                      Schedule
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
-          <div className="bg-white rounded-xl border overflow-hidden">
-            <div className="p-6 space-y-6">
-              {/* Subject */}
-              <div className="space-y-2">
-                <Label htmlFor="subject">Subject Line</Label>
-                <Input
-                  id="subject"
-                  placeholder="Enter your email subject..."
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="text-lg"
-                />
-              </div>
-
-              {/* Preview Text */}
-              <div className="space-y-2">
-                <Label htmlFor="preview">Preview Text (optional)</Label>
-                <Input
-                  id="preview"
-                  placeholder="Brief preview shown in inbox..."
-                  value={previewText}
-                  onChange={(e) => setPreviewText(e.target.value)}
-                />
-                <p className="text-xs text-gray-500">
-                  This text appears next to the subject line in most email clients
-                </p>
-              </div>
-
-              {/* Audience */}
-              <div className="space-y-2">
-                <Label>Audience</Label>
-                <Select value={audienceType} onValueChange={setAudienceType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select audience" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Subscribers</SelectItem>
-                    <SelectItem value="onepage">OnePage Subscribers</SelectItem>
-                    <SelectItem value="store_builder">Store Subscribers</SelectItem>
-                    {segments.map((segment) => (
-                      <SelectItem key={segment.id} value={`segment:${segment.id}`}>
-                        {segment.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Email Body */}
-              <div className="space-y-2">
-                <Label htmlFor="body">Email Content</Label>
-                <div className="text-xs text-gray-500 mb-2">
-                  Use {"{{name}}"} for subscriber name, {"{{unsubscribe_url}}"} for unsubscribe link
-                </div>
-                <Textarea
-                  id="body"
-                  placeholder="Write your email content...
-
-You can use HTML for formatting:
-<p>Hello {{name}},</p>
-<p>Your message here...</p>
-<p>Best regards</p>"
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={16}
-                  className="font-mono text-sm"
-                />
-              </div>
-
-              {/* Schedule */}
-              <div className="space-y-2 pt-4 border-t">
-                <Label htmlFor="schedule">Schedule (optional)</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="schedule"
-                    type="datetime-local"
-                    value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
-                    className="max-w-xs"
-                    min={new Date().toISOString().slice(0, 16)}
-                  />
-                  {scheduledAt && (
-                    <Button
-                      variant="outline"
-                      onClick={handleSchedule}
-                      disabled={!subject.trim() || isSaving}
-                    >
-                      <Clock className="h-4 w-4 mr-2" />
-                      Schedule for {formatDateTime(scheduledAt)}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <EmailBuilder
+        onBack={() => setView("list")}
+        onSave={handleBuilderSave}
+        onSend={handleBuilderSend}
+        onSchedule={handleBuilderSchedule}
+        initialSubject={subject}
+        initialBody={body}
+        initialPreviewText={previewText}
+        audienceType={audienceType}
+        onAudienceChange={setAudienceType}
+        segments={segments.map(s => ({ id: s.id, name: s.name }))}
+        isSaving={isSaving}
+        isSending={isSending}
+      />
     )
   }
 
