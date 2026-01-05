@@ -872,18 +872,11 @@ export function LinksTab() {
                       />
                     </div>
 
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1 rounded-xl"
-                        onClick={() => setSelectedSocial(null)}
-                      >
-                        Back
-                      </Button>
+                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       {social_links?.[selectedSocial as keyof typeof social_links] && (
                         <Button
                           variant="outline"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl"
+                          className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 sm:w-auto w-full justify-center"
                           onClick={() => {
                             handleRemoveSocial(selectedSocial)
                             setSelectedSocial(null)
@@ -893,7 +886,14 @@ export function LinksTab() {
                         </Button>
                       )}
                       <Button
-                        className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl"
+                        variant="outline"
+                        className="flex-1 rounded-xl w-full sm:w-auto"
+                        onClick={() => setSelectedSocial(null)}
+                      >
+                        Back
+                      </Button>
+                      <Button
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl w-full sm:w-auto"
                         onClick={handleAddSocial}
                         disabled={!socialUrl}
                       >
