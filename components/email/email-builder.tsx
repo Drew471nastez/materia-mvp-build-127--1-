@@ -555,6 +555,16 @@ export function EmailBuilder({
   const [scheduledAt, setScheduledAt] = useState("")
   const [draggedElement, setDraggedElement] = useState<string | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [showMobilePanel, setShowMobilePanel] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // Generate HTML from elements
   const generateHTML = useCallback(() => {
@@ -806,19 +816,14 @@ export function EmailBuilder({
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-20">
         <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 flex-shrink-0">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <Input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Email subject..."
-                className="w-64 sm:w-80 font-medium"
-              />
+              <span className="text-lg font-semibold text-gray-900 truncate hidden sm:block">Email Editor</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {/* Preview toggle */}
               <div className="hidden sm:flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                 <Button
@@ -869,9 +874,9 @@ export function EmailBuilder({
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left panel - Elements/Settings */}
-        <div className="w-72 bg-white border-r flex-shrink-0 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Left panel - Elements/Branding (hidden on mobile by default) */}
+        <div className="hidden lg:flex w-72 bg-white border-r flex-shrink-0 flex-col overflow-hidden">
           {/* Panel tabs */}
           <div className="flex border-b">
             <button
@@ -893,7 +898,7 @@ export function EmailBuilder({
               className={cn("flex-1 py-3 text-sm font-medium transition-colors", activePanel === "settings" ? "text-gray-900 border-b-2 border-gray-900" : "text-gray-500 hover:text-gray-700")}
             >
               <Settings className="h-4 w-4 mx-auto mb-1" />
-              Settings
+              Branding
             </button>
           </div>
 
@@ -981,19 +986,72 @@ export function EmailBuilder({
 
             {activePanel === "settings" && (
               <div className="space-y-4">
+                <p className="text-xs text-gray-500">These settings apply to all your email templates.</p>
                 <div>
-                  <Label className="text-xs">Preview Text</Label>
+                  <Label className="text-xs">Header Logo URL</Label>
                   <Input
-                    value={previewText}
-                    onChange={(e) => setPreviewText(e.target.value)}
-                    placeholder="Shows in inbox preview..."
+                    placeholder="https://your-logo.png"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Logo shown in email header</p>
+                </div>
+                <div>
+                  <Label className="text-xs">Company Name</Label>
+                  <Input
+                    placeholder="Your Company Name"
                     className="mt-1"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Audience</Label>
+                  <Label className="text-xs">Business Address</Label>
+                  <Textarea
+                    placeholder="123 Main St, City, Country"
+                    className="mt-1"
+                    rows={2}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Required for email compliance</p>
+                </div>
+                <div>
+                  <Label className="text-xs">Reply-To Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="hello@yourcompany.com"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Center - Email preview with settings bar */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Email Settings Bar - Above Preview */}
+          <div className="bg-white border-b px-4 py-3">
+            <div className="max-w-4xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-500 mb-1 block">Subject *</Label>
+                  <Input
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Email subject..."
+                    className="h-9"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500 mb-1 block">Preview Text</Label>
+                  <Input
+                    value={previewText}
+                    onChange={(e) => setPreviewText(e.target.value)}
+                    placeholder="Inbox preview..."
+                    className="h-9"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500 mb-1 block">Audience *</Label>
                   <Select value={audienceType} onValueChange={onAudienceChange}>
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger className="h-9">
                       <SelectValue placeholder="Select audience" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1009,34 +1067,35 @@ export function EmailBuilder({
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Schedule</Label>
+                  <Label className="text-xs text-gray-500 mb-1 block">Schedule (optional)</Label>
                   <Input
                     id="schedule-input"
                     type="datetime-local"
                     value={scheduledAt}
                     onChange={(e) => setScheduledAt(e.target.value)}
-                    className="mt-1"
+                    className="h-9"
                     min={new Date().toISOString().slice(0, 16)}
                   />
-                  {scheduledAt && (
-                    <Button variant="outline" className="w-full mt-2" onClick={handleSchedule} disabled={isSaving}>
-                      <Clock className="h-4 w-4 mr-2" />
-                      Schedule Send
-                    </Button>
-                  )}
                 </div>
               </div>
-            )}
+              {scheduledAt && (
+                <div className="mt-2 flex justify-end">
+                  <Button variant="outline" size="sm" onClick={handleSchedule} disabled={isSaving}>
+                    <Clock className="h-4 w-4 mr-2" />
+                    Schedule for {new Date(scheduledAt).toLocaleString()}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Center - Email preview */}
-        <div className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: styles.backgroundColor }}>
-          <div
-            className={cn("mx-auto bg-white shadow-lg transition-all", previewMode === "mobile" ? "max-w-[375px]" : "max-w-[600px]")}
-            style={{ backgroundColor: styles.contentBackgroundColor }}
-          >
-            {elements.length === 0 ? (
+          {/* Preview Area */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6" style={{ backgroundColor: styles.backgroundColor }}>
+            <div
+              className={cn("mx-auto bg-white shadow-lg transition-all", previewMode === "mobile" ? "max-w-[375px]" : "max-w-[600px]")}
+              style={{ backgroundColor: styles.contentBackgroundColor }}
+            >
+              {elements.length === 0 ? (
               <div className="p-12 text-center">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Plus className="h-8 w-8 text-gray-400" />
@@ -1063,13 +1122,13 @@ export function EmailBuilder({
                     dragOverIndex === index && "border-t-2 border-blue-500"
                   )}
                 >
-                  {/* Element toolbar */}
-                  <div className={cn("absolute -left-10 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity", selectedElement === element.id && "opacity-100")}>
+                  {/* Element toolbar - hidden on mobile */}
+                  <div className={cn("hidden lg:flex absolute -left-10 top-1/2 -translate-y-1/2 flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity", selectedElement === element.id && "opacity-100")}>
                     <button className="p-1 bg-white rounded shadow hover:bg-gray-50" title="Drag to reorder">
                       <GripVertical className="h-4 w-4 text-gray-400" />
                     </button>
                   </div>
-                  <div className={cn("absolute -right-10 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity", selectedElement === element.id && "opacity-100")}>
+                  <div className={cn("hidden lg:flex absolute -right-10 top-1/2 -translate-y-1/2 flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity", selectedElement === element.id && "opacity-100")}>
                     <button onClick={(e) => { e.stopPropagation(); moveElement(element.id, "up") }} className="p-1 bg-white rounded shadow hover:bg-gray-50">
                       <ChevronUp className="h-4 w-4 text-gray-600" />
                     </button>
@@ -1091,10 +1150,11 @@ export function EmailBuilder({
             )}
           </div>
         </div>
+        </div>
 
-        {/* Right panel - Element editor */}
+        {/* Right panel - Element editor (desktop only) */}
         {selectedEl && (
-          <div className="w-80 bg-white border-l flex-shrink-0 overflow-y-auto">
+          <div className="hidden lg:block w-80 bg-white border-l flex-shrink-0 overflow-y-auto">
             <div className="p-4 border-b flex items-center justify-between">
               <h3 className="font-medium capitalize">{selectedEl.type} Settings</h3>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedElement(null)}>
@@ -1106,7 +1166,123 @@ export function EmailBuilder({
             </div>
           </div>
         )}
+
+        {/* Mobile element editor dialog */}
+        <Dialog open={!!selectedEl && isMobile} onOpenChange={(open) => !open && setSelectedElement(null)}>
+          <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="capitalize">{selectedEl?.type} Settings</DialogTitle>
+            </DialogHeader>
+            <div className="pt-4">
+              {selectedEl && <ElementEditor element={selectedEl} onUpdate={(content) => updateElement(selectedEl.id, content)} styles={styles} />}
+            </div>
+            <div className="flex flex-wrap gap-2 pt-4">
+              <Button variant="outline" size="sm" onClick={() => moveElement(selectedEl!.id, "up")}>
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => moveElement(selectedEl!.id, "down")}>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => duplicateElement(selectedEl!.id)}>
+                <Copy className="h-4 w-4 mr-1" />
+                Duplicate
+              </Button>
+              <Button variant="outline" size="sm" className="flex-1 text-red-600 hover:text-red-700" onClick={() => {
+                deleteElement(selectedEl!.id)
+                setSelectedElement(null)
+              }}>
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
+
+      {/* Mobile floating action button */}
+      <div className="lg:hidden fixed bottom-6 right-6 z-30">
+        <Button
+          size="lg"
+          className="h-14 w-14 rounded-full shadow-lg bg-gray-900 hover:bg-gray-800"
+          onClick={() => setShowMobilePanel(true)}
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {/* Mobile panel dialog */}
+      <Dialog open={showMobilePanel} onOpenChange={setShowMobilePanel}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Elements</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {/* Element buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              {availableElements.map((item) => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.type}
+                    onClick={() => {
+                      addElement(item.type)
+                      setShowMobilePanel(false)
+                    }}
+                    className="flex flex-col items-center gap-2 p-4 rounded-lg border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all"
+                  >
+                    <Icon className="h-6 w-6 text-gray-600" />
+                    <span className="text-sm text-gray-700">{item.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Template button */}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setShowTemplates(true)
+                setShowMobilePanel(false)
+              }}
+            >
+              <LayoutTemplate className="h-4 w-4 mr-2" />
+              Choose Template
+            </Button>
+
+            {/* Design section */}
+            <div className="pt-4 border-t">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Design Settings</h4>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs">Background Color</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      type="color"
+                      value={styles.backgroundColor}
+                      onChange={(e) => setStyles({ ...styles, backgroundColor: e.target.value })}
+                      className="w-12 h-9 p-1 cursor-pointer"
+                    />
+                    <Input value={styles.backgroundColor} onChange={(e) => setStyles({ ...styles, backgroundColor: e.target.value })} className="flex-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Content Background</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      type="color"
+                      value={styles.contentBackgroundColor}
+                      onChange={(e) => setStyles({ ...styles, contentBackgroundColor: e.target.value })}
+                      className="w-12 h-9 p-1 cursor-pointer"
+                    />
+                    <Input value={styles.contentBackgroundColor} onChange={(e) => setStyles({ ...styles, contentBackgroundColor: e.target.value })} className="flex-1" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { v4 as uuidv4 } from "uuid"
 
 // POST - Submit a lead (public, no auth required)
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     const body = await request.json()
     const { onepage_id, email, name, block_id, referrer, utm_source, utm_medium, utm_campaign } = body
@@ -19,10 +22,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
-    // Verify the onepage exists and is published
+    // Verify the onepage exists and is published, and get seller_id
     const { data: onepage, error: onepageError } = await supabase
       .from("onepages")
-      .select("id, status")
+      .select("id, status, seller_id")
       .eq("id", onepage_id)
       .eq("status", "published")
       .single()
@@ -70,8 +73,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to save" }, { status: 500 })
     }
 
-    // TODO: If lead magnet is configured, trigger email delivery
-    // This would be done via an edge function or background job
+    // Also add to subscribers list for the seller
+    if (onepage.seller_id) {
+      const unsubscribeToken = uuidv4()
+      const { data: existingSubscriber } = await adminSupabase
+        .from("subscribers")
+        .select("id, status")
+        .eq("creator_id", onepage.seller_id)
+        .eq("email", email.toLowerCase().trim())
+        .single()
+
+      if (!existingSubscriber) {
+        // Create new subscriber
+        await adminSupabase.from("subscribers").insert({
+          email: email.toLowerCase().trim(),
+          name: name || null,
+          source: "onepage",
+          source_id: onepage_id,
+          creator_id: onepage.seller_id,
+          status: "subscribed",
+          is_active: true,
+          subscribed_at: new Date().toISOString(),
+          consent_text: "Subscribed via OnePage email form",
+          consent_timestamp: new Date().toISOString(),
+          unsubscribe_token: unsubscribeToken,
+        })
+      } else if (existingSubscriber.status === "unsubscribed") {
+        // Resubscribe
+        await adminSupabase
+          .from("subscribers")
+          .update({
+            status: "subscribed",
+            is_active: true,
+            subscribed_at: new Date().toISOString(),
+            unsubscribed_at: null,
+          })
+          .eq("id", existingSubscriber.id)
+      }
+    }
 
     return NextResponse.json({ success: true, lead_id: lead.id })
   } catch (error) {

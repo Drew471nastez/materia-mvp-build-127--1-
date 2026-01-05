@@ -121,6 +121,15 @@ export default function EmailsPage() {
   // Analytics state
   const [selectedCampaignStats, setSelectedCampaignStats] = useState<CampaignStats | null>(null)
   const [selectedCampaignForStats, setSelectedCampaignForStats] = useState<EmailCampaign | null>(null)
+  const [overviewStats, setOverviewStats] = useState<{
+    total_sent: number
+    total_opened: number
+    total_clicked: number
+    total_unsubscribed: number
+    open_rate: number
+    click_rate: number
+  } | null>(null)
+  const [statsTimeRange, setStatsTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
 
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -128,7 +137,7 @@ export default function EmailsPage() {
 
   useEffect(() => {
     loadData()
-  }, [activeTab])
+  }, [activeTab, statsTimeRange])
 
   const loadData = async () => {
     setLoading(true)
@@ -183,6 +192,36 @@ export default function EmailsPage() {
         .order("created_at", { ascending: false })
 
       setCampaigns(data || [])
+
+      // Load overview stats for Sent tab
+      if (activeTab === "published") {
+        const timeRangeDate = new Date()
+        if (statsTimeRange === "7d") timeRangeDate.setDate(timeRangeDate.getDate() - 7)
+        else if (statsTimeRange === "30d") timeRangeDate.setDate(timeRangeDate.getDate() - 30)
+        else if (statsTimeRange === "90d") timeRangeDate.setDate(timeRangeDate.getDate() - 90)
+        else timeRangeDate.setFullYear(2000)
+
+        const { data: events } = await supabase
+          .from("email_events")
+          .select("event_type, campaign_id")
+          .gte("created_at", timeRangeDate.toISOString())
+          .in("campaign_id", (data || []).map(c => c.id))
+
+        if (events) {
+          const sent = events.filter(e => e.event_type === "sent").length
+          const opened = events.filter(e => e.event_type === "opened").length
+          const clicked = events.filter(e => e.event_type === "clicked").length
+          const unsubscribed = events.filter(e => e.event_type === "unsubscribed").length
+          setOverviewStats({
+            total_sent: sent,
+            total_opened: opened,
+            total_clicked: clicked,
+            total_unsubscribed: unsubscribed,
+            open_rate: sent > 0 ? Math.round((opened / sent) * 100) : 0,
+            click_rate: sent > 0 ? Math.round((clicked / sent) * 100) : 0,
+          })
+        }
+      }
     }
 
     setLoading(false)
@@ -209,41 +248,50 @@ export default function EmailsPage() {
   }
 
   const handleResend = async (campaign: EmailCampaign) => {
-    // Check if campaign has already been resent
-    const supabase = createClient()
-    const { data: sends } = await supabase
-      .from("email_sends")
-      .select("id")
-      .eq("campaign_id", campaign.id)
-      .gt("sent_at", campaign.sent_at || "")
-
-    if (sends && sends.length > 0) {
-      toast({
-        title: "Cannot resend",
-        description: "This email has already been resent once.",
-        variant: "destructive",
-      })
-      return
-    }
+    if (!creatorId) return
 
     setIsSending(true)
+    const supabase = createClient()
+
     try {
+      // Create a new campaign as a copy with "(Resend)" in subject
+      const { data: newCampaign, error: createError } = await supabase
+        .from("email_campaigns")
+        .insert({
+          creator_id: creatorId,
+          subject: campaign.subject.includes("(Resend)")
+            ? campaign.subject
+            : `${campaign.subject} (Resend)`,
+          body: campaign.body,
+          preview_text: campaign.preview_text,
+          status: "draft",
+          audience_type: campaign.audience_type,
+          segment_id: campaign.segment_id,
+        })
+        .select()
+        .single()
+
+      if (createError || !newCampaign) {
+        throw new Error("Failed to create resend copy")
+      }
+
+      // Now send the new campaign
       const response = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaign_id: campaign.id, is_resend: true }),
+        body: JSON.stringify({ campaign_id: newCampaign.id }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to resend campaign")
+        throw new Error(data.error || "Failed to send resend campaign")
       }
 
       loadData()
       toast({
         title: "Email resent!",
-        description: `Successfully resent to ${data.sent} subscriber${data.sent !== 1 ? "s" : ""}.`,
+        description: `Successfully resent to ${data.sent} subscriber${data.sent !== 1 ? "s" : ""}. A new copy was created in your sent list.`,
       })
     } catch (error) {
       toast({
@@ -451,8 +499,6 @@ export default function EmailsPage() {
 
   // Editor View - Using the new EmailBuilder component
   if (view === "editor") {
-  // Editor View - Using the new EmailBuilder component
-  if (view === "editor") {
     const handleBuilderSave = async (data: { subject: string; body: string; previewText: string }) => {
       if (!creatorId) return
 
@@ -604,8 +650,6 @@ export default function EmailsPage() {
         isSending={isSending}
       />
     )
-  }
-
   }
 
   // List View
@@ -811,6 +855,57 @@ export default function EmailsPage() {
 
         {(activeTab === "published" || activeTab === "scheduled" || activeTab === "drafts") && (
           <div className="space-y-4">
+            {/* Analytics Overview for Sent Tab */}
+            {activeTab === "published" && overviewStats && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-medium text-gray-700">Overview</h2>
+                  <select
+                    value={statsTimeRange}
+                    onChange={(e) => setStatsTimeRange(e.target.value as typeof statsTimeRange)}
+                    className="text-sm border rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  >
+                    <option value="7d">Last 7 days</option>
+                    <option value="30d">Last 30 days</option>
+                    <option value="90d">Last 90 days</option>
+                    <option value="all">All time</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-xl border p-4">
+                    <div className="flex items-center gap-2 text-gray-500 mb-1">
+                      <Send className="h-4 w-4" />
+                      <span className="text-xs font-medium">Total Sent</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{overviewStats.total_sent}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border p-4">
+                    <div className="flex items-center gap-2 text-gray-500 mb-1">
+                      <Eye className="h-4 w-4" />
+                      <span className="text-xs font-medium">Opens</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{overviewStats.total_opened}</p>
+                    <p className="text-xs text-green-600 font-medium">{overviewStats.open_rate}% rate</p>
+                  </div>
+                  <div className="bg-white rounded-xl border p-4">
+                    <div className="flex items-center gap-2 text-gray-500 mb-1">
+                      <MousePointerClick className="h-4 w-4" />
+                      <span className="text-xs font-medium">Clicks</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{overviewStats.total_clicked}</p>
+                    <p className="text-xs text-blue-600 font-medium">{overviewStats.click_rate}% rate</p>
+                  </div>
+                  <div className="bg-white rounded-xl border p-4">
+                    <div className="flex items-center gap-2 text-gray-500 mb-1">
+                      <X className="h-4 w-4" />
+                      <span className="text-xs font-medium">Unsubscribed</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{overviewStats.total_unsubscribed}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {loading ? (
               <div className="bg-white rounded-xl border p-12 text-center">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" />
@@ -831,10 +926,19 @@ export default function EmailsPage() {
             ) : (
               <div className="bg-white rounded-xl border overflow-hidden divide-y">
                 {campaigns.map((campaign) => (
-                  <div key={campaign.id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div
+                    key={campaign.id}
+                    className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => activeTab === "published" ? handleViewStats(campaign) : handleEditCampaign(campaign)}
+                  >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">{campaign.subject}</h3>
+                        <h3 className="font-medium text-gray-900 truncate">
+                          {campaign.subject}
+                          {campaign.subject?.includes("(Resend)") && (
+                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Resent</span>
+                          )}
+                        </h3>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
                           {campaign.sent_at && (
                             <span className="flex items-center gap-1">
@@ -858,34 +962,51 @@ export default function EmailsPage() {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 flex-shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {activeTab === "published" && (
                             <>
-                              <DropdownMenuItem onClick={() => handleViewStats(campaign)}>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewStats(campaign); }}>
                                 <BarChart3 className="h-4 w-4 mr-2" />
                                 View Analytics
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleResend(campaign)} disabled={isSending}>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleResend(campaign); }} disabled={isSending}>
                                 <RefreshCw className="h-4 w-4 mr-2" />
-                                Resend (once only)
+                                Resend
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                            </>
-                          )}
-                          <DropdownMenuItem onClick={() => handleEditCampaign(campaign)}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            {activeTab === "published" ? "View" : "Edit"}
-                          </DropdownMenuItem>
-                          {activeTab !== "published" && (
-                            <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-red-600"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDeleteTarget({ type: "campaign", id: campaign.id })
+                                  setShowDeleteDialog(true)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {activeTab !== "published" && (
+                            <>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditCampaign(campaign); }}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={(e) => {
+                                  e.stopPropagation()
                                   setDeleteTarget({ type: "campaign", id: campaign.id })
                                   setShowDeleteDialog(true)
                                 }}
