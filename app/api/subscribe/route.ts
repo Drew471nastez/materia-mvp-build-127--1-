@@ -29,26 +29,85 @@ export async function POST(request: NextRequest) {
 
     const adminSupabase = createAdminClient()
 
-    const { data: creatorExists } = await adminSupabase.from("creators").select("id").eq("id", creator_id).single()
+    // STEP 1: Resolve the creator_id
+    // The incoming creator_id could be:
+    // 1. An actual creator ID (UUID from creators table)
+    // 2. A user_id (UUID from auth.users)
+    // 3. An owner_id from onepages table
+    // We need to find the correct creator record
+    
+    let resolvedCreatorId: string | null = null
 
-    if (!creatorExists) {
-      // Try checking if it's a user_id instead
+    // First, check if it's directly a creator ID
+    const { data: directCreator } = await adminSupabase
+      .from("creators")
+      .select("id")
+      .eq("id", creator_id)
+      .single()
+
+    if (directCreator) {
+      resolvedCreatorId = directCreator.id
+    } else {
+      // Try to find creator by user_id
       const { data: creatorByUserId } = await adminSupabase
         .from("creators")
         .select("id")
         .eq("user_id", creator_id)
         .single()
 
-      if (!creatorByUserId) {
-        return NextResponse.json({ error: "Invalid creator" }, { status: 400 })
+      if (creatorByUserId) {
+        resolvedCreatorId = creatorByUserId.id
+      } else if (source === "onepage" && source_id) {
+        // If coming from onepage, try to get creator from the onepage record
+        const { data: onepageData } = await adminSupabase
+          .from("onepages")
+          .select("seller_id, creator_id, owner_id")
+          .eq("id", source_id)
+          .single()
+
+        if (onepageData) {
+          // Try seller_id first, then creator_id
+          const possibleCreatorId = onepageData.seller_id || onepageData.creator_id
+          
+          if (possibleCreatorId) {
+            // Verify this is a valid creator
+            const { data: verifiedCreator } = await adminSupabase
+              .from("creators")
+              .select("id")
+              .eq("id", possibleCreatorId)
+              .single()
+
+            if (verifiedCreator) {
+              resolvedCreatorId = verifiedCreator.id
+            }
+          }
+
+          // If still not found, try to find creator by owner_id
+          if (!resolvedCreatorId && onepageData.owner_id) {
+            const { data: creatorByOwner } = await adminSupabase
+              .from("creators")
+              .select("id")
+              .eq("user_id", onepageData.owner_id)
+              .single()
+
+            if (creatorByOwner) {
+              resolvedCreatorId = creatorByOwner.id
+            }
+          }
+        }
       }
     }
 
-    // Check if subscriber already exists
+    if (!resolvedCreatorId) {
+      console.error("Could not resolve creator_id:", creator_id)
+      return NextResponse.json({ error: "Invalid creator" }, { status: 400 })
+    }
+
+    // STEP 2: Check if subscriber already exists
     const { data: existingSubscriber } = await adminSupabase
       .from("subscribers")
       .select("id, status")
-      .eq("creator_id", creator_id)
+      .eq("creator_id", resolvedCreatorId)
       .eq("email", normalizedEmail)
       .single()
 
@@ -77,9 +136,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: "Resubscribed successfully" }, { status: 200 })
     }
 
+    // STEP 3: Insert new subscriber
     const unsubscribeToken = uuidv4()
 
-    // Insert new subscriber
     const { data, error } = await adminSupabase
       .from("subscribers")
       .insert({
@@ -87,7 +146,7 @@ export async function POST(request: NextRequest) {
         name: name || null,
         source,
         source_id: source_id || null,
-        creator_id,
+        creator_id: resolvedCreatorId,
         status: "subscribed",
         is_active: true,
         subscribed_at: new Date().toISOString(),
