@@ -24,6 +24,8 @@ import {
   MousePointerClick,
   Check,
   X,
+  Copy,
+  RefreshCw,
 } from "lucide-react"
 import { EmailBuilder } from "@/components/email/email-builder"
 import {
@@ -34,13 +36,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
 
 type TabType = "published" | "scheduled" | "drafts" | "subscribers"
 type ViewType = "list" | "editor" | "analytics"
@@ -59,6 +56,7 @@ interface EmailCampaign {
   created_at: string
   from_name?: string
   reply_to?: string
+  template_id?: string
 }
 
 interface Subscriber {
@@ -93,7 +91,7 @@ interface CampaignStats {
 }
 
 const tabs = [
-  { id: "published" as const, label: "Published", icon: Send },
+  { id: "published" as const, label: "Sent", icon: Send },
   { id: "scheduled" as const, label: "Scheduled", icon: Clock },
   { id: "drafts" as const, label: "Drafts", icon: FileText },
   { id: "subscribers" as const, label: "Subscribers", icon: Users },
@@ -108,6 +106,7 @@ export default function EmailsPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [creatorId, setCreatorId] = useState<string | null>(null)
+  const { toast } = useToast()
 
   // Editor state
   const [editingCampaign, setEditingCampaign] = useState<EmailCampaign | null>(null)
@@ -116,7 +115,6 @@ export default function EmailsPage() {
   const [previewText, setPreviewText] = useState("")
   const [audienceType, setAudienceType] = useState("all")
   const [selectedSegment, setSelectedSegment] = useState<string>("")
-  const [scheduledAt, setScheduledAt] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [isSending, setIsSending] = useState(false)
 
@@ -136,17 +134,15 @@ export default function EmailsPage() {
     setLoading(true)
     const supabase = createClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) {
       setLoading(false)
       return
     }
 
-    const { data: creator } = await supabase
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
+    const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
 
     if (!creator) {
       setLoading(false)
@@ -199,7 +195,6 @@ export default function EmailsPage() {
     setPreviewText("")
     setAudienceType("all")
     setSelectedSegment("")
-    setScheduledAt("")
     setView("editor")
   }
 
@@ -210,128 +205,52 @@ export default function EmailsPage() {
     setPreviewText(campaign.preview_text || "")
     setAudienceType(campaign.audience_type)
     setSelectedSegment(campaign.segment_id || "")
-    setScheduledAt(campaign.scheduled_at ? new Date(campaign.scheduled_at).toISOString().slice(0, 16) : "")
     setView("editor")
   }
 
-  const handleSaveDraft = async () => {
-    if (!creatorId || !subject.trim()) return
-
-    setIsSaving(true)
+  const handleResend = async (campaign: EmailCampaign) => {
+    // Check if campaign has already been resent
     const supabase = createClient()
+    const { data: sends } = await supabase
+      .from("email_sends")
+      .select("id")
+      .eq("campaign_id", campaign.id)
+      .gt("sent_at", campaign.sent_at || "")
 
-    const campaignData = {
-      creator_id: creatorId,
-      subject,
-      body,
-      preview_text: previewText || null,
-      status: "draft" as const,
-      audience_type: audienceType,
-      segment_id: selectedSegment || null,
+    if (sends && sends.length > 0) {
+      toast({
+        title: "Cannot resend",
+        description: "This email has already been resent once.",
+        variant: "destructive",
+      })
+      return
     }
-
-    if (editingCampaign) {
-      await supabase
-        .from("email_campaigns")
-        .update(campaignData)
-        .eq("id", editingCampaign.id)
-    } else {
-      await supabase.from("email_campaigns").insert(campaignData)
-    }
-
-    setIsSaving(false)
-    setView("list")
-    setActiveTab("drafts")
-    loadData()
-  }
-
-  const handleSchedule = async () => {
-    if (!creatorId || !subject.trim() || !scheduledAt) return
-
-    setIsSaving(true)
-    const supabase = createClient()
-
-    const campaignData = {
-      creator_id: creatorId,
-      subject,
-      body,
-      preview_text: previewText || null,
-      status: "scheduled" as const,
-      audience_type: audienceType,
-      segment_id: selectedSegment || null,
-      scheduled_at: new Date(scheduledAt).toISOString(),
-    }
-
-    if (editingCampaign) {
-      await supabase
-        .from("email_campaigns")
-        .update(campaignData)
-        .eq("id", editingCampaign.id)
-    } else {
-      await supabase.from("email_campaigns").insert(campaignData)
-    }
-
-    setIsSaving(false)
-    setView("list")
-    setActiveTab("scheduled")
-    loadData()
-  }
-
-  const handleSendNow = async () => {
-    if (!creatorId || !subject.trim()) return
 
     setIsSending(true)
-    const supabase = createClient()
-
     try {
-      // First save/update the campaign
-      let campaignId = editingCampaign?.id
-
-      const campaignData = {
-        creator_id: creatorId,
-        subject,
-        body,
-        preview_text: previewText || null,
-        audience_type: audienceType,
-        segment_id: selectedSegment || null,
-      }
-
-      if (editingCampaign) {
-        await supabase
-          .from("email_campaigns")
-          .update(campaignData)
-          .eq("id", editingCampaign.id)
-      } else {
-        const { data: newCampaign } = await supabase
-          .from("email_campaigns")
-          .insert({ ...campaignData, status: "draft" })
-          .select()
-          .single()
-        campaignId = newCampaign?.id
-      }
-
-      if (!campaignId) {
-        throw new Error("Failed to create campaign")
-      }
-
-      // Send the campaign
       const response = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaign_id: campaignId }),
+        body: JSON.stringify({ campaign_id: campaign.id, is_resend: true }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to send campaign")
+        throw new Error(data.error || "Failed to resend campaign")
       }
 
-      setView("list")
-      setActiveTab("published")
       loadData()
+      toast({
+        title: "Email resent!",
+        description: `Successfully resent to ${data.sent} subscriber${data.sent !== 1 ? "s" : ""}.`,
+      })
     } catch (error) {
-      console.error("Send error:", error)
-      alert(error instanceof Error ? error.message : "Failed to send email")
+      toast({
+        title: "Failed to resend",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      })
     } finally {
       setIsSending(false)
     }
@@ -345,15 +264,13 @@ export default function EmailsPage() {
     if (deleteTarget.type === "campaign") {
       await supabase.from("email_campaigns").delete().eq("id", deleteTarget.id)
     } else {
-      await supabase
-        .from("subscribers")
-        .update({ is_active: false, status: "unsubscribed" })
-        .eq("id", deleteTarget.id)
+      await supabase.from("subscribers").update({ is_active: false, status: "unsubscribed" }).eq("id", deleteTarget.id)
     }
 
     setShowDeleteDialog(false)
     setDeleteTarget(null)
     loadData()
+    toast({ title: "Deleted", description: deleteTarget.type === "campaign" ? "Email deleted" : "Subscriber removed" })
   }
 
   const handleViewStats = async (campaign: EmailCampaign) => {
@@ -361,10 +278,7 @@ export default function EmailsPage() {
     const supabase = createClient()
 
     // Get event counts
-    const { data: events } = await supabase
-      .from("email_events")
-      .select("event_type")
-      .eq("campaign_id", campaign.id)
+    const { data: events } = await supabase.from("email_events").select("event_type").eq("campaign_id", campaign.id)
 
     const counts = {
       sent: 0,
@@ -399,7 +313,7 @@ export default function EmailsPage() {
     (s) =>
       s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.source.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
   const formatDate = (dateString: string) => {
@@ -426,18 +340,11 @@ export default function EmailsPage() {
         <div className="bg-white border-b sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setView("list")}
-                className="h-9 w-9"
-              >
+              <Button variant="ghost" size="icon" onClick={() => setView("list")} className="h-9 w-9">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {selectedCampaignForStats.subject}
-                </h1>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl font-semibold text-gray-900 truncate">{selectedCampaignForStats.subject}</h1>
                 <p className="text-sm text-gray-500">
                   Sent {formatDateTime(selectedCampaignForStats.sent_at || selectedCampaignForStats.created_at)}
                 </p>
@@ -454,42 +361,75 @@ export default function EmailsPage() {
                 <Send className="h-4 w-4" />
                 <span className="text-xs font-medium">Sent</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">
-                {selectedCampaignStats.total_sent}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{selectedCampaignStats.total_sent}</p>
             </div>
             <div className="bg-white rounded-xl border p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <Eye className="h-4 w-4" />
                 <span className="text-xs font-medium">Opens</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">
-                {selectedCampaignStats.opened}
-              </p>
-              <p className="text-xs text-gray-500">
-                {selectedCampaignStats.open_rate}% rate
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{selectedCampaignStats.opened}</p>
+              <p className="text-xs text-green-600 font-medium">{selectedCampaignStats.open_rate}% rate</p>
             </div>
             <div className="bg-white rounded-xl border p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <MousePointerClick className="h-4 w-4" />
                 <span className="text-xs font-medium">Clicks</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">
-                {selectedCampaignStats.clicked}
-              </p>
-              <p className="text-xs text-gray-500">
-                {selectedCampaignStats.click_rate}% rate
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{selectedCampaignStats.clicked}</p>
+              <p className="text-xs text-blue-600 font-medium">{selectedCampaignStats.click_rate}% rate</p>
             </div>
             <div className="bg-white rounded-xl border p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <X className="h-4 w-4" />
                 <span className="text-xs font-medium">Unsubscribed</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">
-                {selectedCampaignStats.unsubscribed}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{selectedCampaignStats.unsubscribed}</p>
+            </div>
+          </div>
+
+          {/* Performance Indicators */}
+          <div className="bg-white rounded-xl border p-6 mb-6">
+            <h3 className="font-semibold text-gray-900 mb-4">Performance</h3>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Open Rate</span>
+                  <span className="font-medium">{selectedCampaignStats.open_rate}%</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 rounded-full transition-all"
+                    style={{ width: `${Math.min(selectedCampaignStats.open_rate, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedCampaignStats.open_rate >= 20
+                    ? "Great! Above average"
+                    : selectedCampaignStats.open_rate >= 10
+                      ? "Good performance"
+                      : "Consider improving subject line"}
+                </p>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Click Rate</span>
+                  <span className="font-medium">{selectedCampaignStats.click_rate}%</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all"
+                    style={{ width: `${Math.min(selectedCampaignStats.click_rate * 5, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedCampaignStats.click_rate >= 5
+                    ? "Excellent engagement!"
+                    : selectedCampaignStats.click_rate >= 2
+                      ? "Good click rate"
+                      : "Add clearer CTAs"}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -509,6 +449,8 @@ export default function EmailsPage() {
     )
   }
 
+  // Editor View - Using the new EmailBuilder component
+  if (view === "editor") {
   // Editor View - Using the new EmailBuilder component
   if (view === "editor") {
     const handleBuilderSave = async (data: { subject: string; body: string; previewText: string }) => {
@@ -540,6 +482,7 @@ export default function EmailsPage() {
       setView("list")
       setActiveTab("drafts")
       loadData()
+      toast({ title: "Draft saved", description: "Your email draft has been saved." })
     }
 
     const handleBuilderSend = async (data: { subject: string; body: string; previewText: string }) => {
@@ -584,17 +527,26 @@ export default function EmailsPage() {
           body: JSON.stringify({ campaign_id: campaignId }),
         })
 
+        const responseData = await response.json()
+
         if (!response.ok) {
-          const responseData = await response.json()
           throw new Error(responseData.error || "Failed to send campaign")
         }
 
         setView("list")
         setActiveTab("published")
         loadData()
+        toast({
+          title: "Email sent!",
+          description: `Successfully sent to ${responseData.sent} subscribers.`,
+        })
       } catch (error) {
         console.error("Send error:", error)
-        alert(error instanceof Error ? error.message : "Failed to send email")
+        toast({
+          title: "Failed to send",
+          description: error instanceof Error ? error.message : "An error occurred",
+          variant: "destructive",
+        })
       } finally {
         setIsSending(false)
       }
@@ -630,6 +582,10 @@ export default function EmailsPage() {
       setView("list")
       setActiveTab("scheduled")
       loadData()
+      toast({
+        title: "Email scheduled",
+        description: "Your email has been scheduled.",
+      })
     }
 
     return (
@@ -650,6 +606,8 @@ export default function EmailsPage() {
     )
   }
 
+  }
+
   // List View
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -659,21 +617,16 @@ export default function EmailsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-gray-900">Emails</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Send updates and manage your subscribers
-              </p>
+              <p className="text-sm text-gray-500 mt-0.5">Send updates and manage your subscribers</p>
             </div>
-            <Button
-              onClick={handleNewEmail}
-              className="bg-gray-900 hover:bg-gray-800 text-white h-9 px-4 rounded-lg"
-            >
+            <Button onClick={handleNewEmail} className="bg-gray-900 hover:bg-gray-800 text-white h-9 px-4 rounded-lg">
               <Plus className="h-4 w-4 mr-2" />
               New email
             </Button>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mt-4 -mb-px">
+          <div className="flex gap-1 mt-4 -mb-px overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
@@ -681,10 +634,10 @@ export default function EmailsPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2",
+                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 whitespace-nowrap",
                     activeTab === tab.id
                       ? "border-gray-900 text-gray-900 bg-gray-50"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
+                      : "border-transparent text-gray-500 hover:text-gray-700",
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -701,23 +654,29 @@ export default function EmailsPage() {
         {activeTab === "subscribers" && (
           <div className="space-y-4">
             {/* Stats Summary */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="bg-white rounded-xl border p-4">
-                <p className="text-sm text-gray-500">Total Subscribers</p>
+                <p className="text-sm text-gray-500">Total</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {subscribers.filter((s) => s.status === "subscribed").length}
                 </p>
               </div>
               <div className="bg-white rounded-xl border p-4">
-                <p className="text-sm text-gray-500">From OnePage</p>
+                <p className="text-sm text-gray-500">OnePage</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {subscribers.filter((s) => s.source === "onepage" && s.status === "subscribed").length}
                 </p>
               </div>
               <div className="bg-white rounded-xl border p-4">
-                <p className="text-sm text-gray-500">From Store</p>
+                <p className="text-sm text-gray-500">Store</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {subscribers.filter((s) => s.source === "store_builder" && s.status === "subscribed").length}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl border p-4">
+                <p className="text-sm text-gray-500">Unsubscribed</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {subscribers.filter((s) => s.status === "unsubscribed").length}
                 </p>
               </div>
             </div>
@@ -743,103 +702,107 @@ export default function EmailsPage() {
                 <div className="text-center py-12">
                   <Users className="h-12 w-12 mx-auto text-gray-300 mb-3" />
                   <p className="text-gray-500 text-sm">No subscribers yet</p>
-                  <p className="text-gray-400 text-xs mt-1">
-                    Subscribers from your OnePage and Store will appear here
-                  </p>
+                  <p className="text-gray-400 text-xs mt-1">Subscribers from your OnePage and Store will appear here</p>
                 </div>
               ) : (
-                <div className="divide-y">
-                  {/* Header */}
-                  <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="col-span-4">Email</div>
-                    <div className="col-span-2">Name</div>
-                    <div className="col-span-2">Source</div>
-                    <div className="col-span-2">Status</div>
-                    <div className="col-span-1">Date</div>
-                    <div className="col-span-1"></div>
-                  </div>
-
-                  {/* Rows */}
-                  {filteredSubscribers.map((subscriber) => (
-                    <div
-                      key={subscriber.id}
-                      className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="col-span-4">
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-900 truncate">
-                            {subscriber.email}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-sm text-gray-600">
-                          {subscriber.name || "-"}
-                        </span>
-                      </div>
-                      <div className="col-span-2">
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
-                            subscriber.source === "onepage"
-                              ? "bg-blue-50 text-blue-700"
-                              : "bg-purple-50 text-purple-700"
-                          )}
-                        >
-                          {subscriber.source === "onepage" ? (
-                            <Link2 className="h-3 w-3" />
-                          ) : (
-                            <Store className="h-3 w-3" />
-                          )}
-                          {subscriber.source === "onepage" ? "OnePage" : "Store"}
-                        </span>
-                      </div>
-                      <div className="col-span-2">
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-                            subscriber.status === "subscribed"
-                              ? "bg-green-50 text-green-700"
-                              : "bg-gray-100 text-gray-500"
-                          )}
-                        >
-                          {subscriber.status === "subscribed" ? (
-                            <Check className="h-3 w-3" />
-                          ) : (
-                            <X className="h-3 w-3" />
-                          )}
-                          {subscriber.status}
-                        </span>
-                      </div>
-                      <div className="col-span-1">
-                        <span className="text-xs text-gray-500">
-                          {formatDate(subscriber.subscribed_at)}
-                        </span>
-                      </div>
-                      <div className="col-span-1 flex justify-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => {
-                                setDeleteTarget({ type: "subscriber", id: subscriber.id })
-                                setShowDeleteDialog(true)
-                              }}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left">Email</th>
+                        <th className="px-4 py-3 text-left hidden sm:table-cell">Name</th>
+                        <th className="px-4 py-3 text-left">Source</th>
+                        <th className="px-4 py-3 text-left hidden md:table-cell">Status</th>
+                        <th className="px-4 py-3 text-left hidden lg:table-cell">Date</th>
+                        <th className="px-4 py-3 text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {filteredSubscribers.map((subscriber) => (
+                        <tr key={subscriber.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-sm text-gray-900 truncate max-w-[200px]">{subscriber.email}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 hidden sm:table-cell">
+                            <span className="text-sm text-gray-600">{subscriber.name || "-"}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
+                                subscriber.source === "onepage"
+                                  ? "bg-blue-50 text-blue-700"
+                                  : "bg-purple-50 text-purple-700",
+                              )}
                             >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Remove
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ))}
+                              {subscriber.source === "onepage" ? (
+                                <Link2 className="h-3 w-3" />
+                              ) : (
+                                <Store className="h-3 w-3" />
+                              )}
+                              <span className="hidden sm:inline">
+                                {subscriber.source === "onepage" ? "OnePage" : "Store"}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
+                                subscriber.status === "subscribed"
+                                  ? "bg-green-50 text-green-700"
+                                  : "bg-gray-100 text-gray-500",
+                              )}
+                            >
+                              {subscriber.status === "subscribed" ? (
+                                <Check className="h-3 w-3" />
+                              ) : (
+                                <X className="h-3 w-3" />
+                              )}
+                              {subscriber.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 hidden lg:table-cell">
+                            <span className="text-xs text-gray-500">{formatDate(subscriber.subscribed_at)}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(subscriber.email)
+                                    toast({ title: "Copied", description: "Email copied to clipboard" })
+                                  }}
+                                >
+                                  <Copy className="h-4 w-4 mr-2" />
+                                  Copy email
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => {
+                                    setDeleteTarget({ type: "subscriber", id: subscriber.id })
+                                    setShowDeleteDialog(true)
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Remove
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -860,7 +823,7 @@ export default function EmailsPage() {
                   {activeTab === "scheduled" && "No scheduled emails"}
                   {activeTab === "drafts" && "No draft emails"}
                 </p>
-                <Button variant="outline" className="mt-4" onClick={handleNewEmail}>
+                <Button variant="outline" className="mt-4 bg-transparent" onClick={handleNewEmail}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create your first email
                 </Button>
@@ -868,16 +831,11 @@ export default function EmailsPage() {
             ) : (
               <div className="bg-white rounded-xl border overflow-hidden divide-y">
                 {campaigns.map((campaign) => (
-                  <div
-                    key={campaign.id}
-                    className="p-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
+                  <div key={campaign.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">
-                          {campaign.subject}
-                        </h3>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                        <h3 className="font-medium text-gray-900 truncate">{campaign.subject}</h3>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
                           {campaign.sent_at && (
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3.5 w-3.5" />
@@ -887,7 +845,7 @@ export default function EmailsPage() {
                           {campaign.scheduled_at && (
                             <span className="flex items-center gap-1">
                               <Clock className="h-3.5 w-3.5" />
-                              Scheduled {formatDateTime(campaign.scheduled_at)}
+                              {formatDateTime(campaign.scheduled_at)}
                             </span>
                           )}
                           {campaign.audience_count > 0 && (
@@ -900,16 +858,23 @@ export default function EmailsPage() {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {activeTab === "published" && (
-                            <DropdownMenuItem onClick={() => handleViewStats(campaign)}>
-                              <BarChart3 className="h-4 w-4 mr-2" />
-                              View Analytics
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuItem onClick={() => handleViewStats(campaign)}>
+                                <BarChart3 className="h-4 w-4 mr-2" />
+                                View Analytics
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleResend(campaign)} disabled={isSending}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Resend (once only)
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
                           )}
                           <DropdownMenuItem onClick={() => handleEditCampaign(campaign)}>
                             <Eye className="h-4 w-4 mr-2" />
