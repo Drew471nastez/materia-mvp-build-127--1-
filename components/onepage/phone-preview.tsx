@@ -176,21 +176,19 @@ function NotificationBell({ sellerName, scale = "small", style = "glass" }: { se
   )
 }
 
-// Share Button Component for Phone Preview
+// Share Button Component for Phone Preview - positioned on LEFT side
 function ShareButtonPreview({
   sellerName,
   avatarUrl,
   pageUrl,
   scale = "small",
   style = "white",
-  showSubscribe = true,
 }: {
   sellerName: string
   avatarUrl?: string | null
   pageUrl: string
   scale?: "small" | "normal"
   style?: "glass" | "white" | "black"
-  showSubscribe?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -223,8 +221,8 @@ function ShareButtonPreview({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Position: next to subscribe button on right side if subscribe is shown
-  const positionClass = showSubscribe ? "absolute top-12 right-[42px] z-30" : "absolute top-12 right-3 z-30"
+  // Position: top LEFT side in phone preview (mobile style)
+  const positionClass = "absolute top-12 left-3 z-30"
 
   return (
     <div className={positionClass}>
@@ -643,7 +641,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000090"} opacity={(theme as any).pattern_opacity || "medium"} />
             )}
 
-            {/* Share Button - conditionally rendered based on share settings */}
+            {/* Share Button - positioned on LEFT side, conditionally rendered */}
             {settings?.share_enabled !== false && (
               <ShareButtonPreview
                 sellerName={sellerName}
@@ -651,7 +649,6 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 pageUrl={`https://storelib.co/l/${(onepage as any).slug || 'preview'}`}
                 scale="small"
                 style={(settings as any)?.share_style || "white"}
-                showSubscribe={settings?.subscribe_enabled !== false}
               />
             )}
 
