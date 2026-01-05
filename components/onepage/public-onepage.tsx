@@ -23,7 +23,8 @@ function NotificationBell({
   sellerName,
   sellerId,
   onepageId,
-}: { sellerName: string; sellerId: string | null; onepageId: string }) {
+  style = "glass",
+}: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black" }) {
   const [isOpen, setIsOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -75,41 +76,95 @@ function NotificationBell({
     }
   }
 
+  const styles = {
+    glass: {
+      buttonBg: "rgba(255, 255, 255, 0.15)",
+      buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
+      panelBg: "rgba(255, 255, 255, 0.2)",
+      panelBorder: "1px solid rgba(255, 255, 255, 0.3)",
+      iconColor: "text-white/80",
+      textColor: "text-white/90",
+      inputBg: "bg-white/20",
+      inputBorder: "border-white/30",
+      inputText: "text-white",
+      inputPlaceholder: "placeholder-white/50",
+      buttonSubmitBg: "bg-white/30 hover:bg-white/40",
+      dotColor: "bg-white/60",
+      shadow: "0 0 8px rgba(255, 255, 255, 0.6)",
+    },
+    white: {
+      buttonBg: "rgba(255, 255, 255, 0.95)",
+      buttonBorder: "1px solid rgba(0, 0, 0, 0.1)",
+      panelBg: "rgba(255, 255, 255, 0.95)",
+      panelBorder: "1px solid rgba(0, 0, 0, 0.1)",
+      iconColor: "text-gray-700",
+      textColor: "text-gray-900",
+      inputBg: "bg-gray-100",
+      inputBorder: "border-gray-200",
+      inputText: "text-gray-900",
+      inputPlaceholder: "placeholder-gray-400",
+      buttonSubmitBg: "bg-gray-900 hover:bg-gray-800 text-white",
+      dotColor: "bg-blue-500",
+      shadow: "0 0 6px rgba(59, 130, 246, 0.5)",
+    },
+    black: {
+      buttonBg: "rgba(0, 0, 0, 0.75)",
+      buttonBorder: "1px solid rgba(255, 255, 255, 0.1)",
+      panelBg: "rgba(0, 0, 0, 0.85)",
+      panelBorder: "1px solid rgba(255, 255, 255, 0.15)",
+      iconColor: "text-white/90",
+      textColor: "text-white/90",
+      inputBg: "bg-white/10",
+      inputBorder: "border-white/20",
+      inputText: "text-white",
+      inputPlaceholder: "placeholder-white/40",
+      buttonSubmitBg: "bg-white/20 hover:bg-white/30 text-white",
+      dotColor: "bg-white/70",
+      shadow: "0 0 8px rgba(255, 255, 255, 0.4)",
+    },
+  }
+
+  const s = styles[style]
+
   return (
     <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50">
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full backdrop-blur-md transition-all duration-300 hover:scale-105"
+        className={cn(
+          "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 hover:scale-105",
+          style === "glass" && "backdrop-blur-md",
+        )}
         style={{
-          background: "rgba(255, 255, 255, 0.15)",
-          border: "1px solid rgba(255, 255, 255, 0.2)",
+          background: s.buttonBg,
+          border: s.buttonBorder,
           boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
         }}
       >
         <Bell
-          className="w-5 h-5 sm:w-[22px] sm:h-[22px] text-white/80"
+          className={cn("w-5 h-5 sm:w-[22px] sm:h-[22px]", s.iconColor)}
           style={{
             animation: "bellPulse 3s ease-in-out infinite",
           }}
         />
         {/* Subtle glow dot */}
         <span
-          className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-white/60 rounded-full"
-          style={{ boxShadow: "0 0 8px rgba(255, 255, 255, 0.6)" }}
+          className={cn("absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full", s.dotColor)}
+          style={{ boxShadow: s.shadow }}
         />
       </button>
 
       {/* Subscribe Panel */}
       <div
         className={cn(
-          "absolute top-0 right-0 overflow-hidden transition-all duration-300 ease-out rounded-2xl backdrop-blur-lg",
+          "absolute top-0 right-0 overflow-hidden transition-all duration-300 ease-out rounded-2xl",
+          style === "glass" && "backdrop-blur-lg",
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
         )}
         style={{
           width: isOpen ? 220 : 44,
-          background: "rgba(255, 255, 255, 0.2)",
-          border: "1px solid rgba(255, 255, 255, 0.3)",
+          background: s.panelBg,
+          border: s.panelBorder,
           boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
           transformOrigin: "top right",
           transform: isOpen ? "scale(1)" : "scale(0.5)",
@@ -117,19 +172,32 @@ function NotificationBell({
       >
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-white/90 truncate pr-2">Subscribe to {sellerName}</span>
-            <button onClick={() => setIsOpen(false)} className="p-1 rounded-full hover:bg-white/20 transition-colors">
-              <X className="w-3.5 h-3.5 text-white/70" />
+            <span className={cn("text-xs font-medium truncate pr-2", s.textColor)}>Subscribe to {sellerName}</span>
+            <button
+              onClick={() => setIsOpen(false)}
+              className={cn(
+                "p-1 rounded-full transition-colors",
+                style === "white" ? "hover:bg-gray-100" : "hover:bg-white/20",
+              )}
+            >
+              <X className={cn("w-3.5 h-3.5", style === "white" ? "text-gray-500" : "text-white/70")} />
             </button>
           </div>
 
           {submitted ? (
             <div className="text-center py-3 flex flex-col items-center gap-1">
-              <div className="w-8 h-8 rounded-full bg-green-500/30 flex items-center justify-center mb-1">
-                <Check className="w-5 h-5 text-green-400" />
+              <div
+                className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center mb-1",
+                  style === "white" ? "bg-green-100" : "bg-green-500/30",
+                )}
+              >
+                <Check className={cn("w-5 h-5", style === "white" ? "text-green-600" : "text-green-400")} />
               </div>
-              <span className="text-sm text-white/90 font-medium">Subscribed!</span>
-              <span className="text-xs text-white/60">You&apos;ll receive updates</span>
+              <span className={cn("text-sm font-medium", s.textColor)}>Subscribed!</span>
+              <span className={cn("text-xs", style === "white" ? "text-gray-500" : "text-white/60")}>
+                You&apos;ll receive updates
+              </span>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-2.5">
@@ -138,15 +206,29 @@ function NotificationBell({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full px-3 py-2 text-sm rounded-xl bg-white/20 border border-white/30 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
+                className={cn(
+                  "w-full px-3 py-2 text-sm rounded-xl border focus:outline-none",
+                  s.inputBg,
+                  s.inputBorder,
+                  s.inputText,
+                  s.inputPlaceholder,
+                  style === "white" ? "focus:border-gray-400" : "focus:border-white/50",
+                )}
                 required
                 disabled={isSubmitting}
               />
-              {error && <p className="text-xs text-red-300 text-center">{error}</p>}
+              {error && (
+                <p className={cn("text-xs text-center", style === "white" ? "text-red-600" : "text-red-300")}>
+                  {error}
+                </p>
+              )}
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-2 text-sm font-medium rounded-xl bg-white/30 hover:bg-white/40 text-white transition-colors disabled:opacity-50"
+                className={cn(
+                  "w-full py-2 text-sm font-medium rounded-xl transition-colors disabled:opacity-50",
+                  s.buttonSubmitBg,
+                )}
               >
                 {isSubmitting ? "Subscribing..." : "Subscribe"}
               </button>
@@ -995,7 +1077,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
       {/* Notification Bell - Subscribe (only show if enabled and seller_id exists) */}
       {safeSettings.subscribe_enabled !== false && seller_id && (
-        <NotificationBell sellerName={sellerName} sellerId={seller_id} onepageId={onepage.id} />
+        <NotificationBell
+          sellerName={sellerName}
+          sellerId={seller_id}
+          onepageId={onepage.id}
+          style={safeSettings.subscribe_style || "glass"}
+        />
       )}
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally */}
