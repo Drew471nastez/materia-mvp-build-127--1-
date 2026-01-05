@@ -69,6 +69,7 @@ import {
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/components/ui/use-toast"
 
 // Real SVG social icons for brand accuracy
 const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; className?: string }>> = {
@@ -354,6 +355,7 @@ export function LinksTab() {
   // Add button animation state
   const [addButtonClicked, setAddButtonClicked] = useState(false)
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null)
+  const { toast } = useToast()
 
   if (!onepage) return null
 
@@ -361,6 +363,14 @@ export function LinksTab() {
   const sortedBlocks = [...draft_blocks].sort((a, b) => a.sort_order - b.sort_order)
 
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
+    if (type === "header" && sortedBlocks.some(b => b.type === "header")) {
+      toast({
+        title: "Only one header allowed",
+        description: "Remove the existing Header block before adding a new one.",
+      })
+      return
+    }
+
     const newBlock = addBlock(type, insertAfterId || undefined)
     if (preset && newBlock) {
       updateBlock(newBlock.id, { 
@@ -377,20 +387,10 @@ export function LinksTab() {
   }
 
   const handleAddSocial = () => {
-    if (!selectedSocial || !socialUrl) return
-
-    // Validate the URL
-    const validation = validateSocialUrl(selectedSocial, socialUrl)
-
-    if (!validation.valid) {
-      setSocialUrlError(validation.error || "Invalid URL")
-      return
-    }
-
-    // Use transformed URL if available
-    const urlToSave = validation.transformedUrl || socialUrl
-
-    updateSocialLinks({ [selectedSocial]: urlToSave } as Partial<OnePageSocialLinks>)
+    const trimmedUrl = socialUrl.trim()
+    if (!selectedSocial || !trimmedUrl) return
+    
+    updateSocialLinks({ [selectedSocial]: trimmedUrl } as Partial<OnePageSocialLinks>)
     setSelectedSocial(null)
     setSocialUrl("")
     setSocialUrlError(null)
@@ -632,7 +632,6 @@ export function LinksTab() {
 
             {index < sortedBlocks.length - 1 && (
               <div className="relative h-0 -my-3 -mx-1 group/add-divider">
-              <div className="relative h-10 -mx-1 group/add-divider">
                 <button
                   type="button"
                   onClick={() => {
@@ -640,7 +639,6 @@ export function LinksTab() {
                     setShowAddModal(true)
                   }}
                   className="pointer-events-auto absolute inset-0 flex items-center justify-center px-1 focus:outline-none -translate-y-1/2"
-                  className="absolute inset-0 flex items-center justify-center px-1 focus:outline-none"
                   tabIndex={0}
                   aria-label="Add block here"
                 >
@@ -950,7 +948,7 @@ export function LinksTab() {
                       <Button
                         className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl w-full sm:w-auto"
                         onClick={handleAddSocial}
-                        disabled={!socialUrl}
+                        disabled={!socialUrl.trim()}
                       >
                         {social_links?.[selectedSocial as keyof typeof social_links] ? "Update" : "Add"}
                       </Button>
