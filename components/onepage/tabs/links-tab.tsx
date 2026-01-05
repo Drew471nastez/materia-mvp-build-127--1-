@@ -618,21 +618,23 @@ export function LinksTab() {
             </div>
 
             {index < sortedBlocks.length - 1 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setInsertAfterId(block.id)
-                  setShowAddModal(true)
-                }}
-                className="group relative h-9 -mx-1 flex items-center justify-center px-1 focus:outline-none"
-                aria-label="Add block here"
-              >
-                <span className="absolute inset-x-2 h-px bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out" />
-                <span className="absolute inset-x-3 h-px bg-gray-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out" />
-                <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-blue-600 shadow-sm transition-all duration-200 ease-out opacity-0 scale-90 group-hover:opacity-100 group-hover:shadow-lg group-hover:scale-105 focus-visible:opacity-100 focus-visible:scale-105 focus-visible:shadow-lg">
-                  <Plus className="h-4 w-4 transition-transform duration-200 ease-out group-hover:rotate-90" />
-                </span>
-              </button>
+              <div className="relative h-10 -mx-1 group/add-divider">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInsertAfterId(block.id)
+                    setShowAddModal(true)
+                  }}
+                  className="absolute inset-0 flex items-center justify-center px-1 focus:outline-none"
+                  aria-label="Add block here"
+                >
+                  <span className="absolute inset-x-2 h-px bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] rounded-full opacity-0 transition-opacity duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100" />
+                  <span className="absolute inset-x-3 h-px bg-gray-200 rounded-full opacity-0 transition-opacity duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100" />
+                  <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-blue-600 shadow-sm transition-all duration-200 ease-out opacity-0 scale-90 group-hover/add-divider:opacity-100 group-hover/add-divider:shadow-lg group-hover/add-divider:scale-105 group-focus-within/add-divider:opacity-100 group-focus-within/add-divider:shadow-lg group-focus-within/add-divider:scale-105">
+                    <Plus className="h-4 w-4 transition-transform duration-200 ease-out group-hover/add-divider:rotate-90 group-focus-within/add-divider:rotate-90" />
+                  </span>
+                </button>
+              </div>
             )}
           </React.Fragment>
         ))}
