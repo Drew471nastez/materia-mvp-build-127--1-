@@ -353,6 +353,7 @@ export function LinksTab() {
 
   // Add button animation state
   const [addButtonClicked, setAddButtonClicked] = useState(false)
+  const [insertAfterId, setInsertAfterId] = useState<string | null>(null)
 
   if (!onepage) return null
 
@@ -360,7 +361,7 @@ export function LinksTab() {
   const sortedBlocks = [...draft_blocks].sort((a, b) => a.sort_order - b.sort_order)
 
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
-    const newBlock = addBlock(type)
+    const newBlock = addBlock(type, insertAfterId || undefined)
     if (preset && newBlock) {
       updateBlock(newBlock.id, { 
         data: { 
@@ -372,6 +373,7 @@ export function LinksTab() {
     }
     setShowAddModal(false)
     setSearchQuery("")
+    setInsertAfterId(null)
   }
 
   // Social link validation rules
@@ -778,6 +780,7 @@ export function LinksTab() {
       {/* Add Button */}
       <button
         onClick={() => {
+          setInsertAfterId(null)
           setAddButtonClicked(true)
           setTimeout(() => setAddButtonClicked(false), 300)
           setShowAddModal(true)
@@ -805,47 +808,69 @@ export function LinksTab() {
       </div>
 
       {/* Blocks List - Draggable */}
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         {sortedBlocks.map((block, index) => (
-          <div
-            key={block.id}
-            draggable={block.type !== "header"}
-            onDragStart={(e) => block.type !== "header" && handleDragStart(e, block.id)}
-            onDragOver={(e) => handleDragOver(e, block.id)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, block.id)}
-            onDragEnd={handleDragEnd}
-            className={cn(
-              "transition-all duration-200",
-              draggedBlockId === block.id && "opacity-50 scale-[0.98]",
-              dragOverBlockId === block.id && block.type !== "header" && "border-t-2 border-violet-500"
-            )}
-          >
-            <BlockItem
-              block={block}
-              isSelected={selectedBlockId === block.id}
-              onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
-              onRemove={() => removeBlock(block.id)}
-              onMoveUp={() => {
-                // Prevent social_row from moving above header when Hero layout
-                const headerLayout = (onepage.theme as any)?.header_layout || "classic"
-                if (headerLayout === "hero" && block.type === "social_row") {
-                  const headerIndex = sortedBlocks.findIndex(b => b.type === "header")
-                  if (headerIndex !== -1 && index <= headerIndex + 1) {
-                    return // Block the move if it would place social_row above or at header
+          <React.Fragment key={block.id}>
+            <div
+              draggable={block.type !== "header"}
+              onDragStart={(e) => block.type !== "header" && handleDragStart(e, block.id)}
+              onDragOver={(e) => handleDragOver(e, block.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, block.id)}
+              onDragEnd={handleDragEnd}
+              className={cn(
+                "transition-all duration-200",
+                draggedBlockId === block.id && "opacity-50 scale-[0.98]",
+                dragOverBlockId === block.id && block.type !== "header" && "border-t-2 border-violet-500"
+              )}
+            >
+              <BlockItem
+                block={block}
+                isSelected={selectedBlockId === block.id}
+                onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
+                onRemove={() => removeBlock(block.id)}
+                onMoveUp={() => {
+                  // Prevent social_row from moving above header when Hero layout
+                  const headerLayout = (onepage.theme as any)?.header_layout || "classic"
+                  if (headerLayout === "hero" && block.type === "social_row") {
+                    const headerIndex = sortedBlocks.findIndex(b => b.type === "header")
+                    if (headerIndex !== -1 && index <= headerIndex + 1) {
+                      return // Block the move if it would place social_row above or at header
+                    }
                   }
-                }
-                moveBlockUp(block.id)
-              }}
-              onMoveDown={() => moveBlockDown(block.id)}
-              onToggle={() => toggleBlockEnabled(block.id)}
-              isFirst={index === 0 || (block.type === "social_row" && (onepage.theme as any)?.header_layout === "hero" && index === sortedBlocks.findIndex(b => b.type === "header") + 1)}
-              isLast={index === sortedBlocks.length - 1}
-              socialLinks={social_links}
-              onOpenImageLibrary={(blockId) => { setImageBlockId(blockId); setShowImageLibrary(true) }}
-              onOpenSocialModal={() => setShowSocialModal(true)}
-            />
-          </div>
+                  moveBlockUp(block.id)
+                }}
+                onMoveDown={() => moveBlockDown(block.id)}
+                onToggle={() => toggleBlockEnabled(block.id)}
+                isFirst={index === 0 || (block.type === "social_row" && (onepage.theme as any)?.header_layout === "hero" && index === sortedBlocks.findIndex(b => b.type === "header") + 1)}
+                isLast={index === sortedBlocks.length - 1}
+                socialLinks={social_links}
+                onOpenImageLibrary={(blockId) => { setImageBlockId(blockId); setShowImageLibrary(true) }}
+                onOpenSocialModal={() => setShowSocialModal(true)}
+              />
+            </div>
+
+            {index < sortedBlocks.length - 1 && (
+              <div className="relative h-10 -mx-1 group/add-divider">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInsertAfterId(block.id)
+                    setShowAddModal(true)
+                  }}
+                  className="absolute inset-0 flex items-center justify-center px-1 focus:outline-none"
+                  tabIndex={0}
+                  aria-label="Add block here"
+                >
+                  <span className="absolute inset-x-2 h-px bg-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:translate-y-[0.5px] group-focus-within/add-divider:translate-y-[0.5px]" />
+                  <span className="absolute inset-x-3 h-px bg-gray-200 rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:-translate-y-[0.5px] group-focus-within/add-divider:-translate-y-[0.5px]" />
+                  <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-blue-600 shadow-sm transition-all duration-200 ease-out opacity-0 scale-90 group-hover/add-divider:opacity-100 group-hover/add-divider:shadow-lg group-hover/add-divider:scale-105 group-focus-within/add-divider:opacity-100 group-focus-within/add-divider:shadow-lg group-focus-within/add-divider:scale-105">
+                    <Plus className="h-4 w-4 transition-transform duration-200 ease-out group-hover/add-divider:rotate-90 group-focus-within/add-divider:rotate-90" />
+                  </span>
+                </button>
+              </div>
+            )}
+          </React.Fragment>
         ))}
 
         {sortedBlocks.length === 0 && (
@@ -858,7 +883,7 @@ export function LinksTab() {
       </div>
 
       {/* Add Block Modal - Wider on desktop */}
-      <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) setSearchQuery(""); }}>
+      <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); } }}>
     <DialogContent className="w-[calc(100%-32px)] sm:w-[min(800px,calc(100vw-64px))] sm:!max-w-[800px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
 
 
@@ -1136,6 +1161,7 @@ export function LinksTab() {
                       <Button
                         variant="outline"
                         className="flex-1 rounded-xl w-full sm:w-auto"
+                        onClick={() => setSelectedSocial(null)}
                         onClick={() => { setSelectedSocial(null); setSocialUrlError(null); }}
                       >
                         Back
