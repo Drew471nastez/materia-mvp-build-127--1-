@@ -44,7 +44,7 @@ export default async function AppLayout({
         avatarUrl={profile?.avatar_url}
         displayName={profile?.display_name || creator.slug}
       />
-      <main className="min-h-svh pt-14 md:pl-[260px] md:pt-0">
+      <main className="min-h-svh pt-14 md:pl-[220px] md:pt-0">
         <div className="min-h-[calc(100svh-3.5rem)] md:min-h-svh px-4 py-6 sm:px-6 md:px-8">{children}</div>
       </main>
     </div>
