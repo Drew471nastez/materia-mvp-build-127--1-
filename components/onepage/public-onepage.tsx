@@ -312,6 +312,11 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
       <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
     </svg>
   ),
+  threads: ({ size = 20, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 192 192" fill={color}>
+      <path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 125.084 64.8569 132.827 72.0518 138.095C78.0037 142.425 85.7883 144.669 93.8627 144.267C104.67 143.762 113.294 139.372 119.426 131.257C123.968 125.209 126.839 117.661 128.011 108.524C134.151 112.138 138.711 116.852 140.818 122.579C144.283 131.969 144.493 147.389 132.112 159.684C121.329 170.391 108.196 175.168 90.4863 175.313C71.1024 175.146 56.413 169.087 46.743 157.33C37.7196 146.384 33.0206 130.727 32.8218 110.728L32.8218 81.2724C33.0206 61.2734 37.7196 45.6164 46.743 34.6699C56.413 22.9131 71.1024 16.8538 90.4863 16.687C109.996 16.8551 124.983 22.969 135.077 34.8069C139.98 40.5571 143.818 47.559 146.498 55.5601L163.044 50.2802C159.626 40.0171 154.589 31.1436 147.971 23.8628C134.709 9.04939 116.136 1.41406 90.5517 1.18164L90.4209 1.18111C64.9526 1.41299 46.6603 9.0918 33.6384 23.9936C22.3006 36.9827 16.2393 54.9747 16.0037 77.5368V77.5752L16 110.766L16.0037 114.463V114.501C16.2393 137.063 22.3006 155.055 33.6384 168.044C46.6603 182.946 64.9526 190.625 90.4209 190.857L90.5517 190.856C113.049 190.674 129.763 184.282 143.474 170.655C161.387 152.86 160.887 130.625 155.586 117.281C151.64 107.259 143.663 99.0028 132.122 93.3506C131.667 91.8653 131.16 90.3969 130.603 88.9554L141.537 88.9883ZM98.4405 127.461C88.1005 127.987 77.7615 123.461 77.2019 114.047C76.7685 106.846 81.9377 97.7908 99.0178 96.8022C101.279 96.6754 103.499 96.6135 105.678 96.6135C111.478 96.6135 116.931 97.1398 121.955 98.1592C120.066 117.743 109.748 126.885 98.4405 127.461Z"/>
+    </svg>
+  ),
 }
 
 // QR Code component - generates actual scannable QR codes
@@ -669,6 +674,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               onepageId={onepage.id}
               sellerId={seller_id}
               isDesktop={isDesktop}
+              settings={safeSettings}
             />
           ))}
       </div>
@@ -966,6 +972,34 @@ interface PublicBlockRendererProps {
   onepageId: string
   sellerId: string
   isDesktop?: boolean
+  settings?: any
+}
+
+// Verified Badge Component with tooltip
+function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; badgeType?: string }) {
+  const size = isDesktop ? 22 : 18
+  const badgeLabels: Record<string, string> = {
+    verified_creator: "Verified Creator",
+    verified_brand: "Verified Brand",
+    verified_business: "Verified Business",
+    official_page: "Official Page",
+    verified_artist: "Verified Artist",
+  }
+  const label = badgeLabels[badgeType || "verified_creator"] || "Verified"
+
+  return (
+    <span className="group relative inline-flex items-center ml-1.5">
+      <svg viewBox="0 0 22 22" width={size} height={size} className="text-blue-500" fill="currentColor">
+        <path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/>
+      </svg>
+      <span
+        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50"
+        style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+      >
+        {label}
+      </span>
+    </span>
+  )
 }
 
 function PublicBlockRenderer({
@@ -975,6 +1009,7 @@ function PublicBlockRenderer({
   onepageId,
   sellerId,
   isDesktop = false,
+  settings,
 }: PublicBlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [email, setEmail] = useState("")
@@ -1115,7 +1150,7 @@ function PublicBlockRenderer({
               ) : profile.title && (
                 <h1
                   className={cn(
-                    "font-bold",
+                    "font-bold inline-flex items-center justify-center",
                     (theme as any).title_size === "large"
                       ? (isDesktop ? "text-[36px]" : "text-[33px] sm:text-[37px]")
                       : (isDesktop ? "text-[31px]" : "text-[27px] sm:text-[31px]")
@@ -1123,6 +1158,7 @@ function PublicBlockRenderer({
                   style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family, textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}
                 >
                   {profile.title}
+                  {settings?.verified_badge_enabled && <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} />}
                 </h1>
               ))}
               {data.show_bio !== false && profile.bio && (
@@ -1271,7 +1307,7 @@ function PublicBlockRenderer({
           ) : profile.title && (
             <h1
               className={cn(
-                "font-bold text-center",
+                "font-bold text-center inline-flex items-center justify-center",
                 (theme as any).title_size === "large"
                   ? (isDesktop ? "text-[36px]" : "text-[33px] sm:text-[37px]")
                   : (isDesktop ? "text-[31px]" : "text-[27px] sm:text-[31px]")
@@ -1279,6 +1315,7 @@ function PublicBlockRenderer({
               style={{ color: (theme as any).title_color || theme.text_color, fontFamily: (theme as any).title_font || theme.font_family }}
             >
               {profile.title}
+              {settings?.verified_badge_enabled && <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} />}
             </h1>
           ))}
           {data.show_bio !== false && profile.bio && (

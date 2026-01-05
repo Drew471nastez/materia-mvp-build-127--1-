@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, source, source_id, creator_id } = await request.json()
+    const { email, name, source, source_id, creator_id, consent_text } = await request.json()
 
     if (!email || !source || !creator_id) {
       return NextResponse.json(
@@ -29,11 +29,15 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           email: email.toLowerCase().trim(),
+          name: name || null,
           source,
           source_id,
           creator_id,
+          status: "subscribed",
           is_active: true,
           subscribed_at: new Date().toISOString(),
+          consent_text: consent_text || "I agree to receive email updates",
+          consent_timestamp: new Date().toISOString(),
         },
         {
           onConflict: "creator_id,email",
