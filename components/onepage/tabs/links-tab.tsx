@@ -631,6 +631,7 @@ export function LinksTab() {
             </div>
 
             {index < sortedBlocks.length - 1 && (
+              <div className="relative h-0 -my-3 -mx-1 group/add-divider">
               <div className="relative h-10 -mx-1 group/add-divider">
                 <button
                   type="button"
@@ -638,6 +639,7 @@ export function LinksTab() {
                     setInsertAfterId(block.id)
                     setShowAddModal(true)
                   }}
+                  className="pointer-events-auto absolute inset-0 flex items-center justify-center px-1 focus:outline-none -translate-y-1/2"
                   className="absolute inset-0 flex items-center justify-center px-1 focus:outline-none"
                   tabIndex={0}
                   aria-label="Add block here"
