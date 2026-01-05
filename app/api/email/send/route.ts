@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { Resend } from "resend"
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 // POST - Send an email campaign
 export async function POST(request: NextRequest) {
@@ -70,6 +73,10 @@ export async function POST(request: NextRequest) {
         message: "Campaign scheduled successfully",
         scheduled_at: schedule_for,
       })
+    }
+
+    if (!resend) {
+      return NextResponse.json({ error: "Email service not configured (RESEND_API_KEY missing)" }, { status: 500 })
     }
 
     // Get subscribers based on audience type
@@ -150,7 +157,6 @@ export async function POST(request: NextRequest) {
     // Process email content with personalization and tracking
     const senderName = campaign.from_name || profile.display_name || profile.username || "Creator"
 
-    // Send emails (in production, this would use Resend or similar service)
     let sentCount = 0
     let failedCount = 0
 
@@ -187,31 +193,32 @@ export async function POST(request: NextRequest) {
         personalizedBody = personalizedBody.replace("</body>", `${trackingPixel}</body>`)
       }
 
-      // In production, send via Resend API
-      // For now, just mark as sent
       try {
-        // TODO: Integrate with Resend API
-        // const resend = new Resend(process.env.RESEND_API_KEY)
-        // const result = await resend.emails.send({
-        //   from: `${senderName} <noreply@updates.materia.so>`,
-        //   to: subscriber.email,
-        //   subject: campaign.subject,
-        //   html: personalizedBody,
-        //   reply_to: campaign.reply_to || profile.email,
-        // })
+        const result = await resend.emails.send({
+          from: `${senderName} <noreply@updates.materia.so>`,
+          to: subscriber.email,
+          subject: campaign.subject,
+          html: personalizedBody,
+          replyTo: campaign.reply_to || profile.email || undefined,
+        })
 
-        // Update send record
-        await supabase
+        // Check for errors in the response
+        if ((result as any)?.error) {
+          throw new Error((result as any).error.message || "Resend API error")
+        }
+
+        // Update send record with success
+        await adminSupabase
           .from("email_sends")
           .update({
             status: "sent",
             sent_at: new Date().toISOString(),
-            // resend_id: result.id,
+            resend_id: (result as any).id || null,
           })
           .eq("id", send.id)
 
         // Log sent event
-        await supabase.from("email_events").insert({
+        await adminSupabase.from("email_events").insert({
           campaign_id,
           send_id: send.id,
           subscriber_id: subscriber.id,
@@ -222,7 +229,7 @@ export async function POST(request: NextRequest) {
         sentCount++
       } catch (error) {
         console.error(`Failed to send to ${subscriber.email}:`, error)
-        await supabase
+        await adminSupabase
           .from("email_sends")
           .update({
             status: "failed",
