@@ -14,8 +14,118 @@ import type {
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Globe } from "lucide-react"
+import { Globe, Bell, X } from "lucide-react"
 import { useState } from "react"
+
+// Notification Bell Component with Subscribe Form
+function NotificationBell({ sellerName, scale = "small" }: { sellerName: string; scale?: "small" | "normal" }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [email, setEmail] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email) return
+    setIsSubmitting(true)
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 800))
+    setIsSubmitting(false)
+    setSubmitted(true)
+    setTimeout(() => {
+      setIsOpen(false)
+      setSubmitted(false)
+      setEmail("")
+    }, 1500)
+  }
+
+  const size = scale === "small" ? { bell: 28, icon: 14, panel: 160 } : { bell: 36, icon: 18, panel: 200 }
+
+  return (
+    <div className="absolute top-12 right-3 z-30">
+      {/* Bell Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative flex items-center justify-center rounded-full backdrop-blur-md transition-all duration-300 hover:scale-105"
+        style={{
+          width: size.bell,
+          height: size.bell,
+          background: 'rgba(255, 255, 255, 0.15)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <Bell
+          size={size.icon}
+          className="text-white/80 animate-pulse"
+          style={{
+            animationDuration: '3s',
+            animationIterationCount: 'infinite',
+          }}
+        />
+        {/* Subtle glow dot */}
+        <span
+          className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-white/60 rounded-full"
+          style={{ boxShadow: '0 0 6px rgba(255, 255, 255, 0.5)' }}
+        />
+      </button>
+
+      {/* Subscribe Panel - Slides from bell */}
+      <div
+        className={cn(
+          "absolute top-0 right-0 overflow-hidden transition-all duration-300 ease-out rounded-xl backdrop-blur-lg",
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+        style={{
+          width: isOpen ? size.panel : size.bell,
+          background: 'rgba(255, 255, 255, 0.2)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+          transformOrigin: 'top right',
+          transform: isOpen ? 'scale(1)' : 'scale(0.5)',
+        }}
+      >
+        <div className="p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-medium text-white/90 truncate pr-2">
+              Subscribe to {sellerName}
+            </span>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-0.5 rounded-full hover:bg-white/20 transition-colors"
+            >
+              <X size={12} className="text-white/70" />
+            </button>
+          </div>
+
+          {submitted ? (
+            <div className="text-center py-2">
+              <span className="text-[10px] text-white/90">✓ Subscribed!</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-2">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-2 py-1.5 text-[10px] rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
+                required
+              />
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-1.5 text-[10px] font-medium rounded-lg bg-white/30 hover:bg-white/40 text-white transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? "..." : "Submit"}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>> = {
   instagram: ({ size = 20, color = "currentColor" }) => (
@@ -311,6 +421,9 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             {(theme.background_type === "solid" || theme.background_type === "gradient") && (theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
               <BackgroundPattern pattern={(theme as any).background_pattern} color={(theme as any).pattern_color || "#00000090"} opacity={(theme as any).pattern_opacity || "medium"} />
             )}
+
+            {/* Notification Bell */}
+            <NotificationBell sellerName={sellerName} scale="small" />
 
             <div style={{ position: 'relative', zIndex: 1, paddingTop: '45px', paddingBottom: '12px', paddingLeft: '16px', paddingRight: '16px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className={cn("flex flex-col items-center", theme.spacing === "compact" ? "gap-[10px]" : theme.spacing === "comfortable" ? "gap-[14px]" : "gap-[12px]")}>

@@ -408,6 +408,36 @@ export function LinksTab() {
   const { draft_blocks, title, avatar_url, social_links } = onepage
   const sortedBlocks = [...draft_blocks].sort((a, b) => a.sort_order - b.sort_order)
 
+  // Sync social_links to all social_row blocks for instant preview updates
+  useEffect(() => {
+    sortedBlocks.forEach(block => {
+      if (block.type === "social_row") {
+        const data = block.data as SocialRowBlockData
+        const activeSocials = Object.entries(social_links || {})
+          .filter(([_, url]) => url)
+          .map(([platform, url]) => ({ platform: platform as keyof OnePageSocialLinks, url: url as string }))
+
+        const currentPlatforms = new Set((data.platforms || []).map(p => p.platform))
+        const activePlatformSet = new Set(activeSocials.map(s => s.platform))
+        const hasNewPlatforms = activeSocials.some(s => !currentPlatforms.has(s.platform))
+        const hasRemovedPlatforms = (data.platforms || []).some(p => !activePlatformSet.has(p.platform as keyof OnePageSocialLinks))
+
+        if (hasNewPlatforms || hasRemovedPlatforms) {
+          const existingOrder = (data.platforms || []).filter(p => social_links?.[p.platform as keyof typeof social_links])
+          const existingPlatforms = new Set(existingOrder.map(p => p.platform))
+          const newPlatforms = activeSocials.filter(s => !existingPlatforms.has(s.platform))
+
+          updateBlock(block.id, {
+            data: {
+              ...block.data,
+              platforms: [...existingOrder, ...newPlatforms]
+            }
+          })
+        }
+      }
+    })
+  }, [social_links])
+
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
     const newBlock = addBlock(type, insertAfterId || undefined)
     if (preset && newBlock) {
@@ -585,21 +615,34 @@ export function LinksTab() {
             {activeSocials.slice(0, 5).map(([platform]) => {
               const config = SOCIAL_PLATFORMS.find(p => p.id === platform)
               return (
-                <div 
-                  key={platform} 
-                  className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                  style={{ backgroundColor: config?.color || "#6366F1" }}
-                  onClick={() => {
-                    setSelectedSocial(platform)
-                    setSocialUrl(social_links?.[platform as keyof typeof social_links] || "")
-                    setShowSocialModal(true)
-                  }}
+                <div
+                  key={platform}
+                  className="relative group/social"
                 >
-                  <RenderSocialIcon platform={platform} size={14} color="#ffffff" />
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ backgroundColor: config?.color || "#6366F1" }}
+                    onClick={() => {
+                      setSelectedSocial(platform)
+                      setSocialUrl(social_links?.[platform as keyof typeof social_links] || "")
+                      setShowSocialModal(true)
+                    }}
+                  >
+                    <RenderSocialIcon platform={platform} size={14} color="#ffffff" />
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      updateSocialLinks({ [platform]: null } as Partial<OnePageSocialLinks>)
+                    }}
+                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center opacity-0 group-hover/social:opacity-100 transition-opacity hover:bg-gray-900"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
                 </div>
               )
             })}
-            <button 
+            <button
               onClick={() => setShowSocialModal(true)}
               className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors"
             >
@@ -1829,7 +1872,7 @@ function BlockItem({
       className={cn(
         "border rounded-xl bg-white transition-all",
         !isHeaderBlock && "cursor-grab active:cursor-grabbing",
-        isSelected ? "ring-2 ring-violet-500 border-violet-200" : "hover:border-gray-300",
+        isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
         !block.enabled && "opacity-50"
       )}
     >

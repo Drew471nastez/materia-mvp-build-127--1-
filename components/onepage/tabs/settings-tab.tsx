@@ -8,17 +8,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import {
   Globe,
-  Lock,
   Copy,
   Check,
   ChevronRight,
   Upload,
   Image as ImageIcon,
-  Mail,
-  Phone,
   CreditCard,
   FileText,
-  Share2,
   Sparkles,
   X,
   Loader2,
@@ -32,11 +28,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-// Settings sections with Linktree-style icons (removed Analytics)
+// Settings sections with Linktree-style icons
 const SETTINGS_SECTIONS = [
   { id: "basic", label: "Basic Info", icon: FileText },
   { id: "seo", label: "SEO", icon: Globe },
-  { id: "social", label: "Social & Contact", icon: Share2 },
   { id: "billing", label: "Billing", icon: CreditCard },
 ]
 
@@ -52,18 +47,12 @@ export function SettingsTab() {
   // Form states
   const [pageName, setPageName] = useState(onepage?.title || "")
   const [pageSlug, setPageSlug] = useState(onepage?.slug || "")
-  const [pageStatus, setPageStatus] = useState<"draft" | "published">("published")
-  const [visibility, setVisibility] = useState<"public" | "private" | "password">("public")
-  const [password, setPassword] = useState("")
 
   // SEO states
   const [metaTitle, setMetaTitle] = useState(onepage?.settings?.seo_title || onepage?.title || "")
   const [metaDescription, setMetaDescription] = useState(onepage?.settings?.seo_description || onepage?.bio || "")
   const [ogImage, setOgImage] = useState(onepage?.settings?.social_image_url || "")
 
-  // Contact states
-  const [contactEmail, setContactEmail] = useState(onepage?.social_links?.email || "")
-  const [contactPhone, setContactPhone] = useState("")
 
   // Update local state when onepage changes
   useEffect(() => {
@@ -112,21 +101,6 @@ export function SettingsTab() {
         seo_description: metaDescription,
         social_image_url: ogImage || null,
       })
-      await save()
-      setLocalSaveState("saved")
-      setTimeout(() => setLocalSaveState("idle"), 2000)
-    } catch {
-      setLocalSaveState("error")
-      setTimeout(() => setLocalSaveState("idle"), 3000)
-    }
-  }
-
-  const handleSaveContact = async () => {
-    setLocalSaveState("saving")
-    try {
-      // Contact email can be saved to social_links
-      // For now, we'll log and show saved status
-      console.log("Saving Contact:", { contactEmail, contactPhone })
       await save()
       setLocalSaveState("saved")
       setTimeout(() => setLocalSaveState("idle"), 2000)
@@ -264,85 +238,6 @@ export function SettingsTab() {
         </div>
       </div>
 
-      {/* Page Status */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">Page Status</Label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setPageStatus("draft")}
-            className={cn(
-              "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all border",
-              pageStatus === "draft"
-                ? "bg-gray-900 border-gray-900 text-white"
-                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-            )}
-          >
-            Draft
-          </button>
-          <button
-            onClick={() => setPageStatus("published")}
-            className={cn(
-              "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all border",
-              pageStatus === "published"
-                ? "bg-gray-900 border-gray-900 text-white"
-                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-            )}
-          >
-            Published
-          </button>
-        </div>
-      </div>
-
-      {/* Visibility */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">Visibility</Label>
-        <div className="space-y-2">
-          {[
-            { id: "public", label: "Public", desc: "Anyone can view", icon: Globe },
-            { id: "private", label: "Private", desc: "Only you", icon: Lock },
-            { id: "password", label: "Password", desc: "Requires password", icon: Lock },
-          ].map((option) => {
-            const Icon = option.icon
-            return (
-              <button
-                key={option.id}
-                onClick={() => setVisibility(option.id as any)}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
-                  visibility === option.id
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300"
-                )}
-              >
-                <Icon className="h-4 w-4 text-gray-500" />
-                <div className="flex-1">
-                  <p className="font-medium text-sm text-gray-900">{option.label}</p>
-                  <p className="text-xs text-gray-500">{option.desc}</p>
-                </div>
-                <div className={cn(
-                  "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                  visibility === option.id ? "border-blue-500" : "border-gray-300"
-                )}>
-                  {visibility === option.id && <div className="w-2 h-2 rounded-full bg-blue-500" />}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
-        {visibility === "password" && (
-          <div className="mt-3">
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
-              className="h-10 rounded-lg border-gray-200"
-            />
-          </div>
-        )}
-      </div>
-
       <Button
         onClick={handleSaveBasicInfo}
         disabled={isSaving}
@@ -437,67 +332,6 @@ export function SettingsTab() {
 
       <Button
         onClick={handleSaveSeo}
-        disabled={isSaving}
-        className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
-      >
-        {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-        {getSaveButtonText()}
-      </Button>
-    </div>
-  )
-
-  const renderSocial = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-base font-semibold mb-1">Social & Contact</h3>
-        <p className="text-sm text-gray-500">Contact information</p>
-      </div>
-
-      {/* Email */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">Email</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type="email"
-            value={contactEmail}
-            onChange={(e) => setContactEmail(e.target.value)}
-            placeholder="hello@example.com"
-            className="h-10 rounded-lg pl-10 border-gray-200"
-          />
-        </div>
-      </div>
-
-      {/* Phone */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">Phone</Label>
-        <div className="relative">
-          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type="tel"
-            value={contactPhone}
-            onChange={(e) => setContactPhone(e.target.value)}
-            placeholder="+1 (555) 123-4567"
-            className="h-10 rounded-lg pl-10 border-gray-200"
-          />
-        </div>
-      </div>
-
-      {/* Info box */}
-      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-        <div className="flex items-start gap-3">
-          <Share2 className="h-4 w-4 text-gray-500 mt-0.5" />
-          <div>
-            <p className="font-medium text-sm text-gray-900">Social Links</p>
-            <p className="text-xs text-gray-500 mt-1">
-              Manage your social links in the Links tab.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <Button
-        onClick={handleSaveContact}
         disabled={isSaving}
         className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
       >
@@ -602,18 +436,17 @@ export function SettingsTab() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           {activeSection === "basic" && renderBasicInfo()}
           {activeSection === "seo" && renderSeo()}
-          {activeSection === "social" && renderSocial()}
           {activeSection === "billing" && renderBilling()}
         </div>
       </div>
 
       {/* OG Image Upload Modal */}
       <Dialog open={showOgImageModal} onOpenChange={setShowOgImageModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle className="text-base font-semibold">Upload Social Image</DialogTitle>
+        <DialogContent className="w-[calc(100%-24px)] max-w-sm p-0 gap-0 overflow-hidden rounded-xl mx-auto">
+          <DialogHeader className="p-3 border-b">
+            <DialogTitle className="text-sm font-semibold">Upload Social Image</DialogTitle>
           </DialogHeader>
-          <div className="p-4 space-y-4">
+          <div className="p-3 space-y-3">
             <input
               ref={fileInputRef}
               type="file"
@@ -624,31 +457,30 @@ export function SettingsTab() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="w-full aspect-video rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 bg-gray-50 cursor-pointer hover:bg-gray-100 hover:border-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full aspect-[16/9] rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1.5 bg-gray-50 cursor-pointer hover:bg-gray-100 hover:border-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isUploading ? (
                 <>
-                  <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
-                  <span className="text-sm text-gray-500">Uploading...</span>
+                  <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+                  <span className="text-xs text-gray-500">Uploading...</span>
                 </>
               ) : (
                 <>
-                  <Upload className="h-6 w-6 text-gray-400" />
-                  <span className="text-sm text-gray-500">Click to upload</span>
-                  <span className="text-xs text-gray-400">PNG, JPG up to 5MB</span>
+                  <Upload className="h-5 w-5 text-gray-400" />
+                  <span className="text-xs text-gray-500">Click to upload</span>
+                  <span className="text-[10px] text-gray-400">PNG, JPG up to 5MB</span>
                 </>
               )}
             </button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1 rounded-lg h-10"
-                onClick={() => setShowOgImageModal(false)}
-                disabled={isUploading}
-              >
-                Cancel
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full rounded-lg h-8 text-xs"
+              onClick={() => setShowOgImageModal(false)}
+              disabled={isUploading}
+            >
+              Cancel
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

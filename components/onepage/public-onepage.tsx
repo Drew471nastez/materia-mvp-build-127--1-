@@ -16,6 +16,119 @@ import type {
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect } from "react"
+import { Bell, X } from "lucide-react"
+
+// Notification Bell Component with Subscribe Form
+function NotificationBell({ sellerName }: { sellerName: string }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [email, setEmail] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email) return
+    setIsSubmitting(true)
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 800))
+    setIsSubmitting(false)
+    setSubmitted(true)
+    setTimeout(() => {
+      setIsOpen(false)
+      setSubmitted(false)
+      setEmail("")
+    }, 1500)
+  }
+
+  return (
+    <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50">
+      {/* Bell Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full backdrop-blur-md transition-all duration-300 hover:scale-105"
+        style={{
+          background: 'rgba(255, 255, 255, 0.15)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <Bell
+          className="w-5 h-5 sm:w-[22px] sm:h-[22px] text-white/80"
+          style={{
+            animation: 'bellPulse 3s ease-in-out infinite',
+          }}
+        />
+        {/* Subtle glow dot */}
+        <span
+          className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-white/60 rounded-full"
+          style={{ boxShadow: '0 0 8px rgba(255, 255, 255, 0.6)' }}
+        />
+      </button>
+
+      {/* Subscribe Panel */}
+      <div
+        className={cn(
+          "absolute top-0 right-0 overflow-hidden transition-all duration-300 ease-out rounded-2xl backdrop-blur-lg",
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+        style={{
+          width: isOpen ? 220 : 44,
+          background: 'rgba(255, 255, 255, 0.2)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+          transformOrigin: 'top right',
+          transform: isOpen ? 'scale(1)' : 'scale(0.5)',
+        }}
+      >
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-white/90 truncate pr-2">
+              Subscribe to {sellerName}
+            </span>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-1 rounded-full hover:bg-white/20 transition-colors"
+            >
+              <X className="w-3.5 h-3.5 text-white/70" />
+            </button>
+          </div>
+
+          {submitted ? (
+            <div className="text-center py-3">
+              <span className="text-sm text-white/90">✓ Subscribed!</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-2.5">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-3 py-2 text-sm rounded-xl bg-white/20 border border-white/30 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
+                required
+              />
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-2 text-sm font-medium rounded-xl bg-white/30 hover:bg-white/40 text-white transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? "..." : "Submit"}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {/* Bell animation keyframes */}
+      <style>{`
+        @keyframes bellPulse {
+          0%, 100% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.05); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  )
+}
 
 // Dynamic Favicon Component for OnePage
 // Priority: 1. avatar_url, 2. video frame, 3. store builder profile image
@@ -606,6 +719,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       `,
         }}
       />
+
+      {/* Notification Bell - Subscribe */}
+      <NotificationBell sellerName={sellerName} />
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally */}
       <div
