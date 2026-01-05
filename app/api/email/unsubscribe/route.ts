@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // GET - Handle unsubscribe link clicks (renders a confirmation page)
 export async function GET(request: NextRequest) {
@@ -8,15 +8,15 @@ export async function GET(request: NextRequest) {
 
   if (!token) {
     return new NextResponse(
-      generateHtmlPage("Invalid Link", "This unsubscribe link is invalid or has expired."),
-      { status: 400, headers: { "Content-Type": "text/html" } }
+      generateHtmlPage("Invalid Link", "This unsubscribe link is invalid or has expired.", "error"),
+      { status: 400, headers: { "Content-Type": "text/html" } },
     )
   }
 
-  const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   // Find subscriber by unsubscribe token
-  const { data: subscriber, error } = await supabase
+  const { data: subscriber, error } = await adminSupabase
     .from("subscribers")
     .select("id, email, status, creator_id")
     .eq("unsubscribe_token", token)
@@ -24,20 +24,20 @@ export async function GET(request: NextRequest) {
 
   if (error || !subscriber) {
     return new NextResponse(
-      generateHtmlPage("Invalid Link", "This unsubscribe link is invalid or has expired."),
-      { status: 404, headers: { "Content-Type": "text/html" } }
+      generateHtmlPage("Invalid Link", "This unsubscribe link is invalid or has expired.", "error"),
+      { status: 404, headers: { "Content-Type": "text/html" } },
     )
   }
 
   if (subscriber.status === "unsubscribed") {
     return new NextResponse(
-      generateHtmlPage("Already Unsubscribed", "You have already been unsubscribed from this mailing list."),
-      { status: 200, headers: { "Content-Type": "text/html" } }
+      generateHtmlPage("Already Unsubscribed", "You have already been unsubscribed from this mailing list.", "info"),
+      { status: 200, headers: { "Content-Type": "text/html" } },
     )
   }
 
   // Update subscriber status
-  const { error: updateError } = await supabase
+  const { error: updateError } = await adminSupabase
     .from("subscribers")
     .update({
       status: "unsubscribed",
@@ -49,13 +49,13 @@ export async function GET(request: NextRequest) {
   if (updateError) {
     console.error("Error unsubscribing:", updateError)
     return new NextResponse(
-      generateHtmlPage("Error", "There was an error processing your request. Please try again later."),
-      { status: 500, headers: { "Content-Type": "text/html" } }
+      generateHtmlPage("Error", "There was an error processing your request. Please try again later.", "error"),
+      { status: 500, headers: { "Content-Type": "text/html" } },
     )
   }
 
   // Log the unsubscribe event (if we have a recent campaign)
-  const { data: recentCampaign } = await supabase
+  const { data: recentCampaign } = await adminSupabase
     .from("email_campaigns")
     .select("id")
     .eq("creator_id", subscriber.creator_id)
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (recentCampaign) {
-    await supabase.from("email_events").insert({
+    await adminSupabase.from("email_events").insert({
       campaign_id: recentCampaign.id,
       subscriber_id: subscriber.id,
       email: subscriber.email,
@@ -76,9 +76,10 @@ export async function GET(request: NextRequest) {
   return new NextResponse(
     generateHtmlPage(
       "Unsubscribed Successfully",
-      `You (${maskEmail(subscriber.email)}) have been unsubscribed and will no longer receive emails from this sender.`
+      `You (${maskEmail(subscriber.email)}) have been unsubscribed and will no longer receive emails from this sender.`,
+      "success",
     ),
-    { status: 200, headers: { "Content-Type": "text/html" } }
+    { status: 200, headers: { "Content-Type": "text/html" } },
   )
 }
 
@@ -91,10 +92,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing token" }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     // Find subscriber by unsubscribe token
-    const { data: subscriber, error } = await supabase
+    const { data: subscriber, error } = await adminSupabase
       .from("subscribers")
       .select("id, email, status")
       .eq("unsubscribe_token", token)
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     if (action === "resubscribe") {
       // Allow resubscribing
-      const { error: updateError } = await supabase
+      const { error: updateError } = await adminSupabase
         .from("subscribers")
         .update({
           status: "subscribed",
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Default action: unsubscribe
-    const { error: updateError } = await supabase
+    const { error: updateError } = await adminSupabase
       .from("subscribers")
       .update({
         status: "unsubscribed",
@@ -152,7 +153,19 @@ function maskEmail(email: string): string {
 }
 
 // Helper to generate HTML page
-function generateHtmlPage(title: string, message: string): string {
+function generateHtmlPage(title: string, message: string, type: "success" | "error" | "info"): string {
+  const colors = {
+    success: { bg: "#f0fdf4", icon: "#22c55e" },
+    error: { bg: "#fef2f2", icon: "#ef4444" },
+    info: { bg: "#eff6ff", icon: "#3b82f6" },
+  }
+
+  const icons = {
+    success: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`,
+    error: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />`,
+    info: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />`,
+  }
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -164,7 +177,7 @@ function generateHtmlPage(title: string, message: string): string {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #f9fafb;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -174,17 +187,17 @@ function generateHtmlPage(title: string, message: string): string {
     .container {
       background: white;
       border-radius: 16px;
-      padding: 40px;
+      padding: 48px 40px;
       max-width: 420px;
       width: 100%;
       text-align: center;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
     .icon {
       width: 64px;
       height: 64px;
       margin: 0 auto 24px;
-      background: #f0fdf4;
+      background: ${colors[type].bg};
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -193,7 +206,8 @@ function generateHtmlPage(title: string, message: string): string {
     .icon svg {
       width: 32px;
       height: 32px;
-      color: #22c55e;
+      stroke: ${colors[type].icon};
+      fill: none;
     }
     h1 {
       font-size: 24px;
@@ -212,7 +226,7 @@ function generateHtmlPage(title: string, message: string): string {
       border-top: 1px solid #e5e7eb;
     }
     .footer p {
-      font-size: 14px;
+      font-size: 13px;
       color: #9ca3af;
     }
   </style>
@@ -220,8 +234,8 @@ function generateHtmlPage(title: string, message: string): string {
 <body>
   <div class="container">
     <div class="icon">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        ${icons[type]}
       </svg>
     </div>
     <h1>${title}</h1>

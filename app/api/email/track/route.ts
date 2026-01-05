@@ -1,11 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // Transparent 1x1 GIF for tracking pixel
-const TRACKING_PIXEL = Buffer.from(
-  "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-  "base64"
-)
+const TRACKING_PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64")
 
 // GET - Handle tracking pixel (email opens)
 export async function GET(request: NextRequest) {
@@ -19,8 +16,8 @@ export async function GET(request: NextRequest) {
     headers: {
       "Content-Type": "image/gif",
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-      "Pragma": "no-cache",
-      "Expires": "0",
+      Pragma: "no-cache",
+      Expires: "0",
     },
   })
 
@@ -41,10 +38,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     // Record the click event
-    await supabase.from("email_events").insert({
+    await adminSupabase.from("email_events").insert({
       campaign_id,
       send_id: send_id || null,
       subscriber_id: subscriber_id || null,
@@ -57,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Update the send record if we have a send_id
     if (send_id) {
-      await supabase
+      await adminSupabase
         .from("email_sends")
         .update({ clicked_at: new Date().toISOString(), status: "clicked" })
         .eq("id", send_id)
@@ -74,17 +71,17 @@ export async function POST(request: NextRequest) {
 // Helper to track email opens
 async function trackOpen(sendId: string, campaignId: string, request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     // Get the send record to find subscriber info
-    const { data: send } = await supabase
+    const { data: send } = await adminSupabase
       .from("email_sends")
       .select("subscriber_id, email")
       .eq("id", sendId)
       .single()
 
     // Record the open event
-    await supabase.from("email_events").insert({
+    await adminSupabase.from("email_events").insert({
       campaign_id: campaignId,
       send_id: sendId,
       subscriber_id: send?.subscriber_id || null,
@@ -95,7 +92,7 @@ async function trackOpen(sendId: string, campaignId: string, request: NextReques
     })
 
     // Update the send record (only if not already opened)
-    await supabase
+    await adminSupabase
       .from("email_sends")
       .update({ opened_at: new Date().toISOString(), status: "opened" })
       .eq("id", sendId)
