@@ -117,6 +117,51 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
       <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/>
     </svg>
   ),
+  telegram: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+    </svg>
+  ),
+  whatsapp: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+  ),
+  pinterest: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z"/>
+    </svg>
+  ),
+  soundcloud: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.102-.1m-.899.828c-.06 0-.091.037-.104.094L0 14.479l.165 1.308c.014.057.045.094.09.094s.089-.037.099-.094l.19-1.308-.19-1.334c-.01-.057-.045-.09-.09-.09m1.83-1.229c-.061 0-.12.045-.12.104l-.21 2.563.225 2.458c0 .06.045.104.106.104.061 0 .12-.044.12-.104l.24-2.458-.24-2.563c0-.06-.059-.104-.12-.104m.945-.089c-.075 0-.135.06-.15.135l-.193 2.64.21 2.544c.016.077.075.138.149.138.075 0 .135-.061.15-.138l.225-2.544-.225-2.64c-.015-.075-.06-.135-.135-.135m1.065.202c-.09 0-.166.075-.18.165l-.18 2.46.195 2.46c.016.09.09.165.18.165s.165-.075.18-.165l.21-2.46-.21-2.46c-.016-.09-.09-.165-.18-.165m1.065-.202c-.105 0-.195.09-.21.195l-.165 2.685.18 2.43c.015.104.09.179.21.179.105 0 .18-.074.195-.179l.194-2.43-.194-2.685c-.015-.105-.09-.195-.195-.195m1.17-.585c-.12 0-.225.105-.225.225l-.165 3.255.165 2.355c0 .12.105.225.225.225s.225-.105.225-.225l.18-2.355-.18-3.255c0-.12-.105-.225-.225-.225m1.095-.314c-.135 0-.24.105-.255.24l-.15 3.585.15 2.295c.015.135.12.24.255.24.12 0 .24-.105.255-.24l.165-2.295-.165-3.585c-.015-.135-.135-.24-.255-.24m1.17-.135c-.15 0-.27.12-.27.27l-.135 3.705.135 2.235c0 .15.12.27.27.27s.27-.12.27-.27l.15-2.235-.15-3.705c0-.15-.12-.27-.27-.27m1.154.24c-.165 0-.3.135-.315.3l-.105 3.45.105 2.175c.015.165.15.3.315.3.165 0 .3-.135.3-.3l.12-2.175-.12-3.45c-.015-.165-.135-.3-.3-.3m1.155-.48c-.18 0-.33.15-.33.33l-.105 3.915.105 2.13c0 .18.15.33.33.33.18 0 .33-.15.345-.33l.105-2.13-.105-3.915c-.015-.18-.165-.33-.345-.33m1.2-.48c-.195 0-.36.165-.36.36l-.09 4.335.09 2.085c0 .195.165.36.36.36s.36-.165.36-.36l.105-2.085-.105-4.335c0-.195-.165-.36-.36-.36m1.125 1.725c-.21 0-.375.18-.39.39l-.06 2.22.075 2.025c.015.21.18.375.375.375.21 0 .375-.165.39-.375l.075-2.025-.075-2.22c-.015-.21-.18-.39-.39-.39m8.67-1.17c-.48 0-.93.09-1.35.27-.27-3.03-2.82-5.415-5.94-5.415-.75 0-1.485.15-2.145.405-.255.105-.33.21-.33.405v10.725c0 .21.165.39.375.405h9.39c1.995 0 3.615-1.62 3.615-3.615s-1.62-3.615-3.615-3.615"/>
+    </svg>
+  ),
+  kick: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M1.333 0v24h5.334v-8l2.666 2.667L14.667 24H22l-8-9.333L22 5.333h-7.333l-5.334 6.334V0H1.333z"/>
+    </svg>
+  ),
+  discord: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/>
+    </svg>
+  ),
+  snapchat: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301a.32.32 0 01.135-.03c.085 0 .166.022.23.06.105.06.195.18.195.33 0 .135-.06.27-.165.345a1.964 1.964 0 01-.615.255c-.27.09-.57.165-.87.225-.18.045-.33.105-.42.195-.12.12-.165.285-.195.45-.015.105-.015.195-.015.285 0 .105.045.195.09.285a1.05 1.05 0 00.45.42c.09.06.18.12.285.165.645.345 1.215.855 1.635 1.455.33.465.54.96.615 1.485.06.39-.015.795-.225 1.14-.345.57-1.065.945-2.205 1.125-.18.03-.375.06-.585.09-.195.03-.405.06-.645.09-.105.015-.18.075-.225.15-.045.09-.12.315-.195.555-.09.27-.15.45-.24.585-.24.36-.72.585-1.35.585-.21 0-.435-.03-.675-.06-.315-.045-.69-.09-1.14-.09-.18 0-.375.015-.57.03-.18.015-.36.03-.555.03-.585 0-1.17-.12-1.725-.36-.735-.315-1.395-.9-1.98-1.755-.855-1.26-.705-2.4-.63-2.64a.615.615 0 00-.165-.57 1.05 1.05 0 00-.525-.27c-.315-.075-.69-.12-1.11-.195-1.14-.18-1.86-.555-2.205-1.125-.21-.345-.285-.75-.225-1.14.075-.525.285-1.02.615-1.485.42-.6.99-1.11 1.635-1.455.105-.06.195-.105.285-.165.195-.12.36-.27.45-.42a.568.568 0 00.09-.285c0-.09-.015-.18-.015-.285-.03-.165-.075-.33-.195-.45-.09-.09-.24-.15-.42-.195a6.044 6.044 0 01-.87-.225 1.964 1.964 0 01-.615-.255.379.379 0 01-.165-.345c0-.15.09-.27.195-.33a.385.385 0 01.23-.06c.045 0 .09.015.135.03.374.18.733.287 1.033.301.198 0 .326-.045.401-.09-.008-.165-.018-.33-.03-.51l-.003-.06c-.104-1.628-.23-3.654.299-4.847C7.859 1.069 11.216.793 12.206.793z"/>
+    </svg>
+  ),
+  threads: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.96-.065-1.182.408-2.256 1.33-3.022.907-.754 2.063-1.05 3.096-1.05.344 0 .672.026.984.074l.048-.3c.055-.334.076-.63.063-.9-.053-1.024-.489-1.721-1.296-2.073-.515-.224-1.17-.319-1.832-.267-.768.062-1.416.303-1.929.72-.447.363-.756.844-.868 1.349l-2.05-.421c.256-1.203.892-2.188 1.86-2.866.94-.658 2.15-1.024 3.51-1.061.066-.002.13-.003.195-.003.972 0 1.896.178 2.694.54 1.33.602 2.168 1.726 2.359 3.163.04.307.051.622.035.949l.5.007c1.698.118 2.928.639 3.759 1.597.857.987 1.227 2.397 1.134 4.316-.068 1.393-.522 2.833-1.316 4.172-.759 1.279-1.9 2.354-3.394 3.2-1.618.918-3.561 1.405-5.618 1.41zM10.75 13.39c-.614 0-1.378.126-1.93.585-.436.362-.648.85-.612 1.41.045.732.488 1.304 1.249 1.611.404.163.89.242 1.387.222 1.036-.053 1.818-.424 2.323-1.104.343-.46.567-1.03.668-1.703-.57-.175-1.3-.293-2.009-.42-.367-.068-.716-.132-1.014-.206l-.062-.394z"/>
+    </svg>
+  ),
+  patreon: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M0 .48v23.04h4.22V.48zm15.385 0c-4.764 0-8.641 3.88-8.641 8.65 0 4.755 3.877 8.623 8.641 8.623 4.75 0 8.615-3.868 8.615-8.623C24 4.36 20.136.48 15.385.48z"/>
+    </svg>
+  ),
   website: ({ size = 20, color = "currentColor", className }) => (
     <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/>
@@ -134,17 +179,26 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
 
 // Social platforms configuration with SVG icons
 const SOCIAL_PLATFORMS = [
-  { id: "instagram", label: "Instagram", placeholder: "https://instagram.com/username", color: "#E4405F" },
-  { id: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@username", color: "#000000" },
+  { id: "threads", label: "Threads", placeholder: "https://threads.net/@username", color: "#000000" },
+  { id: "email", label: "Email", placeholder: "mailto:you@email.com", color: "#EA4335" },
+  { id: "facebook", label: "Facebook", placeholder: "https://facebook.com/page", color: "#1877F2" },
   { id: "youtube", label: "YouTube", placeholder: "https://youtube.com/@channel", color: "#FF0000" },
   { id: "twitter", label: "X (Twitter)", placeholder: "https://x.com/username", color: "#000000" },
-  { id: "spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/...", color: "#1DB954" },
-  { id: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username", color: "#0A66C2" },
-  { id: "facebook", label: "Facebook", placeholder: "https://facebook.com/page", color: "#1877F2" },
+  { id: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@username", color: "#000000" },
+  { id: "whatsapp", label: "WhatsApp", placeholder: "https://wa.me/1234567890", color: "#25D366" },
+  { id: "snapchat", label: "Snapchat", placeholder: "https://snapchat.com/add/username", color: "#FFFC00" },
+  { id: "instagram", label: "Instagram", placeholder: "https://instagram.com/username", color: "#E4405F" },
+  { id: "discord", label: "Discord", placeholder: "https://discord.gg/invite", color: "#5865F2" },
   { id: "github", label: "GitHub", placeholder: "https://github.com/username", color: "#333333" },
+  { id: "kick", label: "Kick", placeholder: "https://kick.com/username", color: "#53FC18" },
+  { id: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username", color: "#0A66C2" },
+  { id: "patreon", label: "Patreon", placeholder: "https://patreon.com/creator", color: "#FF424D" },
+  { id: "pinterest", label: "Pinterest", placeholder: "https://pinterest.com/username", color: "#E60023" },
+  { id: "soundcloud", label: "SoundCloud", placeholder: "https://soundcloud.com/username", color: "#FF5500" },
+  { id: "spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/...", color: "#1DB954" },
+  { id: "telegram", label: "Telegram", placeholder: "https://t.me/username", color: "#0088CC" },
   { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF" },
   { id: "website", label: "Website", placeholder: "https://yourwebsite.com", color: "#6366F1" },
-  { id: "email", label: "Email", placeholder: "mailto:you@email.com", color: "#EA4335" },
 ]
 
 // Default background images library
@@ -706,20 +760,43 @@ export function LinksTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Social Links Modal with Real SVG Icons */}
-      <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); } }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-4 sm:p-5 border-b">
+      {/* Social Links Modal - Modern Scrollable Vertical List */}
+      <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); } }}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[85vh] flex flex-col">
+          <DialogHeader className="p-4 sm:p-5 border-b shrink-0">
             <DialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? "Edit Social Link" : "Add Social Link"}
             </DialogTitle>
           </DialogHeader>
-          
-          <div className="p-4 sm:p-5">
-            {!selectedSocial ? (
-              // Platform selection grid with Real SVG Icons
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {SOCIAL_PLATFORMS.map((platform) => {
+
+          {!selectedSocial ? (
+            <>
+              {/* Search Bar */}
+              <div className="px-4 pt-4 shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search platforms..."
+                    className="pl-10 h-11 rounded-xl bg-gray-50 border-gray-200"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Scrollable Platform List */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
+                {SOCIAL_PLATFORMS.filter(p =>
+                  p.label.toLowerCase().includes(searchQuery.toLowerCase())
+                ).map((platform) => {
                   const isActive = !!social_links?.[platform.id as keyof typeof social_links]
                   return (
                     <button
@@ -729,87 +806,105 @@ export function LinksTab() {
                         setSocialUrl(social_links?.[platform.id as keyof typeof social_links] || "")
                       }}
                       className={cn(
-                        "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all",
-                        isActive 
-                          ? "border-green-500 bg-green-50" 
-                          : "border-gray-200 hover:border-gray-300"
+                        "w-full flex items-center gap-3 p-3 rounded-xl transition-all",
+                        isActive
+                          ? "bg-gray-100"
+                          : "hover:bg-gray-50"
                       )}
                     >
-                      <div 
-                        className="w-9 h-9 rounded-full flex items-center justify-center"
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
                         style={{ backgroundColor: platform.color }}
                       >
-                        <RenderSocialIcon platform={platform.id} size={18} color="#ffffff" />
+                        <RenderSocialIcon platform={platform.id} size={20} color="#ffffff" />
                       </div>
-                      <span className="text-xs font-medium truncate w-full text-center">{platform.label}</span>
+                      <div className="flex-1 text-left">
+                        <p className="font-medium text-sm">{platform.label}</p>
+                        {isActive && (
+                          <p className="text-xs text-gray-500 truncate max-w-[200px]">
+                            {social_links?.[platform.id as keyof typeof social_links]}
+                          </p>
+                        )}
+                      </div>
+                      {isActive && (
+                        <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                      )}
+                      <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
                     </button>
                   )
                 })}
+                {SOCIAL_PLATFORMS.filter(p =>
+                  p.label.toLowerCase().includes(searchQuery.toLowerCase())
+                ).length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm">No platforms found</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              // URL input for selected platform
-              <div className="space-y-4">
-                {(() => {
-                  const platform = SOCIAL_PLATFORMS.find(p => p.id === selectedSocial)
-                  return (
-                    <>
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: platform?.color }}
-                        >
-                          <RenderSocialIcon platform={selectedSocial} size={20} color="#ffffff" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{platform?.label}</p>
-                          <p className="text-xs text-muted-foreground">Add your {platform?.label} link</p>
-                        </div>
+            </>
+          ) : (
+            // URL input for selected platform
+            <div className="p-4 sm:p-5 space-y-4">
+              {(() => {
+                const platform = SOCIAL_PLATFORMS.find(p => p.id === selectedSocial)
+                return (
+                  <>
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: platform?.color }}
+                      >
+                        <RenderSocialIcon platform={selectedSocial} size={20} color="#ffffff" />
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Label className="text-sm">URL</Label>
-                        <Input
-                          value={socialUrl}
-                          onChange={(e) => setSocialUrl(e.target.value)}
-                          placeholder={platform?.placeholder}
-                          className="h-11"
-                        />
+                      <div>
+                        <p className="font-medium">{platform?.label}</p>
+                        <p className="text-xs text-muted-foreground">Add your {platform?.label} link</p>
                       </div>
+                    </div>
 
-                      <div className="flex gap-2 pt-2">
+                    <div className="space-y-2">
+                      <Label className="text-sm">URL</Label>
+                      <Input
+                        value={socialUrl}
+                        onChange={(e) => setSocialUrl(e.target.value)}
+                        placeholder={platform?.placeholder}
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 rounded-xl"
+                        onClick={() => setSelectedSocial(null)}
+                      >
+                        Back
+                      </Button>
+                      {social_links?.[selectedSocial as keyof typeof social_links] && (
                         <Button
                           variant="outline"
-                          className="flex-1"
-                          onClick={() => setSelectedSocial(null)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl"
+                          onClick={() => {
+                            handleRemoveSocial(selectedSocial)
+                            setSelectedSocial(null)
+                          }}
                         >
-                          Back
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                        {social_links?.[selectedSocial as keyof typeof social_links] && (
-                          <Button
-                            variant="outline"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => {
-                              handleRemoveSocial(selectedSocial)
-                              setSelectedSocial(null)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          className="flex-1 bg-violet-600 hover:bg-violet-700"
-                          onClick={handleAddSocial}
-                          disabled={!socialUrl}
-                        >
-                          {social_links?.[selectedSocial as keyof typeof social_links] ? "Update" : "Add"}
-                        </Button>
-                      </div>
-                    </>
-                  )
-                })()}
-              </div>
-            )}
-          </div>
+                      )}
+                      <Button
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl"
+                        onClick={handleAddSocial}
+                        disabled={!socialUrl}
+                      >
+                        {social_links?.[selectedSocial as keyof typeof social_links] ? "Update" : "Add"}
+                      </Button>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
