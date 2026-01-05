@@ -648,7 +648,7 @@ export function SettingsTab() {
       </Dialog>
 
       {/* Add custom scrollbar hiding CSS */}
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }
@@ -656,7 +656,7 @@ export function SettingsTab() {
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
-      `}</style>
+      `}} />
     </div>
   )
 }
