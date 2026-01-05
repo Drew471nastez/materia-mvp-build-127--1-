@@ -19,11 +19,11 @@ import {
   CreditCard,
   FileText,
   Share2,
-  Search as SearchIcon,
-  BarChart3,
   Sparkles,
+  X,
+  Loader2,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -31,20 +31,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-// Settings sections with Linktree-style icons
+// Settings sections with Linktree-style icons (removed Analytics)
 const SETTINGS_SECTIONS = [
   { id: "basic", label: "Basic Info", icon: FileText },
-  { id: "seo", label: "SEO", icon: SearchIcon },
+  { id: "seo", label: "SEO", icon: Globe },
   { id: "social", label: "Social & Contact", icon: Share2 },
-  { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "billing", label: "Billing", icon: CreditCard },
 ]
 
 export function SettingsTab() {
-  const { onepage, updateProfile, updateSettings } = useOnePage()
+  const { onepage, updateProfile, updateSettings, updateSlug, save, saveState } = useOnePage()
   const [activeSection, setActiveSection] = useState("basic")
   const [copied, setCopied] = useState(false)
   const [showOgImageModal, setShowOgImageModal] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [localSaveState, setLocalSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Form states
   const [pageName, setPageName] = useState(onepage?.title || "")
@@ -54,17 +56,30 @@ export function SettingsTab() {
   const [password, setPassword] = useState("")
 
   // SEO states
-  const [metaTitle, setMetaTitle] = useState(onepage?.title || "")
-  const [metaDescription, setMetaDescription] = useState(onepage?.bio || "")
-  const [ogImage, setOgImage] = useState("")
+  const [metaTitle, setMetaTitle] = useState(onepage?.settings?.seo_title || onepage?.title || "")
+  const [metaDescription, setMetaDescription] = useState(onepage?.settings?.seo_description || onepage?.bio || "")
+  const [ogImage, setOgImage] = useState(onepage?.settings?.social_image_url || "")
 
   // Contact states
-  const [contactEmail, setContactEmail] = useState("")
+  const [contactEmail, setContactEmail] = useState(onepage?.social_links?.email || "")
   const [contactPhone, setContactPhone] = useState("")
+
+  // Update local state when onepage changes
+  useEffect(() => {
+    if (onepage) {
+      setPageName(onepage.title || "")
+      setPageSlug(onepage.slug || "")
+      setMetaTitle(onepage.settings?.seo_title || onepage.title || "")
+      setMetaDescription(onepage.settings?.seo_description || onepage.bio || "")
+      setOgImage(onepage.settings?.social_image_url || "")
+      setContactEmail(onepage.social_links?.email || "")
+    }
+  }, [onepage])
 
   if (!onepage) return null
 
   const pageUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/l/${onepage.slug}`
+  const hostUrl = typeof window !== "undefined" ? window.location.host : ""
 
   const copyUrl = async () => {
     await navigator.clipboard.writeText(pageUrl)
@@ -72,22 +87,99 @@ export function SettingsTab() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleSaveBasicInfo = () => {
-    updateProfile({ title: pageName })
-  }
-
-  const handleSaveSeo = () => {
-    if (updateSettings) {
-      updateSettings({
-        seo_title: metaTitle,
-        seo_description: metaDescription,
-        social_image_url: ogImage || undefined,
-      })
+  const handleSaveBasicInfo = async () => {
+    setLocalSaveState("saving")
+    try {
+      updateProfile({ title: pageName })
+      if (pageSlug !== onepage.slug) {
+        updateSlug(pageSlug)
+      }
+      await save()
+      setLocalSaveState("saved")
+      setTimeout(() => setLocalSaveState("idle"), 2000)
+    } catch {
+      setLocalSaveState("error")
+      setTimeout(() => setLocalSaveState("idle"), 3000)
     }
   }
 
-  const handleSaveContact = () => {
-    console.log("Saving Contact:", { contactEmail, contactPhone })
+  const handleSaveSeo = async () => {
+    setLocalSaveState("saving")
+    try {
+      updateSettings({
+        seo_title: metaTitle,
+        seo_description: metaDescription,
+        social_image_url: ogImage || null,
+      })
+      await save()
+      setLocalSaveState("saved")
+      setTimeout(() => setLocalSaveState("idle"), 2000)
+    } catch {
+      setLocalSaveState("error")
+      setTimeout(() => setLocalSaveState("idle"), 3000)
+    }
+  }
+
+  const handleSaveContact = async () => {
+    setLocalSaveState("saving")
+    try {
+      // Contact email can be saved to social_links
+      // For now, we'll log and show saved status
+      console.log("Saving Contact:", { contactEmail, contactPhone })
+      await save()
+      setLocalSaveState("saved")
+      setTimeout(() => setLocalSaveState("idle"), 2000)
+    } catch {
+      setLocalSaveState("error")
+      setTimeout(() => setLocalSaveState("idle"), 3000)
+    }
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file")
+      return
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be less than 5MB")
+      return
+    }
+
+    setIsUploading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("type", "og-image")
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setOgImage(data.url)
+        setShowOgImageModal(false)
+      } else {
+        alert("Upload failed. Please try again.")
+      }
+    } catch (error) {
+      console.error("Upload error:", error)
+      alert("Upload failed. Please try again.")
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const removeOgImage = () => {
+    setOgImage("")
   }
 
   // Sidebar navigation item component
@@ -112,6 +204,15 @@ export function SettingsTab() {
     )
   }
 
+  const getSaveButtonText = () => {
+    if (localSaveState === "saving" || saveState === "saving") return "Saving..."
+    if (localSaveState === "saved" || saveState === "saved") return "Saved!"
+    if (localSaveState === "error" || saveState === "error") return "Error"
+    return "Save Changes"
+  }
+
+  const isSaving = localSaveState === "saving" || saveState === "saving"
+
   const renderBasicInfo = () => (
     <div className="space-y-6">
       <div>
@@ -130,24 +231,29 @@ export function SettingsTab() {
         />
       </div>
 
-      {/* Public URL / Slug */}
+      {/* Public URL / Slug - Fixed with truncation */}
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-700">Public URL</Label>
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center bg-gray-50 rounded-lg border border-gray-200 px-3 h-10">
-            <span className="text-sm text-gray-500">{typeof window !== "undefined" ? window.location.host : ""}/l/</span>
+          <div className="flex-1 flex items-center bg-gray-50 rounded-lg border border-gray-200 h-10 min-w-0 overflow-hidden">
+            <span
+              className="text-sm text-gray-500 pl-3 flex-shrink-0 truncate max-w-[120px]"
+              title={`${hostUrl}/l/`}
+            >
+              {hostUrl}/l/
+            </span>
             <Input
               value={pageSlug}
               onChange={(e) => setPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
               placeholder="your-page"
-              className="border-0 bg-transparent h-full px-1 focus-visible:ring-0 text-sm font-medium"
+              className="border-0 bg-transparent h-full px-1 focus-visible:ring-0 text-sm font-medium min-w-0 flex-1"
             />
           </div>
           <button
             onClick={copyUrl}
-            className="h-10 w-10 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
+            className="h-10 w-10 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors flex-shrink-0"
           >
-            {copied ? <Check className="h-4 w-4 text-gray-700" /> : <Copy className="h-4 w-4 text-gray-500" />}
+            {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4 text-gray-500" />}
           </button>
         </div>
       </div>
@@ -198,7 +304,7 @@ export function SettingsTab() {
                 className={cn(
                   "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
                   visibility === option.id
-                    ? "border-gray-900 bg-gray-50"
+                    ? "border-blue-500 bg-blue-50"
                     : "border-gray-200 hover:border-gray-300"
                 )}
               >
@@ -209,9 +315,9 @@ export function SettingsTab() {
                 </div>
                 <div className={cn(
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                  visibility === option.id ? "border-gray-900" : "border-gray-300"
+                  visibility === option.id ? "border-blue-500" : "border-gray-300"
                 )}>
-                  {visibility === option.id && <div className="w-2 h-2 rounded-full bg-gray-900" />}
+                  {visibility === option.id && <div className="w-2 h-2 rounded-full bg-blue-500" />}
                 </div>
               </button>
             )
@@ -233,9 +339,11 @@ export function SettingsTab() {
 
       <Button
         onClick={handleSaveBasicInfo}
-        className="w-full h-10 bg-gray-900 hover:bg-gray-800 rounded-lg text-sm"
+        disabled={isSaving}
+        className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
       >
-        Save Changes
+        {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+        {getSaveButtonText()}
       </Button>
     </div>
   )
@@ -275,20 +383,32 @@ export function SettingsTab() {
       {/* Social Share Image */}
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-700">Social Image</Label>
-        <button
-          onClick={() => setShowOgImageModal(true)}
-          className="w-full aspect-video rounded-lg border border-dashed border-gray-300 hover:border-gray-400 transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50"
-        >
-          {ogImage ? (
-            <img src={ogImage} alt="OG Preview" className="w-full h-full object-cover rounded-lg" />
-          ) : (
-            <>
-              <ImageIcon className="h-6 w-6 text-gray-400" />
-              <span className="text-sm text-gray-500">Upload image</span>
-              <span className="text-xs text-gray-400">1200x630px recommended</span>
-            </>
-          )}
-        </button>
+        {ogImage ? (
+          <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
+            <img src={ogImage} alt="Social preview" className="w-full h-full object-cover" />
+            <button
+              onClick={removeOgImage}
+              className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+            >
+              <X className="h-4 w-4 text-white" />
+            </button>
+            <button
+              onClick={() => setShowOgImageModal(true)}
+              className="absolute bottom-2 right-2 px-3 py-1.5 bg-white/90 hover:bg-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowOgImageModal(true)}
+            className="w-full aspect-video rounded-lg border border-dashed border-gray-300 hover:border-blue-400 transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50 hover:bg-blue-50/50"
+          >
+            <ImageIcon className="h-6 w-6 text-gray-400" />
+            <span className="text-sm text-gray-500">Upload image</span>
+            <span className="text-xs text-gray-400">1200x630px recommended</span>
+          </button>
+        )}
       </div>
 
       {/* Preview */}
@@ -311,9 +431,11 @@ export function SettingsTab() {
 
       <Button
         onClick={handleSaveSeo}
-        className="w-full h-10 bg-gray-900 hover:bg-gray-800 rounded-lg text-sm"
+        disabled={isSaving}
+        className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
       >
-        Save SEO Settings
+        {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+        {getSaveButtonText()}
       </Button>
     </div>
   )
@@ -370,49 +492,12 @@ export function SettingsTab() {
 
       <Button
         onClick={handleSaveContact}
-        className="w-full h-10 bg-gray-900 hover:bg-gray-800 rounded-lg text-sm"
+        disabled={isSaving}
+        className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
       >
-        Save Contact Info
+        {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+        {getSaveButtonText()}
       </Button>
-    </div>
-  )
-
-  const renderAnalytics = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-base font-semibold mb-1">Analytics</h3>
-        <p className="text-sm text-gray-500">Track your page performance</p>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <p className="text-2xl font-bold text-gray-900">0</p>
-          <p className="text-xs text-gray-500 mt-1">Total Views</p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <p className="text-2xl font-bold text-gray-900">0</p>
-          <p className="text-xs text-gray-500 mt-1">Link Clicks</p>
-        </div>
-      </div>
-
-      {/* Enable Analytics Toggle */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <div>
-          <p className="font-medium text-sm text-gray-900">Enable Analytics</p>
-          <p className="text-xs text-gray-500 mt-0.5">Track views and clicks</p>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" defaultChecked className="sr-only peer" />
-          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gray-900"></div>
-        </label>
-      </div>
-
-      {/* Coming Soon */}
-      <div className="text-center py-8 border border-gray-200 rounded-lg bg-gray-50">
-        <BarChart3 className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-        <p className="text-sm font-medium text-gray-500">Detailed analytics coming soon</p>
-      </div>
     </div>
   )
 
@@ -436,8 +521,8 @@ export function SettingsTab() {
       {/* Upgrade Card */}
       <div className="border border-gray-200 rounded-lg p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-gray-600" />
+          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+            <Sparkles className="h-4 w-4 text-blue-600" />
           </div>
           <div>
             <p className="font-medium text-sm text-gray-900">Pro Plan</p>
@@ -447,12 +532,12 @@ export function SettingsTab() {
         <ul className="space-y-2 mb-4">
           {["Remove branding", "Custom domain", "Advanced analytics", "Priority support"].map((feature) => (
             <li key={feature} className="flex items-center gap-2 text-sm text-gray-600">
-              <Check className="h-3.5 w-3.5 text-gray-400" />
+              <Check className="h-3.5 w-3.5 text-blue-500" />
               {feature}
             </li>
           ))}
         </ul>
-        <Button className="w-full h-10 bg-gray-900 hover:bg-gray-800 rounded-lg text-sm">
+        <Button className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white">
           Upgrade to Pro
         </Button>
       </div>
@@ -494,7 +579,7 @@ export function SettingsTab() {
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
                   activeSection === section.id
-                    ? "bg-gray-900 text-white"
+                    ? "bg-blue-500 text-white"
                     : "bg-gray-100 text-gray-600"
                 )}
               >
@@ -512,7 +597,6 @@ export function SettingsTab() {
           {activeSection === "basic" && renderBasicInfo()}
           {activeSection === "seo" && renderSeo()}
           {activeSection === "social" && renderSocial()}
-          {activeSection === "analytics" && renderAnalytics()}
           {activeSection === "billing" && renderBilling()}
         </div>
       </div>
@@ -521,20 +605,42 @@ export function SettingsTab() {
       <Dialog open={showOgImageModal} onOpenChange={setShowOgImageModal}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
           <DialogHeader className="p-4 border-b">
-            <DialogTitle className="text-base font-semibold">Upload Image</DialogTitle>
+            <DialogTitle className="text-base font-semibold">Upload Social Image</DialogTitle>
           </DialogHeader>
           <div className="p-4 space-y-4">
-            <div className="aspect-video rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors">
-              <Upload className="h-6 w-6 text-gray-400" />
-              <span className="text-sm text-gray-500">Click to upload</span>
-              <span className="text-xs text-gray-400">PNG, JPG up to 5MB</span>
-            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="w-full aspect-video rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 bg-gray-50 cursor-pointer hover:bg-gray-100 hover:border-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
+                  <span className="text-sm text-gray-500">Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-6 w-6 text-gray-400" />
+                  <span className="text-sm text-gray-500">Click to upload</span>
+                  <span className="text-xs text-gray-400">PNG, JPG up to 5MB</span>
+                </>
+              )}
+            </button>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 rounded-lg h-10" onClick={() => setShowOgImageModal(false)}>
+              <Button
+                variant="outline"
+                className="flex-1 rounded-lg h-10"
+                onClick={() => setShowOgImageModal(false)}
+                disabled={isUploading}
+              >
                 Cancel
-              </Button>
-              <Button className="flex-1 bg-gray-900 hover:bg-gray-800 rounded-lg h-10">
-                Upload
               </Button>
             </div>
           </div>

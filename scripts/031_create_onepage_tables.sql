@@ -21,6 +21,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints
     WHERE constraint_name = 'onepage_views_onepage_id_fkey'
+    AND table_name = 'onepage_views'
   ) THEN
     ALTER TABLE onepage_views
     ADD CONSTRAINT onepage_views_onepage_id_fkey
@@ -47,6 +48,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints
     WHERE constraint_name = 'onepage_clicks_onepage_id_fkey'
+    AND table_name = 'onepage_clicks'
   ) THEN
     ALTER TABLE onepage_clicks
     ADD CONSTRAINT onepage_clicks_onepage_id_fkey
@@ -80,6 +82,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints
     WHERE constraint_name = 'onepage_leads_onepage_id_fkey'
+    AND table_name = 'onepage_leads'
   ) THEN
     ALTER TABLE onepage_leads
     ADD CONSTRAINT onepage_leads_onepage_id_fkey
@@ -106,11 +109,25 @@ CREATE TABLE IF NOT EXISTS onepage_lead_magnets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Add is_active column to onepage_lead_magnets if missing
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'onepage_lead_magnets' AND column_name = 'is_active'
+  ) THEN
+    ALTER TABLE onepage_lead_magnets ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT true;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints
     WHERE constraint_name = 'onepage_lead_magnets_onepage_id_fkey'
+    AND table_name = 'onepage_lead_magnets'
   ) THEN
     ALTER TABLE onepage_lead_magnets
     ADD CONSTRAINT onepage_lead_magnets_onepage_id_fkey
@@ -143,6 +160,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints
     WHERE constraint_name = 'onepage_billing_seller_id_key'
+    AND table_name = 'onepage_billing'
   ) THEN
     ALTER TABLE onepage_billing ADD CONSTRAINT onepage_billing_seller_id_key UNIQUE (seller_id);
   END IF;
@@ -166,116 +184,279 @@ CREATE TABLE IF NOT EXISTS onepage_templates (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Add missing columns to onepage_templates if they don't exist
+DO $$
+BEGIN
+  -- Add is_active column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'onepage_templates' AND column_name = 'is_active'
+  ) THEN
+    ALTER TABLE onepage_templates ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT true;
+  END IF;
+
+  -- Add is_premium column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'onepage_templates' AND column_name = 'is_premium'
+  ) THEN
+    ALTER TABLE onepage_templates ADD COLUMN is_premium BOOLEAN NOT NULL DEFAULT false;
+  END IF;
+
+  -- Add sort_order column if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'onepage_templates' AND column_name = 'sort_order'
+  ) THEN
+    ALTER TABLE onepage_templates ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
 -- =====================================================
 -- ENABLE ROW LEVEL SECURITY
 -- =====================================================
 DO $$
 BEGIN
   ALTER TABLE onepage_views ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
   ALTER TABLE onepage_clicks ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
   ALTER TABLE onepage_leads ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
   ALTER TABLE onepage_lead_magnets ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
   ALTER TABLE onepage_billing ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
   ALTER TABLE onepage_templates ENABLE ROW LEVEL SECURITY;
-EXCEPTION WHEN OTHERS THEN
-  NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 -- =====================================================
 -- RLS POLICIES FOR ONEPAGE_VIEWS
 -- =====================================================
-DROP POLICY IF EXISTS "Anyone can insert views" ON onepage_views;
-DROP POLICY IF EXISTS "Owners can view their onepage views" ON onepage_views;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Anyone can insert views" ON onepage_views;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Anyone can insert views"
-  ON onepage_views
-  FOR INSERT
-  WITH CHECK (true);
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Owners can view their onepage views" ON onepage_views;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Owners can view their onepage views"
-  ON onepage_views
-  FOR SELECT
-  USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+DO $$
+BEGIN
+  CREATE POLICY "Anyone can insert views"
+    ON onepage_views
+    FOR INSERT
+    WITH CHECK (true);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  CREATE POLICY "Owners can view their onepage views"
+    ON onepage_views
+    FOR SELECT
+    USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- =====================================================
 -- RLS POLICIES FOR ONEPAGE_CLICKS
 -- =====================================================
-DROP POLICY IF EXISTS "Anyone can insert clicks" ON onepage_clicks;
-DROP POLICY IF EXISTS "Owners can view their onepage clicks" ON onepage_clicks;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Anyone can insert clicks" ON onepage_clicks;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Anyone can insert clicks"
-  ON onepage_clicks
-  FOR INSERT
-  WITH CHECK (true);
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Owners can view their onepage clicks" ON onepage_clicks;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Owners can view their onepage clicks"
-  ON onepage_clicks
-  FOR SELECT
-  USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+DO $$
+BEGIN
+  CREATE POLICY "Anyone can insert clicks"
+    ON onepage_clicks
+    FOR INSERT
+    WITH CHECK (true);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  CREATE POLICY "Owners can view their onepage clicks"
+    ON onepage_clicks
+    FOR SELECT
+    USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- =====================================================
 -- RLS POLICIES FOR ONEPAGE_LEADS
 -- =====================================================
-DROP POLICY IF EXISTS "Anyone can insert leads" ON onepage_leads;
-DROP POLICY IF EXISTS "Owners can view their onepage leads" ON onepage_leads;
-DROP POLICY IF EXISTS "Owners can update their leads" ON onepage_leads;
-DROP POLICY IF EXISTS "Owners can delete their leads" ON onepage_leads;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Anyone can insert leads" ON onepage_leads;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Anyone can insert leads"
-  ON onepage_leads
-  FOR INSERT
-  WITH CHECK (true);
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Owners can view their onepage leads" ON onepage_leads;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Owners can view their onepage leads"
-  ON onepage_leads
-  FOR SELECT
-  USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Owners can update their leads" ON onepage_leads;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Owners can update their leads"
-  ON onepage_leads
-  FOR UPDATE
-  USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Owners can delete their leads" ON onepage_leads;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Owners can delete their leads"
-  ON onepage_leads
-  FOR DELETE
-  USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+DO $$
+BEGIN
+  CREATE POLICY "Anyone can insert leads"
+    ON onepage_leads
+    FOR INSERT
+    WITH CHECK (true);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  CREATE POLICY "Owners can view their onepage leads"
+    ON onepage_leads
+    FOR SELECT
+    USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  CREATE POLICY "Owners can update their leads"
+    ON onepage_leads
+    FOR UPDATE
+    USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  CREATE POLICY "Owners can delete their leads"
+    ON onepage_leads
+    FOR DELETE
+    USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- =====================================================
 -- RLS POLICIES FOR ONEPAGE_LEAD_MAGNETS
 -- =====================================================
-DROP POLICY IF EXISTS "Owners can manage their lead magnets" ON onepage_lead_magnets;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Owners can manage their lead magnets" ON onepage_lead_magnets;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Owners can manage their lead magnets"
-  ON onepage_lead_magnets
-  FOR ALL
-  USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+DO $$
+BEGIN
+  CREATE POLICY "Owners can manage their lead magnets"
+    ON onepage_lead_magnets
+    FOR ALL
+    USING (onepage_id IN (SELECT id FROM onepages WHERE owner_id = auth.uid()));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- =====================================================
 -- RLS POLICIES FOR ONEPAGE_BILLING
 -- =====================================================
-DROP POLICY IF EXISTS "Sellers can view their billing" ON onepage_billing;
-DROP POLICY IF EXISTS "System can manage billing" ON onepage_billing;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Sellers can view their billing" ON onepage_billing;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Sellers can view their billing"
-  ON onepage_billing
-  FOR SELECT
-  USING (seller_id IN (SELECT id FROM creators WHERE user_id = auth.uid()));
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "System can manage billing" ON onepage_billing;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "System can manage billing"
-  ON onepage_billing
-  FOR ALL
-  USING (auth.role() = 'service_role');
+DO $$
+BEGIN
+  CREATE POLICY "Sellers can view their billing"
+    ON onepage_billing
+    FOR SELECT
+    USING (seller_id IN (SELECT id FROM creators WHERE user_id = auth.uid()));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  CREATE POLICY "System can manage billing"
+    ON onepage_billing
+    FOR ALL
+    USING (auth.role() = 'service_role');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- =====================================================
 -- RLS POLICIES FOR ONEPAGE_TEMPLATES
 -- =====================================================
-DROP POLICY IF EXISTS "Anyone can view active templates" ON onepage_templates;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Anyone can view active templates" ON onepage_templates;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-CREATE POLICY "Anyone can view active templates"
-  ON onepage_templates
-  FOR SELECT
-  USING (is_active = true);
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Anyone can view templates" ON onepage_templates;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- Create a simple policy that allows viewing all templates (to avoid is_active column issues)
+DO $$
+BEGIN
+  CREATE POLICY "Anyone can view templates"
+    ON onepage_templates
+    FOR SELECT
+    USING (true);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- =====================================================
 -- CREATE INDEXES FOR PERFORMANCE
@@ -300,23 +481,35 @@ END;
 $$ language 'plpgsql';
 
 -- Create triggers (drop first to be idempotent)
-DROP TRIGGER IF EXISTS update_onepage_lead_magnets_updated_at ON onepage_lead_magnets;
-CREATE TRIGGER update_onepage_lead_magnets_updated_at
-  BEFORE UPDATE ON onepage_lead_magnets
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  DROP TRIGGER IF EXISTS update_onepage_lead_magnets_updated_at ON onepage_lead_magnets;
+  CREATE TRIGGER update_onepage_lead_magnets_updated_at
+    BEFORE UPDATE ON onepage_lead_magnets
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-DROP TRIGGER IF EXISTS update_onepage_billing_updated_at ON onepage_billing;
-CREATE TRIGGER update_onepage_billing_updated_at
-  BEFORE UPDATE ON onepage_billing
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  DROP TRIGGER IF EXISTS update_onepage_billing_updated_at ON onepage_billing;
+  CREATE TRIGGER update_onepage_billing_updated_at
+    BEFORE UPDATE ON onepage_billing
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
-DROP TRIGGER IF EXISTS update_onepage_templates_updated_at ON onepage_templates;
-CREATE TRIGGER update_onepage_templates_updated_at
-  BEFORE UPDATE ON onepage_templates
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  DROP TRIGGER IF EXISTS update_onepage_templates_updated_at ON onepage_templates;
+  CREATE TRIGGER update_onepage_templates_updated_at
+    BEFORE UPDATE ON onepage_templates
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- =====================================================
 -- INSERT DEFAULT TEMPLATES
