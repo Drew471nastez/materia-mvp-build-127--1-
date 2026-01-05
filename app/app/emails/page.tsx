@@ -27,7 +27,7 @@ import {
   Copy,
   RefreshCw,
 } from "lucide-react"
-import { EmailBuilder } from "@/components/email/email-builder"
+import { EmailEditor } from "@/components/email/email-editor"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -106,6 +106,7 @@ export default function EmailsPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [creatorId, setCreatorId] = useState<string | null>(null)
+  const [sellerInfo, setSellerInfo] = useState<{ name: string; username: string; avatarUrl: string } | null>(null)
   const { toast } = useToast()
 
   // Editor state
@@ -159,6 +160,21 @@ export default function EmailsPage() {
     }
 
     setCreatorId(creator.id)
+
+    // Load profile info for seller preview
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, username, avatar_url")
+      .eq("id", user.id)
+      .single()
+
+    if (profile) {
+      setSellerInfo({
+        name: profile.display_name || profile.username || "Creator",
+        username: profile.username || "username",
+        avatarUrl: profile.avatar_url || "",
+      })
+    }
 
     // Load segments for audience selection
     const { data: segmentsData } = await supabase
@@ -634,12 +650,45 @@ export default function EmailsPage() {
       })
     }
 
+    const handleSendTest = async (data: { subject: string; body: string; previewText: string; testEmail: string }) => {
+      try {
+        const response = await fetch("/api/email/send-test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: data.subject,
+            body: data.body,
+            preview_text: data.previewText,
+            test_email: data.testEmail,
+          }),
+        })
+
+        const responseData = await response.json()
+
+        if (!response.ok) {
+          throw new Error(responseData.error || "Failed to send test email")
+        }
+
+        toast({
+          title: "Test email sent!",
+          description: `A test email has been sent to ${data.testEmail}`,
+        })
+      } catch (error) {
+        toast({
+          title: "Failed to send test",
+          description: error instanceof Error ? error.message : "An error occurred",
+          variant: "destructive",
+        })
+      }
+    }
+
     return (
-      <EmailBuilder
+      <EmailEditor
         onBack={() => setView("list")}
         onSave={handleBuilderSave}
         onSend={handleBuilderSend}
         onSchedule={handleBuilderSchedule}
+        onSendTest={handleSendTest}
         initialSubject={subject}
         initialBody={body}
         initialPreviewText={previewText}
@@ -648,6 +697,8 @@ export default function EmailsPage() {
         segments={segments.map(s => ({ id: s.id, name: s.name }))}
         isSaving={isSaving}
         isSending={isSending}
+        creatorId={creatorId || undefined}
+        sellerInfo={sellerInfo || undefined}
       />
     )
   }

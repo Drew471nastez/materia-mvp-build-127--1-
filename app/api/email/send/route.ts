@@ -31,10 +31,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
     }
 
-    // Get creator profile info including email and display_name
+    // Get creator profile info including email, display_name, and avatar
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, display_name, username")
+      .select("email, display_name, username, avatar_url")
       .eq("id", user.id)
       .single()
 
@@ -168,6 +168,7 @@ export async function POST(request: NextRequest) {
 
     // Process email content with personalization and tracking
     const senderName = campaign.from_name || profile.display_name || profile.username || "Creator"
+    const senderAvatarUrl = profile.avatar_url || ""
 
     let sentCount = 0
     let failedCount = 0
@@ -196,6 +197,7 @@ export async function POST(request: NextRequest) {
         previewText: campaign.preview_text || "",
         body: personalizedBody,
         senderName,
+        senderAvatarUrl,
         unsubscribeUrl,
         trackingPixel,
         replyTo: profile.email || "",
@@ -281,6 +283,7 @@ function buildOptimizedEmailHtml({
   previewText,
   body,
   senderName,
+  senderAvatarUrl,
   unsubscribeUrl,
   trackingPixel,
   replyTo,
@@ -289,6 +292,7 @@ function buildOptimizedEmailHtml({
   previewText: string
   body: string
   senderName: string
+  senderAvatarUrl: string
   unsubscribeUrl: string
   trackingPixel: string
   replyTo: string
@@ -297,6 +301,11 @@ function buildOptimizedEmailHtml({
   const previewTextHtml = previewText
     ? `<div style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${previewText}${"&nbsp;&zwnj;".repeat(100)}</div>`
     : ""
+
+  // Build avatar HTML - either image or fallback initial
+  const avatarHtml = senderAvatarUrl
+    ? `<img src="${senderAvatarUrl}" alt="${senderName}" width="36" height="36" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover; display: block;" />`
+    : `<div style="width: 36px; height: 36px; border-radius: 50%; background-color: #e5e7eb; display: inline-block; text-align: center; line-height: 36px; font-size: 14px; font-weight: 600; color: #6b7280;">${senderName.charAt(0).toUpperCase()}</div>`
 
   return `
 <!DOCTYPE html>
@@ -324,14 +333,14 @@ function buildOptimizedEmailHtml({
     table { border-spacing: 0 !important; border-collapse: collapse !important; table-layout: fixed !important; margin: 0 auto !important; }
     img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
     a { text-decoration: none; }
-    
+
     /* Content styles */
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     .content { color: #333333; line-height: 1.6; font-size: 16px; }
     .content p { margin: 0 0 16px 0; }
     .content a { color: #0066cc; }
     .content h1, .content h2, .content h3 { margin: 0 0 16px 0; font-weight: 600; }
-    
+
     /* Responsive */
     @media screen and (max-width: 600px) {
       .container { width: 100% !important; padding: 20px !important; }
@@ -340,45 +349,65 @@ function buildOptimizedEmailHtml({
 </head>
 <body style="margin: 0; padding: 0; background-color: #f5f5f5;">
   ${previewTextHtml}
-  
+
   <!-- Email wrapper -->
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5;">
     <tr>
       <td align="center" style="padding: 40px 20px;">
-        
+
         <!-- Email container -->
-        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
-          
+        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
           <!-- Content -->
           <tr>
-            <td class="content" style="padding: 40px 40px 32px 40px; color: #333333; font-size: 16px; line-height: 1.6;">
+            <td class="content" style="padding: 40px 40px 32px 40px; color: #333333; font-size: 16px; line-height: 1.7;">
               ${body}
             </td>
           </tr>
-          
-          <!-- Footer -->
+
+          <!-- Footer with avatar -->
           <tr>
-            <td style="padding: 24px 40px 40px 40px; border-top: 1px solid #eeeeee;">
+            <td style="padding: 28px 40px 32px 40px; border-top: 1px solid #f0f0f0; background-color: #fafafa;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <!-- Avatar and name row -->
                 <tr>
-                  <td style="color: #999999; font-size: 12px; line-height: 1.5;">
-                    <p style="margin: 0 0 8px 0;">You received this email because you subscribed to ${senderName}.</p>
-                    <p style="margin: 0;">
-                      <a href="${unsubscribeUrl}" style="color: #999999; text-decoration: underline;">Unsubscribe</a> from future emails
-                      ${replyTo ? ` · <a href="mailto:${replyTo}" style="color: #999999; text-decoration: underline;">Contact us</a>` : ""}
-                    </p>
+                  <td align="center" style="padding-bottom: 16px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="padding-right: 10px; vertical-align: middle;">
+                          ${avatarHtml}
+                        </td>
+                        <td style="vertical-align: middle;">
+                          <span style="font-size: 14px; font-weight: 600; color: #374151;">${senderName}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Storelib branding row -->
+                <tr>
+                  <td align="center" style="padding-bottom: 16px; font-size: 12px; color: #9ca3af;">
+                    <span style="color: #6b7280;">Storelib</span>
+                    <span style="margin: 0 6px; color: #d1d5db;">·</span>
+                    <span>Powered by Storelib</span>
+                  </td>
+                </tr>
+                <!-- Unsubscribe row -->
+                <tr>
+                  <td align="center">
+                    <a href="${unsubscribeUrl}" style="font-size: 12px; color: #9ca3af; text-decoration: underline;">Unsubscribe</a>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          
+
         </table>
-        
+
       </td>
     </tr>
   </table>
-  
+
   ${trackingPixel}
 </body>
 </html>
