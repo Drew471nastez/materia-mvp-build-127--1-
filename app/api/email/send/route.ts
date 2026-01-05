@@ -195,11 +195,11 @@ export async function POST(request: NextRequest) {
 
       try {
         const result = await resend.emails.send({
-          from: `${senderName} <noreply@updates.materia.so>`,
+          from: `${senderName} <noreplycustomers@materiabuilder.store>`,
           to: subscriber.email,
           subject: campaign.subject,
           html: personalizedBody,
-          replyTo: campaign.reply_to || profile.email || undefined,
+          replyTo: profile.email || campaign.reply_to || undefined,
         })
 
         // Check for errors in the response
