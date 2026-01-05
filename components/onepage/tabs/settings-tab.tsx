@@ -24,6 +24,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
 import {
   Dialog,
   DialogContent,
@@ -154,27 +155,32 @@ export function SettingsTab() {
     setIsUploading(true)
 
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("type", "og-image")
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
 
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}/og-image-${Date.now()}.${fileExt}`
 
-      if (response.ok) {
-        const data = await response.json()
-        setOgImage(data.url)
-        setShowOgImageModal(false)
-      } else {
-        alert("Upload failed. Please try again.")
-      }
+      const { error } = await supabase.storage
+        .from("onepage-assets")
+        .upload(fileName, file, { upsert: true })
+
+      if (error) throw error
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("onepage-assets")
+        .getPublicUrl(fileName)
+
+      setOgImage(publicUrl)
+      setShowOgImageModal(false)
     } catch (error) {
       console.error("Upload error:", error)
       alert("Upload failed. Please try again.")
     } finally {
       setIsUploading(false)
+      // Reset input
+      if (e.target) e.target.value = ""
     }
   }
 
