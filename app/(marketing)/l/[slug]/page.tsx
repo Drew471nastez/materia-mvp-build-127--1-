@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const { data: onepage } = await supabase
     .from("onepages")
-    .select("published_profile, settings")
+    .select("published_profile, settings, seller_id, avatar_url")
     .eq("slug", slug)
     .eq("status", "published")
     .single()
@@ -26,6 +26,44 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const profile = onepage.published_profile as any
   const settings = onepage.settings as any
+
+  // Determine favicon URL - priority: avatar_url, then store builder avatar
+  let faviconUrl = profile?.avatar_url || onepage.avatar_url
+
+  // If no avatar, try to get store builder avatar
+  if (!faviconUrl && onepage.seller_id) {
+    // Try to get store builder config avatar
+    const { data: storeConfig } = await supabase
+      .from("store_builder_configs")
+      .select("published_config")
+      .eq("creator_id", onepage.seller_id)
+      .eq("page_type", "shop")
+      .maybeSingle()
+
+    const headerSettings = storeConfig?.published_config?.headerSettings as any
+    if (headerSettings?.avatarUrl) {
+      faviconUrl = headerSettings.avatarUrl
+    } else if (headerSettings?.faviconUrl) {
+      faviconUrl = headerSettings.faviconUrl
+    } else {
+      // Fall back to creator profile avatar
+      const { data: creator } = await supabase
+        .from("creators")
+        .select("user_id")
+        .eq("id", onepage.seller_id)
+        .single()
+
+      if (creator?.user_id) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", creator.user_id)
+          .single()
+
+        faviconUrl = profileData?.avatar_url
+      }
+    }
+  }
 
   return {
     title: settings?.seo_title || profile?.title || "OnePage",
@@ -41,6 +79,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: settings?.seo_description || profile?.bio || undefined,
       images: settings?.social_image_url ? [settings.social_image_url] : undefined,
     },
+    ...(faviconUrl && {
+      icons: {
+        icon: faviconUrl,
+        apple: faviconUrl,
+      },
+    }),
   }
 }
 
