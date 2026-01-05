@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
 // POST - Send an email campaign
@@ -13,20 +13,28 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
 
     // Get the current user
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get the creator
-    const { data: creator } = await supabase
-      .from("creators")
-      .select("id, email, display_name, username")
-      .eq("user_id", user.id)
-      .single()
+    const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
 
     if (!creator) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+    }
+
+    // Get creator profile info including email and display_name
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email, display_name, username")
+      .eq("id", user.id)
+      .single()
+
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
     // Get the campaign
@@ -138,7 +146,7 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://materia.so"
 
     // Process email content with personalization and tracking
-    const senderName = campaign.from_name || creator.display_name || creator.username || "Creator"
+    const senderName = campaign.from_name || profile.display_name || profile.username || "Creator"
 
     // Send emails (in production, this would use Resend or similar service)
     let sentCount = 0
@@ -187,7 +195,7 @@ export async function POST(request: NextRequest) {
         //   to: subscriber.email,
         //   subject: campaign.subject,
         //   html: personalizedBody,
-        //   reply_to: campaign.reply_to || creator.email,
+        //   reply_to: campaign.reply_to || profile.email,
         // })
 
         // Update send record
