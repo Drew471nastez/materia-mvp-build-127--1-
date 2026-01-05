@@ -142,7 +142,7 @@ function NotificationBell({
         }}
       >
         <Bell
-          className={cn("w-5 h-5 sm:w-[22px] sm:h-[22px]", s.iconColor)}
+          className={cn("w-[18px] h-[18px] sm:w-[17px] sm:h-[17px]", s.iconColor)}
           style={{
             animation: "bellPulse 3s ease-in-out infinite",
           }}
@@ -254,7 +254,8 @@ function ShareButton({
   pageTitle,
   avatarUrl,
   style = "white",
-}: { pageUrl: string; pageTitle: string; avatarUrl?: string | null; style?: "glass" | "white" | "black" }) {
+  showSubscribe = true,
+}: { pageUrl: string; pageTitle: string; avatarUrl?: string | null; style?: "glass" | "white" | "black"; showSubscribe?: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -262,7 +263,7 @@ function ShareButton({
     glass: {
       buttonBg: "rgba(255, 255, 255, 0.15)",
       buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
-      panelBg: "rgba(255, 255, 255, 0.95)",
+      panelBg: "rgba(255, 255, 255, 0.98)",
       iconColor: "text-white/80",
     },
     white: {
@@ -290,65 +291,91 @@ function ShareButton({
   const shareOptions = [
     {
       name: "Copy link",
-      icon: copied ? Check : Link2,
+      iconType: "copy" as const,
       color: copied ? "#22c55e" : "#6b7280",
       action: copyLink,
     },
     {
       name: "X",
-      icon: () => (
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-        </svg>
-      ),
+      iconType: "x" as const,
       color: "#000000",
       action: () => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`, "_blank"),
     },
     {
       name: "Facebook",
-      icon: () => (
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-        </svg>
-      ),
+      iconType: "facebook" as const,
       color: "#1877F2",
       action: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`, "_blank"),
     },
     {
       name: "WhatsApp",
-      icon: () => (
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-        </svg>
-      ),
+      iconType: "whatsapp" as const,
       color: "#25D366",
       action: () => window.open(`https://wa.me/?text=${encodeURIComponent(`${pageTitle} ${pageUrl}`)}`, "_blank"),
     },
     {
       name: "LinkedIn",
-      icon: () => (
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-        </svg>
-      ),
+      iconType: "linkedin" as const,
       color: "#0A66C2",
       action: () => window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(pageUrl)}&title=${encodeURIComponent(pageTitle)}`, "_blank"),
     },
     {
-      name: "Messenger",
-      icon: () => (
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 0C5.373 0 0 4.974 0 11.111c0 3.498 1.744 6.614 4.469 8.654V24l4.088-2.242c1.092.3 2.246.464 3.443.464 6.627 0 12-4.974 12-11.111S18.627 0 12 0zm1.191 14.963l-3.055-3.26-5.963 3.26L10.732 8l3.131 3.259L19.752 8l-6.561 6.963z" />
-        </svg>
-      ),
-      color: "#0084FF",
-      action: () => window.open(`https://www.facebook.com/dialog/send?link=${encodeURIComponent(pageUrl)}&app_id=291494419107518&redirect_uri=${encodeURIComponent(pageUrl)}`, "_blank"),
+      name: "Storelib",
+      iconType: "storelib" as const,
+      color: "#8B5CF6",
+      action: () => window.open("https://storelib.co", "_blank"),
     },
   ]
 
+  // Render icon based on type
+  const renderIcon = (iconType: string, color: string) => {
+    switch (iconType) {
+      case "copy":
+        return copied ? <Check className="w-5 h-5" /> : <Link2 className="w-5 h-5" />
+      case "x":
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+        )
+      case "facebook":
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+          </svg>
+        )
+      case "whatsapp":
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+          </svg>
+        )
+      case "linkedin":
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+          </svg>
+        )
+      case "storelib":
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )
+      default:
+        return null
+    }
+  }
+
+  // Desktop: position next to subscribe button (to the left)
+  // Mobile: position on left side of screen
+  const positionClass = showSubscribe
+    ? "fixed top-4 right-[60px] sm:top-6 sm:right-[68px] z-50"
+    : "fixed top-4 right-4 sm:top-6 sm:right-6 z-50"
+
   return (
-    <div className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50">
-      {/* Share Button */}
+    <div className={positionClass}>
+      {/* Share Button - icons 3px smaller on desktop */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
@@ -361,7 +388,8 @@ function ShareButton({
           boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
         }}
       >
-        <Send className={cn("w-5 h-5 sm:w-[22px] sm:h-[22px]", s.iconColor)} />
+        {/* Mobile: 18px (2px smaller than 20), Desktop: 17px (3px smaller than 20) */}
+        <Send className={cn("w-[18px] h-[18px] sm:w-[17px] sm:h-[17px]", s.iconColor)} />
       </button>
 
       {/* Share Modal */}
@@ -369,67 +397,69 @@ function ShareButton({
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Modal */}
+          {/* Modal - Improved design */}
           <div
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100%-32px)] max-w-[340px] rounded-2xl overflow-hidden"
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100%-32px)] max-w-[340px] rounded-3xl overflow-hidden"
             style={{
               background: s.panelBg,
-              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.2)",
+              boxShadow: "0 25px 80px rgba(0, 0, 0, 0.25)",
             }}
           >
             {/* Close button */}
             <button
               onClick={() => setIsOpen(false)}
-              className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-gray-100 transition-colors z-10"
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors z-10"
             >
-              <X className="w-4 h-4 text-gray-500" />
+              <X className="w-5 h-5 text-gray-400" />
             </button>
 
-            {/* Profile preview */}
-            <div className="pt-8 pb-4 px-6 text-center border-b border-gray-100">
-              <div className="w-16 h-16 mx-auto mb-3 rounded-full overflow-hidden bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+            {/* Profile preview - improved */}
+            <div className="pt-10 pb-5 px-6 text-center">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center ring-4 ring-white shadow-lg">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-2xl font-bold text-blue-600">{pageTitle.charAt(0).toUpperCase()}</span>
+                  <span className="text-3xl font-bold bg-gradient-to-br from-purple-500 to-pink-500 bg-clip-text text-transparent">{pageTitle.charAt(0).toUpperCase()}</span>
                 )}
               </div>
-              <h3 className="text-base font-semibold text-gray-900 mb-1">{pageTitle}</h3>
-              <p className="text-xs text-gray-500 truncate max-w-[200px] mx-auto">{pageUrl}</p>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">{pageTitle}</h3>
+              <div className="flex items-center justify-center gap-1.5 text-sm text-gray-500">
+                <Link2 className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[180px]">{pageUrl.replace(/^https?:\/\//, '')}</span>
+              </div>
             </div>
 
-            {/* Share options */}
-            <div className="p-4">
-              <p className="text-xs font-medium text-gray-500 mb-3 px-1">Share via</p>
-              <div className="grid grid-cols-3 gap-2">
-                {shareOptions.map((option) => {
-                  const IconComponent = option.icon
-                  return (
-                    <button
-                      key={option.name}
-                      onClick={option.action}
-                      className="flex flex-col items-center gap-1.5 p-3 rounded-xl hover:bg-gray-50 transition-colors"
+            {/* Share options - improved grid */}
+            <div className="px-5 pb-6">
+              <div className="grid grid-cols-3 gap-3">
+                {shareOptions.map((option) => (
+                  <button
+                    key={option.name}
+                    onClick={option.action}
+                    className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-gray-50 active:scale-95 transition-all"
+                  >
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center shadow-sm"
+                      style={{
+                        backgroundColor: option.iconType === "storelib"
+                          ? "transparent"
+                          : `${option.color}12`,
+                        background: option.iconType === "storelib"
+                          ? "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)"
+                          : undefined
+                      }}
                     >
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: `${option.color}15` }}
-                      >
-                        <div style={{ color: option.color }}>
-                          {typeof IconComponent === "function" && 'render' in IconComponent ? (
-                            <IconComponent className="w-5 h-5" />
-                          ) : typeof IconComponent === "function" ? (
-                            <IconComponent />
-                          ) : null}
-                        </div>
+                      <div style={{ color: option.iconType === "storelib" ? "#ffffff" : option.color }}>
+                        {renderIcon(option.iconType, option.color)}
                       </div>
-                      <span className="text-[10px] font-medium text-gray-600">{option.name}</span>
-                    </button>
-                  )
-                })}
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">{option.name}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -1044,13 +1074,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         />
       )}
 
-      {/* Share Button (only show if enabled) */}
+      {/* Share Button (only show if enabled) - positioned next to subscribe on desktop */}
       {safeSettings.share_enabled !== false && (
         <ShareButton
           pageUrl={pageUrl}
           pageTitle={sellerName}
           avatarUrl={avatar_url}
           style={safeSettings.share_style || "white"}
+          showSubscribe={safeSettings.subscribe_enabled !== false}
         />
       )}
 
@@ -1733,7 +1764,10 @@ function PublicBlockRenderer({
                   borderColor: socialStyle === "outline" ? `${socialColor}40` : "transparent",
                 }}
               >
-                <Icon size={20} color={socialColor} />
+                {/* Mobile: 18px (2px smaller), Desktop: 17px (3px smaller) */}
+                <span className="w-[18px] h-[18px] sm:w-[17px] sm:h-[17px] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">
+                  <Icon size={18} color={socialColor} />
+                </span>
               </a>
             )
           })}
