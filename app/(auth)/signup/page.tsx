@@ -10,14 +10,13 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense } from "react"
 import Image from "next/image"
 
-function SignUpForm() {
+function SignUpFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
-  const [isAppleLoading, setIsAppleLoading] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -40,7 +39,6 @@ function SignUpForm() {
     }
 
     if (!showPasswordField) {
-      // First step - show password field
       if (!email.trim()) {
         setError("Please enter your email")
         return
@@ -50,7 +48,6 @@ function SignUpForm() {
       return
     }
 
-    // Second step - actual signup
     const supabase = createClient()
     setIsLoading(true)
     setError(null)
@@ -65,19 +62,15 @@ function SignUpForm() {
     }
 
     try {
-      // Use dynamic redirect URL based on current origin
-      const redirectUrl = `${window.location.origin}/auth/callback`
-      
       const { error, data } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: trimmedPassword,
         options: {
-          emailRedirectTo: redirectUrl,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
       if (error) throw error
 
-      // If user is created and session exists (email confirmation disabled), redirect directly
       if (data.session) {
         const { error: profileError } = await supabase.from("profiles").upsert({
           id: data.user!.id,
@@ -128,17 +121,13 @@ function SignUpForm() {
     setError(null)
 
     try {
-      // CRITICAL: Use window.location.origin to dynamically set the redirect URL
-      // This ensures it works on both localhost and production
-      const redirectUrl = `${window.location.origin}/auth/callback`
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
+            access_type: "offline",
+            prompt: "consent",
           },
         },
       })
@@ -149,50 +138,19 @@ function SignUpForm() {
     }
   }
 
-  const handleAppleSignIn = async () => {
-    if (!agreeToTerms) {
-      setError("Please agree to receive offers to continue")
-      return
-    }
-
-    const supabase = createClient()
-    setIsAppleLoading(true)
-    setError(null)
-
-    try {
-      // CRITICAL: Use window.location.origin to dynamically set the redirect URL
-      const redirectUrl = `${window.location.origin}/auth/callback`
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "apple",
-        options: {
-          redirectTo: redirectUrl,
-        },
-      })
-      if (error) throw error
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Failed to sign in with Apple")
-      setIsAppleLoading(false)
-    }
-  }
-
   const isFormValid = agreeToTerms
 
   return (
     <div className="flex min-h-svh w-full">
-      {/* Left side - Form */}
       <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-[400px]">
-          {/* Logo */}
           <Link href="/" className="mb-12 inline-block">
             <span className="text-2xl font-bold tracking-tight text-emerald-500">Storelib*</span>
           </Link>
 
-          {/* Heading */}
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Join Storelib</h1>
           <p className="mb-8 text-[15px] text-neutral-500">Sign up for free!</p>
 
-          {/* Form */}
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
               <Input
@@ -223,7 +181,6 @@ function SignUpForm() {
               </div>
             )}
 
-            {/* Checkbox */}
             <div className="flex items-start gap-3">
               <Checkbox
                 id="terms"
@@ -251,31 +208,24 @@ function SignUpForm() {
             </Button>
           </form>
 
-          {/* Legal text */}
           <p className="mt-4 text-[12px] text-neutral-500 leading-relaxed">
             By clicking <strong>Create account</strong>, you agree to Storelib&apos;s{" "}
-            <Link href="/privacy" className="underline underline-offset-2 hover:text-neutral-700">
+            <Link href="/legal/privacy" className="underline underline-offset-2 hover:text-neutral-700">
               privacy notice
             </Link>
             ,{" "}
-            <Link href="/terms" className="underline underline-offset-2 hover:text-neutral-700">
+            <Link href="/legal/terms" className="underline underline-offset-2 hover:text-neutral-700">
               T&Cs
-            </Link>
-            ,{" "}
-            <Link href="/cookies" className="underline underline-offset-2 hover:text-neutral-700">
-              cookie notice
             </Link>{" "}
             and to receive offers, news and updates.
           </p>
 
-          {/* Divider */}
           <div className="my-6 flex items-center gap-4">
             <div className="h-px flex-1 bg-neutral-200" />
             <span className="text-[13px] font-medium text-neutral-400">OR</span>
             <div className="h-px flex-1 bg-neutral-200" />
           </div>
 
-          {/* OAuth Buttons */}
           <div className="space-y-3">
             <Button
               type="button"
@@ -304,19 +254,6 @@ function SignUpForm() {
               </svg>
               {isGoogleLoading ? "Connecting..." : "Continue with Google"}
             </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleAppleSignIn}
-              disabled={isAppleLoading}
-              className="h-12 w-full rounded-lg border-neutral-200 bg-white text-[15px] font-medium text-neutral-700 hover:bg-neutral-50"
-            >
-              <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-              </svg>
-              {isAppleLoading ? "Connecting..." : "Continue with Apple"}
-            </Button>
           </div>
 
           <p className="mt-6 text-center text-[14px] text-neutral-500">
@@ -328,7 +265,6 @@ function SignUpForm() {
         </div>
       </div>
 
-      {/* Right side - Image */}
       <div className="relative hidden lg:block lg:w-1/2">
         <Image
           src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/banner-signup-desktop-Dq7usIXX.webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvYmFubmVyLXNpZ251cC1kZXNrdG9wLURxN3VzSVhYLndlYnAiLCJpYXQiOjE3Njc2ODMxNzIsImV4cCI6MzkwMDM4OTE1MTcyfQ.MfSxayqKUvksrw_dzPI5Ssld24mdGDUV6NBEzafGWlk"
@@ -342,10 +278,21 @@ function SignUpForm() {
   )
 }
 
+function SignUpFormFallback() {
+  return (
+    <div className="flex min-h-svh w-full items-center justify-center">
+      <div className="text-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
+        <p className="mt-4 text-neutral-500">Loading...</p>
+      </div>
+    </div>
+  )
+}
+
 export default function SignUpPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-svh items-center justify-center">Loading...</div>}>
-      <SignUpForm />
+    <Suspense fallback={<SignUpFormFallback />}>
+      <SignUpFormContent />
     </Suspense>
   )
 }
