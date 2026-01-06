@@ -23,7 +23,7 @@ function AuthErrorContent() {
         <ul className="mb-6 text-left text-sm text-neutral-500 space-y-2">
           <li>• The authentication link expired or was already used</li>
           <li>• You cancelled the sign in process</li>
-          <li>• There was a problem with the OAuth provider</li>
+          <li>• There was a problem with Google authentication</li>
         </ul>
         {error && (
           <div className="mb-6 rounded-lg bg-red-50 border border-red-100 p-4">
@@ -44,15 +44,20 @@ function AuthErrorContent() {
   )
 }
 
+function AuthErrorFallback() {
+  return (
+    <div className="flex min-h-svh w-full items-center justify-center p-6">
+      <div className="text-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
+        <p className="mt-4 text-neutral-500">Loading...</p>
+      </div>
+    </div>
+  )
+}
+
 export default function AuthCodeErrorPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-svh w-full items-center justify-center p-6">
-        <div className="text-center">
-          <p className="text-neutral-600">Loading...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<AuthErrorFallback />}>
       <AuthErrorContent />
     </Suspense>
   )
