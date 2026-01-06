@@ -1,82 +1,48 @@
 "use client"
-
-import type React from "react"
-
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Loader2, Mail, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle2, Mail } from "lucide-react"
 
 export default function VerifyEmailContent() {
-  const [email, setEmail] = useState("")
   const [verificationCode, setVerificationCode] = useState("")
-  const [step, setStep] = useState<"email" | "code">("email")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
-  const [resendDisabled, setResendDisabled] = useState(false)
   const [resendCountdown, setResendCountdown] = useState(0)
 
   const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get("userId")
-  const initialEmail = searchParams.get("email")
+  const email = searchParams.get("email") || ""
+  const codeSent = searchParams.get("sent") === "1"
 
+  // Start countdown if code was already sent
   useEffect(() => {
-    if (initialEmail) {
-      setEmail(initialEmail)
-      setStep("code")
+    if (codeSent) {
+      setResendCountdown(60)
     }
-  }, [initialEmail])
+  }, [codeSent])
 
+  // Countdown timer
   useEffect(() => {
-    if (resendCountdown <= 0) {
-      setResendDisabled(false)
-      return
-    }
-
+    if (resendCountdown <= 0) return
     const timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000)
     return () => clearTimeout(timer)
   }, [resendCountdown])
 
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSuccess(null)
-    setLoading(true)
-
-    try {
-      const res = await fetch("/api/auth/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, email: email.trim().toLowerCase() }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error || "Failed to send verification code")
-        return
-      }
-
-      setSuccess("Verification code sent! Check your email.")
-      setStep("code")
-      setResendCountdown(60)
-      setResendDisabled(true)
-    } catch (err) {
-      setError("Something went wrong. Please try again.")
-    } finally {
-      setLoading(false)
+  // Auto-verify when all 6 digits are entered
+  useEffect(() => {
+    if (verificationCode.length === 6 && !loading && !success) {
+      handleVerifyCode()
     }
-  }
+  }, [verificationCode])
 
   const handleVerifyCode = async () => {
+    if (verificationCode.length !== 6) return
+
     setError(null)
     setLoading(true)
 
@@ -91,16 +57,18 @@ export default function VerifyEmailContent() {
 
       if (!res.ok) {
         setError(data.error || "Invalid verification code")
+        setVerificationCode("")
         return
       }
 
-      setSuccess("Email verified! Redirecting...")
+      setSuccess(true)
       setTimeout(() => {
         router.push("/onboarding")
         router.refresh()
       }, 1500)
     } catch (err) {
       setError("Something went wrong. Please try again.")
+      setVerificationCode("")
     } finally {
       setLoading(false)
     }
@@ -118,13 +86,12 @@ export default function VerifyEmailContent() {
       })
 
       if (!res.ok) {
-        setError("Failed to resend verification code")
+        const data = await res.json()
+        setError(data.error || "Failed to resend verification code")
         return
       }
 
-      setSuccess("Code resent! Check your email.")
       setResendCountdown(60)
-      setResendDisabled(true)
     } catch (err) {
       setError("Something went wrong. Please try again.")
     } finally {
@@ -132,170 +99,139 @@ export default function VerifyEmailContent() {
     }
   }
 
+  // Mask email for display
+  const maskedEmail = email
+    ? email.replace(/(.{2})(.*)(@.*)/, (_, a, b, c) => a + "*".repeat(Math.min(b.length, 5)) + c)
+    : ""
+
   if (!userId) {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-        <div className="w-full max-w-sm">
-          <Card>
-            <CardHeader>
-              <CardTitle>Invalid Link</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">This verification link is invalid or has expired.</p>
-              <Link href="/signup" className="text-blue-600 hover:underline">
-                Return to signup
-              </Link>
-            </CardContent>
-          </Card>
+      <div className="flex min-h-svh w-full items-center justify-center p-6">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold text-neutral-900 mb-2">Invalid Link</h1>
+          <p className="text-neutral-500 mb-4">This verification link is invalid or has expired.</p>
+          <Link href="/signup" className="text-emerald-600 hover:text-emerald-700 font-medium">
+            Return to signup
+          </Link>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col gap-6">
-          <Link href="/" className="flex items-center justify-center gap-2">
-            <span className="text-xl font-semibold tracking-tight">Materia</span>
+    <div className="flex min-h-svh w-full">
+      {/* Left side - Form */}
+      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
+        <div className="mx-auto w-full max-w-[400px]">
+          <Link href="/" className="mb-12 inline-block">
+            <span className="text-2xl font-bold tracking-tight text-emerald-500">Storelib*</span>
           </Link>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">Verify your email</CardTitle>
-              <CardDescription>
-                {step === "email" ? "Enter your email to get started" : "Enter the 6-digit code we sent to your email"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {step === "email" ? (
-                <form onSubmit={handleSendCode}>
-                  <div className="flex flex-col gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="you@example.com"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        autoComplete="email"
-                        disabled={loading}
-                      />
-                    </div>
-                    {error && (
-                      <div className="rounded-lg bg-red-50 border border-red-100 p-3 flex items-start gap-2.5">
-                        <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                        <p className="text-sm text-red-700">{error}</p>
-                      </div>
-                    )}
-                    {success && (
-                      <div className="rounded-lg bg-green-50 border border-green-100 p-3 flex items-start gap-2.5">
-                        <p className="text-sm text-green-700">{success}</p>
-                      </div>
-                    )}
-                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading || !email}>
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
-                      Send verification code
-                    </Button>
+
+          {success ? (
+            <div className="text-center">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+                <CheckCircle2 className="h-10 w-10 text-emerald-600" />
+              </div>
+              <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Email Verified!</h1>
+              <p className="text-[15px] text-neutral-500">Redirecting you to complete your profile...</p>
+            </div>
+          ) : (
+            <>
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
+                <Mail className="h-8 w-8 text-neutral-600" />
+              </div>
+
+              <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900 text-center">
+                Check your email
+              </h1>
+              <p className="mb-2 text-[15px] text-neutral-500 text-center">We sent a 6-digit code to</p>
+              <p className="mb-8 text-[15px] font-medium text-neutral-900 text-center">{maskedEmail}</p>
+
+              <div className="space-y-6">
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={verificationCode}
+                    onChange={setVerificationCode}
+                    disabled={loading || success}
+                  >
+                    <InputOTPGroup className="gap-2">
+                      {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <InputOTPSlot
+                          key={index}
+                          index={index}
+                          className="h-14 w-12 rounded-lg border-neutral-200 bg-neutral-50 text-xl font-semibold text-center focus:border-neutral-400 focus:bg-white focus:ring-0"
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+
+                {error && (
+                  <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-center">
+                    <p className="text-sm text-red-600">{error}</p>
                   </div>
-                </form>
-              ) : (
-                <div className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="code" className="text-sm font-medium">
-                      Verification code
-                    </Label>
-                    <InputOTP maxLength={6} value={verificationCode} onChange={setVerificationCode}>
-                      <InputOTPGroup className="gap-2 w-full justify-center">
-                        <InputOTPSlot
-                          index={0}
-                          className="w-12 h-12 text-lg font-semibold border border-gray-200 rounded-lg text-center"
-                        />
-                        <InputOTPSlot
-                          index={1}
-                          className="w-12 h-12 text-lg font-semibold border border-gray-200 rounded-lg text-center"
-                        />
-                        <InputOTPSlot
-                          index={2}
-                          className="w-12 h-12 text-lg font-semibold border border-gray-200 rounded-lg text-center"
-                        />
-                        <InputOTPSlot
-                          index={3}
-                          className="w-12 h-12 text-lg font-semibold border border-gray-200 rounded-lg text-center"
-                        />
-                        <InputOTPSlot
-                          index={4}
-                          className="w-12 h-12 text-lg font-semibold border border-gray-200 rounded-lg text-center"
-                        />
-                        <InputOTPSlot
-                          index={5}
-                          className="w-12 h-12 text-lg font-semibold border border-gray-200 rounded-lg text-center"
-                        />
-                      </InputOTPGroup>
-                    </InputOTP>
-                    <p className="text-xs text-gray-500">Check your inbox for the 6-digit code</p>
+                )}
+
+                {loading && (
+                  <div className="flex items-center justify-center gap-2 text-neutral-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Verifying...</span>
                   </div>
+                )}
 
-                  {error && (
-                    <div className="rounded-lg bg-red-50 border border-red-100 p-3 flex items-start gap-2.5">
-                      <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-red-700">{error}</p>
-                    </div>
-                  )}
-
-                  {success && (
-                    <div className="rounded-lg bg-green-50 border border-green-100 p-3 flex items-start gap-2.5">
-                      <p className="text-sm text-green-700">{success}</p>
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    <Button
-                      onClick={handleVerifyCode}
-                      disabled={loading || verificationCode.length !== 6}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                    >
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Verify & Continue
-                    </Button>
-
-                    <button
-                      type="button"
-                      onClick={handleResendCode}
-                      disabled={resendDisabled || resendLoading}
-                      className="w-full text-blue-600 hover:text-blue-700 text-sm font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
-                    >
-                      {resendLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Resending...
-                        </span>
-                      ) : resendCountdown > 0 ? (
-                        `Resend in ${resendCountdown}s`
-                      ) : (
-                        "Resend code"
-                      )}
-                    </button>
-                  </div>
-
+                <div className="text-center">
+                  <p className="text-[14px] text-neutral-500 mb-1">Didn't receive the code?</p>
                   <button
                     type="button"
-                    onClick={() => {
-                      setStep("email")
-                      setVerificationCode("")
-                      setError(null)
-                      setSuccess(null)
-                    }}
-                    disabled={loading}
-                    className="w-full text-gray-600 hover:text-gray-700 text-sm font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
+                    onClick={handleResendCode}
+                    disabled={resendCountdown > 0 || resendLoading}
+                    className="text-[14px] font-medium text-emerald-600 hover:text-emerald-700 disabled:text-neutral-400 disabled:cursor-not-allowed"
                   >
-                    Use a different email
+                    {resendLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Sending...
+                      </span>
+                    ) : resendCountdown > 0 ? (
+                      `Resend code in ${resendCountdown}s`
+                    ) : (
+                      "Resend code"
+                    )}
                   </button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                <div className="pt-4 border-t border-neutral-100">
+                  <p className="text-[13px] text-neutral-400 text-center">
+                    Wrong email?{" "}
+                    <Link
+                      href="/signup"
+                      className="text-neutral-600 hover:text-neutral-700 underline underline-offset-2"
+                    >
+                      Go back to signup
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Right side - Image */}
+      <div className="relative hidden lg:block lg:w-1/2">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-600">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center text-white px-12">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                <Mail className="h-10 w-10 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold mb-4">Almost there!</h2>
+              <p className="text-lg text-white/90 max-w-md">
+                Enter the verification code we sent to your email to complete your account setup.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

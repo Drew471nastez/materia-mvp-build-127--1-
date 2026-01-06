@@ -71,9 +71,9 @@ function SignUpFormContent() {
       })
       if (error) throw error
 
-      if (data.session) {
+      if (data.user) {
         const { error: profileError } = await supabase.from("profiles").upsert({
-          id: data.user!.id,
+          id: data.user.id,
           email: trimmedEmail,
           is_creator: false,
           email_verified: false,
@@ -81,6 +81,23 @@ function SignUpFormContent() {
 
         if (profileError) {
           console.error("Profile creation error:", profileError)
+        }
+
+        try {
+          const verifyRes = await fetch("/api/auth/verify-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: data.user.id,
+              email: trimmedEmail,
+            }),
+          })
+
+          if (!verifyRes.ok) {
+            console.error("Failed to send verification code")
+          }
+        } catch (verifyError) {
+          console.error("Error sending verification code:", verifyError)
         }
 
         if (claim === "1" && receiptToken) {
@@ -98,10 +115,8 @@ function SignUpFormContent() {
           return
         }
 
-        router.push(`/verify-email?userId=${data.user!.id}&email=${encodeURIComponent(trimmedEmail)}`)
+        router.push(`/verify-email?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}&sent=1`)
         router.refresh()
-      } else {
-        router.push("/signup/success")
       }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
