@@ -812,7 +812,7 @@ export function LinksTab() {
 
       {/* Add Block Modal - Wider on desktop */}
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); } }}>
-    <DialogContent className="w-[calc(100%-32px)] sm:w-[min(600px,calc(100vw-64px))] sm:!max-w-[600px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+    <DialogContent className="w-[calc(100%-32px)] sm:w-[min(700px,calc(100vw-64px))] sm:!max-w-[700px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
 
 
           <DialogHeader className="p-4 sm:p-5 pb-3 sm:pb-4 border-b bg-white">
