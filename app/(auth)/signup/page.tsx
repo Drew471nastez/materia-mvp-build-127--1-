@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Image from "next/image"
 
 function SignUpForm() {
@@ -23,6 +23,13 @@ function SignUpForm() {
   const searchParams = useSearchParams()
   const claim = searchParams.get("claim")
   const receiptToken = searchParams.get("receiptToken")
+  const prefilledEmail = searchParams.get("email")
+
+  useEffect(() => {
+    if (prefilledEmail) {
+      setEmail(prefilledEmail)
+    }
+  }, [prefilledEmail])
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,7 +69,7 @@ function SignUpForm() {
         email: trimmedEmail,
         password: trimmedPassword,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/onboarding`,
+          emailRedirectTo: undefined,
         },
       })
       if (error) throw error
@@ -120,9 +127,6 @@ function SignUpForm() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
-        },
       })
       if (error) throw error
     } catch (error: unknown) {
@@ -144,9 +148,6 @@ function SignUpForm() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "apple",
-        options: {
-          redirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
-        },
       })
       if (error) throw error
     } catch (error: unknown) {

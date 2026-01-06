@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
@@ -11,23 +12,31 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.user) {
-      // Check if user has a profile, if not create one
-      const { data: profile } = await supabase.from("profiles").select("id").eq("id", data.user.id).single()
+      const adminSupabase = createAdminClient()
+
+      // Check if user has a profile
+      const { data: profile } = await adminSupabase
+        .from("profiles")
+        .select("id, is_creator")
+        .eq("id", data.user.id)
+        .single()
 
       if (!profile) {
-        // Create profile from OAuth data
         const userMetadata = data.user.user_metadata
-        await supabase.from("profiles").upsert({
+        await adminSupabase.from("profiles").insert({
           id: data.user.id,
           email: data.user.email,
           display_name: userMetadata?.full_name || userMetadata?.name || data.user.email?.split("@")[0],
           avatar_url: userMetadata?.avatar_url || userMetadata?.picture,
           is_creator: false,
         })
+
+        // New OAuth user - send to onboarding
+        return NextResponse.redirect(`${origin}/onboarding`)
       }
 
       // Check if user is a creator
-      const { data: creator } = await supabase
+      const { data: creator } = await adminSupabase
         .from("creators")
         .select("id, onboarding_completed")
         .eq("user_id", data.user.id)
@@ -40,8 +49,8 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/app`)
       }
 
-      // New user or customer - send to onboarding
-      return NextResponse.redirect(`${origin}/onboarding`)
+      // Existing customer - send to dashboard
+      return NextResponse.redirect(`${origin}/dashboard`)
     }
   }
 
