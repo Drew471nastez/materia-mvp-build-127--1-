@@ -120,8 +120,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           profileDropdownOpen ? "bg-neutral-100/80" : "hover:bg-neutral-100/50",
         )}
       >
-        <Avatar className="h-10 w-10 shrink-0">
+             <Avatar className="h-10 w-10 shrink-0">
           <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={userDisplayName} className="object-cover" />
+          {avatarUrl ? (
+            <AvatarImage src={avatarUrl} alt={userDisplayName} className="object-cover" />
+          ) : null}
           <AvatarFallback className="bg-neutral-200 text-neutral-600 text-sm font-medium">
             {userInitials}
           </AvatarFallback>
