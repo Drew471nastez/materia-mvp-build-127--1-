@@ -255,9 +255,29 @@ function ShareButton({
   avatarUrl,
   style = "white",
   showSubscribe = true,
-}: { pageUrl: string; pageTitle: string; avatarUrl?: string | null; style?: "glass" | "white" | "black"; showSubscribe?: boolean }) {
+  accentColor,
+}: { pageUrl: string; pageTitle: string; avatarUrl?: string | null; style?: "glass" | "white" | "black"; showSubscribe?: boolean; accentColor?: string }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  // Generate gradient colors based on accent color or use default
+  const getGradientColors = () => {
+    if (accentColor) {
+      // Create a gradient based on the accent color
+      return {
+        from: accentColor,
+        via: accentColor,
+        to: accentColor,
+      }
+    }
+    return {
+      from: "#8B5CF6",
+      via: "#A855F7",
+      to: "#EC4899",
+    }
+  }
+
+  const gradientColors = getGradientColors()
 
   const styles = {
     glass: {
@@ -367,12 +387,9 @@ function ShareButton({
     }
   }
 
-  // Mobile: position on LEFT side of screen
-  // Desktop: position next to subscribe button (to the left with 3px gap)
-  // Subscribe is at right-6 (24px) + width 44px + 3px gap = 71px from right
-  const positionClass = showSubscribe
-    ? "fixed top-4 left-4 sm:top-6 sm:left-auto sm:right-[71px] z-50"
-    : "fixed top-4 left-4 sm:top-6 sm:left-auto sm:right-6 z-50"
+  // Share icon is always positioned on the TOP LEFT (both mobile and desktop)
+  // Subscribe icon stays on TOP RIGHT
+  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 z-50"
 
   return (
     <div className={positionClass}>
@@ -410,8 +427,13 @@ function ShareButton({
               boxShadow: "0 25px 80px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)",
             }}
           >
-            {/* Profile preview card with gradient background */}
-            <div className="relative bg-gradient-to-br from-violet-500 via-purple-500 to-pink-500 px-6 pt-8 pb-10">
+            {/* Profile preview card with gradient background based on OnePage accent color */}
+            <div
+              className="relative px-6 pt-8 pb-10"
+              style={{
+                background: `linear-gradient(135deg, ${gradientColors.from} 0%, ${gradientColors.via} 50%, ${gradientColors.to} 100%)`,
+              }}
+            >
               {/* Close button */}
               <button
                 onClick={() => setIsOpen(false)}
@@ -1094,7 +1116,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         />
       )}
 
-      {/* Share Button (only show if enabled) - positioned next to subscribe on desktop */}
+      {/* Share Button (only show if enabled) - positioned on TOP LEFT */}
       {safeSettings.share_enabled !== false && (
         <ShareButton
           pageUrl={pageUrl}
@@ -1102,6 +1124,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           avatarUrl={avatar_url}
           style={safeSettings.share_style || "white"}
           showSubscribe={safeSettings.subscribe_enabled !== false}
+          accentColor={safeTheme.button_color}
         />
       )}
 

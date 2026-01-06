@@ -90,7 +90,7 @@ function NotificationBell({ sellerName, scale = "small", style = "glass" }: { se
   const s = styles[style]
 
   return (
-    <div className="absolute top-10 right-3 z-30">
+    <div className="absolute top-6 right-3 z-30">
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -184,6 +184,7 @@ function ShareButtonPreview({
   scale = "small",
   style = "white",
   showSubscribe = true,
+  accentColor,
 }: {
   sellerName: string
   avatarUrl?: string | null
@@ -191,11 +192,15 @@ function ShareButtonPreview({
   scale?: "small" | "normal"
   style?: "glass" | "white" | "black"
   showSubscribe?: boolean
+  accentColor?: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const size = scale === "small" ? { btn: 28, icon: 10, panel: 180 } : { btn: 36, icon: 14, panel: 220 }
+
+  // Generate gradient colors based on accent color or use default
+  const gradientColor = accentColor || "#8B5CF6"
 
   const styles = {
     glass: {
@@ -223,8 +228,8 @@ function ShareButtonPreview({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Position: top LEFT side in phone preview (mobile style)
-  const positionClass = "absolute top-10 left-3 z-30"
+  // Position: top LEFT side in phone preview - positioned higher (top-6)
+  const positionClass = "absolute top-6 left-3 z-30"
 
   return (
     <div className={positionClass}>
@@ -261,8 +266,13 @@ function ShareButtonPreview({
               boxShadow: '0 20px 60px rgba(0, 0, 0, 0.2)',
             }}
           >
-            {/* Profile preview card with gradient background */}
-            <div className="relative bg-gradient-to-br from-violet-500 via-purple-500 to-pink-500 px-3 pt-4 pb-5">
+            {/* Profile preview card with gradient background based on OnePage accent color */}
+            <div
+              className="relative px-3 pt-4 pb-5"
+              style={{
+                background: `linear-gradient(135deg, ${gradientColor} 0%, ${gradientColor} 100%)`,
+              }}
+            >
               {/* Close button */}
               <button
                 onClick={() => setIsOpen(false)}
@@ -708,6 +718,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 scale="small"
                 style={(settings as any)?.share_style || "white"}
                 showSubscribe={settings?.subscribe_enabled !== false}
+                accentColor={theme.button_color}
               />
             )}
 

@@ -36,9 +36,16 @@ export default async function AppLayout({
     .eq("id", user.id)
     .single()
 
-  // Get avatar: priority is profile avatar > Google OAuth avatar > null
+  // Get OnePage avatar (from onepages table)
+  const { data: onepage } = await supabase
+    .from("onepages")
+    .select("avatar_url")
+    .eq("seller_id", user.id)
+    .single()
+
+  // Get avatar: priority is OnePage avatar > profile avatar > Google OAuth avatar > null
   const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-  const avatarUrl = profile?.avatar_url || googleAvatar
+  const avatarUrl = onepage?.avatar_url || profile?.avatar_url || googleAvatar
 
   return (
     <div className="min-h-svh overflow-x-hidden">
