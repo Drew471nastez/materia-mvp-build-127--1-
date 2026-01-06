@@ -1101,7 +1101,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         paddingLeft: isDesktop ? "28px" : "20px",
         paddingRight: isDesktop ? "28px" : "20px",
         // More top padding on mobile to push avatar/content down
-        paddingTop: isDesktop ? "0" : "44px",
+        paddingTop: isDesktop ? "0" : "50px",
         paddingBottom: "20px",
         minHeight: isDesktop ? "100%" : "100vh",
       }}
