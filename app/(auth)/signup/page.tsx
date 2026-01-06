@@ -65,11 +65,14 @@ function SignUpForm() {
     }
 
     try {
+      // Use dynamic redirect URL based on current origin
+      const redirectUrl = `${window.location.origin}/auth/callback`
+      
       const { error, data } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: trimmedPassword,
         options: {
-          emailRedirectTo: undefined,
+          emailRedirectTo: redirectUrl,
         },
       })
       if (error) throw error
@@ -125,8 +128,19 @@ function SignUpForm() {
     setError(null)
 
     try {
+      // CRITICAL: Use window.location.origin to dynamically set the redirect URL
+      // This ensures it works on both localhost and production
+      const redirectUrl = `${window.location.origin}/auth/callback`
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
       })
       if (error) throw error
     } catch (error: unknown) {
@@ -146,8 +160,14 @@ function SignUpForm() {
     setError(null)
 
     try {
+      // CRITICAL: Use window.location.origin to dynamically set the redirect URL
+      const redirectUrl = `${window.location.origin}/auth/callback`
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "apple",
+        options: {
+          redirectTo: redirectUrl,
+        },
       })
       if (error) throw error
     } catch (error: unknown) {
