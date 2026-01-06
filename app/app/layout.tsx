@@ -36,16 +36,26 @@ export default async function AppLayout({
     .eq("id", user.id)
     .single()
 
-  // Get OnePage avatar (from onepages table)
+  // Get OnePage avatar (from onepages table - Design tab, Header section)
   const { data: onepage } = await supabase
     .from("onepages")
     .select("avatar_url")
     .eq("seller_id", user.id)
     .single()
 
-  // Get avatar: priority is OnePage avatar > profile avatar > Google OAuth avatar > null
+  // Get Store Builder avatar (from store_builder_configs - Header section profile picture)
+  const { data: storeConfig } = await supabase
+    .from("store_builder_configs")
+    .select("published_config")
+    .eq("creator_id", user.id)
+    .eq("page_type", "shop")
+    .maybeSingle()
+
+  const storeBuilderAvatar = (storeConfig?.published_config as any)?.headerSettings?.avatarUrl || null
+
+  // Get avatar priority: 1. OnePage > 2. Store Builder > 3. Google OAuth > 4. fallback initials
   const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-  const avatarUrl = onepage?.avatar_url || profile?.avatar_url || googleAvatar
+  const avatarUrl = onepage?.avatar_url || storeBuilderAvatar || googleAvatar
 
   return (
     <div className="min-h-svh overflow-x-hidden">

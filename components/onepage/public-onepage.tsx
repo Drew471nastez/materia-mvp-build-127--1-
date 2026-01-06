@@ -457,14 +457,14 @@ function ShareButton({
               </div>
             </div>
 
-            {/* Share options - horizontal scroll */}
-            <div className="px-2 py-5">
-              <div className="flex overflow-x-auto gap-1 px-3 pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {/* Share options - centered and well-aligned */}
+            <div className="px-4 py-5">
+              <div className="flex justify-center flex-wrap gap-3">
                 {shareOptions.filter(o => o.iconType !== "storelib").map((option) => (
                   <button
                     key={option.name}
                     onClick={option.action}
-                    className="flex flex-col items-center gap-2 px-4 py-3 rounded-2xl hover:bg-gray-50 active:scale-95 transition-all shrink-0"
+                    className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-gray-50 active:scale-95 transition-all"
                   >
                     <div
                       className="w-14 h-14 rounded-full flex items-center justify-center shadow-sm transition-transform hover:scale-105"
@@ -484,7 +484,7 @@ function ShareButton({
 
             {/* Storelib CTA Section */}
             <div className="px-5 pb-6">
-              <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl p-4 border border-violet-100/50">
+              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm shrink-0">
                     <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -497,7 +497,7 @@ function ShareButton({
                   </div>
                   <button
                     onClick={() => window.open("https://storelib.co", "_blank")}
-                    className="px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-violet-700 hover:to-purple-700 transition-all shadow-sm hover:shadow-md active:scale-95"
+                    className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-sm hover:shadow-md active:scale-95"
                   >
                     Join
                   </button>
@@ -1785,7 +1785,7 @@ function PublicBlockRenderer({
       const layoutStyles = isHeroLayout ? "mt-[-18px] md:mt-[-22px] mb-4 md:mb-6" : "mt-[2px] mb-[2px]"
 
       return (
-        <div className={cn("flex items-center justify-center gap-2 flex-wrap", layoutStyles)}>
+        <div className={cn("flex items-center justify-center gap-2.5 flex-wrap", layoutStyles)}>
           {data.platforms.map(({ platform, url }) => {
             const Icon = SocialIconsSVG[platform]
             if (!Icon || !url) return null
@@ -1798,18 +1798,18 @@ function PublicBlockRenderer({
                 onClick={() => trackClick(block.id, url)}
                 className={cn(
                   "flex items-center justify-center transition-all hover:scale-110",
-                  socialStyle === "filled" && "w-10 h-10 sm:w-11 sm:h-11 rounded-full",
-                  socialStyle === "outline" && "w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2",
-                  socialStyle === "minimal" && "p-2",
+                  socialStyle === "filled" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full",
+                  socialStyle === "outline" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full border-2",
+                  socialStyle === "minimal" && "p-2.5",
                 )}
                 style={{
                   backgroundColor: socialStyle === "filled" ? `${socialColor}20` : "transparent",
                   borderColor: socialStyle === "outline" ? `${socialColor}40` : "transparent",
                 }}
               >
-                {/* Mobile: 18px (2px smaller), Desktop: 17px (3px smaller) */}
-                <span className="w-[18px] h-[18px] sm:w-[17px] sm:h-[17px] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">
-                  <Icon size={18} color={socialColor} />
+                {/* Mobile: 20px (+2px), Desktop: 19px (+2px) */}
+                <span className="w-[20px] h-[20px] sm:w-[19px] sm:h-[19px] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">
+                  <Icon size={20} color={socialColor} />
                 </span>
               </a>
             )

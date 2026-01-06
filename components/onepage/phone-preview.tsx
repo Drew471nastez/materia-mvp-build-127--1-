@@ -306,13 +306,13 @@ function ShareButtonPreview({
               </div>
             </div>
 
-            {/* Share options - horizontal scroll */}
-            <div className="px-1 py-2">
-              <div className="flex overflow-x-auto gap-0.5 px-1 pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {/* Share options - centered and aligned */}
+            <div className="px-2 py-2">
+              <div className="flex justify-center flex-wrap gap-1">
                 {/* Copy Link */}
                 <button
                   onClick={copyLink}
-                  className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-all shrink-0"
+                  className="flex flex-col items-center gap-1 p-1.5 rounded-lg hover:bg-gray-50 transition-all"
                 >
                   <div className={cn(
                     "rounded-full flex items-center justify-center transition-transform hover:scale-105",
@@ -326,7 +326,7 @@ function ShareButtonPreview({
                   )}>{copied ? 'Copied!' : 'Copy'}</span>
                 </button>
                 {/* X */}
-                <button className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-all shrink-0">
+                <button className="flex flex-col items-center gap-1 p-1.5 rounded-lg hover:bg-gray-50 transition-all">
                   <div className={cn(
                     "rounded-full flex items-center justify-center transition-transform hover:scale-105",
                     scale === "small" ? "w-7 h-7" : "w-8 h-8"
@@ -338,7 +338,7 @@ function ShareButtonPreview({
                   <span className={cn("font-medium text-gray-600", scale === "small" ? "text-[6px]" : "text-[7px]")}>X</span>
                 </button>
                 {/* Facebook */}
-                <button className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-all shrink-0">
+                <button className="flex flex-col items-center gap-1 p-1.5 rounded-lg hover:bg-gray-50 transition-all">
                   <div className={cn(
                     "rounded-full flex items-center justify-center transition-transform hover:scale-105",
                     scale === "small" ? "w-7 h-7" : "w-8 h-8"
@@ -350,7 +350,7 @@ function ShareButtonPreview({
                   <span className={cn("font-medium text-gray-600", scale === "small" ? "text-[6px]" : "text-[7px]")}>Facebook</span>
                 </button>
                 {/* WhatsApp */}
-                <button className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-all shrink-0">
+                <button className="flex flex-col items-center gap-1 p-1.5 rounded-lg hover:bg-gray-50 transition-all">
                   <div className={cn(
                     "rounded-full flex items-center justify-center transition-transform hover:scale-105",
                     scale === "small" ? "w-7 h-7" : "w-8 h-8"
@@ -362,7 +362,7 @@ function ShareButtonPreview({
                   <span className={cn("font-medium text-gray-600", scale === "small" ? "text-[6px]" : "text-[7px]")}>WhatsApp</span>
                 </button>
                 {/* LinkedIn */}
-                <button className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-all shrink-0">
+                <button className="flex flex-col items-center gap-1 p-1.5 rounded-lg hover:bg-gray-50 transition-all">
                   <div className={cn(
                     "rounded-full flex items-center justify-center transition-transform hover:scale-105",
                     scale === "small" ? "w-7 h-7" : "w-8 h-8"
@@ -378,7 +378,7 @@ function ShareButtonPreview({
 
             {/* Storelib CTA Section */}
             <div className="px-2 pb-2">
-              <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl p-2 border border-violet-100/50">
+              <div className="bg-gray-50 rounded-xl p-2 border border-gray-100">
                 <div className="flex items-center gap-2">
                   <div className={cn(
                     "rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0",
@@ -399,7 +399,7 @@ function ShareButtonPreview({
                     )}>Build with Storelib</p>
                   </div>
                   <button className={cn(
-                    "bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all",
+                    "bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-all",
                     scale === "small" ? "px-2 py-1 text-[6px]" : "px-2.5 py-1.5 text-[7px]"
                   )}>
                     Join
@@ -949,9 +949,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
     inputBtn: "px-[12px] py-[8px] text-[11px]",
     headline: "text-[13px]",
     description: "text-[10px]",
-    social: "w-[36px] h-[36px]",
-    socialIcon: 14,
-    socialGap: "gap-[8px]",
+    social: "w-[38px] h-[38px]",
+    socialIcon: 16,
+    socialGap: "gap-[10px]",
     socialMarginBottom: "mb-[8px]",
   } : {
     avatar: "h-20 w-20",
@@ -965,9 +965,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
     inputBtn: "px-5 py-3 text-base",
     headline: "text-lg",
     description: "text-sm",
-    social: "w-10 h-10",
-    socialIcon: 18,
-    socialGap: "gap-3",
+    social: "w-[42px] h-[42px]",
+    socialIcon: 20,
+    socialGap: "gap-3.5",
     socialMarginBottom: "mb-4",
   }
 
