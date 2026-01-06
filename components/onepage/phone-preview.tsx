@@ -17,14 +17,15 @@ import type {
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Globe, Bell, X, Send, Check, Link2, ExternalLink } from "lucide-react"
-import { useState } from "react"
+import { useState, useRef, useCallback } from "react"
 
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
   sellerName,
   scale = "small",
   style = "glass",
-}: { sellerName: string; scale?: "small" | "normal"; style?: "glass" | "white" | "black" }) {
+  isVisible = true,
+}: { sellerName: string; scale?: "small" | "normal"; style?: "glass" | "white" | "black"; isVisible?: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -95,8 +96,18 @@ function NotificationBell({
 
   const s = styles[style]
 
+  // Keep visible when modal is open
+  const shouldShow = isVisible || isOpen
+
   return (
-    <div className="absolute top-6 right-3 z-30">
+    <div
+      className="absolute top-6 right-3 z-30 transition-all duration-500 ease-out"
+      style={{
+        opacity: shouldShow ? 1 : 0,
+        transform: shouldShow ? "translateY(0)" : "translateY(-10px)",
+        pointerEvents: shouldShow ? "auto" : "none",
+      }}
+    >
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -205,6 +216,7 @@ function ShareButtonPreview({
   style = "white",
   showSubscribe = true,
   accentColor,
+  isVisible = true,
 }: {
   sellerName: string
   avatarUrl?: string | null
@@ -213,9 +225,13 @@ function ShareButtonPreview({
   style?: "glass" | "white" | "black"
   showSubscribe?: boolean
   accentColor?: string
+  isVisible?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  // Keep visible when modal is open
+  const shouldShow = isVisible || isOpen
 
   const size = scale === "small" ? { btn: 28, icon: 10, panel: 180 } : { btn: 36, icon: 14, panel: 220 }
 
@@ -258,23 +274,32 @@ function ShareButtonPreview({
 
   return (
     <>
-      {/* Share Button - positioned top left */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "absolute top-6 left-3 z-30 flex items-center justify-center rounded-full transition-all duration-300 hover:scale-105",
-          style === "glass" && "backdrop-blur-md",
-        )}
+      {/* Share Button - positioned top left with scroll visibility */}
+      <div
+        className="absolute top-6 left-3 z-30 transition-all duration-500 ease-out"
         style={{
-          width: size.btn,
-          height: size.btn,
-          background: s.buttonBg,
-          border: s.buttonBorder,
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+          opacity: shouldShow ? 1 : 0,
+          transform: shouldShow ? "translateY(0)" : "translateY(-10px)",
+          pointerEvents: shouldShow ? "auto" : "none",
         }}
       >
-        <Send size={size.icon} className={s.iconColor} />
-      </button>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            "flex items-center justify-center rounded-full transition-all duration-300 hover:scale-105",
+            style === "glass" && "backdrop-blur-md",
+          )}
+          style={{
+            width: size.btn,
+            height: size.btn,
+            background: s.buttonBg,
+            border: s.buttonBorder,
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+          }}
+        >
+          <Send size={size.icon} className={s.iconColor} />
+        </button>
+      </div>
 
       {/* Share Modal - positioned within phone preview */}
       {isOpen && (
@@ -703,6 +728,22 @@ interface PhonePreviewProps {
 
 export function PhonePreview({ className }: PhonePreviewProps) {
   const { onepage } = useOnePage()
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [buttonsVisible, setButtonsVisible] = useState(true)
+  const lastScrollY = useRef(0)
+
+  // Handle scroll for button visibility
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const currentScrollY = container.scrollTop
+    const nearTop = currentScrollY < 50
+    const scrollingUp = currentScrollY < lastScrollY.current - 5
+
+    setButtonsVisible(nearTop || scrollingUp)
+    lastScrollY.current = currentScrollY
+  }, [])
 
   if (!onepage) {
     return (
@@ -959,6 +1000,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 style={(settings as any)?.share_style || "white"}
                 showSubscribe={settings?.subscribe_enabled !== false}
                 accentColor={theme.button_color}
+                isVisible={buttonsVisible}
               />
             )}
 
@@ -968,6 +1010,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 sellerName={sellerName}
                 scale="small"
                 style={(settings as any)?.subscribe_style || "glass"}
+                isVisible={buttonsVisible}
               />
             )}
 
@@ -1104,6 +1147,8 @@ export function MobilePreviewContent() {
       />
       <div
         key={animationKey}
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto overflow-x-hidden relative"
         style={{
           background:

@@ -38,7 +38,7 @@ export default async function AppLayout({
     .from("onepages")
     .select("avatar_url")
     .eq("seller_id", user.id)
-    .single()
+    .maybeSingle()
 
   const { data: storeConfig } = await supabase
     .from("store_builder_configs")
