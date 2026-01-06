@@ -110,38 +110,24 @@ export default function VerifyEmailContent() {
 
       setSuccess(true)
 
-      // Check if user has an active session and route accordingly
+      // User is already logged in from signup, just redirect to app/onboarding
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      
+      // Check if user has a creator record
+      const { data: creator } = await supabase
+        .from("creators")
+        .select("id, onboarding_completed")
+        .eq("user_id", userId)
+        .single()
 
-      if (user) {
-        // User is logged in, check if they're a creator
-        const { data: creator } = await supabase
-          .from("creators")
-          .select("id, onboarding_completed")
-          .eq("user_id", user.id)
-          .single()
-
-        setTimeout(() => {
-          if (creator) {
-            if (creator.onboarding_completed === false) {
-              router.push("/onboarding")
-            } else {
-              router.push("/app")
-            }
-          } else {
-            // No creator record yet, go to onboarding
-            router.push("/onboarding")
-          }
-          router.refresh()
-        }, 1500)
-      } else {
-        // No session, redirect to login
-        setTimeout(() => {
-          router.push("/login?verified=1")
-          router.refresh()
-        }, 1500)
-      }
+      setTimeout(() => {
+        if (creator && creator.onboarding_completed) {
+          router.push("/app")
+        } else {
+          router.push("/onboarding")
+        }
+        router.refresh()
+      }, 1500)
     } catch (err) {
       console.error("[VerifyEmail] Error verifying code:", err)
       setError("Something went wrong. Please try again.")
@@ -194,7 +180,7 @@ export default function VerifyEmailContent() {
                 <CheckCircle2 className="h-10 w-10 text-emerald-600" />
               </div>
               <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Email Verified!</h1>
-              <p className="text-[15px] text-neutral-500">Redirecting you to complete your profile...</p>
+              <p className="text-[15px] text-neutral-500">Redirecting you to your dashboard...</p>
             </div>
           ) : (
             <>
