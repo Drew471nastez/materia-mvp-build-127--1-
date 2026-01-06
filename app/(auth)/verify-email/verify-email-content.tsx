@@ -1,9 +1,10 @@
 "use client"
+
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Loader2, CheckCircle2, Mail } from "lucide-react"
+import { Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react"
 import Image from "next/image"
 
 export default function VerifyEmailContent() {
@@ -29,6 +30,7 @@ export default function VerifyEmailContent() {
     }
   }, [codeSent])
 
+  // Send verification code on mount if not already sent
   useEffect(() => {
     if (userId && email && !codeSent && initialSendStatus === "pending") {
       sendVerificationCode()
@@ -54,7 +56,7 @@ export default function VerifyEmailContent() {
     setResendLoading(true)
 
     try {
-      console.log("[v0] Sending verification code to:", email)
+      console.log("[VerifyEmail] Sending verification code to:", email)
       const res = await fetch("/api/auth/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,7 +64,7 @@ export default function VerifyEmailContent() {
       })
 
       const data = await res.json()
-      console.log("[v0] Verification API response:", res.status, data)
+      console.log("[VerifyEmail] API response:", res.status, data)
 
       if (!res.ok) {
         setError(data.error || "Failed to send verification code")
@@ -73,7 +75,7 @@ export default function VerifyEmailContent() {
       setResendCountdown(60)
       setInitialSendStatus("sent")
     } catch (err) {
-      console.error("[v0] Error sending verification code:", err)
+      console.error("[VerifyEmail] Error sending verification code:", err)
       setError("Something went wrong. Please try again.")
       setInitialSendStatus("failed")
     } finally {
@@ -88,7 +90,7 @@ export default function VerifyEmailContent() {
     setLoading(true)
 
     try {
-      console.log("[v0] Verifying code for userId:", userId)
+      console.log("[VerifyEmail] Verifying code for userId:", userId)
       const res = await fetch("/api/auth/confirm-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,7 +98,7 @@ export default function VerifyEmailContent() {
       })
 
       const data = await res.json()
-      console.log("[v0] Confirm email response:", res.status, data)
+      console.log("[VerifyEmail] Confirm email response:", res.status, data)
 
       if (!res.ok) {
         setError(data.error || "Invalid verification code")
@@ -110,7 +112,7 @@ export default function VerifyEmailContent() {
         router.refresh()
       }, 1500)
     } catch (err) {
-      console.error("[v0] Error verifying code:", err)
+      console.error("[VerifyEmail] Error verifying code:", err)
       setError("Something went wrong. Please try again.")
       setVerificationCode("")
     } finally {
@@ -131,9 +133,15 @@ export default function VerifyEmailContent() {
     return (
       <div className="flex min-h-svh w-full items-center justify-center p-6">
         <div className="text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
           <h1 className="text-xl font-semibold text-neutral-900 mb-2">Invalid Link</h1>
           <p className="text-neutral-500 mb-4">This verification link is invalid or has expired.</p>
-          <Link href="/signup" className="text-emerald-600 hover:text-emerald-700 font-medium">
+          <Link 
+            href="/signup" 
+            className="inline-flex items-center justify-center px-6 py-2.5 rounded-full bg-neutral-900 text-white font-medium hover:bg-neutral-800 transition-colors"
+          >
             Return to signup
           </Link>
         </div>
@@ -160,14 +168,14 @@ export default function VerifyEmailContent() {
             </div>
           ) : (
             <>
-              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
-                <Mail className="h-8 w-8 text-neutral-600" />
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                <Mail className="h-8 w-8 text-emerald-600" />
               </div>
 
               <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900 text-center">
                 Check your email
               </h1>
-              <p className="mb-2 text-[15px] text-neutral-500 text-center">We sent a 6-digit code to</p>
+              <p className="mb-2 text-[15px] text-neutral-500 text-center">We sent a 6 digit code to</p>
               <p className="mb-8 text-[15px] font-medium text-neutral-900 text-center">{maskedEmail}</p>
 
               <div className="space-y-6">
@@ -183,7 +191,7 @@ export default function VerifyEmailContent() {
                         <InputOTPSlot
                           key={index}
                           index={index}
-                          className="h-14 w-12 rounded-lg border-neutral-200 bg-neutral-50 text-xl font-semibold text-center focus:border-neutral-400 focus:bg-white focus:ring-0"
+                          className="h-14 w-12 rounded-lg border-neutral-200 bg-neutral-50 text-xl font-semibold text-center focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20"
                         />
                       ))}
                     </InputOTPGroup>
@@ -210,6 +218,12 @@ export default function VerifyEmailContent() {
                   </div>
                 )}
 
+                {initialSendStatus === "failed" && !error && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-center">
+                    <p className="text-sm text-amber-700">Failed to send code. Click "Resend code" to try again.</p>
+                  </div>
+                )}
+
                 <div className="text-center">
                   <p className="text-[14px] text-neutral-500 mb-1">Didn't receive the code?</p>
                   <button
@@ -231,6 +245,10 @@ export default function VerifyEmailContent() {
                   </button>
                 </div>
 
+                <p className="text-[13px] text-neutral-400 text-center">
+                  Check your spam folder if you don't see the email
+                </p>
+
                 <div className="pt-4 border-t border-neutral-100">
                   <p className="text-[13px] text-neutral-400 text-center">
                     Wrong email?{" "}
@@ -248,9 +266,10 @@ export default function VerifyEmailContent() {
         </div>
       </div>
 
+      {/* Right side - Same image as signup page */}
       <div className="relative hidden lg:block lg:w-1/2">
         <Image
-          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/banner-login-desktop-D8selsDi.webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvYmFubmVyLWxvZ2luLWRlc2t0b3AtRDhzZWxzRGkud2VicCIsImlhdCI6MTc2NzY4Mjg3MiwiZXhwIjozMzI3MjE0Njg3Mn0.KfdlnasBcTWOIbG5w0kb6bw8lW9SPOmIKlOzF4DqkYc"
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/banner-signup-desktop-Dq7usIXX.webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvYmFubmVyLXNpZ251cC1kZXNrdG9wLURxN3VzSVhYLndlYnAiLCJpYXQiOjE3Njc2ODMxNzIsImV4cCI6MzkwMDM4OTE1MTcyfQ.MfSxayqKUvksrw_dzPI5Ssld24mdGDUV6NBEzafGWlk"
           alt="Verify email banner"
           fill
           className="object-cover"
