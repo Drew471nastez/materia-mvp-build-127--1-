@@ -14,8 +14,16 @@ export async function POST(request: Request) {
     const userId = typeof userIdRaw === "string" ? userIdRaw.trim() : ""
     const email = typeof emailRaw === "string" ? emailRaw.trim().toLowerCase() : ""
 
+    console.log("[v0] verify-email API called with:", { userId: userId.slice(0, 8) + "...", email })
+
     if (!userId || !email) {
+      console.log("[v0] Missing userId or email")
       return NextResponse.json({ error: "User ID and email are required" }, { status: 400 })
+    }
+
+    if (!resend) {
+      console.error("[v0] RESEND_API_KEY is not configured")
+      return NextResponse.json({ error: "Email service not configured" }, { status: 500 })
     }
 
     const admin = createAdminClient()
@@ -28,7 +36,12 @@ export async function POST(request: Request) {
       .eq("user_id", userId)
       .gte("created_at", fifteenMinutesAgo)
 
+    if (recentError) {
+      console.error("[v0] Error checking rate limit:", recentError)
+    }
+
     if (!recentError && recentCodes && recentCodes.length >= 3) {
+      console.log("[v0] Rate limit exceeded for user:", userId.slice(0, 8) + "...")
       return NextResponse.json(
         { error: "Too many verification attempts. Please try again in 15 minutes." },
         { status: 429 },
@@ -38,6 +51,8 @@ export async function POST(request: Request) {
     // Generate verification code
     const code = generateVerificationCode()
     const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRY_MINUTES * 60 * 1000)
+
+    console.log("[v0] Generated verification code, inserting into database...")
 
     const { error: codeError } = await admin.from("verification_codes").insert({
       user_id: userId,
@@ -51,19 +66,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to generate verification code" }, { status: 500 })
     }
 
-    if (resend) {
-      try {
-        await resend.emails.send({
-          from: "Storelib <noreply@materiabuilder.store>",
-          replyTo: "support@materiabuilder.store",
-          to: email,
-          subject: `${code} is your Storelib verification code`,
-          headers: {
-            "X-Priority": "1",
-            "X-MSMail-Priority": "High",
-            Importance: "high",
-          },
-          html: `
+    console.log("[v0] Verification code saved to database, sending email via Resend...")
+
+    try {
+      const result = await resend.emails.send({
+        from: "Storelib <noreply@storelib.io>",
+        to: email,
+        subject: `${code} is your Storelib verification code`,
+        headers: {
+          "X-Priority": "1",
+          "X-MSMail-Priority": "High",
+          Importance: "high",
+        },
+        html: `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -143,16 +158,22 @@ export async function POST(request: Request) {
   </table>
 </body>
 </html>
-          `,
-          text: `Your Storelib verification code is: ${code}\n\nThis code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.\n\nIf you didn't create a Storelib account, you can safely ignore this email.`,
-        })
-      } catch (emailError) {
-        console.error("[v0] Error sending verification email:", emailError)
-        return NextResponse.json({ error: "Failed to send verification email" }, { status: 500 })
+        `,
+        text: `Your Storelib verification code is: ${code}\n\nThis code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.\n\nIf you didn't create a Storelib account, you can safely ignore this email.`,
+      })
+
+      console.log("[v0] Resend API result:", result)
+
+      if ("error" in result && result.error) {
+        console.error("[v0] Resend API error:", result.error)
+        return NextResponse.json({ error: "Failed to send email. Please try again." }, { status: 500 })
       }
-    } else {
-      return NextResponse.json({ error: "Email service not configured" }, { status: 500 })
+    } catch (emailError) {
+      console.error("[v0] Error sending verification email:", emailError)
+      return NextResponse.json({ error: "Failed to send verification email" }, { status: 500 })
     }
+
+    console.log("[v0] Verification email sent successfully to:", email)
 
     return NextResponse.json({
       success: true,

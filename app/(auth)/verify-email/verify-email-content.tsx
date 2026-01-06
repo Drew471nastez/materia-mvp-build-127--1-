@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Loader2, CheckCircle2, Mail } from "lucide-react"
+import Image from "next/image"
 
 export default function VerifyEmailContent() {
   const [verificationCode, setVerificationCode] = useState("")
@@ -12,6 +13,7 @@ export default function VerifyEmailContent() {
   const [success, setSuccess] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
   const [resendCountdown, setResendCountdown] = useState(0)
+  const [initialSendStatus, setInitialSendStatus] = useState<"pending" | "sent" | "failed">("pending")
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -23,8 +25,15 @@ export default function VerifyEmailContent() {
   useEffect(() => {
     if (codeSent) {
       setResendCountdown(60)
+      setInitialSendStatus("sent")
     }
   }, [codeSent])
+
+  useEffect(() => {
+    if (userId && email && !codeSent && initialSendStatus === "pending") {
+      sendVerificationCode()
+    }
+  }, [userId, email, codeSent, initialSendStatus])
 
   // Countdown timer
   useEffect(() => {
@@ -40,6 +49,38 @@ export default function VerifyEmailContent() {
     }
   }, [verificationCode])
 
+  const sendVerificationCode = async () => {
+    setError(null)
+    setResendLoading(true)
+
+    try {
+      console.log("[v0] Sending verification code to:", email)
+      const res = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, email: email.trim().toLowerCase() }),
+      })
+
+      const data = await res.json()
+      console.log("[v0] Verification API response:", res.status, data)
+
+      if (!res.ok) {
+        setError(data.error || "Failed to send verification code")
+        setInitialSendStatus("failed")
+        return
+      }
+
+      setResendCountdown(60)
+      setInitialSendStatus("sent")
+    } catch (err) {
+      console.error("[v0] Error sending verification code:", err)
+      setError("Something went wrong. Please try again.")
+      setInitialSendStatus("failed")
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
   const handleVerifyCode = async () => {
     if (verificationCode.length !== 6) return
 
@@ -47,6 +88,7 @@ export default function VerifyEmailContent() {
     setLoading(true)
 
     try {
+      console.log("[v0] Verifying code for userId:", userId)
       const res = await fetch("/api/auth/confirm-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,6 +96,7 @@ export default function VerifyEmailContent() {
       })
 
       const data = await res.json()
+      console.log("[v0] Confirm email response:", res.status, data)
 
       if (!res.ok) {
         setError(data.error || "Invalid verification code")
@@ -67,6 +110,7 @@ export default function VerifyEmailContent() {
         router.refresh()
       }, 1500)
     } catch (err) {
+      console.error("[v0] Error verifying code:", err)
       setError("Something went wrong. Please try again.")
       setVerificationCode("")
     } finally {
@@ -75,28 +119,7 @@ export default function VerifyEmailContent() {
   }
 
   const handleResendCode = async () => {
-    setError(null)
-    setResendLoading(true)
-
-    try {
-      const res = await fetch("/api/auth/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, email: email.trim().toLowerCase() }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        setError(data.error || "Failed to resend verification code")
-        return
-      }
-
-      setResendCountdown(60)
-    } catch (err) {
-      setError("Something went wrong. Please try again.")
-    } finally {
-      setResendLoading(false)
-    }
+    await sendVerificationCode()
   }
 
   // Mask email for display
@@ -180,6 +203,13 @@ export default function VerifyEmailContent() {
                   </div>
                 )}
 
+                {initialSendStatus === "pending" && (
+                  <div className="flex items-center justify-center gap-2 text-neutral-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Sending verification code...</span>
+                  </div>
+                )}
+
                 <div className="text-center">
                   <p className="text-[14px] text-neutral-500 mb-1">Didn't receive the code?</p>
                   <button
@@ -218,21 +248,14 @@ export default function VerifyEmailContent() {
         </div>
       </div>
 
-      {/* Right side - Image */}
       <div className="relative hidden lg:block lg:w-1/2">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-600">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-white px-12">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-                <Mail className="h-10 w-10 text-white" />
-              </div>
-              <h2 className="text-3xl font-bold mb-4">Almost there!</h2>
-              <p className="text-lg text-white/90 max-w-md">
-                Enter the verification code we sent to your email to complete your account setup.
-              </p>
-            </div>
-          </div>
-        </div>
+        <Image
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/banner-login-desktop-D8selsDi.webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvYmFubmVyLWxvZ2luLWRlc2t0b3AtRDhzZWxzRGkud2VicCIsImlhdCI6MTc2NzY4Mjg3MiwiZXhwIjozMzI3MjE0Njg3Mn0.KfdlnasBcTWOIbG5w0kb6bw8lW9SPOmIKlOzF4DqkYc"
+          alt="Verify email banner"
+          fill
+          className="object-cover"
+          priority
+        />
       </div>
     </div>
   )
