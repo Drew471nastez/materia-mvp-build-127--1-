@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react"
 import Image from "next/image"
+import { createClient } from "@/lib/supabase/client"
 
 export default function VerifyEmailContent() {
   const [verificationCode, setVerificationCode] = useState("")
@@ -103,19 +104,48 @@ export default function VerifyEmailContent() {
       if (!res.ok) {
         setError(data.error || "Invalid verification code")
         setVerificationCode("")
+        setLoading(false)
         return
       }
 
       setSuccess(true)
-      setTimeout(() => {
-        router.push("/onboarding")
-        router.refresh()
-      }, 1500)
+
+      // Check if user has an active session and route accordingly
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user) {
+        // User is logged in, check if they're a creator
+        const { data: creator } = await supabase
+          .from("creators")
+          .select("id, onboarding_completed")
+          .eq("user_id", user.id)
+          .single()
+
+        setTimeout(() => {
+          if (creator) {
+            if (creator.onboarding_completed === false) {
+              router.push("/onboarding")
+            } else {
+              router.push("/app")
+            }
+          } else {
+            // No creator record yet, go to onboarding
+            router.push("/onboarding")
+          }
+          router.refresh()
+        }, 1500)
+      } else {
+        // No session, redirect to login
+        setTimeout(() => {
+          router.push("/login?verified=1")
+          router.refresh()
+        }, 1500)
+      }
     } catch (err) {
       console.error("[VerifyEmail] Error verifying code:", err)
       setError("Something went wrong. Please try again.")
       setVerificationCode("")
-    } finally {
       setLoading(false)
     }
   }
