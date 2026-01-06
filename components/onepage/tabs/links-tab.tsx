@@ -1906,7 +1906,9 @@ function BlockItem({
     switch (block.type) {
       case "link_button": {
         const data = block.data as LinkButtonBlockData
-        return { title: data.label || "My Link", subtitle: data.url || "https://...", icon: Link }
+        // Truncate URL for display - show just the domain/path without full URL
+        const displayUrl = data.url ? (data.url.length > 40 ? data.url.slice(0, 40) + "..." : data.url) : "https://..."
+        return { title: data.label || "My Link", subtitle: displayUrl, icon: Link }
       }
       case "header":
         return { title: "Header", subtitle: "Profile section", icon: User }

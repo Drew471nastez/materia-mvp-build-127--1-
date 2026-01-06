@@ -199,6 +199,9 @@ export async function POST(request: NextRequest) {
         .replace(/\{\{email\}\}/g, subscriber.email)
         .replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl)
 
+      // Wrap links with click tracking (except unsubscribe links)
+      personalizedBody = wrapLinksWithTracking(personalizedBody, baseUrl, send.id, campaign_id, unsubscribeUrl)
+
       // Add tracking pixel before closing body tag
       const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" alt="" style="display:none;" />`
 
@@ -515,4 +518,30 @@ function stripHtmlForPlainText(html: string): string {
     .replace(/\n\s*\n\s*\n/g, "\n\n")
     .replace(/^\s+|\s+$/g, "")
     .trim()
+}
+
+// Helper function to wrap links with click tracking
+function wrapLinksWithTracking(html: string, baseUrl: string, sendId: string, campaignId: string, unsubscribeUrl: string): string {
+  // Match all href attributes in anchor tags
+  const linkRegex = /<a([^>]*?)href=["']([^"']+)["']([^>]*)>/gi
+
+  return html.replace(linkRegex, (match, before, href, after) => {
+    // Skip unsubscribe links, mailto links, tel links, and # links
+    if (
+      href === unsubscribeUrl ||
+      href.includes("unsubscribe") ||
+      href.startsWith("mailto:") ||
+      href.startsWith("tel:") ||
+      href.startsWith("#") ||
+      href.includes("track?") // Skip tracking pixel URLs
+    ) {
+      return match
+    }
+
+    // Encode the URL in base64 for safe transport
+    const encodedUrl = Buffer.from(href).toString("base64")
+    const trackingUrl = `${baseUrl}/api/email/click?url=${encodeURIComponent(encodedUrl)}&sid=${sendId}&cid=${campaignId}`
+
+    return `<a${before}href="${trackingUrl}"${after}>`
+  })
 }

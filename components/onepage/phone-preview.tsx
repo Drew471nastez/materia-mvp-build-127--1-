@@ -909,12 +909,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                   : theme.background_color,
               fontFamily: theme.font_family || "Inter",
               scrollbarWidth: "thin",
-              scrollbarColor: `${theme.text_color}40 transparent`,
+              scrollbarColor: `${theme.text_color}30 transparent`,
               backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
               animation: isAnimatedGradient ? "gradientShiftPreview 10s ease-in-out infinite" : undefined,
             }}
           >
-            <style>{`.phone-screen-scroll::-webkit-scrollbar { width: 4px; } .phone-screen-scroll::-webkit-scrollbar-track { background: transparent; margin: 10px 0; } .phone-screen-scroll::-webkit-scrollbar-thumb { background: ${theme.text_color}40; border-radius: 4px; }`}</style>
+            <style>{`.phone-screen-scroll::-webkit-scrollbar { width: 3px; } .phone-screen-scroll::-webkit-scrollbar-track { background: transparent; margin: 10px 0; } .phone-screen-scroll::-webkit-scrollbar-thumb { background: ${theme.text_color}30; border-radius: 3px; } .phone-screen-scroll::-webkit-scrollbar-thumb:hover { background: ${theme.text_color}50; }`}</style>
 
             {theme.background_type === "image" && theme.background_image_url && (
               <div

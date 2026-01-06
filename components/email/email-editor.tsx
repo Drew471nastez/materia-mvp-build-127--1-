@@ -161,6 +161,9 @@ export function EmailEditor({
   const [buttonColor, setButtonColor] = useState("#2563eb")
   const [buttonAlign, setButtonAlign] = useState<"left" | "center" | "right">("center")
   const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null)
+  const [selectedButton, setSelectedButton] = useState<HTMLElement | null>(null)
+  const [showButtonMenu, setShowButtonMenu] = useState(false)
+  const [buttonMenuPosition, setButtonMenuPosition] = useState({ x: 0, y: 0 })
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [showImageMenu, setShowImageMenu] = useState(false)
   const [imageMenuPosition, setImageMenuPosition] = useState({ x: 0, y: 0 })
@@ -192,17 +195,21 @@ export function EmailEditor({
     }
   }, [showProductDialog, creatorId])
 
-  // Handle click outside image menu
+  // Handle click outside image/button menu
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (showImageMenu && !(e.target as HTMLElement).closest('.image-menu')) {
         setShowImageMenu(false)
         setSelectedImage(null)
       }
+      if (showButtonMenu && !(e.target as HTMLElement).closest('.button-menu')) {
+        setShowButtonMenu(false)
+        setSelectedButton(null)
+      }
     }
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
-  }, [showImageMenu])
+  }, [showImageMenu, showButtonMenu])
 
   const loadSubscribers = async () => {
     if (!creatorId) return
@@ -279,58 +286,124 @@ export function EmailEditor({
     input.accept = "image/*"
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
-      if (file && creatorId) {
+      if (file) {
         setIsUploadingImage(true)
         try {
-          // Upload to Supabase storage for proper email display
-          const supabase = createClient()
-          const fileExt = file.name.split(".").pop()
-          const fileName = `${creatorId}/${Date.now()}.${fileExt}`
+          // Upload via API endpoint for proper bucket handling
+          const formData = new FormData()
+          formData.append("file", file)
 
-          const { data, error } = await supabase.storage
-            .from("email-images")
-            .upload(fileName, file, { cacheControl: "3600", upsert: false })
+          const response = await fetch("/api/email/upload-image", {
+            method: "POST",
+            body: formData,
+          })
 
-          if (error) {
-            // Fallback to base64 if upload fails
-            const reader = new FileReader()
-            reader.onload = () => {
-              const imgHtml = `<img src="${reader.result}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
-              execCommand("insertHTML", imgHtml)
-            }
-            reader.readAsDataURL(file)
-            toast({ title: "Image uploaded locally", description: "Using embedded image (may not display in some email clients)", variant: "default" })
-          } else {
-            // Get public URL
-            const { data: urlData } = supabase.storage.from("email-images").getPublicUrl(fileName)
-            const imgHtml = `<img src="${urlData.publicUrl}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
+          const data = await response.json()
+
+          if (!response.ok) {
+            throw new Error(data.error || "Upload failed")
+          }
+
+          // Insert image with the public URL
+          const imgHtml = `<img src="${data.url}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
+          execCommand("insertHTML", imgHtml)
+          toast({ title: "Image uploaded", description: "Image added to your email" })
+        } catch (err) {
+          console.error("Image upload error:", err)
+          // Fallback to base64 if upload fails (not ideal for email but better than nothing)
+          const reader = new FileReader()
+          reader.onload = () => {
+            const imgHtml = `<img src="${reader.result}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
             execCommand("insertHTML", imgHtml)
           }
-        } catch {
-          toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+          reader.readAsDataURL(file)
+          toast({
+            title: "Using embedded image",
+            description: "Image may not display properly in all email clients",
+            variant: "default"
+          })
         } finally {
           setIsUploadingImage(false)
         }
-      } else if (file) {
-        // No creatorId - use base64 fallback
-        const reader = new FileReader()
-        reader.onload = () => {
-          const imgHtml = `<img src="${reader.result}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
-          execCommand("insertHTML", imgHtml)
-        }
-        reader.readAsDataURL(file)
       }
     }
     input.click()
   }
 
-  // Insert CTA button
+  // Insert CTA button - inline without popup
   const insertButton = () => {
-    setButtonText("")
-    setButtonUrl("")
-    setButtonColor("#2563eb")
-    setButtonAlign("center")
-    setShowButtonDialog(true)
+    const buttonId = `btn-${Date.now()}`
+    const buttonHtml = `
+      <div style="text-align: center; margin: 20px 0;" class="email-button-wrapper" data-button-id="${buttonId}">
+        <a href="#" class="email-cta-button" data-button-id="${buttonId}" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; cursor: pointer;">Click to edit</a>
+      </div>
+    `
+    execCommand("insertHTML", buttonHtml)
+    // Auto-select the button for editing
+    setTimeout(() => {
+      const btn = editorRef.current?.querySelector(`[data-button-id="${buttonId}"]`) as HTMLElement
+      if (btn) {
+        selectButton(btn)
+      }
+    }, 100)
+  }
+
+  const selectButton = (btn: HTMLElement) => {
+    setSelectedButton(btn)
+    // Get current button values
+    const linkEl = btn.tagName === 'A' ? btn : btn.querySelector('a')
+    if (linkEl) {
+      setButtonText(linkEl.textContent || "")
+      setButtonUrl(linkEl.getAttribute('href') || "")
+      setButtonColor(linkEl.style.backgroundColor || "#2563eb")
+    }
+    const wrapper = btn.closest('.email-button-wrapper') as HTMLElement
+    const align = wrapper?.style.textAlign || "center"
+    setButtonAlign(align as "left" | "center" | "right")
+
+    const rect = btn.getBoundingClientRect()
+    const editorRect = editorRef.current?.getBoundingClientRect()
+    if (editorRect) {
+      setButtonMenuPosition({
+        x: rect.left - editorRect.left + rect.width / 2,
+        y: rect.top - editorRect.top - 10
+      })
+    }
+    setShowButtonMenu(true)
+  }
+
+  const updateButton = () => {
+    if (selectedButton && buttonText && buttonUrl) {
+      const linkEl = selectedButton.tagName === 'A' ? selectedButton : selectedButton.querySelector('a')
+      const wrapper = selectedButton.closest('.email-button-wrapper') as HTMLElement
+
+      if (linkEl) {
+        const fullUrl = buttonUrl.startsWith("http") ? buttonUrl : `https://${buttonUrl}`
+        linkEl.textContent = buttonText
+        linkEl.setAttribute('href', fullUrl)
+        linkEl.style.backgroundColor = buttonColor
+      }
+      if (wrapper) {
+        wrapper.style.textAlign = buttonAlign
+      }
+      handleEditorInput()
+    }
+    setShowButtonMenu(false)
+    setSelectedButton(null)
+  }
+
+  const deleteButton = () => {
+    if (selectedButton) {
+      const wrapper = selectedButton.closest('.email-button-wrapper')
+      if (wrapper) {
+        wrapper.remove()
+      } else {
+        selectedButton.remove()
+      }
+      handleEditorInput()
+    }
+    setShowButtonMenu(false)
+    setSelectedButton(null)
   }
 
   const confirmInsertButton = () => {
@@ -349,7 +422,7 @@ export function EmailEditor({
     setButtonUrl("")
   }
 
-  // Handle image click for menu
+  // Handle image and button click for menu
   const handleEditorClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement
     if (target.tagName === 'IMG') {
@@ -365,9 +438,21 @@ export function EmailEditor({
         })
       }
       setShowImageMenu(true)
+      setShowButtonMenu(false)
+      setSelectedButton(null)
+    } else if (target.classList.contains('email-cta-button') || target.closest('.email-cta-button')) {
+      e.preventDefault()
+      const btn = target.classList.contains('email-cta-button') ? target : target.closest('.email-cta-button') as HTMLElement
+      if (btn) {
+        selectButton(btn)
+        setShowImageMenu(false)
+        setSelectedImage(null)
+      }
     } else {
       setShowImageMenu(false)
       setSelectedImage(null)
+      setShowButtonMenu(false)
+      setSelectedButton(null)
     }
   }
 
@@ -684,6 +769,99 @@ Tips:
                     <Button variant="ghost" size="sm" onClick={deleteImage} className="h-8 px-2 rounded-lg hover:bg-red-50 text-red-500 text-xs">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
+                  </div>
+                )}
+
+                {/* Inline Button Edit Menu */}
+                {showButtonMenu && selectedButton && (
+                  <div
+                    className="button-menu absolute bg-white rounded-xl shadow-lg border border-gray-200 p-3 z-10"
+                    style={{ left: buttonMenuPosition.x, top: buttonMenuPosition.y, transform: 'translate(-50%, -100%)', minWidth: '280px' }}
+                  >
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 block mb-1">Button Text</label>
+                        <Input
+                          value={buttonText}
+                          onChange={(e) => setButtonText(e.target.value)}
+                          placeholder="Click here"
+                          className="h-9 text-sm rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 block mb-1">URL</label>
+                        <Input
+                          value={buttonUrl}
+                          onChange={(e) => setButtonUrl(e.target.value)}
+                          placeholder="https://example.com"
+                          className="h-9 text-sm rounded-lg"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <label className="text-xs font-medium text-gray-600 block mb-1">Color</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="color"
+                              value={buttonColor}
+                              onChange={(e) => setButtonColor(e.target.value)}
+                              className="h-9 w-12 cursor-pointer rounded border border-gray-200"
+                            />
+                            {["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#000"].map((color) => (
+                              <button
+                                key={color}
+                                onClick={() => setButtonColor(color)}
+                                className={cn(
+                                  "w-6 h-6 rounded border-2 transition-all",
+                                  buttonColor === color ? "border-gray-900 scale-110" : "border-transparent"
+                                )}
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 block mb-1">Alignment</label>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant={buttonAlign === "left" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setButtonAlign("left")}
+                            className="h-8 px-3 rounded-lg text-xs"
+                          >
+                            <AlignLeft className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={buttonAlign === "center" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setButtonAlign("center")}
+                            className="h-8 px-3 rounded-lg text-xs"
+                          >
+                            <AlignCenter className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={buttonAlign === "right" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setButtonAlign("right")}
+                            className="h-8 px-3 rounded-lg text-xs"
+                          >
+                            Right
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+                        <Button size="sm" onClick={updateButton} disabled={!buttonText || !buttonUrl} className="flex-1 h-8 rounded-lg text-xs bg-blue-500 hover:bg-blue-600">
+                          <Check className="h-3.5 w-3.5 mr-1" />Apply
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={deleteButton} className="h-8 px-3 rounded-lg text-xs text-red-500 hover:bg-red-50 hover:text-red-600">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1136,6 +1314,14 @@ Tips:
           margin: 0.75rem 0;
           color: #6b7280;
           font-style: italic;
+        }
+        [contenteditable] .email-cta-button {
+          cursor: pointer !important;
+          transition: box-shadow 0.2s, transform 0.2s;
+        }
+        [contenteditable] .email-cta-button:hover {
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+          transform: scale(1.02);
         }
         .prose img {
           border-radius: 12px;

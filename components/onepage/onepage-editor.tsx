@@ -459,7 +459,7 @@ function EditorLayout() {
       {/* Mobile Bottom Tab Bar - Fixed at bottom, only when NOT in preview */}
       {!showMobilePreview && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20">
-          <div className="flex items-center justify-center gap-2 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-around gap-1 px-2 sm:px-4 py-2 sm:py-3 pb-[max(8px,env(safe-area-inset-bottom))]">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
@@ -467,14 +467,14 @@ function EditorLayout() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all",
+                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center min-w-0",
                     activeTab === tab.id
                       ? "bg-gray-900 text-white"
                       : "bg-gray-100 text-gray-600"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{tab.label}</span>
                 </button>
               )
             })}
@@ -482,7 +482,7 @@ function EditorLayout() {
             <button
               onClick={() => setActiveTab("settings")}
               className={cn(
-                "flex items-center justify-center w-11 h-11 rounded-xl transition-all",
+                "flex items-center justify-center min-w-[40px] w-10 h-10 sm:w-11 sm:h-11 rounded-xl transition-all shrink-0",
                 activeTab === "settings"
                   ? "bg-gray-900 text-white"
                   : "bg-gray-100 text-gray-600"

@@ -274,6 +274,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <SheetContent
           side="left"
           className="w-[260px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)] border-neutral-200/50"
+          hideCloseButton
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>

@@ -288,12 +288,22 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         if (index !== -1) {
           blocks.splice(index + 1, 0, newBlock)
         } else {
-          // Fallback to top if afterId not found
-          blocks.unshift(newBlock)
+          // Fallback to after header if afterId not found
+          const headerIndex = blocks.findIndex((b) => b.type === "header")
+          if (headerIndex !== -1) {
+            blocks.splice(headerIndex + 1, 0, newBlock)
+          } else {
+            blocks.unshift(newBlock)
+          }
         }
       } else {
-        // Default: insert at the TOP of the list
-        blocks.unshift(newBlock)
+        // Default: insert AFTER the header block if it exists
+        const headerIndex = blocks.findIndex((b) => b.type === "header")
+        if (headerIndex !== -1) {
+          blocks.splice(headerIndex + 1, 0, newBlock)
+        } else {
+          blocks.unshift(newBlock)
+        }
       }
 
       blocks.forEach((b, i) => {
