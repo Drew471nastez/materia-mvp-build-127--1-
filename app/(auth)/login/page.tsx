@@ -12,58 +12,24 @@ import Image from "next/image"
 function LoginFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [showPasswordField, setShowPasswordField] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get("redirect")
-  const claim = searchParams.get("claim")
-  const receiptToken = searchParams.get("receiptToken")
+  const verified = searchParams.get("verified") === "1"
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!showPasswordForm) {
+
+    if (!showPasswordField) {
       if (!email.trim()) {
         setError("Please enter your email")
         return
       }
-
-      setIsLoading(true)
+      setShowPasswordField(true)
       setError(null)
-
-      try {
-        const supabase = createClient()
-        const trimmedEmail = email.trim().toLowerCase()
-
-        const { error: checkError } = await supabase.auth.signInWithPassword({
-          email: trimmedEmail,
-          password: "dummy_check_password_12345",
-        })
-
-        if (checkError) {
-          if (
-            checkError.message.includes("Invalid login credentials") ||
-            checkError.message.includes("Email not confirmed")
-          ) {
-            setShowPasswordForm(true)
-            setError(null)
-            setIsLoading(false)
-            return
-          } else {
-            router.push(`/signup?email=${encodeURIComponent(trimmedEmail)}`)
-            return
-          }
-        }
-
-        setShowPasswordForm(true)
-        setError(null)
-      } catch (error: unknown) {
-        setError(error instanceof Error ? error.message : "An error occurred")
-      } finally {
-        setIsLoading(false)
-      }
       return
     }
 
@@ -74,71 +40,48 @@ function LoginFormContent() {
     const trimmedEmail = email.trim().toLowerCase()
     const trimmedPassword = password
 
-    if (!trimmedEmail || !trimmedPassword) {
-      setError("Please enter both email and password")
-      setIsLoading(false)
-      return
-    }
-
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error, data } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password: trimmedPassword,
       })
 
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          throw new Error("Invalid email or password. Please check your credentials and try again.")
-        }
-        throw error
-      }
+      if (error) throw error
 
-      const user = data.user
-      if (!user) throw new Error("Failed to get user")
+      if (data.user) {
+        // Check if user has completed onboarding
+        const { data: creator } = await supabase
+          .from("creators")
+          .select("id, onboarding_completed")
+          .eq("user_id", data.user.id)
+          .single()
 
-      if (claim === "1" && receiptToken) {
-        try {
-          await fetch("/api/purchases/claim", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ receiptToken }),
-          })
-        } catch (claimError) {
-          console.error("Failed to claim purchase:", claimError)
-        }
-        router.push(`/receipt/${receiptToken}`)
-        return
-      }
-
-      if (redirectTo) {
-        router.push(redirectTo)
-        return
-      }
-
-      const { data: creator } = await supabase
-        .from("creators")
-        .select("id, onboarding_completed")
-        .eq("user_id", user.id)
-        .single()
-
-      if (creator) {
-        if (creator.onboarding_completed === false) {
-          router.push("/onboarding")
+        if (creator) {
+          if (creator.onboarding_completed === false) {
+            router.push("/onboarding")
+          } else {
+            router.push("/app")
+          }
         } else {
-          router.push("/app")
+          // No creator record, check profile
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("email_verified")
+            .eq("id", data.user.id)
+            .single()
+
+          if (profile?.email_verified === false) {
+            // User hasn't verified email yet, send them to verify
+            router.push(`/verify-email?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}`)
+          } else {
+            // Verified but no creator, go to onboarding
+            router.push("/onboarding")
+          }
         }
-        return
-      }
-
-      const { data: profile } = await supabase.from("profiles").select("id").eq("id", user.id).single()
-
-      if (!profile) {
-        router.push("/onboarding")
-      } else {
-        router.push("/dashboard")
+        router.refresh()
       }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : "Invalid email or password")
     } finally {
       setIsLoading(false)
     }
@@ -176,14 +119,22 @@ function LoginFormContent() {
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
-          <p className="mb-8 text-[15px] text-neutral-500">Log in to your Storelib</p>
+          <p className="mb-8 text-[15px] text-neutral-500">
+            {verified ? "Email verified! Log in to continue." : "Log in to your account"}
+          </p>
+
+          {verified && (
+            <div className="mb-6 rounded-lg bg-emerald-50 border border-emerald-100 p-3 text-center">
+              <p className="text-sm text-emerald-700">Your email has been verified successfully!</p>
+            </div>
+          )}
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
               <Input
                 id="email"
                 type="email"
-                placeholder="Email or username"
+                placeholder="Email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -192,7 +143,7 @@ function LoginFormContent() {
               />
             </div>
 
-            {showPasswordForm && (
+            {showPasswordField && (
               <div className="space-y-2">
                 <Input
                   id="password"
@@ -211,10 +162,10 @@ function LoginFormContent() {
 
             <Button
               type="submit"
-              className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800"
+              className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
               disabled={isLoading}
             >
-              {isLoading ? "Signing in..." : "Continue"}
+              {isLoading ? "Logging in..." : "Continue"}
             </Button>
           </form>
 
@@ -252,12 +203,6 @@ function LoginFormContent() {
               </svg>
               {isGoogleLoading ? "Connecting..." : "Continue with Google"}
             </Button>
-          </div>
-
-          <div className="mt-6 text-center">
-            <Link href="/forgot-password" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
-              Forgot password?
-            </Link>
           </div>
 
           <p className="mt-6 text-center text-[14px] text-neutral-500">
