@@ -447,43 +447,46 @@ function ShareButton({
   const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-8 md:left-8 z-50"
   const shareVisible = isOpen || isShareVisible
 
+  const buttonWrapperClass = cn(
+    "transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+    shareVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-1 pointer-events-none",
+  )
+
   return (
-    <div
-      className={cn(
-        positionClass,
-        "transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
-        shareVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none",
-      )}
-    >
-      {/* Share Button - icons 3px smaller on desktop */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 hover:scale-105",
-          style === "glass" && "backdrop-blur-md",
-        )}
-        style={{
-          background: s.buttonBg,
-          border: s.buttonBorder,
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-        }}
-      >
-        {/* Mobile: 18px (2px smaller than 20), Desktop: 17px (3px smaller than 20) */}
-        <Send className={cn("w-[18px] h-[18px] sm:w-[17px] sm:h-[17px]", s.iconColor)} />
-      </button>
+    <>
+      <div className={positionClass}>
+        <div className={buttonWrapperClass}>
+          {/* Share Button - icons 3px smaller on desktop */}
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className={cn(
+              "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 hover:scale-105",
+              style === "glass" && "backdrop-blur-md",
+            )}
+            style={{
+              background: s.buttonBg,
+              border: s.buttonBorder,
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            {/* Mobile: 18px (2px smaller than 20), Desktop: 17px (3px smaller than 20) */}
+            <Send className={cn("w-[18px] h-[18px] sm:w-[17px] sm:h-[17px]", s.iconColor)} />
+          </button>
+        </div>
+      </div>
 
       {/* Share Modal */}
       {isOpen && (
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] animate-in fade-in duration-200"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Modal - Modern Linktree-style design */}
           <div
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100%-32px)] max-w-[380px] rounded-[28px] overflow-hidden animate-in zoom-in-95 fade-in duration-200"
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[65] w-[calc(100%-32px)] max-w-[380px] rounded-[28px] overflow-hidden animate-in zoom-in-95 fade-in duration-200"
             style={{
               background: "#ffffff",
               boxShadow: "0 25px 80px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)",
