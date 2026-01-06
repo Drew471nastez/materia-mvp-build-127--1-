@@ -26,10 +26,31 @@ function NotificationBell({
   style = "glass",
 }: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black" }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isBellVisible, setIsBellVisible] = useState(true)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    let ticking = false
+
+    const handleScroll = () => {
+      const currentY = window.scrollY
+
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsBellVisible(currentY < 120)
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    handleScroll()
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,9 +146,15 @@ function NotificationBell({
   }
 
   const s = styles[style]
+  const bellVisible = isOpen || isBellVisible
 
   return (
-    <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50">
+    <div
+      className={cn(
+        "fixed top-4 right-4 sm:top-6 sm:right-6 z-50 transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+        bellVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none",
+      )}
+    >
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -276,7 +303,7 @@ function ShareButton({
 
       if (!ticking) {
         window.requestAnimationFrame(() => {
-          setIsShareVisible(currentY < 80)
+          setIsShareVisible(currentY < 120)
           ticking = false
         })
         ticking = true
@@ -424,7 +451,7 @@ function ShareButton({
     <div
       className={cn(
         positionClass,
-        "transition-[opacity,transform] duration-500 ease-out",
+        "transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
         shareVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none",
       )}
     >
