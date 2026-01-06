@@ -382,11 +382,14 @@ function EditorLayout() {
             </button>
           </div>
 
-          {/* Mobile Preview Toggle */}
+          {/* Mobile Preview Toggle - Blue button */}
           <Button
-            variant="outline"
+            variant={showMobilePreview ? "outline" : "default"}
             size="sm"
-            className="md:hidden h-8 px-3 rounded-lg"
+            className={cn(
+              "md:hidden h-8 px-3 rounded-lg",
+              !showMobilePreview && "bg-blue-500 hover:bg-blue-600 text-white"
+            )}
             onClick={() => setShowMobilePreview(!showMobilePreview)}
           >
             {showMobilePreview ? (
