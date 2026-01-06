@@ -51,11 +51,24 @@ export default async function AppLayout({
     .eq("page_type", "shop")
     .maybeSingle()
 
-  const storeBuilderAvatar = (storeConfig?.published_config as any)?.headerSettings?.avatarUrl || null
+  const storeBuilderAvatar = (storeConfig?.published_config as Record<string, unknown>)?.headerSettings 
+    ? ((storeConfig?.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown>)?.avatarUrl as string | null
+    : null
 
-  // Get avatar priority: 1. OnePage > 2. Store Builder > 3. Google OAuth > 4. fallback initials
+  // Get Google OAuth avatar from user metadata
+  // Google provides: avatar_url or picture in user_metadata
   const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-  const avatarUrl = onepage?.avatar_url || storeBuilderAvatar || googleAvatar
+
+  // AVATAR FALLBACK CHAIN (as specified):
+  // 1. Profile avatar (user uploaded their own)
+  // 2. OnePage avatar (Design tab → Header section)
+  // 3. Store Builder profile picture (from store_builder_configs.headerSettings.avatarUrl)
+  // 4. Google OAuth avatar
+  // 5. Fallback initials (handled in sidebar component)
+  const avatarUrl = profile?.avatar_url || onepage?.avatar_url || storeBuilderAvatar || googleAvatar || null
+
+  // Display name fallback
+  const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator.slug
 
   return (
     <div className="min-h-svh overflow-x-hidden">
@@ -63,7 +76,7 @@ export default async function AppLayout({
         creatorSlug={creator.slug}
         storePublished={creator.store_published}
         avatarUrl={avatarUrl}
-        displayName={profile?.display_name || creator.slug}
+        displayName={displayName}
       />
       <main className="min-h-svh pt-14 md:pl-[220px] md:pt-0">
         <div className="min-h-[calc(100svh-3.5rem)] md:min-h-svh px-4 py-6 sm:px-6 md:px-8">{children}</div>
