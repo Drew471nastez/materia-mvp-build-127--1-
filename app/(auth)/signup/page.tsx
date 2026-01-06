@@ -62,16 +62,23 @@ function SignUpFormContent() {
     }
 
     try {
+      // Sign up WITHOUT email confirmation from Supabase
+      // We handle our own verification with 6-digit code
       const { error, data } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: trimmedPassword,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          // Don't require Supabase email confirmation
+          emailRedirectTo: undefined,
+          data: {
+            email_verified: false, // We track this ourselves
+          }
         },
       })
       if (error) throw error
 
       if (data.user) {
+        // Create profile with email_verified = false
         const { error: profileError } = await supabase.from("profiles").upsert({
           id: data.user.id,
           email: trimmedEmail,
@@ -83,6 +90,7 @@ function SignUpFormContent() {
           console.error("Profile creation error:", profileError)
         }
 
+        // Send our custom verification code via Resend
         try {
           const verifyRes = await fetch("/api/auth/verify-email", {
             method: "POST",
@@ -100,6 +108,7 @@ function SignUpFormContent() {
           console.error("Error sending verification code:", verifyError)
         }
 
+        // Handle purchase claim flow
         if (claim === "1" && receiptToken) {
           try {
             await fetch("/api/purchases/claim", {
@@ -115,6 +124,7 @@ function SignUpFormContent() {
           return
         }
 
+        // Redirect to verify email page with sent=1 flag
         router.push(`/verify-email?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}&sent=1`)
         router.refresh()
       }
