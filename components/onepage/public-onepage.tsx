@@ -583,7 +583,7 @@ function ShareButton({
           </div>
         </>
       )}
-    </div>
+    </>
   )
 }
 
