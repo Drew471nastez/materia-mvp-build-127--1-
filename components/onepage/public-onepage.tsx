@@ -266,6 +266,27 @@ function ShareButton({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isShareVisible, setIsShareVisible] = useState(true)
+
+  useEffect(() => {
+    let ticking = false
+
+    const handleScroll = () => {
+      const currentY = window.scrollY
+
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsShareVisible(currentY < 80)
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    handleScroll()
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   // Generate gradient colors based on accent color or use default
   const getGradientColors = () => {
@@ -396,10 +417,17 @@ function ShareButton({
 
   // Share icon is always positioned on the TOP LEFT (both mobile and desktop)
   // Subscribe icon stays on TOP RIGHT
-  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[72px] md:left-auto md:right-6 z-50"
+  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-8 md:left-8 z-50"
+  const shareVisible = isOpen || isShareVisible
 
   return (
-    <div className={positionClass}>
+    <div
+      className={cn(
+        positionClass,
+        "transition-[opacity,transform] duration-500 ease-out",
+        shareVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none",
+      )}
+    >
       {/* Share Button - icons 3px smaller on desktop */}
       <button
         onClick={() => setIsOpen(!isOpen)}
