@@ -418,7 +418,7 @@ function EditorLayout() {
           style={{ scrollbarWidth: 'thin' }}
         >
           <div className={cn(
-            "p-4 md:p-6 md:pl-2 lg:pl-2 xl:pl-2 2xl:pl-12 md:pr-8 pb-32 md:pb-6",
+            "p-4 md:p-6 md:pl-2 lg:pl-2 xl:pl-2 2xl:pl-24 min-[1800px]:pl-40 md:pr-8 pb-32 md:pb-6",
             activeTab === "settings" ? "max-w-2xl" : "max-w-xl"
           )}>
             {activeTab === "design" && <DesignTab />}
