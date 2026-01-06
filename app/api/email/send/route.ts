@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If segment is specified, apply segment filters
+    let subscriberIds: string[] | null = null
     if (campaign.segment_id) {
       const { data: segment } = await supabase
         .from("email_segments")
@@ -116,6 +117,10 @@ export async function POST(request: NextRequest) {
 
       if (segment?.filters) {
         const filters = segment.filters as Record<string, any>
+        // Handle custom segment with subscriber_ids (from email editor segment builder)
+        if (filters.subscriber_ids && Array.isArray(filters.subscriber_ids) && filters.subscriber_ids.length > 0) {
+          subscriberIds = filters.subscriber_ids
+        }
         if (filters.source) {
           subscribersQuery = subscribersQuery.eq("source", filters.source)
         }
@@ -123,6 +128,11 @@ export async function POST(request: NextRequest) {
           subscribersQuery = subscribersQuery.contains("tags", filters.tags)
         }
       }
+    }
+
+    // Apply subscriber_ids filter if present (for custom segments)
+    if (subscriberIds && subscriberIds.length > 0) {
+      subscribersQuery = subscribersQuery.in("id", subscriberIds)
     }
 
     const { data: subscribers, error: subscribersError } = await subscribersQuery
@@ -440,10 +450,8 @@ function buildOptimizedEmailHtml({
                 </tr>
                 <!-- Storelib branding row -->
                 <tr>
-                  <td align="center" class="footer-text" style="padding-bottom: 16px; font-size: 13px; color: #6b7280;">
-                    <span style="font-weight: 500;">Storelib</span>
-                    <span style="margin: 0 8px; color: #d1d5db;">·</span>
-                    <span style="color: #9ca3af;">Powered by Storelib</span>
+                  <td align="center" class="footer-text" style="padding-bottom: 16px; font-size: 13px; color: #9ca3af;">
+                    Powered by Storelib
                   </td>
                 </tr>
                 <!-- Unsubscribe row -->
@@ -462,7 +470,6 @@ function buildOptimizedEmailHtml({
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%;">
           <tr>
             <td style="padding: 20px 0; text-align: center;">
-              <span style="font-size: 11px; color: #9ca3af;">Sent via Storelib</span>
             </td>
           </tr>
         </table>

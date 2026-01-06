@@ -68,10 +68,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper to track email opens
+// Helper to track email opens - only counts 1 open per IP per send
 async function trackOpen(sendId: string, campaignId: string, request: NextRequest) {
   try {
     const adminSupabase = createAdminClient()
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
+    const userAgent = request.headers.get("user-agent") || null
 
     // Get the send record to find subscriber info
     const { data: send } = await adminSupabase
@@ -80,6 +82,23 @@ async function trackOpen(sendId: string, campaignId: string, request: NextReques
       .eq("id", sendId)
       .single()
 
+    // Check if this IP has already opened this email (prevent double counting)
+    if (ipAddress) {
+      const { data: existingOpen } = await adminSupabase
+        .from("email_events")
+        .select("id")
+        .eq("send_id", sendId)
+        .eq("event_type", "opened")
+        .eq("ip_address", ipAddress)
+        .limit(1)
+        .maybeSingle()
+
+      // If this IP already opened this email, don't count again
+      if (existingOpen) {
+        return
+      }
+    }
+
     // Record the open event
     await adminSupabase.from("email_events").insert({
       campaign_id: campaignId,
@@ -87,8 +106,8 @@ async function trackOpen(sendId: string, campaignId: string, request: NextReques
       subscriber_id: send?.subscriber_id || null,
       email: send?.email || "unknown",
       event_type: "opened",
-      user_agent: request.headers.get("user-agent") || null,
-      ip_address: request.headers.get("x-forwarded-for")?.split(",")[0] || null,
+      user_agent: userAgent,
+      ip_address: ipAddress,
     })
 
     // Update the send record (only if not already opened)

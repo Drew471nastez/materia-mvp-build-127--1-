@@ -21,7 +21,6 @@ import {
   Monitor,
   Smartphone,
   User,
-  AtSign,
   Plus,
   Search,
   Bold,
@@ -46,6 +45,7 @@ import {
   Quote,
   Undo,
   Redo,
+  MousePointer2,
 } from "lucide-react"
 import {
   Dialog,
@@ -110,11 +110,7 @@ interface EmailEditorProps {
   }
 }
 
-// Variable buttons for subject line - only My Name and My Username
-const subjectVariables = [
-  { id: "my_name", label: "My Name", icon: User, placeholder: "{{my_name}}" },
-  { id: "my_username", label: "My Username", icon: AtSign, placeholder: "{{my_username}}" },
-]
+// Variable buttons removed - no longer needed in subject line
 
 export function EmailEditor({
   onBack,
@@ -159,7 +155,13 @@ export function EmailEditor({
   const [showLinkDialog, setShowLinkDialog] = useState(false)
   const [linkUrl, setLinkUrl] = useState("")
   const [linkText, setLinkText] = useState("")
+  const [showButtonDialog, setShowButtonDialog] = useState(false)
+  const [buttonText, setButtonText] = useState("")
+  const [buttonUrl, setButtonUrl] = useState("")
+  const [buttonColor, setButtonColor] = useState("#2563eb")
+  const [buttonAlign, setButtonAlign] = useState<"left" | "center" | "right">("center")
   const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [showImageMenu, setShowImageMenu] = useState(false)
   const [imageMenuPosition, setImageMenuPosition] = useState({ x: 0, y: 0 })
 
@@ -230,22 +232,6 @@ export function EmailEditor({
     setLoadingProducts(false)
   }
 
-  const insertVariable = (placeholder: string) => {
-    const input = document.getElementById("email-subject") as HTMLInputElement
-    if (input) {
-      const start = input.selectionStart || 0
-      const end = input.selectionEnd || 0
-      const newValue = subject.slice(0, start) + placeholder + subject.slice(end)
-      setSubject(newValue)
-      setTimeout(() => {
-        input.focus()
-        input.setSelectionRange(start + placeholder.length, start + placeholder.length)
-      }, 0)
-    } else {
-      setSubject(subject + placeholder)
-    }
-  }
-
   // Rich text editor commands
   const execCommand = (command: string, value?: string) => {
     document.execCommand(command, false, value)
@@ -287,13 +273,46 @@ export function EmailEditor({
     setLinkText("")
   }
 
-  const insertImage = () => {
+  const insertImage = async () => {
     const input = document.createElement("input")
     input.type = "file"
     input.accept = "image/*"
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
+      if (file && creatorId) {
+        setIsUploadingImage(true)
+        try {
+          // Upload to Supabase storage for proper email display
+          const supabase = createClient()
+          const fileExt = file.name.split(".").pop()
+          const fileName = `${creatorId}/${Date.now()}.${fileExt}`
+
+          const { data, error } = await supabase.storage
+            .from("email-images")
+            .upload(fileName, file, { cacheControl: "3600", upsert: false })
+
+          if (error) {
+            // Fallback to base64 if upload fails
+            const reader = new FileReader()
+            reader.onload = () => {
+              const imgHtml = `<img src="${reader.result}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
+              execCommand("insertHTML", imgHtml)
+            }
+            reader.readAsDataURL(file)
+            toast({ title: "Image uploaded locally", description: "Using embedded image (may not display in some email clients)", variant: "default" })
+          } else {
+            // Get public URL
+            const { data: urlData } = supabase.storage.from("email-images").getPublicUrl(fileName)
+            const imgHtml = `<img src="${urlData.publicUrl}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
+            execCommand("insertHTML", imgHtml)
+          }
+        } catch {
+          toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+        } finally {
+          setIsUploadingImage(false)
+        }
+      } else if (file) {
+        // No creatorId - use base64 fallback
         const reader = new FileReader()
         reader.onload = () => {
           const imgHtml = `<img src="${reader.result}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
@@ -303,6 +322,31 @@ export function EmailEditor({
       }
     }
     input.click()
+  }
+
+  // Insert CTA button
+  const insertButton = () => {
+    setButtonText("")
+    setButtonUrl("")
+    setButtonColor("#2563eb")
+    setButtonAlign("center")
+    setShowButtonDialog(true)
+  }
+
+  const confirmInsertButton = () => {
+    if (buttonUrl && buttonText) {
+      const fullUrl = buttonUrl.startsWith("http") ? buttonUrl : `https://${buttonUrl}`
+      const alignStyle = buttonAlign === "center" ? "text-align: center;" : buttonAlign === "right" ? "text-align: right;" : "text-align: left;"
+      const buttonHtml = `
+        <div style="${alignStyle} margin: 20px 0;">
+          <a href="${fullUrl}" style="display: inline-block; background-color: ${buttonColor}; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">${buttonText}</a>
+        </div>
+      `
+      execCommand("insertHTML", buttonHtml)
+    }
+    setShowButtonDialog(false)
+    setButtonText("")
+    setButtonUrl("")
   }
 
   // Handle image click for menu
@@ -522,16 +566,6 @@ export function EmailEditor({
                 placeholder="What's your email about?"
                 className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
               />
-              <div className="flex gap-2 mt-3">
-                {subjectVariables.map((variable) => {
-                  const Icon = variable.icon
-                  return (
-                    <Button key={variable.id} variant="outline" size="sm" onClick={() => insertVariable(variable.placeholder)} className="h-8 rounded-lg border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300">
-                      <Icon className="h-3.5 w-3.5 mr-1.5" />{variable.label}
-                    </Button>
-                  )
-                })}
-              </div>
             </div>
 
             {/* Preview Text Card */}
@@ -597,8 +631,11 @@ export function EmailEditor({
                 <Button variant="ghost" size="icon" onClick={insertLink} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Link">
                   <Link2 className="h-4 w-4 text-gray-500" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={insertImage} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Image">
-                  <ImageIcon className="h-4 w-4 text-gray-500" />
+                <Button variant="ghost" size="icon" onClick={insertImage} disabled={isUploadingImage} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Image">
+                  {isUploadingImage ? <Loader2 className="h-4 w-4 text-gray-500 animate-spin" /> : <ImageIcon className="h-4 w-4 text-gray-500" />}
+                </Button>
+                <Button variant="ghost" size="icon" onClick={insertButton} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Button">
+                  <MousePointer2 className="h-4 w-4 text-gray-500" />
                 </Button>
                 <div className="w-px h-5 bg-gray-200 mx-1" />
                 <Button variant="outline" size="sm" onClick={() => setShowProductDialog(true)} className="h-8 px-3 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300">
@@ -750,9 +787,7 @@ Tips:
                         <span className="text-xs text-gray-600 font-medium">{sellerInfo?.name || "Your Name"}</span>
                       </div>
                       <div className="text-xs text-gray-400">
-                        <span className="text-gray-500">Storelib</span>
-                        <span className="mx-1.5">·</span>
-                        <span>Powered by Storelib</span>
+                        Powered by Storelib
                       </div>
                       <a href="#" className="text-xs text-gray-400 hover:text-gray-500 underline" onClick={(e) => e.preventDefault()}>
                         Unsubscribe
@@ -840,6 +875,113 @@ Tips:
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLinkDialog(false)} className="rounded-xl">Cancel</Button>
             <Button onClick={confirmInsertLink} disabled={!linkUrl} className="bg-blue-500 hover:bg-blue-600 rounded-xl">Insert Link</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Button Dialog */}
+      <Dialog open={showButtonDialog} onOpenChange={setShowButtonDialog}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Insert Button</DialogTitle>
+            <DialogDescription>Add a call-to-action button to your email.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">Button Text</Label>
+              <Input value={buttonText} onChange={(e) => setButtonText(e.target.value)} placeholder="Shop Now" className="h-11 rounded-xl" />
+            </div>
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">Button URL</Label>
+              <Input value={buttonUrl} onChange={(e) => setButtonUrl(e.target.value)} placeholder="https://example.com" className="h-11 rounded-xl" />
+            </div>
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">Button Color</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={buttonColor}
+                  onChange={(e) => setButtonColor(e.target.value)}
+                  className="h-11 w-16 cursor-pointer rounded-lg border border-gray-200"
+                />
+                <Input
+                  value={buttonColor}
+                  onChange={(e) => setButtonColor(e.target.value)}
+                  className="w-28 h-11 font-mono rounded-xl"
+                  maxLength={7}
+                />
+                <div className="flex gap-1">
+                  {["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#000000"].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setButtonColor(color)}
+                      className={cn(
+                        "w-8 h-8 rounded-lg border-2 transition-all",
+                        buttonColor === color ? "border-gray-900 scale-110" : "border-transparent hover:scale-105"
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm text-gray-600 mb-2 block">Alignment</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={buttonAlign === "left" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setButtonAlign("left")}
+                  className="h-9 px-4 rounded-lg"
+                >
+                  <AlignLeft className="h-4 w-4 mr-1" /> Left
+                </Button>
+                <Button
+                  type="button"
+                  variant={buttonAlign === "center" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setButtonAlign("center")}
+                  className="h-9 px-4 rounded-lg"
+                >
+                  <AlignCenter className="h-4 w-4 mr-1" /> Center
+                </Button>
+                <Button
+                  type="button"
+                  variant={buttonAlign === "right" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setButtonAlign("right")}
+                  className="h-9 px-4 rounded-lg"
+                >
+                  Right
+                </Button>
+              </div>
+            </div>
+            {/* Button Preview */}
+            {buttonText && (
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <Label className="text-xs text-gray-500 mb-2 block">Preview</Label>
+                <div style={{ textAlign: buttonAlign }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      backgroundColor: buttonColor,
+                      color: "#ffffff",
+                      padding: "12px 24px",
+                      borderRadius: "8px",
+                      fontWeight: 600,
+                      fontSize: "14px",
+                    }}
+                  >
+                    {buttonText}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowButtonDialog(false)} className="rounded-xl">Cancel</Button>
+            <Button onClick={confirmInsertButton} disabled={!buttonUrl || !buttonText} className="bg-blue-500 hover:bg-blue-600 rounded-xl">Insert Button</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -997,6 +1139,13 @@ Tips:
         }
         .prose img {
           border-radius: 12px;
+        }
+        .prose blockquote {
+          border-left: 3px solid #e5e7eb;
+          padding-left: 1rem;
+          margin: 0.75rem 0;
+          color: #6b7280;
+          font-style: italic;
         }
       `}</style>
     </div>

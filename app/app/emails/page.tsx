@@ -522,14 +522,18 @@ export default function EmailsPage() {
       setIsSaving(true)
       const supabase = createClient()
 
+      // Extract segment_id from audienceType if it's a segment
+      const segmentId = audienceType.startsWith("segment:") ? audienceType.replace("segment:", "") : (selectedSegment || null)
+      const actualAudienceType = audienceType.startsWith("segment:") ? "segment" : audienceType
+
       const campaignData = {
         creator_id: creatorId,
         subject: data.subject,
         body: data.body,
         preview_text: data.previewText || null,
         status: "draft" as const,
-        audience_type: audienceType,
-        segment_id: selectedSegment || null,
+        audience_type: actualAudienceType,
+        segment_id: segmentId,
       }
 
       if (editingCampaign) {
@@ -557,13 +561,17 @@ export default function EmailsPage() {
       try {
         let campaignId = editingCampaign?.id
 
+        // Extract segment_id from audienceType if it's a segment
+        const segmentId = audienceType.startsWith("segment:") ? audienceType.replace("segment:", "") : (selectedSegment || null)
+        const actualAudienceType = audienceType.startsWith("segment:") ? "segment" : audienceType
+
         const campaignData = {
           creator_id: creatorId,
           subject: data.subject,
           body: data.body,
           preview_text: data.previewText || null,
-          audience_type: audienceType,
-          segment_id: selectedSegment || null,
+          audience_type: actualAudienceType,
+          segment_id: segmentId,
         }
 
         if (editingCampaign) {
@@ -621,14 +629,18 @@ export default function EmailsPage() {
       setIsSaving(true)
       const supabase = createClient()
 
+      // Extract segment_id from audienceType if it's a segment
+      const segmentId = audienceType.startsWith("segment:") ? audienceType.replace("segment:", "") : (selectedSegment || null)
+      const actualAudienceType = audienceType.startsWith("segment:") ? "segment" : audienceType
+
       const campaignData = {
         creator_id: creatorId,
         subject: data.subject,
         body: data.body,
         preview_text: data.previewText || null,
         status: "scheduled" as const,
-        audience_type: audienceType,
-        segment_id: selectedSegment || null,
+        audience_type: actualAudienceType,
+        segment_id: segmentId,
         scheduled_at: new Date(data.scheduledAt).toISOString(),
       }
 
