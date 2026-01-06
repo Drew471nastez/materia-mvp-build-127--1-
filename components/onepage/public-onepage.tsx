@@ -1698,7 +1698,7 @@ function PublicBlockRenderer({
       const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 8 : 6
       const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
       // Avatar size increased by 3px
-      const avatarSize = isDesktop ? 110 : 99
+      const avatarSize = isDesktop ? 110 : 103
 
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")}>
