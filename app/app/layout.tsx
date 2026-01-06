@@ -36,12 +36,16 @@ export default async function AppLayout({
     .eq("id", user.id)
     .single()
 
+  // Get avatar: priority is profile avatar > Google OAuth avatar > null
+  const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+  const avatarUrl = profile?.avatar_url || googleAvatar
+
   return (
     <div className="min-h-svh overflow-x-hidden">
-      <AppSidebar 
+      <AppSidebar
         creatorSlug={creator.slug}
         storePublished={creator.store_published}
-        avatarUrl={profile?.avatar_url}
+        avatarUrl={avatarUrl}
         displayName={profile?.display_name || creator.slug}
       />
       <main className="min-h-svh pt-14 md:pl-[220px] md:pt-0">
