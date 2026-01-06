@@ -2070,7 +2070,7 @@ function PublicBlockRenderer({
 
       const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!email || isSubmitting) return
+        if (!email || isSubmitting || emailSubmitted) return
         setIsSubmitting(true)
 
         try {
@@ -2092,17 +2092,12 @@ function PublicBlockRenderer({
         }
       }
 
-      if (emailSubmitted) {
-        return (
-          <div
-            className="w-full p-5 sm:p-6 rounded-xl sm:rounded-2xl text-center"
-            style={{ backgroundColor: `${theme.button_color}15` }}
-          >
-            <p className="font-medium" style={{ color: theme.text_color }}>
-              {data.success_message || "Thanks for subscribing!"}
-            </p>
-          </div>
-        )
+      // Handle email input change - reactivate button if modified after submission
+      const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setEmail(e.target.value)
+        if (emailSubmitted) {
+          setEmailSubmitted(false)
+        }
       }
 
       return (
@@ -2125,21 +2120,27 @@ function PublicBlockRenderer({
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               placeholder={data.placeholder || "Enter your email"}
               required
-              className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1"
+              disabled={isSubmitting}
+              className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70"
               style={{ color: "#000" }}
             />
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+              disabled={isSubmitting || emailSubmitted}
+              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
             >
-              {isSubmitting ? "..." : data.button_text || "Subscribe"}
+              {isSubmitting ? "..." : emailSubmitted ? "Subscribed!" : data.button_text || "Subscribe"}
             </button>
           </form>
+          {emailSubmitted && (
+            <p className="text-xs text-center mt-2 opacity-70" style={{ color: theme.text_color }}>
+              {data.success_message || "Thanks for subscribing!"}
+            </p>
+          )}
         </div>
       )
     }

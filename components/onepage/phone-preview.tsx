@@ -1868,18 +1868,6 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
 
     case "email_capture": {
       const data = block.data as EmailCaptureBlockData
-      if (emailSubmitted) {
-        return (
-          <div
-            className="w-full text-center p-4 rounded-lg"
-            style={{ backgroundColor: `${theme.button_color}20`, borderRadius: `${theme.button_border_radius}px` }}
-          >
-            <span className={s.text} style={{ color: theme.text_color }}>
-              Thanks for subscribing!
-            </span>
-          </div>
-        )
-      }
       return (
         <div className="w-full space-y-2">
           {data.headline && (
@@ -1899,17 +1887,24 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
             <input
               type="email"
               placeholder={data.placeholder || "Enter your email"}
-              className={cn(s.input, "flex-1 rounded-lg bg-white/10 border-0 outline-none")}
+              className={cn(s.input, "flex-1 rounded-lg bg-white/10 border-0 outline-none", emailSubmitted && "opacity-70")}
               style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
+              disabled={emailSubmitted}
             />
             <button
               onClick={() => setEmailSubmitted(true)}
-              className={cn(s.inputBtn, "font-medium shrink-0")}
+              disabled={emailSubmitted}
+              className={cn(s.inputBtn, "font-medium shrink-0", emailSubmitted && "opacity-50 cursor-not-allowed")}
               style={buttonStyles}
             >
-              {data.button_text || "Subscribe"}
+              {emailSubmitted ? "Subscribed!" : data.button_text || "Subscribe"}
             </button>
           </div>
+          {emailSubmitted && (
+            <p className="text-[9px] text-center opacity-70" style={{ color: theme.text_color }}>
+              {data.success_message || "Thanks for subscribing!"}
+            </p>
+          )}
         </div>
       )
     }
