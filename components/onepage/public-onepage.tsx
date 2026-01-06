@@ -16,7 +16,7 @@ import type {
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect } from "react"
-import { Bell, X, Check, Send, Copy, Link2 } from "lucide-react"
+import { Bell, X, Check, Send, Link2 } from "lucide-react"
 
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
@@ -256,7 +256,14 @@ function ShareButton({
   style = "white",
   showSubscribe = true,
   accentColor,
-}: { pageUrl: string; pageTitle: string; avatarUrl?: string | null; style?: "glass" | "white" | "black"; showSubscribe?: boolean; accentColor?: string }) {
+}: {
+  pageUrl: string
+  pageTitle: string
+  avatarUrl?: string | null
+  style?: "glass" | "white" | "black"
+  showSubscribe?: boolean
+  accentColor?: string
+}) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -319,31 +326,24 @@ function ShareButton({
       name: "X",
       iconType: "x" as const,
       color: "#000000",
-      action: () => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`, "_blank"),
+      action: () =>
+        window.open(
+          `https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`,
+          "_blank",
+        ),
     },
     {
       name: "Facebook",
       iconType: "facebook" as const,
       color: "#1877F2",
-      action: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`, "_blank"),
+      action: () =>
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`, "_blank"),
     },
     {
       name: "WhatsApp",
       iconType: "whatsapp" as const,
       color: "#25D366",
       action: () => window.open(`https://wa.me/?text=${encodeURIComponent(`${pageTitle} ${pageUrl}`)}`, "_blank"),
-    },
-    {
-      name: "LinkedIn",
-      iconType: "linkedin" as const,
-      color: "#0A66C2",
-      action: () => window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(pageUrl)}&title=${encodeURIComponent(pageTitle)}`, "_blank"),
-    },
-    {
-      name: "Storelib",
-      iconType: "storelib" as const,
-      color: "#8B5CF6",
-      action: () => window.open("https://storelib.co", "_blank"),
     },
   ]
 
@@ -367,7 +367,7 @@ function ShareButton({
       case "whatsapp":
         return (
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
           </svg>
         )
       case "linkedin":
@@ -379,7 +379,14 @@ function ShareButton({
       case "storelib":
         return (
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            <path
+              d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+              stroke="currentColor"
+              strokeWidth="2"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         )
       default:
@@ -445,50 +452,61 @@ function ShareButton({
               <div className="text-center">
                 <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-white/20 flex items-center justify-center ring-4 ring-white/30 shadow-xl">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" />
+                    <img src={avatarUrl || "/placeholder.svg"} alt={pageTitle} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-3xl font-bold text-white">{pageTitle.charAt(0).toUpperCase()}</span>
                   )}
                 </div>
                 <h3 className="text-xl font-bold text-white mb-1">{pageTitle}</h3>
                 <p className="text-white/80 text-sm truncate max-w-[200px] mx-auto">
-                  {pageUrl.replace(/^https?:\/\//, '')}
+                  {pageUrl.replace(/^https?:\/\//, "")}
                 </p>
               </div>
             </div>
 
             {/* Share options - centered and well-aligned */}
-            <div className="px-4 py-5">
-              <div className="flex justify-center flex-wrap gap-3">
-                {shareOptions.filter(o => o.iconType !== "storelib").map((option) => (
+            <div className="flex justify-center items-center gap-4 px-3">
+              {shareOptions.map(
+                (
+                  option,
+                  index, // Added key prop and index
+                ) => (
                   <button
-                    key={option.name}
+                    key={option.name} // Added key prop using option.name
                     onClick={option.action}
-                    className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-gray-50 active:scale-95 transition-all"
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all duration-200",
+                      "hover:bg-gray-50 hover:scale-105 active:scale-95",
+                    )}
+                    style={{ animationDelay: `${index * 50}ms` }} // Removed index, replaced with option.name or similar for unique delay if needed
                   >
                     <div
-                      className="w-14 h-14 rounded-full flex items-center justify-center shadow-sm transition-transform hover:scale-105"
-                      style={{
-                        backgroundColor: `${option.color}15`,
-                      }}
+                      className="w-[46px] h-[46px] rounded-full flex items-center justify-center transition-transform"
+                      style={{ backgroundColor: `${option.color}15` }}
                     >
-                      <div style={{ color: option.color }}>
-                        {renderIcon(option.iconType, option.color)}
-                      </div>
+                      <span style={{ color: option.color }}>{renderIcon(option.iconType, option.color)}</span>
                     </div>
-                    <span className="text-[11px] font-medium text-gray-600">{option.name}</span>
+                    <span className="text-[10px] font-medium text-gray-600">{option.name}</span>
                   </button>
-                ))}
-              </div>
+                ),
+              )}
             </div>
 
             {/* Storelib CTA Section */}
             <div className="px-5 pb-6">
               <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm shrink-0">
-                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
+                    <svg
+                      className="w-5 h-5 text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -676,6 +694,7 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
       <path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 125.084 64.8569 132.827 72.0518 138.095C78.0037 142.425 85.7883 144.669 93.8627 144.267C104.67 143.762 113.294 139.372 119.426 131.257C123.968 125.209 126.839 117.661 128.011 108.524C134.151 112.138 138.711 116.852 140.818 122.579C144.283 131.969 144.493 147.389 132.112 159.684C121.329 170.391 108.196 175.168 90.4863 175.313C71.1024 175.146 56.413 169.087 46.743 157.33C37.7196 146.384 33.0206 130.727 32.8218 110.728L32.8218 81.2724C33.0206 61.2734 37.7196 45.6164 46.743 34.6699C56.413 22.9131 71.1024 16.8538 90.4863 16.687C109.996 16.8551 124.983 22.969 135.077 34.8069C139.98 40.5571 143.818 47.559 146.498 55.5601L163.044 50.2802C159.626 40.0171 154.589 31.1436 147.971 23.8628C134.709 9.04939 116.136 1.41406 90.5517 1.18164L90.4209 1.18111C64.9526 1.41299 46.6603 9.0918 33.6384 23.9936C22.3006 36.9827 16.2393 54.9747 16.0037 77.5368V77.5752L16 110.766L16.0037 114.463V114.501C16.2393 137.063 22.3006 155.055 33.6384 168.044C46.6603 182.946 64.9526 190.625 90.4209 190.857L90.5517 190.856C113.049 190.674 129.763 184.282 143.474 170.655C161.387 152.86 160.887 130.625 155.586 117.281C151.64 107.259 143.663 99.0028 132.122 93.3506C131.667 91.8653 131.16 90.3969 130.603 88.9554L141.537 88.9883ZM98.4405 127.461C88.1005 127.987 77.7615 123.461 77.2019 114.047C76.7685 106.846 81.9377 97.7908 99.0178 96.8022C101.279 96.6754 103.499 96.6135 105.678 96.6135C111.478 96.6135 116.931 97.1398 121.955 98.1592C120.066 117.743 109.748 126.885 98.4405 127.461Z" />
     </svg>
   ),
+  // Removed Twitch, GitHub, etc.
 }
 
 // QR Code component - generates actual scannable QR codes using qrcode library
@@ -696,20 +715,19 @@ function QRCode({ url, size = 120 }: { url: string; size?: number; darkColor?: s
           light: "#ffffff",
         },
         errorCorrectionLevel: "M",
-      }).then((dataUrl) => {
-        setQrDataUrl(dataUrl)
-      }).catch((err) => {
-        console.error("Failed to generate QR code:", err)
       })
+        .then((dataUrl) => {
+          setQrDataUrl(dataUrl)
+        })
+        .catch((err) => {
+          console.error("Failed to generate QR code:", err)
+        })
     })
   }, [url, size])
 
   if (!qrDataUrl) {
     return (
-      <div
-        className="bg-white rounded-lg p-1 flex items-center justify-center"
-        style={{ width: size, height: size }}
-      >
+      <div className="bg-white rounded-lg p-1 flex items-center justify-center" style={{ width: size, height: size }}>
         <div className="animate-pulse bg-gray-200 rounded" style={{ width: size - 8, height: size - 8 }} />
       </div>
     )
@@ -723,7 +741,11 @@ function QRCode({ url, size = 120 }: { url: string; size?: number; darkColor?: s
       className="block cursor-pointer hover:opacity-90 transition-opacity bg-white rounded-lg p-1"
       title="Scan to open page"
     >
-      <img src={qrDataUrl} alt="QR Code" style={{ display: "block", width: size, height: size }} />
+      <img
+        src={qrDataUrl || "/placeholder.svg"}
+        alt="QR Code"
+        style={{ display: "block", width: size, height: size }}
+      />
     </a>
   )
 }
@@ -1498,8 +1520,8 @@ function PublicBlockRenderer({
                 <div
                   className="absolute inset-0 pointer-events-none"
                   style={{
-                    background: `linear-gradient(to bottom, 
-                      transparent 0%, 
+                    background: `linear-gradient(to bottom,
+                      transparent 0%,
                       transparent 50%,
                       ${fadeColor}33 60%,
                       ${fadeColor}66 70%,
@@ -1791,7 +1813,7 @@ function PublicBlockRenderer({
             if (!Icon || !url) return null
             return (
               <a
-                key={platform}
+                key={platform} // Added key prop
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"

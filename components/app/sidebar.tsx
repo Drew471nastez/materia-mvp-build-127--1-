@@ -19,6 +19,8 @@ import {
   HelpCircle,
   Zap,
   ChevronDown,
+  Compass,
+  Library,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -80,6 +82,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/settings", label: "Settings", icon: Settings },
     { href: "/app/settings/payments", label: "Billing", icon: CreditCard },
     { href: "/help", label: "Help", icon: HelpCircle },
+    { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/library", label: "Library", icon: Library },
   ]
 
   const storeUrl = username || creatorSlug
@@ -108,31 +112,26 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   }
 
   const ProfileDropdown = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <div 
-      ref={dropdownRef}
-      className="relative"
-    >
+    <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
         className={cn(
           "flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-all duration-150",
-          profileDropdownOpen 
-            ? "bg-neutral-100/80" 
-            : "hover:bg-neutral-100/50"
+          profileDropdownOpen ? "bg-neutral-100/80" : "hover:bg-neutral-100/50",
         )}
       >
         <Avatar className="h-10 w-10 shrink-0">
-          <AvatarImage src={avatarUrl} alt={userDisplayName} className="object-cover" />
+          <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={userDisplayName} className="object-cover" />
           <AvatarFallback className="bg-neutral-200 text-neutral-600 text-sm font-medium">
             {userInitials}
           </AvatarFallback>
         </Avatar>
         <span className="flex-1 text-[14px] font-medium text-neutral-900 truncate">{userDisplayName}</span>
-        <ChevronDown 
+        <ChevronDown
           className={cn(
             "h-4 w-4 text-neutral-400 transition-transform duration-150",
-            profileDropdownOpen && "rotate-180"
-          )} 
+            profileDropdownOpen && "rotate-180",
+          )}
         />
       </button>
 
@@ -188,9 +187,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
         {storeUrl && !storePublished && (
           <div className="mt-4 rounded-[10px] bg-amber-50/80 border border-amber-100/80 px-3 py-2.5">
-            <p className="text-[12px] text-amber-700">
-              Store is unpublished. Go to Settings to publish.
-            </p>
+            <p className="text-[12px] text-amber-700">Store is unpublished. Go to Settings to publish.</p>
           </div>
         )}
       </nav>
@@ -213,8 +210,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
       <div className="border-t border-neutral-200/50 px-4 py-3.5">
         <div className="flex items-center justify-between">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             onClick={onItemClick}
             className="text-[17px] font-semibold tracking-tight text-violet-600 hover:text-violet-700 transition-colors"
           >
@@ -272,7 +269,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       </header>
 
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-[260px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)] border-neutral-200/50">
+        <SheetContent
+          side="left"
+          className="w-[260px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)] border-neutral-200/50"
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
           </SheetHeader>
