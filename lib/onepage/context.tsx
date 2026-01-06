@@ -281,22 +281,25 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
       if (!prev) return prev
       newBlock = createDefaultBlock(type)
       const blocks = [...prev.draft_blocks]
-      
+
       if (afterId) {
+        // Insert after the specified block
         const index = blocks.findIndex((b) => b.id === afterId)
         if (index !== -1) {
           blocks.splice(index + 1, 0, newBlock)
         } else {
-          blocks.push(newBlock)
+          // Fallback to top if afterId not found
+          blocks.unshift(newBlock)
         }
       } else {
-        blocks.push(newBlock)
+        // Default: insert at the TOP of the list
+        blocks.unshift(newBlock)
       }
-      
+
       blocks.forEach((b, i) => {
         b.sort_order = i
       })
-      
+
       const newState = { ...prev, draft_blocks: blocks }
       addToHistory(newState)
       return newState

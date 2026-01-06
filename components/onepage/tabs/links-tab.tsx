@@ -304,7 +304,7 @@ const IMAGE_LIBRARY = [
 const blockCategories = [
   {
     id: "suggested",
-    label: "Suggested",
+    label: "Popular",
     icon: Heart,
     blocks: [
       { type: "link_button" as const, label: "Link", description: "Add any URL", icon: Link },
@@ -473,15 +473,33 @@ export function LinksTab() {
     })
   }, [social_links])
 
+  // Check if a block type has reached its limit
+  const getBlockTypeCount = (type: OnePageBlockType) => {
+    return onepage.draft_blocks.filter(b => b.type === type).length
+  }
+
+  const isBlockTypeAtLimit = (type: OnePageBlockType): boolean => {
+    // Social Icons (social_row) can only be added 2 times max
+    if (type === "social_row") {
+      return getBlockTypeCount("social_row") >= 2
+    }
+    return false
+  }
+
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
+    // Check if block type is at its limit
+    if (isBlockTypeAtLimit(type)) {
+      return // Don't add the block
+    }
+
     const newBlock = addBlock(type, insertAfterId || undefined)
     if (preset && newBlock) {
-      updateBlock(newBlock.id, { 
-        data: { 
-          ...newBlock.data, 
-          label: preset.label, 
-          url: preset.url 
-        } 
+      updateBlock(newBlock.id, {
+        data: {
+          ...newBlock.data,
+          label: preset.label,
+          url: preset.url
+        }
       })
     }
     setShowAddModal(false)
@@ -794,7 +812,7 @@ export function LinksTab() {
 
       {/* Add Block Modal - Wider on desktop */}
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); } }}>
-    <DialogContent className="w-[calc(100%-32px)] sm:w-[min(800px,calc(100vw-64px))] sm:!max-w-[800px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+    <DialogContent className="w-[calc(100%-32px)] sm:w-[min(600px,calc(100vw-64px))] sm:!max-w-[600px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
 
 
           <DialogHeader className="p-4 sm:p-5 pb-3 sm:pb-4 border-b bg-white">
@@ -823,7 +841,7 @@ export function LinksTab() {
           </div>
 
           {/* Content */}
-          <div className="flex flex-col sm:flex-row max-h-[60vh] sm:max-h-[500px] overflow-hidden">
+          <div className="flex flex-col sm:flex-row max-h-[50vh] sm:max-h-[400px] overflow-hidden">
             {/* Categories sidebar */}
             {!searchQuery && (
               <div className="sm:w-44 border-b sm:border-b-0 sm:border-r bg-gray-50/50 overflow-x-auto sm:overflow-x-visible">
@@ -866,10 +884,10 @@ export function LinksTab() {
                       <button
                         key={item.label}
                         onClick={() => handleAddBlock(item.type)}
-                        className="flex flex-col items-center gap-2 p-4 sm:p-5 border-2 rounded-xl hover:border-violet-300 hover:bg-violet-50 transition-colors"
+                        className="flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors"
                       >
-                        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-violet-600" />
-                        <span className="text-sm font-medium">{item.label}</span>
+                        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                        <span className="text-xs sm:text-sm font-medium">{item.label}</span>
                       </button>
                     )
                   })}
@@ -889,25 +907,33 @@ export function LinksTab() {
                   const Icon = block.icon
                   const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("twitterx", "twitter")
                   const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify"].includes(socialId)
-                  
+                  const atLimit = isBlockTypeAtLimit(block.type)
+                  const currentCount = getBlockTypeCount(block.type)
+
                   return (
                     <button
                       key={`${block.type}-${block.label}-${idx}`}
-                      onClick={() => handleAddBlock(block.type, (block as any).preset)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 transition-colors text-left group"
+                      onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
+                      disabled={atLimit}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left group",
+                        atLimit
+                          ? "opacity-50 cursor-not-allowed bg-gray-50"
+                          : "hover:bg-gray-100"
+                      )}
                     >
-                      <div 
+                      <div
                         className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
-                        style={{ 
-                          backgroundColor: hasSocialIcon 
+                        style={{
+                          backgroundColor: hasSocialIcon
                             ? SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color + "20"
                             : "#f3f4f6"
                         }}
                       >
                         {hasSocialIcon ? (
-                          <RenderSocialIcon 
-                            platform={socialId} 
-                            size={20} 
+                          <RenderSocialIcon
+                            platform={socialId}
+                            size={20}
                             color={SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color}
                           />
                         ) : (
@@ -916,9 +942,15 @@ export function LinksTab() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">{block.label}</p>
-                        <p className="text-xs text-muted-foreground truncate">{block.description}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {atLimit ? `Already added (${currentCount}/2)` : block.description}
+                        </p>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
+                      {atLimit ? (
+                        <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
+                      )}
                     </button>
                   )
                 })}
