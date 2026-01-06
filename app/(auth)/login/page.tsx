@@ -18,7 +18,6 @@ function LoginFormContent() {
   const [showPasswordField, setShowPasswordField] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const verified = searchParams.get("verified") === "1"
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,7 +45,25 @@ function LoginFormContent() {
         password: trimmedPassword,
       })
 
-      if (error) throw error
+      if (error) {
+        // Handle specific error messages
+        if (error.message.includes("Email not confirmed")) {
+          // User hasn't verified email, send them to verify page
+          // First get the user ID
+          const { data: userData } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("email", trimmedEmail)
+            .single()
+          
+          if (userData) {
+            router.push(`/verify-email?userId=${userData.id}&email=${encodeURIComponent(trimmedEmail)}`)
+            router.refresh()
+            return
+          }
+        }
+        throw error
+      }
 
       if (data.user) {
         // Check if user has completed onboarding
@@ -63,25 +80,21 @@ function LoginFormContent() {
             router.push("/app")
           }
         } else {
-          // No creator record, check profile
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("email_verified")
-            .eq("id", data.user.id)
-            .single()
-
-          if (profile?.email_verified === false) {
-            // User hasn't verified email yet, send them to verify
-            router.push(`/verify-email?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}`)
-          } else {
-            // Verified but no creator, go to onboarding
-            router.push("/onboarding")
-          }
+          // No creator record, go to onboarding
+          router.push("/onboarding")
         }
         router.refresh()
       }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Invalid email or password")
+      const errorMessage = error instanceof Error ? error.message : "Invalid email or password"
+      // Clean up error message
+      if (errorMessage.includes("Invalid login credentials")) {
+        setError("Invalid email or password")
+      } else if (errorMessage.includes("Email not confirmed")) {
+        setError("Please verify your email first")
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -119,15 +132,7 @@ function LoginFormContent() {
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
-          <p className="mb-8 text-[15px] text-neutral-500">
-            {verified ? "Email verified! Log in to continue." : "Log in to your account"}
-          </p>
-
-          {verified && (
-            <div className="mb-6 rounded-lg bg-emerald-50 border border-emerald-100 p-3 text-center">
-              <p className="text-sm text-emerald-700">Your email has been verified successfully!</p>
-            </div>
-          )}
+          <p className="mb-8 text-[15px] text-neutral-500">Log in to your account</p>
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
