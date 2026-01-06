@@ -210,6 +210,12 @@ function LoginFormContent() {
             </Button>
           </div>
 
+          <div className="mt-4 text-center">
+            <Link href="/request" className="text-[13px] text-neutral-400 hover:text-neutral-600">
+              Forgot password?
+            </Link>
+          </div>
+
           <p className="mt-6 text-center text-[14px] text-neutral-500">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="font-medium text-purple-600 hover:text-purple-700">

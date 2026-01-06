@@ -444,7 +444,8 @@ function ShareButton({
 
   // Share icon is always positioned on the TOP LEFT (both mobile and desktop)
   // Subscribe icon stays on TOP RIGHT
-  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-8 md:left-8 z-50"
+  // Desktop (md): top-[22px] to align 2px above the subscribe button which is at top-6 (24px)
+  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-50"
   const shareVisible = isOpen || isShareVisible
 
   const buttonWrapperClass = cn(

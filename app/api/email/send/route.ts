@@ -204,16 +204,33 @@ export async function POST(request: NextRequest) {
       })
 
       try {
+        // Create plain text version for better deliverability
+        const plainTextBody = stripHtmlForPlainText(campaign.body)
+          .replace(/\{\{name\}\}/g, subscriber.name || "there")
+          .replace(/\{\{email\}\}/g, subscriber.email)
+          .replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl)
+
+        // Generate unique message ID for tracking
+        const messageId = `${send.id}-${Date.now()}@materiabuilder.store`
+
         const result = await resend.emails.send({
           from: `${senderName} <noreplycustomers@materiabuilder.store>`,
           to: subscriber.email,
           subject: campaign.subject,
           html: personalizedBody,
+          text: plainTextBody + `\n\n---\nUnsubscribe: ${unsubscribeUrl}`,
           replyTo: profile.email || campaign.reply_to || undefined,
           headers: {
             "List-Unsubscribe": `<${unsubscribeUrl}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            "X-Entity-Ref-ID": messageId,
+            "X-Priority": "3",
+            "Precedence": "bulk",
           },
+          tags: [
+            { name: "campaign_id", value: campaign_id },
+            { name: "creator_id", value: creator.id },
+          ],
         })
 
         // Check for errors in the response
@@ -458,4 +475,37 @@ function buildOptimizedEmailHtml({
 </body>
 </html>
 `
+}
+
+// Helper function to strip HTML and create plain text version for multipart emails
+// Having both HTML and text improves deliverability significantly
+function stripHtmlForPlainText(html: string): string {
+  return html
+    // Remove style and script tags with their content
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    // Convert line breaks and paragraphs to newlines
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n\n")
+    // Convert links to show URL
+    .replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, "$2 ($1)")
+    // Convert lists
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<\/li>/gi, "\n")
+    // Remove remaining HTML tags
+    .replace(/<[^>]+>/g, "")
+    // Decode HTML entities
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&zwnj;/g, "")
+    // Clean up whitespace
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
+    .replace(/^\s+|\s+$/g, "")
+    .trim()
 }
