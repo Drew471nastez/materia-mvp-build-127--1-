@@ -223,8 +223,8 @@ function ShareButtonPreview({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Position: next to subscribe button on right side if subscribe is shown
-  const positionClass = showSubscribe ? "absolute top-12 right-[42px] z-30" : "absolute top-12 right-3 z-30"
+  // Position: top LEFT side in phone preview (mobile style)
+  const positionClass = "absolute top-12 left-3 z-30"
 
   return (
     <div className={positionClass}>

@@ -367,11 +367,12 @@ function ShareButton({
     }
   }
 
-  // Desktop: position next to subscribe button (to the left)
-  // Mobile: position on left side of screen
+  // Mobile: position on LEFT side of screen
+  // Desktop: position next to subscribe button (to the left with 3px gap)
+  // Subscribe is at right-6 (24px) + width 44px + 3px gap = 71px from right
   const positionClass = showSubscribe
-    ? "fixed top-4 right-[60px] sm:top-6 sm:right-[68px] z-50"
-    : "fixed top-4 right-4 sm:top-6 sm:right-6 z-50"
+    ? "fixed top-4 left-4 sm:top-6 sm:left-auto sm:right-[71px] z-50"
+    : "fixed top-4 left-4 sm:top-6 sm:left-auto sm:right-6 z-50"
 
   return (
     <div className={positionClass}>
