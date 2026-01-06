@@ -96,9 +96,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onClick={onClick}
         className={cn(
           "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150",
-          isActive 
-            ? "bg-neutral-100/80 text-neutral-900" 
-            : "text-neutral-500 hover:bg-neutral-100/50 hover:text-neutral-900",
+          isActive
+            ? "bg-neutral-200 text-neutral-900"
+            : "text-neutral-600 hover:bg-neutral-100/50 hover:text-neutral-900",
         )}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
@@ -203,7 +203,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         >
           <div>
             <p className="text-[13px] font-semibold text-neutral-900">Upgrade to Pro</p>
-            <p className="text-[11px] text-neutral-500">Unlock more benefits</p>
+            <p className="text-[11px] text-neutral-600">Unlock more benefits</p>
           </div>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100/80 group-hover:bg-violet-200/80 transition-colors">
             <Zap className="h-3.5 w-3.5 text-violet-600" strokeWidth={2} />
