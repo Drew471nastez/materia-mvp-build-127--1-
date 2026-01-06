@@ -753,8 +753,20 @@ export function PhonePreview({ className }: PhonePreviewProps) {
     )
   }
 
-  const { title, bio, avatar_url, theme, draft_blocks, social_links, settings } = onepage
+  const { title, bio, avatar_url, theme, draft_blocks, social_links, settings: rawSettings } = onepage
   const avatar_video_url = (onepage as any).avatar_video_url
+  // Merge settings with defaults to ensure all fields exist (including verified badge)
+  const settings = {
+    show_branding: true,
+    analytics_enabled: true,
+    subscribe_enabled: true,
+    subscribe_style: "glass" as const,
+    share_enabled: true,
+    share_style: "white" as const,
+    verified_badge_enabled: false,
+    verified_badge_type: "verified_creator" as const,
+    ...rawSettings,
+  }
   const avatar_video_crop = (settings as any)?.avatar_video_crop || null
   const sellerName = title || "Creator"
 
@@ -1110,8 +1122,20 @@ export function MobilePreviewContent() {
     )
   }
 
-  const { title, bio, avatar_url, theme, draft_blocks, social_links, settings } = onepage
+  const { title, bio, avatar_url, theme, draft_blocks, social_links, settings: rawSettings } = onepage
   const avatar_video_url = (onepage as any).avatar_video_url
+  // Merge settings with defaults to ensure all fields exist (including verified badge)
+  const settings = {
+    show_branding: true,
+    analytics_enabled: true,
+    subscribe_enabled: true,
+    subscribe_style: "glass" as const,
+    share_enabled: true,
+    share_style: "white" as const,
+    verified_badge_enabled: false,
+    verified_badge_type: "verified_creator" as const,
+    ...rawSettings,
+  }
   const avatar_video_crop = (settings as any)?.avatar_video_crop || null
   const sellerName = title || "Creator"
 

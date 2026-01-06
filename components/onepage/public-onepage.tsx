@@ -860,7 +860,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   }
 
   const safeBlocks = blocks || []
-  const safeSettings = settings || { show_branding: true, analytics_enabled: true }
+  // Merge settings with defaults to ensure all fields exist (including verified badge)
+  const safeSettings = {
+    show_branding: true,
+    analytics_enabled: true,
+    subscribe_enabled: true,
+    subscribe_style: "glass" as const,
+    share_enabled: true,
+    share_style: "white" as const,
+    verified_badge_enabled: false,
+    verified_badge_type: "verified_creator" as const,
+    ...settings,
+  }
 
   // Animated gradient - only when explicitly enabled
   const isAnimatedGradient = safeTheme.background_type === "gradient" && safeTheme.animated_gradient === true
