@@ -77,11 +77,14 @@ export interface OnePageSocialLinks {
 }
 
 // Block data types
+export type BlockLayoutType = 'default' | 'pro'
+
 export interface LinkButtonBlockData {
   label: string
   url: string
   icon?: string | null
   thumbnail_url?: string | null
+  layout_type?: BlockLayoutType
 }
 
 export interface ProductBlockData {
@@ -109,6 +112,7 @@ export interface ImageBlockData {
   alt_text?: string
   link_url?: string | null
   aspect_ratio?: "auto" | "square" | "video" | "wide"
+  layout_type?: BlockLayoutType
 }
 
 export interface DividerBlockData {

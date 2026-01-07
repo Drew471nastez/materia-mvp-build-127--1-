@@ -1826,6 +1826,79 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
         'zap': 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
       }
       const iconPath = data.icon ? ICON_PATHS[data.icon] : null
+      // Icon color should match button text color
+      const iconColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
+
+      // Pro Layout - Featured display with larger thumbnail
+      if (data.layout_type === 'pro') {
+        return (
+          <div
+            className={cn(
+              s.button,
+              "w-full font-medium transition-transform hover:scale-[1.02] active:scale-[0.98] overflow-hidden",
+            )}
+            style={{
+              ...buttonStyles,
+              padding: 0,
+            }}
+          >
+            {/* Featured thumbnail area */}
+            {(data.thumbnail_url || iconPath) && (
+              <div
+                className="w-full aspect-[2/1] relative overflow-hidden"
+                style={{
+                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                }}
+              >
+                {data.thumbnail_url ? (
+                  <img
+                    src={data.thumbnail_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ imageRendering: "auto" }}
+                  />
+                ) : iconPath ? (
+                  <div
+                    className="w-full h-full flex items-center justify-center"
+                    style={{
+                      backgroundColor: theme.button_style === "outline"
+                        ? `${theme.button_color}10`
+                        : `${theme.button_text_color}10`,
+                    }}
+                  >
+                    <svg
+                      width="48"
+                      height="48"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ color: iconColor, opacity: 0.6 }}
+                    >
+                      <path d={iconPath} />
+                    </svg>
+                  </div>
+                ) : null}
+              </div>
+            )}
+            {/* Title area */}
+            <div
+              className="w-full px-4 py-3 flex items-center justify-center"
+              style={{
+                backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+              }}
+            >
+              <span className="truncate font-medium" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                {data.label || "My Link"}
+              </span>
+            </div>
+          </div>
+        )
+      }
+
+      // Default Layout
       return (
         <button
           className={cn(
@@ -1852,7 +1925,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
               strokeLinecap="round"
               strokeLinejoin="round"
               className="shrink-0"
-              style={{ color: theme.text_color }}
+              style={{ color: iconColor }}
             >
               <path d={iconPath} />
             </svg>

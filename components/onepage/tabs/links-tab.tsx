@@ -12,6 +12,7 @@ import type {
   HeaderBlockData,
   SocialRowBlockData,
   OnePageSocialLinks,
+  BlockLayoutType,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
 import {
   Plus,
@@ -68,6 +70,9 @@ import {
   ZoomOut,
   Archive,
   RotateCcw,
+  Settings,
+  LayoutGrid,
+  Sparkles,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -425,6 +430,13 @@ export function LinksTab() {
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
   const [showArchiveView, setShowArchiveView] = useState(false)
+
+  // Thumbnail modal state
+  const [showThumbnailModal, setShowThumbnailModal] = useState(false)
+  const [thumbnailBlockId, setThumbnailBlockId] = useState<string | null>(null)
+  const [thumbnailUploading, setThumbnailUploading] = useState(false)
+  const [showIconLibraryInModal, setShowIconLibraryInModal] = useState(false)
+  const thumbnailInputRef = useRef<HTMLInputElement>(null)
   
   // Drag state
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
@@ -507,6 +519,84 @@ export function LinksTab() {
       }
     })
   }, [social_links])
+
+  // Icon library paths for thumbnails
+  const THUMBNAIL_ICON_PATHS: Record<string, string> = {
+    'link': 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+    'external': 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3',
+    'star': 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+    'heart': 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z',
+    'music': 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+    'video': 'M23 7l-7 5 7 5V7zM14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z',
+    'camera': 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    'shopping': 'M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z M3 6h18 M16 10a4 4 0 0 1-8 0',
+    'gift': 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
+    'book': 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z',
+    'calendar': 'M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6zM16 2v4M8 2v4M3 10h18',
+    'mail': 'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6',
+    'phone': 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z',
+    'globe': 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+    'map-pin': 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+    'download': 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+    'file': 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
+    'image': 'M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+    'coffee': 'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3',
+    'zap': 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
+  }
+
+  const THUMBNAIL_ICONS = Object.entries(THUMBNAIL_ICON_PATHS).map(([id, path]) => ({
+    id,
+    name: id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' '),
+    path
+  }))
+
+  // Handle thumbnail upload for modal
+  const handleThumbnailUploadForModal = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !thumbnailBlockId) return
+
+    setThumbnailUploading(true)
+    try {
+      const supabase = createClient()
+      const fileExt = file.name.split('.').pop()
+      const fileName = `thumbnail_${thumbnailBlockId}_${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('onepage-assets')
+        .upload(fileName, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('onepage-assets')
+        .getPublicUrl(fileName)
+
+      updateBlock(thumbnailBlockId, {
+        data: {
+          ...onepage.draft_blocks.find(b => b.id === thumbnailBlockId)?.data,
+          thumbnail_url: publicUrl,
+          icon: null
+        }
+      })
+      setShowThumbnailModal(false)
+      setShowIconLibraryInModal(false)
+    } catch (error) {
+      console.error('Error uploading thumbnail:', error)
+    } finally {
+      setThumbnailUploading(false)
+      if (thumbnailInputRef.current) {
+        thumbnailInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Get thumbnail block data
+  const getThumbnailBlockData = () => {
+    if (!thumbnailBlockId) return null
+    const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+    if (!block || block.type !== 'link_button') return null
+    return block.data as LinkButtonBlockData
+  }
 
   // Check if a block type has reached its limit
   const getBlockTypeCount = (type: OnePageBlockType) => {
@@ -863,6 +953,8 @@ export function LinksTab() {
                 socialLinks={social_links}
                 onOpenImageLibrary={(blockId) => { setImageBlockId(blockId); setShowImageLibrary(true) }}
                 onOpenSocialModal={() => setShowSocialModal(true)}
+                onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(true); setShowIconLibraryInModal(false) }}
+                iconPaths={THUMBNAIL_ICON_PATHS}
               />
             </div>
 
@@ -1261,6 +1353,137 @@ export function LinksTab() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Thumbnail Edit Modal - Centered with overlay */}
+      <Dialog open={showThumbnailModal} onOpenChange={(open) => { setShowThumbnailModal(open); if (!open) setShowIconLibraryInModal(false) }}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-sm p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-base font-semibold">Edit Thumbnail</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 space-y-3">
+            {/* Current thumbnail preview */}
+            {getThumbnailBlockData() && (
+              <div className="flex items-center justify-center pb-3 border-b">
+                <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+                  {getThumbnailBlockData()?.thumbnail_url ? (
+                    <img src={getThumbnailBlockData()?.thumbnail_url || ''} alt="" className="w-full h-full object-cover" />
+                  ) : getThumbnailBlockData()?.icon && THUMBNAIL_ICON_PATHS[getThumbnailBlockData()?.icon || ''] ? (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                      <path d={THUMBNAIL_ICON_PATHS[getThumbnailBlockData()?.icon || '']} />
+                    </svg>
+                  ) : (
+                    <ImageIcon className="w-7 h-7 text-gray-400" />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Upload option */}
+            <button
+              type="button"
+              onClick={() => thumbnailInputRef.current?.click()}
+              disabled={thumbnailUploading}
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
+            >
+              <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                {thumbnailUploading ? (
+                  <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                ) : (
+                  <Upload className="w-5 h-5 text-blue-600" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium">Upload image</p>
+                <p className="text-xs text-muted-foreground">JPG, PNG, GIF up to 5MB</p>
+              </div>
+            </button>
+
+            {/* Icon library toggle */}
+            <button
+              type="button"
+              onClick={() => setShowIconLibraryInModal(!showIconLibraryInModal)}
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
+            >
+              <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                <Grid3X3 className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Choose icon</p>
+                <p className="text-xs text-muted-foreground">From icon library</p>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-gray-400 transition-transform", showIconLibraryInModal && "rotate-90")} />
+            </button>
+
+            {/* Icon library grid */}
+            {showIconLibraryInModal && (
+              <div className="grid grid-cols-5 gap-2 p-3 bg-gray-50 rounded-xl animate-in fade-in slide-in-from-top-1 duration-150">
+                {THUMBNAIL_ICONS.map((icon) => (
+                  <button
+                    key={icon.id}
+                    type="button"
+                    onClick={() => {
+                      if (thumbnailBlockId) {
+                        updateBlock(thumbnailBlockId, {
+                          data: {
+                            ...onepage.draft_blocks.find(b => b.id === thumbnailBlockId)?.data,
+                            icon: icon.id,
+                            thumbnail_url: null
+                          }
+                        })
+                      }
+                      setShowThumbnailModal(false)
+                      setShowIconLibraryInModal(false)
+                    }}
+                    className={cn(
+                      "w-10 h-10 rounded-lg flex items-center justify-center transition-all hover:bg-white hover:shadow-sm",
+                      getThumbnailBlockData()?.icon === icon.id && "bg-white shadow-sm ring-2 ring-gray-900"
+                    )}
+                    title={icon.name}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+                      <path d={icon.path} />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Remove thumbnail */}
+            {(getThumbnailBlockData()?.thumbnail_url || getThumbnailBlockData()?.icon) && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (thumbnailBlockId) {
+                    updateBlock(thumbnailBlockId, {
+                      data: {
+                        ...onepage.draft_blocks.find(b => b.id === thumbnailBlockId)?.data,
+                        thumbnail_url: null,
+                        icon: null
+                      }
+                    })
+                  }
+                  setShowThumbnailModal(false)
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 transition-colors text-left border border-red-200 text-red-600"
+              >
+                <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <p className="text-sm font-medium">Remove thumbnail</p>
+              </button>
+            )}
+          </div>
+
+          {/* Hidden file input */}
+          <input
+            ref={thumbnailInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleThumbnailUploadForModal}
+            className="hidden"
+          />
         </DialogContent>
       </Dialog>
 
@@ -1974,6 +2197,8 @@ interface BlockItemProps {
   socialLinks: OnePageSocialLinks
   onOpenImageLibrary: (blockId: string) => void
   onOpenSocialModal: () => void
+  onOpenThumbnailModal?: (blockId: string) => void
+  iconPaths: Record<string, string>
 }
 
 function BlockItem({
@@ -1990,6 +2215,8 @@ function BlockItem({
   socialLinks,
   onOpenImageLibrary,
   onOpenSocialModal,
+  onOpenThumbnailModal,
+  iconPaths,
 }: BlockItemProps) {
   const { updateBlock } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -2023,34 +2250,12 @@ function BlockItem({
     }
   }
 
-  // Icon paths for thumbnails (matching BlockEditor THUMBNAIL_ICONS)
-  const ICON_PATHS: Record<string, string> = {
-    'link': 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
-    'external': 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3',
-    'star': 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
-    'heart': 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z',
-    'music': 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
-    'video': 'M23 7l-7 5 7 5V7zM14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z',
-    'camera': 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
-    'shopping': 'M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z M3 6h18 M16 10a4 4 0 0 1-8 0',
-    'gift': 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
-    'book': 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z',
-    'calendar': 'M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6zM16 2v4M8 2v4M3 10h18',
-    'mail': 'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6',
-    'phone': 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z',
-    'globe': 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
-    'map-pin': 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
-    'download': 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
-    'file': 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
-    'image': 'M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
-    'coffee': 'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3',
-    'zap': 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
-  }
-
   const preview = getBlockPreview()
   const Icon = preview.icon
 
   const isHeaderBlock = block.type === "header"
+  const isLinkButton = block.type === "link_button"
+  const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
   return (
     <div
@@ -2068,15 +2273,23 @@ function BlockItem({
           </div>
         )}
 
-        <div className="flex-1 flex items-center gap-3 cursor-pointer" onClick={onSelect}>
-          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+        {/* Clickable thumbnail for link buttons */}
+        {isLinkButton && onOpenThumbnailModal ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenThumbnailModal(block.id)
+            }}
+            className="group relative w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden hover:ring-2 hover:ring-gray-300 transition-all"
+          >
             {(preview as any).thumbnail_url ? (
               <img
                 src={(preview as any).thumbnail_url}
                 alt=""
                 className="w-full h-full object-cover"
               />
-            ) : (preview as any).iconId && ICON_PATHS[(preview as any).iconId] ? (
+            ) : (preview as any).iconId && iconPaths[(preview as any).iconId] ? (
               <svg
                 width="20"
                 height="20"
@@ -2088,16 +2301,50 @@ function BlockItem({
                 strokeLinejoin="round"
                 className="text-gray-500"
               >
-                <path d={ICON_PATHS[(preview as any).iconId]} />
+                <path d={iconPaths[(preview as any).iconId]} />
+              </svg>
+            ) : (
+              <Icon className="h-5 w-5 text-gray-500" />
+            )}
+            {/* Pencil icon always visible in corner */}
+            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
+              <Pencil className="w-2.5 h-2.5 text-gray-500" />
+            </div>
+            {/* Hover overlay */}
+            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
+          </button>
+        ) : (
+          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+            {(preview as any).thumbnail_url ? (
+              <img
+                src={(preview as any).thumbnail_url}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (preview as any).iconId && iconPaths[(preview as any).iconId] ? (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-gray-500"
+              >
+                <path d={iconPaths[(preview as any).iconId]} />
               </svg>
             ) : (
               <Icon className="h-5 w-5 text-gray-500" />
             )}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">{preview.title}</p>
-            <p className="text-xs text-muted-foreground truncate">{preview.subtitle}</p>
-          </div>
+        )}
+
+        {/* Title and subtitle - clickable to select block */}
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={onSelect}>
+          <p className="font-medium text-sm truncate">{preview.title}</p>
+          <p className="text-xs text-muted-foreground truncate">{preview.subtitle}</p>
         </div>
 
         <Toggle checked={block.enabled} onCheckedChange={onToggle} />
@@ -2110,6 +2357,8 @@ function BlockItem({
             socialLinks={socialLinks}
             onOpenImageLibrary={onOpenImageLibrary}
             onOpenSocialModal={onOpenSocialModal}
+            onOpenThumbnailModal={onOpenThumbnailModal}
+            iconPaths={iconPaths}
           />
           {!isHeaderBlock && (
             <div className="pt-3 border-t">
@@ -2190,12 +2439,16 @@ function BlockEditor({
   block,
   socialLinks,
   onOpenImageLibrary,
-  onOpenSocialModal
+  onOpenSocialModal,
+  onOpenThumbnailModal,
+  iconPaths,
 }: {
   block: OnePageBlock
   socialLinks: OnePageSocialLinks
   onOpenImageLibrary: (blockId: string) => void
   onOpenSocialModal: () => void
+  onOpenThumbnailModal?: (blockId: string) => void
+  iconPaths?: Record<string, string>
 }) {
   const { updateBlock, updateSocialLinks } = useOnePage()
 
@@ -2364,19 +2617,110 @@ function BlockEditor({
     setDragOverSocialId(null)
   }
 
-  switch (block.type) {
-    case "link_button": {
-      const data = block.data as LinkButtonBlockData
-      const selectedIcon = THUMBNAIL_ICONS.find(i => i.id === data.icon)
-      return (
-        <div className="space-y-3">
-          {/* Thumbnail Editor */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Thumbnail</Label>
-            <div className="relative">
+  // Determine if this block type supports layout options
+  const supportsLayout = ["link_button", "image"].includes(block.type)
+
+  // Get current layout type from block data
+  const currentLayoutType = (block.data as any).layout_type || 'default'
+
+  // Helper to render the Layout tab content
+  const renderLayoutContent = () => {
+    return (
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">Choose how this block displays on your page</p>
+
+        {/* Default Layout Option */}
+        <button
+          type="button"
+          onClick={() => updateData({ layout_type: 'default' })}
+          className={cn(
+            "w-full p-3 rounded-xl border-2 text-left transition-all",
+            currentLayoutType === 'default'
+              ? "border-violet-500 bg-violet-50"
+              : "border-gray-200 hover:border-gray-300 bg-white"
+          )}
+        >
+          <div className="flex items-start gap-3">
+            <div className={cn(
+              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
+              currentLayoutType === 'default' ? "border-violet-500" : "border-gray-300"
+            )}>
+              {currentLayoutType === 'default' && (
+                <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm">Default</div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Standard display for your link
+              </p>
+            </div>
+          </div>
+        </button>
+
+        {/* Pro Layout Option */}
+        <button
+          type="button"
+          onClick={() => updateData({ layout_type: 'pro' })}
+          className={cn(
+            "w-full p-3 rounded-xl border-2 text-left transition-all",
+            currentLayoutType === 'pro'
+              ? "border-violet-500 bg-violet-50"
+              : "border-gray-200 hover:border-gray-300 bg-white"
+          )}
+        >
+          <div className="flex items-start gap-3">
+            <div className={cn(
+              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
+              currentLayoutType === 'pro' ? "border-violet-500" : "border-gray-300"
+            )}>
+              {currentLayoutType === 'pro' && (
+                <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-sm">Pro Layout</span>
+                <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {block.type === "link_button"
+                  ? "Make your link stand out with a larger, more attractive display featuring your thumbnail prominently"
+                  : "Make your content stand out with enhanced display and interactions"}
+              </p>
+              {/* Preview mockup */}
+              <div className="mt-2.5 p-2 bg-gray-100 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
+                    <ImageIcon className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="h-2 w-16 bg-gray-300 rounded" />
+                    <div className="h-1.5 w-10 bg-gray-200 rounded mt-1.5" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </button>
+      </div>
+    )
+  }
+
+  // Helper to render Settings content per block type
+  const renderSettingsContent = () => {
+    switch (block.type) {
+      case "link_button": {
+        const data = block.data as LinkButtonBlockData
+        const selectedIconPath = data.icon && iconPaths ? iconPaths[data.icon] : null
+        return (
+          <div className="space-y-3">
+            {/* Thumbnail Editor - Opens Modal */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Thumbnail</Label>
               <button
                 type="button"
-                onClick={() => setShowThumbnailPopup(!showThumbnailPopup)}
+                onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
                 className="group relative w-11 h-11 rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-gray-50 hover:bg-gray-100"
               >
                 {data.thumbnail_url ? (
@@ -2385,7 +2729,7 @@ function BlockEditor({
                     alt="Thumbnail"
                     className="w-full h-full object-cover rounded-lg"
                   />
-                ) : selectedIcon ? (
+                ) : selectedIconPath ? (
                   <svg
                     width="20"
                     height="20"
@@ -2397,332 +2741,251 @@ function BlockEditor({
                     strokeLinejoin="round"
                     className="text-gray-500"
                   >
-                    <path d={selectedIcon.path} />
+                    <path d={selectedIconPath} />
                   </svg>
                 ) : (
                   <ImageIcon className="w-5 h-5 text-gray-400" />
                 )}
-                {/* Edit overlay */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                  <Pencil className="w-4 h-4 text-white" />
+                {/* Pencil icon always visible */}
+                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
+                  <Pencil className="w-2.5 h-2.5 text-gray-500" />
                 </div>
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
               </button>
+            </div>
 
-              {/* Thumbnail popup */}
-              {showThumbnailPopup && (
-                <div className="absolute left-0 top-full mt-2 z-50 bg-white border rounded-xl shadow-lg p-3 w-64 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="space-y-3">
-                    {/* Upload option */}
-                    <button
-                      type="button"
-                      onClick={() => thumbnailInputRef.current?.click()}
-                      disabled={thumbnailUploading}
-                      className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-                        {thumbnailUploading ? (
-                          <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
-                        ) : (
-                          <Upload className="w-4 h-4 text-blue-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Upload image</p>
-                        <p className="text-xs text-muted-foreground">JPG, PNG, GIF</p>
-                      </div>
-                    </button>
-
-                    <div className="border-t" />
-
-                    {/* Icon library toggle */}
-                    <button
-                      type="button"
-                      onClick={() => setShowIconLibrary(!showIconLibrary)}
-                      className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center">
-                        <Grid3X3 className="w-4 h-4 text-purple-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Choose icon</p>
-                        <p className="text-xs text-muted-foreground">From library</p>
-                      </div>
-                      <ChevronRight className={cn("w-4 h-4 text-gray-400 transition-transform", showIconLibrary && "rotate-90")} />
-                    </button>
-
-                    {/* Icon library grid */}
-                    {showIconLibrary && (
-                      <div className="grid grid-cols-5 gap-1.5 pt-2 border-t animate-in fade-in slide-in-from-top-1 duration-150">
-                        {THUMBNAIL_ICONS.map((icon) => (
-                          <button
-                            key={icon.id}
-                            type="button"
-                            onClick={() => {
-                              updateData({ icon: icon.id, thumbnail_url: null })
-                              setShowThumbnailPopup(false)
-                              setShowIconLibrary(false)
-                            }}
-                            className={cn(
-                              "w-10 h-10 rounded-lg flex items-center justify-center transition-all hover:bg-gray-100",
-                              data.icon === icon.id && "bg-gray-100 ring-2 ring-gray-900"
-                            )}
-                            title={icon.name}
-                          >
-                            <svg
-                              width="18"
-                              height="18"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="text-gray-600"
-                            >
-                              <path d={icon.path} />
-                            </svg>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Remove thumbnail */}
-                    {(data.thumbnail_url || data.icon) && (
-                      <>
-                        <div className="border-t" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            updateData({ thumbnail_url: null, icon: null })
-                            setShowThumbnailPopup(false)
-                          }}
-                          className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-red-50 transition-colors text-left text-red-600"
-                        >
-                          <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
-                            <Trash2 className="w-4 h-4" />
-                          </div>
-                          <p className="text-sm font-medium">Remove thumbnail</p>
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Hidden file input */}
-                  <input
-                    ref={thumbnailInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleThumbnailUpload}
-                    className="hidden"
-                  />
-                </div>
-              )}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Title</Label>
+              <Input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder="My Link" className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">URL</Label>
+              <Input value={data.url} onChange={(e) => updateData({ url: e.target.value })} placeholder="https://..." className="h-9" />
             </div>
           </div>
+        )
+      }
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Title</Label>
-            <Input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder="My Link" className="h-9" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">URL</Label>
-            <Input value={data.url} onChange={(e) => updateData({ url: e.target.value })} placeholder="https://..." className="h-9" />
-          </div>
-        </div>
-      )
-    }
-
-    case "text": {
-      const data = block.data as TextBlockData
-      return (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Text</Label>
-            <Textarea value={data.content} onChange={(e) => updateData({ content: e.target.value })} rows={3} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Alignment</Label>
-            <div className="flex gap-2">
-              {(["left", "center", "right"] as const).map((align) => (
-                <Button
-                  key={align}
-                  variant={data.alignment === align ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => updateData({ alignment: align })}
-                  className="capitalize h-8 flex-1"
-                >
-                  {align}
-                </Button>
-              ))}
+      case "text": {
+        const data = block.data as TextBlockData
+        return (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Text</Label>
+              <Textarea value={data.content} onChange={(e) => updateData({ content: e.target.value })} rows={3} />
             </div>
-          </div>
-        </div>
-      )
-    }
-
-    case "email_capture": {
-      const data = block.data as EmailCaptureBlockData
-      return (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Headline</Label>
-            <Input value={data.headline} onChange={(e) => updateData({ headline: e.target.value })} className="h-9" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Description</Label>
-            <Input value={data.description || ""} onChange={(e) => updateData({ description: e.target.value })} className="h-9" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Button Text</Label>
-            <Input value={data.button_text} onChange={(e) => updateData({ button_text: e.target.value })} className="h-9" />
-          </div>
-        </div>
-      )
-    }
-
-    case "header": {
-      const data = block.data as HeaderBlockData
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs">Show Avatar</Label>
-            <Toggle checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label className="text-xs">Show Name</Label>
-            <Toggle checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label className="text-xs">Show Bio</Label>
-            <Toggle checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
-          </div>
-        </div>
-      )
-    }
-
-    case "social_row": {
-      const activeSocials = getOrderedSocials()
-      
-      return (
-        <div className="space-y-3">
-          <Label className="text-xs">Social Links</Label>
-          {activeSocials.length > 0 ? (
-            <div className="space-y-2">
-              {activeSocials.map(({ platform, url }) => {
-                const config = SOCIAL_PLATFORMS.find(p => p.id === platform)
-                return (
-                  <div 
-                    key={platform} 
-                    draggable
-                    onDragStart={(e) => handleSocialDragStart(e, platform)}
-                    onDragOver={(e) => handleSocialDragOver(e, platform)}
-                    onDragLeave={() => setDragOverSocialId(null)}
-                    onDrop={(e) => handleSocialDrop(e, platform)}
-                    onDragEnd={() => { setDraggedSocialId(null); setDragOverSocialId(null) }}
-                    className={cn(
-                      "flex items-center gap-2 p-2 bg-white rounded-lg border cursor-grab active:cursor-grabbing transition-all",
-                      draggedSocialId === platform && "opacity-50",
-                      dragOverSocialId === platform && "border-violet-500"
-                    )}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Alignment</Label>
+              <div className="flex gap-2">
+                {(["left", "center", "right"] as const).map((align) => (
+                  <Button
+                    key={align}
+                    variant={data.alignment === align ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => updateData({ alignment: align })}
+                    className="capitalize h-8 flex-1"
                   >
-                    <GripVertical className="h-4 w-4 text-gray-300" />
-                    <div 
-                      className="w-7 h-7 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: config?.color }}
+                    {align}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      case "email_capture": {
+        const data = block.data as EmailCaptureBlockData
+        return (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={data.headline} onChange={(e) => updateData({ headline: e.target.value })} className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Description</Label>
+              <Input value={data.description || ""} onChange={(e) => updateData({ description: e.target.value })} className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Button Text</Label>
+              <Input value={data.button_text} onChange={(e) => updateData({ button_text: e.target.value })} className="h-9" />
+            </div>
+          </div>
+        )
+      }
+
+      case "header": {
+        const data = block.data as HeaderBlockData
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Show Avatar</Label>
+              <Toggle checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Show Name</Label>
+              <Toggle checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Show Bio</Label>
+              <Toggle checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
+            </div>
+          </div>
+        )
+      }
+
+      case "social_row": {
+        const activeSocials = getOrderedSocials()
+
+        return (
+          <div className="space-y-3">
+            <Label className="text-xs">Social Links</Label>
+            {activeSocials.length > 0 ? (
+              <div className="space-y-2">
+                {activeSocials.map(({ platform, url }) => {
+                  const config = SOCIAL_PLATFORMS.find(p => p.id === platform)
+                  return (
+                    <div
+                      key={platform}
+                      draggable
+                      onDragStart={(e) => handleSocialDragStart(e, platform)}
+                      onDragOver={(e) => handleSocialDragOver(e, platform)}
+                      onDragLeave={() => setDragOverSocialId(null)}
+                      onDrop={(e) => handleSocialDrop(e, platform)}
+                      onDragEnd={() => { setDraggedSocialId(null); setDragOverSocialId(null) }}
+                      className={cn(
+                        "flex items-center gap-2 p-2 bg-white rounded-lg border cursor-grab active:cursor-grabbing transition-all",
+                        draggedSocialId === platform && "opacity-50",
+                        dragOverSocialId === platform && "border-violet-500"
+                      )}
                     >
-                      <RenderSocialIcon platform={platform} size={14} color="#ffffff" />
+                      <GripVertical className="h-4 w-4 text-gray-300" />
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: config?.color }}
+                      >
+                        <RenderSocialIcon platform={platform} size={14} color="#ffffff" />
+                      </div>
+                      <span className="flex-1 text-sm truncate">{config?.label}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => updateSocialLinks({ [platform]: null } as any)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <span className="flex-1 text-sm truncate">{config?.label}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => updateSocialLinks({ [platform]: null } as any)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground py-2">
+                No social links added yet
+              </p>
+            )}
+
+            {/* Add Social Button */}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={onOpenSocialModal}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Social Link
+            </Button>
+          </div>
+        )
+      }
+
+      case "divider": {
+        const data = block.data as DividerBlockData
+        return (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Style</Label>
+              <div className="flex gap-2">
+                {(["space", "line", "dots"] as const).map((style) => (
+                  <Button
+                    key={style}
+                    variant={data.style === style ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => updateData({ style })}
+                    className="capitalize h-8 flex-1"
+                  >
+                    {style}
+                  </Button>
+                ))}
+              </div>
             </div>
-          ) : (
-            <p className="text-xs text-muted-foreground py-2">
-              No social links added yet
-            </p>
-          )}
-          
-          {/* Add Social Button */}
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={onOpenSocialModal}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Social Link
-          </Button>
-        </div>
-      )
-    }
-
-    case "divider": {
-      const data = block.data as DividerBlockData
-      return (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Style</Label>
-            <div className="flex gap-2">
-              {(["space", "line", "dots"] as const).map((style) => (
-                <Button
-                  key={style}
-                  variant={data.style === style ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => updateData({ style })}
-                  className="capitalize h-8 flex-1"
-                >
-                  {style}
-                </Button>
-              ))}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Height: {data.height}px</Label>
+              <Slider
+                value={[data.height]}
+                onValueChange={([value]) => updateData({ height: value })}
+                min={8}
+                max={64}
+                step={4}
+              />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Height: {data.height}px</Label>
-            <Slider
-              value={[data.height]}
-              onValueChange={([value]) => updateData({ height: value })}
-              min={8}
-              max={64}
-              step={4}
-            />
-          </div>
-        </div>
-      )
-    }
+        )
+      }
 
-    case "image": {
-      const data = block.data as ImageBlockData
-      return (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Image URL</Label>
-            <Input value={data.image_url} onChange={(e) => updateData({ image_url: e.target.value })} className="h-9" />
+      case "image": {
+        const data = block.data as ImageBlockData
+        return (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Image URL</Label>
+              <Input value={data.image_url} onChange={(e) => updateData({ image_url: e.target.value })} className="h-9" />
+            </div>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => onOpenImageLibrary(block.id)}
+            >
+              <ImageIcon className="h-4 w-4 mr-2" />
+              Choose from Library
+            </Button>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Link URL (optional)</Label>
+              <Input value={data.link_url || ""} onChange={(e) => updateData({ link_url: e.target.value || null })} className="h-9" />
+            </div>
           </div>
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={() => onOpenImageLibrary(block.id)}
-          >
-            <ImageIcon className="h-4 w-4 mr-2" />
-            Choose from Library
-          </Button>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Link URL (optional)</Label>
-            <Input value={data.link_url || ""} onChange={(e) => updateData({ link_url: e.target.value || null })} className="h-9" />
-          </div>
-        </div>
-      )
-    }
+        )
+      }
 
-    default:
-      return <p className="text-xs text-muted-foreground">No settings available</p>
+      default:
+        return <p className="text-xs text-muted-foreground">No settings available</p>
+    }
   }
+
+  // If block supports layout, render with tabs; otherwise just render settings
+  if (supportsLayout) {
+    return (
+      <Tabs defaultValue="settings" className="w-full">
+        <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
+          <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+            <Settings className="w-3.5 h-3.5" />
+            Settings
+          </TabsTrigger>
+          <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+            <LayoutGrid className="w-3.5 h-3.5" />
+            Layout
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="settings" className="mt-0">
+          {renderSettingsContent()}
+        </TabsContent>
+        <TabsContent value="layout" className="mt-0">
+          {renderLayoutContent()}
+        </TabsContent>
+      </Tabs>
+    )
+  }
+
+  // For blocks without layout support, just render settings directly
+  return renderSettingsContent()
 }
