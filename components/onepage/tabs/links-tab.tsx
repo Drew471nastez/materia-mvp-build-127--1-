@@ -1672,7 +1672,17 @@ export function LinksTab() {
                   return
                 }
                 if (streamingBlockData && streamingBlockUpdateFn && streamingPlatformIndex >= 0) {
-                  const newServices = [...(streamingBlockData.streaming_services || [])]
+                  // Use the streaming_services from streamingBlockData (which should already have defaults)
+                  const existingServices = streamingBlockData.streaming_services || [
+                    { platform: 'apple_music', found: false, url: null },
+                    { platform: 'youtube_music', found: false, url: null },
+                    { platform: 'spotify', found: true, url: streamingBlockData.url },
+                    { platform: 'soundcloud', found: false, url: null },
+                    { platform: 'tidal', found: false, url: null },
+                    { platform: 'deezer', found: false, url: null },
+                    { platform: 'amazon_music', found: false, url: null },
+                  ]
+                  const newServices = [...existingServices]
                   if (newServices[streamingPlatformIndex]) {
                     newServices[streamingPlatformIndex] = { ...newServices[streamingPlatformIndex], url: streamingUrl.trim(), found: true }
                     streamingBlockUpdateFn({ streaming_services: newServices })
@@ -3937,11 +3947,24 @@ function BlockEditor({
                             <button
                               type="button"
                               onClick={() => {
+                                // Create default streaming services array if not present
+                                const defaultStreamingServices = [
+                                  { platform: 'apple_music', found: false, url: null },
+                                  { platform: 'youtube_music', found: false, url: null },
+                                  { platform: 'spotify', found: true, url: data.url },
+                                  { platform: 'soundcloud', found: false, url: null },
+                                  { platform: 'tidal', found: false, url: null },
+                                  { platform: 'deezer', found: false, url: null },
+                                  { platform: 'amazon_music', found: false, url: null },
+                                ]
+                                // Make sure to use actual streaming_services or default
+                                const actualServices = data.streaming_services || defaultStreamingServices
                                 setStreamingPlatform(service.platform)
                                 setStreamingPlatformIndex(index)
                                 setStreamingUrl("")
                                 setStreamingUrlError(null)
-                                setStreamingBlockData(data)
+                                // Store data with the actual services array
+                                setStreamingBlockData({ ...data, streaming_services: actualServices })
                                 setStreamingBlockUpdateFn(() => updateData)
                                 setShowStreamingUrlModal(true)
                               }}
