@@ -1286,7 +1286,9 @@ export function LinksTab() {
                 onOpenStreamingModal={(platform, index, data, updateFn) => {
                   setStreamingPlatform(platform)
                   setStreamingPlatformIndex(index)
-                  setStreamingUrl("")
+                  // Pre-populate URL if editing existing service
+                  const existingService = data.streaming_services?.find(s => s.platform === platform)
+                  setStreamingUrl(existingService?.url || "")
                   setStreamingUrlError(null)
                   setStreamingBlockData(data)
                   setStreamingBlockUpdateFn(() => updateFn)
@@ -1655,7 +1657,9 @@ export function LinksTab() {
       }}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
           <DialogHeader className="p-4 sm:p-5 border-b">
-            <DialogTitle className="text-base sm:text-lg font-semibold">Add Streaming Link</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-semibold">
+              {streamingUrl ? "Edit Streaming Link" : "Add Streaming Link"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="p-4 sm:p-5 space-y-4">
@@ -3964,7 +3968,7 @@ function BlockEditor({
                               {service.found ? "Visible" : "Not found"}
                             </div>
                           </div>
-                          {!service.found && onOpenStreamingModal && (
+                          {onOpenStreamingModal && (
                             <button
                               type="button"
                               onClick={() => {
@@ -3972,7 +3976,7 @@ function BlockEditor({
                               }}
                               className="text-xs text-violet-600 hover:text-violet-700 font-medium"
                             >
-                              + Add
+                              {service.found ? "Edit" : "+ Add"}
                             </button>
                           )}
                         </div>
