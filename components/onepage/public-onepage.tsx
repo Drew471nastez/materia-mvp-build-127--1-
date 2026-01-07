@@ -2051,6 +2051,7 @@ function PublicBlockRenderer({
 
         const youtubeVideoId = getYouTubeVideoId(data.url)
         const youtubeMode = data.youtube_mode || 'embed_video'
+        const youtubeShowPlayButton = data.youtube_show_play_button === true
 
         // Determine which video ID to use based on mode
         const effectiveVideoId = youtubeMode === 'embed_latest' && data.youtube_latest_video_id
@@ -2170,7 +2171,7 @@ function PublicBlockRenderer({
                   )}
                 />
                 {/* Play button overlay for YouTube open_video mode */}
-                {youtubeVideoId && youtubeMode === 'open_video' && (
+                {youtubeVideoId && youtubeMode === 'open_video' && youtubeShowPlayButton && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div
                       className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center backdrop-blur-sm transition-transform group-hover:scale-110"
@@ -2249,7 +2250,7 @@ function PublicBlockRenderer({
               <div className={cn("flex flex-col", hasThumbnail ? "flex-1 text-center" : "")}>
                 <span className="truncate">{data.label || "Link"}</span>
                 {/* Spotify info display */}
-                {(data.spotify_title || data.spotify_artist) && (
+                {data.spotify_show_metadata && (data.spotify_title || data.spotify_artist) && (
                   <span
                     className="text-xs truncate flex items-center justify-center gap-1 mt-0.5"
                     style={{
@@ -2405,7 +2406,7 @@ function PublicBlockRenderer({
           <div className={cn("flex flex-col", hasThumbnail ? "flex-1 text-center" : "")}>
             <span className="truncate">{data.label || "Link"}</span>
             {/* Spotify info display */}
-            {isSpotifyUrl(data.url) && (data.spotify_title || data.spotify_artist) && (
+            {isSpotifyUrl(data.url) && data.spotify_show_metadata && (data.spotify_title || data.spotify_artist) && (
               <span
                 className="text-xs truncate flex items-center justify-center gap-1 mt-0.5"
                 style={{

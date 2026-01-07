@@ -1901,6 +1901,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
 
         const youtubeVideoId = getYouTubeVideoId(data.url)
         const youtubeMode = data.youtube_mode || 'embed_video'
+        const youtubeShowPlayButton = data.youtube_show_play_button === true
 
         // Determine which video ID to use based on mode
         const effectiveVideoId = youtubeMode === 'embed_latest' && data.youtube_latest_video_id
@@ -1978,7 +1979,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
                       style={{ imageRendering: "auto" }}
                     />
                     {/* Play button overlay for YouTube open_video mode */}
-                    {youtubeVideoId && youtubeMode === 'open_video' && (
+                    {youtubeVideoId && youtubeMode === 'open_video' && youtubeShowPlayButton && (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm"
@@ -2019,7 +2020,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
                   </div>
                 ) : null}
                 {/* Play button overlay for YouTube open_video mode (default layout) */}
-                {youtubeMode === 'open_video' && data.url && (data.url.includes('youtube.com') || data.url.includes('youtu.be')) && (
+                {youtubeMode === 'open_video' && youtubeShowPlayButton && data.url && (data.url.includes('youtube.com') || data.url.includes('youtu.be')) && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm"
@@ -2275,7 +2276,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
           <div className={cn("flex flex-col", hasThumbnailOrIcon ? "flex-1 text-center" : "")}>
             <span className="truncate">{data.label || "My Link"}</span>
             {/* Spotify info display */}
-            {isSpotifyUrl(data.url) && (data.spotify_title || data.spotify_artist) && (
+            {isSpotifyUrl(data.url) && data.spotify_show_metadata && (data.spotify_title || data.spotify_artist) && (
               <span
                 className="text-[10px] truncate flex items-center justify-center gap-1 mt-0.5"
                 style={{
