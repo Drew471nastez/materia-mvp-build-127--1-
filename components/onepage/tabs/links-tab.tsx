@@ -2571,10 +2571,14 @@ function BlockItem({
   onDragStart,
   isDragging,
 }: BlockItemProps) {
-  const { updateBlock } = useOnePage()
+  const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAnimationMenu, setShowAnimationMenu] = useState(false)
+  const [showStatsPopover, setShowStatsPopover] = useState(false)
+  const [statsData, setStatsData] = useState<{ total_clicks: number; chart_data: { date: string; clicks: number }[] } | null>(null)
+  const [statsLoading, setStatsLoading] = useState(false)
   const animationMenuRef = useRef<HTMLDivElement>(null)
+  const statsMenuRef = useRef<HTMLDivElement>(null)
 
   // Close animation menu when clicking outside
   useEffect(() => {
@@ -2582,12 +2586,32 @@ function BlockItem({
       if (animationMenuRef.current && !animationMenuRef.current.contains(e.target as Node)) {
         setShowAnimationMenu(false)
       }
+      if (statsMenuRef.current && !statsMenuRef.current.contains(e.target as Node)) {
+        setShowStatsPopover(false)
+      }
     }
-    if (showAnimationMenu) {
+    if (showAnimationMenu || showStatsPopover) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showAnimationMenu])
+  }, [showAnimationMenu, showStatsPopover])
+
+  // Fetch stats when popover is opened
+  const fetchStats = async () => {
+    if (!onepage?.id) return
+    setStatsLoading(true)
+    try {
+      const response = await fetch(`/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=7`)
+      if (response.ok) {
+        const data = await response.json()
+        setStatsData(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
 
   const getBlockPreview = () => {
     switch (block.type) {
@@ -2786,6 +2810,74 @@ function BlockItem({
                     </button>
                   )
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Stats control for link buttons */}
+        {isLinkButton && (
+          <div className="relative" ref={statsMenuRef}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (!showStatsPopover) {
+                  fetchStats()
+                }
+                setShowStatsPopover(!showStatsPopover)
+              }}
+              className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              title="View Stats"
+            >
+              <BarChart2 className="h-4 w-4" />
+            </button>
+
+            {/* Stats popover */}
+            {showStatsPopover && (
+              <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border z-50 p-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-gray-700">Link Stats</span>
+                  <span className="text-xs text-muted-foreground">Last 7 days</span>
+                </div>
+
+                {statsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                  </div>
+                ) : statsData ? (
+                  <>
+                    {/* Total clicks */}
+                    <div className="mb-3 p-2 bg-gray-50 rounded-lg">
+                      <div className="text-2xl font-bold text-gray-900">{statsData.total_clicks}</div>
+                      <div className="text-xs text-muted-foreground">Total clicks</div>
+                    </div>
+
+                    {/* Simple bar chart */}
+                    <div className="flex items-end gap-1 h-16">
+                      {statsData.chart_data.map((day, i) => {
+                        const maxClicks = Math.max(...statsData.chart_data.map(d => d.clicks), 1)
+                        const height = (day.clicks / maxClicks) * 100
+                        return (
+                          <div
+                            key={day.date}
+                            className="flex-1 bg-violet-100 rounded-t transition-all hover:bg-violet-200"
+                            style={{ height: `${Math.max(height, 5)}%` }}
+                            title={`${day.date}: ${day.clicks} clicks`}
+                          />
+                        )
+                      })}
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[10px] text-muted-foreground">7d ago</span>
+                      <span className="text-[10px] text-muted-foreground">Today</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4 text-sm text-muted-foreground">
+                    No data yet
+                  </div>
+                )}
               </div>
             )}
           </div>
