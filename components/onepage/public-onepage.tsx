@@ -2169,6 +2169,26 @@ function PublicBlockRenderer({
                     displayMode === 'full' && "h-auto"
                   )}
                 />
+                {/* Play button overlay for YouTube open_youtube_video mode */}
+                {youtubeMode === 'open_youtube_video' && data.url && (data.url.includes('youtube.com') || data.url.includes('youtu.be')) && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div 
+                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center backdrop-blur-sm transition-transform group-hover:scale-110"
+                      style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
+                      }}
+                    >
+                      <svg 
+                        viewBox="0 0 24 24" 
+                        className="w-6 h-6 sm:w-7 sm:h-7 ml-0.5" 
+                        fill="white"
+                      >
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {/* Title area */}
