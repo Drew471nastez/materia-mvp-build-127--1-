@@ -417,10 +417,15 @@ function EditorLayout() {
           )}
           style={{ scrollbarWidth: 'thin' }}
         >
-          <div className={cn(
-            "p-4 md:p-6 md:pl-2 lg:pl-2 xl:pl-2 2xl:pl-24 min-[1800px]:pl-40 md:pr-8 pb-32 md:pb-6",
-            activeTab === "settings" ? "max-w-2xl" : "max-w-xl"
-          )}>
+  <div
+  className={cn(
+    "p-4 md:p-6 md:pl-3 md:pr-8 pb-32 md:pb-6 w-full",
+    // normal: keep it closer to the sidebar (no huge left padding)
+    // wide screens / zoomed out: center it nicely
+    "2xl:mx-auto 2xl:max-w-2xl",
+    activeTab === "settings" ? "max-w-2xl" : "max-w-xl"
+  )}
+>
             {activeTab === "design" && <DesignTab />}
             {activeTab === "links" && <LinksTab />}
             {activeTab === "products" && <ProductsTab />}
