@@ -90,6 +90,10 @@ async function fetchStreamingLinks(spotifyUrl: string): Promise<{
   }
 
   // Also get Spotify oEmbed data for thumbnail and name
+  let title: string | null = null
+  let thumbnailUrl: string | null = null
+  let type: 'track' | 'album' | 'artist' | 'playlist' | null = null
+
   try {
     const oembedResponse = await fetch(
       `https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl)}`
@@ -97,10 +101,64 @@ async function fetchStreamingLinks(spotifyUrl: string): Promise<{
 
     if (oembedResponse.ok) {
       const oembedData = await oembedResponse.json()
-      if (!artistName && oembedData.title) {
-        // Extract artist name from title (format is usually "Track by Artist" or just "Artist")
-        const byMatch = oembedData.title.match(/by\s+(.+)$/)
-        artistName = byMatch ? byMatch[1] : oembedData.title
+      thumbnailUrl = oembedData.thumbnail_url || null
+
+      // Parse type from URL
+      if (spotifyUrl.includes('/track/')) type = 'track'
+      else if (spotifyUrl.includes('/album/')) type = 'album'
+      else if (spotifyUrl.includes('/artist/')) type = 'artist'
+      else if (spotifyUrl.includes('/playlist/')) type = 'playlist'
+
+      if (oembedData.title) {
+        // Parse title based on type
+        // Track format: "Track Name - song and target by Artist on Spotify" or "Track by Artist"
+        // Album format: "Album Name - album by Artist on Spotify"
+        // Artist format: "Artist Name"
+        const fullTitle = oembedData.title
+
+        if (type === 'track') {
+          // Try to extract "Song by Artist" format
+          const songMatch = fullTitle.match(/^(.+?)\s*[-–]\s*song.*?by\s+(.+?)(?:\s+on\s+Spotify)?$/i)
+          if (songMatch) {
+            title = songMatch[1].trim()
+            artistName = songMatch[2].trim()
+          } else {
+            const byMatch = fullTitle.match(/^(.+?)\s+by\s+(.+?)(?:\s+on\s+Spotify)?$/i)
+            if (byMatch) {
+              title = byMatch[1].trim()
+              artistName = byMatch[2].trim()
+            } else {
+              title = fullTitle.replace(/\s+on\s+Spotify$/i, '').trim()
+            }
+          }
+        } else if (type === 'album') {
+          const albumMatch = fullTitle.match(/^(.+?)\s*[-–]\s*album.*?by\s+(.+?)(?:\s+on\s+Spotify)?$/i)
+          if (albumMatch) {
+            title = albumMatch[1].trim()
+            artistName = albumMatch[2].trim()
+          } else {
+            const byMatch = fullTitle.match(/^(.+?)\s+by\s+(.+?)(?:\s+on\s+Spotify)?$/i)
+            if (byMatch) {
+              title = byMatch[1].trim()
+              artistName = byMatch[2].trim()
+            } else {
+              title = fullTitle.replace(/\s+on\s+Spotify$/i, '').trim()
+            }
+          }
+        } else if (type === 'artist') {
+          artistName = fullTitle.replace(/\s+on\s+Spotify$/i, '').trim()
+          title = artistName
+        } else if (type === 'playlist') {
+          const playlistMatch = fullTitle.match(/^(.+?)\s*[-–]\s*playlist.*?by\s+(.+?)(?:\s+on\s+Spotify)?$/i)
+          if (playlistMatch) {
+            title = playlistMatch[1].trim()
+            artistName = playlistMatch[2].trim()
+          } else {
+            title = fullTitle.replace(/\s+on\s+Spotify$/i, '').trim()
+          }
+        } else {
+          title = fullTitle.replace(/\s+on\s+Spotify$/i, '').trim()
+        }
       }
     }
   } catch (e) {
@@ -110,6 +168,9 @@ async function fetchStreamingLinks(spotifyUrl: string): Promise<{
   return {
     services: platforms,
     artistName,
+    title,
+    thumbnailUrl,
+    type,
     previewUrl
   }
 }
@@ -129,13 +190,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid Spotify URL" }, { status: 400 })
     }
 
-    // Fetch streaming links
-    const { services, artistName, previewUrl } = await fetchStreamingLinks(url)
+    // Fetch streaming links and Spotify info
+    const { services, artistName, title, thumbnailUrl, type, previewUrl } = await fetchStreamingLinks(url)
 
     return NextResponse.json({
-      type: spotifyInfo.type,
+      type: type || spotifyInfo.type,
       id: spotifyInfo.id,
       artistName,
+      title,
+      thumbnailUrl,
       previewUrl,
       streamingServices: services
     })

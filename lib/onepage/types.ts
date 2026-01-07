@@ -106,6 +106,11 @@ export interface LinkButtonBlockData {
   spotify_artist_id?: string | null
   spotify_preview_url?: string | null
   streaming_services?: StreamingService[]
+  // Spotify metadata for display
+  spotify_title?: string | null
+  spotify_artist?: string | null
+  spotify_type?: 'track' | 'album' | 'artist' | 'playlist' | null
+  spotify_thumbnail?: string | null
 }
 
 export interface ProductBlockData {

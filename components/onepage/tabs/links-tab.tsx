@@ -467,6 +467,15 @@ export function LinksTab() {
   const [iconCategory, setIconCategory] = useState("all")
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
+  // Streaming service URL modal state
+  const [showStreamingUrlModal, setShowStreamingUrlModal] = useState(false)
+  const [streamingPlatform, setStreamingPlatform] = useState<string | null>(null)
+  const [streamingPlatformIndex, setStreamingPlatformIndex] = useState<number>(-1)
+  const [streamingUrl, setStreamingUrl] = useState("")
+  const [streamingUrlError, setStreamingUrlError] = useState<string | null>(null)
+  const [streamingBlockData, setStreamingBlockData] = useState<LinkButtonBlockData | null>(null)
+  const [streamingBlockUpdateFn, setStreamingBlockUpdateFn] = useState<((data: Partial<LinkButtonBlockData>) => void) | null>(null)
+
   // Track which blocks have had auto-fetch attempted to avoid repeated requests
   const autoFetchedBlocksRef = useRef<Set<string>>(new Set())
   
@@ -762,14 +771,38 @@ export function LinksTab() {
     try {
       let thumbnailUrl: string | null = null
 
-      // Spotify URL detection and oEmbed fetch
+      // Spotify URL detection - fetch from our API for full metadata
       if (url.includes('spotify.com/') || url.includes('open.spotify.com/')) {
-        const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
-        if (response.ok) {
-          const data = await response.json()
-          // Convert to high quality image (640x640 instead of 300x300)
-          // Spotify URLs: ab67616d00001e02 = 300x300, ab67616d0000b273 = 640x640
-          thumbnailUrl = data.thumbnail_url?.replace('ab67616d00001e02', 'ab67616d0000b273') || data.thumbnail_url
+        try {
+          const apiResponse = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(url)}`)
+          if (apiResponse.ok) {
+            const spotifyData = await apiResponse.json()
+            // Convert to high quality image (640x640 instead of 300x300)
+            thumbnailUrl = spotifyData.thumbnailUrl?.replace('ab67616d00001e02', 'ab67616d0000b273') || spotifyData.thumbnailUrl
+            // Also store Spotify metadata for display
+            const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
+            if (currentData) {
+              updateBlock(blockId, {
+                data: {
+                  ...currentData,
+                  thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
+                  icon: thumbnailUrl ? null : currentData.icon,
+                  spotify_title: spotifyData.title || null,
+                  spotify_artist: spotifyData.artistName || null,
+                  spotify_type: spotifyData.type || null,
+                  spotify_thumbnail: thumbnailUrl || null
+                }
+              })
+              return // Skip the generic thumbnail update below
+            }
+          }
+        } catch (e) {
+          // Fallback to oEmbed if our API fails
+          const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
+          if (response.ok) {
+            const data = await response.json()
+            thumbnailUrl = data.thumbnail_url?.replace('ab67616d00001e02', 'ab67616d0000b273') || data.thumbnail_url
+          }
         }
       }
       // YouTube URL detection
@@ -1593,6 +1626,115 @@ export function LinksTab() {
         </DialogContent>
       </Dialog>
 
+      {/* Streaming Service URL Modal */}
+      <Dialog open={showStreamingUrlModal} onOpenChange={(open) => {
+        setShowStreamingUrlModal(open)
+        if (!open) {
+          setStreamingPlatform(null)
+          setStreamingPlatformIndex(-1)
+          setStreamingUrl("")
+          setStreamingUrlError(null)
+        }
+      }}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-4 sm:p-5 border-b">
+            <DialogTitle className="text-base sm:text-lg font-semibold">Add Streaming Link</DialogTitle>
+          </DialogHeader>
+
+          <div className="p-4 sm:p-5 space-y-4">
+            {(() => {
+              const platformConfig: Record<string, { name: string; color: string; urlPattern: RegExp; placeholder: string }> = {
+                apple_music: { name: 'Apple Music', color: '#FC3C44', urlPattern: /music\.apple\.com/i, placeholder: 'https://music.apple.com/...' },
+                youtube_music: { name: 'YouTube Music', color: '#FF0000', urlPattern: /music\.youtube\.com/i, placeholder: 'https://music.youtube.com/...' },
+                spotify: { name: 'Spotify', color: '#1DB954', urlPattern: /spotify\.com/i, placeholder: 'https://open.spotify.com/...' },
+                soundcloud: { name: 'SoundCloud', color: '#FF5500', urlPattern: /soundcloud\.com/i, placeholder: 'https://soundcloud.com/...' },
+                tidal: { name: 'TIDAL', color: '#000000', urlPattern: /tidal\.com/i, placeholder: 'https://tidal.com/...' },
+                deezer: { name: 'Deezer', color: '#FEAA2D', urlPattern: /deezer\.com/i, placeholder: 'https://deezer.com/...' },
+                amazon_music: { name: 'Amazon Music', color: '#25D1DA', urlPattern: /music\.amazon|amazon\.com\/music/i, placeholder: 'https://music.amazon.com/...' },
+              }
+              const config = streamingPlatform ? platformConfig[streamingPlatform] : null
+
+              const handleSave = () => {
+                if (!streamingUrl.trim()) {
+                  setStreamingUrlError('Please enter a URL')
+                  return
+                }
+                if (config && !config.urlPattern.test(streamingUrl)) {
+                  setStreamingUrlError(`Please enter a valid ${config.name} URL`)
+                  return
+                }
+                if (streamingBlockData && streamingBlockUpdateFn && streamingPlatformIndex >= 0) {
+                  const newServices = [...(streamingBlockData.streaming_services || [])]
+                  if (newServices[streamingPlatformIndex]) {
+                    newServices[streamingPlatformIndex] = { ...newServices[streamingPlatformIndex], url: streamingUrl.trim(), found: true }
+                    streamingBlockUpdateFn({ streaming_services: newServices })
+                  }
+                }
+                setShowStreamingUrlModal(false)
+              }
+
+              return (
+                <>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: config?.color || '#6366F1' }}
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="white">
+                        <path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-medium">{config?.name || 'Streaming Platform'}</p>
+                      <p className="text-xs text-muted-foreground">Add your {config?.name || 'streaming'} link</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm">URL</Label>
+                    <Input
+                      value={streamingUrl}
+                      onChange={(e) => {
+                        setStreamingUrl(e.target.value)
+                        if (streamingUrlError) setStreamingUrlError(null)
+                      }}
+                      placeholder={config?.placeholder || 'Enter URL...'}
+                      className={cn(
+                        "h-11 rounded-xl",
+                        streamingUrlError && "border-red-500 focus-visible:ring-red-500"
+                      )}
+                    />
+                    {streamingUrlError && (
+                      <p className="text-xs text-red-500">{streamingUrlError}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Tip: Paste the full URL from {config?.name || 'the platform'}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-xl"
+                      onClick={() => setShowStreamingUrlModal(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1 bg-gray-900 hover:bg-gray-800 rounded-xl"
+                      onClick={handleSave}
+                      disabled={!streamingUrl.trim()}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Name & Bio Edit Modal */}
       <Dialog open={showNameBioModal} onOpenChange={setShowNameBioModal}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
@@ -1657,8 +1799,8 @@ export function LinksTab() {
         <DialogContent className={cn(
           "p-0 gap-0 overflow-hidden rounded-2xl mx-auto transition-all duration-200",
           showIconLibraryInModal
-            ? "w-[calc(100%-32px)] sm:max-w-[350px] max-w-[500px]"
-            : "w-[calc(100%-32px)] sm:max-w-[210px] max-w-[280px]"
+            ? "w-[calc(100%-32px)] sm:max-w-[440px] max-w-[500px]"
+            : "w-[calc(100%-32px)] sm:max-w-[320px] max-w-[350px]"
         )}>
           {/* Main Options View */}
           {!showIconLibraryInModal && (
@@ -3523,10 +3665,8 @@ function BlockEditor({
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">YouTube Settings</Label>
                 <div className="space-y-2">
                   {[
-                    { id: 'embed_video', label: 'Play video on page', desc: 'Embed the video directly' },
-                    { id: 'open_profile', label: 'Open YouTube profile', desc: 'Redirect to channel page' },
-                    { id: 'open_latest', label: 'Open latest video', desc: 'Redirect to newest upload' },
-                    { id: 'embed_latest', label: 'Play latest video', desc: 'Embed newest upload' },
+                    { id: 'embed_video', label: 'Play video on page', desc: 'Embed video directly in Pro Layout' },
+                    { id: 'open_video', label: 'Open YouTube video', desc: 'Show thumbnail, redirect on click' },
                   ].map((mode) => {
                     const currentMode = data.youtube_mode || 'embed_video'
                     const isActive = currentMode === mode.id
@@ -3534,8 +3674,8 @@ function BlockEditor({
                       <div
                         key={mode.id}
                         className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border transition-all",
-                          isActive ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"
+                          "flex items-center justify-between p-3 rounded-lg border-2 transition-all",
+                          isActive ? "border-gray-900 bg-white" : "border-gray-200 bg-white"
                         )}
                       >
                         <div className="flex items-center gap-2.5">
@@ -3556,23 +3696,21 @@ function BlockEditor({
                           checked={isActive}
                           onCheckedChange={async (checked) => {
                             if (checked) {
-                              updateData({ youtube_mode: mode.id as YouTubeMode })
-                              // For profile and latest video modes, fetch channel info
-                              if ((mode.id === 'open_profile' || mode.id === 'open_latest' || mode.id === 'embed_latest') && isYouTubeChannelUrl(data.url)) {
-                                try {
-                                  const res = await fetch(`/api/onepage/youtube?url=${encodeURIComponent(data.url)}`)
-                                  if (res.ok) {
-                                    const ytData = await res.json()
-                                    if (ytData.channelId) {
-                                      updateData({
-                                        youtube_mode: mode.id as YouTubeMode,
-                                        youtube_channel_id: ytData.channelId,
-                                        youtube_latest_video_id: ytData.latestVideo?.videoId || null
-                                      })
-                                    }
-                                  }
-                                } catch (e) {
-                                  console.error('Failed to fetch YouTube channel info:', e)
+                              // Both modes use Pro Layout for YouTube
+                              updateData({
+                                youtube_mode: mode.id as YouTubeMode,
+                                layout_type: 'pro'
+                              })
+                              // For open_video mode, fetch thumbnail
+                              if (mode.id === 'open_video') {
+                                // Extract video ID and set thumbnail
+                                const videoIdMatch = data.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/)
+                                if (videoIdMatch) {
+                                  updateData({
+                                    youtube_mode: mode.id as YouTubeMode,
+                                    layout_type: 'pro',
+                                    thumbnail_url: `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`
+                                  })
                                 }
                               }
                             }
@@ -3582,30 +3720,21 @@ function BlockEditor({
                     )
                   })}
                 </div>
-                {/* Refresh latest video button */}
-                {(data.youtube_mode === 'open_latest' || data.youtube_mode === 'embed_latest') && isYouTubeChannelUrl(data.url) && (
+                {/* Refresh thumbnail button for open_video mode */}
+                {data.youtube_mode === 'open_video' && (
                   <button
                     type="button"
                     onClick={async () => {
-                      try {
-                        const res = await fetch(`/api/onepage/youtube?url=${encodeURIComponent(data.url)}`)
-                        if (res.ok) {
-                          const ytData = await res.json()
-                          if (ytData.latestVideo) {
-                            updateData({
-                              youtube_channel_id: ytData.channelId,
-                              youtube_latest_video_id: ytData.latestVideo.videoId,
-                              thumbnail_url: ytData.latestVideo.thumbnailUrl
-                            })
-                          }
-                        }
-                      } catch (e) {
-                        console.error('Failed to refresh YouTube video:', e)
+                      const videoIdMatch = data.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/)
+                      if (videoIdMatch) {
+                        updateData({
+                          thumbnail_url: `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`
+                        })
                       }
                     }}
                     className="w-full text-xs text-center py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                   >
-                    ↻ Refresh latest video
+                    ↻ Refresh thumbnail
                   </button>
                 )}
               </div>
@@ -3627,14 +3756,14 @@ function BlockEditor({
                       <div
                         key={mode.id}
                         className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border transition-all",
-                          isActive ? "border-green-200 bg-green-50" : "border-gray-200 bg-white"
+                          "flex items-center justify-between p-3 rounded-lg border-2 transition-all",
+                          isActive ? "border-gray-900 bg-white" : "border-gray-200 bg-white"
                         )}
                       >
                         <div className="flex items-center gap-2.5">
                           <div className={cn(
                             "w-8 h-8 rounded-lg flex items-center justify-center",
-                            isActive ? "bg-green-500 text-white" : "bg-gray-100 text-gray-500"
+                            isActive ? "bg-[#1DB954] text-white" : "bg-gray-100 text-gray-500"
                           )}>
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
@@ -3763,12 +3892,13 @@ function BlockEditor({
                             <button
                               type="button"
                               onClick={() => {
-                                const newUrl = prompt(`Enter ${config.name} URL:`)
-                                if (newUrl) {
-                                  const newServices = [...(data.streaming_services || [])]
-                                  newServices[index] = { ...service, url: newUrl, found: true }
-                                  updateData({ streaming_services: newServices })
-                                }
+                                setStreamingPlatform(service.platform)
+                                setStreamingPlatformIndex(index)
+                                setStreamingUrl("")
+                                setStreamingUrlError(null)
+                                setStreamingBlockData(data)
+                                setStreamingBlockUpdateFn(() => updateData)
+                                setShowStreamingUrlModal(true)
                               }}
                               className="text-xs text-violet-600 hover:text-violet-700 font-medium"
                             >
