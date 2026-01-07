@@ -3074,6 +3074,38 @@ function BlockEditor({
             </div>
           </div>
         </button>
+
+        {/* Display Mode Options - Only shown when Pro Layout is selected */}
+        {currentLayoutType === 'pro' && block.type === 'link_button' && (
+          <div className="pt-3 mt-3 border-t space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Display Mode</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'cover', label: 'Cover', desc: 'Fill & crop' },
+                { id: 'contain', label: 'Fit', desc: 'Show all' },
+                { id: 'full', label: 'Full', desc: 'Original' },
+              ].map((mode) => {
+                const currentDisplayMode = (block.data as LinkButtonBlockData).display_mode || 'cover'
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => updateData({ display_mode: mode.id as 'cover' | 'contain' | 'full' })}
+                    className={cn(
+                      "p-2.5 rounded-lg border-2 text-center transition-all",
+                      currentDisplayMode === mode.id
+                        ? "border-violet-500 bg-violet-50"
+                        : "border-gray-200 hover:border-gray-300 bg-white"
+                    )}
+                  >
+                    <div className="text-xs font-medium">{mode.label}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{mode.desc}</div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     )
   }

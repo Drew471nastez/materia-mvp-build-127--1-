@@ -79,6 +79,7 @@ export interface OnePageSocialLinks {
 // Block data types
 export type BlockLayoutType = 'default' | 'pro'
 export type BlockAnimationType = 'none' | 'pulse' | 'bounce' | 'shake' | 'glow'
+export type BlockDisplayMode = 'cover' | 'contain' | 'full'
 
 export interface LinkButtonBlockData {
   label: string
@@ -87,6 +88,7 @@ export interface LinkButtonBlockData {
   thumbnail_url?: string | null
   layout_type?: BlockLayoutType
   animation_type?: BlockAnimationType
+  display_mode?: BlockDisplayMode
 }
 
 export interface ProductBlockData {

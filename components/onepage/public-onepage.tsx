@@ -1972,6 +1972,71 @@ function PublicBlockRenderer({
 
       // Pro Layout - Featured display with larger thumbnail
       if (data.layout_type === 'pro') {
+        const displayMode = data.display_mode || 'cover'
+
+        // Check if this is a YouTube URL and extract video ID
+        const getYouTubeVideoId = (url: string): string | null => {
+          if (!url) return null
+          try {
+            if (url.includes('youtube.com/watch')) {
+              const urlObj = new URL(url)
+              return urlObj.searchParams.get('v')
+            } else if (url.includes('youtu.be/')) {
+              const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
+              return match ? match[1] : null
+            }
+          } catch {
+            return null
+          }
+          return null
+        }
+
+        const youtubeVideoId = getYouTubeVideoId(data.url)
+
+        // For YouTube embeds, render a div container (not a link) with the embed
+        if (youtubeVideoId) {
+          return (
+            <div
+              className="w-full overflow-hidden font-medium text-sm sm:text-base"
+              style={{
+                ...buttonStyles,
+                padding: 0,
+              }}
+            >
+              {/* YouTube embed area */}
+              <div
+                className="w-full aspect-video relative overflow-hidden"
+                style={{
+                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                }}
+              >
+                <iframe
+                  src={`https://www.youtube.com/embed/${youtubeVideoId}?rel=0&modestbranding=1`}
+                  title="YouTube video player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full border-0"
+                />
+              </div>
+              {/* Title area */}
+              <a
+                href={data.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackClick(block.id, data.url)}
+                className="block w-full px-5 py-3.5 sm:py-4 text-center hover:opacity-80 transition-opacity"
+                style={{
+                  backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+                }}
+              >
+                <span className="truncate font-medium" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                  {data.label || "Watch on YouTube"}
+                </span>
+              </a>
+            </div>
+          )
+        }
+
         return (
           <a
             href={data.url}
@@ -1987,15 +2052,26 @@ function PublicBlockRenderer({
             {/* Featured thumbnail area */}
             {data.thumbnail_url && (
               <div
-                className="w-full aspect-[2/1] relative overflow-hidden"
+                className={cn(
+                  "w-full relative overflow-hidden",
+                  displayMode !== 'full' && "aspect-[2/1]"
+                )}
                 style={{
                   borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  backgroundColor: displayMode === 'contain' ? (
+                    theme.button_style === "outline" ? `${theme.button_color}10` : `${theme.button_text_color}10`
+                  ) : undefined,
                 }}
               >
                 <img
                   src={data.thumbnail_url}
                   alt=""
-                  className="w-full h-full object-cover"
+                  className={cn(
+                    "w-full",
+                    displayMode === 'cover' && "h-full object-cover",
+                    displayMode === 'contain' && "h-full object-contain",
+                    displayMode === 'full' && "h-auto"
+                  )}
                 />
               </div>
             )}

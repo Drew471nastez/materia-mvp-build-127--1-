@@ -1831,30 +1831,81 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
 
       // Pro Layout - Featured display with larger thumbnail
       if (data.layout_type === 'pro') {
+        const displayMode = data.display_mode || 'cover'
+        // Full mode: no fixed aspect ratio, image displays at natural size
+        // Cover mode: 2:1 aspect ratio with object-cover
+        // Contain mode: 2:1 aspect ratio with object-contain
+
+        // Check if this is a YouTube URL and extract video ID
+        const getYouTubeVideoId = (url: string): string | null => {
+          if (!url) return null
+          try {
+            if (url.includes('youtube.com/watch')) {
+              const urlObj = new URL(url)
+              return urlObj.searchParams.get('v')
+            } else if (url.includes('youtu.be/')) {
+              const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
+              return match ? match[1] : null
+            }
+          } catch {
+            return null
+          }
+          return null
+        }
+
+        const youtubeVideoId = getYouTubeVideoId(data.url)
+
         return (
           <div
             className={cn(
               s.button,
-              "w-full font-medium transition-transform hover:scale-[1.02] active:scale-[0.98] overflow-hidden",
+              "w-full font-medium transition-transform overflow-hidden",
+              !youtubeVideoId && "hover:scale-[1.02] active:scale-[0.98]",
             )}
             style={{
               ...buttonStyles,
               padding: 0,
             }}
           >
-            {/* Featured thumbnail area */}
-            {(data.thumbnail_url || iconPath) && (
+            {/* Featured content area - YouTube embed or thumbnail */}
+            {youtubeVideoId ? (
               <div
-                className="w-full aspect-[2/1] relative overflow-hidden"
+                className="w-full aspect-video relative overflow-hidden"
                 style={{
                   borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                }}
+              >
+                <iframe
+                  src={`https://www.youtube.com/embed/${youtubeVideoId}?rel=0&modestbranding=1`}
+                  title="YouTube video player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full border-0"
+                />
+              </div>
+            ) : (data.thumbnail_url || iconPath) && (
+              <div
+                className={cn(
+                  "w-full relative overflow-hidden",
+                  displayMode !== 'full' && "aspect-[2/1]"
+                )}
+                style={{
+                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  backgroundColor: displayMode === 'contain' ? (
+                    theme.button_style === "outline" ? `${theme.button_color}10` : `${theme.button_text_color}10`
+                  ) : undefined,
                 }}
               >
                 {data.thumbnail_url ? (
                   <img
                     src={data.thumbnail_url}
                     alt=""
-                    className="w-full h-full object-cover"
+                    className={cn(
+                      "w-full",
+                      displayMode === 'cover' && "h-full object-cover",
+                      displayMode === 'contain' && "h-full object-contain",
+                      displayMode === 'full' && "h-auto object-none"
+                    )}
                     style={{ imageRendering: "auto" }}
                   />
                 ) : iconPath ? (
