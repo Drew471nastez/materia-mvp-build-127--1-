@@ -749,10 +749,18 @@ export function LinksTab() {
     { id: 'status', label: 'Status', icons: ['check', 'check-circle', 'x-mark', 'alert-circle', 'alert-triangle', 'info', 'help', 'bell'] },
   ]
 
+  // Icons that should be rendered with fill instead of stroke
+  const FILLED_ICONS = new Set([
+    'instagram', 'twitter', 'youtube', 'tiktok', 'spotify', 'facebook', 'linkedin',
+    'twitch', 'discord', 'telegram', 'whatsapp', 'pinterest', 'snapchat', 'reddit',
+    'threads', 'github', 'soundcloud', 'apple-music'
+  ])
+
   const THUMBNAIL_ICONS = Object.entries(THUMBNAIL_ICON_PATHS).map(([id, path]) => ({
     id,
     name: id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' '),
-    path
+    path,
+    isFilled: FILLED_ICONS.has(id)
   }))
 
   // Auto-fetch thumbnail for social media links (Spotify, YouTube, etc.)
@@ -2003,7 +2011,17 @@ export function LinksTab() {
                           )}
                           title={icon.name}
                         >
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill={icon.isFilled ? "currentColor" : "none"}
+                            stroke={icon.isFilled ? "none" : "currentColor"}
+                            strokeWidth={icon.isFilled ? "0" : "2"}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-gray-700"
+                          >
                             <path d={icon.path} />
                           </svg>
                           <span className="text-[9px] text-gray-500 truncate w-full text-center">{icon.name}</span>

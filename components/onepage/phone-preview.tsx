@@ -1865,6 +1865,13 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
         'zap': 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
       }
       const iconPath = data.icon ? ICON_PATHS[data.icon] : null
+      // Icons that should be rendered with fill instead of stroke
+      const FILLED_ICONS = new Set([
+        'instagram', 'twitter', 'youtube', 'tiktok', 'spotify', 'facebook', 'linkedin',
+        'twitch', 'discord', 'telegram', 'whatsapp', 'pinterest', 'snapchat', 'reddit',
+        'threads', 'github', 'soundcloud', 'apple-music'
+      ])
+      const isFilledIcon = data.icon ? FILLED_ICONS.has(data.icon) : false
       // Icon color should match button text color
       const iconColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
 
@@ -1982,9 +1989,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
                       width="48"
                       height="48"
                       viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
+                      fill={isFilledIcon ? "currentColor" : "none"}
+                      stroke={isFilledIcon ? "none" : "currentColor"}
+                      strokeWidth={isFilledIcon ? "0" : "1.5"}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       style={{ color: iconColor, opacity: 0.6 }}
@@ -2067,9 +2074,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
+                  fill={isFilledIcon ? "currentColor" : "none"}
+                  stroke={isFilledIcon ? "none" : "currentColor"}
+                  strokeWidth={isFilledIcon ? "0" : "2"}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   className="shrink-0"
@@ -2216,9 +2223,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
               width="18"
               height="18"
               viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+              fill={isFilledIcon ? "currentColor" : "none"}
+              stroke={isFilledIcon ? "none" : "currentColor"}
+              strokeWidth={isFilledIcon ? "0" : "2"}
               strokeLinecap="round"
               strokeLinejoin="round"
               className="shrink-0"
