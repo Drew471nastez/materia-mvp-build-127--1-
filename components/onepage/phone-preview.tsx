@@ -1899,11 +1899,13 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
       }
 
       // Default Layout
+      const hasThumbnailOrIcon = data.thumbnail_url || iconPath
       return (
         <button
           className={cn(
             s.button,
-            "w-full font-medium transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2",
+            "w-full font-medium transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2",
+            hasThumbnailOrIcon ? "justify-start" : "justify-center"
           )}
           style={buttonStyles}
         >
@@ -1930,7 +1932,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
               <path d={iconPath} />
             </svg>
           ) : null}
-          <span className="truncate">{data.label || "My Link"}</span>
+          <span className={cn("truncate", hasThumbnailOrIcon ? "flex-1 text-center" : "")}>{data.label || "My Link"}</span>
         </button>
       )
     }

@@ -1968,23 +1968,75 @@ function PublicBlockRenderer({
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
 
+      const hasThumbnail = !!data.thumbnail_url
+
+      // Pro Layout - Featured display with larger thumbnail
+      if (data.layout_type === 'pro') {
+        return (
+          <a
+            href={data.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackClick(block.id, data.url)}
+            className="w-full overflow-hidden font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02]"
+            style={{
+              ...buttonStyles,
+              padding: 0,
+            }}
+          >
+            {/* Featured thumbnail area */}
+            {data.thumbnail_url && (
+              <div
+                className="w-full aspect-[2/1] relative overflow-hidden"
+                style={{
+                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                }}
+              >
+                <img
+                  src={data.thumbnail_url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            {/* Title area */}
+            <div
+              className="w-full px-5 py-3.5 sm:py-4 flex items-center justify-center"
+              style={{
+                backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+              }}
+            >
+              <span className="truncate font-medium" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                {data.label || "Link"}
+              </span>
+            </div>
+          </a>
+        )
+      }
+
+      // Default Layout - thumbnail on left
       return (
         <a
           href={data.url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
-          className="w-full flex items-center justify-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02]"
+          className={cn(
+            "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02]",
+            hasThumbnail ? "justify-start" : "justify-center"
+          )}
           style={buttonStyles}
         >
           {data.thumbnail_url && (
             <img
-              src={data.thumbnail_url || "/placeholder.svg"}
+              src={data.thumbnail_url}
               alt=""
-              className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover"
+              className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover shrink-0"
             />
           )}
-          {data.label || "Link"}
+          <span className={cn("truncate", hasThumbnail ? "flex-1 text-center" : "")}>
+            {data.label || "Link"}
+          </span>
         </a>
       )
     }

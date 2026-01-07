@@ -73,6 +73,9 @@ import {
   Settings,
   LayoutGrid,
   Sparkles,
+  AlertCircle,
+  BarChart2,
+  Play,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -1011,15 +1014,12 @@ export function LinksTab() {
         {sortedBlocks.map((block, index) => (
           <React.Fragment key={block.id}>
             <div
-              draggable={block.type !== "header"}
-              onDragStart={(e) => block.type !== "header" && handleDragStart(e, block.id)}
               onDragOver={(e) => handleDragOver(e, block.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, block.id)}
               onDragEnd={handleDragEnd}
               className={cn(
                 "transition-all duration-200",
-                draggedBlockId === block.id && "opacity-50 scale-[0.98]",
                 dragOverBlockId === block.id && block.type !== "header" && "border-t-2 border-violet-500"
               )}
             >
@@ -1050,6 +1050,8 @@ export function LinksTab() {
                 onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(true); setShowIconLibraryInModal(false) }}
                 iconPaths={THUMBNAIL_ICON_PATHS}
                 onUrlChangeWithAutoFetch={handleUrlChangeWithAutoFetch}
+                onDragStart={(e) => handleDragStart(e, block.id)}
+                isDragging={draggedBlockId === block.id}
               />
             </div>
 
@@ -1453,7 +1455,7 @@ export function LinksTab() {
 
       {/* Thumbnail Edit Modal - Centered with overlay */}
       <Dialog open={showThumbnailModal} onOpenChange={(open) => { setShowThumbnailModal(open); if (!open) setShowIconLibraryInModal(false) }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-sm p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+        <DialogContent className="w-[calc(100%-32px)] max-w-[300px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
           <DialogHeader className="p-4 border-b">
             <DialogTitle className="text-base font-semibold">Edit Thumbnail</DialogTitle>
           </DialogHeader>
@@ -2295,6 +2297,8 @@ interface BlockItemProps {
   onOpenThumbnailModal?: (blockId: string) => void
   iconPaths: Record<string, string>
   onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
+  onDragStart?: (e: React.DragEvent) => void
+  isDragging?: boolean
 }
 
 function BlockItem({
@@ -2314,6 +2318,8 @@ function BlockItem({
   onOpenThumbnailModal,
   iconPaths,
   onUrlChangeWithAutoFetch,
+  onDragStart,
+  isDragging,
 }: BlockItemProps) {
   const { updateBlock } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -2358,14 +2364,22 @@ function BlockItem({
     <div
       className={cn(
         "border rounded-xl bg-white transition-all",
-        !isHeaderBlock && "cursor-grab active:cursor-grabbing",
         isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
-        !block.enabled && "opacity-50"
+        !block.enabled && "opacity-50",
+        isDragging && "opacity-50 scale-[0.98]"
       )}
     >
-      <div className="flex items-center gap-3 p-3">
+      {/* Header section - only this part is draggable */}
+      <div
+        className={cn(
+          "flex items-center gap-3 p-3",
+          !isHeaderBlock && "cursor-grab active:cursor-grabbing"
+        )}
+        draggable={!isHeaderBlock}
+        onDragStart={!isHeaderBlock ? onDragStart : undefined}
+      >
         {!isHeaderBlock && (
-          <div className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing">
+          <div className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing pointer-events-none">
             <GripVertical className="h-5 w-5" />
           </div>
         )}
@@ -2443,6 +2457,13 @@ function BlockItem({
           <p className="font-medium text-sm truncate">{preview.title}</p>
           <p className="text-xs text-muted-foreground truncate">{preview.subtitle}</p>
         </div>
+
+        {/* Warning icon for link blocks without URL */}
+        {isLinkButton && !(block.data as LinkButtonBlockData).url && (
+          <div className="p-1" title="No link added">
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+          </div>
+        )}
 
         <Toggle checked={block.enabled} onCheckedChange={onToggle} />
       </div>
