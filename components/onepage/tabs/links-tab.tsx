@@ -2847,6 +2847,7 @@ function BlockItem({
   const [showStatsModal, setShowStatsModal] = useState(false)
   const [statsData, setStatsData] = useState<{ total_clicks: number; total_views: number; chart_data: { date: string; clicks: number; views: number }[] } | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
+  const [clickCount, setClickCount] = useState<number | null>(null)
   const [statsTimeframe, setStatsTimeframe] = useState<'7' | '14' | '30' | 'custom'>('7')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -2898,6 +2899,23 @@ function BlockItem({
       }
     }
   }, [statsTimeframe, customStartDate, customEndDate, showStatsModal])
+
+  // Fetch click count on mount for link buttons
+  useEffect(() => {
+    const fetchClickCount = async () => {
+      if (!onepage?.id || block.type !== "link_button") return
+      try {
+        const response = await fetch(`/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=365`)
+        if (response.ok) {
+          const data = await response.json()
+          setClickCount(data.total_clicks || 0)
+        }
+      } catch (error) {
+        // Silent fail for click count
+      }
+    }
+    fetchClickCount()
+  }, [onepage?.id, block.id, block.type])
 
   const getBlockPreview = () => {
     switch (block.type) {
@@ -3112,10 +3130,13 @@ function BlockItem({
                 setShowStatsModal(true)
                 fetchStats(7)
               }}
-              className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="flex items-center gap-1 px-1.5 py-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               title="View Stats"
             >
               <BarChart2 className="h-4 w-4" />
+              {clickCount !== null && clickCount > 0 && (
+                <span className="text-xs font-medium">{clickCount}</span>
+              )}
             </button>
 
             {/* Stats Modal */}

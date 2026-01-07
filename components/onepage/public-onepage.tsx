@@ -2273,6 +2273,9 @@ function PublicBlockRenderer({
                     {data.spotify_type === 'playlist' && (
                       <>Playlist · {data.spotify_title || data.spotify_artist}</>
                     )}
+                    {!data.spotify_type && (data.spotify_title || data.spotify_artist) && (
+                      <>{data.spotify_title || data.spotify_artist}</>
+                    )}
                   </span>
                 )}
               </div>
@@ -2428,6 +2431,9 @@ function PublicBlockRenderer({
                 )}
                 {data.spotify_type === 'playlist' && (
                   <>Playlist · {data.spotify_title || data.spotify_artist}</>
+                )}
+                {!data.spotify_type && (data.spotify_title || data.spotify_artist) && (
+                  <>{data.spotify_title || data.spotify_artist}</>
                 )}
               </span>
             )}
