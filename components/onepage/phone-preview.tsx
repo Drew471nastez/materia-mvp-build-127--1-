@@ -1965,17 +1965,29 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
                 }}
               >
                 {data.thumbnail_url ? (
-                  <img
-                    src={data.thumbnail_url}
-                    alt=""
-                    className={cn(
-                      "w-full",
-                      displayMode === 'cover' && "h-full object-cover",
-                      displayMode === 'contain' && "h-full object-contain",
-                      displayMode === 'full' && "h-auto object-none"
+                  <>
+                    <img
+                      src={data.thumbnail_url}
+                      alt=""
+                      className={cn(
+                        "w-full",
+                        displayMode === 'cover' && "h-full object-cover",
+                        displayMode === 'contain' && "h-full object-contain",
+                        displayMode === 'full' && "h-auto object-none"
+                      )}
+                      style={{ imageRendering: "auto" }}
+                    />
+                    {/* Play button overlay for YouTube open_video mode */}
+                    {youtubeVideoId && youtubeMode === 'open_video' && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg">
+                          <svg className="w-6 h-6 text-white ml-1" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </div>
+                      </div>
                     )}
-                    style={{ imageRendering: "auto" }}
-                  />
+                  </>
                 ) : iconPath ? (
                   <div
                     className="w-full h-full flex items-center justify-center"
