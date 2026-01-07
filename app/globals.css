@@ -382,52 +382,37 @@
   }
 }
 
-/* Shake - buzz-like effect with pauses (shake → pause 2s → shake) */
+/* Shake - smooth buzz/vibrate effect with pauses */
 @keyframes onepage-shake {
-  0%, 2% {
-    transform: translateX(0);
+  0%, 90% {
+    transform: translateX(0) rotate(0deg);
   }
-  2.5% {
-    transform: translateX(-1.5px);
+  91% {
+    transform: translateX(-2px) rotate(-0.5deg);
   }
-  3% {
-    transform: translateX(1.5px);
+  92% {
+    transform: translateX(2px) rotate(0.5deg);
   }
-  3.5% {
-    transform: translateX(-1.5px);
+  93% {
+    transform: translateX(-2px) rotate(-0.5deg);
   }
-  4% {
-    transform: translateX(1.5px);
+  94% {
+    transform: translateX(2px) rotate(0.5deg);
   }
-  4.5% {
-    transform: translateX(-1px);
+  95% {
+    transform: translateX(-1px) rotate(-0.3deg);
   }
-  5% {
-    transform: translateX(1px);
+  96% {
+    transform: translateX(1px) rotate(0.3deg);
   }
-  5.5%, 52% {
-    transform: translateX(0);
+  97% {
+    transform: translateX(-1px) rotate(-0.2deg);
   }
-  52.5% {
-    transform: translateX(-1.5px);
+  98% {
+    transform: translateX(1px) rotate(0.2deg);
   }
-  53% {
-    transform: translateX(1.5px);
-  }
-  53.5% {
-    transform: translateX(-1.5px);
-  }
-  54% {
-    transform: translateX(1.5px);
-  }
-  54.5% {
-    transform: translateX(-1px);
-  }
-  55% {
-    transform: translateX(1px);
-  }
-  55.5%, 100% {
-    transform: translateX(0);
+  99%, 100% {
+    transform: translateX(0) rotate(0deg);
   }
 }
 
@@ -460,7 +445,7 @@
 }
 
 .animate-onepage-shake {
-  animation: onepage-shake 4s ease-in-out infinite;
+  animation: onepage-shake 3s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
 }
 
 .animate-onepage-glow {

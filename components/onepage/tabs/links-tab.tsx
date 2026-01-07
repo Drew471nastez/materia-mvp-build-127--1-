@@ -1789,81 +1789,86 @@ export function LinksTab() {
                 </div>
               </div>
 
-              {/* Category tabs */}
-              <div className="border-b overflow-x-auto">
-                <div className="flex gap-1 p-2 min-w-max">
-                  {ICON_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setIconCategory(cat.id)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
-                        iconCategory === cat.id
-                          ? "bg-gray-900 text-white"
-                          : "text-gray-600 hover:bg-gray-100"
-                      )}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Icon grid */}
-              <div className="p-4 max-h-[50vh] overflow-y-auto">
-                <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
-                  {(() => {
-                    // Get icons for current category
-                    const categoryIcons = ICON_CATEGORIES.find(c => c.id === iconCategory)?.icons || []
-                    // Filter by search query
-                    const filteredIcons = THUMBNAIL_ICONS.filter(icon => {
-                      const matchesCategory = categoryIcons.includes(icon.id)
-                      const matchesSearch = !iconSearchQuery ||
-                        icon.name.toLowerCase().includes(iconSearchQuery.toLowerCase()) ||
-                        icon.id.toLowerCase().includes(iconSearchQuery.toLowerCase())
-                      return matchesCategory && matchesSearch
-                    })
-
-                    if (filteredIcons.length === 0) {
-                      return (
-                        <div className="col-span-full text-center py-8 text-gray-500">
-                          <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No icons found</p>
-                        </div>
-                      )
-                    }
-
-                    return filteredIcons.map((icon) => (
+              {/* Layout with sidebar and icons */}
+              <div className="flex h-[60vh] max-h-[500px]">
+                {/* Categories sidebar */}
+                <div className="w-40 border-r bg-gray-50 overflow-y-auto flex-shrink-0">
+                  <div className="p-2 space-y-1">
+                    {ICON_CATEGORIES.map((cat) => (
                       <button
-                        key={icon.id}
-                        type="button"
-                        onClick={() => {
-                          if (thumbnailBlockId) {
-                            updateBlock(thumbnailBlockId, {
-                              data: {
-                                ...onepage.draft_blocks.find(b => b.id === thumbnailBlockId)?.data,
-                                icon: icon.id,
-                                thumbnail_url: null
-                              }
-                            })
-                          }
-                          setShowThumbnailModal(false)
-                          setShowIconLibraryInModal(false)
-                          setIconSearchQuery("")
-                          setIconCategory("all")
-                        }}
+                        key={cat.id}
+                        onClick={() => setIconCategory(cat.id)}
                         className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center transition-all hover:bg-gray-100 hover:shadow-sm",
-                          getThumbnailBlockData()?.icon === icon.id && "bg-gray-100 shadow-sm ring-2 ring-gray-900"
+                          "w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                          iconCategory === cat.id
+                            ? "bg-gray-900 text-white"
+                            : "text-gray-600 hover:bg-gray-200"
                         )}
-                        title={icon.name}
                       >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
-                          <path d={icon.path} />
-                        </svg>
+                        {cat.label}
+                        <span className="ml-1 text-xs opacity-60">({cat.icons.length})</span>
                       </button>
-                    ))
-                  })()}
+                    ))}
+                  </div>
+                </div>
+
+                {/* Icon grid */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                    {(() => {
+                      // Get icons for current category
+                      const categoryIcons = ICON_CATEGORIES.find(c => c.id === iconCategory)?.icons || []
+                      // Filter by search query
+                      const filteredIcons = THUMBNAIL_ICONS.filter(icon => {
+                        const matchesCategory = categoryIcons.includes(icon.id)
+                        const matchesSearch = !iconSearchQuery ||
+                          icon.name.toLowerCase().includes(iconSearchQuery.toLowerCase()) ||
+                          icon.id.toLowerCase().includes(iconSearchQuery.toLowerCase())
+                        return matchesCategory && matchesSearch
+                      })
+
+                      if (filteredIcons.length === 0) {
+                        return (
+                          <div className="col-span-full text-center py-8 text-gray-500">
+                            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No icons found</p>
+                          </div>
+                        )
+                      }
+
+                      return filteredIcons.map((icon) => (
+                        <button
+                          key={icon.id}
+                          type="button"
+                          onClick={() => {
+                            if (thumbnailBlockId) {
+                              updateBlock(thumbnailBlockId, {
+                                data: {
+                                  ...onepage.draft_blocks.find(b => b.id === thumbnailBlockId)?.data,
+                                  icon: icon.id,
+                                  thumbnail_url: null
+                                }
+                              })
+                            }
+                            setShowThumbnailModal(false)
+                            setShowIconLibraryInModal(false)
+                            setIconSearchQuery("")
+                            setIconCategory("all")
+                          }}
+                          className={cn(
+                            "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 transition-all hover:bg-gray-100 hover:shadow-sm p-2",
+                            getThumbnailBlockData()?.icon === icon.id && "bg-gray-100 shadow-sm ring-2 ring-gray-900"
+                          )}
+                          title={icon.name}
+                        >
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
+                            <path d={icon.path} />
+                          </svg>
+                          <span className="text-[9px] text-gray-500 truncate w-full text-center">{icon.name}</span>
+                        </button>
+                      ))
+                    })()}
+                  </div>
                 </div>
               </div>
             </>
@@ -2965,44 +2970,54 @@ function BlockItem({
                       </div>
 
                       {/* Chart */}
-                      <div className="bg-gray-50 rounded-xl p-3">
-                        <div className="text-xs font-medium text-gray-500 mb-2">Activity</div>
-                        <div className="flex items-end gap-1 h-24">
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <div className="text-xs font-medium text-gray-500 mb-3">Activity</div>
+                        <div className="flex items-end gap-[3px] h-28">
                           {statsData.chart_data.map((day, i) => {
                             const maxValue = Math.max(...statsData.chart_data.map(d => Math.max(d.clicks, d.views || 0)), 1)
-                            const clickHeight = (day.clicks / maxValue) * 100
                             const viewHeight = ((day.views || 0) / maxValue) * 100
+                            const clickHeight = (day.clicks / maxValue) * 100
                             return (
-                              <div key={day.date} className="flex-1 flex flex-col gap-0.5 items-center group relative">
-                                <div
-                                  className="w-full bg-blue-200 rounded-t transition-all group-hover:bg-blue-300"
-                                  style={{ height: `${Math.max(viewHeight, 2)}%` }}
-                                />
-                                <div
-                                  className="w-full bg-violet-300 rounded-t transition-all group-hover:bg-violet-400"
-                                  style={{ height: `${Math.max(clickHeight, 2)}%` }}
-                                />
+                              <div key={day.date} className="flex-1 flex gap-[2px] items-end group relative h-full">
+                                {/* Views bar */}
+                                <div className="flex-1 flex flex-col justify-end h-full">
+                                  <div
+                                    className="w-full bg-blue-400 rounded-t-sm transition-all group-hover:bg-blue-500"
+                                    style={{ height: `${Math.max(viewHeight, 4)}%`, minHeight: '4px' }}
+                                  />
+                                </div>
+                                {/* Clicks bar */}
+                                <div className="flex-1 flex flex-col justify-end h-full">
+                                  <div
+                                    className="w-full bg-violet-400 rounded-t-sm transition-all group-hover:bg-violet-500"
+                                    style={{ height: `${Math.max(clickHeight, 4)}%`, minHeight: '4px' }}
+                                  />
+                                </div>
                                 {/* Tooltip */}
-                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
-                                  {day.date}: {day.views || 0} views, {day.clicks} clicks
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none shadow-lg">
+                                  <div className="font-medium">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                  <div className="flex gap-3 mt-0.5">
+                                    <span className="text-blue-300">{day.views || 0} views</span>
+                                    <span className="text-violet-300">{day.clicks} clicks</span>
+                                  </div>
                                 </div>
                               </div>
                             )
                           })}
                         </div>
-                        <div className="flex justify-between mt-2">
+                        <div className="flex justify-between mt-3 pt-2 border-t border-gray-200">
                           <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customStartDate : `${statsTimeframe}d ago`}</span>
                           <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customEndDate : 'Today'}</span>
                         </div>
                         {/* Legend */}
-                        <div className="flex items-center justify-center gap-4 mt-3">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-sm bg-blue-200" />
-                            <span className="text-[10px] text-gray-500">Views</span>
+                        <div className="flex items-center justify-center gap-6 mt-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-sm bg-blue-400" />
+                            <span className="text-xs text-gray-600">Views</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-sm bg-violet-300" />
-                            <span className="text-[10px] text-gray-500">Clicks</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-sm bg-violet-400" />
+                            <span className="text-xs text-gray-600">Clicks</span>
                           </div>
                         </div>
                       </div>
@@ -3504,56 +3519,64 @@ function BlockEditor({
 
             {/* YouTube Settings - Only shown for YouTube URLs */}
             {isYouTubeUrl(data.url) && (
-              <div className="space-y-2 pt-3 mt-3 border-t">
+              <div className="space-y-3 pt-3 mt-3 border-t">
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">YouTube Settings</Label>
                 <div className="space-y-2">
                   {[
                     { id: 'embed_video', label: 'Play video on page', desc: 'Embed the video directly' },
-                    { id: 'open_profile', label: 'Open YouTube profile', desc: 'Link to channel page' },
-                    { id: 'open_latest', label: 'Open latest video', desc: 'Link to newest upload' },
+                    { id: 'open_profile', label: 'Open YouTube profile', desc: 'Redirect to channel page' },
+                    { id: 'open_latest', label: 'Open latest video', desc: 'Redirect to newest upload' },
                     { id: 'embed_latest', label: 'Play latest video', desc: 'Embed newest upload' },
                   ].map((mode) => {
                     const currentMode = data.youtube_mode || 'embed_video'
+                    const isActive = currentMode === mode.id
                     return (
-                      <button
+                      <div
                         key={mode.id}
-                        type="button"
-                        onClick={async () => {
-                          updateData({ youtube_mode: mode.id as YouTubeMode })
-                          // For latest video modes, fetch channel info
-                          if ((mode.id === 'open_latest' || mode.id === 'embed_latest') && isYouTubeChannelUrl(data.url)) {
-                            try {
-                              const res = await fetch(`/api/onepage/youtube?url=${encodeURIComponent(data.url)}`)
-                              if (res.ok) {
-                                const ytData = await res.json()
-                                if (ytData.channelId) {
-                                  updateData({
-                                    youtube_mode: mode.id as YouTubeMode,
-                                    youtube_channel_id: ytData.channelId,
-                                    youtube_latest_video_id: ytData.latestVideo?.videoId || null
-                                  })
-                                }
-                              }
-                            } catch (e) {
-                              console.error('Failed to fetch YouTube channel info:', e)
-                            }
-                          }
-                        }}
                         className={cn(
-                          "w-full p-2.5 rounded-lg border-2 text-left transition-all",
-                          currentMode === mode.id
-                            ? "border-red-500 bg-red-50"
-                            : "border-gray-200 hover:border-gray-300 bg-white"
+                          "flex items-center justify-between p-3 rounded-lg border transition-all",
+                          isActive ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"
                         )}
                       >
-                        <div className="flex items-center gap-2">
-                          <Play className={cn("w-4 h-4", currentMode === mode.id ? "text-red-600" : "text-gray-400")} />
+                        <div className="flex items-center gap-2.5">
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center",
+                            isActive ? "bg-red-500 text-white" : "bg-gray-100 text-gray-500"
+                          )}>
+                            <Play className="w-4 h-4" />
+                          </div>
                           <div>
-                            <div className="text-xs font-medium">{mode.label}</div>
-                            <div className="text-[10px] text-muted-foreground">{mode.desc}</div>
+                            <div className="text-sm font-medium">{mode.label}</div>
+                            <div className="text-xs text-muted-foreground">{mode.desc}</div>
                           </div>
                         </div>
-                      </button>
+                        <Toggle
+                          checked={isActive}
+                          onCheckedChange={async (checked) => {
+                            if (checked) {
+                              updateData({ youtube_mode: mode.id as YouTubeMode })
+                              // For latest video modes, fetch channel info
+                              if ((mode.id === 'open_latest' || mode.id === 'embed_latest') && isYouTubeChannelUrl(data.url)) {
+                                try {
+                                  const res = await fetch(`/api/onepage/youtube?url=${encodeURIComponent(data.url)}`)
+                                  if (res.ok) {
+                                    const ytData = await res.json()
+                                    if (ytData.channelId) {
+                                      updateData({
+                                        youtube_mode: mode.id as YouTubeMode,
+                                        youtube_channel_id: ytData.channelId,
+                                        youtube_latest_video_id: ytData.latestVideo?.videoId || null
+                                      })
+                                    }
+                                  }
+                                } catch (e) {
+                                  console.error('Failed to fetch YouTube channel info:', e)
+                                }
+                              }
+                            }
+                          }}
+                        />
+                      </div>
                     )
                   })}
                 </div>
@@ -3588,62 +3611,63 @@ function BlockEditor({
 
             {/* Spotify Settings - Only shown for Spotify URLs */}
             {isSpotifyUrl(data.url) && (
-              <div className="space-y-2 pt-3 mt-3 border-t">
+              <div className="space-y-3 pt-3 mt-3 border-t">
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Spotify Settings</Label>
                 <div className="space-y-2">
                   {[
-                    { id: 'audio_preview', label: 'Audio preview', desc: 'Show playable preview' },
-                    { id: 'go_to_url', label: 'Go to URL', desc: 'Open link directly' },
+                    { id: 'audio_preview', label: 'Audio preview', desc: 'Open modern preview modal' },
+                    { id: 'go_to_url', label: 'Go to URL', desc: 'Redirect to Spotify directly' },
                     { id: 'show_streaming', label: 'Show streaming', desc: 'Display all platforms' },
                   ].map((mode) => {
                     const currentMode = data.spotify_mode || 'go_to_url'
+                    const isActive = currentMode === mode.id
                     return (
-                      <button
+                      <div
                         key={mode.id}
-                        type="button"
-                        onClick={async () => {
-                          updateData({ spotify_mode: mode.id as SpotifyMode })
-                          // For streaming mode, fetch available services
-                          if (mode.id === 'show_streaming' && !data.streaming_services) {
-                            try {
-                              const res = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(data.url)}`)
-                              if (res.ok) {
-                                const spotifyData = await res.json()
-                                updateData({
-                                  spotify_mode: mode.id as SpotifyMode,
-                                  spotify_artist_id: spotifyData.id || null,
-                                  streaming_services: spotifyData.streamingServices || []
-                                })
-                              }
-                            } catch (e) {
-                              console.error('Failed to fetch streaming services:', e)
-                            }
-                          }
-                        }}
                         className={cn(
-                          "w-full p-2.5 rounded-lg border-2 text-left transition-all",
-                          currentMode === mode.id
-                            ? "border-green-500 bg-green-50"
-                            : "border-gray-200 hover:border-gray-300 bg-white"
+                          "flex items-center justify-between p-3 rounded-lg border transition-all",
+                          isActive ? "border-green-200 bg-green-50" : "border-gray-200 bg-white"
                         )}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
                           <div className={cn(
-                            "w-4 h-4 rounded-full flex items-center justify-center",
-                            currentMode === mode.id ? "bg-green-500" : "bg-gray-200"
+                            "w-8 h-8 rounded-lg flex items-center justify-center",
+                            isActive ? "bg-green-500 text-white" : "bg-gray-100 text-gray-500"
                           )}>
-                            {currentMode === mode.id && (
-                              <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            )}
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                            </svg>
                           </div>
                           <div>
-                            <div className="text-xs font-medium">{mode.label}</div>
-                            <div className="text-[10px] text-muted-foreground">{mode.desc}</div>
+                            <div className="text-sm font-medium">{mode.label}</div>
+                            <div className="text-xs text-muted-foreground">{mode.desc}</div>
                           </div>
                         </div>
-                      </button>
+                        <Toggle
+                          checked={isActive}
+                          onCheckedChange={async (checked) => {
+                            if (checked) {
+                              updateData({ spotify_mode: mode.id as SpotifyMode })
+                              // For streaming mode, fetch available services
+                              if (mode.id === 'show_streaming' && !data.streaming_services) {
+                                try {
+                                  const res = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(data.url)}`)
+                                  if (res.ok) {
+                                    const spotifyData = await res.json()
+                                    updateData({
+                                      spotify_mode: mode.id as SpotifyMode,
+                                      spotify_artist_id: spotifyData.id || null,
+                                      streaming_services: spotifyData.streamingServices || []
+                                    })
+                                  }
+                                } catch (e) {
+                                  console.error('Failed to fetch streaming services:', e)
+                                }
+                              }
+                            }
+                          }}
+                        />
+                      </div>
                     )
                   })}
                 </div>
@@ -3651,51 +3675,100 @@ function BlockEditor({
                 {/* Streaming Services List - shown when show_streaming is selected */}
                 {data.spotify_mode === 'show_streaming' && (
                   <div className="mt-3 space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">Available Platforms</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-medium text-muted-foreground">Streaming services</div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(data.url)}`)
+                            if (res.ok) {
+                              const spotifyData = await res.json()
+                              updateData({ streaming_services: spotifyData.streamingServices || [] })
+                            }
+                          } catch (e) {
+                            console.error('Failed to refresh streaming services:', e)
+                          }
+                        }}
+                        className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Sync
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Visitors may see a different order depending on their location or preferences.</p>
                     {(data.streaming_services || [
                       { platform: 'apple_music', found: false, url: null },
                       { platform: 'youtube_music', found: false, url: null },
+                      { platform: 'spotify', found: true, url: data.url },
                       { platform: 'soundcloud', found: false, url: null },
                       { platform: 'tidal', found: false, url: null },
                       { platform: 'deezer', found: false, url: null },
-                      { platform: 'amazon_music', found: false, url: null },
                     ]).map((service: StreamingService, index: number) => {
-                      const platformNames: Record<string, string> = {
-                        apple_music: 'Apple Music',
-                        youtube_music: 'YouTube Music',
-                        soundcloud: 'SoundCloud',
-                        tidal: 'TIDAL',
-                        deezer: 'Deezer',
-                        amazon_music: 'Amazon Music',
+                      const platformConfig: Record<string, { name: string; color: string; icon: React.ReactNode }> = {
+                        apple_music: {
+                          name: 'Apple Music',
+                          color: 'bg-gradient-to-br from-pink-500 to-red-500',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M23.994 6.124a9.23 9.23 0 0 0-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 0 0-1.877-.726 10.496 10.496 0 0 0-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.62.497 2.373.55 1.205 1.47 2.082 2.72 2.594.454.186.93.3 1.415.38.37.06.74.1 1.113.12.2.01.397.02.596.027h12.268c.15-.01.3-.018.45-.028.94-.06 1.86-.19 2.72-.58 1.1-.5 1.92-1.3 2.45-2.4.23-.48.38-1 .46-1.53.08-.47.13-.95.15-1.43.01-.12.01-.25.01-.37V6.18l-.04.04zM12 18.75c-4.694 0-8.5-3.806-8.5-8.5s3.806-8.5 8.5-8.5 8.5 3.806 8.5 8.5-3.806 8.5-8.5 8.5zM10 6v8l6-4z"/></svg>
+                        },
+                        youtube_music: {
+                          name: 'YouTube Music',
+                          color: 'bg-red-500',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm0 19.104c-3.924 0-7.104-3.18-7.104-7.104S8.076 4.896 12 4.896s7.104 3.18 7.104 7.104-3.18 7.104-7.104 7.104zm0-13.332c-3.432 0-6.228 2.796-6.228 6.228S8.568 18.228 12 18.228 18.228 15.432 18.228 12 15.432 5.772 12 5.772zM9.684 15.54V8.46L15.816 12l-6.132 3.54z"/></svg>
+                        },
+                        spotify: {
+                          name: 'Spotify',
+                          color: 'bg-green-500',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+                        },
+                        soundcloud: {
+                          name: 'SoundCloud',
+                          color: 'bg-orange-500',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.102-.1m2.858-1.058c-.066 0-.12.054-.12.118l-.147 3.193.147 3.077c0 .064.054.118.12.118.066 0 .12-.054.12-.118l.166-3.077-.166-3.193c0-.064-.054-.118-.12-.118m1.906-.507c-.076 0-.14.064-.14.136l-.12 3.7.12 3.04c0 .072.064.136.14.136s.14-.064.14-.136l.134-3.04-.134-3.7c0-.072-.064-.136-.14-.136m1.906.238c-.083 0-.154.07-.154.152l-.107 3.462.107 2.969c0 .082.07.152.154.152.083 0 .154-.07.154-.152l.12-2.969-.12-3.462c0-.082-.07-.152-.154-.152m1.906-.445c-.093 0-.168.076-.168.168l-.093 3.907.093 2.896c0 .092.075.168.168.168.092 0 .168-.076.168-.168l.107-2.896-.107-3.907c0-.092-.076-.168-.168-.168m1.906-.147c-.1 0-.182.082-.182.182l-.08 4.054.08 2.808c0 .1.082.182.182.182.1 0 .182-.082.182-.182l.093-2.808-.093-4.054c0-.1-.082-.182-.182-.182m1.906-.147c-.107 0-.196.089-.196.196l-.066 4.201.066 2.72c0 .107.089.196.196.196.107 0 .196-.089.196-.196l.08-2.72-.08-4.201c0-.107-.089-.196-.196-.196m3.87.534c-.165 0-.299.134-.299.299v6.587c0 .165.134.299.299.299h7.894c2.344 0 4.244-1.9 4.244-4.244s-1.9-4.244-4.244-4.244c-.586 0-1.146.12-1.654.334-.34-3.837-3.544-6.846-7.436-6.846-1.008 0-1.98.2-2.862.564-.337.139-.426.28-.426.558v10.678"/></svg>
+                        },
+                        tidal: {
+                          name: 'TIDAL',
+                          color: 'bg-black',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996l4.004 4.004 4.004-4.004 4.004 4.004-4.004 4.004 4.004 4.004 4.004-4.004-4.004-4.004 4.004-4.004 4.004 4.004 4.004-4.004L24 3.992l-4.004 4.004z"/></svg>
+                        },
+                        deezer: {
+                          name: 'Deezer',
+                          color: 'bg-black',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M18.81 4.16v3.03H24V4.16zM6.27 8.38v3.027h5.189V8.38zm12.54 0v3.027H24V8.38zM6.27 12.566v3.027h5.189v-3.027zm6.27 0v3.027h5.19v-3.027zm6.27 0v3.027H24v-3.027zM0 16.752v3.027h5.19v-3.027zm6.27 0v3.027h5.189v-3.027zm6.27 0v3.027h5.19v-3.027zm6.27 0v3.027H24v-3.027z"/></svg>
+                        },
+                        amazon_music: {
+                          name: 'Amazon Music',
+                          color: 'bg-blue-500',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M14.203 4.373c-1.206-.606-2.736-.972-4.461-.972-3.39 0-6.192 1.334-8.007 3.533a.476.476 0 00.364.78h.026a.48.48 0 00.345-.15c1.606-1.934 4.104-3.095 7.272-3.095 1.505 0 2.874.317 3.933.84a.48.48 0 00.528-.936zm5.71 12.608c-.136-.09-.318-.09-.454 0-2.545 1.634-5.863 2.467-9.217 2.467-3.954 0-7.498-1.084-10.143-2.883a.44.44 0 00-.545.688c2.845 1.944 6.656 3.117 10.867 3.117 3.572 0 7.196-.92 10.006-2.691a.44.44 0 00-.514-.698zm2.087-5.981c0 3.06-2.484 5.543-5.543 5.543-3.06 0-5.543-2.484-5.543-5.543 0-3.06 2.484-5.543 5.543-5.543 3.06 0 5.543 2.484 5.543 5.543zm-5.543-3.543c-1.956 0-3.543 1.587-3.543 3.543s1.587 3.543 3.543 3.543 3.543-1.587 3.543-3.543-1.587-3.543-3.543-3.543z"/></svg>
+                        },
                       }
+                      const config = platformConfig[service.platform] || { name: service.platform, color: 'bg-gray-500', icon: null }
                       return (
-                        <div key={service.platform} className="flex items-center gap-2 p-2 rounded-lg border bg-white">
-                          <div className={cn(
-                            "w-6 h-6 rounded flex items-center justify-center text-xs font-bold",
-                            service.found ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"
-                          )}>
-                            {service.found ? '✓' : '?'}
+                        <div key={service.platform} className="flex items-center gap-3 p-3 rounded-lg border bg-white">
+                          <div className="flex items-center justify-center cursor-grab">
+                            <GripVertical className="w-4 h-4 text-gray-300" />
+                          </div>
+                          <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", config.color)}>
+                            {config.icon}
                           </div>
                           <div className="flex-1">
-                            <div className="text-xs font-medium">{platformNames[service.platform] || service.platform}</div>
-                            {service.found ? (
-                              <div className="text-[10px] text-green-600">Found</div>
-                            ) : (
-                              <div className="text-[10px] text-gray-400">Not found</div>
-                            )}
+                            <div className="text-sm font-medium">{config.name}</div>
+                            <div className={cn("text-xs", service.found ? "text-green-600" : "text-gray-400")}>
+                              {service.found ? "Visible" : "Not found"}
+                            </div>
                           </div>
                           {!service.found && (
                             <button
                               type="button"
                               onClick={() => {
-                                const newUrl = prompt(`Enter ${platformNames[service.platform]} URL:`)
+                                const newUrl = prompt(`Enter ${config.name} URL:`)
                                 if (newUrl) {
                                   const newServices = [...(data.streaming_services || [])]
                                   newServices[index] = { ...service, url: newUrl, found: true }
                                   updateData({ streaming_services: newServices })
                                 }
                               }}
-                              className="text-[10px] text-violet-600 hover:text-violet-700 font-medium"
+                              className="text-xs text-violet-600 hover:text-violet-700 font-medium"
                             >
                               + Add
                             </button>
@@ -3703,24 +3776,6 @@ function BlockEditor({
                         </div>
                       )
                     })}
-                    {/* Refresh streaming services button */}
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(data.url)}`)
-                          if (res.ok) {
-                            const spotifyData = await res.json()
-                            updateData({ streaming_services: spotifyData.streamingServices || [] })
-                          }
-                        } catch (e) {
-                          console.error('Failed to refresh streaming services:', e)
-                        }
-                      }}
-                      className="w-full text-xs text-center py-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
-                    >
-                      ↻ Sync streaming services
-                    </button>
                   </div>
                 )}
               </div>

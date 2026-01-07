@@ -35,14 +35,17 @@ export async function POST(request: NextRequest) {
       .slice(0, 32)
 
     if (event_type === "view") {
-      // Check for duplicate view (same visitor within last hour)
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+      // Check for duplicate view (same IP within the same calendar day - UTC)
+      const today = new Date()
+      today.setUTCHours(0, 0, 0, 0)
+      const todayStr = today.toISOString()
+
       const { data: existingView } = await supabase
         .from("onepage_views")
         .select("id")
         .eq("onepage_id", onepage_id)
-        .eq("visitor_id", visitorId)
-        .gte("created_at", oneHourAgo)
+        .eq("ip_hash", ipHash)
+        .gte("created_at", todayStr)
         .maybeSingle()
 
       if (!existingView) {
