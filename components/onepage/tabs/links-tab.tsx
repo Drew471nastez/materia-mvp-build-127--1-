@@ -2573,6 +2573,21 @@ function BlockItem({
 }: BlockItemProps) {
   const { updateBlock } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showAnimationMenu, setShowAnimationMenu] = useState(false)
+  const animationMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close animation menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (animationMenuRef.current && !animationMenuRef.current.contains(e.target as Node)) {
+        setShowAnimationMenu(false)
+      }
+    }
+    if (showAnimationMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showAnimationMenu])
 
   const getBlockPreview = () => {
     switch (block.type) {
@@ -2712,6 +2727,67 @@ function BlockItem({
         {isLinkButton && !(block.data as LinkButtonBlockData).url && (
           <div className="p-1" title="No link added">
             <AlertCircle className="h-4 w-4 text-amber-500" />
+          </div>
+        )}
+
+        {/* Animation control for link buttons */}
+        {isLinkButton && (
+          <div className="relative" ref={animationMenuRef}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowAnimationMenu(!showAnimationMenu)
+              }}
+              className={cn(
+                "p-1.5 rounded-lg transition-colors",
+                (block.data as LinkButtonBlockData).animation_type && (block.data as LinkButtonBlockData).animation_type !== 'none'
+                  ? "text-violet-600 bg-violet-50 hover:bg-violet-100"
+                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              )}
+              title="Animation"
+            >
+              <Sparkles className="h-4 w-4" />
+            </button>
+
+            {/* Animation dropdown menu */}
+            {showAnimationMenu && (
+              <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                {[
+                  { id: 'none', label: 'None' },
+                  { id: 'pulse', label: 'Pulse' },
+                  { id: 'bounce', label: 'Bounce' },
+                  { id: 'shake', label: 'Shake' },
+                  { id: 'glow', label: 'Glow' },
+                ].map((anim) => {
+                  const currentAnimation = (block.data as LinkButtonBlockData).animation_type || 'none'
+                  return (
+                    <button
+                      key={anim.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        updateBlock(block.id, {
+                          data: {
+                            ...block.data,
+                            animation_type: anim.id as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow'
+                          }
+                        })
+                        setShowAnimationMenu(false)
+                      }}
+                      className={cn(
+                        "w-full px-3 py-1.5 text-left text-sm transition-colors",
+                        currentAnimation === anim.id
+                          ? "bg-violet-50 text-violet-700 font-medium"
+                          : "text-gray-700 hover:bg-gray-50"
+                      )}
+                    >
+                      {anim.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 

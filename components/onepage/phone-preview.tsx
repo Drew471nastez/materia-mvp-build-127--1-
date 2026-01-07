@@ -1855,12 +1855,24 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
 
         const youtubeVideoId = getYouTubeVideoId(data.url)
 
+        // Get animation class based on animation_type
+        const getAnimationClass = (animationType: string | undefined) => {
+          switch (animationType) {
+            case 'pulse': return 'animate-onepage-pulse'
+            case 'bounce': return 'animate-onepage-bounce'
+            case 'shake': return 'animate-onepage-shake'
+            case 'glow': return 'animate-onepage-glow'
+            default: return ''
+          }
+        }
+
         return (
           <div
             className={cn(
               s.button,
               "w-full font-medium transition-transform overflow-hidden",
               !youtubeVideoId && "hover:scale-[1.02] active:scale-[0.98]",
+              getAnimationClass(data.animation_type),
             )}
             style={{
               ...buttonStyles,
@@ -1951,12 +1963,25 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
 
       // Default Layout
       const hasThumbnailOrIcon = data.thumbnail_url || iconPath
+
+      // Get animation class based on animation_type (for default layout)
+      const getDefaultAnimationClass = (animationType: string | undefined) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          default: return ''
+        }
+      }
+
       return (
         <button
           className={cn(
             s.button,
             "w-full font-medium transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2",
-            hasThumbnailOrIcon ? "justify-start" : "justify-center"
+            hasThumbnailOrIcon ? "justify-start" : "justify-center",
+            getDefaultAnimationClass(data.animation_type)
           )}
           style={buttonStyles}
         >

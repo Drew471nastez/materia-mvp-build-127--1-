@@ -1993,11 +1993,22 @@ function PublicBlockRenderer({
 
         const youtubeVideoId = getYouTubeVideoId(data.url)
 
+        // Get animation class based on animation_type
+        const getAnimationClass = (animationType: string | undefined) => {
+          switch (animationType) {
+            case 'pulse': return 'animate-onepage-pulse'
+            case 'bounce': return 'animate-onepage-bounce'
+            case 'shake': return 'animate-onepage-shake'
+            case 'glow': return 'animate-onepage-glow'
+            default: return ''
+          }
+        }
+
         // For YouTube embeds, render a div container (not a link) with the embed
         if (youtubeVideoId) {
           return (
             <div
-              className="w-full overflow-hidden font-medium text-sm sm:text-base"
+              className={cn("w-full overflow-hidden font-medium text-sm sm:text-base", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
                 padding: 0,
@@ -2043,7 +2054,7 @@ function PublicBlockRenderer({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, data.url)}
-            className="w-full overflow-hidden font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02]"
+            className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02]", getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
               padding: 0,
@@ -2091,6 +2102,17 @@ function PublicBlockRenderer({
       }
 
       // Default Layout - thumbnail on left
+      // Get animation class based on animation_type (for default layout)
+      const getDefaultAnimationClass = (animationType: string | undefined) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          default: return ''
+        }
+      }
+
       return (
         <a
           href={data.url}
@@ -2099,7 +2121,8 @@ function PublicBlockRenderer({
           onClick={() => trackClick(block.id, data.url)}
           className={cn(
             "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02]",
-            hasThumbnail ? "justify-start" : "justify-center"
+            hasThumbnail ? "justify-start" : "justify-center",
+            getDefaultAnimationClass(data.animation_type)
           )}
           style={buttonStyles}
         >
