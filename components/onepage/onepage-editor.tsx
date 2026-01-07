@@ -24,7 +24,7 @@ import {
   Edit3,
   Settings,
 } from "lucide-react"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import {
@@ -136,6 +136,15 @@ function EditorLayout() {
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isSavingForNav, setIsSavingForNav] = useState(false)
+  
+  // Ref to track if we pushed state for back button interception
+  const hasSetupBackInterceptionRef = useRef(false)
+  const isDirtyRef = useRef(isDirty)
+  
+  // Keep isDirtyRef in sync with isDirty
+  useEffect(() => {
+    isDirtyRef.current = isDirty
+  }, [isDirty])
 
   // Handle browser back/forward and page unload
   useEffect(() => {
@@ -153,6 +162,34 @@ function EditorLayout() {
       window.removeEventListener('beforeunload', handleBeforeUnload)
     }
   }, [isDirty])
+  
+  // Handle browser back button with popstate
+  useEffect(() => {
+    // Push a state entry so we can intercept back button
+    if (!hasSetupBackInterceptionRef.current) {
+      window.history.pushState({ onepageEditor: true }, '', window.location.href)
+      hasSetupBackInterceptionRef.current = true
+    }
+    
+    const handlePopState = (e: PopStateEvent) => {
+      // Check if user has unsaved changes
+      if (isDirtyRef.current) {
+        // Push state back to prevent navigation
+        window.history.pushState({ onepageEditor: true }, '', window.location.href)
+        // Show unsaved changes dialog
+        setShowUnsavedDialog(true)
+        setPendingNavigation('back')
+      }
+      // If no unsaved changes, allow normal back navigation
+      // The browser will handle it naturally
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 
   // Handle link clicks when dirty
   useEffect(() => {
@@ -183,7 +220,8 @@ function EditorLayout() {
     if (pendingNavigation && pendingNavigation !== 'back') {
       window.location.href = pendingNavigation
     } else if (pendingNavigation === 'back') {
-      window.history.back()
+      // Actually go back now
+      window.history.go(-2) // Go back 2 because we pushed a state
     }
     setPendingNavigation(null)
   }, [save, pendingNavigation])
@@ -193,7 +231,8 @@ function EditorLayout() {
     if (pendingNavigation && pendingNavigation !== 'back') {
       window.location.href = pendingNavigation
     } else if (pendingNavigation === 'back') {
-      window.history.back()
+      // Actually go back now
+      window.history.go(-2) // Go back 2 because we pushed a state
     }
     setPendingNavigation(null)
   }, [pendingNavigation])
