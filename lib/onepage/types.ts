@@ -78,8 +78,16 @@ export interface OnePageSocialLinks {
 
 // Block data types
 export type BlockLayoutType = 'default' | 'pro'
-export type BlockAnimationType = 'none' | 'pulse' | 'bounce' | 'shake' | 'glow'
+export type BlockAnimationType = 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
 export type BlockDisplayMode = 'cover' | 'contain' | 'full'
+export type YouTubeMode = 'embed_video' | 'open_profile' | 'open_latest' | 'embed_latest'
+export type SpotifyMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
+
+export interface StreamingService {
+  platform: 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal' | 'deezer' | 'amazon_music'
+  url: string | null
+  found: boolean
+}
 
 export interface LinkButtonBlockData {
   label: string
@@ -89,6 +97,15 @@ export interface LinkButtonBlockData {
   layout_type?: BlockLayoutType
   animation_type?: BlockAnimationType
   display_mode?: BlockDisplayMode
+  // YouTube-specific settings
+  youtube_mode?: YouTubeMode
+  youtube_channel_id?: string | null
+  youtube_latest_video_id?: string | null
+  // Spotify-specific settings
+  spotify_mode?: SpotifyMode
+  spotify_artist_id?: string | null
+  spotify_preview_url?: string | null
+  streaming_services?: StreamingService[]
 }
 
 export interface ProductBlockData {

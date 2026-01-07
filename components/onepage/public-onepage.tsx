@@ -1992,6 +1992,28 @@ function PublicBlockRenderer({
         }
 
         const youtubeVideoId = getYouTubeVideoId(data.url)
+        const youtubeMode = data.youtube_mode || 'embed_video'
+
+        // Determine which video ID to use based on mode
+        const effectiveVideoId = youtubeMode === 'embed_latest' && data.youtube_latest_video_id
+          ? data.youtube_latest_video_id
+          : youtubeVideoId
+
+        // Determine target URL based on mode
+        const getTargetUrl = () => {
+          switch (youtubeMode) {
+            case 'open_profile':
+              return data.youtube_channel_id
+                ? `https://www.youtube.com/channel/${data.youtube_channel_id}`
+                : data.url
+            case 'open_latest':
+              return data.youtube_latest_video_id
+                ? `https://www.youtube.com/watch?v=${data.youtube_latest_video_id}`
+                : data.url
+            default:
+              return data.url
+          }
+        }
 
         // Get animation class based on animation_type
         const getAnimationClass = (animationType: string | undefined) => {
@@ -2000,12 +2022,14 @@ function PublicBlockRenderer({
             case 'bounce': return 'animate-onepage-bounce'
             case 'shake': return 'animate-onepage-shake'
             case 'glow': return 'animate-onepage-glow'
+            case 'swipe': return 'animate-onepage-swipe'
             default: return ''
           }
         }
 
-        // For YouTube embeds, render a div container (not a link) with the embed
-        if (youtubeVideoId) {
+        // For YouTube embeds (embed_video or embed_latest modes with valid video ID), render embed
+        const shouldEmbed = (youtubeMode === 'embed_video' || youtubeMode === 'embed_latest') && effectiveVideoId
+        if (shouldEmbed) {
           return (
             <div
               className={cn("w-full overflow-hidden font-medium text-sm sm:text-base", getAnimationClass(data.animation_type))}
@@ -2022,7 +2046,7 @@ function PublicBlockRenderer({
                 }}
               >
                 <iframe
-                  src={`https://www.youtube.com/embed/${youtubeVideoId}?rel=0&modestbranding=1`}
+                  src={`https://www.youtube.com/embed/${effectiveVideoId}?rel=0&modestbranding=1`}
                   title="YouTube video player"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
@@ -2031,10 +2055,10 @@ function PublicBlockRenderer({
               </div>
               {/* Title area */}
               <a
-                href={data.url}
+                href={getTargetUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackClick(block.id, data.url)}
+                onClick={() => trackClick(block.id, getTargetUrl())}
                 className="block w-full px-5 py-3.5 sm:py-4 text-center hover:opacity-80 transition-opacity"
                 style={{
                   backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
@@ -2048,12 +2072,15 @@ function PublicBlockRenderer({
           )
         }
 
+        // For non-embed modes (open_profile, open_latest) or Pro Layout links, use target URL
+        const targetUrl = getTargetUrl()
+
         return (
           <a
-            href={data.url}
+            href={targetUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackClick(block.id, data.url)}
+            onClick={() => trackClick(block.id, targetUrl)}
             className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02]", getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
@@ -2109,6 +2136,7 @@ function PublicBlockRenderer({
           case 'bounce': return 'animate-onepage-bounce'
           case 'shake': return 'animate-onepage-shake'
           case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
           default: return ''
         }
       }
@@ -2130,7 +2158,7 @@ function PublicBlockRenderer({
             <img
               src={data.thumbnail_url}
               alt=""
-              className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover shrink-0"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded object-cover shrink-0"
             />
           )}
           <span className={cn("truncate", hasThumbnail ? "flex-1 text-center" : "")}>

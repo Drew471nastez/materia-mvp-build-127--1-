@@ -7,6 +7,8 @@ export async function GET(request: NextRequest) {
     const onepageId = searchParams.get("onepage_id")
     const blockId = searchParams.get("block_id")
     const days = parseInt(searchParams.get("days") || "7", 10)
+    const customStartDate = searchParams.get("start_date")
+    const customEndDate = searchParams.get("end_date")
 
     if (!onepageId) {
       return NextResponse.json({ error: "Missing onepage_id" }, { status: 400 })
@@ -30,46 +32,76 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - days)
+    // Calculate date range
+    let startDate: Date
+    let endDate: Date = new Date()
+    let numDays: number
+
+    if (customStartDate && customEndDate) {
+      startDate = new Date(customStartDate)
+      endDate = new Date(customEndDate)
+      endDate.setHours(23, 59, 59, 999)
+      numDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    } else {
+      startDate = new Date()
+      startDate.setDate(startDate.getDate() - days)
+      numDays = days
+    }
     const startDateStr = startDate.toISOString()
+    const endDateStr = endDate.toISOString()
 
     if (blockId) {
-      // Get stats for specific block
-      const { data: clicks, error } = await supabase
-        .from("onepage_clicks")
-        .select("created_at")
-        .eq("onepage_id", onepageId)
-        .eq("block_id", blockId)
-        .gte("created_at", startDateStr)
-        .order("created_at", { ascending: true })
-
-      if (error) throw error
+      // Get stats for specific block - both views (page views) and clicks
+      const [viewsResult, clicksResult] = await Promise.all([
+        supabase
+          .from("onepage_views")
+          .select("created_at")
+          .eq("onepage_id", onepageId)
+          .gte("created_at", startDateStr)
+          .lte("created_at", endDateStr),
+        supabase
+          .from("onepage_clicks")
+          .select("created_at")
+          .eq("onepage_id", onepageId)
+          .eq("block_id", blockId)
+          .gte("created_at", startDateStr)
+          .lte("created_at", endDateStr)
+          .order("created_at", { ascending: true })
+      ])
 
       // Group by day
-      const dailyClicks: Record<string, number> = {}
-      const today = new Date()
-      for (let i = days - 1; i >= 0; i--) {
+      const dailyStats: Record<string, { views: number; clicks: number }> = {}
+      const today = customEndDate ? new Date(customEndDate) : new Date()
+      for (let i = numDays - 1; i >= 0; i--) {
         const date = new Date(today)
         date.setDate(date.getDate() - i)
         const dateKey = date.toISOString().split("T")[0]
-        dailyClicks[dateKey] = 0
+        dailyStats[dateKey] = { views: 0, clicks: 0 }
       }
 
-      clicks?.forEach((click) => {
-        const dateKey = new Date(click.created_at).toISOString().split("T")[0]
-        if (dailyClicks[dateKey] !== undefined) {
-          dailyClicks[dateKey]++
+      viewsResult.data?.forEach((view) => {
+        const dateKey = new Date(view.created_at).toISOString().split("T")[0]
+        if (dailyStats[dateKey] !== undefined) {
+          dailyStats[dateKey].views++
         }
       })
 
-      const chartData = Object.entries(dailyClicks).map(([date, count]) => ({
+      clicksResult.data?.forEach((click) => {
+        const dateKey = new Date(click.created_at).toISOString().split("T")[0]
+        if (dailyStats[dateKey] !== undefined) {
+          dailyStats[dateKey].clicks++
+        }
+      })
+
+      const chartData = Object.entries(dailyStats).map(([date, stats]) => ({
         date,
-        clicks: count,
+        views: stats.views,
+        clicks: stats.clicks,
       }))
 
       return NextResponse.json({
-        total_clicks: clicks?.length || 0,
+        total_views: viewsResult.data?.length || 0,
+        total_clicks: clicksResult.data?.length || 0,
         chart_data: chartData,
       })
     } else {

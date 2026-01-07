@@ -1419,7 +1419,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
           title: "text-[16px]",
           bio: "text-[11px] max-w-[180px]",
           button: "py-[10px] px-[12px] text-[13px]",
-          buttonThumb: "w-[22px] h-[22px]",
+          buttonThumb: "w-[26px] h-[26px]",
           text: "text-[11px]",
           input: "px-[10px] py-[8px] text-[11px]",
           inputBtn: "px-[12px] py-[8px] text-[11px]",
@@ -1436,7 +1436,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
           title: "text-xl",
           bio: "text-sm max-w-xs",
           button: "py-3 px-4 text-base",
-          buttonThumb: "w-7 h-7",
+          buttonThumb: "w-[34px] h-[34px]",
           text: "text-sm",
           input: "px-4 py-3 text-base",
           inputBtn: "px-5 py-3 text-base",
@@ -1854,6 +1854,15 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
         }
 
         const youtubeVideoId = getYouTubeVideoId(data.url)
+        const youtubeMode = data.youtube_mode || 'embed_video'
+
+        // Determine which video ID to use based on mode
+        const effectiveVideoId = youtubeMode === 'embed_latest' && data.youtube_latest_video_id
+          ? data.youtube_latest_video_id
+          : youtubeVideoId
+
+        // Check if we should show embed (only for embed_video or embed_latest modes)
+        const shouldEmbed = (youtubeMode === 'embed_video' || youtubeMode === 'embed_latest') && effectiveVideoId
 
         // Get animation class based on animation_type
         const getAnimationClass = (animationType: string | undefined) => {
@@ -1862,6 +1871,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
             case 'bounce': return 'animate-onepage-bounce'
             case 'shake': return 'animate-onepage-shake'
             case 'glow': return 'animate-onepage-glow'
+            case 'swipe': return 'animate-onepage-swipe'
             default: return ''
           }
         }
@@ -1871,7 +1881,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
             className={cn(
               s.button,
               "w-full font-medium transition-transform overflow-hidden",
-              !youtubeVideoId && "hover:scale-[1.02] active:scale-[0.98]",
+              !shouldEmbed && "hover:scale-[1.02] active:scale-[0.98]",
               getAnimationClass(data.animation_type),
             )}
             style={{
@@ -1880,7 +1890,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
             }}
           >
             {/* Featured content area - YouTube embed or thumbnail */}
-            {youtubeVideoId ? (
+            {shouldEmbed ? (
               <div
                 className="w-full aspect-video relative overflow-hidden"
                 style={{
@@ -1888,7 +1898,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
                 }}
               >
                 <iframe
-                  src={`https://www.youtube.com/embed/${youtubeVideoId}?rel=0&modestbranding=1`}
+                  src={`https://www.youtube.com/embed/${effectiveVideoId}?rel=0&modestbranding=1`}
                   title="YouTube video player"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
@@ -1971,6 +1981,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
           case 'bounce': return 'animate-onepage-bounce'
           case 'shake': return 'animate-onepage-shake'
           case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
           default: return ''
         }
       }

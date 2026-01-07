@@ -13,6 +13,9 @@ import type {
   SocialRowBlockData,
   OnePageSocialLinks,
   BlockLayoutType,
+  YouTubeMode,
+  SpotifyMode,
+  StreamingService,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -404,6 +407,27 @@ function getBlockPreviewData(block: OnePageBlock) {
   }
 }
 
+// Helper to detect YouTube URLs
+function isYouTubeUrl(url: string): boolean {
+  if (!url) return false
+  return url.includes('youtube.com') || url.includes('youtu.be')
+}
+
+// Helper to detect if YouTube URL is a channel/profile (not video)
+function isYouTubeChannelUrl(url: string): boolean {
+  if (!url) return false
+  return url.includes('youtube.com/@') ||
+    url.includes('youtube.com/channel/') ||
+    url.includes('youtube.com/c/') ||
+    url.includes('youtube.com/user/')
+}
+
+// Helper to detect Spotify URLs
+function isSpotifyUrl(url: string): boolean {
+  if (!url) return false
+  return url.includes('spotify.com') || url.includes('open.spotify.com')
+}
+
 export function LinksTab() {
   const {
     onepage,
@@ -678,13 +702,33 @@ export function LinksTab() {
     'menu': 'M3 12h18M3 6h18M3 18h18',
     'more-horizontal': 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
     'more-vertical': 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM12 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM12 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+    // Social Media Platforms (monochrome)
+    'instagram': 'M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2m-.2 2A3.6 3.6 0 0 0 4 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6m9.65 1.5a1.25 1.25 0 0 1 1.25 1.25A1.25 1.25 0 0 1 17.25 8 1.25 1.25 0 0 1 16 6.75a1.25 1.25 0 0 1 1.25-1.25M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3z',
+    'twitter': 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z',
+    'youtube': 'M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33zM9.75 15.02V8.48l5.75 3.27-5.75 3.27z',
+    'tiktok': 'M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5',
+    'spotify': 'M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.623.623 0 0 1-.857.207c-2.348-1.435-5.304-1.76-8.785-.964a.623.623 0 0 1-.277-1.215c3.809-.87 7.076-.496 9.712 1.115a.623.623 0 0 1 .207.857zm1.223-2.722a.78.78 0 0 1-1.072.257c-2.687-1.652-6.786-2.131-9.965-1.166a.78.78 0 0 1-.452-1.493c3.632-1.102 8.147-.568 11.232 1.329a.78.78 0 0 1 .257 1.073zm.105-2.835c-3.223-1.914-8.54-2.09-11.618-1.156a.935.935 0 0 1-.542-1.79c3.533-1.072 9.404-.865 13.115 1.338a.935.935 0 0 1-1.014 1.567l.059.041z',
+    'facebook': 'M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z',
+    'linkedin': 'M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2zM4 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',
+    'twitch': 'M21 2H3v16h5v4l4-4h5l4-4V2zm-10 9V7m5 4V7',
+    'discord': 'M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z',
+    'telegram': 'M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 7.5a2.25 2.25 0 0 0 .126 4.303l3.2 1.067 1.493 4.8a1.5 1.5 0 0 0 2.368.671l2.441-1.953 4.195 3.209a2.25 2.25 0 0 0 3.541-1.332l3-15A2.25 2.25 0 0 0 21.198 2.433zM6.988 13.678l7.25-4.812-5.5 5.562-.75 3z',
+    'whatsapp': 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z',
+    'pinterest': 'M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z',
+    'snapchat': 'M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301a.42.42 0 0 1 .19-.04c.15 0 .39.06.54.21.195.195.345.54.345.825 0 .39-.24.675-.51.855a2.58 2.58 0 0 1-1.32.45c-.225.015-.42.03-.614.045-.48.06-.48.255-.48.36 0 .09.015.165.045.255a7.35 7.35 0 0 0 2.115 3.195c.735.675 1.695 1.17 2.834 1.425.15.03.27.12.315.255.03.06.045.12.045.18 0 .285-.24.54-.765.69-.375.105-.825.165-1.305.195a.7.7 0 0 0-.165.015c-.09.015-.165.03-.27.045-.285.045-.54.09-.63.36-.045.105-.075.195-.105.285-.09.255-.195.555-.705.555-.09 0-.195-.015-.315-.03-.66-.09-1.365-.45-2.22-.45-.12 0-.24 0-.36.015-1.08.075-1.905.795-2.97 1.68-1.035.855-2.2 1.824-4.005 1.824-1.695 0-2.79-.9-3.78-1.71-1.095-.885-2.04-1.68-3.165-1.8a4.47 4.47 0 0 0-.315-.015c-.87 0-1.56.36-2.205.45a1.83 1.83 0 0 1-.33.03c-.495 0-.6-.285-.69-.54l-.12-.3c-.09-.27-.345-.315-.63-.36a1.49 1.49 0 0 0-.27-.045 1.21 1.21 0 0 0-.18-.015c-.48-.03-.93-.09-1.29-.195-.525-.15-.78-.405-.78-.69 0-.06.015-.12.045-.18.045-.135.165-.225.315-.255 1.14-.255 2.1-.75 2.835-1.425a7.35 7.35 0 0 0 2.115-3.195c.03-.09.045-.165.045-.255 0-.105 0-.3-.48-.36a10.31 10.31 0 0 1-.615-.045c-.495-.03-1.05-.15-1.32-.45-.27-.18-.51-.465-.51-.855 0-.285.15-.63.345-.825.15-.15.39-.21.54-.21.075 0 .135.015.19.04.39.195.735.285 1.035.3.195 0 .33-.045.405-.09-.015-.165-.022-.33-.03-.51l-.003-.06c-.105-1.628-.233-3.654.3-4.848C5.648 1.069 9.004.793 9.994.793h.005z',
+    'reddit': 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm4.67-12.003c.35 0 .691.056 1.015.164a1.89 1.89 0 0 1 1.216 2.376c-.239.73-.908 1.203-1.667 1.203-.76 0-1.428-.473-1.667-1.203a1.89 1.89 0 0 1 1.103-2.54zM8.33 9.997c.35 0 .691.056 1.015.164a1.89 1.89 0 0 1 1.216 2.376c-.239.73-.908 1.203-1.667 1.203-.76 0-1.428-.473-1.667-1.203a1.89 1.89 0 0 1 1.103-2.54zM12 18c-2.21 0-4-1.343-4-3h8c0 1.657-1.79 3-4 3z',
+    'threads': 'M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.96-.065-1.182.408-2.256 1.332-3.023.88-.73 2.107-1.168 3.662-1.31.883-.08 1.807-.07 2.755.03-.073-.485-.192-.923-.353-1.313-.346-.836-.855-1.456-1.513-1.844-.715-.422-1.63-.624-2.724-.602-.937.019-1.794.238-2.55.65-.69.377-1.272.922-1.73 1.62l-1.686-1.094c.61-.938 1.392-1.672 2.32-2.177.994-.54 2.137-.823 3.399-.84h.212c1.398.017 2.604.282 3.584.787.986.507 1.763 1.258 2.31 2.233.39.696.642 1.49.755 2.373 1.01.324 1.912.816 2.679 1.472 1.052.898 1.797 2.07 2.218 3.487.384 1.29.43 2.817-.28 4.394-.72 1.6-1.995 2.925-3.791 3.942-1.73.98-3.795 1.49-6.144 1.518zm-.293-7.232c-.87.046-1.542.291-1.942.712-.38.399-.57.862-.54 1.338.032.49.275.9.698 1.173.466.302 1.135.453 1.989.41 1.08-.059 1.896-.44 2.426-1.131.466-.609.77-1.455.907-2.526a15.7 15.7 0 0 0-3.538.024z',
+    'github': 'M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z',
+    'soundcloud': 'M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.102-.1m-.899.828c-.06 0-.091.037-.104.094L0 14.479l.165 1.308c.014.057.045.094.09.094s.089-.037.099-.094l.19-1.308-.19-1.334c-.01-.057-.045-.09-.09-.09m1.83-1.229c-.061 0-.12.045-.12.104l-.21 2.563.225 2.458c0 .06.045.104.106.104.061 0 .12-.044.12-.104l.24-2.458-.24-2.563c0-.06-.059-.104-.12-.104',
+    'apple-music': 'M23.994 6.124a9.23 9.23 0 0 0-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 0 0-1.877-.726 10.496 10.496 0 0 0-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.62.497 2.373.55 1.205 1.47 2.082 2.72 2.594.454.186.93.3 1.415.38.37.06.74.1 1.113.12.2.01.397.02.596.027h12.268c.15-.01.3-.018.45-.028.94-.06 1.86-.19 2.72-.58 1.1-.5 1.92-1.3 2.45-2.4.23-.48.38-1 .46-1.53.08-.47.13-.95.15-1.43.01-.12.01-.25.01-.37V6.18l-.04.04z M12 18.75c-4.694 0-8.5-3.806-8.5-8.5s3.806-8.5 8.5-8.5 8.5 3.806 8.5 8.5-3.806 8.5-8.5 8.5zM10 6v8l6-4z',
   }
 
   // Organize icons by category for better browsing
   const ICON_CATEGORIES = [
     { id: 'all', label: 'All', icons: Object.keys(THUMBNAIL_ICON_PATHS) },
+    { id: 'platforms', label: 'Platforms', icons: ['instagram', 'twitter', 'youtube', 'tiktok', 'spotify', 'facebook', 'linkedin', 'twitch', 'discord', 'telegram', 'whatsapp', 'pinterest', 'snapchat', 'reddit', 'threads', 'github', 'soundcloud', 'apple-music'] },
     { id: 'links', label: 'Links', icons: ['link', 'external', 'globe', 'home', 'map-pin', 'compass', 'navigation', 'send'] },
-    { id: 'social', label: 'Social', icons: ['mail', 'phone', 'message', 'chat', 'users', 'user', 'at-sign', 'share', 'share-2'] },
+    { id: 'social', label: 'Contact', icons: ['mail', 'phone', 'message', 'chat', 'users', 'user', 'at-sign', 'share', 'share-2'] },
     { id: 'media', label: 'Media', icons: ['music', 'video', 'camera', 'image', 'play', 'pause', 'mic', 'headphones', 'radio', 'tv', 'film'] },
     { id: 'shopping', label: 'Shopping', icons: ['shopping', 'cart', 'credit-card', 'dollar', 'tag', 'percent', 'gift', 'package', 'truck'] },
     { id: 'favorites', label: 'Favorites', icons: ['star', 'heart', 'thumbs-up', 'award', 'trophy'] },
@@ -723,7 +767,9 @@ export function LinksTab() {
         const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
         if (response.ok) {
           const data = await response.json()
-          thumbnailUrl = data.thumbnail_url
+          // Convert to high quality image (640x640 instead of 300x300)
+          // Spotify URLs: ab67616d00001e02 = 300x300, ab67616d0000b273 = 640x640
+          thumbnailUrl = data.thumbnail_url?.replace('ab67616d00001e02', 'ab67616d0000b273') || data.thumbnail_url
         }
       }
       // YouTube URL detection
@@ -737,8 +783,8 @@ export function LinksTab() {
           videoId = match ? match[1] : null
         }
         if (videoId) {
-          // Use high quality thumbnail
-          thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+          // Use maximum resolution thumbnail
+          thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
         }
       }
       // SoundCloud oEmbed
@@ -2574,11 +2620,13 @@ function BlockItem({
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAnimationMenu, setShowAnimationMenu] = useState(false)
-  const [showStatsPopover, setShowStatsPopover] = useState(false)
-  const [statsData, setStatsData] = useState<{ total_clicks: number; chart_data: { date: string; clicks: number }[] } | null>(null)
+  const [showStatsModal, setShowStatsModal] = useState(false)
+  const [statsData, setStatsData] = useState<{ total_clicks: number; total_views: number; chart_data: { date: string; clicks: number; views: number }[] } | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
+  const [statsTimeframe, setStatsTimeframe] = useState<'7' | '14' | '30' | 'custom'>('7')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const animationMenuRef = useRef<HTMLDivElement>(null)
-  const statsMenuRef = useRef<HTMLDivElement>(null)
 
   // Close animation menu when clicking outside
   useEffect(() => {
@@ -2586,22 +2634,25 @@ function BlockItem({
       if (animationMenuRef.current && !animationMenuRef.current.contains(e.target as Node)) {
         setShowAnimationMenu(false)
       }
-      if (statsMenuRef.current && !statsMenuRef.current.contains(e.target as Node)) {
-        setShowStatsPopover(false)
-      }
     }
-    if (showAnimationMenu || showStatsPopover) {
+    if (showAnimationMenu) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showAnimationMenu, showStatsPopover])
+  }, [showAnimationMenu])
 
-  // Fetch stats when popover is opened
-  const fetchStats = async () => {
+  // Fetch stats when modal is opened or timeframe changes
+  const fetchStats = async (days?: number, startDate?: string, endDate?: string) => {
     if (!onepage?.id) return
     setStatsLoading(true)
     try {
-      const response = await fetch(`/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=7`)
+      let url = `/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}`
+      if (startDate && endDate) {
+        url += `&start_date=${startDate}&end_date=${endDate}`
+      } else {
+        url += `&days=${days || 7}`
+      }
+      const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
         setStatsData(data)
@@ -2612,6 +2663,17 @@ function BlockItem({
       setStatsLoading(false)
     }
   }
+
+  // Refetch when timeframe changes
+  useEffect(() => {
+    if (showStatsModal) {
+      if (statsTimeframe === 'custom' && customStartDate && customEndDate) {
+        fetchStats(undefined, customStartDate, customEndDate)
+      } else if (statsTimeframe !== 'custom') {
+        fetchStats(parseInt(statsTimeframe))
+      }
+    }
+  }, [statsTimeframe, customStartDate, customEndDate, showStatsModal])
 
   const getBlockPreview = () => {
     switch (block.type) {
@@ -2783,6 +2845,7 @@ function BlockItem({
                   { id: 'bounce', label: 'Bounce' },
                   { id: 'shake', label: 'Shake' },
                   { id: 'glow', label: 'Glow' },
+                  { id: 'swipe', label: 'Swipe' },
                 ].map((anim) => {
                   const currentAnimation = (block.data as LinkButtonBlockData).animation_type || 'none'
                   return (
@@ -2794,7 +2857,7 @@ function BlockItem({
                         updateBlock(block.id, {
                           data: {
                             ...block.data,
-                            animation_type: anim.id as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow'
+                            animation_type: anim.id as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
                           }
                         })
                         setShowAnimationMenu(false)
@@ -2817,15 +2880,13 @@ function BlockItem({
 
         {/* Stats control for link buttons */}
         {isLinkButton && (
-          <div className="relative" ref={statsMenuRef}>
+          <>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                if (!showStatsPopover) {
-                  fetchStats()
-                }
-                setShowStatsPopover(!showStatsPopover)
+                setShowStatsModal(true)
+                fetchStats(7)
               }}
               className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               title="View Stats"
@@ -2833,54 +2894,130 @@ function BlockItem({
               <BarChart2 className="h-4 w-4" />
             </button>
 
-            {/* Stats popover */}
-            {showStatsPopover && (
-              <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border z-50 p-3 animate-in fade-in slide-in-from-top-1 duration-150">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-gray-700">Link Stats</span>
-                  <span className="text-xs text-muted-foreground">Last 7 days</span>
+            {/* Stats Modal */}
+            <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
+              <DialogContent className="w-[calc(100%-32px)] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+                <DialogHeader className="p-4 border-b">
+                  <DialogTitle className="text-base font-semibold">Link Stats</DialogTitle>
+                </DialogHeader>
+
+                <div className="p-4">
+                  {/* Timeframe selector */}
+                  <div className="flex gap-2 mb-4">
+                    {[
+                      { value: '7', label: '7 days' },
+                      { value: '14', label: '14 days' },
+                      { value: '30', label: '30 days' },
+                      { value: 'custom', label: 'Custom' },
+                    ].map((tf) => (
+                      <button
+                        key={tf.value}
+                        type="button"
+                        onClick={() => setStatsTimeframe(tf.value as typeof statsTimeframe)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                          statsTimeframe === tf.value
+                            ? "bg-gray-900 text-white"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        )}
+                      >
+                        {tf.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom date range */}
+                  {statsTimeframe === 'custom' && (
+                    <div className="flex gap-2 mb-4">
+                      <Input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="flex-1 h-9 text-sm"
+                        placeholder="Start date"
+                      />
+                      <Input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="flex-1 h-9 text-sm"
+                        placeholder="End date"
+                      />
+                    </div>
+                  )}
+
+                  {statsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                    </div>
+                  ) : statsData ? (
+                    <>
+                      {/* Stats summary cards */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="p-3 bg-blue-50 rounded-xl">
+                          <div className="text-2xl font-bold text-blue-900">{statsData.total_views || 0}</div>
+                          <div className="text-xs text-blue-600 font-medium">Views</div>
+                        </div>
+                        <div className="p-3 bg-violet-50 rounded-xl">
+                          <div className="text-2xl font-bold text-violet-900">{statsData.total_clicks || 0}</div>
+                          <div className="text-xs text-violet-600 font-medium">Clicks</div>
+                        </div>
+                      </div>
+
+                      {/* Chart */}
+                      <div className="bg-gray-50 rounded-xl p-3">
+                        <div className="text-xs font-medium text-gray-500 mb-2">Activity</div>
+                        <div className="flex items-end gap-1 h-24">
+                          {statsData.chart_data.map((day, i) => {
+                            const maxValue = Math.max(...statsData.chart_data.map(d => Math.max(d.clicks, d.views || 0)), 1)
+                            const clickHeight = (day.clicks / maxValue) * 100
+                            const viewHeight = ((day.views || 0) / maxValue) * 100
+                            return (
+                              <div key={day.date} className="flex-1 flex flex-col gap-0.5 items-center group relative">
+                                <div
+                                  className="w-full bg-blue-200 rounded-t transition-all group-hover:bg-blue-300"
+                                  style={{ height: `${Math.max(viewHeight, 2)}%` }}
+                                />
+                                <div
+                                  className="w-full bg-violet-300 rounded-t transition-all group-hover:bg-violet-400"
+                                  style={{ height: `${Math.max(clickHeight, 2)}%` }}
+                                />
+                                {/* Tooltip */}
+                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                                  {day.date}: {day.views || 0} views, {day.clicks} clicks
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className="flex justify-between mt-2">
+                          <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customStartDate : `${statsTimeframe}d ago`}</span>
+                          <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customEndDate : 'Today'}</span>
+                        </div>
+                        {/* Legend */}
+                        <div className="flex items-center justify-center gap-4 mt-3">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-sm bg-blue-200" />
+                            <span className="text-[10px] text-gray-500">Views</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-sm bg-violet-300" />
+                            <span className="text-[10px] text-gray-500">Clicks</span>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-sm text-muted-foreground">
+                      <BarChart2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                      <p>No data yet</p>
+                      <p className="text-xs mt-1">Stats will appear once visitors interact with your link</p>
+                    </div>
+                  )}
                 </div>
-
-                {statsLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                  </div>
-                ) : statsData ? (
-                  <>
-                    {/* Total clicks */}
-                    <div className="mb-3 p-2 bg-gray-50 rounded-lg">
-                      <div className="text-2xl font-bold text-gray-900">{statsData.total_clicks}</div>
-                      <div className="text-xs text-muted-foreground">Total clicks</div>
-                    </div>
-
-                    {/* Simple bar chart */}
-                    <div className="flex items-end gap-1 h-16">
-                      {statsData.chart_data.map((day, i) => {
-                        const maxClicks = Math.max(...statsData.chart_data.map(d => d.clicks), 1)
-                        const height = (day.clicks / maxClicks) * 100
-                        return (
-                          <div
-                            key={day.date}
-                            className="flex-1 bg-violet-100 rounded-t transition-all hover:bg-violet-200"
-                            style={{ height: `${Math.max(height, 5)}%` }}
-                            title={`${day.date}: ${day.clicks} clicks`}
-                          />
-                        )
-                      })}
-                    </div>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-[10px] text-muted-foreground">7d ago</span>
-                      <span className="text-[10px] text-muted-foreground">Today</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center py-4 text-sm text-muted-foreground">
-                    No data yet
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+              </DialogContent>
+            </Dialog>
+          </>
         )}
 
         <Toggle checked={block.enabled} onCheckedChange={onToggle} />
@@ -3089,6 +3226,25 @@ function BlockEditor({
     { id: 'image', name: 'Image', path: 'M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21' },
     { id: 'coffee', name: 'Coffee', path: 'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3' },
     { id: 'zap', name: 'Bolt', path: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
+    // Social Media Platforms (monochrome/simple style)
+    { id: 'instagram', name: 'Instagram', path: 'M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2m-.2 2A3.6 3.6 0 0 0 4 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6m9.65 1.5a1.25 1.25 0 0 1 1.25 1.25A1.25 1.25 0 0 1 17.25 8 1.25 1.25 0 0 1 16 6.75a1.25 1.25 0 0 1 1.25-1.25M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3z' },
+    { id: 'twitter', name: 'Twitter/X', path: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z' },
+    { id: 'youtube', name: 'YouTube', path: 'M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33zM9.75 15.02V8.48l5.75 3.27-5.75 3.27z' },
+    { id: 'tiktok', name: 'TikTok', path: 'M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5' },
+    { id: 'spotify', name: 'Spotify', path: 'M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.623.623 0 0 1-.857.207c-2.348-1.435-5.304-1.76-8.785-.964a.623.623 0 0 1-.277-1.215c3.809-.87 7.076-.496 9.712 1.115a.623.623 0 0 1 .207.857zm1.223-2.722a.78.78 0 0 1-1.072.257c-2.687-1.652-6.786-2.131-9.965-1.166a.78.78 0 0 1-.452-1.493c3.632-1.102 8.147-.568 11.232 1.329a.78.78 0 0 1 .257 1.073zm.105-2.835c-3.223-1.914-8.54-2.09-11.618-1.156a.935.935 0 0 1-.542-1.79c3.533-1.072 9.404-.865 13.115 1.338a.935.935 0 0 1-1.014 1.567l.059.041z' },
+    { id: 'facebook', name: 'Facebook', path: 'M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z' },
+    { id: 'linkedin', name: 'LinkedIn', path: 'M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2zM4 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z' },
+    { id: 'twitch', name: 'Twitch', path: 'M21 2H3v16h5v4l4-4h5l4-4V2zm-10 9V7m5 4V7' },
+    { id: 'discord', name: 'Discord', path: 'M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z' },
+    { id: 'telegram', name: 'Telegram', path: 'M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 7.5a2.25 2.25 0 0 0 .126 4.303l3.2 1.067 1.493 4.8a1.5 1.5 0 0 0 2.368.671l2.441-1.953 4.195 3.209a2.25 2.25 0 0 0 3.541-1.332l3-15A2.25 2.25 0 0 0 21.198 2.433zM6.988 13.678l7.25-4.812-5.5 5.562-.75 3z' },
+    { id: 'whatsapp', name: 'WhatsApp', path: 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z' },
+    { id: 'pinterest', name: 'Pinterest', path: 'M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z' },
+    { id: 'snapchat', name: 'Snapchat', path: 'M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301a.42.42 0 0 1 .19-.04c.15 0 .39.06.54.21.195.195.345.54.345.825 0 .39-.24.675-.51.855a2.58 2.58 0 0 1-1.32.45c-.225.015-.42.03-.614.045-.48.06-.48.255-.48.36 0 .09.015.165.045.255a7.35 7.35 0 0 0 2.115 3.195c.735.675 1.695 1.17 2.834 1.425.15.03.27.12.315.255.03.06.045.12.045.18 0 .285-.24.54-.765.69-.375.105-.825.165-1.305.195a.7.7 0 0 0-.165.015c-.09.015-.165.03-.27.045-.285.045-.54.09-.63.36-.045.105-.075.195-.105.285-.09.255-.195.555-.705.555-.09 0-.195-.015-.315-.03-.66-.09-1.365-.45-2.22-.45-.12 0-.24 0-.36.015-1.08.075-1.905.795-2.97 1.68-1.035.855-2.2 1.824-4.005 1.824-1.695 0-2.79-.9-3.78-1.71-1.095-.885-2.04-1.68-3.165-1.8a4.47 4.47 0 0 0-.315-.015c-.87 0-1.56.36-2.205.45a1.83 1.83 0 0 1-.33.03c-.495 0-.6-.285-.69-.54l-.12-.3c-.09-.27-.345-.315-.63-.36a1.49 1.49 0 0 0-.27-.045 1.21 1.21 0 0 0-.18-.015c-.48-.03-.93-.09-1.29-.195-.525-.15-.78-.405-.78-.69 0-.06.015-.12.045-.18.045-.135.165-.225.315-.255 1.14-.255 2.1-.75 2.835-1.425a7.35 7.35 0 0 0 2.115-3.195c.03-.09.045-.165.045-.255 0-.105 0-.3-.48-.36a10.31 10.31 0 0 1-.615-.045c-.495-.03-1.05-.15-1.32-.45-.27-.18-.51-.465-.51-.855 0-.285.15-.63.345-.825.15-.15.39-.21.54-.21.075 0 .135.015.19.04.39.195.735.285 1.035.3.195 0 .33-.045.405-.09-.015-.165-.022-.33-.03-.51l-.003-.06c-.105-1.628-.233-3.654.3-4.848C5.648 1.069 9.004.793 9.994.793h.005z' },
+    { id: 'reddit', name: 'Reddit', path: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm4.67-12.003c.35 0 .691.056 1.015.164a1.89 1.89 0 0 1 1.216 2.376c-.239.73-.908 1.203-1.667 1.203-.76 0-1.428-.473-1.667-1.203a1.89 1.89 0 0 1 1.103-2.54zM8.33 9.997c.35 0 .691.056 1.015.164a1.89 1.89 0 0 1 1.216 2.376c-.239.73-.908 1.203-1.667 1.203-.76 0-1.428-.473-1.667-1.203a1.89 1.89 0 0 1 1.103-2.54zM12 18c-2.21 0-4-1.343-4-3h8c0 1.657-1.79 3-4 3z' },
+    { id: 'threads', name: 'Threads', path: 'M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.96-.065-1.182.408-2.256 1.332-3.023.88-.73 2.107-1.168 3.662-1.31.883-.08 1.807-.07 2.755.03-.073-.485-.192-.923-.353-1.313-.346-.836-.855-1.456-1.513-1.844-.715-.422-1.63-.624-2.724-.602-.937.019-1.794.238-2.55.65-.69.377-1.272.922-1.73 1.62l-1.686-1.094c.61-.938 1.392-1.672 2.32-2.177.994-.54 2.137-.823 3.399-.84h.212c1.398.017 2.604.282 3.584.787.986.507 1.763 1.258 2.31 2.233.39.696.642 1.49.755 2.373 1.01.324 1.912.816 2.679 1.472 1.052.898 1.797 2.07 2.218 3.487.384 1.29.43 2.817-.28 4.394-.72 1.6-1.995 2.925-3.791 3.942-1.73.98-3.795 1.49-6.144 1.518zm-.293-7.232c-.87.046-1.542.291-1.942.712-.38.399-.57.862-.54 1.338.032.49.275.9.698 1.173.466.302 1.135.453 1.989.41 1.08-.059 1.896-.44 2.426-1.131.466-.609.77-1.455.907-2.526a15.7 15.7 0 0 0-3.538.024z' },
+    { id: 'github', name: 'GitHub', path: 'M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z' },
+    { id: 'soundcloud', name: 'SoundCloud', path: 'M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.102-.1m-.899.828c-.06 0-.091.037-.104.094L0 14.479l.165 1.308c.014.057.045.094.09.094s.089-.037.099-.094l.19-1.308-.19-1.334c-.01-.057-.045-.09-.09-.09m1.83-1.229c-.061 0-.12.045-.12.104l-.21 2.563.225 2.458c0 .06.045.104.106.104.061 0 .12-.044.12-.104l.24-2.458-.24-2.563c0-.06-.059-.104-.12-.104' },
+    { id: 'apple-music', name: 'Apple Music', path: 'M23.994 6.124a9.23 9.23 0 0 0-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 0 0-1.877-.726 10.496 10.496 0 0 0-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.62.497 2.373.55 1.205 1.47 2.082 2.72 2.594.454.186.93.3 1.415.38.37.06.74.1 1.113.12.2.01.397.02.596.027h12.268c.15-.01.3-.018.45-.028.94-.06 1.86-.19 2.72-.58 1.1-.5 1.92-1.3 2.45-2.4.23-.48.38-1 .46-1.53.08-.47.13-.95.15-1.43.01-.12.01-.25.01-.37V6.18l-.04.04z M12 18.75c-4.694 0-8.5-3.806-8.5-8.5s3.806-8.5 8.5-8.5 8.5 3.806 8.5 8.5-3.806 8.5-8.5 8.5zM10 6v8l6-4z' },
   ]
 
   // Get ordered social platforms - prioritize block data order
@@ -3243,8 +3399,8 @@ function BlockEditor({
           </div>
         </button>
 
-        {/* Display Mode Options - Only shown when Pro Layout is selected */}
-        {currentLayoutType === 'pro' && block.type === 'link_button' && (
+        {/* Display Mode Options - Only shown when Pro Layout is selected and NOT YouTube */}
+        {currentLayoutType === 'pro' && block.type === 'link_button' && !isYouTubeUrl((block.data as LinkButtonBlockData).url) && (
           <div className="pt-3 mt-3 border-t space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Display Mode</Label>
             <div className="grid grid-cols-3 gap-2">
@@ -3345,6 +3501,230 @@ function BlockEditor({
                 className="h-9"
               />
             </div>
+
+            {/* YouTube Settings - Only shown for YouTube URLs */}
+            {isYouTubeUrl(data.url) && (
+              <div className="space-y-2 pt-3 mt-3 border-t">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">YouTube Settings</Label>
+                <div className="space-y-2">
+                  {[
+                    { id: 'embed_video', label: 'Play video on page', desc: 'Embed the video directly' },
+                    { id: 'open_profile', label: 'Open YouTube profile', desc: 'Link to channel page' },
+                    { id: 'open_latest', label: 'Open latest video', desc: 'Link to newest upload' },
+                    { id: 'embed_latest', label: 'Play latest video', desc: 'Embed newest upload' },
+                  ].map((mode) => {
+                    const currentMode = data.youtube_mode || 'embed_video'
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={async () => {
+                          updateData({ youtube_mode: mode.id as YouTubeMode })
+                          // For latest video modes, fetch channel info
+                          if ((mode.id === 'open_latest' || mode.id === 'embed_latest') && isYouTubeChannelUrl(data.url)) {
+                            try {
+                              const res = await fetch(`/api/onepage/youtube?url=${encodeURIComponent(data.url)}`)
+                              if (res.ok) {
+                                const ytData = await res.json()
+                                if (ytData.channelId) {
+                                  updateData({
+                                    youtube_mode: mode.id as YouTubeMode,
+                                    youtube_channel_id: ytData.channelId,
+                                    youtube_latest_video_id: ytData.latestVideo?.videoId || null
+                                  })
+                                }
+                              }
+                            } catch (e) {
+                              console.error('Failed to fetch YouTube channel info:', e)
+                            }
+                          }
+                        }}
+                        className={cn(
+                          "w-full p-2.5 rounded-lg border-2 text-left transition-all",
+                          currentMode === mode.id
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Play className={cn("w-4 h-4", currentMode === mode.id ? "text-red-600" : "text-gray-400")} />
+                          <div>
+                            <div className="text-xs font-medium">{mode.label}</div>
+                            <div className="text-[10px] text-muted-foreground">{mode.desc}</div>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* Refresh latest video button */}
+                {(data.youtube_mode === 'open_latest' || data.youtube_mode === 'embed_latest') && isYouTubeChannelUrl(data.url) && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/onepage/youtube?url=${encodeURIComponent(data.url)}`)
+                        if (res.ok) {
+                          const ytData = await res.json()
+                          if (ytData.latestVideo) {
+                            updateData({
+                              youtube_channel_id: ytData.channelId,
+                              youtube_latest_video_id: ytData.latestVideo.videoId,
+                              thumbnail_url: ytData.latestVideo.thumbnailUrl
+                            })
+                          }
+                        }
+                      } catch (e) {
+                        console.error('Failed to refresh YouTube video:', e)
+                      }
+                    }}
+                    className="w-full text-xs text-center py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    ↻ Refresh latest video
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Spotify Settings - Only shown for Spotify URLs */}
+            {isSpotifyUrl(data.url) && (
+              <div className="space-y-2 pt-3 mt-3 border-t">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Spotify Settings</Label>
+                <div className="space-y-2">
+                  {[
+                    { id: 'audio_preview', label: 'Audio preview', desc: 'Show playable preview' },
+                    { id: 'go_to_url', label: 'Go to URL', desc: 'Open link directly' },
+                    { id: 'show_streaming', label: 'Show streaming', desc: 'Display all platforms' },
+                  ].map((mode) => {
+                    const currentMode = data.spotify_mode || 'go_to_url'
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={async () => {
+                          updateData({ spotify_mode: mode.id as SpotifyMode })
+                          // For streaming mode, fetch available services
+                          if (mode.id === 'show_streaming' && !data.streaming_services) {
+                            try {
+                              const res = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(data.url)}`)
+                              if (res.ok) {
+                                const spotifyData = await res.json()
+                                updateData({
+                                  spotify_mode: mode.id as SpotifyMode,
+                                  spotify_artist_id: spotifyData.id || null,
+                                  streaming_services: spotifyData.streamingServices || []
+                                })
+                              }
+                            } catch (e) {
+                              console.error('Failed to fetch streaming services:', e)
+                            }
+                          }
+                        }}
+                        className={cn(
+                          "w-full p-2.5 rounded-lg border-2 text-left transition-all",
+                          currentMode === mode.id
+                            ? "border-green-500 bg-green-50"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "w-4 h-4 rounded-full flex items-center justify-center",
+                            currentMode === mode.id ? "bg-green-500" : "bg-gray-200"
+                          )}>
+                            {currentMode === mode.id && (
+                              <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-xs font-medium">{mode.label}</div>
+                            <div className="text-[10px] text-muted-foreground">{mode.desc}</div>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Streaming Services List - shown when show_streaming is selected */}
+                {data.spotify_mode === 'show_streaming' && (
+                  <div className="mt-3 space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground">Available Platforms</div>
+                    {(data.streaming_services || [
+                      { platform: 'apple_music', found: false, url: null },
+                      { platform: 'youtube_music', found: false, url: null },
+                      { platform: 'soundcloud', found: false, url: null },
+                      { platform: 'tidal', found: false, url: null },
+                      { platform: 'deezer', found: false, url: null },
+                      { platform: 'amazon_music', found: false, url: null },
+                    ]).map((service: StreamingService, index: number) => {
+                      const platformNames: Record<string, string> = {
+                        apple_music: 'Apple Music',
+                        youtube_music: 'YouTube Music',
+                        soundcloud: 'SoundCloud',
+                        tidal: 'TIDAL',
+                        deezer: 'Deezer',
+                        amazon_music: 'Amazon Music',
+                      }
+                      return (
+                        <div key={service.platform} className="flex items-center gap-2 p-2 rounded-lg border bg-white">
+                          <div className={cn(
+                            "w-6 h-6 rounded flex items-center justify-center text-xs font-bold",
+                            service.found ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"
+                          )}>
+                            {service.found ? '✓' : '?'}
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-xs font-medium">{platformNames[service.platform] || service.platform}</div>
+                            {service.found ? (
+                              <div className="text-[10px] text-green-600">Found</div>
+                            ) : (
+                              <div className="text-[10px] text-gray-400">Not found</div>
+                            )}
+                          </div>
+                          {!service.found && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newUrl = prompt(`Enter ${platformNames[service.platform]} URL:`)
+                                if (newUrl) {
+                                  const newServices = [...(data.streaming_services || [])]
+                                  newServices[index] = { ...service, url: newUrl, found: true }
+                                  updateData({ streaming_services: newServices })
+                                }
+                              }}
+                              className="text-[10px] text-violet-600 hover:text-violet-700 font-medium"
+                            >
+                              + Add
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {/* Refresh streaming services button */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(data.url)}`)
+                          if (res.ok) {
+                            const spotifyData = await res.json()
+                            updateData({ streaming_services: spotifyData.streamingServices || [] })
+                          }
+                        } catch (e) {
+                          console.error('Failed to refresh streaming services:', e)
+                        }
+                      }}
+                      className="w-full text-xs text-center py-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                    >
+                      ↻ Sync streaming services
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
       }
