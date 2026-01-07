@@ -2238,7 +2238,7 @@ function PublicBlockRenderer({
                 onClick={() => setSpotifyModalOpen(false)}
               >
                 <div
-                  className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+                  className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 md:scale-[0.85] md:transform"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Header */}

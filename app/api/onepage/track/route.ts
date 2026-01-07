@@ -62,15 +62,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Missing block_id for click event" }, { status: 400 })
       }
 
-      // Check for duplicate click (same visitor, same block within last minute)
-      const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString()
+      // Check for duplicate click (same IP+device, same block within the same calendar day - UTC)
+      const today = new Date()
+      today.setUTCHours(0, 0, 0, 0)
+      const todayStr = today.toISOString()
+
       const { data: existingClick } = await supabase
         .from("onepage_clicks")
         .select("id")
         .eq("onepage_id", onepage_id)
         .eq("block_id", block_id)
         .eq("visitor_id", visitorId)
-        .gte("created_at", oneMinuteAgo)
+        .gte("created_at", todayStr)
         .maybeSingle()
 
       if (!existingClick) {
