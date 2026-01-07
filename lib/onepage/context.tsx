@@ -27,35 +27,38 @@ interface OnePageContextType {
   canUndo: boolean
   canRedo: boolean
   templates: OnePageTemplate[]
+  archivedBlocks: OnePageBlock[]
 
   setOnePage: (onepage: OnePage) => void
   setActiveSection: (section: ActiveSection) => void
   setSelectedBlockId: (id: string | null) => void
-  
+
   updateProfile: (updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null }) => void
-  
+
   updateTheme: (updates: Partial<OnePageTheme>) => void
   applyTemplate: (template: OnePageTemplate) => void
-  
+
   updateSocialLinks: (updates: Partial<OnePageSocialLinks>) => void
-  
+
   addBlock: (type: OnePageBlockType, afterId?: string) => OnePageBlock | null
   updateBlock: (blockId: string, updates: Partial<OnePageBlock>) => void
   removeBlock: (blockId: string) => void
+  archiveBlock: (blockId: string) => void
+  unarchiveBlock: (blockId: string) => void
   reorderBlocks: (blocks: OnePageBlock[]) => void
   moveBlockUp: (blockId: string) => void
   moveBlockDown: (blockId: string) => void
   toggleBlockEnabled: (blockId: string) => void
-  
+
   updateSettings: (updates: Partial<OnePage["settings"]>) => void
   updateSlug: (slug: string) => void
-  
+
   undo: () => void
   redo: () => void
-  
+
   save: () => Promise<void>
   publish: () => Promise<void>
-  
+
   loadTemplates: () => Promise<void>
 }
 
@@ -82,6 +85,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
   const [isDirty, setIsDirty] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [templates, setTemplates] = useState<OnePageTemplate[]>([])
+  const [archivedBlocks, setArchivedBlocks] = useState<OnePageBlock[]>([])
   
   const [history, setHistory] = useState<OnePage[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
@@ -348,6 +352,52 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     markDirty()
   }, [addToHistory, markDirty, selectedBlockId])
 
+  const archiveBlock = useCallback((blockId: string) => {
+    setOnePageState((prev) => {
+      if (!prev) return prev
+      const blockToArchive = prev.draft_blocks.find((b) => b.id === blockId)
+      if (blockToArchive) {
+        setArchivedBlocks((archived) => [...archived, { ...blockToArchive, archived_at: new Date().toISOString() } as OnePageBlock])
+      }
+      const blocks = prev.draft_blocks.filter((b) => b.id !== blockId)
+      blocks.forEach((b, i) => {
+        b.sort_order = i
+      })
+      const newState = { ...prev, draft_blocks: blocks }
+      addToHistory(newState)
+      return newState
+    })
+    if (selectedBlockId === blockId) {
+      setSelectedBlockId(null)
+    }
+    markDirty()
+  }, [addToHistory, markDirty, selectedBlockId])
+
+  const unarchiveBlock = useCallback((blockId: string) => {
+    const blockToRestore = archivedBlocks.find((b) => b.id === blockId)
+    if (!blockToRestore) return
+
+    setOnePageState((prev) => {
+      if (!prev) return prev
+      const blocks = [...prev.draft_blocks]
+      // Insert after header if exists, otherwise at beginning
+      const headerIndex = blocks.findIndex((b) => b.type === "header")
+      if (headerIndex !== -1) {
+        blocks.splice(headerIndex + 1, 0, { ...blockToRestore, archived_at: undefined } as OnePageBlock)
+      } else {
+        blocks.unshift({ ...blockToRestore, archived_at: undefined } as OnePageBlock)
+      }
+      blocks.forEach((b, i) => {
+        b.sort_order = i
+      })
+      const newState = { ...prev, draft_blocks: blocks }
+      addToHistory(newState)
+      return newState
+    })
+    setArchivedBlocks((archived) => archived.filter((b) => b.id !== blockId))
+    markDirty()
+  }, [archivedBlocks, addToHistory, markDirty])
+
   const reorderBlocks = useCallback((blocks: OnePageBlock[]) => {
     setOnePageState((prev) => {
       if (!prev) return prev
@@ -468,6 +518,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         canUndo,
         canRedo,
         templates,
+        archivedBlocks,
         setOnePage,
         setActiveSection,
         setSelectedBlockId,
@@ -478,6 +529,8 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         addBlock,
         updateBlock,
         removeBlock,
+        archiveBlock,
+        unarchiveBlock,
         reorderBlocks,
         moveBlockUp,
         moveBlockDown,

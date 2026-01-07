@@ -66,6 +66,8 @@ import {
   Loader2,
   ZoomIn,
   ZoomOut,
+  Archive,
+  RotateCcw,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -365,6 +367,35 @@ function RenderSocialIcon({ platform, size = 20, color = "currentColor", classNa
   return <Globe size={size} color={color} className={className} />
 }
 
+// Helper function to get block preview data
+function getBlockPreviewData(block: OnePageBlock) {
+  switch (block.type) {
+    case "link_button": {
+      const data = block.data as LinkButtonBlockData
+      const displayUrl = data.url ? (data.url.length > 40 ? data.url.slice(0, 40) + "..." : data.url) : "https://..."
+      return { title: data.label || "My Link", subtitle: displayUrl, icon: Link }
+    }
+    case "header":
+      return { title: "Header", subtitle: "Profile section", icon: User }
+    case "text": {
+      const data = block.data as TextBlockData
+      return { title: data.content?.slice(0, 30) || "Text block", subtitle: "Text", icon: Type }
+    }
+    case "image":
+      return { title: "Image", subtitle: "Image block", icon: ImageIcon }
+    case "divider":
+      return { title: "Divider", subtitle: "Spacing", icon: Minus }
+    case "email_capture": {
+      const data = block.data as EmailCaptureBlockData
+      return { title: data.headline || "Email Signup", subtitle: "Lead capture form", icon: Mail }
+    }
+    case "social_row":
+      return { title: "Social Icons", subtitle: "Social links", icon: Share2 }
+    default:
+      return { title: block.type, subtitle: "", icon: Link }
+  }
+}
+
 export function LinksTab() {
   const {
     onepage,
@@ -372,6 +403,9 @@ export function LinksTab() {
     setSelectedBlockId,
     addBlock,
     removeBlock,
+    archiveBlock,
+    unarchiveBlock,
+    archivedBlocks,
     moveBlockUp,
     moveBlockDown,
     toggleBlockEnabled,
@@ -390,6 +424,7 @@ export function LinksTab() {
   const [socialUrlError, setSocialUrlError] = useState<string | null>(null)
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
+  const [showArchiveView, setShowArchiveView] = useState(false)
   
   // Drag state
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
@@ -729,13 +764,65 @@ export function LinksTab() {
         <Button variant="outline" size="sm" className="text-xs h-8">
           Add collection
         </Button>
-        <Button variant="outline" size="sm" className="text-xs h-8">
-          View archive
-          <ChevronDown className="h-3 w-3 ml-1" />
+        <Button
+          variant={showArchiveView ? "default" : "outline"}
+          size="sm"
+          className="text-xs h-8"
+          onClick={() => setShowArchiveView(!showArchiveView)}
+        >
+          <Archive className="h-3 w-3 mr-1" />
+          {showArchiveView ? "Back to links" : "View archive"}
+          {archivedBlocks.length > 0 && !showArchiveView && (
+            <span className="ml-1.5 bg-gray-200 text-gray-600 text-[10px] px-1.5 rounded-full">{archivedBlocks.length}</span>
+          )}
         </Button>
       </div>
 
-      {/* Blocks List - Draggable */}
+      {/* Archive View */}
+      {showArchiveView && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-700">Archived Blocks</h3>
+            <span className="text-xs text-muted-foreground">{archivedBlocks.length} items</span>
+          </div>
+          {archivedBlocks.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Archive className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No archived blocks</p>
+              <p className="text-xs mt-1">Archived blocks will appear here</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {archivedBlocks.map((block) => {
+                const preview = getBlockPreviewData(block)
+                return (
+                  <div key={block.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border">
+                    <div className="w-10 h-10 rounded-lg bg-white border flex items-center justify-center shrink-0">
+                      <preview.icon className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{preview.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{preview.subtitle}</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => unarchiveBlock(block.id)}
+                      className="h-8 text-xs shrink-0"
+                    >
+                      <RotateCcw className="h-3 w-3 mr-1" />
+                      Restore
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Blocks List - Draggable - Hidden when showing archive */}
+      {!showArchiveView && (
       <div className="flex flex-col gap-2">
         {sortedBlocks.map((block, index) => (
           <React.Fragment key={block.id}>
@@ -757,6 +844,7 @@ export function LinksTab() {
                 isSelected={selectedBlockId === block.id}
                 onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
                 onRemove={() => removeBlock(block.id)}
+                onArchive={() => archiveBlock(block.id)}
                 onMoveUp={() => {
                   // Prevent social_row from moving above header when Hero layout
                   const headerLayout = (onepage.theme as any)?.header_layout || "classic"
@@ -809,6 +897,7 @@ export function LinksTab() {
           </div>
         )}
       </div>
+      )}
 
       {/* Add Block Modal - Wider on desktop */}
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); } }}>
@@ -1876,6 +1965,7 @@ interface BlockItemProps {
   isSelected: boolean
   onSelect: () => void
   onRemove: () => void
+  onArchive?: () => void
   onMoveUp: () => void
   onMoveDown: () => void
   onToggle: () => void
@@ -1891,6 +1981,7 @@ function BlockItem({
   isSelected,
   onSelect,
   onRemove,
+  onArchive,
   onMoveUp,
   onMoveDown,
   onToggle,
@@ -1901,6 +1992,7 @@ function BlockItem({
   onOpenSocialModal,
 }: BlockItemProps) {
   const { updateBlock } = useOnePage()
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const getBlockPreview = () => {
     switch (block.type) {
@@ -1908,7 +2000,7 @@ function BlockItem({
         const data = block.data as LinkButtonBlockData
         // Truncate URL for display - show just the domain/path without full URL
         const displayUrl = data.url ? (data.url.length > 40 ? data.url.slice(0, 40) + "..." : data.url) : "https://..."
-        return { title: data.label || "My Link", subtitle: displayUrl, icon: Link }
+        return { title: data.label || "My Link", subtitle: displayUrl, icon: Link, thumbnail_url: data.thumbnail_url, iconId: data.icon }
       }
       case "header":
         return { title: "Header", subtitle: "Profile section", icon: User }
@@ -1929,6 +2021,30 @@ function BlockItem({
       default:
         return { title: block.type, subtitle: "", icon: Link }
     }
+  }
+
+  // Icon paths for thumbnails (matching BlockEditor THUMBNAIL_ICONS)
+  const ICON_PATHS: Record<string, string> = {
+    'link': 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+    'external': 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3',
+    'star': 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+    'heart': 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z',
+    'music': 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+    'video': 'M23 7l-7 5 7 5V7zM14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z',
+    'camera': 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    'shopping': 'M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z M3 6h18 M16 10a4 4 0 0 1-8 0',
+    'gift': 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
+    'book': 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z',
+    'calendar': 'M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6zM16 2v4M8 2v4M3 10h18',
+    'mail': 'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6',
+    'phone': 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z',
+    'globe': 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+    'map-pin': 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+    'download': 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+    'file': 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
+    'image': 'M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+    'coffee': 'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3',
+    'zap': 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
   }
 
   const preview = getBlockPreview()
@@ -1953,8 +2069,30 @@ function BlockItem({
         )}
 
         <div className="flex-1 flex items-center gap-3 cursor-pointer" onClick={onSelect}>
-          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-            <Icon className="h-5 w-5 text-gray-500" />
+          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+            {(preview as any).thumbnail_url ? (
+              <img
+                src={(preview as any).thumbnail_url}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (preview as any).iconId && ICON_PATHS[(preview as any).iconId] ? (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-gray-500"
+              >
+                <path d={ICON_PATHS[(preview as any).iconId]} />
+              </svg>
+            ) : (
+              <Icon className="h-5 w-5 text-gray-500" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-sm truncate">{preview.title}</p>
@@ -1974,24 +2112,72 @@ function BlockItem({
             onOpenSocialModal={onOpenSocialModal}
           />
           {!isHeaderBlock && (
-            <div className="flex items-center justify-between pt-3 border-t">
-              <div className="flex gap-1">
-                <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={isFirst} className="h-8 w-8 p-0">
-                  <ChevronUp className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={isLast} className="h-8 w-8 p-0">
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onRemove}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
-              >
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                Delete
-              </Button>
+            <div className="pt-3 border-t">
+              {!showDeleteConfirm ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={isFirst} className="h-8 w-8 p-0">
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={isLast} className="h-8 w-8 p-0">
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    Delete
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <p className="text-sm text-muted-foreground text-center">Remove this block?</p>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          onRemove()
+                          setShowDeleteConfirm(false)
+                        }}
+                        className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        Delete
+                      </Button>
+                      <p className="text-[10px] text-muted-foreground text-center mt-1">Permanently remove</p>
+                    </div>
+                    <div className="flex-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (onArchive) onArchive()
+                          setShowDeleteConfirm(false)
+                        }}
+                        className="w-full text-amber-600 border-amber-200 hover:bg-amber-50 hover:border-amber-300"
+                      >
+                        <Archive className="h-3.5 w-3.5 mr-1.5" />
+                        Archive
+                      </Button>
+                      <p className="text-[10px] text-muted-foreground text-center mt-1">Restore anytime</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="w-full text-muted-foreground h-7 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -2000,19 +2186,25 @@ function BlockItem({
   )
 }
 
-function BlockEditor({ 
-  block, 
-  socialLinks, 
+function BlockEditor({
+  block,
+  socialLinks,
   onOpenImageLibrary,
-  onOpenSocialModal 
-}: { 
+  onOpenSocialModal
+}: {
   block: OnePageBlock
   socialLinks: OnePageSocialLinks
   onOpenImageLibrary: (blockId: string) => void
   onOpenSocialModal: () => void
 }) {
   const { updateBlock, updateSocialLinks } = useOnePage()
-  
+
+  // Thumbnail editing state
+  const [showThumbnailPopup, setShowThumbnailPopup] = useState(false)
+  const [showIconLibrary, setShowIconLibrary] = useState(false)
+  const [thumbnailUploading, setThumbnailUploading] = useState(false)
+  const thumbnailInputRef = useRef<HTMLInputElement>(null)
+
   // Drag state for social icons reordering
   const [draggedSocialId, setDraggedSocialId] = useState<string | null>(null)
   const [dragOverSocialId, setDragOverSocialId] = useState<string | null>(null)
@@ -2049,6 +2241,63 @@ function BlockEditor({
   const updateData = (updates: Partial<OnePageBlock["data"]>) => {
     updateBlock(block.id, { data: { ...block.data, ...updates } })
   }
+
+  // Handle thumbnail upload
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setThumbnailUploading(true)
+    try {
+      const supabase = createClient()
+      const fileExt = file.name.split('.').pop()
+      const fileName = `thumbnail_${block.id}_${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('onepage-assets')
+        .upload(fileName, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('onepage-assets')
+        .getPublicUrl(fileName)
+
+      updateData({ thumbnail_url: publicUrl, icon: null })
+      setShowThumbnailPopup(false)
+    } catch (error) {
+      console.error('Error uploading thumbnail:', error)
+    } finally {
+      setThumbnailUploading(false)
+      if (thumbnailInputRef.current) {
+        thumbnailInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Icon library - simple, clean icons
+  const THUMBNAIL_ICONS = [
+    { id: 'link', name: 'Link', path: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71' },
+    { id: 'external', name: 'External', path: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3' },
+    { id: 'star', name: 'Star', path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
+    { id: 'heart', name: 'Heart', path: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z' },
+    { id: 'music', name: 'Music', path: 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z' },
+    { id: 'video', name: 'Video', path: 'M23 7l-7 5 7 5V7zM14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z' },
+    { id: 'camera', name: 'Camera', path: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+    { id: 'shopping', name: 'Shopping', path: 'M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z M3 6h18 M16 10a4 4 0 0 1-8 0' },
+    { id: 'gift', name: 'Gift', path: 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z' },
+    { id: 'book', name: 'Book', path: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z' },
+    { id: 'calendar', name: 'Calendar', path: 'M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6zM16 2v4M8 2v4M3 10h18' },
+    { id: 'mail', name: 'Mail', path: 'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6' },
+    { id: 'phone', name: 'Phone', path: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z' },
+    { id: 'globe', name: 'Globe', path: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z' },
+    { id: 'map-pin', name: 'Location', path: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z' },
+    { id: 'download', name: 'Download', path: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3' },
+    { id: 'file', name: 'File', path: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8' },
+    { id: 'image', name: 'Image', path: 'M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21' },
+    { id: 'coffee', name: 'Coffee', path: 'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3' },
+    { id: 'zap', name: 'Bolt', path: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
+  ]
 
   // Get ordered social platforms - prioritize block data order
   const getOrderedSocials = () => {
@@ -2118,8 +2367,159 @@ function BlockEditor({
   switch (block.type) {
     case "link_button": {
       const data = block.data as LinkButtonBlockData
+      const selectedIcon = THUMBNAIL_ICONS.find(i => i.id === data.icon)
       return (
         <div className="space-y-3">
+          {/* Thumbnail Editor */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Thumbnail</Label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowThumbnailPopup(!showThumbnailPopup)}
+                className="group relative w-11 h-11 rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-gray-50 hover:bg-gray-100"
+              >
+                {data.thumbnail_url ? (
+                  <img
+                    src={data.thumbnail_url}
+                    alt="Thumbnail"
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                ) : selectedIcon ? (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-gray-500"
+                  >
+                    <path d={selectedIcon.path} />
+                  </svg>
+                ) : (
+                  <ImageIcon className="w-5 h-5 text-gray-400" />
+                )}
+                {/* Edit overlay */}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                  <Pencil className="w-4 h-4 text-white" />
+                </div>
+              </button>
+
+              {/* Thumbnail popup */}
+              {showThumbnailPopup && (
+                <div className="absolute left-0 top-full mt-2 z-50 bg-white border rounded-xl shadow-lg p-3 w-64 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="space-y-3">
+                    {/* Upload option */}
+                    <button
+                      type="button"
+                      onClick={() => thumbnailInputRef.current?.click()}
+                      disabled={thumbnailUploading}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                        {thumbnailUploading ? (
+                          <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4 text-blue-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Upload image</p>
+                        <p className="text-xs text-muted-foreground">JPG, PNG, GIF</p>
+                      </div>
+                    </button>
+
+                    <div className="border-t" />
+
+                    {/* Icon library toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setShowIconLibrary(!showIconLibrary)}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center">
+                        <Grid3X3 className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Choose icon</p>
+                        <p className="text-xs text-muted-foreground">From library</p>
+                      </div>
+                      <ChevronRight className={cn("w-4 h-4 text-gray-400 transition-transform", showIconLibrary && "rotate-90")} />
+                    </button>
+
+                    {/* Icon library grid */}
+                    {showIconLibrary && (
+                      <div className="grid grid-cols-5 gap-1.5 pt-2 border-t animate-in fade-in slide-in-from-top-1 duration-150">
+                        {THUMBNAIL_ICONS.map((icon) => (
+                          <button
+                            key={icon.id}
+                            type="button"
+                            onClick={() => {
+                              updateData({ icon: icon.id, thumbnail_url: null })
+                              setShowThumbnailPopup(false)
+                              setShowIconLibrary(false)
+                            }}
+                            className={cn(
+                              "w-10 h-10 rounded-lg flex items-center justify-center transition-all hover:bg-gray-100",
+                              data.icon === icon.id && "bg-gray-100 ring-2 ring-gray-900"
+                            )}
+                            title={icon.name}
+                          >
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="text-gray-600"
+                            >
+                              <path d={icon.path} />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Remove thumbnail */}
+                    {(data.thumbnail_url || data.icon) && (
+                      <>
+                        <div className="border-t" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateData({ thumbnail_url: null, icon: null })
+                            setShowThumbnailPopup(false)
+                          }}
+                          className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-red-50 transition-colors text-left text-red-600"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
+                            <Trash2 className="w-4 h-4" />
+                          </div>
+                          <p className="text-sm font-medium">Remove thumbnail</p>
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Hidden file input */}
+                  <input
+                    ref={thumbnailInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleThumbnailUpload}
+                    className="hidden"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label className="text-xs">Title</Label>
             <Input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder="My Link" className="h-9" />
