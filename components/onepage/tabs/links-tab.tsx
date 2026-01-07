@@ -3530,47 +3530,60 @@ function BlockEditor({
       </p>
     </div>
 
-    {/* Compact "classic" preview pill (keeps card height intact) */}
+    {/* Compact Spotify preview pill (NO IMAGES — pure UI mock) */}
     {block.type === "link_button" &&
       /(open\.spotify\.com|spotify\.com)/i.test(
         ((block.data as LinkButtonBlockData).url || "").trim()
       ) && (
         <div className="ml-auto shrink-0">
-          <div className="h-10 sm:h-11 w-36 sm:w-44 rounded-full overflow-hidden border border-gray-200 bg-black/5 relative">
-            <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/Untitled%20design%20(2).webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvVW50aXRsZWQgZGVzaWduICgyKS53ZWJwIiwiaWF0IjoxNzY3Nzk2NDkzLCJleHAiOjU1NTIxMTY0OTN9.DhLF1t9-iW0i3eM3iqsgjbbISezdLek-o-bBVKa7WZQ"
-              alt="Spotify classic preview"
-              className="absolute inset-0 w-full h-full object-cover"
-              loading="lazy"
-            />
+          <div
+            className={cn(
+              "h-10 sm:h-11 w-44 sm:w-52 rounded-full overflow-hidden relative",
+              "border border-violet-200",
+              "bg-gradient-to-r from-violet-600 via-fuchsia-600 to-violet-500",
+              "shadow-[0_10px_30px_-18px_rgba(124,58,237,0.85)]"
+            )}
+          >
+            {/* soft shine */}
+            <div className="absolute inset-0 opacity-40 bg-[radial-gradient(120px_60px_at_30%_20%,rgba(255,255,255,0.55),transparent_60%)]" />
 
-            {/* subtle fade so it looks like a UI preview, not a random image block */}
-            <div className="absolute inset-0 bg-black/20" />
+            <div className="relative h-full flex items-center gap-3 pl-2 pr-4">
+              {/* Album cover (fake) */}
+              <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl overflow-hidden shrink-0 border border-white/20 bg-black/25">
+                {/* vinyl hint */}
+                <div className="absolute -left-2 -top-2 w-12 h-12 rounded-full bg-black/35" />
+                <div className="absolute left-2 top-2 w-6 h-6 rounded-full bg-white/10" />
+                <div className="absolute left-[14px] top-[14px] w-2 h-2 rounded-full bg-white/30" />
 
-            {/* mini circle thumbnail on the left (like the screenshot) */}
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full overflow-hidden border border-white/30 bg-white/10">
-              <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/Untitled%20design%20(2).webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvVW50aXRsZWQgZGVzaWduICgyKS53ZWJwIiwiaWF0IjoxNzY3Nzk2NDkzLCJleHAiOjU1NTIxMTY0OTN9.DhLF1t9-iW0i3eM3iqsgjbbISezdLek-o-bBVKa7WZQ"
-                alt=""
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            </div>
+                {/* diagonal highlight */}
+                <div className="absolute inset-0 opacity-50 bg-[linear-gradient(135deg,rgba(255,255,255,0.35),transparent_55%)]" />
 
-            {/* dots on the right */}
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
-              <span className="w-1 h-1 rounded-full bg-white/80" />
-              <span className="w-1 h-1 rounded-full bg-white/80" />
-              <span className="w-1 h-1 rounded-full bg-white/80" />
+                {/* tiny "needle" line */}
+                <div className="absolute right-1 top-2 h-6 w-[2px] rotate-12 rounded-full bg-white/20" />
+              </div>
+
+              {/* Text */}
+              <div className="min-w-0">
+                <div className="text-white font-semibold text-xs sm:text-sm leading-none truncate">
+                  Check my song!
+                </div>
+                <div className="text-white/75 text-[10px] sm:text-[11px] leading-none mt-1 truncate">
+                  Spotify link preview
+                </div>
+              </div>
+
+              {/* tiny dots (right) */}
+              <div className="ml-auto flex items-center gap-1 opacity-90">
+                <span className="w-1 h-1 rounded-full bg-white/90" />
+                <span className="w-1 h-1 rounded-full bg-white/90" />
+                <span className="w-1 h-1 rounded-full bg-white/90" />
+              </div>
             </div>
           </div>
         </div>
       )}
   </div>
 </button>
-
-
-
 
 
         <button
