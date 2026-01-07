@@ -437,6 +437,9 @@ export function LinksTab() {
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const [showIconLibraryInModal, setShowIconLibraryInModal] = useState(false)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
+
+  // Track which blocks have had auto-fetch attempted to avoid repeated requests
+  const autoFetchedBlocksRef = useRef<Set<string>>(new Set())
   
   // Drag state
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
@@ -549,6 +552,97 @@ export function LinksTab() {
     name: id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' '),
     path
   }))
+
+  // Auto-fetch thumbnail for social media links (Spotify, YouTube, etc.)
+  const autoFetchThumbnail = useCallback(async (blockId: string, url: string) => {
+    // Skip if URL is empty or block already has a custom thumbnail
+    const block = onepage?.draft_blocks.find(b => b.id === blockId)
+    if (!block || block.type !== 'link_button') return
+    const data = block.data as LinkButtonBlockData
+    if (data.thumbnail_url) return // Don't override user's custom thumbnail
+
+    // Create a unique key for this URL to avoid duplicate fetches
+    const fetchKey = `${blockId}:${url}`
+    if (autoFetchedBlocksRef.current.has(fetchKey)) return
+    autoFetchedBlocksRef.current.add(fetchKey)
+
+    try {
+      let thumbnailUrl: string | null = null
+
+      // Spotify URL detection and oEmbed fetch
+      if (url.includes('spotify.com/') || url.includes('open.spotify.com/')) {
+        const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
+        if (response.ok) {
+          const data = await response.json()
+          thumbnailUrl = data.thumbnail_url
+        }
+      }
+      // YouTube URL detection
+      else if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
+        let videoId: string | null = null
+        if (url.includes('youtube.com/watch')) {
+          const urlObj = new URL(url)
+          videoId = urlObj.searchParams.get('v')
+        } else if (url.includes('youtu.be/')) {
+          const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
+          videoId = match ? match[1] : null
+        }
+        if (videoId) {
+          // Use high quality thumbnail
+          thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        }
+      }
+      // SoundCloud oEmbed
+      else if (url.includes('soundcloud.com/')) {
+        const response = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`)
+        if (response.ok) {
+          const data = await response.json()
+          thumbnailUrl = data.thumbnail_url
+        }
+      }
+      // Vimeo oEmbed
+      else if (url.includes('vimeo.com/')) {
+        const response = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`)
+        if (response.ok) {
+          const data = await response.json()
+          thumbnailUrl = data.thumbnail_url
+        }
+      }
+
+      // Update block if we got a thumbnail
+      if (thumbnailUrl) {
+        const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
+        if (currentData) {
+          updateBlock(blockId, {
+            data: {
+              ...currentData,
+              thumbnail_url: thumbnailUrl,
+              icon: null
+            }
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error auto-fetching thumbnail:', error)
+    }
+  }, [onepage?.draft_blocks, updateBlock])
+
+  // Handle URL change with auto-fetch
+  const handleUrlChangeWithAutoFetch = useCallback((blockId: string, url: string) => {
+    const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
+    if (currentData) {
+      updateBlock(blockId, { data: { ...currentData, url } })
+    }
+
+    // Debounce the auto-fetch - only fetch if URL looks complete
+    if (url.length > 10 && (url.startsWith('http://') || url.startsWith('https://'))) {
+      // Use a short delay to avoid fetching while user is still typing
+      const timeoutId = setTimeout(() => {
+        autoFetchThumbnail(blockId, url)
+      }, 800)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [autoFetchThumbnail, onepage?.draft_blocks, updateBlock])
 
   // Handle thumbnail upload for modal
   const handleThumbnailUploadForModal = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -955,6 +1049,7 @@ export function LinksTab() {
                 onOpenSocialModal={() => setShowSocialModal(true)}
                 onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(true); setShowIconLibraryInModal(false) }}
                 iconPaths={THUMBNAIL_ICON_PATHS}
+                onUrlChangeWithAutoFetch={handleUrlChangeWithAutoFetch}
               />
             </div>
 
@@ -1418,7 +1513,7 @@ export function LinksTab() {
 
             {/* Icon library grid */}
             {showIconLibraryInModal && (
-              <div className="grid grid-cols-5 gap-2 p-3 bg-gray-50 rounded-xl animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 p-3 bg-gray-50 rounded-xl animate-in fade-in slide-in-from-top-1 duration-150">
                 {THUMBNAIL_ICONS.map((icon) => (
                   <button
                     key={icon.id}
@@ -2199,6 +2294,7 @@ interface BlockItemProps {
   onOpenSocialModal: () => void
   onOpenThumbnailModal?: (blockId: string) => void
   iconPaths: Record<string, string>
+  onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
 }
 
 function BlockItem({
@@ -2217,6 +2313,7 @@ function BlockItem({
   onOpenSocialModal,
   onOpenThumbnailModal,
   iconPaths,
+  onUrlChangeWithAutoFetch,
 }: BlockItemProps) {
   const { updateBlock } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -2359,6 +2456,7 @@ function BlockItem({
             onOpenSocialModal={onOpenSocialModal}
             onOpenThumbnailModal={onOpenThumbnailModal}
             iconPaths={iconPaths}
+            onUrlChangeWithAutoFetch={onUrlChangeWithAutoFetch}
           />
           {!isHeaderBlock && (
             <div className="pt-3 border-t">
@@ -2442,6 +2540,7 @@ function BlockEditor({
   onOpenSocialModal,
   onOpenThumbnailModal,
   iconPaths,
+  onUrlChangeWithAutoFetch,
 }: {
   block: OnePageBlock
   socialLinks: OnePageSocialLinks
@@ -2449,6 +2548,7 @@ function BlockEditor({
   onOpenSocialModal: () => void
   onOpenThumbnailModal?: (blockId: string) => void
   iconPaths?: Record<string, string>
+  onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
 }) {
   const { updateBlock, updateSocialLinks } = useOnePage()
 
@@ -2761,7 +2861,18 @@ function BlockEditor({
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">URL</Label>
-              <Input value={data.url} onChange={(e) => updateData({ url: e.target.value })} placeholder="https://..." className="h-9" />
+              <Input
+                value={data.url}
+                onChange={(e) => {
+                  if (onUrlChangeWithAutoFetch) {
+                    onUrlChangeWithAutoFetch(block.id, e.target.value)
+                  } else {
+                    updateData({ url: e.target.value })
+                  }
+                }}
+                placeholder="https://..."
+                className="h-9"
+              />
             </div>
           </div>
         )
