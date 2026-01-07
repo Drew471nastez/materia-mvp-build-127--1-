@@ -3504,39 +3504,55 @@ function BlockEditor({
   type="button"
   onClick={() => updateData({ layout_type: "default" })}
   className={cn(
-    "w-full p-3 rounded-xl border-2 text-left transition-all",
+    "w-full rounded-xl border-2 text-left transition-all overflow-hidden",
     currentLayoutType === "default"
       ? "border-violet-500 bg-violet-50"
       : "border-gray-200 hover:border-gray-300 bg-white"
   )}
 >
-  <div className="flex items-start gap-3">
-    <div
-      className={cn(
-        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-        currentLayoutType === "default" ? "border-violet-500" : "border-gray-300"
-      )}
-    >
-      {currentLayoutType === "default" && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
+  <div className="flex items-stretch">
+    {/* Left content */}
+    <div className="flex flex-1 items-start gap-3 p-3">
+      <div
+        className={cn(
+          "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
+          currentLayoutType === "default" ? "border-violet-500" : "border-gray-300"
+        )}
+      >
+        {currentLayoutType === "default" && (
+          <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-sm">Default</div>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Standard display for your link
+        </p>
+      </div>
     </div>
 
-    <div className="flex-1 min-w-0">
-      <div className="font-medium text-sm">Default</div>
-      <p className="text-xs text-muted-foreground mt-0.5">Standard display for your link</p>
-    </div>
-
-    {/* Image shown only for Spotify links (responsive) */}
+    {/* Right full-height preview (Spotify only) */}
     {block.type === "link_button" &&
-      /(open\.spotify\.com|spotify\.com)/i.test(((block.data as LinkButtonBlockData).url || "").trim()) && (
-        <img
-          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/Untitled%20design%20(2).webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvVW50aXRsZWQgZGVzaWduICgyKS53ZWJwIiwiaWF0IjoxNzY3Nzk2NDkzLCJleHAiOjU1NTIxMTY0OTN9.DhLF1t9-iW0i3eM3iqsgjbbISezdLek-o-bBVKa7WZQ"
-          alt="Spotify default layout preview"
-          className="ml-auto shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-xl object-cover border border-gray-200"
-          loading="lazy"
-        />
+      /(open\.spotify\.com|spotify\.com)/i.test(
+        ((block.data as LinkButtonBlockData).url || "").trim()
+      ) && (
+        <div className="relative w-[88px] sm:w-[110px] shrink-0">
+          <img
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/Untitled%20design%20(2).webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvVW50aXRsZWQgZGVzaWduICgyKS53ZWJwIiwiaWF0IjoxNzY3Nzk2NDkzLCJleHAiOjU1NTIxMTY0OTN9.DhLF1t9-iW0i3eM3iqsgjbbISezdLek-o-bBVKa7WZQ"
+            alt="Spotify default layout preview"
+            className="absolute inset-0 w-full h-full object-cover rounded-r-xl"
+            loading="lazy"
+          />
+        </div>
       )}
   </div>
 </button>
+
+
+
+
+
         <button
           type="button"
           onClick={() => updateData({ layout_type: 'pro' })}
