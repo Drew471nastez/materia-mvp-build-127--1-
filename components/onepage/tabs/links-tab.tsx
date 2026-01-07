@@ -3499,36 +3499,44 @@ function BlockEditor({
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">Choose how this block displays on your page</p>
 
-        {/* Default Layout Option */}
-        <button
-          type="button"
-          onClick={() => updateData({ layout_type: 'default' })}
-          className={cn(
-            "w-full p-3 rounded-xl border-2 text-left transition-all",
-            currentLayoutType === 'default'
-              ? "border-violet-500 bg-violet-50"
-              : "border-gray-200 hover:border-gray-300 bg-white"
-          )}
-        >
-          <div className="flex items-start gap-3">
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-              currentLayoutType === 'default' ? "border-violet-500" : "border-gray-300"
-            )}>
-              {currentLayoutType === 'default' && (
-                <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm">Default</div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Standard display for your link
-              </p>
-            </div>
-          </div>
-        </button>
+{/* Default Layout Option */}
+<button
+  type="button"
+  onClick={() => updateData({ layout_type: "default" })}
+  className={cn(
+    "w-full p-3 rounded-xl border-2 text-left transition-all",
+    currentLayoutType === "default"
+      ? "border-violet-500 bg-violet-50"
+      : "border-gray-200 hover:border-gray-300 bg-white"
+  )}
+>
+  <div className="flex items-start gap-3">
+    <div
+      className={cn(
+        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
+        currentLayoutType === "default" ? "border-violet-500" : "border-gray-300"
+      )}
+    >
+      {currentLayoutType === "default" && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
+    </div>
 
-        {/* Pro Layout Option */}
+    <div className="flex-1 min-w-0">
+      <div className="font-medium text-sm">Default</div>
+      <p className="text-xs text-muted-foreground mt-0.5">Standard display for your link</p>
+    </div>
+
+    {/* Image shown only for Spotify links (responsive) */}
+    {block.type === "link_button" &&
+      /(open\.spotify\.com|spotify\.com)/i.test(((block.data as LinkButtonBlockData).url || "").trim()) && (
+        <img
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/Untitled%20design%20(2).webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvVW50aXRsZWQgZGVzaWduICgyKS53ZWJwIiwiaWF0IjoxNzY3Nzk2NDkzLCJleHAiOjU1NTIxMTY0OTN9.DhLF1t9-iW0i3eM3iqsgjbbISezdLek-o-bBVKa7WZQ"
+          alt="Spotify default layout preview"
+          className="ml-auto shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-xl object-cover border border-gray-200"
+          loading="lazy"
+        />
+      )}
+  </div>
+</button>
         <button
           type="button"
           onClick={() => updateData({ layout_type: 'pro' })}
