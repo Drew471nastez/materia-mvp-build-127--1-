@@ -1633,12 +1633,12 @@ function GroupBlockRenderer({
     }
 
     return (
-      <div
-        className="w-full relative"
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={handleMouseLeave}
-        style={{ overflow: 'visible' }}
-      >
+     <div
+  className="w-full relative pb-3"
+  onMouseEnter={() => setIsHovering(true)}
+  onMouseLeave={handleMouseLeave}
+  style={{ overflow: 'visible', paddingBottom: 8 }}
+>
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
           <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-8 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
