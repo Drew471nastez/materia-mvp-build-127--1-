@@ -19,6 +19,7 @@ import {
   type StreamingService,
   type GroupBlockData,
   type GroupLayoutType,
+  type CarouselViewType,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -4204,6 +4205,32 @@ function BlockEditor({
                   />
                 </div>
 
+                {/* Refresh Thumbnail button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(data.url)}`)
+                      if (res.ok) {
+                        const spotifyData = await res.json()
+                        updateData({
+                          thumbnail_url: spotifyData.thumbnailUrl || data.thumbnail_url,
+                          spotify_title: spotifyData.title || data.spotify_title,
+                          spotify_artist: spotifyData.artistName || data.spotify_artist,
+                          spotify_type: spotifyData.type || data.spotify_type,
+                          spotify_thumbnail: spotifyData.thumbnailUrl || data.spotify_thumbnail,
+                        })
+                      }
+                    } catch (e) {
+                      console.error('Failed to refresh Spotify thumbnail:', e)
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Refresh Thumbnail
+                </button>
+
                 {/* Streaming Services List - shown when show_streaming is selected */}
                 {data.spotify_mode === 'show_streaming' && (
                   <div className="mt-3 space-y-2">
@@ -4519,22 +4546,24 @@ function BlockEditor({
       switch (child.type) {
         case "link_button": {
           const d = child.data as LinkButtonBlockData
-          return { title: d.label || "My Link", icon: Link }
+          return { title: d.label || "My Link", icon: Link, thumbnail_url: d.thumbnail_url, iconId: d.icon }
         }
         case "text": {
           const d = child.data as TextBlockData
-          return { title: d.content?.slice(0, 25) || "Text", icon: Type }
+          return { title: d.content?.slice(0, 25) || "Text", icon: Type, thumbnail_url: null, iconId: null }
         }
-        case "image":
-          return { title: "Image", icon: ImageIcon }
+        case "image": {
+          const d = child.data as ImageBlockData
+          return { title: "Image", icon: ImageIcon, thumbnail_url: d.image_url, iconId: null }
+        }
         case "divider":
-          return { title: "Divider", icon: Minus }
+          return { title: "Divider", icon: Minus, thumbnail_url: null, iconId: null }
         case "email_capture": {
           const d = child.data as EmailCaptureBlockData
-          return { title: d.headline || "Email Signup", icon: Mail }
+          return { title: d.headline || "Email Signup", icon: Mail, thumbnail_url: null, iconId: null }
         }
         default:
-          return { title: child.type.replace('_', ' '), icon: Link }
+          return { title: child.type.replace('_', ' '), icon: Link, thumbnail_url: null, iconId: null }
       }
     }
 
@@ -4769,8 +4798,19 @@ function BlockEditor({
                         <div className="cursor-grab text-gray-300 hover:text-gray-400">
                           <GripVertical className="h-4 w-4" />
                         </div>
-                        <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0">
-                          <ChildIcon className="h-3.5 w-3.5 text-gray-500" />
+                        <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                          {preview.thumbnail_url ? (
+                            <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          ) : preview.iconId && iconPaths?.[preview.iconId] ? (
+                            <img
+                              src={iconPaths[preview.iconId]}
+                              alt=""
+                              className="w-4 h-4"
+                              style={{ filter: filledIcons?.has(preview.iconId) ? undefined : 'invert(0.5)' }}
+                            />
+                          ) : (
+                            <ChildIcon className="h-3.5 w-3.5 text-gray-500" />
+                          )}
                         </div>
                         <span className="flex-1 text-sm truncate">{preview.title}</span>
                         <button
@@ -4865,7 +4905,6 @@ function BlockEditor({
           <div className="space-y-2">
             {([
               { id: "stack" as const, label: "Stack", desc: "Vertical list of blocks", icon: "↓" },
-              { id: "grid" as const, label: "Grid", desc: "2-column grid layout", icon: "⊞" },
               { id: "carousel" as const, label: "Carousel", desc: "Horizontal scrollable", icon: "↔" },
             ]).map((layout) => (
               <button
@@ -4902,6 +4941,53 @@ function BlockEditor({
               </button>
             ))}
           </div>
+
+          {/* Carousel Options - shown when carousel layout is selected */}
+          {groupData.layout === "carousel" && (
+            <div className="space-y-4 pt-2 border-t">
+              <div className="space-y-2">
+                <Label className="text-xs">Carousel View</Label>
+                <div className="flex gap-2">
+                  {([
+                    { id: "1" as CarouselViewType, label: "1 per row" },
+                    { id: "1.2" as CarouselViewType, label: "1.2 per row" },
+                    { id: "1.5" as CarouselViewType, label: "1.5 per row" },
+                  ]).map((view) => (
+                    <button
+                      key={view.id}
+                      type="button"
+                      onClick={() => updateData({ carousel_view: view.id })}
+                      className={cn(
+                        "flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all",
+                        (groupData.carousel_view || "1") === view.id
+                          ? "bg-violet-500 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      )}
+                    >
+                      {view.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Fade on edges</Label>
+                <button
+                  type="button"
+                  onClick={() => updateData({ carousel_fade_edges: !groupData.carousel_fade_edges })}
+                  className={cn(
+                    "w-10 h-5 rounded-full transition-colors relative",
+                    groupData.carousel_fade_edges ? "bg-violet-500" : "bg-gray-300"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                    groupData.carousel_fade_edges ? "translate-x-5" : "translate-x-0.5"
+                  )} />
+                </button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     )

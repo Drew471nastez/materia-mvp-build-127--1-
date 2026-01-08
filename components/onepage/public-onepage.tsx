@@ -2690,35 +2690,47 @@ function PublicBlockRenderer({
 
       const renderGroupChildren = () => {
         const enabledChildren = data.children.filter(c => c.enabled)
+
+        // Calculate carousel item width based on view setting
+        const getCarouselWidth = () => {
+          const view = data.carousel_view || "1"
+          switch (view) {
+            case "1.5": return "calc(66.67% - 8px)"
+            case "1.2": return "calc(83.33% - 8px)"
+            case "1":
+            default: return "calc(100% - 16px)"
+          }
+        }
+
         switch (data.layout) {
-          case "grid":
-            return (
-              <div className="w-full grid grid-cols-2 gap-3 sm:gap-4">
-                {enabledChildren.map((child) => (
-                  <div key={child.id} className="w-full">
-                    <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} />
-                  </div>
-                ))}
-              </div>
-            )
           case "carousel":
             return (
-              <div className="w-full overflow-x-auto scrollbar-hide -mx-4 px-4">
-                <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {enabledChildren.map((child) => (
-                    <div key={child.id} className="w-[280px] sm:w-[320px] shrink-0">
-                      <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} />
-                    </div>
-                  ))}
+              <div className="w-full relative">
+                {/* Fade on left edge */}
+                {data.carousel_fade_edges && (
+                  <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none rounded-l-xl" />
+                )}
+                <div className="w-full overflow-x-auto scrollbar-hide -mx-4 px-4">
+                  <div className="flex gap-3 py-1" style={{ width: 'max-content' }}>
+                    {enabledChildren.map((child) => (
+                      <div key={child.id} className="shrink-0" style={{ width: getCarouselWidth() }}>
+                        <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
+                {/* Fade on right edge */}
+                {data.carousel_fade_edges && (
+                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/20 to-transparent z-10 pointer-events-none rounded-r-xl" />
+                )}
               </div>
             )
           case "stack":
           default:
             return (
-              <div className="w-full space-y-3 sm:space-y-4">
+              <div className="w-full space-y-3 sm:space-y-4 overflow-hidden">
                 {enabledChildren.map((child) => (
-                  <div key={child.id}>
+                  <div key={child.id} className="w-full">
                     <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} />
                   </div>
                 ))}
@@ -2728,7 +2740,7 @@ function PublicBlockRenderer({
       }
 
       return (
-        <div className="w-full space-y-3">
+        <div className="w-full space-y-3 overflow-hidden">
           {data.title && (
             <h3 className="text-sm font-medium text-center opacity-70" style={{ color: theme.text_color }}>
               {data.title}

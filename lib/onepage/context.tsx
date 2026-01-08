@@ -9,6 +9,7 @@ import type {
   OnePageSocialLinks,
   OnePageBlockType,
   OnePageTemplate,
+  GroupBlockData,
 } from "./types"
 import { defaultTheme, defaultSettings, defaultSocialLinks, createDefaultBlock } from "./types"
 
@@ -338,10 +339,35 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
   const removeBlock = useCallback((blockId: string) => {
     setOnePageState((prev) => {
       if (!prev) return prev
-      const blocks = prev.draft_blocks.filter((b) => b.id !== blockId)
+
+      // Find the block being removed
+      const blockToRemove = prev.draft_blocks.find((b) => b.id === blockId)
+
+      // If it's a group block with children, move children to main list
+      let childrenToAdd: OnePageBlock[] = []
+      if (blockToRemove?.type === "group") {
+        const groupData = blockToRemove.data as GroupBlockData
+        if (groupData.children && groupData.children.length > 0) {
+          childrenToAdd = groupData.children
+        }
+      }
+
+      // Get the index of the group block
+      const groupIndex = prev.draft_blocks.findIndex((b) => b.id === blockId)
+
+      // Filter out the removed block
+      let blocks = prev.draft_blocks.filter((b) => b.id !== blockId)
+
+      // Insert children at the position where the group was
+      if (childrenToAdd.length > 0) {
+        blocks.splice(groupIndex, 0, ...childrenToAdd)
+      }
+
+      // Re-assign sort orders
       blocks.forEach((b, i) => {
         b.sort_order = i
       })
+
       const newState = { ...prev, draft_blocks: blocks }
       addToHistory(newState)
       return newState

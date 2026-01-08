@@ -175,12 +175,16 @@ export interface HeaderBlockData {
   show_bio: boolean
 }
 
-export type GroupLayoutType = "stack" | "grid" | "carousel"
+export type GroupLayoutType = "stack" | "carousel"
+
+export type CarouselViewType = "1" | "1.2" | "1.5"
 
 export interface GroupBlockData {
   title?: string | null
   layout: GroupLayoutType
   children: OnePageBlock[]
+  carousel_view?: CarouselViewType
+  carousel_fade_edges?: boolean
 }
 
 export type OnePageBlockData =
