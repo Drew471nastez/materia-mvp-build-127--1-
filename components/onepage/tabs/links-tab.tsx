@@ -1281,7 +1281,10 @@ export function LinksTab() {
           size="sm"
           className="text-xs h-8"
           onClick={() => {
-            addBlock("group", undefined)
+            const newGroup = addBlock("group", undefined)
+            if (newGroup) {
+              setSelectedBlockId(newGroup.id)
+            }
           }}
         >
           <Layers className="h-3 w-3 mr-1" />
@@ -3510,6 +3513,12 @@ function BlockEditor({
   const [draggedSocialId, setDraggedSocialId] = useState<string | null>(null)
   const [dragOverSocialId, setDragOverSocialId] = useState<string | null>(null)
 
+  // Group block state
+  const [groupDraggedId, setGroupDraggedId] = useState<string | null>(null)
+  const [groupDragOverId, setGroupDragOverId] = useState<string | null>(null)
+  const [showGroupAddModal, setShowGroupAddModal] = useState(false)
+  const [selectedGroupChildId, setSelectedGroupChildId] = useState<string | null>(null)
+
   // Sync block platforms when socialLinks change
   useEffect(() => {
     if (block.type === "social_row") {
@@ -4377,92 +4386,421 @@ function BlockEditor({
       }
 
       case "group": {
-        const data = block.data as GroupBlockData
-        return (
-          <div className="space-y-4">
-            {/* Group Title */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Group Title (optional)</Label>
-              <Input
-                value={data.title || ""}
-                onChange={(e) => updateData({ title: e.target.value || null })}
-                placeholder="Enter group title..."
-                className="h-9"
-              />
-            </div>
-
-            {/* Layout Selection */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Layout</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { id: "stack", label: "Stack", icon: "↓" },
-                  { id: "grid", label: "Grid", icon: "⊞" },
-                  { id: "carousel", label: "Carousel", icon: "↔" },
-                ] as const).map((layout) => (
-                  <button
-                    key={layout.id}
-                    type="button"
-                    onClick={() => updateData({ layout: layout.id })}
-                    className={cn(
-                      "flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all",
-                      data.layout === layout.id
-                        ? "border-violet-500 bg-violet-50 text-violet-700"
-                        : "border-gray-200 hover:border-gray-300 text-gray-600"
-                    )}
-                  >
-                    <span className="text-lg mb-1">{layout.icon}</span>
-                    <span className="text-xs font-medium">{layout.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Children Count Info */}
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Items in group</span>
-                <span className="font-medium">{data.children?.length || 0}</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1.5">
-                Drag and drop blocks into this group to organize them
-              </p>
-            </div>
-
-            {/* Group Children Preview */}
-            {data.children && data.children.length > 0 && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Group Contents</Label>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {data.children.map((child, idx) => (
-                    <div
-                      key={child.id}
-                      className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-xs"
-                    >
-                      <span className="text-gray-400">{idx + 1}.</span>
-                      <span className="flex-1 truncate">{child.type}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newChildren = data.children.filter((c) => c.id !== child.id)
-                          updateData({ children: newChildren })
-                        }}
-                        className="text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )
+        // Group block has special handling - returns null here, handled separately at the end
+        return null
       }
 
       default:
         return <p className="text-xs text-muted-foreground">No settings available</p>
     }
+  }
+
+  // Special handling for group blocks with Links/Layout tabs
+  if (block.type === "group") {
+    const groupData = block.data as GroupBlockData
+
+    const getChildBlockPreview = (child: OnePageBlock) => {
+      switch (child.type) {
+        case "link_button": {
+          const d = child.data as LinkButtonBlockData
+          return { title: d.label || "My Link", icon: Link }
+        }
+        case "text": {
+          const d = child.data as TextBlockData
+          return { title: d.content?.slice(0, 25) || "Text", icon: Type }
+        }
+        case "image":
+          return { title: "Image", icon: ImageIcon }
+        case "divider":
+          return { title: "Divider", icon: Minus }
+        case "email_capture": {
+          const d = child.data as EmailCaptureBlockData
+          return { title: d.headline || "Email Signup", icon: Mail }
+        }
+        default:
+          return { title: child.type, icon: Link }
+      }
+    }
+
+    const handleGroupChildDragStart = (e: React.DragEvent, childId: string) => {
+      setGroupDraggedId(childId)
+      e.dataTransfer.effectAllowed = 'move'
+    }
+
+    const handleGroupChildDragOver = (e: React.DragEvent, childId: string) => {
+      e.preventDefault()
+      if (groupDraggedId && groupDraggedId !== childId) {
+        setGroupDragOverId(childId)
+      }
+    }
+
+    const handleGroupChildDrop = (e: React.DragEvent, targetChildId: string) => {
+      e.preventDefault()
+      if (groupDraggedId && groupDraggedId !== targetChildId) {
+        const children = [...(groupData.children || [])]
+        const draggedIndex = children.findIndex(c => c.id === groupDraggedId)
+        const targetIndex = children.findIndex(c => c.id === targetChildId)
+
+        if (draggedIndex !== -1 && targetIndex !== -1) {
+          const [removed] = children.splice(draggedIndex, 1)
+          children.splice(targetIndex, 0, removed)
+          updateData({ children: children.map((c, i) => ({ ...c, sort_order: i })) })
+        }
+      }
+      setGroupDraggedId(null)
+      setGroupDragOverId(null)
+    }
+
+    const addBlockToGroup = (type: OnePageBlockType) => {
+      const newBlock: OnePageBlock = {
+        id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type,
+        enabled: true,
+        sort_order: (groupData.children?.length || 0),
+        data: type === "link_button"
+          ? { label: "My Link", url: "https://", icon: null, thumbnail_url: null }
+          : type === "text"
+          ? { content: "Enter text...", alignment: "center" }
+          : type === "image"
+          ? { image_url: "", alt_text: "", link_url: null, aspect_ratio: "auto" }
+          : type === "divider"
+          ? { style: "space", height: 24 }
+          : type === "email_capture"
+          ? { headline: "Join newsletter", description: "", placeholder: "Email", button_text: "Subscribe", success_message: "Thanks!" }
+          : {}
+      } as OnePageBlock
+
+      const newChildren = [...(groupData.children || []), newBlock]
+      updateData({ children: newChildren })
+      setShowGroupAddModal(false)
+      setSelectedGroupChildId(newBlock.id)
+    }
+
+    const removeChildFromGroup = (childId: string) => {
+      const newChildren = (groupData.children || []).filter(c => c.id !== childId)
+      updateData({ children: newChildren })
+      if (selectedGroupChildId === childId) {
+        setSelectedGroupChildId(null)
+      }
+    }
+
+    const updateChildBlock = (childId: string, updates: Partial<OnePageBlock>) => {
+      const newChildren = (groupData.children || []).map(c =>
+        c.id === childId ? { ...c, ...updates, data: { ...c.data, ...(updates.data || {}) } } : c
+      )
+      updateData({ children: newChildren })
+    }
+
+    const selectedChild = selectedGroupChildId
+      ? (groupData.children || []).find(c => c.id === selectedGroupChildId)
+      : null
+
+    // Render child block settings
+    const renderChildSettings = (child: OnePageBlock) => {
+      const updateChildData = (updates: Partial<any>) => {
+        updateChildBlock(child.id, { data: { ...child.data, ...updates } })
+      }
+
+      switch (child.type) {
+        case "link_button": {
+          const d = child.data as LinkButtonBlockData
+          return (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Title</Label>
+                <Input value={d.label || ""} onChange={(e) => updateChildData({ label: e.target.value })} className="h-9" placeholder="Link title" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">URL</Label>
+                <Input value={d.url || ""} onChange={(e) => updateChildData({ url: e.target.value })} className="h-9" placeholder="https://" />
+              </div>
+            </div>
+          )
+        }
+        case "text": {
+          const d = child.data as TextBlockData
+          return (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Text Content</Label>
+                <Textarea value={d.content || ""} onChange={(e) => updateChildData({ content: e.target.value })} className="min-h-[80px]" placeholder="Enter text..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Alignment</Label>
+                <div className="flex gap-2">
+                  {(["left", "center", "right"] as const).map((align) => (
+                    <Button key={align} variant={d.alignment === align ? "default" : "outline"} size="sm" onClick={() => updateChildData({ alignment: align })} className="flex-1 capitalize h-8">
+                      {align}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        }
+        case "divider": {
+          const d = child.data as DividerBlockData
+          return (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Style</Label>
+                <div className="flex gap-2">
+                  {(["space", "line", "dots"] as const).map((style) => (
+                    <Button key={style} variant={d.style === style ? "default" : "outline"} size="sm" onClick={() => updateChildData({ style })} className="capitalize h-8 flex-1">
+                      {style}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Height: {d.height || 24}px</Label>
+                <Slider value={[d.height || 24]} onValueChange={([v]) => updateChildData({ height: v })} min={8} max={64} step={4} />
+              </div>
+            </div>
+          )
+        }
+        case "image": {
+          const d = child.data as ImageBlockData
+          return (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image URL</Label>
+                <Input value={d.image_url || ""} onChange={(e) => updateChildData({ image_url: e.target.value })} className="h-9" placeholder="https://" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Link URL (optional)</Label>
+                <Input value={d.link_url || ""} onChange={(e) => updateChildData({ link_url: e.target.value || null })} className="h-9" placeholder="https://" />
+              </div>
+            </div>
+          )
+        }
+        case "email_capture": {
+          const d = child.data as EmailCaptureBlockData
+          return (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Headline</Label>
+                <Input value={d.headline || ""} onChange={(e) => updateChildData({ headline: e.target.value })} className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <Input value={d.button_text || ""} onChange={(e) => updateChildData({ button_text: e.target.value })} className="h-9" />
+              </div>
+            </div>
+          )
+        }
+        default:
+          return <p className="text-xs text-muted-foreground">No settings available</p>
+      }
+    }
+
+    return (
+      <Tabs defaultValue="links" className="w-full">
+        <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
+          <TabsTrigger value="links" className="flex-1 text-xs h-8 gap-1.5">
+            <Link className="w-3.5 h-3.5" />
+            Links
+          </TabsTrigger>
+          <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+            <LayoutGrid className="w-3.5 h-3.5" />
+            Layout
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="links" className="mt-0 space-y-4">
+          {/* Group Title */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Group Title (optional)</Label>
+            <Input
+              value={groupData.title || ""}
+              onChange={(e) => updateData({ title: e.target.value || null })}
+              placeholder="Enter group title..."
+              className="h-9"
+            />
+          </div>
+
+          {/* Canvas / Block List */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Blocks in Group</Label>
+              <span className="text-xs text-muted-foreground">{groupData.children?.length || 0} items</span>
+            </div>
+
+            {/* Block Canvas */}
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-2 min-h-[120px] bg-gray-50/50">
+              {(!groupData.children || groupData.children.length === 0) ? (
+                <button
+                  type="button"
+                  onClick={() => setShowGroupAddModal(true)}
+                  className="w-full h-full min-h-[100px] flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <Plus className="h-8 w-8" />
+                  <span className="text-sm font-medium">Add Block</span>
+                </button>
+              ) : (
+                <div className="space-y-1.5">
+                  {groupData.children.map((child, idx) => {
+                    const preview = getChildBlockPreview(child)
+                    const ChildIcon = preview.icon
+                    return (
+                      <div
+                        key={child.id}
+                        draggable
+                        onDragStart={(e) => handleGroupChildDragStart(e, child.id)}
+                        onDragOver={(e) => handleGroupChildDragOver(e, child.id)}
+                        onDragLeave={() => setGroupDragOverId(null)}
+                        onDrop={(e) => handleGroupChildDrop(e, child.id)}
+                        onDragEnd={() => { setGroupDraggedId(null); setGroupDragOverId(null) }}
+                        onClick={() => setSelectedGroupChildId(selectedGroupChildId === child.id ? null : child.id)}
+                        className={cn(
+                          "flex items-center gap-2 p-2.5 bg-white rounded-lg border cursor-pointer transition-all",
+                          selectedGroupChildId === child.id ? "border-violet-500 ring-1 ring-violet-500" : "border-gray-200 hover:border-gray-300",
+                          groupDraggedId === child.id && "opacity-50",
+                          groupDragOverId === child.id && "border-violet-400 border-dashed bg-violet-50",
+                          !child.enabled && "opacity-50"
+                        )}
+                      >
+                        <div className="cursor-grab text-gray-300 hover:text-gray-400">
+                          <GripVertical className="h-4 w-4" />
+                        </div>
+                        <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0">
+                          <ChildIcon className="h-3.5 w-3.5 text-gray-500" />
+                        </div>
+                        <span className="flex-1 text-sm truncate">{preview.title}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            updateChildBlock(child.id, { enabled: !child.enabled })
+                          }}
+                          className={cn(
+                            "w-8 h-5 rounded-full transition-colors relative",
+                            child.enabled ? "bg-violet-500" : "bg-gray-300"
+                          )}
+                        >
+                          <div className={cn(
+                            "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                            child.enabled ? "translate-x-3.5" : "translate-x-0.5"
+                          )} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeChildFromGroup(child.id) }}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )
+                  })}
+
+                  {/* Add more button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowGroupAddModal(true)}
+                    className="w-full flex items-center justify-center gap-2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-dashed border-gray-200"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="text-xs">Add Block</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Selected Child Settings */}
+            {selectedChild && (
+              <div className="border rounded-xl p-3 bg-white space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium capitalize">{selectedChild.type.replace('_', ' ')} Settings</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGroupChildId(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {renderChildSettings(selectedChild)}
+              </div>
+            )}
+          </div>
+
+          {/* Add Block Modal */}
+          <Dialog open={showGroupAddModal} onOpenChange={setShowGroupAddModal}>
+            <DialogContent className="w-[calc(100%-32px)] max-w-[360px] p-0 gap-0 overflow-hidden rounded-2xl">
+              <DialogHeader className="p-4 border-b">
+                <DialogTitle className="text-base font-semibold">Add Block to Group</DialogTitle>
+              </DialogHeader>
+              <div className="p-4 grid grid-cols-2 gap-2">
+                {[
+                  { type: "link_button" as const, label: "Link", icon: Link },
+                  { type: "text" as const, label: "Text", icon: Type },
+                  { type: "image" as const, label: "Image", icon: ImageIcon },
+                  { type: "divider" as const, label: "Divider", icon: Minus },
+                  { type: "email_capture" as const, label: "Email Form", icon: Mail },
+                ].map((item) => (
+                  <button
+                    key={item.type}
+                    type="button"
+                    onClick={() => addBlockToGroup(item.type)}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-colors"
+                  >
+                    <item.icon className="h-5 w-5 text-gray-600" />
+                    <span className="text-xs font-medium">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+
+        <TabsContent value="layout" className="mt-0 space-y-4">
+          <p className="text-xs text-muted-foreground">Choose how blocks are arranged in this group</p>
+
+          {/* Layout Options */}
+          <div className="space-y-2">
+            {([
+              { id: "stack" as const, label: "Stack", desc: "Vertical list of blocks", icon: "↓" },
+              { id: "grid" as const, label: "Grid", desc: "2-column grid layout", icon: "⊞" },
+              { id: "carousel" as const, label: "Carousel", desc: "Horizontal scrollable", icon: "↔" },
+            ]).map((layout) => (
+              <button
+                key={layout.id}
+                type="button"
+                onClick={() => updateData({ layout: layout.id })}
+                className={cn(
+                  "w-full p-3 rounded-xl border-2 text-left transition-all",
+                  groupData.layout === layout.id
+                    ? "border-violet-500 bg-violet-50"
+                    : "border-gray-200 hover:border-gray-300 bg-white"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
+                    groupData.layout === layout.id ? "bg-violet-100 text-violet-600" : "bg-gray-100 text-gray-500"
+                  )}>
+                    {layout.icon}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{layout.label}</div>
+                    <p className="text-xs text-muted-foreground">{layout.desc}</p>
+                  </div>
+                  <div className={cn(
+                    "w-5 h-5 rounded-full border-2 flex items-center justify-center",
+                    groupData.layout === layout.id ? "border-violet-500" : "border-gray-300"
+                  )}>
+                    {groupData.layout === layout.id && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+    )
   }
 
   // If block supports layout, render with tabs; otherwise just render settings
