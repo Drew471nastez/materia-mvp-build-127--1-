@@ -1676,7 +1676,6 @@ function GroupBlockRenderer({
     scrollbarWidth: "none",
     msOverflowStyle: "none",
 
-    // ✅ IMPORTANT: allow vertical overflow so cards don't get clipped
     overflowX: "auto",
     overflowY: "visible",
   }}
@@ -1692,8 +1691,6 @@ function GroupBlockRenderer({
     className="flex"
     style={{
       gap: `${gap}px`,
-
-      // ✅ give extra bottom room so nothing is cut
       padding: "10px 16px 26px 16px",
     }}
   >
@@ -1703,8 +1700,6 @@ function GroupBlockRenderer({
         className="shrink-0 snap-start"
         style={{
           ...itemStyle,
-
-          // ✅ tiny extra safety room per item
           paddingBottom: 6,
         }}
       >
@@ -1722,15 +1717,12 @@ function GroupBlockRenderer({
         </div>
       </div>
     ))}
+
+    {/* Spacer to prevent bottom clipping of carousel items */}
+    <div className="shrink-0" style={{ width: 1, height: 14 }} />
   </div>
 </div>
 
-
-{/* Spacer to prevent bottom clipping of carousel items */}
-<div className="shrink-0" style={{ width: 1, height: 14 }} />
-
-  </div>
-</div>
 
         {/* Right Arrow Navigation - Desktop only, smooth fade in */}
         {isDesktop && canScrollRight && (
