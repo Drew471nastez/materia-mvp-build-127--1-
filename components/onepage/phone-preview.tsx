@@ -2479,14 +2479,15 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
         )
       }
 
-      const renderChildren = () => {
+      const renderGroupChildren = () => {
+        const enabledChildren = data.children.filter(c => c.enabled)
         switch (data.layout) {
           case "grid":
             return (
               <div className="w-full grid grid-cols-2 gap-2">
-                {data.children.filter(c => c.enabled).map((child) => (
+                {enabledChildren.map((child) => (
                   <div key={child.id} className="w-full">
-                    {renderBlock(child)}
+                    <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
                   </div>
                 ))}
               </div>
@@ -2495,9 +2496,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
             return (
               <div className="w-full overflow-x-auto scrollbar-hide">
                 <div className="flex gap-2" style={{ width: 'max-content' }}>
-                  {data.children.filter(c => c.enabled).map((child) => (
+                  {enabledChildren.map((child) => (
                     <div key={child.id} className="w-[200px] shrink-0">
-                      {renderBlock(child)}
+                      <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
                     </div>
                   ))}
                 </div>
@@ -2507,9 +2508,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
           default:
             return (
               <div className="w-full space-y-2">
-                {data.children.filter(c => c.enabled).map((child) => (
+                {enabledChildren.map((child) => (
                   <div key={child.id}>
-                    {renderBlock(child)}
+                    <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
                   </div>
                 ))}
               </div>
@@ -2524,7 +2525,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
               {data.title}
             </h3>
           )}
-          {renderChildren()}
+          {renderGroupChildren()}
         </div>
       )
     }

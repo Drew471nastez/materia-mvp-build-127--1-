@@ -2688,14 +2688,15 @@ function PublicBlockRenderer({
         return null // Don't show empty groups on published page
       }
 
-      const renderChildren = () => {
+      const renderGroupChildren = () => {
+        const enabledChildren = data.children.filter(c => c.enabled)
         switch (data.layout) {
           case "grid":
             return (
               <div className="w-full grid grid-cols-2 gap-3 sm:gap-4">
-                {data.children.filter(c => c.enabled).map((child) => (
+                {enabledChildren.map((child) => (
                   <div key={child.id} className="w-full">
-                    {renderBlock(child)}
+                    <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} />
                   </div>
                 ))}
               </div>
@@ -2704,9 +2705,9 @@ function PublicBlockRenderer({
             return (
               <div className="w-full overflow-x-auto scrollbar-hide -mx-4 px-4">
                 <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {data.children.filter(c => c.enabled).map((child) => (
+                  {enabledChildren.map((child) => (
                     <div key={child.id} className="w-[280px] sm:w-[320px] shrink-0">
-                      {renderBlock(child)}
+                      <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} />
                     </div>
                   ))}
                 </div>
@@ -2716,9 +2717,9 @@ function PublicBlockRenderer({
           default:
             return (
               <div className="w-full space-y-3 sm:space-y-4">
-                {data.children.filter(c => c.enabled).map((child) => (
+                {enabledChildren.map((child) => (
                   <div key={child.id}>
-                    {renderBlock(child)}
+                    <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} />
                   </div>
                 ))}
               </div>
@@ -2733,7 +2734,7 @@ function PublicBlockRenderer({
               {data.title}
             </h3>
           )}
-          {renderChildren()}
+          {renderGroupChildren()}
         </div>
       )
     }

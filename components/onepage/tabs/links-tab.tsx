@@ -461,6 +461,7 @@ export function LinksTab() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [addModalCategory, setAddModalCategory] = useState("suggested")
   const [searchQuery, setSearchQuery] = useState("")
+  const [addToGroupId, setAddToGroupId] = useState<string | null>(null)
   const [showSocialModal, setShowSocialModal] = useState(false)
   const [selectedSocial, setSelectedSocial] = useState<string | null>(null)
   const [socialUrl, setSocialUrl] = useState("")
@@ -1016,6 +1017,38 @@ export function LinksTab() {
   }
 
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
+    // If adding to a group, handle differently
+    if (addToGroupId) {
+      const groupBlock = sortedBlocks.find(b => b.id === addToGroupId)
+      if (groupBlock && groupBlock.type === "group") {
+        const groupData = groupBlock.data as GroupBlockData
+        const newBlock: OnePageBlock = {
+          id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type,
+          enabled: true,
+          sort_order: (groupData.children?.length || 0),
+          data: type === "link_button"
+            ? { label: preset?.label || "My Link", url: preset?.url || "https://", icon: null, thumbnail_url: null }
+            : type === "text"
+            ? { content: "Enter text...", alignment: "center" }
+            : type === "image"
+            ? { image_url: "", alt_text: "", link_url: null, aspect_ratio: "auto" }
+            : type === "divider"
+            ? { style: "space", height: 24 }
+            : type === "email_capture"
+            ? { headline: "Join newsletter", description: "", placeholder: "Email", button_text: "Subscribe", success_message: "Thanks!" }
+            : {}
+        } as OnePageBlock
+
+        const newChildren = [...(groupData.children || []), newBlock]
+        updateBlock(addToGroupId, { data: { ...groupData, children: newChildren } })
+      }
+      setShowAddModal(false)
+      setSearchQuery("")
+      setAddToGroupId(null)
+      return
+    }
+
     // Check if block type is at its limit
     if (isBlockTypeAtLimit(type)) {
       return // Don't add the block
@@ -3404,6 +3437,10 @@ function BlockItem({
             iconPaths={iconPaths}
             onUrlChangeWithAutoFetch={onUrlChangeWithAutoFetch}
             onOpenStreamingModal={onOpenStreamingModal}
+            onOpenAddBlockModal={(groupId) => {
+              setAddToGroupId(groupId)
+              setShowAddModal(true)
+            }}
           />
           {!isHeaderBlock && (
             <div className="pt-3 border-t">
@@ -3490,6 +3527,7 @@ function BlockEditor({
   filledIcons,
   onUrlChangeWithAutoFetch,
   onOpenStreamingModal,
+  onOpenAddBlockModal,
 }: {
   block: OnePageBlock
   socialLinks: OnePageSocialLinks
@@ -3500,6 +3538,7 @@ function BlockEditor({
   filledIcons?: Set<string>
   onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
+  onOpenAddBlockModal?: (groupId: string) => void
 }) {
   const { updateBlock, updateSocialLinks } = useOnePage()
 
@@ -3516,7 +3555,6 @@ function BlockEditor({
   // Group block state
   const [groupDraggedId, setGroupDraggedId] = useState<string | null>(null)
   const [groupDragOverId, setGroupDragOverId] = useState<string | null>(null)
-  const [showGroupAddModal, setShowGroupAddModal] = useState(false)
   const [selectedGroupChildId, setSelectedGroupChildId] = useState<string | null>(null)
 
   // Sync block platforms when socialLinks change
@@ -4451,31 +4489,6 @@ function BlockEditor({
       setGroupDragOverId(null)
     }
 
-    const addBlockToGroup = (type: OnePageBlockType) => {
-      const newBlock: OnePageBlock = {
-        id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type,
-        enabled: true,
-        sort_order: (groupData.children?.length || 0),
-        data: type === "link_button"
-          ? { label: "My Link", url: "https://", icon: null, thumbnail_url: null }
-          : type === "text"
-          ? { content: "Enter text...", alignment: "center" }
-          : type === "image"
-          ? { image_url: "", alt_text: "", link_url: null, aspect_ratio: "auto" }
-          : type === "divider"
-          ? { style: "space", height: 24 }
-          : type === "email_capture"
-          ? { headline: "Join newsletter", description: "", placeholder: "Email", button_text: "Subscribe", success_message: "Thanks!" }
-          : {}
-      } as OnePageBlock
-
-      const newChildren = [...(groupData.children || []), newBlock]
-      updateData({ children: newChildren })
-      setShowGroupAddModal(false)
-      setSelectedGroupChildId(newBlock.id)
-    }
-
     const removeChildFromGroup = (childId: string) => {
       const newChildren = (groupData.children || []).filter(c => c.id !== childId)
       updateData({ children: newChildren })
@@ -4629,14 +4642,19 @@ function BlockEditor({
             {/* Block Canvas */}
             <div className="border-2 border-dashed border-gray-200 rounded-xl p-2 min-h-[120px] bg-gray-50/50">
               {(!groupData.children || groupData.children.length === 0) ? (
-                <button
-                  type="button"
-                  onClick={() => setShowGroupAddModal(true)}
-                  className="w-full h-full min-h-[100px] flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <Plus className="h-8 w-8" />
-                  <span className="text-sm font-medium">Add Block</span>
-                </button>
+                <div className="w-full h-full min-h-[100px] flex flex-col items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onOpenAddBlockModal?.(block.id)}
+                    className="flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors p-4"
+                  >
+                    <Plus className="h-8 w-8" />
+                    <span className="text-sm font-medium">Add Block</span>
+                  </button>
+                  <p className="text-xs text-gray-400 text-center px-4">
+                    or drag blocks from the list onto this group
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-1.5">
                   {groupData.children.map((child, idx) => {
@@ -4697,7 +4715,7 @@ function BlockEditor({
                   {/* Add more button */}
                   <button
                     type="button"
-                    onClick={() => setShowGroupAddModal(true)}
+                    onClick={() => onOpenAddBlockModal?.(block.id)}
                     className="w-full flex items-center justify-center gap-2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-dashed border-gray-200"
                   >
                     <Plus className="h-4 w-4" />
@@ -4725,33 +4743,6 @@ function BlockEditor({
             )}
           </div>
 
-          {/* Add Block Modal */}
-          <Dialog open={showGroupAddModal} onOpenChange={setShowGroupAddModal}>
-            <DialogContent className="w-[calc(100%-32px)] max-w-[360px] p-0 gap-0 overflow-hidden rounded-2xl">
-              <DialogHeader className="p-4 border-b">
-                <DialogTitle className="text-base font-semibold">Add Block to Group</DialogTitle>
-              </DialogHeader>
-              <div className="p-4 grid grid-cols-2 gap-2">
-                {[
-                  { type: "link_button" as const, label: "Link", icon: Link },
-                  { type: "text" as const, label: "Text", icon: Type },
-                  { type: "image" as const, label: "Image", icon: ImageIcon },
-                  { type: "divider" as const, label: "Divider", icon: Minus },
-                  { type: "email_capture" as const, label: "Email Form", icon: Mail },
-                ].map((item) => (
-                  <button
-                    key={item.type}
-                    type="button"
-                    onClick={() => addBlockToGroup(item.type)}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-colors"
-                  >
-                    <item.icon className="h-5 w-5 text-gray-600" />
-                    <span className="text-xs font-medium">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </DialogContent>
-          </Dialog>
         </TabsContent>
 
         <TabsContent value="layout" className="mt-0 space-y-4">
