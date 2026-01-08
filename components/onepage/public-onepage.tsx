@@ -1684,13 +1684,13 @@ function GroupBlockRenderer({
   onTouchStart={handleTouchStart}
   onTouchMove={handleTouchMove}
 >
-  <div
-    className="flex"
-    style={{
-      gap: `${gap}px`,
-      padding: "10px 16px 8px 16px", // reduced bottom padding (padding alone won't solve clipping)
-    }}
-  >
+ <div
+  className="flex"
+  style={{ 
+    gap: `${gap}px`,
+    padding: '10px 16px 8px 16px',
+  }}
+>
     {enabledChildren.map((child) => (
       <div key={child.id} className="shrink-0 snap-start" style={itemStyle}>
         <div className="w-full">
