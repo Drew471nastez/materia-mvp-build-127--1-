@@ -1663,55 +1663,63 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container */}
-        <div
-          ref={scrollContainerRef}
-          className={cn(
-            "w-full scrollbar-hide snap-x snap-mandatory",
-            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
-          )}
-          style={{ 
-            scrollSnapType: 'x mandatory',
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            overflowX: 'auto',
-            overflowY: 'visible',
-          }}
-          onScroll={handleScroll}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-        >
+        {/* Scrollable Container Wrapper - clips X overflow while allowing Y to show */}
+        <div style={{ 
+          overflowX: 'clip',
+          overflowY: 'visible',
+          position: 'relative',
+        }}>
           <div
-            className="flex"
-            style={{
-              gap: `${gap}px`,
-              padding: '10px 16px 28px 16px',
+            ref={scrollContainerRef}
+            className={cn(
+              "w-full scrollbar-hide snap-x snap-mandatory",
+              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+            )}
+            style={{ 
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              overflowX: 'auto',
+              overflowY: 'visible',
+              paddingBottom: '8px',
+              marginBottom: '-8px',
             }}
+            onScroll={handleScroll}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
           >
-            {enabledChildren.map((child) => (
-              <div
-                key={child.id}
-                className="shrink-0 snap-start"
-                style={itemStyle}
-              >
-                <div className="w-full">
-                  <PublicBlockRenderer
-                    block={child}
-                    theme={theme}
-                    profile={profile}
-                    onepageId={onepageId}
-                    sellerId={sellerId}
-                    isDesktop={isDesktop}
-                    settings={settings}
-                    isInsideCarousel={true}
-                  />
+            <div
+              className="flex"
+              style={{
+                gap: `${gap}px`,
+                padding: '10px 16px 20px 16px',
+              }}
+            >
+              {enabledChildren.map((child) => (
+                <div
+                  key={child.id}
+                  className="shrink-0 snap-start"
+                  style={itemStyle}
+                >
+                  <div className="w-full group-carousel-item">
+                    <PublicBlockRenderer
+                      block={child}
+                      theme={theme}
+                      profile={profile}
+                      onepageId={onepageId}
+                      sellerId={sellerId}
+                      isDesktop={isDesktop}
+                      settings={settings}
+                      isInsideCarousel={true}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
@@ -2480,7 +2488,7 @@ function PublicBlockRenderer({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackClick(block.id, getTargetUrl())}
-                className="block w-full px-5 py-3.5 sm:py-4 text-center hover:opacity-80 transition-opacity"
+                className={cn("block w-full px-5 py-3.5 sm:py-4 text-center transition-opacity", !isInsideCarousel && "hover:opacity-80")}
                 style={{
                   backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
                 }}
@@ -2903,7 +2911,7 @@ function PublicBlockRenderer({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, data.link_url!)}
-            className="w-full block hover:opacity-90 transition-opacity"
+            className={cn("w-full block transition-opacity", !isInsideCarousel && "hover:opacity-90")}
           >
             {imageContent}
           </a>
@@ -2982,7 +2990,7 @@ function PublicBlockRenderer({
             <button
               type="submit"
               disabled={isSubmitting || emailSubmitted}
-              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={cn("px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed", !isInsideCarousel && "hover:opacity-90")}
               style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
             >
               {isSubmitting ? "..." : emailSubmitted ? "Subscribed!" : data.button_text || "Subscribe"}
