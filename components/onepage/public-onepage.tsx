@@ -1287,14 +1287,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
           {/* Phone-like card - wider than before (500px instead of 420px) */}
           <div
-            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-x-hidden overflow-y-auto scrollbar-hide relative"
+            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-hidden relative"
             style={{
               background: getBackgroundStyle(),
               boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
               backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
               animation: isAnimatedGradient ? "gradientShiftLive 12s ease-in-out infinite" : undefined,
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
             }}
           >
             {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -1639,7 +1637,6 @@ function GroupBlockRenderer({
         className="w-full relative"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
-        style={{ overflow: 'visible' }}
       >
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
@@ -1665,55 +1662,58 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container */}
-        <div
-          ref={scrollContainerRef}
-          className={cn(
-            "w-full scrollbar-hide snap-x snap-mandatory",
-            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
-          )}
-          style={{
-            scrollSnapType: 'x mandatory',
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            overflowX: 'auto',
-            overflowY: 'visible',
-          }}
-          onScroll={handleScroll}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-        >
+        {/* Scrollable Container with clip-path to allow bottom overflow */}
+        <div style={{ marginBottom: '8px' }}>
           <div
-            className="flex"
+            ref={scrollContainerRef}
+            className={cn(
+              "w-full scrollbar-hide snap-x snap-mandatory",
+              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+            )}
             style={{
-              gap: `${gap}px`,
-              padding: '10px 16px 32px 16px',
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              overflowX: 'auto',
+              paddingBottom: '8px',
+              marginBottom: '-8px',
             }}
+            onScroll={handleScroll}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
           >
-            {enabledChildren.map((child) => (
-              <div
-                key={child.id}
-                className="shrink-0 snap-start"
-                style={itemStyle}
-              >
-                <div className="w-full">
-                  <PublicBlockRenderer
-                    block={child}
-                    theme={theme}
-                    profile={profile}
-                    onepageId={onepageId}
-                    sellerId={sellerId}
-                    isDesktop={isDesktop}
-                    settings={settings}
-                    isInsideCarousel={true}
-                  />
+            <div
+              className="flex"
+              style={{
+                gap: `${gap}px`,
+                padding: '10px 16px 10px 16px',
+              }}
+            >
+              {enabledChildren.map((child) => (
+                <div
+                  key={child.id}
+                  className="shrink-0 snap-start"
+                  style={itemStyle}
+                >
+                  <div className="w-full pb-1">
+                    <PublicBlockRenderer
+                      block={child}
+                      theme={theme}
+                      profile={profile}
+                      onepageId={onepageId}
+                      sellerId={sellerId}
+                      isDesktop={isDesktop}
+                      settings={settings}
+                      isInsideCarousel={true}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
