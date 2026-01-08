@@ -1703,7 +1703,7 @@ function GroupBlockRenderer({
                   style={{
                     ...itemStyle,
                     position: 'relative',
-                    zIndex: 10,
+                    zIndex: 100,
                   }}
                 >
                   <div className="w-full">
