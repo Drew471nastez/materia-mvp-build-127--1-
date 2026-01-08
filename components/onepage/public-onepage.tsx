@@ -1287,12 +1287,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
           {/* Phone-like card - wider than before (500px instead of 420px) */}
           <div
-            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-hidden relative"
+            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-x-hidden overflow-y-auto scrollbar-hide relative"
             style={{
               background: getBackgroundStyle(),
               boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
               backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
               animation: isAnimatedGradient ? "gradientShiftLive 12s ease-in-out infinite" : undefined,
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
             }}
           >
             {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -1637,6 +1639,7 @@ function GroupBlockRenderer({
         className="w-full relative"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
+        style={{ overflow: 'visible' }}
       >
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
@@ -1675,6 +1678,7 @@ function GroupBlockRenderer({
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             overflowX: 'auto',
+            overflowY: 'visible',
           }}
           onScroll={handleScroll}
           onMouseDown={handleMouseDown}
@@ -1687,7 +1691,7 @@ function GroupBlockRenderer({
             className="flex"
             style={{
               gap: `${gap}px`,
-              padding: '10px 16px 10px 16px',
+              padding: '10px 16px 32px 16px',
             }}
           >
             {enabledChildren.map((child) => (
@@ -1739,7 +1743,7 @@ function GroupBlockRenderer({
 
         {/* Dots navigation - clickable, updates based on scroll position */}
         {enabledChildren.length > 1 && (
-          <div className="flex justify-center gap-2 mt-2 pt-1">
+          <div className="flex justify-center gap-2 mt-3">
             {enabledChildren.map((_, index) => (
               <button
                 key={index}
