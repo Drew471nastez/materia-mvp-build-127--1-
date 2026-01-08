@@ -1637,6 +1637,7 @@ function GroupBlockRenderer({
         className="w-full relative"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
+        style={{ overflow: 'visible' }}
       >
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
@@ -1653,7 +1654,7 @@ function GroupBlockRenderer({
               "bg-white/95 shadow-lg",
               "flex items-center justify-center",
               "transition-all duration-300 ease-out",
-              "hover:scale-105 hover:shadow-xl",
+              "hover:opacity-80",
               isHovering ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 pointer-events-none"
             )}
             style={{ color: theme.button_color }}
@@ -1662,7 +1663,7 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container - overflow-x-auto but overflow-y-visible for hover effects */}
+        {/* Scrollable Container */}
         <div
           ref={scrollContainerRef}
           className={cn(
@@ -1688,20 +1689,16 @@ function GroupBlockRenderer({
             className="flex"
             style={{ 
               gap: `${gap}px`,
-              padding: '10px 16px 18px 16px',
+              padding: '6px 16px 10px 16px',
             }}
           >
             {enabledChildren.map((child) => (
               <div
                 key={child.id}
-                className="shrink-0 snap-start relative carousel-public-item"
-                style={{
-                  ...itemStyle,
-                  zIndex: 1,
-                }}
+                className="shrink-0 snap-start"
+                style={itemStyle}
               >
-                {/* No overflow-hidden - allow hover shadow and scale to show */}
-                <div className="w-full relative">
+                <div className="w-full">
                   <PublicBlockRenderer
                     block={child}
                     theme={theme}
@@ -1728,7 +1725,7 @@ function GroupBlockRenderer({
               "bg-white/95 shadow-lg",
               "flex items-center justify-center",
               "transition-all duration-300 ease-out",
-              "hover:scale-105 hover:shadow-xl",
+              "hover:opacity-80",
               isHovering ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2 pointer-events-none"
             )}
             style={{ color: theme.button_color }}
@@ -1760,14 +1757,6 @@ function GroupBlockRenderer({
             ))}
           </div>
         )}
-
-        {/* CSS for hover z-index */}
-        <style>{`
-          .carousel-public-item:hover {
-            z-index: 10;
-            position: relative;
-          }
-        `}</style>
       </div>
     )
   }
@@ -1838,8 +1827,8 @@ function PublicBlockRenderer({
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
 
-  // Enable hover scale for all items including carousel (overflow is now visible)
-  const hoverScale = "hover:scale-[1.02] active:scale-[0.98]"
+  // Subtle opacity fade on hover instead of scale (no zoom animation)
+  const hoverEffect = "hover:opacity-90 transition-opacity"
 
   const trackClick = async (blockId: string, url: string) => {
     try {
@@ -2513,7 +2502,7 @@ function PublicBlockRenderer({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
-            className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all hover:opacity-90", hoverScale, getAnimationClass(data.animation_type))}
+            className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all hover:opacity-90", hoverEffect, getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
               padding: 0,
@@ -2629,7 +2618,7 @@ function PublicBlockRenderer({
               }}
               className={cn(
                 "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90 cursor-pointer text-left",
-                hoverScale,
+                hoverEffect,
                 hasThumbnail ? "justify-start" : "justify-center",
                 getDefaultAnimationClass(data.animation_type)
               )}
@@ -2793,7 +2782,7 @@ function PublicBlockRenderer({
           onClick={() => trackClick(block.id, data.url)}
           className={cn(
             "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90",
-            hoverScale,
+            hoverEffect,
             hasThumbnail ? "justify-start" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
           )}
