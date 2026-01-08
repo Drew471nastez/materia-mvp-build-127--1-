@@ -4878,15 +4878,20 @@ function BlockEditor({
                   </div>
                 </div>
                 {/* Render full BlockEditor for child with custom update function */}
+                {/* Note: onUrlChangeWithAutoFetch is NOT passed because it looks for blocks in main list, not group children */}
                 <BlockEditor
                   block={selectedChild}
                   socialLinks={socialLinks}
-                  onOpenImageLibrary={onOpenImageLibrary}
+                  onOpenImageLibrary={(blockId) => {
+                    // For image library, we need to handle the child block
+                    onOpenImageLibrary(blockId)
+                  }}
                   onOpenSocialModal={onOpenSocialModal}
-                  onOpenThumbnailModal={onOpenThumbnailModal}
+                  onOpenThumbnailModal={(blockId) => {
+                    onOpenThumbnailModal?.(blockId)
+                  }}
                   iconPaths={iconPaths}
                   filledIcons={filledIcons}
-                  onUrlChangeWithAutoFetch={onUrlChangeWithAutoFetch}
                   onOpenStreamingModal={onOpenStreamingModal}
                   updateBlockOverride={(childId, updates) => {
                     updateChildBlock(childId, updates)

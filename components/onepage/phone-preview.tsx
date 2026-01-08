@@ -2483,28 +2483,36 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
         const enabledChildren = data.children.filter(c => c.enabled)
 
         // Calculate carousel item width based on view setting
-        const getCarouselWidth = () => {
+        const getCarouselItemStyle = () => {
           const view = data.carousel_view || "1"
           switch (view) {
-            case "1.5": return "calc(66.67% - 4px)"
-            case "1.2": return "calc(83.33% - 4px)"
+            case "1.5": return { width: '67%', minWidth: '67%' }
+            case "1.2": return { width: '85%', minWidth: '85%' }
             case "1":
-            default: return "calc(100% - 8px)"
+            default: return { width: '100%', minWidth: '100%' }
           }
         }
 
         switch (data.layout) {
           case "carousel":
+            const itemStyle = getCarouselItemStyle()
             return (
               <div className="w-full relative">
                 {/* Fade on left edge */}
                 {data.carousel_fade_edges && (
-                  <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none rounded-l-xl" />
+                  <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-black/30 to-transparent z-10 pointer-events-none" />
                 )}
-                <div className="w-full overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-2 px-1 py-1" style={{ width: 'max-content' }}>
-                    {enabledChildren.map((child) => (
-                      <div key={child.id} className="shrink-0" style={{ width: getCarouselWidth() }}>
+                <div
+                  className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+                  style={{ scrollSnapType: 'x mandatory' }}
+                >
+                  <div className="flex gap-2" style={{ paddingLeft: '4px', paddingRight: '4px', paddingTop: '2px', paddingBottom: '2px' }}>
+                    {enabledChildren.map((child, index) => (
+                      <div
+                        key={child.id}
+                        className="shrink-0 snap-start py-0.5"
+                        style={itemStyle}
+                      >
                         <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
                       </div>
                     ))}
@@ -2512,16 +2520,30 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
                 </div>
                 {/* Fade on right edge */}
                 {data.carousel_fade_edges && (
-                  <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-black/20 to-transparent z-10 pointer-events-none rounded-r-xl" />
+                  <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-black/30 to-transparent z-10 pointer-events-none" />
+                )}
+                {/* Dots navigation */}
+                {enabledChildren.length > 1 && (
+                  <div className="flex justify-center gap-1.5 mt-2">
+                    {enabledChildren.map((_, index) => (
+                      <div
+                        key={index}
+                        className="w-1.5 h-1.5 rounded-full transition-colors"
+                        style={{
+                          backgroundColor: index === 0 ? theme.text_color : `${theme.text_color}40`
+                        }}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             )
           case "stack":
           default:
             return (
-              <div className="w-full space-y-2 overflow-hidden">
+              <div className="w-full flex flex-col gap-2 px-0.5">
                 {enabledChildren.map((child) => (
-                  <div key={child.id} className="w-full">
+                  <div key={child.id} className="w-full py-0.5">
                     <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
                   </div>
                 ))}
@@ -2531,7 +2553,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
       }
 
       return (
-        <div className="w-full space-y-2 overflow-hidden">
+        <div className="w-full flex flex-col gap-2">
           {data.title && (
             <h3 className="text-xs font-medium text-center opacity-70" style={{ color: theme.text_color }}>
               {data.title}
