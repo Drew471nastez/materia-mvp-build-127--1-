@@ -536,8 +536,8 @@ function ShareButton({
                     key={option.name} // Added key prop using option.name
                     onClick={option.action}
                     className={cn(
-                      "flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all duration-200",
-                      "hover:bg-gray-50 hover:scale-105 active:scale-95",
+                      "flex flex-col items-center gap-1.5 p-2 rounded-xl transition-opacity duration-200",
+                      "opacity-100 hover:opacity-70",
                     )}
                     style={{ animationDelay: `${index * 50}ms` }} // Removed index, replaced with option.name or similar for unique delay if needed
                   >
