@@ -1663,35 +1663,36 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container */}
-        <div
-          ref={scrollContainerRef}
-          className={cn(
-            "w-full scrollbar-hide snap-x snap-mandatory",
-            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
-          )}
-          style={{ 
-            scrollSnapType: 'x mandatory',
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            overflowX: 'auto',
-            overflowY: 'visible',
-          }}
-          onScroll={handleScroll}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-        >
+        {/* Scrollable Container Wrapper - allows vertical overflow to show */}
+        <div style={{ overflow: 'visible', position: 'relative' }}>
           <div
-            className="flex"
+            ref={scrollContainerRef}
+            className={cn(
+              "w-full scrollbar-hide snap-x snap-mandatory",
+              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+            )}
             style={{ 
-              gap: `${gap}px`,
-              padding: '6px 16px 10px 16px',
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              overflowX: 'auto',
+              overflowY: 'hidden',
             }}
+            onScroll={handleScroll}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
           >
+            <div
+              className="flex"
+              style={{ 
+                gap: `${gap}px`,
+                padding: '6px 16px 16px 16px',
+              }}
+            >
             {enabledChildren.map((child) => (
               <div
                 key={child.id}
@@ -1712,6 +1713,7 @@ function GroupBlockRenderer({
                 </div>
               </div>
             ))}
+          </div>
           </div>
         </div>
 
