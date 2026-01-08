@@ -1663,7 +1663,7 @@ function GroupBlockRenderer({
           </button>
         )}
 
-   {/* Scrollable Container */}
+{/* Scrollable Container */}
 <div
   ref={scrollContainerRef}
   className={cn(
@@ -1725,7 +1725,6 @@ function GroupBlockRenderer({
   </div>
 </div>
 
-))}
 
 {/* Spacer to prevent bottom clipping of carousel items */}
 <div className="shrink-0" style={{ width: 1, height: 14 }} />
