@@ -1670,12 +1670,13 @@ function GroupBlockRenderer({
             "w-full scrollbar-hide snap-x snap-mandatory",
             isDragging ? "cursor-grabbing select-none" : "cursor-grab"
           )}
-          style={{ 
+          style={{
             scrollSnapType: 'x mandatory',
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
-            overflow: 'auto hidden',
+            overflowX: 'auto',
+            overflowY: 'visible',
           }}
           onScroll={handleScroll}
           onMouseDown={handleMouseDown}
@@ -1685,10 +1686,10 @@ function GroupBlockRenderer({
           onTouchMove={handleTouchMove}
         >
           <div
-            className="flex pb-4"
+            className="flex"
             style={{
               gap: `${gap}px`,
-              padding: '10px 16px 18px 16px',
+              padding: '10px 16px 32px 16px',
             }}
           >
             {enabledChildren.map((child) => (
