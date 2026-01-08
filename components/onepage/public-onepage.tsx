@@ -1634,7 +1634,7 @@ function GroupBlockRenderer({
 
     return (
       <div
-        className="w-full relative overflow-hidden"
+        className="w-full relative"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
       >
@@ -1648,7 +1648,7 @@ function GroupBlockRenderer({
           <button
             onClick={goToPrev}
             className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 z-20",
+              "absolute left-2 top-1/2 -translate-y-1/2 z-30",
               "w-10 h-10 rounded-full",
               "bg-white/95 shadow-lg",
               "flex items-center justify-center",
@@ -1662,11 +1662,11 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container */}
+        {/* Scrollable Container - NO overflow-hidden on Y axis to allow shadows */}
         <div
           ref={scrollContainerRef}
           className={cn(
-            "w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory",
+            "w-full overflow-x-auto overflow-y-visible scrollbar-hide snap-x snap-mandatory",
             isDragging ? "cursor-grabbing select-none" : "cursor-grab"
           )}
           style={{ 
@@ -1686,17 +1686,18 @@ function GroupBlockRenderer({
             className="flex"
             style={{ 
               gap: `${gap}px`,
-              padding: '6px 16px 14px 16px',
+              // Extra padding on all sides to allow shadows to show
+              padding: '8px 16px 16px 16px',
             }}
           >
             {enabledChildren.map((child) => (
               <div
                 key={child.id}
-                className="shrink-0 snap-start"
+                className="shrink-0 snap-start relative z-10"
                 style={itemStyle}
               >
-                {/* overflow-hidden on wrapper to contain hover scale effects */}
-                <div className="w-full overflow-hidden">
+                {/* Each card wrapper - NO overflow-hidden to allow shadows */}
+                <div className="w-full relative">
                   <PublicBlockRenderer
                     block={child}
                     theme={theme}
@@ -1718,7 +1719,7 @@ function GroupBlockRenderer({
           <button
             onClick={goToNext}
             className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 z-20",
+              "absolute right-2 top-1/2 -translate-y-1/2 z-30",
               "w-10 h-10 rounded-full",
               "bg-white/95 shadow-lg",
               "flex items-center justify-center",
@@ -1739,7 +1740,7 @@ function GroupBlockRenderer({
 
         {/* Dots navigation - clickable, updates based on scroll position */}
         {enabledChildren.length > 1 && (
-          <div className="flex justify-center gap-2 mt-3 pt-1">
+          <div className="flex justify-center gap-2 mt-2">
             {enabledChildren.map((_, index) => (
               <button
                 key={index}
