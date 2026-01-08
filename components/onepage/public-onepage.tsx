@@ -1666,7 +1666,7 @@ function GroupBlockRenderer({
         {/* Scrollable Container Wrapper */}
         <div style={{ 
           position: 'relative',
-          marginBottom: '8px',
+          zIndex: 1,
         }}>
           <div
             ref={scrollContainerRef}
@@ -1681,8 +1681,6 @@ function GroupBlockRenderer({
               msOverflowStyle: 'none',
               overflowX: 'auto',
               overflowY: 'visible',
-              paddingBottom: '20px',
-              marginBottom: '-20px',
             }}
             onScroll={handleScroll}
             onMouseDown={handleMouseDown}
@@ -1695,14 +1693,18 @@ function GroupBlockRenderer({
               className="flex"
               style={{
                 gap: `${gap}px`,
-                 padding: '4px 10px 12px 10px',
+                padding: '10px 16px 16px 16px',
               }}
             >
-              {enabledChildren.map((child) => (
+              {enabledChildren.map((child, index) => (
                 <div
                   key={child.id}
                   className="shrink-0 snap-start"
-                  style={itemStyle}
+                  style={{
+                    ...itemStyle,
+                    position: 'relative',
+                    zIndex: 10,
+                  }}
                 >
                   <div className="w-full">
                     <PublicBlockRenderer
