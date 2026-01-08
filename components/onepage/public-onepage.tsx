@@ -1663,11 +1663,11 @@ function GroupBlockRenderer({
           </button>
         )}
 
-     {/* Scrollable Container */}
+   {/* Scrollable Container */}
 <div
   ref={scrollContainerRef}
   className={cn(
-    "w-full scrollbar-hide snap-x snap-mandatory",
+    "w-full scrollbar-hide snap-x snap-mandatory touch-pan-x",
     isDragging ? "cursor-grabbing select-none" : "cursor-grab"
   )}
   style={{
@@ -1675,12 +1675,16 @@ function GroupBlockRenderer({
     WebkitOverflowScrolling: "touch",
     scrollbarWidth: "none",
     msOverflowStyle: "none",
-    overflow: "auto hidden", // x scroll, y hidden (prevents weird vertical clipping behavior)
+
+    // ✅ IMPORTANT: allow vertical overflow so cards don't get clipped
+    overflowX: "auto",
+    overflowY: "visible",
   }}
   onScroll={handleScroll}
   onMouseDown={handleMouseDown}
   onMouseMove={handleMouseMove}
   onMouseUp={handleMouseUp}
+  onMouseLeave={handleMouseUp}
   onTouchStart={handleTouchStart}
   onTouchMove={handleTouchMove}
 >
@@ -1688,28 +1692,39 @@ function GroupBlockRenderer({
     className="flex"
     style={{
       gap: `${gap}px`,
-      padding: "10px 16px 8px 16px", // reduced bottom padding (padding alone won't solve clipping)
+
+      // ✅ give extra bottom room so nothing is cut
+      padding: "10px 16px 26px 16px",
     }}
   >
     {enabledChildren.map((child) => (
-  <div
-    key={child.id}
-    className="shrink-0 snap-start"
-    style={itemStyle}
-  >
-    <div className="w-full">
-      <PublicBlockRenderer
-        block={child}
-        theme={theme}
-        profile={profile}
-        onepageId={onepageId}
-        sellerId={sellerId}
-        isDesktop={isDesktop}
-        settings={settings}
-        isInsideCarousel={true}
-      />
-    </div>
+      <div
+        key={child.id}
+        className="shrink-0 snap-start"
+        style={{
+          ...itemStyle,
+
+          // ✅ tiny extra safety room per item
+          paddingBottom: 6,
+        }}
+      >
+        <div className="w-full">
+          <PublicBlockRenderer
+            block={child}
+            theme={theme}
+            profile={profile}
+            onepageId={onepageId}
+            sellerId={sellerId}
+            isDesktop={isDesktop}
+            settings={settings}
+            isInsideCarousel={true}
+          />
+        </div>
+      </div>
+    ))}
   </div>
+</div>
+
 ))}
 
 {/* Spacer to prevent bottom clipping of carousel items */}
