@@ -1515,17 +1515,17 @@ function GroupBlockPreview({
     }
 
     return (
-      <div className="w-full relative overflow-hidden">
+      <div className="w-full relative">
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
           <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
         )}
 
-        {/* Scrollable Container */}
+        {/* Scrollable Container - overflow-y-visible to allow shadows to show */}
         <div
           ref={scrollContainerRef}
           className={cn(
-            "w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory touch-pan-x",
+            "w-full overflow-x-auto overflow-y-visible scrollbar-hide snap-x snap-mandatory touch-pan-x",
             isDragging ? "cursor-grabbing select-none" : "cursor-grab"
           )}
           style={{ 
@@ -1546,31 +1546,19 @@ function GroupBlockPreview({
             className="flex"
             style={{ 
               gap: `${gap}px`,
-              padding: '4px 10px 12px 10px',
+              // Extra padding to allow shadows to show on all sides
+              padding: '6px 10px 14px 10px',
             }}
           >
             {enabledChildren.map((child) => (
               <div
                 key={child.id}
-                className="shrink-0 snap-start"
+                className="shrink-0 snap-start relative z-10"
                 style={itemStyle}
               >
-                {/* overflow-hidden on item wrapper to contain hover effects */}
-                <div 
-                  className="w-full overflow-hidden"
-                  style={{
-                    // Disable hover scale to prevent overflow issues
-                    // The child buttons will scale but be clipped
-                  }}
-                >
-                  <div
-                    className="w-full"
-                    style={{
-                      // Force text truncation on titles
-                    }}
-                  >
-                    <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
-                  </div>
+                {/* NO overflow-hidden - allows shadows to show */}
+                <div className="w-full relative">
+                  <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
                 </div>
               </div>
             ))}
@@ -1584,7 +1572,7 @@ function GroupBlockPreview({
 
         {/* Dots navigation - updates based on scroll position */}
         {enabledChildren.length > 1 && (
-          <div className="flex justify-center gap-1.5 mt-2 pt-1">
+          <div className="flex justify-center gap-1.5 mt-2">
             {enabledChildren.map((_, index) => (
               <button
                 key={index}
