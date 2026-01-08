@@ -1366,6 +1366,7 @@ interface BlockRendererProps {
   }
   scale?: "small" | "normal"
   settings?: any
+  isInsideCarousel?: boolean
 }
 
 // Verified Badge Component with tooltip
@@ -1521,11 +1522,11 @@ function GroupBlockPreview({
           <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
         )}
 
-        {/* Scrollable Container - overflow-y-visible to allow shadows to show */}
+        {/* Scrollable Container - overflow-x-auto but overflow-y-visible for hover effects */}
         <div
           ref={scrollContainerRef}
           className={cn(
-            "w-full overflow-x-auto overflow-y-visible scrollbar-hide snap-x snap-mandatory touch-pan-x",
+            "w-full scrollbar-hide snap-x snap-mandatory touch-pan-x",
             isDragging ? "cursor-grabbing select-none" : "cursor-grab"
           )}
           style={{ 
@@ -1533,6 +1534,8 @@ function GroupBlockPreview({
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
+            overflowX: 'auto',
+            overflowY: 'visible',
           }}
           onScroll={handleScroll}
           onTouchStart={handleTouchStart}
@@ -1546,19 +1549,26 @@ function GroupBlockPreview({
             className="flex"
             style={{ 
               gap: `${gap}px`,
-              // Extra padding to allow shadows to show on all sides
-              padding: '6px 10px 14px 10px',
+              padding: '8px 10px 16px 10px',
             }}
           >
             {enabledChildren.map((child) => (
               <div
                 key={child.id}
-                className="shrink-0 snap-start relative z-10"
-                style={itemStyle}
+                className="shrink-0 snap-start relative"
+                style={{
+                  ...itemStyle,
+                  zIndex: 1,
+                }}
               >
-                {/* NO overflow-hidden - allows shadows to show */}
-                <div className="w-full relative">
-                  <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
+                {/* No overflow-hidden - allow hover effects to show */}
+                <div 
+                  className="w-full relative carousel-item-wrapper"
+                  style={{
+                    // Higher z-index on hover handled by CSS
+                  }}
+                >
+                  <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} isInsideCarousel={true} />
                 </div>
               </div>
             ))}
@@ -1572,7 +1582,7 @@ function GroupBlockPreview({
 
         {/* Dots navigation - updates based on scroll position */}
         {enabledChildren.length > 1 && (
-          <div className="flex justify-center gap-1.5 mt-2">
+          <div className="flex justify-center gap-1.5 mt-1 pt-1">
             {enabledChildren.map((_, index) => (
               <button
                 key={index}
@@ -1588,6 +1598,14 @@ function GroupBlockPreview({
             ))}
           </div>
         )}
+
+        {/* CSS for hover z-index */}
+        <style>{`
+          .carousel-item-wrapper:hover {
+            z-index: 10;
+            position: relative;
+          }
+        `}</style>
       </div>
     )
   }
@@ -1623,7 +1641,7 @@ function GroupBlockPreview({
   )
 }
 
-function BlockRenderer({ block, theme, profile, scale = "small", settings }: BlockRendererProps) {
+function BlockRenderer({ block, theme, profile, scale = "small", settings, isInsideCarousel = false }: BlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
   const [spotifyModalData, setSpotifyModalData] = useState<{
@@ -2274,12 +2292,12 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
             )}
             {/* Title area */}
             <div
-              className="w-full px-4 py-3 flex flex-col items-center justify-center"
+              className="w-full px-4 py-3 flex flex-col items-center justify-center overflow-hidden"
               style={{
                 backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
               }}
             >
-              <span className="truncate font-medium" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+              <span className="truncate font-medium max-w-full block" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
                 {data.label || "My Link"}
               </span>
               {/* Spotify metadata display for Pro Layout */}
