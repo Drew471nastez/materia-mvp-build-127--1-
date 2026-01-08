@@ -1547,9 +1547,9 @@ function GroupBlockPreview({
         >
           <div
             className="flex"
-            style={{ 
+            style={{
               gap: `${gap}px`,
-              padding: '4px 10px 8px 10px',
+              padding: '4px 10px 12px 10px',
             }}
           >
             {enabledChildren.map((child) => (
