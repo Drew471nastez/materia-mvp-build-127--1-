@@ -18,7 +18,7 @@ import type {
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight } from "lucide-react"
 
 // Notification Bell Component with Subscribe Form
@@ -1513,10 +1513,13 @@ function GroupBlockRenderer({
   const [isHovering, setIsHovering] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
-  const [scrollLeft, setScrollLeft] = useState(0)
+  const [scrollStart, setScrollStart] = useState(0)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const enabledChildren = data.children.filter(c => c.enabled)
+  const gap = isDesktop ? 16 : 12 // gap-3 = 12px, sm:gap-4 = 16px
 
   // Calculate carousel item width based on view setting
   const getCarouselItemWidth = () => {
@@ -1531,17 +1534,28 @@ function GroupBlockRenderer({
 
   const itemWidthPercent = getCarouselItemWidth()
 
-  // Handle scroll to update current index
-  const handleScroll = () => {
+  // Handle scroll to update current index - use requestAnimationFrame for smooth updates
+  const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return
-    const container = scrollContainerRef.current
-    const scrollPosition = container.scrollLeft
-    const containerWidth = container.clientWidth
-    const itemWidth = (containerWidth * itemWidthPercent) / 100
-    const gap = isDesktop ? 16 : 12 // gap-3 = 12px, sm:gap-4 = 16px
-    const newIndex = Math.round(scrollPosition / (itemWidth + gap))
-    setCurrentIndex(Math.min(newIndex, enabledChildren.length - 1))
-  }
+    requestAnimationFrame(() => {
+      if (!scrollContainerRef.current) return
+      const container = scrollContainerRef.current
+      const scrollPosition = container.scrollLeft
+      const containerWidth = container.clientWidth
+      const scrollWidth = container.scrollWidth
+      const itemWidth = (containerWidth * itemWidthPercent) / 100
+      const newIndex = Math.round(scrollPosition / (itemWidth + gap))
+      
+      setCurrentIndex(Math.min(Math.max(0, newIndex), enabledChildren.length - 1))
+      setCanScrollLeft(scrollPosition > 5)
+      setCanScrollRight(scrollPosition < scrollWidth - containerWidth - 5)
+    })
+  }, [itemWidthPercent, gap, enabledChildren.length])
+
+  // Initial scroll state check
+  useEffect(() => {
+    handleScroll()
+  }, [handleScroll])
 
   // Scroll to specific index
   const scrollToIndex = (index: number) => {
@@ -1549,19 +1563,22 @@ function GroupBlockRenderer({
     const container = scrollContainerRef.current
     const containerWidth = container.clientWidth
     const itemWidth = (containerWidth * itemWidthPercent) / 100
-    const gap = isDesktop ? 16 : 12
     const targetScroll = index * (itemWidth + gap)
     container.scrollTo({ left: targetScroll, behavior: 'smooth' })
   }
 
   // Navigate to previous slide
-  const goToPrev = () => {
+  const goToPrev = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
     const newIndex = Math.max(0, currentIndex - 1)
     scrollToIndex(newIndex)
   }
 
   // Navigate to next slide
-  const goToNext = () => {
+  const goToNext = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
     const newIndex = Math.min(enabledChildren.length - 1, currentIndex + 1)
     scrollToIndex(newIndex)
   }
@@ -1570,52 +1587,73 @@ function GroupBlockRenderer({
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollContainerRef.current) return
     setIsDragging(true)
-    setStartX(e.pageX - scrollContainerRef.current.offsetLeft)
-    setScrollLeft(scrollContainerRef.current.scrollLeft)
+    setStartX(e.pageX)
+    setScrollStart(scrollContainerRef.current.scrollLeft)
+    scrollContainerRef.current.style.scrollBehavior = 'auto'
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !scrollContainerRef.current) return
     e.preventDefault()
-    const x = e.pageX - scrollContainerRef.current.offsetLeft
-    const walk = (x - startX) * 1.5 // Scroll speed multiplier
-    scrollContainerRef.current.scrollLeft = scrollLeft - walk
+    const diff = e.pageX - startX
+    scrollContainerRef.current.scrollLeft = scrollStart - diff
   }
 
   const handleMouseUp = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.style.scrollBehavior = 'smooth'
+    }
     setIsDragging(false)
   }
 
   const handleMouseLeave = () => {
-    setIsDragging(false)
+    handleMouseUp()
     setIsHovering(false)
+  }
+
+  // Touch handlers for mobile swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!scrollContainerRef.current) return
+    setStartX(e.touches[0].pageX)
+    setScrollStart(scrollContainerRef.current.scrollLeft)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!scrollContainerRef.current) return
+    const diff = e.touches[0].pageX - startX
+    scrollContainerRef.current.scrollLeft = scrollStart - diff
   }
 
   // Render carousel layout
   const renderCarousel = () => {
     const itemStyle = {
-      width: `${itemWidthPercent}%`,
-      minWidth: `${itemWidthPercent}%`,
+      width: `calc(${itemWidthPercent}% - ${gap}px)`,
+      minWidth: `calc(${itemWidthPercent}% - ${gap}px)`,
     }
 
     return (
       <div
-        className="w-full relative group/carousel"
+        className="w-full relative"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
       >
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
-          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/30 to-transparent z-10 pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-8 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
         )}
 
-        {/* Left Arrow Navigation - Desktop only */}
-        {isDesktop && enabledChildren.length > 1 && currentIndex > 0 && (
+        {/* Left Arrow Navigation - Desktop only, smooth fade in */}
+        {isDesktop && canScrollLeft && (
           <button
             onClick={goToPrev}
             className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-all duration-300",
-              isHovering ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+              "absolute left-2 top-1/2 -translate-y-1/2 z-20",
+              "w-10 h-10 rounded-full",
+              "bg-white/95 shadow-lg",
+              "flex items-center justify-center",
+              "transition-all duration-300 ease-out",
+              "hover:scale-105 hover:shadow-xl",
+              isHovering ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 pointer-events-none"
             )}
             style={{ color: theme.button_color }}
           >
@@ -1623,30 +1661,44 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container */}
+        {/* Scrollable Container - CRITICAL: overflow-y-visible to prevent border clipping */}
         <div
           ref={scrollContainerRef}
           className={cn(
-            "w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory",
-            isDragging ? "cursor-grabbing" : "cursor-grab"
+            "w-full overflow-x-auto overflow-y-visible scrollbar-hide snap-x snap-mandatory",
+            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
           )}
-          style={{ scrollSnapType: 'x mandatory' }}
+          style={{ 
+            scrollSnapType: 'x mandatory',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
           onScroll={handleScroll}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
         >
           <div
-            className="flex gap-3 sm:gap-4"
-            style={{ padding: '8px 12px' }}
+            className="flex"
+            style={{ 
+              gap: `${gap}px`,
+              // CRITICAL: Padding to prevent borders from being clipped at edges
+              // Top/bottom padding allows hover effects and rounded corners to show
+              padding: '6px 16px 10px 16px',
+              margin: '-6px 0 -6px 0',
+            }}
           >
-            {enabledChildren.map((child, index) => (
+            {enabledChildren.map((child) => (
               <div
                 key={child.id}
                 className="shrink-0 snap-start"
                 style={itemStyle}
               >
-                <div className="w-full overflow-hidden [&_button]:hover:scale-100 [&_a]:hover:scale-100 [&_.truncate]:block [&_.truncate]:w-full">
+                {/* NO overflow-hidden here - allows rounded borders to show fully */}
+                <div className="w-full [&_.block-title]:overflow-hidden [&_.block-title]:text-ellipsis [&_.block-title]:whitespace-nowrap">
                   <PublicBlockRenderer
                     block={child}
                     theme={theme}
@@ -1662,13 +1714,18 @@ function GroupBlockRenderer({
           </div>
         </div>
 
-        {/* Right Arrow Navigation - Desktop only */}
-        {isDesktop && enabledChildren.length > 1 && currentIndex < enabledChildren.length - 1 && (
+        {/* Right Arrow Navigation - Desktop only, smooth fade in */}
+        {isDesktop && canScrollRight && (
           <button
             onClick={goToNext}
             className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-all duration-300",
-              isHovering ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+              "absolute right-2 top-1/2 -translate-y-1/2 z-20",
+              "w-10 h-10 rounded-full",
+              "bg-white/95 shadow-lg",
+              "flex items-center justify-center",
+              "transition-all duration-300 ease-out",
+              "hover:scale-105 hover:shadow-xl",
+              isHovering ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2 pointer-events-none"
             )}
             style={{ color: theme.button_color }}
           >
@@ -1678,20 +1735,22 @@ function GroupBlockRenderer({
 
         {/* Fade on right edge */}
         {data.carousel_fade_edges && (
-          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/30 to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-8 bg-gradient-to-l from-black/20 to-transparent z-10 pointer-events-none" />
         )}
 
-        {/* Dots navigation - updates based on scroll position */}
+        {/* Dots navigation - clickable, updates based on scroll position */}
         {enabledChildren.length > 1 && (
-          <div className="flex justify-center gap-2 mt-3">
+          <div className="flex justify-center gap-2 mt-3 pt-1">
             {enabledChildren.map((_, index) => (
               <button
                 key={index}
                 onClick={() => scrollToIndex(index)}
-                className="w-2 h-2 rounded-full transition-all duration-300"
+                className={cn(
+                  "h-2 rounded-full transition-all duration-300",
+                  index === currentIndex ? "w-5" : "w-2"
+                )}
                 style={{
                   backgroundColor: index === currentIndex ? theme.text_color : `${theme.text_color}40`,
-                  transform: index === currentIndex ? 'scale(1.2)' : 'scale(1)'
                 }}
               />
             ))}
@@ -1723,7 +1782,15 @@ function GroupBlockRenderer({
   return (
     <div className="w-full flex flex-col gap-3">
       {data.title && (
-        <h3 className="text-sm font-medium text-center opacity-70 truncate px-4" style={{ color: theme.text_color }}>
+        <h3 
+          className="text-sm font-medium text-center opacity-70 px-4" 
+          style={{ 
+            color: theme.text_color,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {data.title}
         </h3>
       )}
