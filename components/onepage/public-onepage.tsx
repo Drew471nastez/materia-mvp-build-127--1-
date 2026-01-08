@@ -1663,36 +1663,35 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container Wrapper - allows vertical overflow to show */}
-        <div style={{ overflow: 'visible', position: 'relative' }}>
+        {/* Scrollable Container */}
+        <div
+          ref={scrollContainerRef}
+          className={cn(
+            "w-full scrollbar-hide snap-x snap-mandatory",
+            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+          )}
+          style={{ 
+            scrollSnapType: 'x mandatory',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            overflowX: 'auto',
+            overflowY: 'visible',
+          }}
+          onScroll={handleScroll}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+        >
           <div
-            ref={scrollContainerRef}
-            className={cn(
-              "w-full scrollbar-hide snap-x snap-mandatory",
-              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
-            )}
+            className="flex"
             style={{ 
-              scrollSnapType: 'x mandatory',
-              WebkitOverflowScrolling: 'touch',
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-              overflowX: 'auto',
-              overflowY: 'hidden',
+              gap: `${gap}px`,
+              padding: '8px 16px 20px 16px',
             }}
-            onScroll={handleScroll}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
           >
-            <div
-              className="flex"
-              style={{ 
-                gap: `${gap}px`,
-                padding: '6px 16px 16px 16px',
-              }}
-            >
             {enabledChildren.map((child) => (
               <div
                 key={child.id}
@@ -1713,7 +1712,6 @@ function GroupBlockRenderer({
                 </div>
               </div>
             ))}
-          </div>
           </div>
         </div>
 
@@ -1829,8 +1827,8 @@ function PublicBlockRenderer({
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
 
-  // Subtle opacity fade on hover instead of scale (no zoom animation)
-  const hoverEffect = "hover:opacity-90 transition-opacity"
+  // Subtle opacity fade on hover - disabled inside carousel (no hover animation in carousel)
+  const hoverEffect = isInsideCarousel ? "" : "hover:opacity-90 transition-opacity"
 
   const trackClick = async (blockId: string, url: string) => {
     try {
@@ -2504,7 +2502,7 @@ function PublicBlockRenderer({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
-            className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all hover:opacity-90", hoverEffect, getAnimationClass(data.animation_type))}
+            className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all", hoverEffect, getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
               padding: 0,
@@ -2619,7 +2617,7 @@ function PublicBlockRenderer({
                 openSpotifyModal(data)
               }}
               className={cn(
-                "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90 cursor-pointer text-left",
+                "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all cursor-pointer text-left",
                 hoverEffect,
                 hasThumbnail ? "justify-start" : "justify-center",
                 getDefaultAnimationClass(data.animation_type)
@@ -2783,7 +2781,7 @@ function PublicBlockRenderer({
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
           className={cn(
-            "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90",
+            "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all",
             hoverEffect,
             hasThumbnail ? "justify-start" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
