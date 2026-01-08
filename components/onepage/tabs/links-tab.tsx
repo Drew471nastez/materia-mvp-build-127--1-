@@ -16,6 +16,8 @@ import type {
   YouTubeMode,
   SpotifyMode,
   StreamingService,
+  GroupBlockData,
+  GroupLayoutType,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -79,6 +81,7 @@ import {
   AlertCircle,
   BarChart2,
   Play,
+  Layers,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -405,6 +408,11 @@ function getBlockPreviewData(block: OnePageBlock) {
     }
     case "social_row":
       return { title: "Social Icons", subtitle: "Social links", icon: Share2 }
+    case "group": {
+      const data = block.data as GroupBlockData
+      const childCount = data.children?.length || 0
+      return { title: data.title || "Group", subtitle: `${childCount} item${childCount !== 1 ? 's' : ''} · ${data.layout}`, icon: Layers }
+    }
     default:
       return { title: block.type, subtitle: "", icon: Link }
   }
@@ -1079,6 +1087,27 @@ export function LinksTab() {
       const draggedIndex = sortedBlocks.findIndex(b => b.id === draggedBlockId)
       const targetIndex = sortedBlocks.findIndex(b => b.id === targetBlockId)
 
+      // If dropping onto a group block, add the dragged block to the group's children
+      if (targetBlock?.type === "group" && draggedBlock && draggedBlock.type !== "group" && draggedBlock.type !== "header") {
+        const groupData = targetBlock.data as GroupBlockData
+        const existingChildren = groupData.children || []
+
+        // Don't add if already in group
+        if (existingChildren.some(c => c.id === draggedBlockId)) {
+          setDraggedBlockId(null)
+          setDragOverBlockId(null)
+          return
+        }
+
+        // Add to group children and remove from main list
+        const newChildren = [...existingChildren, { ...draggedBlock, sort_order: existingChildren.length }]
+        updateBlock(targetBlockId, { data: { ...groupData, children: newChildren } })
+        removeBlock(draggedBlockId)
+        setDraggedBlockId(null)
+        setDragOverBlockId(null)
+        return
+      }
+
       // Prevent social_row from being moved above header when Hero layout is active
       const headerLayout = (onepage.theme as any)?.header_layout || "classic"
       if (headerLayout === "hero" && draggedBlock?.type === "social_row") {
@@ -1247,8 +1276,16 @@ export function LinksTab() {
 
       {/* Quick Actions */}
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="text-xs h-8">
-          Add collection
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs h-8"
+          onClick={() => {
+            addBlock("group", undefined)
+          }}
+        >
+          <Layers className="h-3 w-3 mr-1" />
+          Add Group
         </Button>
         <Button
           variant={showArchiveView ? "default" : "outline"}
@@ -2967,10 +3004,10 @@ function BlockItem({
     }
   }, [statsTimeframe, customStartDate, customEndDate, showStatsModal])
 
-  // Fetch click count on mount for link buttons
+  // Fetch click count on mount for link buttons and email capture
   useEffect(() => {
     const fetchClickCount = async () => {
-      if (!onepage?.id || block.type !== "link_button") return
+      if (!onepage?.id || (block.type !== "link_button" && block.type !== "email_capture" && block.type !== "group")) return
       try {
         const response = await fetch(`/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=365`)
         if (response.ok) {
@@ -3008,6 +3045,11 @@ function BlockItem({
       }
       case "social_row":
         return { title: "Social Icons", subtitle: "Social links", icon: Share2 }
+      case "group": {
+        const data = block.data as GroupBlockData
+        const childCount = data.children?.length || 0
+        return { title: data.title || "Group", subtitle: `${childCount} item${childCount !== 1 ? 's' : ''} · ${data.layout}`, icon: Layers }
+      }
       default:
         return { title: block.type, subtitle: "", icon: Link }
     }
@@ -3018,6 +3060,9 @@ function BlockItem({
 
   const isHeaderBlock = block.type === "header"
   const isLinkButton = block.type === "link_button"
+  const isEmailCapture = block.type === "email_capture"
+  const isGroup = block.type === "group"
+  const hasStats = isLinkButton || isEmailCapture || isGroup
   const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
   return (
@@ -3187,8 +3232,8 @@ function BlockItem({
           </div>
         )}
 
-        {/* Stats control for link buttons */}
-        {isLinkButton && (
+        {/* Stats control for link buttons and email capture */}
+        {hasStats && (
           <>
             <button
               type="button"
@@ -3210,7 +3255,7 @@ function BlockItem({
             <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
               <DialogContent className="w-[calc(100%-32px)] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
                 <DialogHeader className="p-4 border-b">
-                  <DialogTitle className="text-base font-semibold">Link Stats</DialogTitle>
+                  <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : "Link Stats"}</DialogTitle>
                 </DialogHeader>
 
                 <div className="p-4">
@@ -3272,7 +3317,7 @@ function BlockItem({
                         </div>
                         <div className="p-3 bg-violet-50 rounded-xl">
                           <div className="text-2xl font-bold text-violet-900">{statsData.total_clicks || 0}</div>
-                          <div className="text-xs text-violet-600 font-medium">Clicks</div>
+                          <div className="text-xs text-violet-600 font-medium">{isGroup ? "Interactions" : isEmailCapture ? "Submissions" : "Clicks"}</div>
                         </div>
                       </div>
 
@@ -3305,7 +3350,7 @@ function BlockItem({
                                   <div className="font-medium">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                                   <div className="flex gap-3 mt-0.5">
                                     <span className="text-blue-300">{day.views || 0} views</span>
-                                    <span className="text-violet-300">{day.clicks} clicks</span>
+                                    <span className="text-violet-300">{day.clicks} {isGroup ? "interactions" : isEmailCapture ? "submissions" : "clicks"}</span>
                                   </div>
                                 </div>
                               </div>
@@ -4327,6 +4372,90 @@ function BlockEditor({
               <Label className="text-xs">Link URL (optional)</Label>
               <Input value={data.link_url || ""} onChange={(e) => updateData({ link_url: e.target.value || null })} className="h-9" />
             </div>
+          </div>
+        )
+      }
+
+      case "group": {
+        const data = block.data as GroupBlockData
+        return (
+          <div className="space-y-4">
+            {/* Group Title */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Group Title (optional)</Label>
+              <Input
+                value={data.title || ""}
+                onChange={(e) => updateData({ title: e.target.value || null })}
+                placeholder="Enter group title..."
+                className="h-9"
+              />
+            </div>
+
+            {/* Layout Selection */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Layout</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { id: "stack", label: "Stack", icon: "↓" },
+                  { id: "grid", label: "Grid", icon: "⊞" },
+                  { id: "carousel", label: "Carousel", icon: "↔" },
+                ] as const).map((layout) => (
+                  <button
+                    key={layout.id}
+                    type="button"
+                    onClick={() => updateData({ layout: layout.id })}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all",
+                      data.layout === layout.id
+                        ? "border-violet-500 bg-violet-50 text-violet-700"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                    )}
+                  >
+                    <span className="text-lg mb-1">{layout.icon}</span>
+                    <span className="text-xs font-medium">{layout.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Children Count Info */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Items in group</span>
+                <span className="font-medium">{data.children?.length || 0}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1.5">
+                Drag and drop blocks into this group to organize them
+              </p>
+            </div>
+
+            {/* Group Children Preview */}
+            {data.children && data.children.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Group Contents</Label>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {data.children.map((child, idx) => (
+                    <div
+                      key={child.id}
+                      className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-xs"
+                    >
+                      <span className="text-gray-400">{idx + 1}.</span>
+                      <span className="flex-1 truncate">{child.type}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newChildren = data.children.filter((c) => c.id !== child.id)
+                          updateData({ children: newChildren })
+                        }}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )
       }

@@ -10,6 +10,7 @@ export type OnePageBlockType =
   | "divider"
   | "email_capture"
   | "header"
+  | "group"
 
 export interface OnePageTheme {
   template_id: string
@@ -174,6 +175,14 @@ export interface HeaderBlockData {
   show_bio: boolean
 }
 
+export type GroupLayoutType = "stack" | "grid" | "carousel"
+
+export interface GroupBlockData {
+  title?: string | null
+  layout: GroupLayoutType
+  children: OnePageBlock[]
+}
+
 export type OnePageBlockData =
   | LinkButtonBlockData
   | ProductBlockData
@@ -183,6 +192,7 @@ export type OnePageBlockData =
   | DividerBlockData
   | EmailCaptureBlockData
   | HeaderBlockData
+  | GroupBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -426,6 +436,15 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           show_name: true,
           show_bio: true,
         } as HeaderBlockData,
+      }
+    case "group":
+      return {
+        ...baseBlock,
+        data: {
+          title: null,
+          layout: "stack",
+          children: [],
+        } as GroupBlockData,
       }
     default:
       return baseBlock as OnePageBlock

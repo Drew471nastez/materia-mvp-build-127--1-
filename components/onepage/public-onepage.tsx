@@ -14,6 +14,7 @@ import type {
   SocialRowBlockData,
   SpotifyMode,
   StreamingService,
+  GroupBlockData,
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -2536,19 +2537,24 @@ function PublicBlockRenderer({
 
     case "divider": {
       const data = (block.data || { style: "space", height: 24 }) as DividerBlockData
+      const height = data.height || 24
       if (data.style === "line") {
-        return <div className="w-full" style={{ height: "1px", backgroundColor: `${theme.text_color}20` }} />
+        return (
+          <div className="w-full flex items-center" style={{ height: `${height}px` }}>
+            <div className="w-full h-px" style={{ backgroundColor: `${theme.text_color}20` }} />
+          </div>
+        )
       }
       if (data.style === "dots") {
         return (
-          <div className="flex items-center justify-center gap-2">
+          <div className="w-full flex items-center justify-center gap-2" style={{ height: `${height}px` }}>
             {[0, 1, 2].map((i) => (
               <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: `${theme.text_color}40` }} />
             ))}
           </div>
         )
       }
-      return <div style={{ height: `${data.height}px` }} />
+      return <div className="w-full" style={{ height: `${height}px` }} />
     }
 
     case "image": {
@@ -2672,6 +2678,62 @@ function PublicBlockRenderer({
               {data.success_message || "Thanks for subscribing!"}
             </p>
           )}
+        </div>
+      )
+    }
+
+    case "group": {
+      const data = (block.data || { layout: "stack", children: [] }) as GroupBlockData
+      if (!data.children || data.children.length === 0) {
+        return null // Don't show empty groups on published page
+      }
+
+      const renderChildren = () => {
+        switch (data.layout) {
+          case "grid":
+            return (
+              <div className="w-full grid grid-cols-2 gap-3 sm:gap-4">
+                {data.children.filter(c => c.enabled).map((child) => (
+                  <div key={child.id} className="w-full">
+                    {renderBlock(child)}
+                  </div>
+                ))}
+              </div>
+            )
+          case "carousel":
+            return (
+              <div className="w-full overflow-x-auto scrollbar-hide -mx-4 px-4">
+                <div className="flex gap-3" style={{ width: 'max-content' }}>
+                  {data.children.filter(c => c.enabled).map((child) => (
+                    <div key={child.id} className="w-[280px] sm:w-[320px] shrink-0">
+                      {renderBlock(child)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          case "stack":
+          default:
+            return (
+              <div className="w-full space-y-3 sm:space-y-4">
+                {data.children.filter(c => c.enabled).map((child) => (
+                  <div key={child.id}>
+                    {renderBlock(child)}
+                  </div>
+                ))}
+              </div>
+            )
+        }
+      }
+
+      return (
+        <div className="w-full space-y-3">
+          {data.title && (
+            <h3 className="text-sm font-medium text-center opacity-70" style={{ color: theme.text_color }}>
+              {data.title}
+            </h3>
+          )}
+          {renderChildren()}
         </div>
       )
     }

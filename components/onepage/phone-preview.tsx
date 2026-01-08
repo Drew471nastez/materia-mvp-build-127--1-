@@ -13,6 +13,7 @@ import type {
   EmailCaptureBlockData,
   HeaderBlockData,
   SocialRowBlockData,
+  GroupBlockData,
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -2362,16 +2363,21 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
 
     case "divider": {
       const data = block.data as DividerBlockData
-      if (data.style === "space") return <div className="w-full h-4" />
-      if (data.style === "dotted")
+      const height = data.height || 24
+      if (data.style === "space") return <div className="w-full" style={{ height: `${height}px` }} />
+      if (data.style === "dotted" || data.style === "dots")
         return (
-          <div className="w-full flex justify-center gap-1">
+          <div className="w-full flex justify-center items-center gap-1" style={{ height: `${height}px` }}>
             {[...Array(3)].map((_, i) => (
               <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: `${theme.text_color}40` }} />
             ))}
           </div>
         )
-      return <div className="w-full h-px" style={{ backgroundColor: `${theme.text_color}20` }} />
+      return (
+        <div className="w-full flex items-center" style={{ height: `${height}px` }}>
+          <div className="w-full h-px" style={{ backgroundColor: `${theme.text_color}20` }} />
+        </div>
+      )
     }
 
     case "email_capture": {
@@ -2459,6 +2465,66 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
               </a>
             )
           })}
+        </div>
+      )
+    }
+
+    case "group": {
+      const data = block.data as GroupBlockData
+      if (!data.children || data.children.length === 0) {
+        return (
+          <div className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 text-center opacity-60">
+            <p className="text-xs" style={{ color: theme.text_color }}>Empty group</p>
+          </div>
+        )
+      }
+
+      const renderChildren = () => {
+        switch (data.layout) {
+          case "grid":
+            return (
+              <div className="w-full grid grid-cols-2 gap-2">
+                {data.children.filter(c => c.enabled).map((child) => (
+                  <div key={child.id} className="w-full">
+                    {renderBlock(child)}
+                  </div>
+                ))}
+              </div>
+            )
+          case "carousel":
+            return (
+              <div className="w-full overflow-x-auto scrollbar-hide">
+                <div className="flex gap-2" style={{ width: 'max-content' }}>
+                  {data.children.filter(c => c.enabled).map((child) => (
+                    <div key={child.id} className="w-[200px] shrink-0">
+                      {renderBlock(child)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          case "stack":
+          default:
+            return (
+              <div className="w-full space-y-2">
+                {data.children.filter(c => c.enabled).map((child) => (
+                  <div key={child.id}>
+                    {renderBlock(child)}
+                  </div>
+                ))}
+              </div>
+            )
+        }
+      }
+
+      return (
+        <div className="w-full space-y-2">
+          {data.title && (
+            <h3 className="text-xs font-medium text-center opacity-70" style={{ color: theme.text_color }}>
+              {data.title}
+            </h3>
+          )}
+          {renderChildren()}
         </div>
       )
     }
