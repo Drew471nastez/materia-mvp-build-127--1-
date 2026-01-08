@@ -1663,57 +1663,62 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container */}
-        <div
-          ref={scrollContainerRef}
-          className={cn(
-            "w-full scrollbar-hide snap-x snap-mandatory",
-            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
-          )}
-          style={{ 
-            scrollSnapType: 'x mandatory',
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            overflowX: 'auto',
-            overflowY: 'clip',
-            marginBottom: '-4px',
-            paddingBottom: '4px',
-          }}
-          onScroll={handleScroll}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-        >
+        {/* Scrollable Container Wrapper */}
+        <div style={{ 
+          position: 'relative',
+          marginBottom: '8px',
+        }}>
           <div
-            className="flex"
-            style={{
-              gap: `${gap}px`,
-              padding: '10px 16px 16px 16px',
+            ref={scrollContainerRef}
+            className={cn(
+              "w-full scrollbar-hide snap-x snap-mandatory",
+              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+            )}
+            style={{ 
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              overflowX: 'auto',
+              overflowY: 'visible',
+              paddingBottom: '20px',
+              marginBottom: '-20px',
             }}
+            onScroll={handleScroll}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
           >
-            {enabledChildren.map((child) => (
-              <div
-                key={child.id}
-                className="shrink-0 snap-start"
-                style={itemStyle}
-              >
-                <div className="w-full">
-                  <PublicBlockRenderer
-                    block={child}
-                    theme={theme}
-                    profile={profile}
-                    onepageId={onepageId}
-                    sellerId={sellerId}
-                    isDesktop={isDesktop}
-                    settings={settings}
-                    isInsideCarousel={true}
-                  />
+            <div
+              className="flex"
+              style={{
+                gap: `${gap}px`,
+                padding: '10px 16px 8px 16px',
+              }}
+            >
+              {enabledChildren.map((child) => (
+                <div
+                  key={child.id}
+                  className="shrink-0 snap-start"
+                  style={itemStyle}
+                >
+                  <div className="w-full">
+                    <PublicBlockRenderer
+                      block={child}
+                      theme={theme}
+                      profile={profile}
+                      onepageId={onepageId}
+                      sellerId={sellerId}
+                      isDesktop={isDesktop}
+                      settings={settings}
+                      isInsideCarousel={true}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
