@@ -83,6 +83,7 @@ import {
   BarChart2,
   Play,
   Layers,
+  ArrowUpRight,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -1070,6 +1071,29 @@ export function LinksTab() {
     setInsertAfterId(null)
   }
 
+  // Handler to move a child block from a group back to the main blocks list
+  const handleMoveChildToMainList = (childBlock: OnePageBlock, groupId: string) => {
+    // Find the group block's index to insert the child after it
+    const groupIndex = sortedBlocks.findIndex(b => b.id === groupId)
+
+    // Create a new block with updated sort_order
+    const newBlock = {
+      ...childBlock,
+      sort_order: groupIndex + 1, // Insert right after the group
+    }
+
+    // Get current blocks and insert the child after the group
+    const newBlocks = [...sortedBlocks]
+    newBlocks.splice(groupIndex + 1, 0, newBlock)
+
+    // Update sort orders for all blocks
+    newBlocks.forEach((b, i) => {
+      b.sort_order = i
+    })
+
+    reorderBlocks(newBlocks)
+  }
+
   const handleAddSocial = () => {
     if (!selectedSocial || !socialUrl) return
 
@@ -1446,6 +1470,11 @@ export function LinksTab() {
                 }}
                 onDragStart={(e) => handleDragStart(e, block.id)}
                 isDragging={draggedBlockId === block.id}
+                onMoveChildToMainList={handleMoveChildToMainList}
+                onOpenAddBlockModal={(groupId) => {
+                  setAddToGroupId(groupId)
+                  setShowAddModal(true)
+                }}
               />
             </div>
 
@@ -2993,10 +3022,13 @@ interface BlockItemProps {
   onOpenSocialModal: () => void
   onOpenThumbnailModal?: (blockId: string) => void
   iconPaths: Record<string, string>
+  filledIcons?: Set<string>
   onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onDragStart?: (e: React.DragEvent) => void
   isDragging?: boolean
+  onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
+  onOpenAddBlockModal?: (groupId: string) => void
 }
 
 function BlockItem({
@@ -3015,10 +3047,13 @@ function BlockItem({
   onOpenSocialModal,
   onOpenThumbnailModal,
   iconPaths,
+  filledIcons,
   onUrlChangeWithAutoFetch,
   onOpenStreamingModal,
   onDragStart,
   isDragging,
+  onMoveChildToMainList,
+  onOpenAddBlockModal,
 }: BlockItemProps) {
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -3474,12 +3509,11 @@ function BlockItem({
             onOpenSocialModal={onOpenSocialModal}
             onOpenThumbnailModal={onOpenThumbnailModal}
             iconPaths={iconPaths}
+            filledIcons={filledIcons}
             onUrlChangeWithAutoFetch={onUrlChangeWithAutoFetch}
             onOpenStreamingModal={onOpenStreamingModal}
-            onOpenAddBlockModal={(groupId) => {
-              setAddToGroupId(groupId)
-              setShowAddModal(true)
-            }}
+            onOpenAddBlockModal={onOpenAddBlockModal}
+            onMoveChildToMainList={onMoveChildToMainList}
           />
           {!isHeaderBlock && (
             <div className="pt-3 border-t">
@@ -3567,6 +3601,8 @@ function BlockEditor({
   onUrlChangeWithAutoFetch,
   onOpenStreamingModal,
   onOpenAddBlockModal,
+  onMoveChildToMainList,
+  updateBlockOverride,
 }: {
   block: OnePageBlock
   socialLinks: OnePageSocialLinks
@@ -3578,8 +3614,11 @@ function BlockEditor({
   onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onOpenAddBlockModal?: (groupId: string) => void
+  onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
+  updateBlockOverride?: (blockId: string, updates: Partial<OnePageBlock>) => void
 }) {
-  const { updateBlock, updateSocialLinks } = useOnePage()
+  const { updateBlock: contextUpdateBlock, updateSocialLinks } = useOnePage()
+  const updateBlock = updateBlockOverride || contextUpdateBlock
 
   // Thumbnail editing state
   const [showThumbnailPopup, setShowThumbnailPopup] = useState(false)
@@ -4529,8 +4568,18 @@ function BlockEditor({
     }
 
     const removeChildFromGroup = (childId: string) => {
-      const newChildren = (groupData.children || []).filter(c => c.id !== childId)
-      updateData({ children: newChildren })
+      const childToRemove = (groupData.children || []).find(c => c.id === childId)
+      if (childToRemove && onMoveChildToMainList) {
+        // Move to main list instead of deleting
+        onMoveChildToMainList(childToRemove, block.id)
+        // Update group to remove the child
+        const newChildren = (groupData.children || []).filter(c => c.id !== childId)
+        updateData({ children: newChildren })
+      } else {
+        // Fallback: just remove from group (but don't delete entirely)
+        const newChildren = (groupData.children || []).filter(c => c.id !== childId)
+        updateData({ children: newChildren })
+      }
       if (selectedGroupChildId === childId) {
         setSelectedGroupChildId(null)
       }
@@ -4743,9 +4792,10 @@ function BlockEditor({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removeChildFromGroup(child.id) }}
-                          className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                          className="text-gray-400 hover:text-blue-500 transition-colors p-1"
+                          title="Move out of group"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <ArrowUpRight className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     )
@@ -4764,20 +4814,44 @@ function BlockEditor({
               )}
             </div>
 
-            {/* Selected Child Settings */}
+            {/* Selected Child Settings - Full Block Settings */}
             {selectedChild && (
               <div className="border rounded-xl p-3 bg-white space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-medium capitalize">{selectedChild.type.replace('_', ' ')} Settings</span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGroupChildId(null)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => removeChildFromGroup(selectedChild.id)}
+                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
+                      <ArrowUpRight className="h-3 w-3" />
+                      Move out
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedGroupChildId(null)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                {renderChildSettings(selectedChild)}
+                {/* Render full BlockEditor for child with custom update function */}
+                <BlockEditor
+                  block={selectedChild}
+                  socialLinks={socialLinks}
+                  onOpenImageLibrary={onOpenImageLibrary}
+                  onOpenSocialModal={onOpenSocialModal}
+                  onOpenThumbnailModal={onOpenThumbnailModal}
+                  iconPaths={iconPaths}
+                  filledIcons={filledIcons}
+                  onUrlChangeWithAutoFetch={onUrlChangeWithAutoFetch}
+                  onOpenStreamingModal={onOpenStreamingModal}
+                  updateBlockOverride={(childId, updates) => {
+                    updateChildBlock(childId, updates)
+                  }}
+                />
               </div>
             )}
           </div>
