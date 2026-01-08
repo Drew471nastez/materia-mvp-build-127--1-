@@ -1695,7 +1695,7 @@ function GroupBlockRenderer({
               className="flex"
               style={{
                 gap: `${gap}px`,
-                padding: '60px 16px 8px 16px',
+                 padding: '4px 10px 12px 10px',
               }}
             >
               {enabledChildren.map((child) => (
