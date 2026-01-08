@@ -1,23 +1,24 @@
 "use client"
 
 import { useOnePage } from "@/lib/onepage/context"
-import type {
-  OnePageBlock,
-  OnePageBlockType,
-  LinkButtonBlockData,
-  TextBlockData,
-  EmailCaptureBlockData,
-  ImageBlockData,
-  DividerBlockData,
-  HeaderBlockData,
-  SocialRowBlockData,
-  OnePageSocialLinks,
-  BlockLayoutType,
-  YouTubeMode,
-  SpotifyMode,
-  StreamingService,
-  GroupBlockData,
-  GroupLayoutType,
+import {
+  createDefaultBlock,
+  type OnePageBlock,
+  type OnePageBlockType,
+  type LinkButtonBlockData,
+  type TextBlockData,
+  type EmailCaptureBlockData,
+  type ImageBlockData,
+  type DividerBlockData,
+  type HeaderBlockData,
+  type SocialRowBlockData,
+  type OnePageSocialLinks,
+  type BlockLayoutType,
+  type YouTubeMode,
+  type SpotifyMode,
+  type StreamingService,
+  type GroupBlockData,
+  type GroupLayoutType,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1019,26 +1020,26 @@ export function LinksTab() {
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
     // If adding to a group, handle differently
     if (addToGroupId) {
+      // Don't allow adding these types to a group
+      if (type === "header" || type === "group" || type === "social_row" || type === "product") {
+        setShowAddModal(false)
+        setSearchQuery("")
+        setAddToGroupId(null)
+        return
+      }
+
       const groupBlock = sortedBlocks.find(b => b.id === addToGroupId)
       if (groupBlock && groupBlock.type === "group") {
         const groupData = groupBlock.data as GroupBlockData
-        const newBlock: OnePageBlock = {
-          id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          type,
-          enabled: true,
-          sort_order: (groupData.children?.length || 0),
-          data: type === "link_button"
-            ? { label: preset?.label || "My Link", url: preset?.url || "https://", icon: null, thumbnail_url: null }
-            : type === "text"
-            ? { content: "Enter text...", alignment: "center" }
-            : type === "image"
-            ? { image_url: "", alt_text: "", link_url: null, aspect_ratio: "auto" }
-            : type === "divider"
-            ? { style: "space", height: 24 }
-            : type === "email_capture"
-            ? { headline: "Join newsletter", description: "", placeholder: "Email", button_text: "Subscribe", success_message: "Thanks!" }
-            : {}
-        } as OnePageBlock
+        // Use createDefaultBlock to get proper default data for any block type
+        const newBlock = createDefaultBlock(type)
+        newBlock.sort_order = groupData.children?.length || 0
+
+        // Apply preset if provided (for link_button presets)
+        if (preset && type === "link_button") {
+          (newBlock.data as LinkButtonBlockData).label = preset.label
+          ;(newBlock.data as LinkButtonBlockData).url = preset.url
+        }
 
         const newChildren = [...(groupData.children || []), newBlock]
         updateBlock(addToGroupId, { data: { ...groupData, children: newChildren } })
@@ -1188,10 +1189,19 @@ export function LinksTab() {
   // Check if header block already exists (only allow one)
   const hasHeaderBlock = sortedBlocks.some(b => b.type === "header")
 
+  // Block types that can't be added to a group
+  const blockedInGroup = ["header", "group", "social_row", "product"]
+
   const activeCategoryBlocks = (searchQuery
     ? filteredCategories.flatMap(c => c.blocks)
     : blockCategories.find((c) => c.id === addModalCategory)?.blocks || []
-  ).filter(block => !(block.type === "header" && hasHeaderBlock))
+  ).filter(block => {
+    // Always filter out header if one exists
+    if (block.type === "header" && hasHeaderBlock) return false
+    // Filter out blocks that can't be added to groups when adding to a group
+    if (addToGroupId && blockedInGroup.includes(block.type)) return false
+    return true
+  })
 
   // Get active social links
   const activeSocials = Object.entries(social_links || {}).filter(([_, url]) => url)
@@ -1473,12 +1483,19 @@ export function LinksTab() {
       )}
 
       {/* Add Block Modal - Wider on desktop */}
-      <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); } }}>
+      <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
     <DialogContent className="w-[calc(100%-32px)] sm:w-[min(700px,calc(100vw-64px))] sm:!max-w-[700px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
 
 
           <DialogHeader className="p-4 sm:p-5 pb-3 sm:pb-4 border-b bg-white">
-            <DialogTitle className="text-base sm:text-lg font-semibold">Add</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-semibold">
+              {addToGroupId ? "Add to Group" : "Add"}
+            </DialogTitle>
+            {addToGroupId && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Adding block to group. Some block types are not available.
+              </p>
+            )}
           </DialogHeader>
 
           {/* Search */}
@@ -1533,12 +1550,34 @@ export function LinksTab() {
             {/* Blocks grid */}
             <div className="flex-1 p-4 sm:p-5 overflow-y-auto">
               {/* Quick add cards - top row */}
-              {!searchQuery && addModalCategory === "suggested" && (
+              {!searchQuery && addModalCategory === "suggested" && !addToGroupId && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                   {[
                     { label: "Collection", icon: Grid3X3, type: "link_button" as const },
                     { label: "Link", icon: Link, type: "link_button" as const },
                     { label: "Product", icon: ShoppingBag, type: "product" as const },
+                    { label: "Form", icon: Mail, type: "email_capture" as const },
+                  ].map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <button
+                        key={item.label}
+                        onClick={() => handleAddBlock(item.type)}
+                        className="flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                      >
+                        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                        <span className="text-xs sm:text-sm font-medium">{item.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {/* Quick add for group - simplified options */}
+              {!searchQuery && addModalCategory === "suggested" && addToGroupId && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+                  {[
+                    { label: "Link", icon: Link, type: "link_button" as const },
+                    { label: "Text", icon: Type, type: "text" as const },
                     { label: "Form", icon: Mail, type: "email_capture" as const },
                   ].map((item) => {
                     const Icon = item.icon
@@ -4456,7 +4495,7 @@ function BlockEditor({
           return { title: d.headline || "Email Signup", icon: Mail }
         }
         default:
-          return { title: child.type, icon: Link }
+          return { title: child.type.replace('_', ' '), icon: Link }
       }
     }
 
