@@ -1637,7 +1637,6 @@ function GroupBlockRenderer({
         className="w-full relative"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
-        style={{ overflow: 'visible' }}
       >
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
@@ -1663,58 +1662,54 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Outer wrapper to allow vertical overflow */}
-        <div style={{ overflow: 'visible', paddingBottom: '8px' }}>
-          {/* Scrollable Container */}
+        {/* Scrollable Container */}
+        <div
+          ref={scrollContainerRef}
+          className={cn(
+            "w-full scrollbar-hide snap-x snap-mandatory",
+            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+          )}
+          style={{
+            scrollSnapType: 'x mandatory',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            overflowX: 'auto',
+          }}
+          onScroll={handleScroll}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+        >
           <div
-            ref={scrollContainerRef}
-            className={cn(
-              "w-full scrollbar-hide snap-x snap-mandatory",
-              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
-            )}
+            className="flex"
             style={{
-              scrollSnapType: 'x mandatory',
-              WebkitOverflowScrolling: 'touch',
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-              overflowX: 'auto',
-              overflowY: 'visible',
+              gap: `${gap}px`,
+              padding: '10px 16px 10px 16px',
             }}
-            onScroll={handleScroll}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
           >
-            <div
-              className="flex"
-              style={{
-                gap: `${gap}px`,
-                padding: '10px 16px 28px 16px',
-              }}
-            >
-              {enabledChildren.map((child) => (
-                <div
-                  key={child.id}
-                  className="shrink-0 snap-start"
-                  style={itemStyle}
-                >
-                  <div className="w-full">
-                    <PublicBlockRenderer
-                      block={child}
-                      theme={theme}
-                      profile={profile}
-                      onepageId={onepageId}
-                      sellerId={sellerId}
-                      isDesktop={isDesktop}
-                      settings={settings}
-                      isInsideCarousel={true}
-                    />
-                  </div>
+            {enabledChildren.map((child) => (
+              <div
+                key={child.id}
+                className="shrink-0 snap-start"
+                style={itemStyle}
+              >
+                <div className="w-full">
+                  <PublicBlockRenderer
+                    block={child}
+                    theme={theme}
+                    profile={profile}
+                    onepageId={onepageId}
+                    sellerId={sellerId}
+                    isDesktop={isDesktop}
+                    settings={settings}
+                    isInsideCarousel={true}
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
 
