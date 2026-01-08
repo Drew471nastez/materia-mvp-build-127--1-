@@ -1516,13 +1516,13 @@ function GroupBlockPreview({
     }
 
     return (
-      <div className="w-full relative">
+      <div className="w-full relative" style={{ overflow: 'visible' }}>
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
           <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
         )}
 
-        {/* Scrollable Container - overflow-x-auto but overflow-y-visible for hover effects */}
+        {/* Scrollable Container */}
         <div
           ref={scrollContainerRef}
           className={cn(
@@ -1549,25 +1549,16 @@ function GroupBlockPreview({
             className="flex"
             style={{ 
               gap: `${gap}px`,
-              padding: '8px 10px 16px 10px',
+              padding: '4px 10px 8px 10px',
             }}
           >
             {enabledChildren.map((child) => (
               <div
                 key={child.id}
-                className="shrink-0 snap-start relative"
-                style={{
-                  ...itemStyle,
-                  zIndex: 1,
-                }}
+                className="shrink-0 snap-start"
+                style={itemStyle}
               >
-                {/* No overflow-hidden - allow hover effects to show */}
-                <div 
-                  className="w-full relative carousel-item-wrapper"
-                  style={{
-                    // Higher z-index on hover handled by CSS
-                  }}
-                >
+                <div className="w-full">
                   <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} isInsideCarousel={true} />
                 </div>
               </div>
@@ -1598,14 +1589,6 @@ function GroupBlockPreview({
             ))}
           </div>
         )}
-
-        {/* CSS for hover z-index */}
-        <style>{`
-          .carousel-item-wrapper:hover {
-            z-index: 10;
-            position: relative;
-          }
-        `}</style>
       </div>
     )
   }
@@ -2176,8 +2159,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           <div
             className={cn(
               s.button,
-              "w-full font-medium transition-transform overflow-hidden",
-              !shouldEmbed && "hover:scale-[1.02] active:scale-[0.98]",
+              "w-full font-medium transition-opacity overflow-hidden",
+              !shouldEmbed && "hover:opacity-90",
               getAnimationClass(data.animation_type),
             )}
             style={{
@@ -2365,7 +2348,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               }}
               className={cn(
                 s.button,
-                "w-full font-medium transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2",
+                "w-full font-medium transition-opacity hover:opacity-90 flex items-center gap-2",
                 hasThumbnailOrIcon ? "justify-start" : "justify-center",
                 getDefaultAnimationClass(data.animation_type)
               )}
@@ -2507,7 +2490,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         <button
           className={cn(
             s.button,
-            "w-full font-medium transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2",
+            "w-full font-medium transition-opacity hover:opacity-90 flex items-center gap-2",
             hasThumbnailOrIcon ? "justify-start" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
           )}
