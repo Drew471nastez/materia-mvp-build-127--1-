@@ -74,6 +74,19 @@ export interface OnePageSocialLinks {
   spotify?: string | null
   website?: string | null
   email?: string | null
+  threads?: string | null
+  facebook?: string | null
+  whatsapp?: string | null
+  snapchat?: string | null
+  discord?: string | null
+  github?: string | null
+  kick?: string | null
+  linkedin?: string | null
+  patreon?: string | null
+  pinterest?: string | null
+  soundcloud?: string | null
+  telegram?: string | null
+  twitch?: string | null
 }
 
 // Block data types

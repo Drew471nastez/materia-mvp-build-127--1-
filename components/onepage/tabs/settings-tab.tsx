@@ -22,6 +22,7 @@ import {
   Bell,
   BadgeCheck,
   Send,
+  Share2,
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -48,10 +49,35 @@ function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChang
 const SETTINGS_SECTIONS = [
   { id: "basic", label: "Basic Info", icon: FileText },
   { id: "seo", label: "SEO", icon: Globe },
+  { id: "socialMedia", label: "Social Media", icon: Share2 },
   { id: "subscribe", label: "Subscribe", icon: Bell },
   { id: "share", label: "Share", icon: Send },
   { id: "verified", label: "Verified Badge", icon: BadgeCheck },
   { id: "billing", label: "Billing", icon: CreditCard },
+]
+
+// Social media platforms configuration
+const SOCIAL_MEDIA_PLATFORMS = [
+  { id: "instagram", label: "Instagram", placeholder: "https://instagram.com/username", color: "#E4405F" },
+  { id: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@username", color: "#000000" },
+  { id: "youtube", label: "YouTube", placeholder: "https://youtube.com/@channel", color: "#FF0000" },
+  { id: "twitter", label: "X (Twitter)", placeholder: "https://x.com/username", color: "#000000" },
+  { id: "threads", label: "Threads", placeholder: "https://threads.net/@username", color: "#000000" },
+  { id: "facebook", label: "Facebook", placeholder: "https://facebook.com/page", color: "#1877F2" },
+  { id: "spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/...", color: "#1DB954" },
+  { id: "soundcloud", label: "SoundCloud", placeholder: "https://soundcloud.com/username", color: "#FF5500" },
+  { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF" },
+  { id: "discord", label: "Discord", placeholder: "https://discord.gg/invite", color: "#5865F2" },
+  { id: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username", color: "#0A66C2" },
+  { id: "github", label: "GitHub", placeholder: "https://github.com/username", color: "#333333" },
+  { id: "pinterest", label: "Pinterest", placeholder: "https://pinterest.com/username", color: "#E60023" },
+  { id: "snapchat", label: "Snapchat", placeholder: "https://snapchat.com/add/username", color: "#FFFC00" },
+  { id: "telegram", label: "Telegram", placeholder: "https://t.me/username", color: "#0088CC" },
+  { id: "whatsapp", label: "WhatsApp", placeholder: "https://wa.me/1234567890", color: "#25D366" },
+  { id: "patreon", label: "Patreon", placeholder: "https://patreon.com/creator", color: "#FF424D" },
+  { id: "kick", label: "Kick", placeholder: "https://kick.com/username", color: "#53FC18" },
+  { id: "website", label: "Website", placeholder: "https://yourwebsite.com", color: "#6366F1" },
+  { id: "email", label: "Email", placeholder: "mailto:you@email.com", color: "#EA4335" },
 ]
 
 // Badge type options
@@ -64,7 +90,7 @@ const BADGE_TYPES = [
 ]
 
 export function SettingsTab() {
-  const { onepage, updateProfile, updateSettings, updateSlug, save, saveState } = useOnePage()
+  const { onepage, updateProfile, updateSettings, updateSlug, updateSocialLinks, save, saveState } = useOnePage()
   const [activeSection, setActiveSection] = useState("basic")
   const [copied, setCopied] = useState(false)
   const [showOgImageModal, setShowOgImageModal] = useState(false)
@@ -443,6 +469,8 @@ export function SettingsTab() {
           <div className="aspect-video bg-gray-100 flex items-center justify-center">
             {ogImage ? (
               <img src={ogImage} alt="Preview" className="w-full h-full object-cover" />
+            ) : onepage?.avatar_url ? (
+              <img src={onepage.avatar_url} alt="Avatar preview" className="w-full h-full object-cover" />
             ) : (
               <ImageIcon className="h-8 w-8 text-gray-300" />
             )}
@@ -464,6 +492,62 @@ export function SettingsTab() {
       </Button>
     </div>
   )
+
+  const renderSocialMedia = () => {
+    const handleSocialLinkChange = (platformId: string, value: string) => {
+      updateSocialLinks({ [platformId]: value || null })
+    }
+
+    const handleSaveSocialLinks = async () => {
+      setLocalSaveState("saving")
+      try {
+        await save()
+        setLocalSaveState("saved")
+        setTimeout(() => setLocalSaveState("idle"), 2000)
+      } catch {
+        setLocalSaveState("error")
+        setTimeout(() => setLocalSaveState("idle"), 2000)
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-base font-semibold mb-1">Social Media</h3>
+          <p className="text-sm text-gray-500">Add your social media links to display across your page</p>
+        </div>
+
+        <div className="space-y-3">
+          {SOCIAL_MEDIA_PLATFORMS.map((platform) => (
+            <div key={platform.id} className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600 flex items-center gap-2">
+                <span
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: platform.color }}
+                />
+                {platform.label}
+              </Label>
+              <Input
+                value={(onepage?.social_links as any)?.[platform.id] || ""}
+                onChange={(e) => handleSocialLinkChange(platform.id, e.target.value)}
+                placeholder={platform.placeholder}
+                className="h-9 rounded-lg border-gray-200 text-sm"
+              />
+            </div>
+          ))}
+        </div>
+
+        <Button
+          onClick={handleSaveSocialLinks}
+          disabled={localSaveState === "saving"}
+          className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
+        >
+          {localSaveState === "saving" && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {localSaveState === "saving" ? "Saving..." : localSaveState === "saved" ? "Saved!" : "Save Social Links"}
+        </Button>
+      </div>
+    )
+  }
 
   const renderSubscribe = () => {
     const styleOptions = [
@@ -890,6 +974,7 @@ export function SettingsTab() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           {activeSection === "basic" && renderBasicInfo()}
           {activeSection === "seo" && renderSeo()}
+          {activeSection === "socialMedia" && renderSocialMedia()}
           {activeSection === "subscribe" && renderSubscribe()}
           {activeSection === "share" && renderShare()}
           {activeSection === "verified" && renderVerified()}

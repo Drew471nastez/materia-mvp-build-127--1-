@@ -2310,7 +2310,7 @@ function PublicBlockRenderer({
               <div className={cn("flex flex-col", hasThumbnail ? "flex-1 text-center" : "")}>
                 <span className="truncate">{data.label || "Link"}</span>
                 {/* Spotify info display */}
-                {data.spotify_show_metadata && (data.spotify_title || data.spotify_artist) && (
+                {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                   <span
                     className="text-xs truncate flex items-center justify-center gap-1 mt-0.5"
                     style={{
@@ -2481,7 +2481,7 @@ function PublicBlockRenderer({
           <div className={cn("flex flex-col", hasThumbnail ? "flex-1 text-center" : "")}>
             <span className="truncate">{data.label || "Link"}</span>
             {/* Spotify info display */}
-            {isSpotifyUrl(data.url) && data.spotify_show_metadata && (data.spotify_title || data.spotify_artist) && (
+            {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
               <span
                 className="text-xs truncate flex items-center justify-center gap-1 mt-0.5"
                 style={{

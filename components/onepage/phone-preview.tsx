@@ -2143,7 +2143,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
               <div className={cn("flex flex-col", hasThumbnailOrIcon ? "flex-1 text-center" : "")}>
                 <span className="truncate">{data.label || "My Link"}</span>
                 {/* Spotify info display */}
-                {data.spotify_show_metadata && (data.spotify_title || data.spotify_artist) && (
+                {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                   <span
                     className="text-[10px] truncate flex items-center justify-center gap-1"
                     style={{
@@ -2293,7 +2293,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
           <div className={cn("flex flex-col", hasThumbnailOrIcon ? "flex-1 text-center" : "")}>
             <span className="truncate">{data.label || "My Link"}</span>
             {/* Spotify info display */}
-            {isSpotifyUrl(data.url) && data.spotify_show_metadata && (data.spotify_title || data.spotify_artist) && (
+            {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
               <span
                 className="text-[10px] truncate flex items-center justify-center gap-1 mt-0.5"
                 style={{
