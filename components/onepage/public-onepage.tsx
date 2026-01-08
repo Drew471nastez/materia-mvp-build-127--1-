@@ -1452,6 +1452,7 @@ interface PublicBlockRendererProps {
   sellerId: string | null
   isDesktop?: boolean
   settings?: any
+  isInsideCarousel?: boolean
 }
 
 // Verified Badge Component with tooltip
@@ -1633,7 +1634,7 @@ function GroupBlockRenderer({
 
     return (
       <div
-        className="w-full relative"
+        className="w-full relative overflow-hidden"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
       >
@@ -1661,11 +1662,11 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container - CRITICAL: overflow-y-visible to prevent border clipping */}
+        {/* Scrollable Container */}
         <div
           ref={scrollContainerRef}
           className={cn(
-            "w-full overflow-x-auto overflow-y-visible scrollbar-hide snap-x snap-mandatory",
+            "w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory",
             isDragging ? "cursor-grabbing select-none" : "cursor-grab"
           )}
           style={{ 
@@ -1685,10 +1686,7 @@ function GroupBlockRenderer({
             className="flex"
             style={{ 
               gap: `${gap}px`,
-              // CRITICAL: Padding to prevent borders from being clipped at edges
-              // Top/bottom padding allows hover effects and rounded corners to show
-              padding: '6px 16px 10px 16px',
-              margin: '-6px 0 -6px 0',
+              padding: '6px 16px 14px 16px',
             }}
           >
             {enabledChildren.map((child) => (
@@ -1697,8 +1695,8 @@ function GroupBlockRenderer({
                 className="shrink-0 snap-start"
                 style={itemStyle}
               >
-                {/* NO overflow-hidden here - allows rounded borders to show fully */}
-                <div className="w-full [&_.block-title]:overflow-hidden [&_.block-title]:text-ellipsis [&_.block-title]:whitespace-nowrap">
+                {/* overflow-hidden on wrapper to contain hover scale effects */}
+                <div className="w-full overflow-hidden">
                   <PublicBlockRenderer
                     block={child}
                     theme={theme}
@@ -1707,6 +1705,7 @@ function GroupBlockRenderer({
                     sellerId={sellerId}
                     isDesktop={isDesktop}
                     settings={settings}
+                    isInsideCarousel={true}
                   />
                 </div>
               </div>
@@ -1807,6 +1806,7 @@ function PublicBlockRenderer({
   sellerId,
   isDesktop = false,
   settings,
+  isInsideCarousel = false,
 }: PublicBlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [email, setEmail] = useState("")
@@ -1824,6 +1824,9 @@ function PublicBlockRenderer({
 
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
+
+  // Disable hover scale when inside carousel to prevent overflow
+  const hoverScale = isInsideCarousel ? "" : "hover:scale-[1.02] active:scale-[0.98]"
 
   const trackClick = async (blockId: string, url: string) => {
     try {
@@ -2497,7 +2500,7 @@ function PublicBlockRenderer({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
-            className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02]", getAnimationClass(data.animation_type))}
+            className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all hover:opacity-90", hoverScale, getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
               padding: 0,
@@ -2612,7 +2615,8 @@ function PublicBlockRenderer({
                 openSpotifyModal(data)
               }}
               className={cn(
-                "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02] cursor-pointer text-left",
+                "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90 cursor-pointer text-left",
+                hoverScale,
                 hasThumbnail ? "justify-start" : "justify-center",
                 getDefaultAnimationClass(data.animation_type)
               )}
@@ -2775,7 +2779,8 @@ function PublicBlockRenderer({
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
           className={cn(
-            "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90 hover:scale-[1.02]",
+            "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all hover:opacity-90",
+            hoverScale,
             hasThumbnail ? "justify-start" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
           )}
