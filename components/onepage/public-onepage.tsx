@@ -1712,7 +1712,6 @@ function GroupBlockRenderer({
   </div>
 ))}
 
-{/* Spacer to prevent bottom clipping of carousel items */}
 <div className="shrink-0" style={{ width: 1, height: 14 }} />
 
 
