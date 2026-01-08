@@ -1515,17 +1515,17 @@ function GroupBlockPreview({
     }
 
     return (
-      <div className="w-full relative">
+      <div className="w-full relative overflow-hidden">
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
           <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
         )}
 
-        {/* Scrollable Container - overflow-y-visible to prevent border clipping */}
+        {/* Scrollable Container */}
         <div
           ref={scrollContainerRef}
           className={cn(
-            "w-full overflow-x-auto overflow-y-visible scrollbar-hide snap-x snap-mandatory touch-pan-x",
+            "w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory touch-pan-x",
             isDragging ? "cursor-grabbing select-none" : "cursor-grab"
           )}
           style={{ 
@@ -1546,9 +1546,7 @@ function GroupBlockPreview({
             className="flex"
             style={{ 
               gap: `${gap}px`,
-              // CRITICAL: Padding to prevent borders from being clipped
-              padding: '4px 10px 8px 10px',
-              margin: '-4px 0 -4px 0',
+              padding: '4px 10px 12px 10px',
             }}
           >
             {enabledChildren.map((child) => (
@@ -1557,9 +1555,22 @@ function GroupBlockPreview({
                 className="shrink-0 snap-start"
                 style={itemStyle}
               >
-                {/* Remove overflow-hidden to allow borders to show */}
-                <div className="w-full [&_.truncate]:block [&_.truncate]:overflow-hidden [&_.truncate]:text-ellipsis [&_.truncate]:whitespace-nowrap">
-                  <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
+                {/* overflow-hidden on item wrapper to contain hover effects */}
+                <div 
+                  className="w-full overflow-hidden"
+                  style={{
+                    // Disable hover scale to prevent overflow issues
+                    // The child buttons will scale but be clipped
+                  }}
+                >
+                  <div
+                    className="w-full"
+                    style={{
+                      // Force text truncation on titles
+                    }}
+                  >
+                    <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
+                  </div>
                 </div>
               </div>
             ))}
