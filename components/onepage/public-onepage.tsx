@@ -1691,27 +1691,29 @@ function GroupBlockRenderer({
     padding: '10px 16px 8px 16px',
   }}
 >
-    {enabledChildren.map((child) => (
-      <div key={child.id} className="shrink-0 snap-start" style={itemStyle}>
-        <div className="w-full">
-          <PublicBlockRenderer
-            block={child}
-            theme={theme}
-            profile={profile}
-            onepageId={onepageId}
-            sellerId={sellerId}
-            isDesktop={isDesktop}
-            settings={settings}
-            isInsideCarousel={true}
-          />
-        </div>
-      </div>
-    ))}
-
-    {/* Spacer to prevent bottom clipping of carousel items (this is the real fix) */}
-    <div className="shrink-0" style={{ width: 1, height: 14 }} />
+ {enabledChildren.map((child) => (
+  <div
+    key={child.id}
+    className="shrink-0 snap-start"
+    style={itemStyle}
+  >
+    <div className="w-full">
+      <PublicBlockRenderer
+        block={child}
+        theme={theme}
+        profile={profile}
+        onepageId={onepageId}
+        sellerId={sellerId}
+        isDesktop={isDesktop}
+        settings={settings}
+        isInsideCarousel={true}
+      />
+    </div>
   </div>
-</div>
+))}
+
+{/* Spacer to prevent bottom clipping of carousel items */}
+<div className="shrink-0" style={{ width: 1, height: 14 }} />
 
 
         {/* Right Arrow Navigation - Desktop only, smooth fade in */}
