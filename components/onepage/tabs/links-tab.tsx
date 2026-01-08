@@ -780,7 +780,7 @@ export function LinksTab() {
       let thumbnailUrl: string | null = null
 
       // Spotify URL detection - fetch from our API for full metadata
-      if (url.includes('spotify.com/') || url.includes('open.spotify.com/')) {
+      if (url.includes('spotify.com')) {
         try {
           const apiResponse = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(url)}`)
           if (apiResponse.ok) {
@@ -891,7 +891,7 @@ export function LinksTab() {
       const wasYouTube = currentData.url?.includes('youtube.com') || currentData.url?.includes('youtu.be')
       const isYouTube = url.includes('youtube.com') || url.includes('youtu.be')
 
-      // If switching between platforms, clear existing data
+      // If switching between platforms, clear existing data and fetch new
       if ((wasSpotify && !isSpotify) || (wasYouTube && !isYouTube) || (!wasSpotify && !wasYouTube && (isSpotify || isYouTube))) {
         updateBlock(blockId, {
           data: {
@@ -910,15 +910,41 @@ export function LinksTab() {
       }
     }
 
-    // Debounce the auto-fetch - only fetch if URL looks complete
-    if (url.length > 10 && (url.startsWith('http://') || url.startsWith('https://'))) {
-      // Use a short delay to avoid fetching while user is still typing
+    // Debounce the auto-fetch - faster response (400ms)
+    if (url.length > 10 && (url.startsWith('http://') || url.startsWith('https://') || url.includes('spotify.com') || url.includes('youtube.com'))) {
+      // Use a shorter delay for faster response
       const timeoutId = setTimeout(() => {
         autoFetchThumbnail(blockId, url)
-      }, 800)
+      }, 400)
       return () => clearTimeout(timeoutId)
     }
   }, [autoFetchThumbnail, onepage?.draft_blocks, updateBlock])
+
+  // Effect to ensure thumbnails are fetched for existing Spotify/YouTube URLs without thumbnails
+  useEffect(() => {
+    if (!onepage?.draft_blocks) return
+
+    onepage.draft_blocks.forEach((block) => {
+      if (block.type !== 'link_button') return
+      const data = block.data as LinkButtonBlockData
+      if (!data?.url) return
+
+      // Skip if user has set a custom icon (not auto-fetched)
+      if (data.icon) return
+
+      const isSpotify = data.url.includes('spotify.com')
+      const isYouTube = data.url.includes('youtube.com') || data.url.includes('youtu.be')
+
+      // If it's a Spotify URL without thumbnail/metadata, fetch it
+      if (isSpotify && !data.thumbnail_url && !data.spotify_title) {
+        autoFetchThumbnail(block.id, data.url)
+      }
+      // If it's a YouTube URL without thumbnail, fetch it
+      else if (isYouTube && !data.thumbnail_url) {
+        autoFetchThumbnail(block.id, data.url)
+      }
+    })
+  }, []) // Run once on mount
 
   // Handle thumbnail upload for modal
   const handleThumbnailUploadForModal = async (e: React.ChangeEvent<HTMLInputElement>) => {
