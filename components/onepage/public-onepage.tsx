@@ -1648,7 +1648,7 @@ function GroupBlockRenderer({
           <button
             onClick={goToPrev}
             className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 z-30",
+              "absolute left-2 top-1/2 -translate-y-1/2 z-20",
               "w-10 h-10 rounded-full",
               "bg-white/95 shadow-lg",
               "flex items-center justify-center",
@@ -1662,11 +1662,11 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container - NO overflow-hidden on Y axis to allow shadows */}
+        {/* Scrollable Container - overflow-x-auto but overflow-y-visible for hover effects */}
         <div
           ref={scrollContainerRef}
           className={cn(
-            "w-full overflow-x-auto overflow-y-visible scrollbar-hide snap-x snap-mandatory",
+            "w-full scrollbar-hide snap-x snap-mandatory",
             isDragging ? "cursor-grabbing select-none" : "cursor-grab"
           )}
           style={{ 
@@ -1674,6 +1674,8 @@ function GroupBlockRenderer({
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
+            overflowX: 'auto',
+            overflowY: 'visible',
           }}
           onScroll={handleScroll}
           onMouseDown={handleMouseDown}
@@ -1686,17 +1688,19 @@ function GroupBlockRenderer({
             className="flex"
             style={{ 
               gap: `${gap}px`,
-              // Extra padding on all sides to allow shadows to show
-              padding: '8px 16px 16px 16px',
+              padding: '10px 16px 18px 16px',
             }}
           >
             {enabledChildren.map((child) => (
               <div
                 key={child.id}
-                className="shrink-0 snap-start relative z-10"
-                style={itemStyle}
+                className="shrink-0 snap-start relative carousel-public-item"
+                style={{
+                  ...itemStyle,
+                  zIndex: 1,
+                }}
               >
-                {/* Each card wrapper - NO overflow-hidden to allow shadows */}
+                {/* No overflow-hidden - allow hover shadow and scale to show */}
                 <div className="w-full relative">
                   <PublicBlockRenderer
                     block={child}
@@ -1719,7 +1723,7 @@ function GroupBlockRenderer({
           <button
             onClick={goToNext}
             className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 z-30",
+              "absolute right-2 top-1/2 -translate-y-1/2 z-20",
               "w-10 h-10 rounded-full",
               "bg-white/95 shadow-lg",
               "flex items-center justify-center",
@@ -1740,7 +1744,7 @@ function GroupBlockRenderer({
 
         {/* Dots navigation - clickable, updates based on scroll position */}
         {enabledChildren.length > 1 && (
-          <div className="flex justify-center gap-2 mt-2">
+          <div className="flex justify-center gap-2 mt-2 pt-1">
             {enabledChildren.map((_, index) => (
               <button
                 key={index}
@@ -1756,6 +1760,14 @@ function GroupBlockRenderer({
             ))}
           </div>
         )}
+
+        {/* CSS for hover z-index */}
+        <style>{`
+          .carousel-public-item:hover {
+            z-index: 10;
+            position: relative;
+          }
+        `}</style>
       </div>
     )
   }
@@ -1826,8 +1838,8 @@ function PublicBlockRenderer({
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
 
-  // Disable hover scale when inside carousel to prevent overflow
-  const hoverScale = isInsideCarousel ? "" : "hover:scale-[1.02] active:scale-[0.98]"
+  // Enable hover scale for all items including carousel (overflow is now visible)
+  const hoverScale = "hover:scale-[1.02] active:scale-[0.98]"
 
   const trackClick = async (blockId: string, url: string) => {
     try {
@@ -2555,12 +2567,12 @@ function PublicBlockRenderer({
             )}
             {/* Title area */}
             <div
-              className="w-full px-5 py-3.5 sm:py-4 flex flex-col items-center justify-center"
+              className="w-full px-5 py-3.5 sm:py-4 flex flex-col items-center justify-center overflow-hidden"
               style={{
                 backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
               }}
             >
-              <span className="truncate font-medium" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+              <span className="truncate font-medium max-w-full block" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
                 {data.label || "Link"}
               </span>
               {/* Spotify metadata display for Pro Layout */}
