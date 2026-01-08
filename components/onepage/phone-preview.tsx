@@ -1409,6 +1409,138 @@ function VerifiedBadge({
   )
 }
 
+// Group Block Preview Component with scroll-tracking dots
+function GroupBlockPreview({
+  data,
+  theme,
+  profile,
+  scale,
+  settings,
+  BlockRenderer,
+}: {
+  data: GroupBlockData
+  theme: OnePageTheme
+  profile: BlockRendererProps['profile']
+  scale: BlockRendererProps['scale']
+  settings?: { filled_icons?: boolean }
+  BlockRenderer: React.ComponentType<BlockRendererProps>
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const enabledChildren = data.children.filter(c => c.enabled)
+
+  // Calculate carousel item width based on view setting
+  const getCarouselItemWidth = () => {
+    const view = data.carousel_view || "1"
+    switch (view) {
+      case "1.5": return 67
+      case "1.2": return 85
+      case "1":
+      default: return 100
+    }
+  }
+
+  const itemWidthPercent = getCarouselItemWidth()
+
+  // Handle scroll to update current index
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return
+    const container = scrollContainerRef.current
+    const scrollPosition = container.scrollLeft
+    const containerWidth = container.clientWidth
+    const itemWidth = (containerWidth * itemWidthPercent) / 100
+    const gap = 8 // gap-2 = 8px
+    const newIndex = Math.round(scrollPosition / (itemWidth + gap))
+    setCurrentIndex(Math.min(Math.max(0, newIndex), enabledChildren.length - 1))
+  }
+
+  // Render carousel layout
+  const renderCarousel = () => {
+    const itemStyle = {
+      width: `${itemWidthPercent}%`,
+      minWidth: `${itemWidthPercent}%`,
+    }
+
+    return (
+      <div className="w-full relative">
+        {/* Fade on left edge */}
+        {data.carousel_fade_edges && (
+          <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-black/30 to-transparent z-10 pointer-events-none" />
+        )}
+
+        {/* Scrollable Container */}
+        <div
+          ref={scrollContainerRef}
+          className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory touch-pan-x"
+          style={{ scrollSnapType: 'x mandatory' }}
+          onScroll={handleScroll}
+        >
+          <div
+            className="flex gap-2"
+            style={{ padding: '6px 8px' }}
+          >
+            {enabledChildren.map((child) => (
+              <div
+                key={child.id}
+                className="shrink-0 snap-start"
+                style={itemStyle}
+              >
+                <div className="w-full overflow-hidden [&_button]:hover:scale-100 [&_div]:hover:scale-100 [&_.truncate]:block [&_.truncate]:w-full">
+                  <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Fade on right edge */}
+        {data.carousel_fade_edges && (
+          <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-black/30 to-transparent z-10 pointer-events-none" />
+        )}
+
+        {/* Dots navigation - updates based on scroll position */}
+        {enabledChildren.length > 1 && (
+          <div className="flex justify-center gap-1.5 mt-2">
+            {enabledChildren.map((_, index) => (
+              <div
+                key={index}
+                className="w-1.5 h-1.5 rounded-full transition-all duration-300"
+                style={{
+                  backgroundColor: index === currentIndex ? theme.text_color : `${theme.text_color}40`,
+                  transform: index === currentIndex ? 'scale(1.2)' : 'scale(1)'
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Render stack layout
+  const renderStack = () => (
+    <div className="w-full flex flex-col gap-2 px-1">
+      {enabledChildren.map((child) => (
+        <div key={child.id} className="w-full py-0.5">
+          <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
+        </div>
+      ))}
+    </div>
+  )
+
+  return (
+    <div className="w-full flex flex-col gap-2">
+      {data.title && (
+        <h3 className="text-xs font-medium text-center opacity-70 truncate px-2" style={{ color: theme.text_color }}>
+          {data.title}
+        </h3>
+      )}
+      {data.layout === "carousel" ? renderCarousel() : renderStack()}
+    </div>
+  )
+}
+
 function BlockRenderer({ block, theme, profile, scale = "small", settings }: BlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
@@ -2479,88 +2611,15 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings }: Blo
         )
       }
 
-      const renderGroupChildren = () => {
-        const enabledChildren = data.children.filter(c => c.enabled)
-
-        // Calculate carousel item width based on view setting
-        const getCarouselItemStyle = () => {
-          const view = data.carousel_view || "1"
-          switch (view) {
-            case "1.5": return { width: '67%', minWidth: '67%' }
-            case "1.2": return { width: '85%', minWidth: '85%' }
-            case "1":
-            default: return { width: '100%', minWidth: '100%' }
-          }
-        }
-
-        switch (data.layout) {
-          case "carousel":
-            const itemStyle = getCarouselItemStyle()
-            return (
-              <div className="w-full relative">
-                {/* Fade on left edge */}
-                {data.carousel_fade_edges && (
-                  <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-black/30 to-transparent z-10 pointer-events-none" />
-                )}
-                <div
-                  className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory"
-                  style={{ scrollSnapType: 'x mandatory' }}
-                >
-                  <div className="flex gap-2" style={{ paddingLeft: '4px', paddingRight: '4px', paddingTop: '2px', paddingBottom: '2px' }}>
-                    {enabledChildren.map((child, index) => (
-                      <div
-                        key={child.id}
-                        className="shrink-0 snap-start py-0.5"
-                        style={itemStyle}
-                      >
-                        <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {/* Fade on right edge */}
-                {data.carousel_fade_edges && (
-                  <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-black/30 to-transparent z-10 pointer-events-none" />
-                )}
-                {/* Dots navigation */}
-                {enabledChildren.length > 1 && (
-                  <div className="flex justify-center gap-1.5 mt-2">
-                    {enabledChildren.map((_, index) => (
-                      <div
-                        key={index}
-                        className="w-1.5 h-1.5 rounded-full transition-colors"
-                        style={{
-                          backgroundColor: index === 0 ? theme.text_color : `${theme.text_color}40`
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          case "stack":
-          default:
-            return (
-              <div className="w-full flex flex-col gap-2 px-0.5">
-                {enabledChildren.map((child) => (
-                  <div key={child.id} className="w-full py-0.5">
-                    <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
-                  </div>
-                ))}
-              </div>
-            )
-        }
-      }
-
       return (
-        <div className="w-full flex flex-col gap-2">
-          {data.title && (
-            <h3 className="text-xs font-medium text-center opacity-70" style={{ color: theme.text_color }}>
-              {data.title}
-            </h3>
-          )}
-          {renderGroupChildren()}
-        </div>
+        <GroupBlockPreview
+          data={data}
+          theme={theme}
+          profile={profile}
+          scale={scale}
+          settings={settings}
+          BlockRenderer={BlockRenderer}
+        />
       )
     }
 

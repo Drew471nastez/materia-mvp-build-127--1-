@@ -19,7 +19,7 @@ import type {
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect } from "react"
-import { Bell, X, Check, Send, Link2 } from "lucide-react"
+import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight } from "lucide-react"
 
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
@@ -1491,6 +1491,247 @@ function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; 
   )
 }
 
+// Group Block Carousel Component with full interactivity
+function GroupBlockRenderer({
+  data,
+  theme,
+  profile,
+  onepageId,
+  sellerId,
+  isDesktop,
+  settings,
+}: {
+  data: GroupBlockData
+  theme: OnePageTheme
+  profile: { display_name?: string; profile_image_url?: string | null } | null
+  onepageId: string
+  sellerId: string | null
+  isDesktop: boolean
+  settings?: { filled_icons?: boolean }
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isHovering, setIsHovering] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const enabledChildren = data.children.filter(c => c.enabled)
+
+  // Calculate carousel item width based on view setting
+  const getCarouselItemWidth = () => {
+    const view = data.carousel_view || "1"
+    switch (view) {
+      case "1.5": return 67
+      case "1.2": return 85
+      case "1":
+      default: return 100
+    }
+  }
+
+  const itemWidthPercent = getCarouselItemWidth()
+
+  // Handle scroll to update current index
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return
+    const container = scrollContainerRef.current
+    const scrollPosition = container.scrollLeft
+    const containerWidth = container.clientWidth
+    const itemWidth = (containerWidth * itemWidthPercent) / 100
+    const gap = isDesktop ? 16 : 12 // gap-3 = 12px, sm:gap-4 = 16px
+    const newIndex = Math.round(scrollPosition / (itemWidth + gap))
+    setCurrentIndex(Math.min(newIndex, enabledChildren.length - 1))
+  }
+
+  // Scroll to specific index
+  const scrollToIndex = (index: number) => {
+    if (!scrollContainerRef.current) return
+    const container = scrollContainerRef.current
+    const containerWidth = container.clientWidth
+    const itemWidth = (containerWidth * itemWidthPercent) / 100
+    const gap = isDesktop ? 16 : 12
+    const targetScroll = index * (itemWidth + gap)
+    container.scrollTo({ left: targetScroll, behavior: 'smooth' })
+  }
+
+  // Navigate to previous slide
+  const goToPrev = () => {
+    const newIndex = Math.max(0, currentIndex - 1)
+    scrollToIndex(newIndex)
+  }
+
+  // Navigate to next slide
+  const goToNext = () => {
+    const newIndex = Math.min(enabledChildren.length - 1, currentIndex + 1)
+    scrollToIndex(newIndex)
+  }
+
+  // Mouse drag handlers for desktop
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return
+    setIsDragging(true)
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft)
+    setScrollLeft(scrollContainerRef.current.scrollLeft)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollContainerRef.current) return
+    e.preventDefault()
+    const x = e.pageX - scrollContainerRef.current.offsetLeft
+    const walk = (x - startX) * 1.5 // Scroll speed multiplier
+    scrollContainerRef.current.scrollLeft = scrollLeft - walk
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const handleMouseLeave = () => {
+    setIsDragging(false)
+    setIsHovering(false)
+  }
+
+  // Render carousel layout
+  const renderCarousel = () => {
+    const itemStyle = {
+      width: `${itemWidthPercent}%`,
+      minWidth: `${itemWidthPercent}%`,
+    }
+
+    return (
+      <div
+        className="w-full relative group/carousel"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Fade on left edge */}
+        {data.carousel_fade_edges && (
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/30 to-transparent z-10 pointer-events-none" />
+        )}
+
+        {/* Left Arrow Navigation - Desktop only */}
+        {isDesktop && enabledChildren.length > 1 && currentIndex > 0 && (
+          <button
+            onClick={goToPrev}
+            className={cn(
+              "absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-all duration-300",
+              isHovering ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+            )}
+            style={{ color: theme.button_color }}
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Scrollable Container */}
+        <div
+          ref={scrollContainerRef}
+          className={cn(
+            "w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory",
+            isDragging ? "cursor-grabbing" : "cursor-grab"
+          )}
+          style={{ scrollSnapType: 'x mandatory' }}
+          onScroll={handleScroll}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+        >
+          <div
+            className="flex gap-3 sm:gap-4"
+            style={{ padding: '8px 12px' }}
+          >
+            {enabledChildren.map((child, index) => (
+              <div
+                key={child.id}
+                className="shrink-0 snap-start"
+                style={itemStyle}
+              >
+                <div className="w-full overflow-hidden [&_button]:hover:scale-100 [&_a]:hover:scale-100 [&_.truncate]:block [&_.truncate]:w-full">
+                  <PublicBlockRenderer
+                    block={child}
+                    theme={theme}
+                    profile={profile}
+                    onepageId={onepageId}
+                    sellerId={sellerId}
+                    isDesktop={isDesktop}
+                    settings={settings}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Arrow Navigation - Desktop only */}
+        {isDesktop && enabledChildren.length > 1 && currentIndex < enabledChildren.length - 1 && (
+          <button
+            onClick={goToNext}
+            className={cn(
+              "absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center transition-all duration-300",
+              isHovering ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+            )}
+            style={{ color: theme.button_color }}
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Fade on right edge */}
+        {data.carousel_fade_edges && (
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/30 to-transparent z-10 pointer-events-none" />
+        )}
+
+        {/* Dots navigation - updates based on scroll position */}
+        {enabledChildren.length > 1 && (
+          <div className="flex justify-center gap-2 mt-3">
+            {enabledChildren.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => scrollToIndex(index)}
+                className="w-2 h-2 rounded-full transition-all duration-300"
+                style={{
+                  backgroundColor: index === currentIndex ? theme.text_color : `${theme.text_color}40`,
+                  transform: index === currentIndex ? 'scale(1.2)' : 'scale(1)'
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Render stack layout
+  const renderStack = () => (
+    <div className="w-full flex flex-col gap-3 sm:gap-4 px-2">
+      {enabledChildren.map((child) => (
+        <div key={child.id} className="w-full py-1">
+          <PublicBlockRenderer
+            block={child}
+            theme={theme}
+            profile={profile}
+            onepageId={onepageId}
+            sellerId={sellerId}
+            isDesktop={isDesktop}
+            settings={settings}
+          />
+        </div>
+      ))}
+    </div>
+  )
+
+  return (
+    <div className="w-full flex flex-col gap-3">
+      {data.title && (
+        <h3 className="text-sm font-medium text-center opacity-70 truncate px-4" style={{ color: theme.text_color }}>
+          {data.title}
+        </h3>
+      )}
+      {data.layout === "carousel" ? renderCarousel() : renderStack()}
+    </div>
+  )
+}
+
 function PublicBlockRenderer({
   block,
   theme,
@@ -2688,88 +2929,16 @@ function PublicBlockRenderer({
         return null // Don't show empty groups on published page
       }
 
-      const renderGroupChildren = () => {
-        const enabledChildren = data.children.filter(c => c.enabled)
-
-        // Calculate carousel item width based on view setting
-        const getCarouselItemStyle = () => {
-          const view = data.carousel_view || "1"
-          switch (view) {
-            case "1.5": return { width: '67%', minWidth: '67%' }
-            case "1.2": return { width: '85%', minWidth: '85%' }
-            case "1":
-            default: return { width: '100%', minWidth: '100%' }
-          }
-        }
-
-        switch (data.layout) {
-          case "carousel":
-            const itemStyle = getCarouselItemStyle()
-            return (
-              <div className="w-full relative">
-                {/* Fade on left edge */}
-                {data.carousel_fade_edges && (
-                  <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-black/30 to-transparent z-10 pointer-events-none" />
-                )}
-                <div
-                  className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory"
-                  style={{ scrollSnapType: 'x mandatory' }}
-                >
-                  <div className="flex gap-3 sm:gap-4" style={{ paddingLeft: '6px', paddingRight: '6px', paddingTop: '3px', paddingBottom: '3px' }}>
-                    {enabledChildren.map((child, index) => (
-                      <div
-                        key={child.id}
-                        className="shrink-0 snap-start py-0.5"
-                        style={itemStyle}
-                      >
-                        <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {/* Fade on right edge */}
-                {data.carousel_fade_edges && (
-                  <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-black/30 to-transparent z-10 pointer-events-none" />
-                )}
-                {/* Dots navigation */}
-                {enabledChildren.length > 1 && (
-                  <div className="flex justify-center gap-2 mt-3">
-                    {enabledChildren.map((_, index) => (
-                      <div
-                        key={index}
-                        className="w-2 h-2 rounded-full transition-colors"
-                        style={{
-                          backgroundColor: index === 0 ? theme.text_color : `${theme.text_color}40`
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          case "stack":
-          default:
-            return (
-              <div className="w-full flex flex-col gap-3 sm:gap-4 px-1">
-                {enabledChildren.map((child) => (
-                  <div key={child.id} className="w-full py-0.5">
-                    <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} />
-                  </div>
-                ))}
-              </div>
-            )
-        }
-      }
-
       return (
-        <div className="w-full flex flex-col gap-3">
-          {data.title && (
-            <h3 className="text-sm font-medium text-center opacity-70" style={{ color: theme.text_color }}>
-              {data.title}
-            </h3>
-          )}
-          {renderGroupChildren()}
-        </div>
+        <GroupBlockRenderer
+          data={data}
+          theme={theme}
+          profile={profile}
+          onepageId={onepageId}
+          sellerId={sellerId}
+          isDesktop={isDesktop}
+          settings={settings}
+        />
       )
     }
 
