@@ -1663,55 +1663,58 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container */}
-        <div
-          ref={scrollContainerRef}
-          className={cn(
-            "w-full scrollbar-hide snap-x snap-mandatory",
-            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
-          )}
-          style={{
-            scrollSnapType: 'x mandatory',
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            overflowX: 'auto',
-            overflowY: 'visible',
-          }}
-          onScroll={handleScroll}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-        >
+        {/* Outer wrapper to allow vertical overflow */}
+        <div style={{ overflow: 'visible', paddingBottom: '8px' }}>
+          {/* Scrollable Container */}
           <div
-            className="flex"
+            ref={scrollContainerRef}
+            className={cn(
+              "w-full scrollbar-hide snap-x snap-mandatory",
+              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+            )}
             style={{
-              gap: `${gap}px`,
-              padding: '10px 16px 122px 16px',
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              overflowX: 'auto',
+              overflowY: 'visible',
             }}
+            onScroll={handleScroll}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
           >
-            {enabledChildren.map((child) => (
-              <div
-                key={child.id}
-                className="shrink-0 snap-start"
-                style={itemStyle}
-              >
-                <div className="w-full">
-                  <PublicBlockRenderer
-                    block={child}
-                    theme={theme}
-                    profile={profile}
-                    onepageId={onepageId}
-                    sellerId={sellerId}
-                    isDesktop={isDesktop}
-                    settings={settings}
-                    isInsideCarousel={true}
-                  />
+            <div
+              className="flex"
+              style={{
+                gap: `${gap}px`,
+                padding: '10px 16px 28px 16px',
+              }}
+            >
+              {enabledChildren.map((child) => (
+                <div
+                  key={child.id}
+                  className="shrink-0 snap-start"
+                  style={itemStyle}
+                >
+                  <div className="w-full">
+                    <PublicBlockRenderer
+                      block={child}
+                      theme={theme}
+                      profile={profile}
+                      onepageId={onepageId}
+                      sellerId={sellerId}
+                      isDesktop={isDesktop}
+                      settings={settings}
+                      isInsideCarousel={true}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
@@ -2273,7 +2276,8 @@ function PublicBlockRenderer({
                 rel="noopener noreferrer"
                 onClick={() => trackClick(block.id, url)}
                 className={cn(
-                  "flex items-center justify-center transition-all hover:scale-110",
+                  "flex items-center justify-center transition-all",
+                  !isInsideCarousel && "hover:scale-110",
                   socialStyle === "filled" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full",
                   socialStyle === "outline" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full border-2",
                   socialStyle === "minimal" && "p-2.5",
@@ -2536,7 +2540,10 @@ function PublicBlockRenderer({
                 {youtubeVideoId && youtubeMode === 'open_video' && youtubeShowPlayButton && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div
-                      className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center backdrop-blur-sm transition-transform group-hover:scale-110"
+                      className={cn(
+                        "w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center backdrop-blur-sm transition-transform",
+                        !isInsideCarousel && "group-hover:scale-110"
+                      )}
                       style={{
                         backgroundColor: 'rgba(0, 0, 0, 0.55)',
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
