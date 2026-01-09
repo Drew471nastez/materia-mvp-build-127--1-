@@ -1437,7 +1437,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   )
 }
 
-nterface PublicBlockRendererProps {
+interface PublicBlockRendererProps {
   block: OnePageBlock
   theme: OnePageTheme
   profile: {
