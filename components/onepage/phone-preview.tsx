@@ -2155,6 +2155,184 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           }
         }
 
+        // Check if this is a Spotify URL with modal mode for Pro Layout
+        const proSpotifyMode = data.spotify_mode || 'go_to_url'
+        const shouldOpenProSpotifyModal = isSpotifyUrl(data.url) && (proSpotifyMode === 'audio_preview' || proSpotifyMode === 'show_streaming')
+
+        // Pro Layout with Spotify modal
+        if (shouldOpenProSpotifyModal) {
+          const spotifyInfo = getSpotifyInfo(data.url)
+          return (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  if (spotifyInfo) {
+                    setSpotifyModalData({
+                      title: data.label || 'Listen on Spotify',
+                      embedUrl: spotifyInfo.embedUrl,
+                      spotifyUrl: data.url,
+                      streamingServices: data.streaming_services,
+                      spotifyMode: proSpotifyMode
+                    })
+                    setSpotifyModalOpen(true)
+                  }
+                }}
+                className={cn(
+                  s.button,
+                  "w-full font-medium transition-opacity overflow-hidden cursor-pointer text-left",
+                  "hover:opacity-90",
+                  getAnimationClass(data.animation_type),
+                )}
+                style={{
+                  ...buttonStyles,
+                  padding: 0,
+                }}
+              >
+                {/* Featured thumbnail area */}
+                {data.thumbnail_url && (
+                  <div
+                    className={cn(
+                      "w-full relative overflow-hidden",
+                      displayMode !== 'full' && "aspect-[2/1]"
+                    )}
+                    style={{
+                      borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                      backgroundColor: displayMode === 'contain' ? (
+                        theme.button_style === "outline" ? `${theme.button_color}10` : `${theme.button_text_color}10`
+                      ) : undefined,
+                    }}
+                  >
+                    <img
+                      src={data.thumbnail_url}
+                      alt=""
+                      className={cn(
+                        "w-full",
+                        displayMode === 'cover' && "h-full object-cover",
+                        displayMode === 'contain' && "h-full object-contain",
+                        displayMode === 'full' && "h-auto"
+                      )}
+                    />
+                  </div>
+                )}
+                {/* Title area */}
+                <div
+                  className="w-full px-4 py-3 flex flex-col items-center justify-center overflow-hidden"
+                  style={{
+                    backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+                  }}
+                >
+                  <span className="truncate font-medium max-w-full block" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                    {data.label || "My Link"}
+                  </span>
+                  {/* Spotify metadata display for Pro Layout */}
+                  {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
+                    <span
+                      className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                      style={{
+                        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                        opacity: 0.7
+                      }}
+                    >
+                      <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                      </svg>
+                      <span className="truncate">
+                        {data.spotify_type === 'track' && `Song · ${data.spotify_artist || data.spotify_title}`}
+                        {data.spotify_type === 'album' && `Album · ${data.spotify_title || data.spotify_artist}`}
+                        {data.spotify_type === 'artist' && (data.spotify_artist || data.spotify_title)}
+                        {data.spotify_type === 'playlist' && `Playlist · ${data.spotify_title || data.spotify_artist}`}
+                        {!data.spotify_type && (data.spotify_title || data.spotify_artist)}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              {/* Spotify Modal for Pro Layout - Scaled for phone preview */}
+              {spotifyModalOpen && spotifyModalData && (
+                <div
+                  className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                  onClick={() => setSpotifyModalOpen(false)}
+                >
+                  <div
+                    className="bg-white rounded-2xl w-[85%] max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-2.5 border-b">
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                        </svg>
+                        <span className="text-[10px] font-medium text-gray-600 truncate max-w-[150px]">
+                          {spotifyModalData.title}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setSpotifyModalOpen(false)}
+                        className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5 text-gray-500" />
+                      </button>
+                    </div>
+
+                    {/* Spotify Embed */}
+                    <div className="p-2.5">
+                      <iframe
+                        src={spotifyModalData.embedUrl}
+                        width="100%"
+                        height="200"
+                        frameBorder="0"
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        loading="lazy"
+                        className="rounded-lg"
+                      />
+                    </div>
+
+                    {/* Streaming Services - if show_streaming mode */}
+                    {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
+                      <div className="px-2.5 pb-2.5">
+                        <p className="text-[10px] font-medium text-gray-700 mb-1.5">Listen on</p>
+                        <div className="space-y-1">
+                          {spotifyModalData.streamingServices.filter(s => s.found && s.url).slice(0, 3).map((service) => {
+                            const names: Record<string, string> = {
+                              apple_music: 'Apple Music',
+                              youtube_music: 'YouTube Music',
+                              spotify: 'Spotify',
+                              soundcloud: 'SoundCloud',
+                              tidal: 'TIDAL',
+                              deezer: 'Deezer',
+                              amazon_music: 'Amazon Music'
+                            }
+                            return (
+                              <div
+                                key={service.platform}
+                                className="flex items-center justify-between p-2 rounded-lg border border-gray-200 bg-gray-50"
+                              >
+                                <span className="text-[10px] font-medium text-gray-900">{names[service.platform] || service.platform}</span>
+                                <ExternalLink className="w-3 h-3 text-gray-400" />
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Open in Spotify button */}
+                    <div className="p-2.5 pt-0">
+                      <div className="w-full py-2 px-3 rounded-full bg-black text-white text-center text-[10px] font-medium">
+                        Open in Spotify
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        }
+
+        // Regular Pro Layout (no Spotify modal)
         return (
           <div
             className={cn(

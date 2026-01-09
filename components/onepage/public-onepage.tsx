@@ -2517,6 +2517,191 @@ function PublicBlockRenderer({
         // For non-embed modes (open_profile, open_latest) or Pro Layout links, use target URL
         const targetUrl = getTargetUrl()
 
+        // Check if this is a Spotify URL with modal mode for Pro Layout
+        const proSpotifyMode = data.spotify_mode || 'go_to_url'
+        const shouldOpenProSpotifyModal = isSpotifyUrl(data.url) && (proSpotifyMode === 'audio_preview' || proSpotifyMode === 'show_streaming')
+
+        // Pro Layout with Spotify modal
+        if (shouldOpenProSpotifyModal) {
+          return (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  trackClick(block.id, data.url)
+                  openSpotifyModal(data)
+                }}
+                className={cn(
+                  "w-full overflow-hidden font-medium transition-all cursor-pointer text-left",
+                  isInsideCarousel ? "text-[13px]" : "text-sm sm:text-base",
+                  hoverEffect,
+                  getAnimationClass(data.animation_type)
+                )}
+                style={{
+                  ...buttonStyles,
+                  padding: 0,
+                }}
+              >
+                {/* Featured thumbnail area */}
+                {data.thumbnail_url && (
+                  <div
+                    className={cn(
+                      "w-full relative overflow-hidden",
+                      displayMode !== 'full' && "aspect-[2/1]"
+                    )}
+                    style={{
+                      borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                      backgroundColor: displayMode === 'contain' ? (
+                        theme.button_style === "outline" ? `${theme.button_color}10` : `${theme.button_text_color}10`
+                      ) : undefined,
+                    }}
+                  >
+                    <img
+                      src={data.thumbnail_url}
+                      alt=""
+                      className={cn(
+                        "w-full",
+                        displayMode === 'cover' && "h-full object-cover",
+                        displayMode === 'contain' && "h-full object-contain",
+                        displayMode === 'full' && "h-auto"
+                      )}
+                    />
+                  </div>
+                )}
+                {/* Title area */}
+                <div
+                  className={cn(
+                    "w-full flex flex-col items-center justify-center overflow-hidden",
+                    isInsideCarousel ? "px-[12px] py-[10px]" : "px-5 py-3.5 sm:py-4"
+                  )}
+                  style={{
+                    backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+                  }}
+                >
+                  <span className="truncate font-medium max-w-full block" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                    {data.label || "Link"}
+                  </span>
+                  {/* Spotify metadata display for Pro Layout */}
+                  {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
+                    <span
+                      className={cn(
+                        "flex items-center justify-center gap-1 mt-0.5 max-w-full",
+                        isInsideCarousel ? "text-[10px]" : "text-xs"
+                      )}
+                      style={{
+                        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                        opacity: 0.75
+                      }}
+                    >
+                      <svg className={cn("shrink-0", isInsideCarousel ? "w-3 h-3" : "w-3.5 h-3.5")} viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                      </svg>
+                      <span className="truncate">
+                        {data.spotify_type === 'track' && `Song · ${data.spotify_artist || data.spotify_title}`}
+                        {data.spotify_type === 'album' && `Album · ${data.spotify_title || data.spotify_artist}`}
+                        {data.spotify_type === 'artist' && `Profile · ${data.spotify_artist || data.spotify_title}`}
+                        {data.spotify_type === 'playlist' && `Playlist · ${data.spotify_title || data.spotify_artist}`}
+                        {!data.spotify_type && (data.spotify_title || data.spotify_artist)}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              {/* Spotify Modal for Pro Layout */}
+              {spotifyModalOpen && spotifyModalData && (
+                <div
+                  className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                  onClick={() => setSpotifyModalOpen(false)}
+                >
+                  <div
+                    className="bg-white rounded-3xl w-full max-w-[90vw] sm:max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-[65] max-h-[90vh] overflow-y-auto"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                        </svg>
+                        <span className="text-xs sm:text-sm font-medium text-gray-600 truncate max-w-[200px]">
+                          {spotifyModalData.title}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setSpotifyModalOpen(false)}
+                        className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                      >
+                        <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                      </button>
+                    </div>
+
+                    {/* Spotify Embed */}
+                    <div className="p-3 sm:p-4">
+                      <iframe
+                        src={spotifyModalData.embedUrl}
+                        width="100%"
+                        height="352"
+                        frameBorder="0"
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        loading="lazy"
+                        className="rounded-xl"
+                      />
+                    </div>
+
+                    {/* Streaming Services - if show_streaming mode */}
+                    {proSpotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.length > 0 && (
+                      <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">Listen on</p>
+                        <div className="space-y-2">
+                          {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
+                            const names: Record<string, string> = {
+                              apple_music: 'Apple Music',
+                              youtube_music: 'YouTube Music',
+                              spotify: 'Spotify',
+                              soundcloud: 'SoundCloud',
+                              tidal: 'TIDAL',
+                              deezer: 'Deezer',
+                              amazon_music: 'Amazon Music'
+                            }
+                            return (
+                              <a
+                                key={service.platform}
+                                href={service.url || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+                              >
+                                <span className="font-medium text-sm text-gray-900">{names[service.platform] || service.platform}</span>
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </a>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Open in Spotify button */}
+                    <div className="p-3 sm:p-4 pt-0">
+                      <a
+                        href={spotifyModalData.spotifyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full py-3 sm:py-3.5 px-4 rounded-full bg-black text-white text-center font-medium text-sm hover:bg-gray-800 transition-colors"
+                      >
+                        Open in Spotify
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        }
+
+        // Regular Pro Layout link (no modal)
         return (
           <a
             href={targetUrl}
@@ -2700,16 +2885,16 @@ function PublicBlockRenderer({
                 onClick={() => setSpotifyModalOpen(false)}
               >
                 <div
-                  className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 md:scale-[0.85] md:transform z-[65]"
+                  className="bg-white rounded-3xl w-full max-w-[90vw] sm:max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-[65] max-h-[90vh] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Header */}
-                  <div className="flex items-center justify-between p-4 border-b">
+                  <div className="flex items-center justify-between p-3 sm:p-4 border-b">
                     <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                       </svg>
-                      <span className="text-sm font-medium text-gray-600">
+                      <span className="text-xs sm:text-sm font-medium text-gray-600 truncate max-w-[200px]">
                         {spotifyModalData.title}
                       </span>
                     </div>
@@ -2717,12 +2902,12 @@ function PublicBlockRenderer({
                       onClick={() => setSpotifyModalOpen(false)}
                       className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
                     >
-                      <X className="w-5 h-5 text-gray-500" />
+                      <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
                     </button>
                   </div>
 
                   {/* Spotify Embed */}
-                  <div className="p-4">
+                  <div className="p-3 sm:p-4">
                     <iframe
                       src={spotifyModalData.embedUrl}
                       width="100%"
@@ -2734,20 +2919,20 @@ function PublicBlockRenderer({
                     />
                   </div>
 
-                  {/* Streaming Services - if show_streaming mode */}
+                  {/* Streaming Services - if show_streaming mode (no icons on desktop) */}
                   {spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.length > 0 && (
-                    <div className="px-4 pb-4">
-                      <p className="text-sm font-medium text-gray-700 mb-3">Listen on</p>
+                    <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">Listen on</p>
                       <div className="space-y-2">
                         {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
                           const icons: Record<string, React.ReactNode> = {
-                            apple_music: <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#FC3C44"><path d="M23.994 6.124a9.23 9.23 0 0 0-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 0 0-1.877-.726 10.496 10.496 0 0 0-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.62.497 2.373.55 1.205 1.47 2.082 2.72 2.594.454.186.93.3 1.415.38.37.06.74.1 1.113.12.2.01.397.02.596.027h12.268c.15-.01.3-.018.45-.028.94-.06 1.86-.19 2.72-.58 1.1-.5 1.92-1.3 2.45-2.4.23-.48.38-1 .46-1.53.08-.47.13-.95.15-1.43.01-.12.01-.25.01-.37V6.18l-.04.04zM12 18.75c-4.694 0-8.5-3.806-8.5-8.5s3.806-8.5 8.5-8.5 8.5 3.806 8.5 8.5-3.806 8.5-8.5 8.5zM10 6v8l6-4z"/></svg>,
-                            youtube_music: <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#FF0000"><path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm0 19.104c-3.924 0-7.104-3.18-7.104-7.104S8.076 4.896 12 4.896s7.104 3.18 7.104 7.104-3.18 7.104-7.104 7.104zM9.684 15.54V8.46L15.816 12l-6.132 3.54z"/></svg>,
-                            spotify: <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>,
-                            soundcloud: <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#FF5500"><path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.102-.1m2.858-1.058c-.066 0-.12.054-.12.118l-.147 3.193.147 3.077c0 .064.054.118.12.118.066 0 .12-.054.12-.118l.166-3.077-.166-3.193c0-.064-.054-.118-.12-.118"/></svg>,
-                            tidal: <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#000"><path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996l4.004 4.004 4.004-4.004 4.004 4.004-4.004 4.004 4.004 4.004 4.004-4.004-4.004-4.004 4.004-4.004 4.004 4.004 4.004-4.004L24 3.992l-4.004 4.004z"/></svg>,
-                            deezer: <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#FEAA2D"><path d="M18.81 4.16v3.03H24V4.16zM6.27 8.38v3.027h5.189V8.38zm12.54 0v3.027H24V8.38zM6.27 12.566v3.027h5.189v-3.027zm6.27 0v3.027h5.19v-3.027zm6.27 0v3.027H24v-3.027zM0 16.752v3.027h5.19v-3.027zm6.27 0v3.027h5.189v-3.027zm6.27 0v3.027h5.19v-3.027zm6.27 0v3.027H24v-3.027z"/></svg>,
-                            amazon_music: <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#00A8E1"><path d="M14.203 4.373c-1.206-.606-2.736-.972-4.461-.972-3.39 0-6.192 1.334-8.007 3.533a.476.476 0 00.364.78h.026a.48.48 0 00.345-.15c1.606-1.934 4.104-3.095 7.272-3.095 1.505 0 2.874.317 3.933.84a.48.48 0 00.528-.936z"/></svg>,
+                            apple_music: <svg viewBox="0 0 24 24" className="w-5 h-5 md:hidden" fill="#FC3C44"><path d="M23.994 6.124a9.23 9.23 0 0 0-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 0 0-1.877-.726 10.496 10.496 0 0 0-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.62.497 2.373.55 1.205 1.47 2.082 2.72 2.594.454.186.93.3 1.415.38.37.06.74.1 1.113.12.2.01.397.02.596.027h12.268c.15-.01.3-.018.45-.028.94-.06 1.86-.19 2.72-.58 1.1-.5 1.92-1.3 2.45-2.4.23-.48.38-1 .46-1.53.08-.47.13-.95.15-1.43.01-.12.01-.25.01-.37V6.18l-.04.04zM12 18.75c-4.694 0-8.5-3.806-8.5-8.5s3.806-8.5 8.5-8.5 8.5 3.806 8.5 8.5-3.806 8.5-8.5 8.5zM10 6v8l6-4z"/></svg>,
+                            youtube_music: <svg viewBox="0 0 24 24" className="w-5 h-5 md:hidden" fill="#FF0000"><path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm0 19.104c-3.924 0-7.104-3.18-7.104-7.104S8.076 4.896 12 4.896s7.104 3.18 7.104 7.104-3.18 7.104-7.104 7.104zM9.684 15.54V8.46L15.816 12l-6.132 3.54z"/></svg>,
+                            spotify: <svg viewBox="0 0 24 24" className="w-5 h-5 md:hidden" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>,
+                            soundcloud: <svg viewBox="0 0 24 24" className="w-5 h-5 md:hidden" fill="#FF5500"><path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.102-.1m2.858-1.058c-.066 0-.12.054-.12.118l-.147 3.193.147 3.077c0 .064.054.118.12.118.066 0 .12-.054.12-.118l.166-3.077-.166-3.193c0-.064-.054-.118-.12-.118"/></svg>,
+                            tidal: <svg viewBox="0 0 24 24" className="w-5 h-5 md:hidden" fill="#000"><path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996l4.004 4.004 4.004-4.004 4.004 4.004-4.004 4.004 4.004 4.004 4.004-4.004-4.004-4.004 4.004-4.004 4.004 4.004 4.004-4.004L24 3.992l-4.004 4.004z"/></svg>,
+                            deezer: <svg viewBox="0 0 24 24" className="w-5 h-5 md:hidden" fill="#FEAA2D"><path d="M18.81 4.16v3.03H24V4.16zM6.27 8.38v3.027h5.189V8.38zm12.54 0v3.027H24V8.38zM6.27 12.566v3.027h5.189v-3.027zm6.27 0v3.027h5.19v-3.027zm6.27 0v3.027H24v-3.027zM0 16.752v3.027h5.19v-3.027zm6.27 0v3.027h5.189v-3.027zm6.27 0v3.027h5.19v-3.027zm6.27 0v3.027H24v-3.027z"/></svg>,
+                            amazon_music: <svg viewBox="0 0 24 24" className="w-5 h-5 md:hidden" fill="#00A8E1"><path d="M14.203 4.373c-1.206-.606-2.736-.972-4.461-.972-3.39 0-6.192 1.334-8.007 3.533a.476.476 0 00.364.78h.026a.48.48 0 00.345-.15c1.606-1.934 4.104-3.095 7.272-3.095 1.505 0 2.874.317 3.933.84a.48.48 0 00.528-.936z"/></svg>,
                           }
                           const names: Record<string, string> = {
                             apple_music: 'Apple Music',
@@ -2764,11 +2949,11 @@ function PublicBlockRenderer({
                               href={service.url || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+                              className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
                             >
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2 sm:gap-3">
                                 {icons[service.platform]}
-                                <span className="font-medium text-gray-900">{names[service.platform] || service.platform}</span>
+                                <span className="font-medium text-sm text-gray-900">{names[service.platform] || service.platform}</span>
                               </div>
                               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -2781,12 +2966,12 @@ function PublicBlockRenderer({
                   )}
 
                   {/* Open in Spotify button */}
-                  <div className="p-4 pt-0">
+                  <div className="p-3 sm:p-4 pt-0">
                     <a
                       href={spotifyModalData.spotifyUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block w-full py-3.5 px-4 rounded-full bg-black text-white text-center font-medium text-sm hover:bg-gray-800 transition-colors"
+                      className="block w-full py-3 sm:py-3.5 px-4 rounded-full bg-black text-white text-center font-medium text-sm hover:bg-gray-800 transition-colors"
                     >
                       Open in Spotify
                     </a>
