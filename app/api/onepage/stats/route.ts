@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { data: onepage } = await supabase
       .from("onepages")
-      .select("owner_id")
+      .select("owner_id, blocks")
       .eq("id", onepageId)
       .maybeSingle()
 
@@ -51,17 +51,14 @@ export async function GET(request: NextRequest) {
     const endDateStr = endDate.toISOString()
 
     if (blockId) {
-      // First, check if this is a group block and get its children
-      const { data: blockData } = await supabase
-        .from("onepage_blocks")
-        .select("type, data")
-        .eq("id", blockId)
-        .maybeSingle()
+      // Find the block in the onepage's blocks array
+      const blocks = onepage.blocks as any[] || []
+      const targetBlock = blocks.find((b: any) => b.id === blockId)
 
       // Get all block IDs to query - include children if this is a group block
       const blockIdsToQuery = [blockId]
-      if (blockData?.type === "group" && blockData?.data?.children) {
-        const children = blockData.data.children as { id: string }[]
+      if (targetBlock?.type === "group" && targetBlock?.data?.children) {
+        const children = targetBlock.data.children as { id: string }[]
         children.forEach(child => blockIdsToQuery.push(child.id))
       }
 
@@ -157,10 +154,26 @@ export async function GET(request: NextRequest) {
         }
       })
 
-      // Get per-block click counts
+      // Get per-block click counts (including aggregation for group blocks)
       const blockClicks: Record<string, number> = {}
+      const blocks = onepage.blocks as any[] || []
+
+      // First, count all individual block clicks
       clicksResult.data?.forEach((click) => {
         blockClicks[click.block_id] = (blockClicks[click.block_id] || 0) + 1
+      })
+
+      // Then, for group blocks, aggregate child clicks into the group total
+      blocks.forEach((block: any) => {
+        if (block.type === "group" && block.data?.children) {
+          let groupTotal = blockClicks[block.id] || 0
+          block.data.children.forEach((child: any) => {
+            if (blockClicks[child.id]) {
+              groupTotal += blockClicks[child.id]
+            }
+          })
+          blockClicks[block.id] = groupTotal
+        }
       })
 
       const chartData = Object.entries(dailyStats).map(([date, stats]) => ({
