@@ -1553,7 +1553,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 href={spotifyModalData.spotifyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full py-2.5 px-4 rounded-full bg-[#1DB954] text-white text-center text-sm font-medium hover:bg-[#1ed760] transition-colors"
+                className="block w-full py-2.5 px-4 rounded-full bg-black text-white text-center text-sm font-medium hover:bg-gray-800 transition-colors"
               >
                 Open in Spotify
               </a>

@@ -1152,8 +1152,9 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 [&::-webkit-scrollbar]:hidden"
             onClick={(e) => e.stopPropagation()}
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-2.5 border-b">
@@ -1190,8 +1191,8 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
               <div className="px-2.5 pb-2.5">
                 <p className="text-[9px] font-medium text-gray-700 mb-1.5">Listen on</p>
-                <div className="space-y-1">
-                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
+                <div className="space-y-1 max-h-[120px] overflow-hidden">
+                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).slice(0, 4).map((service) => {
                     const names: Record<string, string> = {
                       apple_music: 'Apple Music',
                       spotify: 'Spotify',
@@ -1226,7 +1227,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 href={spotifyModalData.spotifyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 w-full py-2 rounded-full bg-[#1DB954] text-white text-[10px] font-medium hover:bg-[#1ed760] transition-colors"
+                className="flex items-center justify-center gap-1.5 w-full py-2 rounded-full bg-black text-white text-[10px] font-medium hover:bg-gray-800 transition-colors"
               >
                 Open in Spotify
               </a>
@@ -1507,8 +1508,9 @@ export function MobilePreviewContent() {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 [&::-webkit-scrollbar]:hidden"
             onClick={(e) => e.stopPropagation()}
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-2.5 border-b">
@@ -1545,8 +1547,8 @@ export function MobilePreviewContent() {
             {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
               <div className="px-2.5 pb-2.5">
                 <p className="text-[9px] font-medium text-gray-700 mb-1.5">Listen on</p>
-                <div className="space-y-1">
-                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
+                <div className="space-y-1 max-h-[120px] overflow-hidden">
+                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).slice(0, 4).map((service) => {
                     const names: Record<string, string> = {
                       apple_music: 'Apple Music',
                       spotify: 'Spotify',
@@ -1571,7 +1573,7 @@ export function MobilePreviewContent() {
 
             {/* Footer - Open in Spotify button */}
             <div className="px-2.5 pb-2.5 pt-0">
-              <a href={spotifyModalData.spotifyUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 w-full py-2 rounded-full bg-[#1DB954] text-white text-[10px] font-medium hover:bg-[#1ed760] transition-colors">
+              <a href={spotifyModalData.spotifyUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 w-full py-2 rounded-full bg-black text-white text-[10px] font-medium hover:bg-gray-800 transition-colors">
                 Open in Spotify
               </a>
             </div>

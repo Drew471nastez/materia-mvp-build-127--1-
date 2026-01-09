@@ -3428,7 +3428,7 @@ function BlockItem({
                         </div>
                         <div className="p-3 bg-violet-50 rounded-xl">
                           <div className="text-2xl font-bold text-violet-900">{statsData.total_clicks || 0}</div>
-                          <div className="text-xs text-violet-600 font-medium">{isGroup ? "Interactions" : isEmailCapture ? "Submissions" : "Clicks"}</div>
+                          <div className="text-xs text-violet-600 font-medium">{isEmailCapture ? "Submissions" : "Clicks"}</div>
                         </div>
                       </div>
 
