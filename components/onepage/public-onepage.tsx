@@ -1764,29 +1764,27 @@ function GroupBlockRenderer({
     )
   }
 
-  // Render stack layout
-  const renderStack = () => (
-    <div 
-      className="w-full flex flex-col gap-3 sm:gap-4"
-      style={{
-        padding: '8px 12px 12px 12px',
-      }}
-    >
-      {enabledChildren.map((child) => (
-        <div key={child.id} className="w-full">
-          <PublicBlockRenderer
-            block={child}
-            theme={theme}
-            profile={profile}
-            onepageId={onepageId}
-            sellerId={sellerId}
-            isDesktop={isDesktop}
-            settings={settings}
-          />
-        </div>
-      ))}
-    </div>
-  )
+const renderStack = () => (
+  <div
+    className="w-full flex flex-col gap-3 sm:gap-4 px-2 overflow-visible"
+    style={{ paddingBottom: "10px", marginBottom: "-10px" }}
+  >
+    {enabledChildren.map((child) => (
+      <div key={child.id} className="w-full py-1 overflow-visible">
+        <PublicBlockRenderer
+          block={child}
+          theme={theme}
+          profile={profile}
+          onepageId={onepageId}
+          sellerId={sellerId}
+          isDesktop={isDesktop}
+          settings={settings}
+          isInsideGroup={true}
+        />
+      </div>
+    ))}
+  </div>
+)
 
   return (
     <div 
