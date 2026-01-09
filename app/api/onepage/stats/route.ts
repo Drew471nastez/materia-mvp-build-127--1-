@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { data: onepage } = await supabase
       .from("onepages")
-      .select("owner_id, blocks, draft_blocks")
+      .select("owner_id, draft_blocks")
       .eq("id", onepageId)
       .maybeSingle()
 
@@ -50,13 +50,12 @@ export async function GET(request: NextRequest) {
     const startDateStr = startDate.toISOString()
     const endDateStr = endDate.toISOString()
 
-    // Use draft_blocks if available, fallback to blocks (for backwards compatibility)
-    const blocksData = (onepage as any).draft_blocks || onepage.blocks
+    // Use draft_blocks for block data
+    const blocksData = onepage.draft_blocks as any[] || []
 
     if (blockId) {
       // Find the block in the onepage's blocks array
-      const blocks = blocksData as any[] || []
-      const targetBlock = blocks.find((b: any) => b.id === blockId)
+      const targetBlock = blocksData.find((b: any) => b.id === blockId)
 
       // Get all block IDs to query - include children if this is a group block
       const blockIdsToQuery = [blockId]
