@@ -1426,9 +1426,10 @@ export function LinksTab() {
               onDrop={(e) => handleDrop(e, block.id)}
               onDragEnd={handleDragEnd}
               className={cn(
-                "transition-all duration-200",
+                "transition-all duration-200 rounded-xl",
                 dragOverBlockId === block.id && block.type !== "header" && block.type !== "group" && "border-t-2 border-violet-500",
-                dragOverBlockId === block.id && block.type === "group" && draggedBlockId && "ring-2 ring-violet-500 ring-offset-2 rounded-xl bg-violet-50/50"
+                // Special styling for group blocks - show drop zone indicator
+                dragOverBlockId === block.id && block.type === "group" && draggedBlockId && draggedBlockId !== block.id && "ring-2 ring-violet-500 ring-offset-2 bg-violet-50/50"
               )}
             >
               <BlockItem
@@ -1472,6 +1473,7 @@ export function LinksTab() {
                 }}
                 onDragStart={(e) => handleDragStart(e, block.id)}
                 isDragging={draggedBlockId === block.id}
+                isDragOverGroup={dragOverBlockId === block.id && block.type === "group" && draggedBlockId !== null && draggedBlockId !== block.id}
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
@@ -3029,6 +3031,7 @@ interface BlockItemProps {
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onDragStart?: (e: React.DragEvent) => void
   isDragging?: boolean
+  isDragOverGroup?: boolean
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   onOpenAddBlockModal?: (groupId: string) => void
 }
@@ -3054,6 +3057,7 @@ function BlockItem({
   onOpenStreamingModal,
   onDragStart,
   isDragging,
+  isDragOverGroup,
   onMoveChildToMainList,
   onOpenAddBlockModal,
 }: BlockItemProps) {
@@ -3180,12 +3184,23 @@ function BlockItem({
   return (
     <div
       className={cn(
-        "border rounded-xl bg-white transition-all",
+        "border rounded-xl bg-white transition-all relative",
         isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
         !block.enabled && "opacity-50",
         isDragging && "opacity-50 scale-[0.98]"
       )}
     >
+      {/* Drop zone indicator for Group blocks when dragging over */}
+      {isDragOverGroup && isGroup && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-violet-100/90 rounded-xl border-2 border-dashed border-violet-500 pointer-events-none">
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center">
+              <Plus className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm font-medium text-violet-700">Drop to add to group</span>
+          </div>
+        </div>
+      )}
       {/* Header section - only this part is draggable */}
       <div
         className={cn(
@@ -3358,9 +3373,7 @@ function BlockItem({
               title="View Stats"
             >
               <BarChart2 className="h-4 w-4" />
-              {clickCount !== null && clickCount > 0 && (
-                <span className="text-xs font-medium">{clickCount}</span>
-              )}
+              <span className="text-xs font-medium tabular-nums">{clickCount ?? 0}</span>
             </button>
 
             {/* Stats Modal */}
