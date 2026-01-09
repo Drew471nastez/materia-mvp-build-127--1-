@@ -4005,7 +4005,7 @@ function BlockEditor({
                 <div className="space-y-2">
                   {[
                     { id: 'embed_video', label: 'Play video on page', desc: 'Embed video directly in Pro Layout' },
-                    { id: 'open_video', label: 'Open YouTube video', desc: 'Show thumbnail, redirect on click' },
+                    { id: 'open_video', label: 'Open YouTube video', desc: 'Redirect on click only' },
                   ].map((mode) => {
                     const currentMode = data.youtube_mode || 'embed_video'
                     const isActive = currentMode === mode.id
@@ -4035,10 +4035,11 @@ function BlockEditor({
                           checked={isActive}
                           onCheckedChange={async (checked) => {
                             if (checked) {
-                              // Both modes use Pro Layout for YouTube
+                              // embed_video uses Pro Layout, open_video uses Default Layout
+                              const layoutType = mode.id === 'open_video' ? 'default' : 'pro'
                               updateData({
                                 youtube_mode: mode.id as YouTubeMode,
-                                layout_type: 'pro'
+                                layout_type: layoutType
                               })
                               // For open_video mode, fetch thumbnail
                               if (mode.id === 'open_video') {
@@ -4047,7 +4048,7 @@ function BlockEditor({
                                 if (videoIdMatch) {
                                   updateData({
                                     youtube_mode: mode.id as YouTubeMode,
-                                    layout_type: 'pro',
+                                    layout_type: 'default',
                                     thumbnail_url: `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`
                                   })
                                 }
@@ -4075,28 +4076,6 @@ function BlockEditor({
                   >
                     ↻ Refresh thumbnail
                   </button>
-                )}
-                {/* Enable Play Button toggle for open_video mode */}
-                {data.youtube_mode === 'open_video' && (
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-white mt-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-600 ml-0.5" fill="currentColor">
-                          <path d="M8 5v14l11-7z"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium">Enable Play Button</div>
-                        <div className="text-xs text-muted-foreground">Show play overlay on thumbnail</div>
-                      </div>
-                    </div>
-                    <Toggle
-                      checked={data.youtube_show_play_button === true}
-                      onCheckedChange={(checked) => {
-                        updateData({ youtube_show_play_button: checked })
-                      }}
-                    />
-                  </div>
                 )}
               </div>
             )}
