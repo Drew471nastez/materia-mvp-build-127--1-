@@ -1637,6 +1637,7 @@ function GroupBlockRenderer({
         className="w-full relative"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
+        style={{ overflow: 'visible' }}
       >
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
@@ -1662,58 +1663,55 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container with clip-path to allow bottom overflow */}
-        <div style={{ marginBottom: '8px' }}>
+        {/* Scrollable Container */}
+        <div
+          ref={scrollContainerRef}
+          className={cn(
+            "w-full scrollbar-hide snap-x snap-mandatory",
+            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+          )}
+          style={{
+            scrollSnapType: 'x mandatory',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            overflowX: 'auto',
+            overflowY: 'visible',
+          }}
+          onScroll={handleScroll}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+        >
           <div
-            ref={scrollContainerRef}
-            className={cn(
-              "w-full scrollbar-hide snap-x snap-mandatory",
-              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
-            )}
+            className="flex"
             style={{
-              scrollSnapType: 'x mandatory',
-              WebkitOverflowScrolling: 'touch',
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-              overflowX: 'auto',
-              paddingBottom: '8px',
-              marginBottom: '-8px',
+              gap: `${gap}px`,
+              padding: '8px 16px 16px 16px',
             }}
-            onScroll={handleScroll}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
           >
-            <div
-              className="flex"
-              style={{
-                gap: `${gap}px`,
-                padding: '10px 16px 10px 16px',
-              }}
-            >
-              {enabledChildren.map((child) => (
-                <div
-                  key={child.id}
-                  className="shrink-0 snap-start"
-                  style={itemStyle}
-                >
-                  <div className="w-full pb-1">
-                    <PublicBlockRenderer
-                      block={child}
-                      theme={theme}
-                      profile={profile}
-                      onepageId={onepageId}
-                      sellerId={sellerId}
-                      isDesktop={isDesktop}
-                      settings={settings}
-                      isInsideCarousel={true}
-                    />
-                  </div>
+            {enabledChildren.map((child) => (
+              <div
+                key={child.id}
+                className="shrink-0 snap-start"
+                style={itemStyle}
+              >
+                <div className="w-full">
+                  <PublicBlockRenderer
+                    block={child}
+                    theme={theme}
+                    profile={profile}
+                    onepageId={onepageId}
+                    sellerId={sellerId}
+                    isDesktop={isDesktop}
+                    settings={settings}
+                    isInsideCarousel={true}
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -1765,9 +1763,9 @@ function GroupBlockRenderer({
 
   // Render stack layout
   const renderStack = () => (
-    <div className="w-full flex flex-col gap-3 sm:gap-4 px-2">
+    <div className="w-full flex flex-col gap-3 sm:gap-4 px-3">
       {enabledChildren.map((child) => (
-        <div key={child.id} className="w-full py-1">
+        <div key={child.id} className="w-full">
           <PublicBlockRenderer
             block={child}
             theme={theme}
@@ -2483,11 +2481,7 @@ function PublicBlockRenderer({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackClick(block.id, getTargetUrl())}
-                className={cn(
-                  "block w-full text-center transition-opacity",
-                  isInsideCarousel ? "px-[12px] py-[10px] text-[13px]" : "px-5 py-3.5 sm:py-4 text-sm sm:text-base",
-                  !isInsideCarousel && "hover:opacity-80"
-                )}
+                className={cn("block w-full px-5 py-3.5 sm:py-4 text-center transition-opacity", !isInsideCarousel && "hover:opacity-80")}
                 style={{
                   backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
                 }}
@@ -2509,12 +2503,7 @@ function PublicBlockRenderer({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
-            className={cn(
-              "w-full overflow-hidden font-medium transition-all",
-              isInsideCarousel ? "text-[13px]" : "text-sm sm:text-base",
-              hoverEffect,
-              getAnimationClass(data.animation_type)
-            )}
+            className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all", hoverEffect, getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
               padding: 0,
@@ -2571,10 +2560,7 @@ function PublicBlockRenderer({
             )}
             {/* Title area */}
             <div
-              className={cn(
-                "w-full flex flex-col items-center justify-center overflow-hidden",
-                isInsideCarousel ? "px-[12px] py-[10px]" : "px-5 py-3.5 sm:py-4"
-              )}
+              className="w-full px-5 py-3.5 sm:py-4 flex flex-col items-center justify-center overflow-hidden"
               style={{
                 backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
               }}
@@ -2585,16 +2571,13 @@ function PublicBlockRenderer({
               {/* Spotify metadata display for Pro Layout */}
               {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                 <span
-                  className={cn(
-                    "flex items-center justify-center gap-1 mt-0.5 max-w-full",
-                    isInsideCarousel ? "text-[10px]" : "text-xs"
-                  )}
+                  className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                   style={{
                     color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
                     opacity: 0.75
                   }}
                 >
-                  <svg className={cn("shrink-0", isInsideCarousel ? "w-3 h-3" : "w-3.5 h-3.5")} viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                   </svg>
                   <span className="truncate">
@@ -2629,25 +2612,6 @@ function PublicBlockRenderer({
       const shouldOpenSpotifyModal = isSpotifyUrl(data.url) && (spotifyMode === 'audio_preview' || spotifyMode === 'show_streaming')
 
       if (shouldOpenSpotifyModal) {
-        // Use compact sizing when inside carousel
-        const spotifyCarouselStyles = isInsideCarousel ? {
-          padding: "py-[10px] px-[12px]",
-          text: "text-[13px]",
-          gap: "gap-2",
-          thumb: "w-[26px] h-[26px]",
-          icon: "w-[26px] h-[26px]",
-          metaText: "text-[10px]",
-          metaIcon: "w-3 h-3",
-        } : {
-          padding: "py-3.5 sm:py-4 px-5 sm:px-6",
-          text: "text-sm sm:text-base",
-          gap: "gap-3",
-          thumb: "w-10 h-10 sm:w-11 sm:h-11",
-          icon: "w-10 h-10 sm:w-11 sm:h-11",
-          metaText: "text-xs",
-          metaIcon: "w-3.5 h-3.5",
-        }
-
         return (
           <>
             <button
@@ -2657,10 +2621,7 @@ function PublicBlockRenderer({
                 openSpotifyModal(data)
               }}
               className={cn(
-                "w-full flex items-center font-medium transition-all cursor-pointer text-left",
-                spotifyCarouselStyles.padding,
-                spotifyCarouselStyles.text,
-                spotifyCarouselStyles.gap,
+                "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all cursor-pointer text-left",
                 hoverEffect,
                 hasThumbnail ? "justify-start" : "justify-center",
                 getDefaultAnimationClass(data.animation_type)
@@ -2671,11 +2632,11 @@ function PublicBlockRenderer({
                 <img
                   src={data.thumbnail_url}
                   alt=""
-                  className={cn(spotifyCarouselStyles.thumb, "rounded object-cover shrink-0")}
+                  className="w-10 h-10 sm:w-11 sm:h-11 rounded object-cover shrink-0"
                 />
               ) : iconPath ? (
                 <svg
-                  className={cn(spotifyCarouselStyles.icon, "shrink-0")}
+                  className="w-10 h-10 sm:w-11 sm:h-11 shrink-0"
                   viewBox="0 0 24 24"
                   fill={isFilledIcon ? "currentColor" : "none"}
                   stroke={isFilledIcon ? "none" : "currentColor"}
@@ -2691,16 +2652,13 @@ function PublicBlockRenderer({
                 {/* Spotify info display */}
                 {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                   <span
-                    className={cn(
-                      "flex items-center justify-center gap-1 mt-0.5 max-w-full",
-                      spotifyCarouselStyles.metaText
-                    )}
+                    className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                     style={{
                       color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
                       opacity: 0.75
                     }}
                   >
-                    <svg className={cn("shrink-0", spotifyCarouselStyles.metaIcon)} viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                     </svg>
                     <span className="truncate">
@@ -2820,21 +2778,6 @@ function PublicBlockRenderer({
         )
       }
 
-      // Use compact sizing when inside carousel to match phone preview appearance
-      const carouselStyles = isInsideCarousel ? {
-        padding: "py-[10px] px-[12px]",
-        text: "text-[13px]",
-        gap: "gap-2",
-        thumb: "w-[26px] h-[26px]",
-        icon: "w-[26px] h-[26px]",
-      } : {
-        padding: "py-3.5 sm:py-4 px-5 sm:px-6",
-        text: "text-sm sm:text-base",
-        gap: "gap-3",
-        thumb: "w-10 h-10 sm:w-11 sm:h-11",
-        icon: "w-10 h-10 sm:w-11 sm:h-11",
-      }
-
       return (
         <a
           href={data.url}
@@ -2842,10 +2785,7 @@ function PublicBlockRenderer({
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
           className={cn(
-            "w-full flex items-center font-medium transition-all",
-            carouselStyles.padding,
-            carouselStyles.text,
-            carouselStyles.gap,
+            "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all",
             hoverEffect,
             hasThumbnail ? "justify-start" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
@@ -2856,11 +2796,11 @@ function PublicBlockRenderer({
             <img
               src={data.thumbnail_url}
               alt=""
-              className={cn(carouselStyles.thumb, "rounded object-cover shrink-0")}
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded object-cover shrink-0"
             />
           ) : iconPath ? (
             <svg
-              className={cn(carouselStyles.icon, "shrink-0")}
+              className="w-10 h-10 sm:w-11 sm:h-11 shrink-0"
               viewBox="0 0 24 24"
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
@@ -2876,16 +2816,13 @@ function PublicBlockRenderer({
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
               <span
-                className={cn(
-                  "flex items-center justify-center gap-1 mt-0.5 max-w-full",
-                  isInsideCarousel ? "text-[10px]" : "text-xs"
-                )}
+                className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                 style={{
                   color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
                   opacity: 0.75
                 }}
               >
-                <svg className={cn("shrink-0", isInsideCarousel ? "w-3 h-3" : "w-3.5 h-3.5")} viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                 </svg>
                 <span className="truncate">
@@ -2907,8 +2844,7 @@ function PublicBlockRenderer({
       return (
         <p
           className={cn(
-            "leading-relaxed w-full",
-            isInsideCarousel ? "text-[11px]" : "text-sm sm:text-base",
+            "text-sm sm:text-base leading-relaxed w-full",
             data.alignment === "left" ? "text-left" : data.alignment === "right" ? "text-right" : "text-center",
           )}
           style={{ color: theme.secondary_text_color || theme.text_color }}
@@ -3020,32 +2956,17 @@ function PublicBlockRenderer({
         }
       }
 
-      // Use compact sizing when inside carousel
-      const emailStyles = isInsideCarousel ? {
-        container: "p-3 rounded-lg",
-        headline: "text-[13px]",
-        description: "text-[10px] mb-2",
-        input: "px-[10px] py-[8px] text-[11px]",
-        button: "px-[12px] py-[8px] text-[11px]",
-      } : {
-        container: "p-5 sm:p-6 rounded-xl sm:rounded-2xl",
-        headline: "text-base sm:text-lg",
-        description: "text-xs sm:text-sm mb-4",
-        input: "px-3 sm:px-4 py-2.5 sm:py-3 text-sm",
-        button: "px-4 sm:px-5 py-2.5 sm:py-3 text-sm",
-      }
-
       return (
         <div
-          className={cn("w-full", emailStyles.container)}
+          className="w-full p-5 sm:p-6 rounded-xl sm:rounded-2xl"
           style={{ backgroundColor: `${theme.button_color}10` }}
         >
-          <h3 className={cn("font-semibold text-center mb-1", emailStyles.headline)} style={{ color: theme.text_color }}>
+          <h3 className="text-base sm:text-lg font-semibold text-center mb-1" style={{ color: theme.text_color }}>
             {data.headline}
           </h3>
           {data.description && (
             <p
-              className={cn("text-center", emailStyles.description)}
+              className="text-xs sm:text-sm text-center mb-4"
               style={{ color: theme.secondary_text_color || theme.text_color }}
             >
               {data.description}
@@ -3059,20 +2980,20 @@ function PublicBlockRenderer({
               placeholder={data.placeholder || "Enter your email"}
               required
               disabled={isSubmitting}
-              className={cn("flex-1 rounded-lg bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70", emailStyles.input)}
+              className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70"
               style={{ color: "#000" }}
             />
             <button
               type="submit"
               disabled={isSubmitting || emailSubmitted}
-              className={cn("rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed", emailStyles.button, !isInsideCarousel && "hover:opacity-90")}
+              className={cn("px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed", !isInsideCarousel && "hover:opacity-90")}
               style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
             >
               {isSubmitting ? "..." : emailSubmitted ? "Subscribed!" : data.button_text || "Subscribe"}
             </button>
           </form>
           {emailSubmitted && (
-            <p className={cn("text-center mt-2 opacity-70", isInsideCarousel ? "text-[10px]" : "text-xs")} style={{ color: theme.text_color }}>
+            <p className="text-xs text-center mt-2 opacity-70" style={{ color: theme.text_color }}>
               {data.success_message || "Thanks for subscribing!"}
             </p>
           )}
