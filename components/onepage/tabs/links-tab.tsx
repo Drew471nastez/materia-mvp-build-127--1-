@@ -497,7 +497,6 @@ export function LinksTab() {
   // Drag state
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null)
-  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -1131,26 +1130,12 @@ export function LinksTab() {
   const handleDragOver = (e: React.DragEvent, blockId: string) => {
     e.preventDefault()
     if (draggedBlockId && draggedBlockId !== blockId) {
-      const targetBlock = sortedBlocks.find(b => b.id === blockId)
-      const draggedBlock = sortedBlocks.find(b => b.id === draggedBlockId)
-      
-      // Check if dragging over a group block and the dragged block can be added to it
-      if (targetBlock?.type === "group" && draggedBlock && 
-          draggedBlock.type !== "group" && 
-          draggedBlock.type !== "header" && 
-          draggedBlock.type !== "social_row") {
-        setDragOverGroupId(blockId)
-        setDragOverBlockId(null)
-      } else {
-        setDragOverBlockId(blockId)
-        setDragOverGroupId(null)
-      }
+      setDragOverBlockId(blockId)
     }
   }
 
   const handleDragLeave = () => {
     setDragOverBlockId(null)
-    setDragOverGroupId(null)
   }
 
   const handleDrop = (e: React.DragEvent, targetBlockId: string) => {
@@ -1162,7 +1147,7 @@ export function LinksTab() {
       const targetIndex = sortedBlocks.findIndex(b => b.id === targetBlockId)
 
       // If dropping onto a group block, add the dragged block to the group's children
-      if (targetBlock?.type === "group" && draggedBlock && draggedBlock.type !== "group" && draggedBlock.type !== "header" && draggedBlock.type !== "social_row") {
+      if (targetBlock?.type === "group" && draggedBlock && draggedBlock.type !== "group" && draggedBlock.type !== "header") {
         const groupData = targetBlock.data as GroupBlockData
         const existingChildren = groupData.children || []
 
@@ -1170,7 +1155,6 @@ export function LinksTab() {
         if (existingChildren.some(c => c.id === draggedBlockId)) {
           setDraggedBlockId(null)
           setDragOverBlockId(null)
-          setDragOverGroupId(null)
           return
         }
 
@@ -1180,7 +1164,6 @@ export function LinksTab() {
         removeBlock(draggedBlockId)
         setDraggedBlockId(null)
         setDragOverBlockId(null)
-        setDragOverGroupId(null)
         return
       }
 
@@ -1192,7 +1175,6 @@ export function LinksTab() {
           // Don't allow dropping above or at the header position
           setDraggedBlockId(null)
           setDragOverBlockId(null)
-          setDragOverGroupId(null)
           return
         }
       }
@@ -1212,13 +1194,11 @@ export function LinksTab() {
     }
     setDraggedBlockId(null)
     setDragOverBlockId(null)
-    setDragOverGroupId(null)
   }
 
   const handleDragEnd = () => {
     setDraggedBlockId(null)
     setDragOverBlockId(null)
-    setDragOverGroupId(null)
   }
 
   const filteredCategories = searchQuery
@@ -1447,7 +1427,7 @@ export function LinksTab() {
               onDragEnd={handleDragEnd}
               className={cn(
                 "transition-all duration-200",
-                dragOverBlockId === block.id && block.type !== "header" && "border-t-2 border-violet-500"
+                dragOverBlockId === block.id && block.type !== "header" && block.type !== "group" && "border-t-2 border-violet-500"
               )}
             >
               <BlockItem
@@ -1491,12 +1471,13 @@ export function LinksTab() {
                 }}
                 onDragStart={(e) => handleDragStart(e, block.id)}
                 isDragging={draggedBlockId === block.id}
+                isDropTarget={dragOverBlockId === block.id}
+                draggedBlockType={draggedBlockId ? sortedBlocks.find(b => b.id === draggedBlockId)?.type : null}
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
                   setShowAddModal(true)
                 }}
-                isDropTarget={dragOverGroupId === block.id}
               />
             </div>
 
@@ -3049,9 +3030,10 @@ interface BlockItemProps {
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onDragStart?: (e: React.DragEvent) => void
   isDragging?: boolean
+  isDropTarget?: boolean
+  draggedBlockType?: OnePageBlockType | null
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   onOpenAddBlockModal?: (groupId: string) => void
-  isDropTarget?: boolean
 }
 
 function BlockItem({
@@ -3075,9 +3057,10 @@ function BlockItem({
   onOpenStreamingModal,
   onDragStart,
   isDragging,
+  isDropTarget,
+  draggedBlockType,
   onMoveChildToMainList,
   onOpenAddBlockModal,
-  isDropTarget,
 }: BlockItemProps) {
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -3105,7 +3088,7 @@ function BlockItem({
   }, [showAnimationMenu])
 
   // Fetch stats when modal is opened or timeframe changes
-  const fetchStats = async (days?: number, startDate?: string, endDate?: string, signal?: AbortSignal) => {
+  const fetchStats = async (days?: number, startDate?: string, endDate?: string) => {
     if (!onepage?.id) return
     setStatsLoading(true)
     try {
@@ -3115,73 +3098,44 @@ function BlockItem({
       } else {
         url += `&days=${days || 7}`
       }
-      const response = await fetch(url, { signal })
+      const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
-        if (!signal?.aborted) {
-          setStatsData(data)
-        }
+        setStatsData(data)
       }
-    } catch (error: any) {
-      // Ignore abort errors
-      if (error?.name !== 'AbortError') {
-        console.error('Failed to fetch stats:', error)
-      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error)
     } finally {
-      if (!signal?.aborted) {
-        setStatsLoading(false)
-      }
+      setStatsLoading(false)
     }
   }
 
   // Refetch when timeframe changes
   useEffect(() => {
-    if (!showStatsModal) return
-    
-    const abortController = new AbortController()
-    
-    if (statsTimeframe === 'custom' && customStartDate && customEndDate) {
-      fetchStats(undefined, customStartDate, customEndDate, abortController.signal)
-    } else if (statsTimeframe !== 'custom') {
-      fetchStats(parseInt(statsTimeframe), undefined, undefined, abortController.signal)
+    if (showStatsModal) {
+      if (statsTimeframe === 'custom' && customStartDate && customEndDate) {
+        fetchStats(undefined, customStartDate, customEndDate)
+      } else if (statsTimeframe !== 'custom') {
+        fetchStats(parseInt(statsTimeframe))
+      }
     }
-    
-    return () => {
-      abortController.abort()
-    }
-  }, [statsTimeframe, customStartDate, customEndDate, showStatsModal, onepage?.id, block.id])
+  }, [statsTimeframe, customStartDate, customEndDate, showStatsModal])
 
   // Fetch click count on mount for link buttons and email capture
   useEffect(() => {
-    if (!onepage?.id || (block.type !== "link_button" && block.type !== "email_capture" && block.type !== "group")) return
-    
-    const abortController = new AbortController()
-    
     const fetchClickCount = async () => {
+      if (!onepage?.id || (block.type !== "link_button" && block.type !== "email_capture" && block.type !== "group")) return
       try {
-        const response = await fetch(
-          `/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=365`,
-          { signal: abortController.signal }
-        )
+        const response = await fetch(`/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=365`)
         if (response.ok) {
           const data = await response.json()
-          if (!abortController.signal.aborted) {
-            setClickCount(data.total_clicks || 0)
-          }
+          setClickCount(data.total_clicks || 0)
         }
-      } catch (error: any) {
-        // Ignore abort errors, silent fail for others
-        if (error?.name !== 'AbortError') {
-          // Silent fail for click count
-        }
+      } catch (error) {
+        // Silent fail for click count
       }
     }
-    
     fetchClickCount()
-    
-    return () => {
-      abortController.abort()
-    }
   }, [onepage?.id, block.id, block.type])
 
   const getBlockPreview = () => {
@@ -3228,6 +3182,10 @@ function BlockItem({
   const hasStats = isLinkButton || isEmailCapture || isGroup
   const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
+  // Check if this group block can accept the dragged block
+  const canAcceptDrop = isGroup && isDropTarget && draggedBlockType && 
+    draggedBlockType !== "group" && draggedBlockType !== "header" && draggedBlockType !== "social_row"
+
   return (
     <div
       className={cn(
@@ -3235,13 +3193,13 @@ function BlockItem({
         isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
         !block.enabled && "opacity-50",
         isDragging && "opacity-50 scale-[0.98]",
-        isDropTarget && isGroup && "ring-2 ring-violet-500 border-violet-400 bg-violet-50/50"
+        canAcceptDrop && "ring-2 ring-violet-500 border-violet-400 bg-violet-50/50"
       )}
     >
-      {/* Drop into group indicator overlay */}
-      {isDropTarget && isGroup && (
-        <div className="absolute inset-0 bg-violet-500/5 rounded-xl pointer-events-none z-10 flex items-center justify-center">
-          <div className="bg-violet-500 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 animate-pulse">
+      {/* Drop zone indicator for group blocks */}
+      {canAcceptDrop && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 rounded-xl bg-violet-500/10">
+          <div className="flex items-center gap-2 bg-violet-600 text-white px-3 py-1.5 rounded-full text-xs font-medium shadow-lg">
             <Plus className="h-3.5 w-3.5" />
             Drop to add to group
           </div>
@@ -3413,12 +3371,13 @@ function BlockItem({
               onClick={(e) => {
                 e.stopPropagation()
                 setShowStatsModal(true)
+                fetchStats(7)
               }}
               className="flex items-center gap-1 px-1.5 py-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               title="View Stats"
             >
               <BarChart2 className="h-4 w-4" />
-              {clickCount !== null && clickCount > 0 && (
+              {clickCount !== null && (
                 <span className="text-xs font-medium">{clickCount}</span>
               )}
             </button>
