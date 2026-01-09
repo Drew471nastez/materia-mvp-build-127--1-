@@ -1555,11 +1555,11 @@ export function LinksTab() {
 
       {/* Add Block Modal - Linktree style without sidebar */}
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
-        <DialogContent className="w-[calc(100%-32px)] sm:w-[min(520px,calc(100vw-64px))] sm:!max-w-[520px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+        <DialogContent className="w-[calc(100%-24px)] max-w-[520px] h-auto max-h-[85vh] sm:max-h-[min(680px,85vh)] p-0 gap-0 overflow-hidden rounded-2xl mx-auto flex flex-col">
           {/* Header with title and close button */}
-          <DialogHeader className="p-4 sm:p-5 pb-0 bg-white">
+          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0">
             <DialogTitle className="text-lg sm:text-xl font-semibold">
-              {addToGroupId ? "Add to Group" : "Add Social Link"}
+              {addToGroupId ? "Add to Group" : "Add Block"}
             </DialogTitle>
             {addToGroupId && (
               <p className="text-xs text-muted-foreground mt-1">
@@ -1569,14 +1569,14 @@ export function LinksTab() {
           </DialogHeader>
 
           {/* Search */}
-          <div className="px-4 sm:px-5 py-4 bg-white">
+          <div className="px-4 sm:px-6 pb-4 bg-white shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search platforms..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11 sm:h-12 bg-gray-50 border-gray-200 focus:border-gray-400 rounded-xl text-sm"
+                className="pl-10 h-10 sm:h-11 bg-gray-50 border-gray-200 focus:border-gray-400 rounded-xl text-sm"
               />
               {searchQuery && (
                 <button
@@ -1590,10 +1590,10 @@ export function LinksTab() {
           </div>
 
           {/* Scrollable Content */}
-          <div className="max-h-[60vh] sm:max-h-[500px] overflow-y-auto px-4 sm:px-5 pb-5">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-5 overscroll-contain">
             {/* Quick action buttons - horizontal row */}
             {!searchQuery && !addToGroupId && (
-              <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-6">
+              <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-5">
                 {[
                   { label: "Group", icon: Grid3X3, type: "group" as const },
                   { label: "Link", icon: Link, type: "link_button" as const },
@@ -1605,10 +1605,10 @@ export function LinksTab() {
                     <button
                       key={item.label}
                       onClick={() => handleAddBlock(item.type)}
-                      className="flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                      className="flex flex-col items-center justify-center gap-1 sm:gap-2 p-2.5 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors aspect-square sm:aspect-auto"
                     >
                       <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
-                      <span className="text-xs sm:text-sm font-medium text-gray-900">{item.label}</span>
+                      <span className="text-[11px] sm:text-sm font-medium text-gray-900">{item.label}</span>
                     </button>
                   )
                 })}
@@ -1617,7 +1617,7 @@ export function LinksTab() {
 
             {/* Quick action buttons for group - simplified */}
             {!searchQuery && addToGroupId && (
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
                 {[
                   { label: "Link", icon: Link, type: "link_button" as const },
                   { label: "Text", icon: Type, type: "text" as const },
@@ -1628,10 +1628,10 @@ export function LinksTab() {
                     <button
                       key={item.label}
                       onClick={() => handleAddBlock(item.type)}
-                      className="flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                      className="flex flex-col items-center justify-center gap-1 sm:gap-2 p-2.5 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors"
                     >
                       <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
-                      <span className="text-xs sm:text-sm font-medium text-gray-900">{item.label}</span>
+                      <span className="text-[11px] sm:text-sm font-medium text-gray-900">{item.label}</span>
                     </button>
                   )
                 })}
@@ -1640,7 +1640,7 @@ export function LinksTab() {
 
             {/* Categories with blocks - vertical scrolling list */}
             {!searchQuery ? (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {blockCategories
                   .filter(cat => {
                     // Filter out categories with no allowed blocks when adding to group
@@ -1661,12 +1661,12 @@ export function LinksTab() {
                     return (
                       <div key={category.id}>
                         {/* Category title */}
-                        <p className="text-sm font-semibold text-gray-900 mb-3">
+                        <p className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">
                           {category.label}
                         </p>
 
                         {/* Blocks in category */}
-                        <div className="space-y-1">
+                        <div className="space-y-0.5">
                           {blocksToShow.map((block, idx) => {
                             const Icon = block.icon
                             const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("xtwitter", "twitter")
@@ -1680,14 +1680,14 @@ export function LinksTab() {
                                 onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
                                 disabled={atLimit}
                                 className={cn(
-                                  "w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left group",
+                                  "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
                                   atLimit
                                     ? "opacity-50 cursor-not-allowed bg-gray-50"
-                                    : "hover:bg-gray-50"
+                                    : "hover:bg-gray-50 active:bg-gray-100"
                                 )}
                               >
                                 <div
-                                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
+                                  className="w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
                                   style={{
                                     backgroundColor: hasSocialIcon
                                       ? SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color + "15"
@@ -1697,16 +1697,16 @@ export function LinksTab() {
                                   {hasSocialIcon ? (
                                     <RenderSocialIcon
                                       platform={socialId}
-                                      size={20}
+                                      size={18}
                                       color={SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color}
                                     />
                                   ) : (
-                                    <Icon className="h-5 w-5 text-gray-600" />
+                                    <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm text-gray-900">{block.label}</p>
-                                  <p className="text-xs text-gray-500 truncate">
+                                  <p className="text-[11px] sm:text-xs text-gray-500 truncate">
                                     {atLimit ? `Already added (${currentCount}/2)` : block.description}
                                   </p>
                                 </div>
@@ -1725,7 +1725,7 @@ export function LinksTab() {
               </div>
             ) : (
               /* Search results */
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {activeCategoryBlocks.length > 0 ? (
                   activeCategoryBlocks.map((block, idx) => {
                     const Icon = block.icon
@@ -1740,14 +1740,14 @@ export function LinksTab() {
                         onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
                         disabled={atLimit}
                         className={cn(
-                          "w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left group",
+                          "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
                           atLimit
                             ? "opacity-50 cursor-not-allowed bg-gray-50"
-                            : "hover:bg-gray-50"
+                            : "hover:bg-gray-50 active:bg-gray-100"
                         )}
                       >
                         <div
-                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
+                          className="w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
                           style={{
                             backgroundColor: hasSocialIcon
                               ? SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color + "15"
@@ -1757,16 +1757,16 @@ export function LinksTab() {
                           {hasSocialIcon ? (
                             <RenderSocialIcon
                               platform={socialId}
-                              size={20}
+                              size={18}
                               color={SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color}
                             />
                           ) : (
-                            <Icon className="h-5 w-5 text-gray-600" />
+                            <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm text-gray-900">{block.label}</p>
-                          <p className="text-xs text-gray-500 truncate">
+                          <p className="text-[11px] sm:text-xs text-gray-500 truncate">
                             {atLimit ? `Already added (${currentCount}/2)` : block.description}
                           </p>
                         </div>
