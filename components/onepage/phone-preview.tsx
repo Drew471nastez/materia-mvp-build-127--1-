@@ -1148,51 +1148,50 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-0 z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm rounded-[32px]"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 [&::-webkit-scrollbar]:hidden"
+            className="bg-white rounded-xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-2.5 border-b">
-              <div className="flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
+            <div className="flex items-center justify-between px-2 py-1.5 border-b">
+              <div className="flex items-center gap-1">
+                <svg className="w-3 h-3 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                 </svg>
-                <span className="text-[10px] font-medium text-gray-600 truncate max-w-[160px]">
+                <span className="text-[9px] font-medium text-gray-600 truncate max-w-[140px]">
                   {spotifyModalData.title}
                 </span>
               </div>
               <button
                 onClick={() => setSpotifyModalOpen(false)}
-                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                className="p-0.5 rounded-full hover:bg-gray-100 transition-colors"
               >
-                <X className="w-3.5 h-3.5 text-gray-500" />
+                <X className="w-3 h-3 text-gray-500" />
               </button>
             </div>
 
             {/* Spotify Embed - compact */}
-            <div className="p-2.5">
+            <div className="p-1.5">
               <iframe
                 src={spotifyModalData.embedUrl}
                 width="100%"
-                height="152"
+                height="80"
                 frameBorder="0"
                 allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                 loading="lazy"
-                className="rounded-lg"
+                className="rounded-md"
               />
             </div>
 
             {/* Streaming Services - if show_streaming mode */}
             {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
-              <div className="px-2.5 pb-2.5">
-                <p className="text-[9px] font-medium text-gray-700 mb-1.5">Listen on</p>
-                <div className="space-y-1 max-h-[120px] overflow-hidden">
-                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).slice(0, 4).map((service) => {
+              <div className="px-1.5 pb-1.5">
+                <p className="text-[8px] font-medium text-gray-700 mb-1">Listen on</p>
+                <div className="space-y-0.5">
+                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).slice(0, 3).map((service) => {
                     const names: Record<string, string> = {
                       apple_music: 'Apple Music',
                       spotify: 'Spotify',
@@ -1210,10 +1209,10 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                         href={service.url || '#'}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between py-1 px-1.5 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
                       >
-                        <span className="text-[10px] font-medium text-gray-900">{names[service.platform] || service.platform}</span>
-                        <ExternalLink className="w-3 h-3 text-gray-400" />
+                        <span className="text-[9px] font-medium text-gray-900">{names[service.platform] || service.platform}</span>
+                        <ExternalLink className="w-2.5 h-2.5 text-gray-400" />
                       </a>
                     )
                   })}
@@ -1222,12 +1221,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             )}
 
             {/* Footer - Open in Spotify button */}
-            <div className="px-2.5 pb-2.5 pt-0">
+            <div className="px-1.5 pb-1.5 pt-0">
               <a
                 href={spotifyModalData.spotifyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 w-full py-2 rounded-full bg-black text-white text-[10px] font-medium hover:bg-gray-800 transition-colors"
+                className="flex items-center justify-center gap-1 w-full py-1.5 rounded-full bg-black text-white text-[9px] font-medium hover:bg-gray-800 transition-colors"
               >
                 Open in Spotify
               </a>
@@ -1504,51 +1503,50 @@ export function MobilePreviewContent() {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-0 z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm rounded-[32px]"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 [&::-webkit-scrollbar]:hidden"
+            className="bg-white rounded-xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-2.5 border-b">
-              <div className="flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
+            <div className="flex items-center justify-between px-2 py-1.5 border-b">
+              <div className="flex items-center gap-1">
+                <svg className="w-3 h-3 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                 </svg>
-                <span className="text-[10px] font-medium text-gray-600 truncate max-w-[160px]">
+                <span className="text-[9px] font-medium text-gray-600 truncate max-w-[140px]">
                   {spotifyModalData.title}
                 </span>
               </div>
               <button
                 onClick={() => setSpotifyModalOpen(false)}
-                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                className="p-0.5 rounded-full hover:bg-gray-100 transition-colors"
               >
-                <X className="w-3.5 h-3.5 text-gray-500" />
+                <X className="w-3 h-3 text-gray-500" />
               </button>
             </div>
 
             {/* Spotify Embed - compact */}
-            <div className="p-2.5">
+            <div className="p-1.5">
               <iframe
                 src={spotifyModalData.embedUrl}
                 width="100%"
-                height="152"
+                height="80"
                 frameBorder="0"
                 allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                 loading="lazy"
-                className="rounded-lg"
+                className="rounded-md"
               />
             </div>
 
             {/* Streaming Services - if show_streaming mode */}
             {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
-              <div className="px-2.5 pb-2.5">
-                <p className="text-[9px] font-medium text-gray-700 mb-1.5">Listen on</p>
-                <div className="space-y-1 max-h-[120px] overflow-hidden">
-                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).slice(0, 4).map((service) => {
+              <div className="px-1.5 pb-1.5">
+                <p className="text-[8px] font-medium text-gray-700 mb-1">Listen on</p>
+                <div className="space-y-0.5">
+                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).slice(0, 3).map((service) => {
                     const names: Record<string, string> = {
                       apple_music: 'Apple Music',
                       spotify: 'Spotify',
@@ -1561,9 +1559,9 @@ export function MobilePreviewContent() {
                       amazon_music: 'Amazon Music'
                     }
                     return (
-                      <a key={service.platform} href={service.url || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                        <span className="text-[10px] font-medium text-gray-900">{names[service.platform] || service.platform}</span>
-                        <ExternalLink className="w-3 h-3 text-gray-400" />
+                      <a key={service.platform} href={service.url || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between py-1 px-1.5 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                        <span className="text-[9px] font-medium text-gray-900">{names[service.platform] || service.platform}</span>
+                        <ExternalLink className="w-2.5 h-2.5 text-gray-400" />
                       </a>
                     )
                   })}
@@ -1572,8 +1570,8 @@ export function MobilePreviewContent() {
             )}
 
             {/* Footer - Open in Spotify button */}
-            <div className="px-2.5 pb-2.5 pt-0">
-              <a href={spotifyModalData.spotifyUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 w-full py-2 rounded-full bg-black text-white text-[10px] font-medium hover:bg-gray-800 transition-colors">
+            <div className="px-1.5 pb-1.5 pt-0">
+              <a href={spotifyModalData.spotifyUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1 w-full py-1.5 rounded-full bg-black text-white text-[9px] font-medium hover:bg-gray-800 transition-colors">
                 Open in Spotify
               </a>
             </div>
