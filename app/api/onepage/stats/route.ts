@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { data: onepage } = await supabase
       .from("onepages")
-      .select("owner_id, blocks")
+      .select("owner_id, blocks, draft_blocks")
       .eq("id", onepageId)
       .maybeSingle()
 
@@ -50,10 +50,12 @@ export async function GET(request: NextRequest) {
     const startDateStr = startDate.toISOString()
     const endDateStr = endDate.toISOString()
 
+    // Use draft_blocks first (for editor), fall back to blocks (for published)
+    const allBlocks = (onepage.draft_blocks as any[] || onepage.blocks as any[] || [])
+
     if (blockId) {
       // Find the block in the onepage's blocks array
-      const blocks = onepage.blocks as any[] || []
-      const targetBlock = blocks.find((b: any) => b.id === blockId)
+      const targetBlock = allBlocks.find((b: any) => b.id === blockId)
 
       // Get all block IDs to query - include children if this is a group block
       const blockIdsToQuery = [blockId]
@@ -156,7 +158,6 @@ export async function GET(request: NextRequest) {
 
       // Get per-block click counts (including aggregation for group blocks)
       const blockClicks: Record<string, number> = {}
-      const blocks = onepage.blocks as any[] || []
 
       // First, count all individual block clicks
       clicksResult.data?.forEach((click) => {
@@ -164,7 +165,7 @@ export async function GET(request: NextRequest) {
       })
 
       // Then, for group blocks, aggregate child clicks into the group total
-      blocks.forEach((block: any) => {
+      allBlocks.forEach((block: any) => {
         if (block.type === "group" && block.data?.children) {
           let groupTotal = blockClicks[block.id] || 0
           block.data.children.forEach((child: any) => {
