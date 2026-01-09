@@ -1411,8 +1411,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
       {/* Mobile layout (full screen) */}
       <div
-        className="md:hidden min-h-screen w-full overflow-x-hidden relative"
+        className="md:hidden min-h-screen w-full relative"
         style={{
+          overflowX: 'clip',
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
           backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
@@ -3092,13 +3093,13 @@ function PublicBlockRenderer({
         )
       }
 
-      // Stack layout: inline with overflow-visible to fix cropping
+      // Stack layout: add padding around blocks so shadows have room to render
       return (
         <div className="w-full flex flex-col gap-3">
           {data.title && (
-            <h3 
-              className="text-sm font-medium text-center opacity-70 px-4" 
-              style={{ 
+            <h3
+              className="text-sm font-medium text-center opacity-70 px-4"
+              style={{
                 color: theme.text_color,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -3108,10 +3109,7 @@ function PublicBlockRenderer({
               {data.title}
             </h3>
           )}
-          <div 
-            className="w-full flex flex-col gap-3 sm:gap-4"
-            style={{ overflow: 'visible' }}
-          >
+          <div className="w-full flex flex-col gap-4 sm:gap-5 py-3">
             {enabledChildren.map((child, index) => {
               const isFirst = index === 0
               const isLast = index === enabledChildren.length - 1
@@ -3119,8 +3117,7 @@ function PublicBlockRenderer({
               return (
                 <div
                   key={child.id}
-                  className="w-full"
-                  style={{ overflow: 'visible' }}
+                  className="w-full px-3"
                 >
                   <PublicBlockRenderer
                     block={child}
