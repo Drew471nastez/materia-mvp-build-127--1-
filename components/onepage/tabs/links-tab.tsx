@@ -3105,7 +3105,7 @@ function BlockItem({
   }, [showAnimationMenu])
 
   // Fetch stats when modal is opened or timeframe changes
-  const fetchStats = async (days?: number, startDate?: string, endDate?: string) => {
+  const fetchStats = async (days?: number, startDate?: string, endDate?: string, signal?: AbortSignal) => {
     if (!onepage?.id) return
     setStatsLoading(true)
     try {
@@ -3115,44 +3115,73 @@ function BlockItem({
       } else {
         url += `&days=${days || 7}`
       }
-      const response = await fetch(url)
+      const response = await fetch(url, { signal })
       if (response.ok) {
         const data = await response.json()
-        setStatsData(data)
+        if (!signal?.aborted) {
+          setStatsData(data)
+        }
       }
-    } catch (error) {
-      console.error('Failed to fetch stats:', error)
+    } catch (error: any) {
+      // Ignore abort errors
+      if (error?.name !== 'AbortError') {
+        console.error('Failed to fetch stats:', error)
+      }
     } finally {
-      setStatsLoading(false)
+      if (!signal?.aborted) {
+        setStatsLoading(false)
+      }
     }
   }
 
   // Refetch when timeframe changes
   useEffect(() => {
-    if (showStatsModal) {
-      if (statsTimeframe === 'custom' && customStartDate && customEndDate) {
-        fetchStats(undefined, customStartDate, customEndDate)
-      } else if (statsTimeframe !== 'custom') {
-        fetchStats(parseInt(statsTimeframe))
-      }
+    if (!showStatsModal) return
+    
+    const abortController = new AbortController()
+    
+    if (statsTimeframe === 'custom' && customStartDate && customEndDate) {
+      fetchStats(undefined, customStartDate, customEndDate, abortController.signal)
+    } else if (statsTimeframe !== 'custom') {
+      fetchStats(parseInt(statsTimeframe), undefined, undefined, abortController.signal)
     }
-  }, [statsTimeframe, customStartDate, customEndDate, showStatsModal])
+    
+    return () => {
+      abortController.abort()
+    }
+  }, [statsTimeframe, customStartDate, customEndDate, showStatsModal, onepage?.id, block.id])
 
   // Fetch click count on mount for link buttons and email capture
   useEffect(() => {
+    if (!onepage?.id || (block.type !== "link_button" && block.type !== "email_capture" && block.type !== "group")) return
+    
+    const abortController = new AbortController()
+    
     const fetchClickCount = async () => {
-      if (!onepage?.id || (block.type !== "link_button" && block.type !== "email_capture" && block.type !== "group")) return
       try {
-        const response = await fetch(`/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=365`)
+        const response = await fetch(
+          `/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=365`,
+          { signal: abortController.signal }
+        )
         if (response.ok) {
           const data = await response.json()
-          setClickCount(data.total_clicks || 0)
+          if (!abortController.signal.aborted) {
+            setClickCount(data.total_clicks || 0)
+          }
         }
-      } catch (error) {
-        // Silent fail for click count
+      } catch (error: any) {
+        // Ignore abort errors, silent fail for others
+        if (error?.name !== 'AbortError') {
+          // Silent fail for click count
+        }
       }
     }
+    
     fetchClickCount()
+    
+    return () => {
+      abortController.abort()
+    }
   }, [onepage?.id, block.id, block.type])
 
   const getBlockPreview = () => {
@@ -3384,7 +3413,6 @@ function BlockItem({
               onClick={(e) => {
                 e.stopPropagation()
                 setShowStatsModal(true)
-                fetchStats(7)
               }}
               className="flex items-center gap-1 px-1.5 py-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               title="View Stats"
