@@ -1351,6 +1351,23 @@ export function MobilePreviewContent() {
   
   const spotifyModalContextValue = { openSpotifyModal }
 
+  // Apple Music modal state
+  const [appleMusicModalOpen, setAppleMusicModalOpen] = useState(false)
+  const [appleMusicModalData, setAppleMusicModalData] = useState<{
+    title: string
+    embedUrl: string
+    appleMusicUrl: string
+  } | null>(null)
+
+  const openAppleMusicModal = useCallback((data: {
+    title: string
+    embedUrl: string
+    appleMusicUrl: string
+  }) => {
+    setAppleMusicModalData(data)
+    setAppleMusicModalOpen(true)
+  }, [])
+
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current
@@ -1658,6 +1675,70 @@ export function MobilePreviewContent() {
             <div className="px-2.5 pb-2.5 pt-0">
               <a href={spotifyModalData.spotifyUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full py-2 rounded-full bg-black text-white text-[11px] font-medium hover:bg-gray-800 transition-colors">
                 Open in Spotify
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apple Music Modal - Popup style inside phone preview */}
+      {appleMusicModalOpen && appleMusicModalData && (
+        <div
+          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          onClick={() => setAppleMusicModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-2.5 border-b">
+              <div className="flex items-center gap-1.5">
+                <svg className="w-4 h-4" viewBox="0 0 512 512">
+                  <defs>
+                    <linearGradient id="am-modal-grad2" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                      <stop offset="0" stopColor="#FA233B"/>
+                      <stop offset="1" stopColor="#FB5C74"/>
+                    </linearGradient>
+                  </defs>
+                  <path fill="url(#am-modal-grad2)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                </svg>
+                <span className="text-[11px] font-medium text-gray-600 truncate max-w-[180px]">
+                  {appleMusicModalData.title}
+                </span>
+              </div>
+              <button
+                onClick={() => setAppleMusicModalOpen(false)}
+                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Apple Music Embed */}
+            <div className="p-2.5">
+              <iframe
+                src={appleMusicModalData.embedUrl}
+                width="100%"
+                height="175"
+                frameBorder="0"
+                allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                loading="lazy"
+                className="rounded-lg bg-transparent"
+                style={{ overflow: 'hidden', background: 'transparent' }}
+              />
+            </div>
+
+            {/* Footer - Open in Apple Music button */}
+            <div className="px-2.5 pb-2.5 pt-0">
+              <a
+                href={appleMusicModalData.appleMusicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-full py-2 rounded-full bg-black text-white text-[11px] font-medium hover:bg-gray-800 transition-colors"
+              >
+                Open in Apple Music
               </a>
             </div>
           </div>
