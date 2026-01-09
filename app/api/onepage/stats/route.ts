@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { data: onepage } = await supabase
       .from("onepages")
-      .select("owner_id, blocks, draft_blocks")
+      .select("owner_id, draft_blocks, published_blocks")
       .eq("id", onepageId)
       .maybeSingle()
 
@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
     const startDateStr = startDate.toISOString()
     const endDateStr = endDate.toISOString()
 
-    // Use draft_blocks first (for editor), fall back to blocks (for published)
-    const allBlocks = (onepage.draft_blocks as any[] || onepage.blocks as any[] || [])
+    // Use draft_blocks first (for editor), fall back to published_blocks
+    const allBlocks = (onepage.draft_blocks as any[] || onepage.published_blocks as any[] || [])
 
     if (blockId) {
       // Find the block in the onepage's blocks array
