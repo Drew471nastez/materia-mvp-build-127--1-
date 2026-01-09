@@ -238,8 +238,20 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
     </svg>
   ),
   soundcloud: ({ size = 20, color = "currentColor", className }) => (
-    <svg className={className} width={size} height={size} viewBox="0 -4.5 20 20" fill={color}>
-      <path d="M12.5857188,11.7480699 L12.5857188,1.71968089 C12.5857188,1.40078089 12.681671,1.20964089 12.8745748,1.14824089 C16.086973,0.388630887 19.3323547,2.62982089 19.6272077,6.00596089 C22.7676418,4.67987089 25.4982802,8.67597089 23.0644937,11.0756209 C22.4478012,11.6836909 21.7081701,11.9877409 20.8456002,11.9877409 L12.7526356,11.9788309 C12.6456889,11.9431709 12.5857188,11.8322509 12.5857188,11.7480699 L12.5857188,11.7480699 Z M10.4088043,11.4529409 C10.4088043,12.1778909 11.7861176,12.1868009 11.7861176,11.4529409 L11.7861176,1.80485089 C11.7861176,0.891730887 10.4088043,0.895700887 10.4088043,1.80485089 L10.4088043,11.4529409 L10.4088043,11.4529409 Z M8.26987088,11.4529409 C8.26987088,12.1610509 9.6461846,12.1887809 9.6461846,11.4529409 L9.6461846,5.76629089 C9.6461846,4.85318089 8.26987088,4.85714089 8.26987088,5.76629089 L8.26987088,11.4529409 L8.26987088,11.4529409 Z M6.13893345,11.1578209 C6.13893345,11.8867209 7.50725116,11.8986109 7.50725116,11.1578209 L7.50725116,4.92746089 C7.50725116,4.04504089 6.13893345,4.03415089 6.13893345,4.92746089 L6.13893345,11.1578209 Z M4,10.0149409 C4,10.8656609 5.3673182,11.0805709 5.3673182,10.0149409 L5.3673182,7.34196089 C5.3673182,6.43677089 4,6.44469089 4,7.34196089 L4,10.0149409 Z" transform="translate(-4, -1)"/>
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.1-.1m-.899.828c-.06 0-.091.037-.104.094L0 14.479l.165 1.308c.014.057.045.094.09.094s.089-.037.099-.094l.19-1.308-.19-1.334c-.01-.057-.045-.09-.09-.09m1.83-1.229c-.061 0-.12.045-.12.104l-.21 2.563.225 2.458c0 .06.045.104.106.104.061 0 .12-.044.12-.104l.24-2.458-.24-2.563c0-.06-.058-.104-.12-.104m.945-.089c-.075 0-.135.06-.15.135l-.193 2.64.21 2.544c.016.077.075.138.149.138.075 0 .135-.061.15-.138l.225-2.545-.225-2.64c-.015-.074-.074-.135-.149-.135m.93-.12c-.09 0-.149.075-.165.165l-.195 2.76.21 2.544c.016.09.075.164.164.164.09 0 .15-.074.166-.164l.225-2.544-.24-2.76c-.016-.09-.076-.164-.165-.164m.96-.165c-.105 0-.18.09-.195.195l-.18 2.88.195 2.544c.015.105.09.18.194.18.104 0 .18-.075.195-.18l.21-2.544-.21-2.88c-.015-.105-.09-.195-.195-.195m.976-.224c-.12 0-.21.104-.21.225l-.18 3.06.195 2.52c0 .12.09.225.21.225.12 0 .21-.105.225-.225l.21-2.52-.21-3.06c-.015-.12-.105-.225-.225-.225m.975-.166c-.135 0-.24.12-.24.255l-.165 3.18.18 2.49c0 .135.105.24.24.24.135 0 .24-.105.255-.24l.195-2.49-.195-3.18c-.015-.135-.12-.255-.255-.255m.99-.15c-.15 0-.27.135-.27.285l-.165 3.3.18 2.475c0 .15.12.271.27.271.15 0 .271-.12.286-.271l.195-2.475-.195-3.3c-.015-.15-.136-.285-.286-.285m1.275.015c-.165 0-.3.135-.3.3l-.15 3.255.165 2.46c0 .165.135.3.3.3.165 0 .3-.135.315-.3l.18-2.46-.18-3.255c-.015-.165-.15-.3-.315-.3m1.005-.39c-.165 0-.315.15-.315.33l-.15 3.63.165 2.445c0 .18.15.33.315.33.165 0 .315-.15.33-.33l.165-2.445-.165-3.63c-.015-.18-.165-.33-.33-.33m.99-.195c-.195 0-.345.165-.345.36l-.135 3.81.15 2.415c0 .195.15.36.345.36.195 0 .345-.165.36-.36l.165-2.415-.165-3.81c-.015-.195-.165-.36-.36-.36m1.005-.165c-.21 0-.375.18-.375.39l-.135 3.96.15 2.4c0 .21.165.39.375.39.21 0 .375-.18.39-.39l.165-2.4-.165-3.96c-.015-.21-.18-.39-.39-.39m1.17-.165c-.21 0-.39.18-.39.405l-.12 4.11.135 2.37c0 .225.18.405.39.405.21 0 .39-.18.406-.405l.15-2.37-.15-4.11c-.016-.225-.196-.405-.406-.405m1.02-.03c-.225 0-.405.195-.405.42l-.12 4.125.135 2.355c0 .225.18.42.405.42.225 0 .405-.195.42-.42l.15-2.355-.15-4.125c-.015-.225-.195-.42-.42-.42m1.41.63c-.21 0-.39.18-.39.405l-.09 3.39.105 2.31c0 .21.18.39.39.39.21 0 .39-.18.39-.39l.12-2.31-.12-3.39c0-.225-.18-.405-.39-.405m2.566-.15c-.255 0-.45.195-.465.45l-.09 3.135.09 2.265c.015.255.21.45.465.45.255 0 .45-.195.465-.45l.105-2.265-.105-3.135c-.015-.255-.21-.45-.465-.45m.93-.09c-.27 0-.48.21-.495.48l-.09 3.21.105 2.22c.015.27.225.495.495.495.27 0 .495-.225.51-.495l.105-2.22-.105-3.21c-.015-.27-.24-.48-.51-.48m1.635.72c-.285 0-.51.225-.525.51l-.09 2.415.09 2.19c.015.285.24.51.525.51.285 0 .51-.225.525-.51l.105-2.19-.105-2.415c-.015-.285-.24-.51-.525-.51"/>
+    </svg>
+  ),
+  applemusic: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 512 512" fill="none">
+      <defs>
+        <linearGradient id="apple-music-gradient" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+          <stop offset="0" stopColor="#FA233B"/>
+          <stop offset="1" stopColor="#FB5C74"/>
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" rx="15%" fill="url(#apple-music-gradient)"/>
+      <path fill="#ffffff" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
     </svg>
   ),
   kick: ({ size = 20, color = "currentColor", className }) => (
@@ -301,6 +313,7 @@ const SOCIAL_PLATFORMS = [
   { id: "pinterest", label: "Pinterest", placeholder: "https://pinterest.com/username", color: "#E60023" },
   { id: "soundcloud", label: "SoundCloud", placeholder: "https://soundcloud.com/username", color: "#FF5500" },
   { id: "spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/...", color: "#1DB954" },
+  { id: "applemusic", label: "Apple Music", placeholder: "https://music.apple.com/...", color: "#FA233B" },
   { id: "telegram", label: "Telegram", placeholder: "https://t.me/username", color: "#0088CC" },
   { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF" },
   { id: "website", label: "Website", placeholder: "https://yourwebsite.com", color: "#6366F1" },
@@ -880,12 +893,67 @@ export function LinksTab() {
           thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
         }
       }
-      // SoundCloud oEmbed
+      // SoundCloud - fetch from our API for full metadata
       else if (url.includes('soundcloud.com/')) {
-        const response = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`)
-        if (response.ok) {
-          const data = await response.json()
-          thumbnailUrl = data.thumbnail_url
+        try {
+          const apiResponse = await fetch(`/api/onepage/soundcloud?url=${encodeURIComponent(url)}`)
+          if (apiResponse.ok) {
+            const soundcloudData = await apiResponse.json()
+            thumbnailUrl = soundcloudData.thumbnailUrl
+            const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
+            if (currentData) {
+              updateBlock(blockId, {
+                data: {
+                  ...currentData,
+                  thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
+                  icon: thumbnailUrl ? null : currentData.icon,
+                  soundcloud_title: soundcloudData.title || null,
+                  soundcloud_artist: soundcloudData.artistName || null,
+                  soundcloud_type: soundcloudData.type || null,
+                  soundcloud_thumbnail: thumbnailUrl || null,
+                  soundcloud_show_metadata: currentData.soundcloud_show_metadata !== false ? true : false
+                }
+              })
+              return // Skip the generic thumbnail update below
+            }
+          }
+        } catch (e) {
+          // Fallback to oEmbed if our API fails
+          const response = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`)
+          if (response.ok) {
+            const data = await response.json()
+            thumbnailUrl = data.thumbnail_url
+          }
+        }
+      }
+      // Apple Music - fetch from our API for full metadata
+      else if (url.includes('music.apple.com/')) {
+        try {
+          const apiResponse = await fetch(`/api/onepage/apple-music?url=${encodeURIComponent(url)}`)
+          if (apiResponse.ok) {
+            const appleMusicData = await apiResponse.json()
+            thumbnailUrl = appleMusicData.thumbnailUrl
+            const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
+            if (currentData) {
+              updateBlock(blockId, {
+                data: {
+                  ...currentData,
+                  thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
+                  icon: thumbnailUrl ? null : currentData.icon,
+                  apple_music_title: appleMusicData.title || null,
+                  apple_music_artist: appleMusicData.artistName || null,
+                  apple_music_type: appleMusicData.type || null,
+                  apple_music_thumbnail: thumbnailUrl || null,
+                  apple_music_show_metadata: currentData.apple_music_show_metadata !== false ? true : false,
+                  apple_music_preview_url: appleMusicData.previewUrl || null,
+                  apple_music_streaming_services: appleMusicData.streamingServices || []
+                }
+              })
+              return // Skip the generic thumbnail update below
+            }
+          }
+        } catch (e) {
+          console.error('Apple Music fetch error:', e)
         }
       }
       // Vimeo oEmbed
@@ -930,7 +998,17 @@ export function LinksTab() {
             spotify_title: null,
             spotify_artist: null,
             spotify_type: null,
-            spotify_thumbnail: null
+            spotify_thumbnail: null,
+            soundcloud_title: null,
+            soundcloud_artist: null,
+            soundcloud_type: null,
+            soundcloud_thumbnail: null,
+            apple_music_title: null,
+            apple_music_artist: null,
+            apple_music_type: null,
+            apple_music_thumbnail: null,
+            apple_music_preview_url: null,
+            apple_music_streaming_services: []
           }
         })
         return
@@ -941,9 +1019,15 @@ export function LinksTab() {
       const isSpotify = url.includes('spotify.com')
       const wasYouTube = currentData.url?.includes('youtube.com') || currentData.url?.includes('youtu.be')
       const isYouTube = url.includes('youtube.com') || url.includes('youtu.be')
+      const wasSoundCloud = currentData.url?.includes('soundcloud.com')
+      const isSoundCloud = url.includes('soundcloud.com')
+      const wasAppleMusic = currentData.url?.includes('music.apple.com')
+      const isAppleMusic = url.includes('music.apple.com')
 
       // If switching between platforms, clear existing data and fetch new
-      if ((wasSpotify && !isSpotify) || (wasYouTube && !isYouTube) || (!wasSpotify && !wasYouTube && (isSpotify || isYouTube))) {
+      const platformChanged = (wasSpotify !== isSpotify) || (wasYouTube !== isYouTube) || (wasSoundCloud !== isSoundCloud) || (wasAppleMusic !== isAppleMusic)
+      
+      if (platformChanged) {
         updateBlock(blockId, {
           data: {
             ...currentData,
@@ -953,7 +1037,17 @@ export function LinksTab() {
             spotify_title: null,
             spotify_artist: null,
             spotify_type: null,
-            spotify_thumbnail: null
+            spotify_thumbnail: null,
+            soundcloud_title: null,
+            soundcloud_artist: null,
+            soundcloud_type: null,
+            soundcloud_thumbnail: null,
+            apple_music_title: null,
+            apple_music_artist: null,
+            apple_music_type: null,
+            apple_music_thumbnail: null,
+            apple_music_preview_url: null,
+            apple_music_streaming_services: []
           }
         })
       } else {
@@ -962,7 +1056,7 @@ export function LinksTab() {
     }
 
     // Debounce the auto-fetch - faster response (400ms)
-    if (url.length > 10 && (url.startsWith('http://') || url.startsWith('https://') || url.includes('spotify.com') || url.includes('youtube.com'))) {
+    if (url.length > 10 && (url.startsWith('http://') || url.startsWith('https://') || url.includes('spotify.com') || url.includes('youtube.com') || url.includes('soundcloud.com') || url.includes('music.apple.com'))) {
       // Use a shorter delay for faster response
       const timeoutId = setTimeout(() => {
         autoFetchThumbnail(blockId, url)
@@ -985,6 +1079,8 @@ export function LinksTab() {
 
       const isSpotify = data.url.includes('spotify.com')
       const isYouTube = data.url.includes('youtube.com') || data.url.includes('youtu.be')
+      const isSoundCloud = data.url.includes('soundcloud.com')
+      const isAppleMusic = data.url.includes('music.apple.com')
 
       // If it's a Spotify URL without thumbnail/metadata, fetch it
       if (isSpotify && !data.thumbnail_url && !data.spotify_title) {
@@ -992,6 +1088,14 @@ export function LinksTab() {
       }
       // If it's a YouTube URL without thumbnail, fetch it
       else if (isYouTube && !data.thumbnail_url) {
+        autoFetchThumbnail(block.id, data.url)
+      }
+      // If it's a SoundCloud URL without thumbnail/metadata, fetch it
+      else if (isSoundCloud && !data.thumbnail_url && !data.soundcloud_title) {
+        autoFetchThumbnail(block.id, data.url)
+      }
+      // If it's an Apple Music URL without thumbnail/metadata, fetch it
+      else if (isAppleMusic && !data.thumbnail_url && !data.apple_music_title) {
         autoFetchThumbnail(block.id, data.url)
       }
     })

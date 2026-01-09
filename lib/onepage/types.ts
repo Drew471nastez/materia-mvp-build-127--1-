@@ -96,9 +96,11 @@ export type BlockAnimationType = 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' 
 export type BlockDisplayMode = 'cover' | 'contain' | 'full'
 export type YouTubeMode = 'embed_video' | 'open_profile' | 'open_latest' | 'embed_latest'
 export type SpotifyMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
+export type AppleMusicMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
+export type SoundCloudMode = 'audio_preview' | 'go_to_url'
 
 export interface StreamingService {
-  platform: 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal' | 'deezer' | 'amazon_music'
+  platform: 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal' | 'deezer' | 'amazon_music' | 'spotify'
   url: string | null
   found: boolean
 }
@@ -125,6 +127,23 @@ export interface LinkButtonBlockData {
   spotify_artist?: string | null
   spotify_type?: 'track' | 'album' | 'artist' | 'playlist' | null
   spotify_thumbnail?: string | null
+  spotify_show_metadata?: boolean
+  // Apple Music-specific settings
+  apple_music_mode?: AppleMusicMode
+  apple_music_title?: string | null
+  apple_music_artist?: string | null
+  apple_music_type?: 'song' | 'album' | 'artist' | 'playlist' | null
+  apple_music_thumbnail?: string | null
+  apple_music_show_metadata?: boolean
+  apple_music_preview_url?: string | null
+  apple_music_streaming_services?: StreamingService[]
+  // SoundCloud-specific settings
+  soundcloud_mode?: SoundCloudMode
+  soundcloud_title?: string | null
+  soundcloud_artist?: string | null
+  soundcloud_type?: 'track' | 'playlist' | 'artist' | null
+  soundcloud_thumbnail?: string | null
+  soundcloud_show_metadata?: boolean
 }
 
 export interface ProductBlockData {
