@@ -11,7 +11,7 @@ function hashIP(ip: string): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { onepage_id, block_id, event_type, url } = body
+    const { onepage_id, block_id, event_type, url, group_id } = body
 
     if (!onepage_id || !event_type) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -83,6 +83,28 @@ export async function POST(request: NextRequest) {
           url: url?.slice(0, 2000),
           visitor_id: visitorId,
         })
+        
+        // If this block is inside a group, also record a click for the group
+        if (group_id) {
+          // Check if we already recorded a group click today for this visitor
+          const { data: existingGroupClick } = await supabase
+            .from("onepage_clicks")
+            .select("id")
+            .eq("onepage_id", onepage_id)
+            .eq("block_id", group_id)
+            .eq("visitor_id", visitorId)
+            .gte("created_at", todayStr)
+            .maybeSingle()
+
+          if (!existingGroupClick) {
+            await supabase.from("onepage_clicks").insert({
+              onepage_id,
+              block_id: group_id,
+              url: null,
+              visitor_id: visitorId,
+            })
+          }
+        }
       }
     }
 
