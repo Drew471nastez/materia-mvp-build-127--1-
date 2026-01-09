@@ -497,6 +497,7 @@ export function LinksTab() {
   // Drag state
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null)
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -1130,12 +1131,26 @@ export function LinksTab() {
   const handleDragOver = (e: React.DragEvent, blockId: string) => {
     e.preventDefault()
     if (draggedBlockId && draggedBlockId !== blockId) {
-      setDragOverBlockId(blockId)
+      const targetBlock = sortedBlocks.find(b => b.id === blockId)
+      const draggedBlock = sortedBlocks.find(b => b.id === draggedBlockId)
+      
+      // Check if dragging over a group block and the dragged block can be added to it
+      if (targetBlock?.type === "group" && draggedBlock && 
+          draggedBlock.type !== "group" && 
+          draggedBlock.type !== "header" && 
+          draggedBlock.type !== "social_row") {
+        setDragOverGroupId(blockId)
+        setDragOverBlockId(null)
+      } else {
+        setDragOverBlockId(blockId)
+        setDragOverGroupId(null)
+      }
     }
   }
 
   const handleDragLeave = () => {
     setDragOverBlockId(null)
+    setDragOverGroupId(null)
   }
 
   const handleDrop = (e: React.DragEvent, targetBlockId: string) => {
@@ -1147,7 +1162,7 @@ export function LinksTab() {
       const targetIndex = sortedBlocks.findIndex(b => b.id === targetBlockId)
 
       // If dropping onto a group block, add the dragged block to the group's children
-      if (targetBlock?.type === "group" && draggedBlock && draggedBlock.type !== "group" && draggedBlock.type !== "header") {
+      if (targetBlock?.type === "group" && draggedBlock && draggedBlock.type !== "group" && draggedBlock.type !== "header" && draggedBlock.type !== "social_row") {
         const groupData = targetBlock.data as GroupBlockData
         const existingChildren = groupData.children || []
 
@@ -1155,6 +1170,7 @@ export function LinksTab() {
         if (existingChildren.some(c => c.id === draggedBlockId)) {
           setDraggedBlockId(null)
           setDragOverBlockId(null)
+          setDragOverGroupId(null)
           return
         }
 
@@ -1164,6 +1180,7 @@ export function LinksTab() {
         removeBlock(draggedBlockId)
         setDraggedBlockId(null)
         setDragOverBlockId(null)
+        setDragOverGroupId(null)
         return
       }
 
@@ -1175,6 +1192,7 @@ export function LinksTab() {
           // Don't allow dropping above or at the header position
           setDraggedBlockId(null)
           setDragOverBlockId(null)
+          setDragOverGroupId(null)
           return
         }
       }
@@ -1194,11 +1212,13 @@ export function LinksTab() {
     }
     setDraggedBlockId(null)
     setDragOverBlockId(null)
+    setDragOverGroupId(null)
   }
 
   const handleDragEnd = () => {
     setDraggedBlockId(null)
     setDragOverBlockId(null)
+    setDragOverGroupId(null)
   }
 
   const filteredCategories = searchQuery
@@ -1426,20 +1446,10 @@ export function LinksTab() {
               onDrop={(e) => handleDrop(e, block.id)}
               onDragEnd={handleDragEnd}
               className={cn(
-                "transition-all duration-200 rounded-xl relative",
-                dragOverBlockId === block.id && block.type !== "header" && block.type !== "group" && "border-t-2 border-violet-500",
-                // Special styling for group blocks - show drop zone indicator
-                dragOverBlockId === block.id && block.type === "group" && draggedBlockId && draggedBlockId !== block.id && "ring-2 ring-violet-500 ring-offset-2"
+                "transition-all duration-200",
+                dragOverBlockId === block.id && block.type !== "header" && "border-t-2 border-violet-500"
               )}
             >
-              {/* Drop indicator overlay for group blocks */}
-              {dragOverBlockId === block.id && block.type === "group" && draggedBlockId && draggedBlockId !== block.id && (
-                <div className="absolute inset-0 bg-violet-100/80 rounded-xl z-10 flex items-center justify-center pointer-events-none">
-                  <div className="bg-violet-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg">
-                    Drop to add to group
-                  </div>
-                </div>
-              )}
               <BlockItem
                 block={block}
                 isSelected={selectedBlockId === block.id}
@@ -1481,12 +1491,12 @@ export function LinksTab() {
                 }}
                 onDragStart={(e) => handleDragStart(e, block.id)}
                 isDragging={draggedBlockId === block.id}
-                isDragOverGroup={dragOverBlockId === block.id && block.type === "group" && draggedBlockId !== null && draggedBlockId !== block.id}
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
                   setShowAddModal(true)
                 }}
+                isDropTarget={dragOverGroupId === block.id}
               />
             </div>
 
@@ -3039,9 +3049,9 @@ interface BlockItemProps {
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onDragStart?: (e: React.DragEvent) => void
   isDragging?: boolean
-  isDragOverGroup?: boolean
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   onOpenAddBlockModal?: (groupId: string) => void
+  isDropTarget?: boolean
 }
 
 function BlockItem({
@@ -3065,9 +3075,9 @@ function BlockItem({
   onOpenStreamingModal,
   onDragStart,
   isDragging,
-  isDragOverGroup,
   onMoveChildToMainList,
   onOpenAddBlockModal,
+  isDropTarget,
 }: BlockItemProps) {
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -3109,28 +3119,9 @@ function BlockItem({
       if (response.ok) {
         const data = await response.json()
         setStatsData(data)
-      } else {
-        // Set default empty stats on error so UI doesn't show "No data yet"
-        const numDays = days || 7
-        const chartData = []
-        for (let i = numDays - 1; i >= 0; i--) {
-          const date = new Date()
-          date.setDate(date.getDate() - i)
-          chartData.push({ date: date.toISOString().split('T')[0], views: 0, clicks: 0 })
-        }
-        setStatsData({ total_views: 0, total_clicks: 0, chart_data: chartData })
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error)
-      // Set default empty stats on error
-      const numDays = days || 7
-      const chartData = []
-      for (let i = numDays - 1; i >= 0; i--) {
-        const date = new Date()
-        date.setDate(date.getDate() - i)
-        chartData.push({ date: date.toISOString().split('T')[0], views: 0, clicks: 0 })
-      }
-      setStatsData({ total_views: 0, total_clicks: 0, chart_data: chartData })
     } finally {
       setStatsLoading(false)
     }
@@ -3214,17 +3205,16 @@ function BlockItem({
         "border rounded-xl bg-white transition-all relative",
         isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
         !block.enabled && "opacity-50",
-        isDragging && "opacity-50 scale-[0.98]"
+        isDragging && "opacity-50 scale-[0.98]",
+        isDropTarget && isGroup && "ring-2 ring-violet-500 border-violet-400 bg-violet-50/50"
       )}
     >
-      {/* Drop zone indicator for Group blocks when dragging over */}
-      {isDragOverGroup && isGroup && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-violet-100/90 rounded-xl border-2 border-dashed border-violet-500 pointer-events-none">
-          <div className="flex flex-col items-center gap-1">
-            <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center">
-              <Plus className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-sm font-medium text-violet-700">Drop to add to group</span>
+      {/* Drop into group indicator overlay */}
+      {isDropTarget && isGroup && (
+        <div className="absolute inset-0 bg-violet-500/5 rounded-xl pointer-events-none z-10 flex items-center justify-center">
+          <div className="bg-violet-500 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 animate-pulse">
+            <Plus className="h-3.5 w-3.5" />
+            Drop to add to group
           </div>
         </div>
       )}
@@ -3400,7 +3390,9 @@ function BlockItem({
               title="View Stats"
             >
               <BarChart2 className="h-4 w-4" />
-              <span className="text-xs font-medium tabular-nums">{clickCount ?? 0}</span>
+              {clickCount !== null && clickCount > 0 && (
+                <span className="text-xs font-medium">{clickCount}</span>
+              )}
             </button>
 
             {/* Stats Modal */}

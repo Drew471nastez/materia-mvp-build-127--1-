@@ -1582,7 +1582,6 @@ interface PublicBlockRendererProps {
   settings?: any
   isInsideCarousel?: boolean
   isInsideGroup?: boolean
-  parentGroupId?: string
 }
 
 // Verified Badge Component with tooltip
@@ -1631,7 +1630,6 @@ function GroupBlockRenderer({
   sellerId,
   isDesktop,
   settings,
-  groupId,
 }: {
   data: GroupBlockData
   theme: OnePageTheme
@@ -1640,7 +1638,6 @@ function GroupBlockRenderer({
   sellerId: string | null
   isDesktop: boolean
   settings?: { filled_icons?: boolean }
-  groupId: string
 }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isHovering, setIsHovering] = useState(false)
@@ -1843,7 +1840,6 @@ function GroupBlockRenderer({
                     settings={settings}
                     isInsideCarousel={true}
                     isInsideGroup={true}
-                    parentGroupId={groupId}
                   />
                 </div>
               </div>
@@ -1917,7 +1913,6 @@ function GroupBlockRenderer({
             isDesktop={isDesktop}
             settings={settings}
             isInsideGroup={true}
-            parentGroupId={groupId}
           />
         </div>
       ))}
@@ -1962,7 +1957,6 @@ function PublicBlockRenderer({
   settings,
   isInsideCarousel = false,
   isInsideGroup = false,
-  parentGroupId,
 }: PublicBlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [email, setEmail] = useState("")
@@ -1996,19 +1990,12 @@ function PublicBlockRenderer({
       await fetch("/api/onepage/track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          onepage_id: onepageId, 
-          block_id: block.id, 
-          event_type: "click", 
-          url,
-          group_id: parentGroupId || null
-        }),
+        body: JSON.stringify({ onepage_id: onepageId, block_id: block.id, event_type: "click", url }),
       })
     } catch (e) {
       console.error("Track error:", e)
     }
   }
-
 
   // Spotify URL helper
   const isSpotifyUrl = (url: string): boolean => {
@@ -3119,7 +3106,6 @@ function PublicBlockRenderer({
             sellerId={sellerId}
             isDesktop={isDesktop}
             settings={settings}
-            groupId={block.id}
           />
         )
       }
@@ -3159,7 +3145,6 @@ function PublicBlockRenderer({
                     isDesktop={isDesktop}
                     settings={settings}
                     isInsideGroup={true}
-                    parentGroupId={block.id}
                   />
                 </div>
               )

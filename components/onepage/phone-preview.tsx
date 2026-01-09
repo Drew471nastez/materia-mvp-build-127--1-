@@ -827,12 +827,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       <div
         className={cn("relative flex-shrink-0", className)}
         style={{
-          width: "390px",
-          minWidth: "390px",
-          maxWidth: "390px",
-          height: "780px",
-          minHeight: "780px",
-          maxHeight: "780px",
+          width: "280px",
+          minWidth: "280px",
+          maxWidth: "280px",
+          height: "580px",
+          minHeight: "580px",
+          maxHeight: "580px",
         }}
       >
         {/* Animation keyframes - subtle animation */}
@@ -852,12 +852,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           position: "absolute",
           top: 0,
           left: 0,
-          width: "390px",
-          height: "780px",
+          width: "280px",
+          height: "580px",
           backgroundColor: "#1a1a1a",
-          borderRadius: "56px",
+          borderRadius: "44px",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-          padding: "14px",
+          padding: "10px",
         }}
       >
         <div
@@ -1045,7 +1045,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 sellerName={sellerName}
                 avatarUrl={avatar_url}
                 pageUrl={`https://storelib.co/l/${(onepage as any).slug || "preview"}`}
-                scale="normal"
+                scale="small"
                 style={(settings as any)?.share_style || "white"}
                 showSubscribe={settings?.subscribe_enabled !== false}
                 accentColor={theme.button_color}
@@ -1057,7 +1057,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             {settings?.subscribe_enabled !== false && (
               <NotificationBell
                 sellerName={sellerName}
-                scale="normal"
+                scale="small"
                 style={(settings as any)?.subscribe_style || "glass"}
                 isVisible={buttonsVisible}
               />
@@ -1067,10 +1067,10 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               style={{
                 position: "relative",
                 zIndex: 1,
-                paddingTop: "52px",
-                paddingBottom: "16px",
-                paddingLeft: "22px",
-                paddingRight: "22px",
+                paddingTop: "45px",
+                paddingBottom: "12px",
+                paddingLeft: "16px",
+                paddingRight: "16px",
                 minHeight: "100%",
                 display: "flex",
                 flexDirection: "column",
@@ -1095,7 +1095,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                       block={block}
                       theme={theme}
                       profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
-                      scale="normal"
+                      scale="small"
                       settings={settings}
                     />
                   ))}
@@ -1152,7 +1152,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[340px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1509,7 +1509,7 @@ export function MobilePreviewContent() {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[340px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
