@@ -1426,12 +1426,20 @@ export function LinksTab() {
               onDrop={(e) => handleDrop(e, block.id)}
               onDragEnd={handleDragEnd}
               className={cn(
-                "transition-all duration-200 rounded-xl",
+                "transition-all duration-200 rounded-xl relative",
                 dragOverBlockId === block.id && block.type !== "header" && block.type !== "group" && "border-t-2 border-violet-500",
                 // Special styling for group blocks - show drop zone indicator
-                dragOverBlockId === block.id && block.type === "group" && draggedBlockId && draggedBlockId !== block.id && "ring-2 ring-violet-500 ring-offset-2 bg-violet-50/50"
+                dragOverBlockId === block.id && block.type === "group" && draggedBlockId && draggedBlockId !== block.id && "ring-2 ring-violet-500 ring-offset-2"
               )}
             >
+              {/* Drop indicator overlay for group blocks */}
+              {dragOverBlockId === block.id && block.type === "group" && draggedBlockId && draggedBlockId !== block.id && (
+                <div className="absolute inset-0 bg-violet-100/80 rounded-xl z-10 flex items-center justify-center pointer-events-none">
+                  <div className="bg-violet-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg">
+                    Drop to add to group
+                  </div>
+                </div>
+              )}
               <BlockItem
                 block={block}
                 isSelected={selectedBlockId === block.id}
@@ -3101,9 +3109,28 @@ function BlockItem({
       if (response.ok) {
         const data = await response.json()
         setStatsData(data)
+      } else {
+        // Set default empty stats on error so UI doesn't show "No data yet"
+        const numDays = days || 7
+        const chartData = []
+        for (let i = numDays - 1; i >= 0; i--) {
+          const date = new Date()
+          date.setDate(date.getDate() - i)
+          chartData.push({ date: date.toISOString().split('T')[0], views: 0, clicks: 0 })
+        }
+        setStatsData({ total_views: 0, total_clicks: 0, chart_data: chartData })
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error)
+      // Set default empty stats on error
+      const numDays = days || 7
+      const chartData = []
+      for (let i = numDays - 1; i >= 0; i--) {
+        const date = new Date()
+        date.setDate(date.getDate() - i)
+        chartData.push({ date: date.toISOString().split('T')[0], views: 0, clicks: 0 })
+      }
+      setStatsData({ total_views: 0, total_clicks: 0, chart_data: chartData })
     } finally {
       setStatsLoading(false)
     }
