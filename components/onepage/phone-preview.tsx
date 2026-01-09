@@ -32,6 +32,16 @@ interface SpotifyModalContextType {
 }
 const SpotifyModalContext = createContext<SpotifyModalContextType | null>(null)
 
+// Apple Music Modal Context - allows modals to render at root level instead of inside blocks
+interface AppleMusicModalContextType {
+  openAppleMusicModal: (data: {
+    title: string
+    embedUrl: string
+    appleMusicUrl: string
+  }) => void
+}
+const AppleMusicModalContext = createContext<AppleMusicModalContextType | null>(null)
+
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
   sellerName,
@@ -785,6 +795,8 @@ export function PhonePreview({ className }: PhonePreviewProps) {
     setAppleMusicModalOpen(true)
   }, [])
 
+  const appleMusicModalContextValue = { openAppleMusicModal }
+
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current
@@ -841,6 +853,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
   return (
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
+    <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
       <div
         className={cn("relative flex-shrink-0", className)}
         style={{
@@ -1318,6 +1331,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
         </div>
       )}
     </div>
+    </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
   )
 }
@@ -1367,6 +1381,8 @@ export function MobilePreviewContent() {
     setAppleMusicModalData(data)
     setAppleMusicModalOpen(true)
   }, [])
+
+  const appleMusicModalContextValue = { openAppleMusicModal }
 
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
@@ -1424,6 +1440,7 @@ export function MobilePreviewContent() {
 
   return (
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
+    <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
       {/* Animation keyframes */}
       <style
         dangerouslySetInnerHTML={{
@@ -1744,6 +1761,7 @@ export function MobilePreviewContent() {
           </div>
         </div>
       )}
+    </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
   )
 }
@@ -2024,6 +2042,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
   // Use context for Spotify modal - renders at root level to prevent clipping
   const spotifyModalContext = useContext(SpotifyModalContext)
+  
+  // Use context for Apple Music modal - renders at root level to prevent clipping
+  const appleMusicModalContext = useContext(AppleMusicModalContext)
 
   // Button hover animation - based on theme setting, disabled inside carousel
   const buttonHoverAnimation = (theme as any).button_hover_animation || "default"
@@ -2782,12 +2803,12 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         const appleMusicEmbedUrl = getAppleMusicEmbedUrl(data.url)
 
         // If Apple Music should open modal, render as button
-        if (shouldOpenAppleMusicModal && appleMusicEmbedUrl) {
+        if (shouldOpenAppleMusicModal && appleMusicEmbedUrl && appleMusicModalContext) {
           return (
             <button
               type="button"
               onClick={() => {
-                openAppleMusicModal({
+                appleMusicModalContext.openAppleMusicModal({
                   title: data.label || 'Listen on Apple Music',
                   embedUrl: appleMusicEmbedUrl,
                   appleMusicUrl: data.url
