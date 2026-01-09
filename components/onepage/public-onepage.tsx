@@ -1969,8 +1969,21 @@ function PublicBlockRenderer({
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
 
-  // Subtle opacity fade on hover - disabled inside carousel or group (no hover animation in carousel/group)
-  const hoverEffect = (isInsideCarousel || isInsideGroup) ? "" : "hover:opacity-90 transition-opacity"
+  // Button hover animation - based on theme setting, disabled inside carousel or group
+  const buttonHoverAnimation = (theme as any).button_hover_animation || "default"
+  const getHoverEffect = () => {
+    if (isInsideCarousel || isInsideGroup) return ""
+    switch (buttonHoverAnimation) {
+      case "fade":
+        return "hover:opacity-80 transition-opacity duration-200"
+      case "zoom":
+        return "hover:scale-[1.03] transition-transform duration-200"
+      case "default":
+      default:
+        return "hover:scale-[1.01] hover:opacity-95 transition-all duration-200"
+    }
+  }
+  const hoverEffect = getHoverEffect()
 
   const trackClick = async (blockId: string, url: string) => {
     try {

@@ -3857,6 +3857,32 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
+      {/* Button Animations Section */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Button Animations</Label>
+        <p className="text-xs text-muted-foreground -mt-1">Subtle hover effects for buttons</p>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { id: "default", label: "Default", desc: "Scale up" },
+            { id: "fade", label: "Fade", desc: "Opacity" },
+            { id: "zoom", label: "Zoom", desc: "Grow" },
+          ] as const).map((animation) => (
+            <button
+              key={animation.id}
+              onClick={() => updateTheme({ button_hover_animation: animation.id } as any)}
+              className={cn(
+                "py-3 px-2 rounded-xl border-2 text-xs md:text-sm font-medium transition-colors flex flex-col items-center gap-0.5",
+                ((theme as any).button_hover_animation || "default") === animation.id
+                  ? "border-foreground bg-gray-50"
+                  : "border-gray-200 hover:border-gray-300"
+              )}
+            >
+              <span>{animation.label}</span>
+              <span className="text-[10px] text-muted-foreground font-normal">{animation.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

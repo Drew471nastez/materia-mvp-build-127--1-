@@ -3461,7 +3461,7 @@ function BlockItem({
                                   <div className="font-medium">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                                   <div className="flex gap-3 mt-0.5">
                                     <span className="text-blue-300">{day.views || 0} views</span>
-                                    <span className="text-violet-300">{day.clicks} {isGroup ? "interactions" : isEmailCapture ? "submissions" : "clicks"}</span>
+                                    <span className="text-violet-300">{day.clicks} {isEmailCapture ? "submissions" : "clicks"}</span>
                                   </div>
                                 </div>
                               </div>
@@ -4954,22 +4954,6 @@ function BlockEditor({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Fade on edges</Label>
-                <button
-                  type="button"
-                  onClick={() => updateData({ carousel_fade_edges: !groupData.carousel_fade_edges })}
-                  className={cn(
-                    "w-10 h-5 rounded-full transition-colors relative",
-                    groupData.carousel_fade_edges ? "bg-violet-500" : "bg-gray-300"
-                  )}
-                >
-                  <div className={cn(
-                    "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
-                    groupData.carousel_fade_edges ? "translate-x-5" : "translate-x-0.5"
-                  )} />
-                </button>
-              </div>
             </div>
           )}
         </TabsContent>

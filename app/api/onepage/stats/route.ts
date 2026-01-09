@@ -51,6 +51,20 @@ export async function GET(request: NextRequest) {
     const endDateStr = endDate.toISOString()
 
     if (blockId) {
+      // First, check if this is a group block and get its children
+      const { data: blockData } = await supabase
+        .from("onepage_blocks")
+        .select("type, data")
+        .eq("id", blockId)
+        .maybeSingle()
+
+      // Get all block IDs to query - include children if this is a group block
+      const blockIdsToQuery = [blockId]
+      if (blockData?.type === "group" && blockData?.data?.children) {
+        const children = blockData.data.children as { id: string }[]
+        children.forEach(child => blockIdsToQuery.push(child.id))
+      }
+
       // Get stats for specific block - both views (page views) and clicks
       const [viewsResult, clicksResult] = await Promise.all([
         supabase
@@ -63,7 +77,7 @@ export async function GET(request: NextRequest) {
           .from("onepage_clicks")
           .select("created_at")
           .eq("onepage_id", onepageId)
-          .eq("block_id", blockId)
+          .in("block_id", blockIdsToQuery)
           .gte("created_at", startDateStr)
           .lte("created_at", endDateStr)
           .order("created_at", { ascending: true })

@@ -1145,52 +1145,52 @@ export function PhonePreview({ className }: PhonePreviewProps) {
         </div>
       </div>
       
-      {/* Spotify Modal - Full screen inside phone preview (Linktree style) */}
+      {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[50] bg-white rounded-[32px] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
-          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          onClick={() => setSpotifyModalOpen(false)}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-            <div className="w-8" /> {/* Spacer for centering */}
-            <div className="flex flex-col items-center text-center flex-1 min-w-0">
-              <span className="text-[11px] font-semibold text-gray-900 truncate max-w-[180px]">
-                {spotifyModalData.title}
-              </span>
-              <div className="flex items-center gap-1 mt-0.5">
-                <svg className="w-3 h-3 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
+          <div
+            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-2.5 border-b">
+              <div className="flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                 </svg>
-                <span className="text-[9px] text-gray-500">Song · {spotifyModalData.artist || 'Artist'}</span>
+                <span className="text-[10px] font-medium text-gray-600 truncate max-w-[160px]">
+                  {spotifyModalData.title}
+                </span>
               </div>
+              <button
+                onClick={() => setSpotifyModalOpen(false)}
+                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-gray-500" />
+              </button>
             </div>
-            <button
-              onClick={() => setSpotifyModalOpen(false)}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
-          </div>
 
-          {/* Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto px-3 py-3">
-            {/* Spotify Embed */}
-            <iframe
-              src={spotifyModalData.embedUrl}
-              width="100%"
-              height="352"
-              frameBorder="0"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-              className="rounded-xl"
-            />
+            {/* Spotify Embed - compact */}
+            <div className="p-2.5">
+              <iframe
+                src={spotifyModalData.embedUrl}
+                width="100%"
+                height="152"
+                frameBorder="0"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+                className="rounded-lg"
+              />
+            </div>
 
-            {/* Streaming Services - if show_streaming mode (text only, no icons) */}
+            {/* Streaming Services - if show_streaming mode */}
             {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
-              <div className="mt-4">
-                <p className="text-[11px] font-medium text-gray-700 mb-2">Listen on</p>
-                <div className="space-y-1.5">
+              <div className="px-2.5 pb-2.5">
+                <p className="text-[9px] font-medium text-gray-700 mb-1.5">Listen on</p>
+                <div className="space-y-1">
                   {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
                     const names: Record<string, string> = {
                       apple_music: 'Apple Music',
@@ -1209,28 +1209,28 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                         href={service.url || '#'}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                       >
-                        <span className="text-[11px] font-medium text-gray-900">{names[service.platform] || service.platform}</span>
-                        <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="text-[10px] font-medium text-gray-900">{names[service.platform] || service.platform}</span>
+                        <ExternalLink className="w-3 h-3 text-gray-400" />
                       </a>
                     )
                   })}
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Footer - Open in Spotify button */}
-          <div className="px-4 py-3 border-t shrink-0">
-            <a
-              href={spotifyModalData.spotifyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full bg-black text-white text-[11px] font-medium hover:bg-gray-800 transition-colors"
-            >
-              Open in Spotify
-            </a>
+            {/* Footer - Open in Spotify button */}
+            <div className="px-2.5 pb-2.5 pt-0">
+              <a
+                href={spotifyModalData.spotifyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 w-full py-2 rounded-full bg-[#1DB954] text-white text-[10px] font-medium hover:bg-[#1ed760] transition-colors"
+              >
+                Open in Spotify
+              </a>
+            </div>
           </div>
         </div>
       )}
@@ -1500,51 +1500,52 @@ export function MobilePreviewContent() {
         </div>
       </div>
       
-      {/* Spotify Modal - Full screen inside phone preview (Linktree style) */}
+      {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[50] bg-white rounded-[32px] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
-          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          onClick={() => setSpotifyModalOpen(false)}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-            <div className="w-8" />
-            <div className="flex flex-col items-center text-center flex-1 min-w-0">
-              <span className="text-[11px] font-semibold text-gray-900 truncate max-w-[180px]">
-                {spotifyModalData.title}
-              </span>
-              <div className="flex items-center gap-1 mt-0.5">
-                <svg className="w-3 h-3 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
+          <div
+            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-2.5 border-b">
+              <div className="flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                 </svg>
-                <span className="text-[9px] text-gray-500">Song · {spotifyModalData.artist || 'Artist'}</span>
+                <span className="text-[10px] font-medium text-gray-600 truncate max-w-[160px]">
+                  {spotifyModalData.title}
+                </span>
               </div>
+              <button
+                onClick={() => setSpotifyModalOpen(false)}
+                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-gray-500" />
+              </button>
             </div>
-            <button
-              onClick={() => setSpotifyModalOpen(false)}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
-          </div>
 
-          {/* Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto px-3 py-3">
-            <iframe
-              src={spotifyModalData.embedUrl}
-              width="100%"
-              height="352"
-              frameBorder="0"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-              className="rounded-xl"
-            />
+            {/* Spotify Embed - compact */}
+            <div className="p-2.5">
+              <iframe
+                src={spotifyModalData.embedUrl}
+                width="100%"
+                height="152"
+                frameBorder="0"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+                className="rounded-lg"
+              />
+            </div>
 
-            {/* Streaming Services - if show_streaming mode (text only, no icons) */}
+            {/* Streaming Services - if show_streaming mode */}
             {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
-              <div className="mt-4">
-                <p className="text-[11px] font-medium text-gray-700 mb-2">Listen on</p>
-                <div className="space-y-1.5">
+              <div className="px-2.5 pb-2.5">
+                <p className="text-[9px] font-medium text-gray-700 mb-1.5">Listen on</p>
+                <div className="space-y-1">
                   {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
                     const names: Record<string, string> = {
                       apple_music: 'Apple Music',
@@ -1558,22 +1559,22 @@ export function MobilePreviewContent() {
                       amazon_music: 'Amazon Music'
                     }
                     return (
-                      <a key={service.platform} href={service.url || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-                        <span className="text-[11px] font-medium text-gray-900">{names[service.platform] || service.platform}</span>
-                        <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+                      <a key={service.platform} href={service.url || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                        <span className="text-[10px] font-medium text-gray-900">{names[service.platform] || service.platform}</span>
+                        <ExternalLink className="w-3 h-3 text-gray-400" />
                       </a>
                     )
                   })}
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Footer */}
-          <div className="px-4 py-3 border-t shrink-0">
-            <a href={spotifyModalData.spotifyUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full bg-black text-white text-[11px] font-medium hover:bg-gray-800 transition-colors">
-              Open in Spotify
-            </a>
+            {/* Footer - Open in Spotify button */}
+            <div className="px-2.5 pb-2.5 pt-0">
+              <a href={spotifyModalData.spotifyUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 w-full py-2 rounded-full bg-[#1DB954] text-white text-[10px] font-medium hover:bg-[#1ed760] transition-colors">
+                Open in Spotify
+              </a>
+            </div>
           </div>
         </div>
       )}
@@ -1854,9 +1855,25 @@ function GroupBlockPreview({
 
 function BlockRenderer({ block, theme, profile, scale = "small", settings, isInsideCarousel = false }: BlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
-  
+
   // Use context for Spotify modal - renders at root level to prevent clipping
   const spotifyModalContext = useContext(SpotifyModalContext)
+
+  // Button hover animation - based on theme setting, disabled inside carousel
+  const buttonHoverAnimation = (theme as any).button_hover_animation || "default"
+  const getHoverEffect = () => {
+    if (isInsideCarousel) return ""
+    switch (buttonHoverAnimation) {
+      case "fade":
+        return "hover:opacity-80 transition-opacity duration-200"
+      case "zoom":
+        return "hover:scale-[1.03] transition-transform duration-200"
+      case "default":
+      default:
+        return "hover:scale-[1.01] hover:opacity-95 transition-all duration-200"
+    }
+  }
+  const hoverEffect = getHoverEffect()
 
   // Spotify URL helper
   const isSpotifyUrl = (url: string): boolean => {
@@ -2544,8 +2561,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               }}
               className={cn(
                 s.button,
-                "w-full font-medium transition-opacity overflow-hidden",
-                !shouldEmbed && "hover:opacity-90",
+                "w-full font-medium overflow-hidden",
+                !shouldEmbed && hoverEffect,
                 getAnimationClass(data.animation_type),
               )}
               style={{
@@ -2562,8 +2579,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           <div
             className={cn(
               s.button,
-              "w-full font-medium transition-opacity overflow-hidden",
-              !shouldEmbed && "hover:opacity-90",
+              "w-full font-medium overflow-hidden",
+              !shouldEmbed && hoverEffect,
               getAnimationClass(data.animation_type),
             )}
             style={{
@@ -2613,7 +2630,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             }}
             className={cn(
               s.button,
-              "w-full font-medium transition-opacity hover:opacity-90 flex items-center gap-2",
+              "w-full font-medium flex items-center gap-2",
+              hoverEffect,
               hasThumbnailOrIcon ? "justify-start" : "justify-center",
               getDefaultAnimationClass(data.animation_type)
             )}
@@ -2674,7 +2692,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         <button
           className={cn(
             s.button,
-            "w-full font-medium transition-opacity hover:opacity-90 flex items-center gap-2",
+            "w-full font-medium flex items-center gap-2",
+            hoverEffect,
             hasThumbnailOrIcon ? "justify-start" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
           )}
