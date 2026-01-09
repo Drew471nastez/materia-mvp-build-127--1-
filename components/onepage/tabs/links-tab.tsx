@@ -857,6 +857,7 @@ export function LinksTab() {
               updateBlock(blockId, {
                 data: {
                   ...currentData,
+                  url, // Always preserve the URL that was passed in
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
                   spotify_title: spotifyData.title || null,
@@ -905,6 +906,7 @@ export function LinksTab() {
               updateBlock(blockId, {
                 data: {
                   ...currentData,
+                  url, // Always preserve the URL that was passed in
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
                   soundcloud_title: soundcloudData.title || null,
@@ -938,6 +940,7 @@ export function LinksTab() {
               updateBlock(blockId, {
                 data: {
                   ...currentData,
+                  url, // Always preserve the URL that was passed in
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
                   apple_music_title: appleMusicData.title || null,
@@ -972,6 +975,7 @@ export function LinksTab() {
           updateBlock(blockId, {
             data: {
               ...currentData,
+              url, // Always preserve the URL that was passed in
               thumbnail_url: thumbnailUrl,
               icon: null
             }
@@ -4526,6 +4530,295 @@ function BlockEditor({
                               {service.found ? "Edit" : "+ Add"}
                             </button>
                           )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SoundCloud Settings - Only shown for SoundCloud URLs */}
+            {data.url?.includes('soundcloud.com') && (
+              <div className="space-y-3 pt-3 mt-3 border-t">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">SoundCloud Settings</Label>
+                
+                {/* Enable Metadata toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-white">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#FF5500]/10 flex items-center justify-center">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#FF5500">
+                        <path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.1-.1m-.899.828c-.06 0-.091.037-.104.094L0 14.479l.165 1.308c.014.057.045.094.09.094s.089-.037.099-.094l.19-1.308-.19-1.334c-.01-.057-.045-.09-.09-.09m1.83-1.229c-.061 0-.12.045-.12.104l-.21 2.563.225 2.458c0 .06.045.104.106.104.061 0 .12-.044.12-.104l.24-2.458-.24-2.563c0-.06-.058-.104-.12-.104"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">Enable Metadata</div>
+                      <div className="text-xs text-muted-foreground">Show song type & artist info</div>
+                    </div>
+                  </div>
+                  <Toggle
+                    checked={data.soundcloud_show_metadata !== false}
+                    onCheckedChange={async (checked) => {
+                      updateData({ soundcloud_show_metadata: checked })
+                      // If enabling metadata and we don't have it yet, fetch it
+                      if (checked && (!data.soundcloud_title && !data.soundcloud_artist) && data.url) {
+                        try {
+                          const res = await fetch(`/api/onepage/soundcloud?url=${encodeURIComponent(data.url)}`)
+                          if (res.ok) {
+                            const soundcloudData = await res.json()
+                            updateData({
+                              soundcloud_show_metadata: true,
+                              soundcloud_title: soundcloudData.title || null,
+                              soundcloud_artist: soundcloudData.artistName || null,
+                              soundcloud_type: soundcloudData.type || null
+                            })
+                          }
+                        } catch (e) {
+                          console.error('Failed to fetch SoundCloud metadata:', e)
+                        }
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Refresh Thumbnail button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/onepage/soundcloud?url=${encodeURIComponent(data.url)}`)
+                      if (res.ok) {
+                        const soundcloudData = await res.json()
+                        updateData({
+                          thumbnail_url: soundcloudData.thumbnailUrl || data.thumbnail_url,
+                          soundcloud_title: soundcloudData.title || data.soundcloud_title,
+                          soundcloud_artist: soundcloudData.artistName || data.soundcloud_artist,
+                          soundcloud_type: soundcloudData.type || data.soundcloud_type,
+                          soundcloud_thumbnail: soundcloudData.thumbnailUrl || data.soundcloud_thumbnail,
+                        })
+                      }
+                    } catch (e) {
+                      console.error('Failed to refresh SoundCloud thumbnail:', e)
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Refresh Thumbnail
+                </button>
+              </div>
+            )}
+
+            {/* Apple Music Settings - Only shown for Apple Music URLs */}
+            {data.url?.includes('music.apple.com') && (
+              <div className="space-y-3 pt-3 mt-3 border-t">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Apple Music Settings</Label>
+                <div className="space-y-2">
+                  {[
+                    { id: 'audio_preview', label: 'Audio preview & available streaming services', desc: 'Open modern preview modal' },
+                    { id: 'go_to_url', label: 'Go to URL', desc: 'Redirect to Apple Music directly' },
+                  ].map((mode) => {
+                    const currentMode = data.apple_music_mode || 'go_to_url'
+                    const isActive = currentMode === mode.id
+                    return (
+                      <div
+                        key={mode.id}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-lg border-2 transition-all",
+                          isActive ? "border-gray-900 bg-white" : "border-gray-200 bg-white"
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center",
+                            isActive ? "bg-gradient-to-br from-[#FA233B] to-[#FB5C74] text-white" : "bg-gray-100 text-gray-500"
+                          )}>
+                            <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor">
+                              <path d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium">{mode.label}</div>
+                            <div className="text-xs text-muted-foreground">{mode.desc}</div>
+                          </div>
+                        </div>
+                        <Toggle
+                          checked={isActive}
+                          onCheckedChange={async (checked) => {
+                            if (checked) {
+                              updateData({ apple_music_mode: mode.id })
+                              // For audio preview mode, fetch available services and metadata
+                              if (mode.id === 'audio_preview') {
+                                try {
+                                  const res = await fetch(`/api/onepage/apple-music?url=${encodeURIComponent(data.url)}`)
+                                  if (res.ok) {
+                                    const appleMusicData = await res.json()
+                                    updateData({
+                                      apple_music_mode: mode.id,
+                                      apple_music_title: appleMusicData.title || null,
+                                      apple_music_artist: appleMusicData.artistName || null,
+                                      apple_music_type: appleMusicData.type || null,
+                                      apple_music_preview_url: appleMusicData.previewUrl || null,
+                                      apple_music_streaming_services: appleMusicData.streamingServices || []
+                                    })
+                                  }
+                                } catch (e) {
+                                  console.error('Failed to fetch Apple Music data:', e)
+                                }
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Enable Metadata toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-white mt-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FA233B]/10 to-[#FB5C74]/10 flex items-center justify-center">
+                      <svg className="w-4 h-4" viewBox="0 0 512 512">
+                        <defs>
+                          <linearGradient id="am-icon-gradient" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                            <stop offset="0" stopColor="#FA233B"/>
+                            <stop offset="1" stopColor="#FB5C74"/>
+                          </linearGradient>
+                        </defs>
+                        <path fill="url(#am-icon-gradient)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">Enable Metadata</div>
+                      <div className="text-xs text-muted-foreground">Show song type & artist info</div>
+                    </div>
+                  </div>
+                  <Toggle
+                    checked={data.apple_music_show_metadata !== false}
+                    onCheckedChange={async (checked) => {
+                      updateData({ apple_music_show_metadata: checked })
+                      // If enabling metadata and we don't have it yet, fetch it
+                      if (checked && (!data.apple_music_title && !data.apple_music_artist) && data.url) {
+                        try {
+                          const res = await fetch(`/api/onepage/apple-music?url=${encodeURIComponent(data.url)}`)
+                          if (res.ok) {
+                            const appleMusicData = await res.json()
+                            updateData({
+                              apple_music_show_metadata: true,
+                              apple_music_title: appleMusicData.title || null,
+                              apple_music_artist: appleMusicData.artistName || null,
+                              apple_music_type: appleMusicData.type || null
+                            })
+                          }
+                        } catch (e) {
+                          console.error('Failed to fetch Apple Music metadata:', e)
+                        }
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Refresh Thumbnail button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/onepage/apple-music?url=${encodeURIComponent(data.url)}`)
+                      if (res.ok) {
+                        const appleMusicData = await res.json()
+                        updateData({
+                          thumbnail_url: appleMusicData.thumbnailUrl || data.thumbnail_url,
+                          apple_music_title: appleMusicData.title || data.apple_music_title,
+                          apple_music_artist: appleMusicData.artistName || data.apple_music_artist,
+                          apple_music_type: appleMusicData.type || data.apple_music_type,
+                          apple_music_thumbnail: appleMusicData.thumbnailUrl || data.apple_music_thumbnail,
+                          apple_music_preview_url: appleMusicData.previewUrl || data.apple_music_preview_url,
+                        })
+                      }
+                    } catch (e) {
+                      console.error('Failed to refresh Apple Music thumbnail:', e)
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Refresh Thumbnail
+                </button>
+
+                {/* Streaming Services List - shown when audio_preview is selected */}
+                {data.apple_music_mode === 'audio_preview' && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-medium text-muted-foreground">Streaming services</div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/onepage/apple-music?url=${encodeURIComponent(data.url)}`)
+                            if (res.ok) {
+                              const appleMusicData = await res.json()
+                              updateData({ apple_music_streaming_services: appleMusicData.streamingServices || [] })
+                            }
+                          } catch (e) {
+                            console.error('Failed to refresh streaming services:', e)
+                          }
+                        }}
+                        className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Sync
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Visitors may see a different order depending on their location or preferences.</p>
+                    {(data.apple_music_streaming_services || [
+                      { platform: 'spotify', found: false, url: null },
+                      { platform: 'youtube_music', found: false, url: null },
+                      { platform: 'soundcloud', found: false, url: null },
+                      { platform: 'tidal', found: false, url: null },
+                      { platform: 'deezer', found: false, url: null },
+                    ]).map((service: StreamingService, index: number) => {
+                      const platformConfig: Record<string, { name: string; color: string; icon: React.ReactNode }> = {
+                        spotify: {
+                          name: 'Spotify',
+                          color: 'bg-[#1DB954]',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+                        },
+                        youtube_music: {
+                          name: 'YouTube Music',
+                          color: 'bg-red-600',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm0 19.104c-3.924 0-7.104-3.18-7.104-7.104S8.076 4.896 12 4.896s7.104 3.18 7.104 7.104-3.18 7.104-7.104 7.104zm0-13.332c-3.432 0-6.228 2.796-6.228 6.228S8.568 18.228 12 18.228 18.228 15.432 18.228 12 15.432 5.772 12 5.772zM9.684 15.54V8.46L15.816 12l-6.132 3.54z"/></svg>
+                        },
+                        soundcloud: {
+                          name: 'SoundCloud',
+                          color: 'bg-[#FF5500]',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.1-.1"/></svg>
+                        },
+                        tidal: {
+                          name: 'TIDAL',
+                          color: 'bg-black',
+                          icon: <svg viewBox="0 0 32 32" className="w-4 h-4" fill="white"><path d="M16.016 5.323l-5.339 5.339-5.339-5.339-5.339 5.339 5.339 5.339 5.339-5.339 5.339 5.339-5.339 5.339 5.339 5.339 5.339-5.339-5.339-5.339 5.339-5.339zM21.391 10.661l5.302-5.307 5.307 5.307-5.307 5.307z"/></svg>
+                        },
+                        deezer: {
+                          name: 'Deezer',
+                          color: 'bg-[#231f20]',
+                          icon: <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white"><path d="M18.81 4.16v3.03H24V4.16zM6.27 8.38v3.027h5.189V8.38zm12.54 0v3.027H24V8.38zM6.27 12.566v3.027h5.189v-3.027zm6.27 0v3.027h5.19v-3.027zm6.27 0v3.027H24v-3.027zM0 16.752v3.027h5.19v-3.027zm6.27 0v3.027h5.189v-3.027zm6.27 0v3.027h5.19v-3.027zm6.27 0v3.027H24v-3.027z"/></svg>
+                        },
+                      }
+                      const config = platformConfig[service.platform] || { name: service.platform, color: 'bg-gray-500', icon: null }
+                      return (
+                        <div key={service.platform} className="flex items-center gap-3 p-3 rounded-lg border bg-white">
+                          <div className="flex items-center justify-center cursor-grab">
+                            <GripVertical className="w-4 h-4 text-gray-300" />
+                          </div>
+                          <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", config.color)}>
+                            {config.icon}
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">{config.name}</div>
+                            <div className={cn("text-xs", service.found ? "text-green-600" : "text-gray-400")}>
+                              {service.found ? "Visible" : "Not found"}
+                            </div>
+                          </div>
                         </div>
                       )
                     })}
