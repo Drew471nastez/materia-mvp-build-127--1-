@@ -1824,6 +1824,7 @@ function PublicBlockRenderer({
   isDesktop = false,
   settings,
   isInsideCarousel = false,
+  isInsideGroup = false,
 }: PublicBlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [email, setEmail] = useState("")
@@ -1843,7 +1844,7 @@ function PublicBlockRenderer({
   const socialColor = (theme as any).social_icon_color || theme.text_color
 
   // Subtle opacity fade on hover - disabled inside carousel (no hover animation in carousel)
-  const hoverEffect = isInsideCarousel ? "" : "hover:opacity-90 transition-opacity"
+  const hoverEffect = (isInsideCarousel || isInsideGroup) ? "" : "hover:opacity-90 transition-opacity"
 
   const trackClick = async (blockId: string, url: string) => {
     try {
