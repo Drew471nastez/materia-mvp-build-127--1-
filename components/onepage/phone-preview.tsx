@@ -1522,20 +1522,24 @@ function GroupBlockPreview({
           <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
         )}
 
-        {/* Scrollable Container */}
+        {/* Scrollable Container - use negative margins to allow shadow overflow */}
         <div
           ref={scrollContainerRef}
           className={cn(
             "w-full scrollbar-hide snap-x snap-mandatory touch-pan-x",
             isDragging ? "cursor-grabbing select-none" : "cursor-grab"
           )}
-          style={{ 
+          style={{
             scrollSnapType: 'x mandatory',
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             overflowX: 'auto',
             overflowY: 'visible',
+            marginTop: '-8px',
+            marginBottom: '-12px',
+            paddingTop: '8px',
+            paddingBottom: '12px',
           }}
           onScroll={handleScroll}
           onTouchStart={handleTouchStart}
@@ -1549,7 +1553,7 @@ function GroupBlockPreview({
             className="flex"
             style={{
               gap: `${gap}px`,
-              padding: '4px 10px 12px 10px',
+              padding: '10px 14px 14px 14px',
             }}
           >
             {enabledChildren.map((child) => (

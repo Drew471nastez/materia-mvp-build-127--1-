@@ -1676,10 +1676,11 @@ function GroupBlockRenderer({
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             overflowX: 'auto',
-            marginTop: '-8px',
-            marginBottom: '-8px',
-            paddingTop: '8px',
-            paddingBottom: '8px',
+            overflowY: 'visible',
+            marginTop: '-12px',
+            marginBottom: '-16px',
+            paddingTop: '12px',
+            paddingBottom: '16px',
           }}
           onScroll={handleScroll}
           onMouseDown={handleMouseDown}
@@ -1692,7 +1693,7 @@ function GroupBlockRenderer({
             className="flex"
             style={{
               gap: `${gap}px`,
-              padding: '12px 16px 20px 16px',
+              padding: '16px 20px 20px 20px',
             }}
           >
             {enabledChildren.map((child) => (
@@ -1847,8 +1848,8 @@ function PublicBlockRenderer({
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
 
-  // Subtle opacity fade on hover - disabled inside carousel or group (no hover animation in carousel/group)
-  const hoverEffect = (isInsideCarousel || isInsideGroup) ? "" : "hover:opacity-90 transition-opacity"
+  // Subtle zoom and opacity on hover - disabled inside carousel or group (no hover animation in carousel/group)
+  const hoverEffect = (isInsideCarousel || isInsideGroup) ? "" : "hover:scale-[1.02] hover:opacity-95 transition-all duration-200"
 
   const trackClick = async (blockId: string, url: string) => {
     try {
@@ -2474,7 +2475,11 @@ function PublicBlockRenderer({
         if (shouldEmbed) {
           return (
             <div
-              className={cn("w-full overflow-hidden font-medium text-sm sm:text-base", getAnimationClass(data.animation_type))}
+              className={cn(
+                "w-full overflow-hidden font-medium",
+                isInsideCarousel ? "text-[13px]" : "text-sm sm:text-base",
+                getAnimationClass(data.animation_type)
+              )}
               style={{
                 ...buttonStyles,
                 padding: 0,
@@ -2501,7 +2506,11 @@ function PublicBlockRenderer({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackClick(block.id, getTargetUrl())}
-                className={cn("block w-full px-5 py-3.5 sm:py-4 text-center transition-opacity", !isInsideCarousel && "hover:opacity-80")}
+                className={cn(
+                  "block w-full text-center transition-opacity",
+                  isInsideCarousel ? "px-[12px] py-[10px]" : "px-5 py-3.5 sm:py-4",
+                  !isInsideCarousel && "hover:opacity-80"
+                )}
                 style={{
                   backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
                 }}
@@ -2615,16 +2624,16 @@ function PublicBlockRenderer({
                   onClick={() => setSpotifyModalOpen(false)}
                 >
                   <div
-                    className="bg-white rounded-3xl w-full max-w-[90vw] sm:max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-[65] max-h-[90vh] overflow-y-auto"
+                    className="bg-white rounded-3xl w-full max-w-[90vw] sm:max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-[65]"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {/* Header */}
-                    <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+                    <div className="flex items-center justify-between p-3 border-b">
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                        <svg className="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                         </svg>
-                        <span className="text-xs sm:text-sm font-medium text-gray-600 truncate max-w-[200px]">
+                        <span className="text-sm font-medium text-gray-600 truncate max-w-[200px]">
                           {spotifyModalData.title}
                         </span>
                       </div>
@@ -2632,16 +2641,16 @@ function PublicBlockRenderer({
                         onClick={() => setSpotifyModalOpen(false)}
                         className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
                       >
-                        <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                        <X className="w-4 h-4 text-gray-500" />
                       </button>
                     </div>
 
                     {/* Spotify Embed */}
-                    <div className="p-3 sm:p-4">
+                    <div className="p-3">
                       <iframe
                         src={spotifyModalData.embedUrl}
                         width="100%"
-                        height="352"
+                        height="152"
                         frameBorder="0"
                         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                         loading="lazy"
@@ -2885,16 +2894,16 @@ function PublicBlockRenderer({
                 onClick={() => setSpotifyModalOpen(false)}
               >
                 <div
-                  className="bg-white rounded-3xl w-full max-w-[90vw] sm:max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-[65] max-h-[90vh] overflow-y-auto"
+                  className="bg-white rounded-3xl w-full max-w-[90vw] sm:max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-[65]"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Header */}
-                  <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+                  <div className="flex items-center justify-between p-3 border-b">
                     <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                      <svg className="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                       </svg>
-                      <span className="text-xs sm:text-sm font-medium text-gray-600 truncate max-w-[200px]">
+                      <span className="text-sm font-medium text-gray-600 truncate max-w-[200px]">
                         {spotifyModalData.title}
                       </span>
                     </div>
@@ -2902,16 +2911,16 @@ function PublicBlockRenderer({
                       onClick={() => setSpotifyModalOpen(false)}
                       className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
                     >
-                      <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                      <X className="w-4 h-4 text-gray-500" />
                     </button>
                   </div>
 
                   {/* Spotify Embed */}
-                  <div className="p-3 sm:p-4">
+                  <div className="p-3">
                     <iframe
                       src={spotifyModalData.embedUrl}
                       width="100%"
-                      height="352"
+                      height="152"
                       frameBorder="0"
                       allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                       loading="lazy"
