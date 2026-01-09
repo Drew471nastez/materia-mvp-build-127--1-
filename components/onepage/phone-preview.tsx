@@ -768,6 +768,23 @@ export function PhonePreview({ className }: PhonePreviewProps) {
   
   const spotifyModalContextValue = { openSpotifyModal }
 
+  // Apple Music modal state
+  const [appleMusicModalOpen, setAppleMusicModalOpen] = useState(false)
+  const [appleMusicModalData, setAppleMusicModalData] = useState<{
+    title: string
+    embedUrl: string
+    appleMusicUrl: string
+  } | null>(null)
+
+  const openAppleMusicModal = useCallback((data: {
+    title: string
+    embedUrl: string
+    appleMusicUrl: string
+  }) => {
+    setAppleMusicModalData(data)
+    setAppleMusicModalOpen(true)
+  }, [])
+
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current
@@ -1231,6 +1248,70 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 className="flex items-center justify-center w-full py-2 rounded-full bg-black text-white text-[11px] font-medium hover:bg-gray-800 transition-colors"
               >
                 Open in Spotify
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apple Music Modal - Popup style inside phone preview */}
+      {appleMusicModalOpen && appleMusicModalData && (
+        <div
+          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          onClick={() => setAppleMusicModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-2.5 border-b">
+              <div className="flex items-center gap-1.5">
+                <svg className="w-4 h-4" viewBox="0 0 512 512">
+                  <defs>
+                    <linearGradient id="am-modal-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                      <stop offset="0" stopColor="#FA233B"/>
+                      <stop offset="1" stopColor="#FB5C74"/>
+                    </linearGradient>
+                  </defs>
+                  <path fill="url(#am-modal-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                </svg>
+                <span className="text-[11px] font-medium text-gray-600 truncate max-w-[180px]">
+                  {appleMusicModalData.title}
+                </span>
+              </div>
+              <button
+                onClick={() => setAppleMusicModalOpen(false)}
+                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Apple Music Embed */}
+            <div className="p-2.5">
+              <iframe
+                src={appleMusicModalData.embedUrl}
+                width="100%"
+                height="175"
+                frameBorder="0"
+                allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                loading="lazy"
+                className="rounded-lg bg-transparent"
+                style={{ overflow: 'hidden', background: 'transparent' }}
+              />
+            </div>
+
+            {/* Footer - Open in Apple Music button */}
+            <div className="px-2.5 pb-2.5 pt-0">
+              <a
+                href={appleMusicModalData.appleMusicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-full py-2 rounded-full bg-black text-white text-[11px] font-medium hover:bg-gray-800 transition-colors"
+              >
+                Open in Apple Music
               </a>
             </div>
           </div>
@@ -1883,6 +1964,26 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
   const isSpotifyUrl = (url: string): boolean => {
     if (!url) return false
     return url.includes('spotify.com') || url.includes('open.spotify.com')
+  }
+
+  // SoundCloud URL helper
+  const isSoundCloudUrl = (url: string): boolean => {
+    if (!url) return false
+    return url.includes('soundcloud.com')
+  }
+
+  // Apple Music URL helper
+  const isAppleMusicUrl = (url: string): boolean => {
+    if (!url) return false
+    return url.includes('music.apple.com')
+  }
+
+  // Get Apple Music embed URL
+  const getAppleMusicEmbedUrl = (url: string): string | null => {
+    if (!url.includes('music.apple.com')) return null
+    // Convert regular URL to embed URL
+    // Format: https://embed.music.apple.com/{country}/{type}/{name}/{id}
+    return url.replace('music.apple.com', 'embed.music.apple.com')
   }
 
   // Extract Spotify ID and type from URL
@@ -2543,9 +2644,89 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   </span>
                 </span>
               )}
+              {/* SoundCloud metadata display for Pro Layout */}
+              {isSoundCloudUrl(data.url) && data.soundcloud_show_metadata !== false && (data.soundcloud_title || data.soundcloud_artist) && (
+                <span
+                  className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                  style={{
+                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    opacity: 0.7
+                  }}
+                >
+                  <svg className="w-3 h-3 shrink-0" viewBox="-143 145 512 512" fill="currentColor">
+                    <path d="M113,145c-141.4,0-256,114.6-256,256s114.6,256,256,256s256-114.6,256-256S254.4,145,113,145z M209.5,448.4c-0.6,0-87.2,0-87.3,0c-1.9-0.2-3.4-1.8-3.4-3.7v-99.9c0-1.8,0.7-2.8,3-3.7c6.1-2.4,13-3.8,20.1-3.8c29,0,52.8,22.3,55.3,50.6c3.7-1.6,7.9-2.4,12.2-2.4c17.4,0,31.5,14.1,31.5,31.5C241,434.3,226.9,448.4,209.5,448.4z"/>
+                  </svg>
+                  <span className="truncate">
+                    {data.soundcloud_type === 'track' && `Track · ${data.soundcloud_artist || data.soundcloud_title}`}
+                    {data.soundcloud_type === 'playlist' && `Playlist · ${data.soundcloud_title || data.soundcloud_artist}`}
+                    {data.soundcloud_type === 'artist' && (data.soundcloud_artist || data.soundcloud_title)}
+                    {!data.soundcloud_type && (data.soundcloud_title || data.soundcloud_artist)}
+                  </span>
+                </span>
+              )}
+              {/* Apple Music metadata display for Pro Layout */}
+              {isAppleMusicUrl(data.url) && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
+                <span
+                  className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                  style={{
+                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    opacity: 0.7
+                  }}
+                >
+                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 512 512">
+                    <defs>
+                      <linearGradient id="am-meta-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                        <stop offset="0" stopColor="#FA233B"/>
+                        <stop offset="1" stopColor="#FB5C74"/>
+                      </linearGradient>
+                    </defs>
+                    <path fill="url(#am-meta-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                  </svg>
+                  <span className="truncate">
+                    {data.apple_music_type === 'song' && `Song · ${data.apple_music_artist || data.apple_music_title}`}
+                    {data.apple_music_type === 'album' && `Album · ${data.apple_music_title || data.apple_music_artist}`}
+                    {data.apple_music_type === 'artist' && (data.apple_music_artist || data.apple_music_title)}
+                    {data.apple_music_type === 'playlist' && `Playlist · ${data.apple_music_title || data.apple_music_artist}`}
+                    {!data.apple_music_type && (data.apple_music_title || data.apple_music_artist)}
+                  </span>
+                </span>
+              )}
             </div>
           </>
         )
+
+        // Check if we should open Apple Music modal
+        const appleMusicMode = data.apple_music_mode || 'go_to_url'
+        const shouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && appleMusicMode === 'audio_preview'
+        const appleMusicEmbedUrl = getAppleMusicEmbedUrl(data.url)
+
+        // If Apple Music should open modal, render as button
+        if (shouldOpenAppleMusicModal && appleMusicEmbedUrl) {
+          return (
+            <button
+              type="button"
+              onClick={() => {
+                openAppleMusicModal({
+                  title: data.label || 'Listen on Apple Music',
+                  embedUrl: appleMusicEmbedUrl,
+                  appleMusicUrl: data.url
+                })
+              }}
+              className={cn(
+                s.button,
+                "w-full font-medium overflow-hidden",
+                !shouldEmbed && hoverEffect,
+                getAnimationClass(data.animation_type),
+              )}
+              style={{
+                ...buttonStyles,
+                padding: 0,
+              }}
+            >
+              {proLayoutContent}
+            </button>
+          )
+        }
 
         // If Pro layout should open Spotify modal, render as button
         if (proShouldOpenSpotifyModal && proSpotifyInfo) {
