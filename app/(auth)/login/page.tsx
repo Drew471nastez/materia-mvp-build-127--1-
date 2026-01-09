@@ -227,7 +227,7 @@ function LoginFormContent() {
 
       <div className="relative hidden lg:block lg:w-1/2">
         <Image
-          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/banner-login-desktop-D8selsDi.webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvYmFubmVyLWxvZ2luLWRlc2t0b3AtRDhzZWxzRGkud2VicCIsImlhdCI6MTc2NzY4Mjg3MiwiZXhwIjozMzI3MjE0Njg3Mn0.KfdlnasBcTWOIbG5w0kb6bw8lW9SPOmIKlOzF4DqkYc"
+          src="/images/design-mode/banner-login-desktop-D8selsDi.webp"
           alt="Login banner"
           fill
           className="object-cover"

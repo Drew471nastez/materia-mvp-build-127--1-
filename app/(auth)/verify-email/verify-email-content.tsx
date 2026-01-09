@@ -285,7 +285,7 @@ export default function VerifyEmailContent() {
       {/* Right side - Same image as signup page */}
       <div className="relative hidden lg:block lg:w-1/2">
         <Image
-          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/banner-signup-desktop-Dq7usIXX.webp?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvYmFubmVyLXNpZ251cC1kZXNrdG9wLURxN3VzSVhYLndlYnAiLCJpYXQiOjE3Njc2ODMxNzIsImV4cCI6MzkwMDM4OTE1MTcyfQ.MfSxayqKUvksrw_dzPI5Ssld24mdGDUV6NBEzafGWlk"
+          src="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
           alt="Verify email banner"
           fill
           className="object-cover"
