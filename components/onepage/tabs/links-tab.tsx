@@ -1427,7 +1427,8 @@ export function LinksTab() {
               onDragEnd={handleDragEnd}
               className={cn(
                 "transition-all duration-200",
-                dragOverBlockId === block.id && block.type !== "header" && "border-t-2 border-violet-500"
+                dragOverBlockId === block.id && block.type !== "header" && block.type !== "group" && "border-t-2 border-violet-500",
+                dragOverBlockId === block.id && block.type === "group" && draggedBlockId && "ring-2 ring-violet-500 ring-offset-2 rounded-xl bg-violet-50/50"
               )}
             >
               <BlockItem
