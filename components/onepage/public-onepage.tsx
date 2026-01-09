@@ -1470,40 +1470,40 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         <PageContent />
       </div>
       
-      {/* Spotify Modal - rendered at root level to prevent clipping in groups */}
+      {/* Spotify Modal - clean, compact, responsive design */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-[90%] max-w-[400px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[360px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-3 md:p-4 border-b">
+            <div className="flex items-center justify-between p-3 border-b">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 md:w-6 md:h-6 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                 </svg>
-                <span className="text-sm md:text-base font-medium text-gray-600 truncate max-w-[200px] md:max-w-[250px]">
+                <span className="text-sm font-medium text-gray-600 truncate max-w-[220px]">
                   {spotifyModalData.title}
                 </span>
               </div>
               <button
                 onClick={() => setSpotifyModalOpen(false)}
-                className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 transition-colors"
+                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
               >
-                <X className="w-4 h-4 md:w-5 md:h-5 text-gray-500" />
+                <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
 
-            {/* Spotify Embed */}
-            <div className="p-3 md:p-4">
+            {/* Spotify Embed - compact height */}
+            <div className="p-3">
               <iframe
                 src={spotifyModalData.embedUrl}
                 width="100%"
-                height="352"
+                height="152"
                 frameBorder="0"
                 allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                 loading="lazy"
@@ -1511,12 +1511,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               />
             </div>
 
-            {/* Streaming Services - if show_streaming mode */}
+            {/* Streaming Services - if show_streaming mode (no icons on desktop) */}
             {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
-              <div className="px-3 md:px-4 pb-3 md:pb-4">
-                <p className="text-xs md:text-sm font-medium text-gray-700 mb-2">Listen on</p>
-                <div className="space-y-2">
-                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).slice(0, 3).map((service) => {
+              <div className="px-3 pb-3">
+                <p className="text-xs font-medium text-gray-700 mb-2">Listen on</p>
+                <div className="space-y-1.5">
+                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
                     const names: Record<string, string> = {
                       apple_music: 'Apple Music',
                       youtube_music: 'YouTube Music',
@@ -1532,10 +1532,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                         href={service.url || '#'}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between p-2.5 md:p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors"
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
                       >
-                        <span className="text-sm md:text-base font-medium text-gray-900">{names[service.platform] || service.platform}</span>
-                        <ExternalLink className="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
+                        <span className="text-sm font-medium text-gray-900">{names[service.platform] || service.platform}</span>
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
                       </a>
                     )
                   })}
@@ -1544,12 +1546,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             )}
 
             {/* Open in Spotify button */}
-            <div className="p-3 md:p-4 pt-0">
+            <div className="p-3 pt-0">
               <a
                 href={spotifyModalData.spotifyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full py-2.5 md:py-3 px-4 rounded-full bg-black text-white text-center text-sm md:text-base font-medium hover:bg-gray-800 transition-colors"
+                className="block w-full py-2.5 px-4 rounded-full bg-[#1DB954] text-white text-center text-sm font-medium hover:bg-[#1ed760] transition-colors"
               >
                 Open in Spotify
               </a>

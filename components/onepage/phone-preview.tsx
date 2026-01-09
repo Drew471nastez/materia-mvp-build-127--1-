@@ -1145,11 +1145,10 @@ export function PhonePreview({ className }: PhonePreviewProps) {
         </div>
       </div>
       
-      {/* Spotify Modal - rendered at root level to prevent clipping in groups */}
+      {/* Spotify Modal - rendered inside phone preview container */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+          className="absolute inset-0 z-[50] flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-[32px]"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
@@ -1496,11 +1495,10 @@ export function MobilePreviewContent() {
         </div>
       </div>
       
-      {/* Spotify Modal - rendered at root level to prevent clipping in groups */}
+      {/* Spotify Modal - rendered inside phone preview container */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+          className="absolute inset-0 z-[50] flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-[32px]"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
