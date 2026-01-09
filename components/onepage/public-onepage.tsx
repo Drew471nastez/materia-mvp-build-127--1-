@@ -1637,7 +1637,6 @@ function GroupBlockRenderer({
         className="w-full relative"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
-        style={{ overflow: 'visible' }}
       >
         {/* Fade on left edge */}
         {data.carousel_fade_edges && (
@@ -1663,7 +1662,7 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Scrollable Container */}
+        {/* Scrollable Container - use negative margins to allow shadow overflow */}
         <div
           ref={scrollContainerRef}
           className={cn(
@@ -1676,7 +1675,10 @@ function GroupBlockRenderer({
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             overflowX: 'auto',
-            overflowY: 'visible',
+            marginTop: '-8px',
+            marginBottom: '-8px',
+            paddingTop: '8px',
+            paddingBottom: '8px',
           }}
           onScroll={handleScroll}
           onMouseDown={handleMouseDown}
@@ -1689,7 +1691,7 @@ function GroupBlockRenderer({
             className="flex"
             style={{
               gap: `${gap}px`,
-              padding: '8px 16px 16px 16px',
+              padding: '12px 16px 20px 16px',
             }}
           >
             {enabledChildren.map((child) => (
@@ -1763,7 +1765,12 @@ function GroupBlockRenderer({
 
   // Render stack layout
   const renderStack = () => (
-    <div className="w-full flex flex-col gap-3 sm:gap-4 px-3">
+    <div 
+      className="w-full flex flex-col gap-3 sm:gap-4"
+      style={{
+        padding: '8px 12px 12px 12px',
+      }}
+    >
       {enabledChildren.map((child) => (
         <div key={child.id} className="w-full">
           <PublicBlockRenderer
@@ -1781,7 +1788,14 @@ function GroupBlockRenderer({
   )
 
   return (
-    <div className="w-full flex flex-col gap-3">
+    <div 
+      className="w-full flex flex-col gap-3"
+      style={{
+        marginLeft: '-8px',
+        marginRight: '-8px',
+        width: 'calc(100% + 16px)',
+      }}
+    >
       {data.title && (
         <h3 
           className="text-sm font-medium text-center opacity-70 px-4" 
