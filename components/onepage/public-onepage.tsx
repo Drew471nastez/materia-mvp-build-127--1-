@@ -1771,16 +1771,17 @@ const renderStack = () => (
   >
     {enabledChildren.map((child) => (
       <div key={child.id} className="w-full py-1 overflow-visible">
-        <PublicBlockRenderer
-          block={child}
-          theme={theme}
-          profile={profile}
-          onepageId={onepageId}
-          sellerId={sellerId}
-          isDesktop={isDesktop}
-          settings={settings}
-          isInsideGroup={true}
-        />
+     <PublicBlockRenderer
+  block={child}
+  theme={theme}
+  profile={profile}
+  onepageId={onepageId}
+  sellerId={sellerId}
+  isDesktop={isDesktop}
+  settings={settings}
+  isInsideCarousel={true}
+  isInsideGroup={true}
+/>
       </div>
     ))}
   </div>
