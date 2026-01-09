@@ -325,14 +325,25 @@ const IMAGE_LIBRARY = [
 // Block categories with integrations
 const blockCategories = [
   {
-    id: "suggested",
-    label: "Popular",
+    id: "most_popular",
+    label: "Most Popular",
     icon: Heart,
     blocks: [
-      { type: "link_button" as const, label: "Link", description: "Add any URL", icon: Link },
-      { type: "header" as const, label: "Header", description: "Profile section", icon: User },
-      { type: "email_capture" as const, label: "Form", description: "Collect emails", icon: Mail },
+      { type: "link_button" as const, label: "Digital Products", description: "Upload files to sell on your Linktree", icon: ShoppingBag },
+      { type: "link_button" as const, label: "YouTube", description: "Link to YouTube", icon: Video, preset: { label: "Subscribe on YouTube", url: "https://youtube.com/@" } },
+      { type: "link_button" as const, label: "X (Twitter)", description: "Link to X", icon: Share2, preset: { label: "Follow on X", url: "https://x.com/" } },
+      { type: "link_button" as const, label: "Instagram", description: "Link to Instagram", icon: Share2, preset: { label: "Follow on Instagram", url: "https://instagram.com/" } },
+      { type: "link_button" as const, label: "TikTok", description: "Link to TikTok", icon: Share2, preset: { label: "Follow on TikTok", url: "https://tiktok.com/@" } },
+    ],
+  },
+  {
+    id: "products",
+    label: "Products",
+    icon: ShoppingBag,
+    blocks: [
       { type: "product" as const, label: "Product", description: "Sell a product", icon: ShoppingBag },
+      { type: "link_button" as const, label: "Digital Products", description: "Upload files to sell", icon: ShoppingBag },
+      { type: "link_button" as const, label: "Store Link", description: "Link to your store", icon: ShoppingBag, preset: { label: "Shop Now", url: "" } },
     ],
   },
   {
@@ -344,8 +355,10 @@ const blockCategories = [
       { type: "link_button" as const, label: "Instagram", description: "Link to Instagram", icon: Share2, preset: { label: "Follow on Instagram", url: "https://instagram.com/" } },
       { type: "link_button" as const, label: "TikTok", description: "Link to TikTok", icon: Share2, preset: { label: "Follow on TikTok", url: "https://tiktok.com/@" } },
       { type: "link_button" as const, label: "YouTube", description: "Link to YouTube", icon: Share2, preset: { label: "Subscribe on YouTube", url: "https://youtube.com/@" } },
-      { type: "link_button" as const, label: "Twitter/X", description: "Link to X", icon: Share2, preset: { label: "Follow on X", url: "https://x.com/" } },
-      { type: "link_button" as const, label: "Spotify", description: "Share your music", icon: Share2, preset: { label: "Listen on Spotify", url: "https://open.spotify.com/" } },
+      { type: "link_button" as const, label: "X (Twitter)", description: "Link to X", icon: Share2, preset: { label: "Follow on X", url: "https://x.com/" } },
+      { type: "link_button" as const, label: "Facebook", description: "Link to Facebook", icon: Share2, preset: { label: "Follow on Facebook", url: "https://facebook.com/" } },
+      { type: "link_button" as const, label: "LinkedIn", description: "Link to LinkedIn", icon: Share2, preset: { label: "Connect on LinkedIn", url: "https://linkedin.com/in/" } },
+      { type: "link_button" as const, label: "Threads", description: "Link to Threads", icon: Share2, preset: { label: "Follow on Threads", url: "https://threads.net/@" } },
     ],
   },
   {
@@ -353,9 +366,30 @@ const blockCategories = [
     label: "Media",
     icon: Video,
     blocks: [
-      { type: "image" as const, label: "Image", description: "Upload or link an image", icon: Image },
-      { type: "link_button" as const, label: "YouTube Video", description: "Embed a video link", icon: Share2, preset: { label: "Watch Video", url: "https://youtube.com/watch?v=" } },
-      { type: "link_button" as const, label: "Spotify Song", description: "Share a song", icon: Share2, preset: { label: "Listen Now", url: "https://open.spotify.com/track/" } },
+      { type: "image" as const, label: "Image", description: "Upload or link an image", icon: ImageIcon },
+      { type: "link_button" as const, label: "YouTube Video", description: "Embed a video link", icon: Video, preset: { label: "Watch Video", url: "https://youtube.com/watch?v=" } },
+      { type: "link_button" as const, label: "Vimeo", description: "Link to Vimeo", icon: Video, preset: { label: "Watch on Vimeo", url: "https://vimeo.com/" } },
+    ],
+  },
+  {
+    id: "documents",
+    label: "Documents",
+    icon: FileText,
+    blocks: [
+      { type: "link_button" as const, label: "PDF", description: "Link to a PDF file", icon: FileText, preset: { label: "View Document", url: "" } },
+      { type: "link_button" as const, label: "Google Docs", description: "Link to Google Docs", icon: FileText, preset: { label: "View Document", url: "https://docs.google.com/" } },
+      { type: "link_button" as const, label: "Notion", description: "Link to Notion page", icon: FileText, preset: { label: "View Page", url: "https://notion.so/" } },
+    ],
+  },
+  {
+    id: "audio",
+    label: "Audio",
+    icon: Video,
+    blocks: [
+      { type: "link_button" as const, label: "Spotify", description: "Share your music", icon: Share2, preset: { label: "Listen on Spotify", url: "https://open.spotify.com/" } },
+      { type: "link_button" as const, label: "Apple Music", description: "Link to Apple Music", icon: Share2, preset: { label: "Listen on Apple Music", url: "https://music.apple.com/" } },
+      { type: "link_button" as const, label: "SoundCloud", description: "Link to SoundCloud", icon: Share2, preset: { label: "Listen on SoundCloud", url: "https://soundcloud.com/" } },
+      { type: "link_button" as const, label: "Podcast", description: "Link to your podcast", icon: Share2, preset: { label: "Listen to Podcast", url: "" } },
     ],
   },
   {
@@ -365,15 +399,20 @@ const blockCategories = [
     blocks: [
       { type: "email_capture" as const, label: "Email Signup", description: "Collect emails", icon: Mail },
       { type: "link_button" as const, label: "Contact Form", description: "Link to form", icon: FileText, preset: { label: "Contact Me", url: "" } },
+      { type: "link_button" as const, label: "WhatsApp", description: "Link to WhatsApp", icon: MessageSquare, preset: { label: "Message on WhatsApp", url: "https://wa.me/" } },
+      { type: "link_button" as const, label: "Telegram", description: "Link to Telegram", icon: MessageSquare, preset: { label: "Message on Telegram", url: "https://t.me/" } },
     ],
   },
   {
-    id: "text",
-    label: "Text",
-    icon: Type,
+    id: "other",
+    label: "Other",
+    icon: Grid3X3,
     blocks: [
+      { type: "link_button" as const, label: "Link", description: "Add any URL", icon: Link },
+      { type: "header" as const, label: "Header", description: "Profile section", icon: User },
       { type: "text" as const, label: "Text", description: "Add text content", icon: Type },
       { type: "divider" as const, label: "Divider", description: "Add spacing", icon: Minus },
+      { type: "group" as const, label: "Group", description: "Group blocks together", icon: Layers },
     ],
   },
 ]
@@ -462,7 +501,7 @@ export function LinksTab() {
   } = useOnePage()
 
   const [showAddModal, setShowAddModal] = useState(false)
-  const [addModalCategory, setAddModalCategory] = useState("suggested")
+  const [addModalCategory, setAddModalCategory] = useState("most_popular")
   const [searchQuery, setSearchQuery] = useState("")
   const [addToGroupId, setAddToGroupId] = useState<string | null>(null)
   const [showSocialModal, setShowSocialModal] = useState(false)
@@ -1514,14 +1553,13 @@ export function LinksTab() {
       </div>
       )}
 
-      {/* Add Block Modal - Wider on desktop */}
+      {/* Add Block Modal - Linktree style without sidebar */}
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
-    <DialogContent className="w-[calc(100%-32px)] sm:w-[min(700px,calc(100vw-64px))] sm:!max-w-[700px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-
-
-          <DialogHeader className="p-4 sm:p-5 pb-3 sm:pb-4 border-b bg-white">
-            <DialogTitle className="text-base sm:text-lg font-semibold">
-              {addToGroupId ? "Add to Group" : "Add"}
+        <DialogContent className="w-[calc(100%-32px)] sm:w-[min(520px,calc(100vw-64px))] sm:!max-w-[520px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          {/* Header with title and close button */}
+          <DialogHeader className="p-4 sm:p-5 pb-0 bg-white">
+            <DialogTitle className="text-lg sm:text-xl font-semibold">
+              {addToGroupId ? "Add to Group" : "Add Social Link"}
             </DialogTitle>
             {addToGroupId && (
               <p className="text-xs text-muted-foreground mt-1">
@@ -1531,14 +1569,14 @@ export function LinksTab() {
           </DialogHeader>
 
           {/* Search */}
-          <div className="p-3 sm:p-4 border-b bg-gray-50">
+          <div className="px-4 sm:px-5 py-4 bg-white">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Paste or search a link"
+                placeholder="Search platforms..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-11 sm:h-12 bg-white border-2 border-gray-200 focus:border-gray-900 rounded-xl text-sm"
+                className="pl-10 h-11 sm:h-12 bg-gray-50 border-gray-200 focus:border-gray-400 rounded-xl text-sm"
               />
               {searchQuery && (
                 <button
@@ -1551,144 +1589,202 @@ export function LinksTab() {
             </div>
           </div>
 
-          {/* Content */}
-          <div className="flex flex-col sm:flex-row max-h-[50vh] sm:max-h-[400px] overflow-hidden">
-            {/* Categories sidebar */}
-            {!searchQuery && (
-              <div className="sm:w-44 border-b sm:border-b-0 sm:border-r bg-gray-50/50 overflow-x-auto sm:overflow-x-visible">
-                <div className="flex sm:flex-col p-2 sm:p-3 gap-1 min-w-max sm:min-w-0">
-                  {blockCategories.map((cat) => {
-                    const Icon = cat.icon
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => setAddModalCategory(cat.id)}
-                        className={cn(
-                          "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap sm:w-full",
-                          addModalCategory === cat.id
-                            ? "bg-white shadow-sm text-foreground"
-                            : "text-muted-foreground hover:bg-white/50"
-                        )}
-                      >
-                        <Icon className="h-4 w-4 flex-shrink-0" />
-                        <span>{cat.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Blocks grid */}
-            <div className="flex-1 p-4 sm:p-5 overflow-y-auto">
-              {/* Quick add cards - top row */}
-              {!searchQuery && addModalCategory === "suggested" && !addToGroupId && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-                  {[
-                    { label: "Collection", icon: Grid3X3, type: "link_button" as const },
-                    { label: "Link", icon: Link, type: "link_button" as const },
-                    { label: "Product", icon: ShoppingBag, type: "product" as const },
-                    { label: "Form", icon: Mail, type: "email_capture" as const },
-                  ].map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <button
-                        key={item.label}
-                        onClick={() => handleAddBlock(item.type)}
-                        className="flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                      >
-                        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-                        <span className="text-xs sm:text-sm font-medium">{item.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-              {/* Quick add for group - simplified options */}
-              {!searchQuery && addModalCategory === "suggested" && addToGroupId && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
-                  {[
-                    { label: "Link", icon: Link, type: "link_button" as const },
-                    { label: "Text", icon: Type, type: "text" as const },
-                    { label: "Form", icon: Mail, type: "email_capture" as const },
-                  ].map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <button
-                        key={item.label}
-                        onClick={() => handleAddBlock(item.type)}
-                        className="flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                      >
-                        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-                        <span className="text-xs sm:text-sm font-medium">{item.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Category title */}
-              {!searchQuery && (
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  {blockCategories.find(c => c.id === addModalCategory)?.label}
-                </p>
-              )}
-
-              {/* Block list */}
-              <div className="space-y-1.5">
-                {activeCategoryBlocks.map((block, idx) => {
-                  const Icon = block.icon
-                  const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("twitterx", "twitter")
-                  const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify"].includes(socialId)
-                  const atLimit = isBlockTypeAtLimit(block.type)
-                  const currentCount = getBlockTypeCount(block.type)
-
+          {/* Scrollable Content */}
+          <div className="max-h-[60vh] sm:max-h-[500px] overflow-y-auto px-4 sm:px-5 pb-5">
+            {/* Quick action buttons - horizontal row */}
+            {!searchQuery && !addToGroupId && (
+              <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-6">
+                {[
+                  { label: "Group", icon: Grid3X3, type: "group" as const },
+                  { label: "Link", icon: Link, type: "link_button" as const },
+                  { label: "Product", icon: ShoppingBag, type: "product" as const },
+                  { label: "Form", icon: Mail, type: "email_capture" as const },
+                ].map((item) => {
+                  const Icon = item.icon
                   return (
                     <button
-                      key={`${block.type}-${block.label}-${idx}`}
-                      onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
-                      disabled={atLimit}
-                      className={cn(
-                        "w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left group",
-                        atLimit
-                          ? "opacity-50 cursor-not-allowed bg-gray-50"
-                          : "hover:bg-gray-100"
-                      )}
+                      key={item.label}
+                      onClick={() => handleAddBlock(item.type)}
+                      className="flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors"
                     >
-                      <div
-                        className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
-                        style={{
-                          backgroundColor: hasSocialIcon
-                            ? SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color + "20"
-                            : "#f3f4f6"
-                        }}
-                      >
-                        {hasSocialIcon ? (
-                          <RenderSocialIcon
-                            platform={socialId}
-                            size={20}
-                            color={SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color}
-                          />
-                        ) : (
-                          <Icon className="h-5 w-5 text-gray-600" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{block.label}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {atLimit ? `Already added (${currentCount}/2)` : block.description}
-                        </p>
-                      </div>
-                      {atLimit ? (
-                        <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
-                      )}
+                      <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
+                      <span className="text-xs sm:text-sm font-medium text-gray-900">{item.label}</span>
                     </button>
                   )
                 })}
               </div>
-            </div>
+            )}
+
+            {/* Quick action buttons for group - simplified */}
+            {!searchQuery && addToGroupId && (
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
+                {[
+                  { label: "Link", icon: Link, type: "link_button" as const },
+                  { label: "Text", icon: Type, type: "text" as const },
+                  { label: "Form", icon: Mail, type: "email_capture" as const },
+                ].map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => handleAddBlock(item.type)}
+                      className="flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                    >
+                      <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
+                      <span className="text-xs sm:text-sm font-medium text-gray-900">{item.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Categories with blocks - vertical scrolling list */}
+            {!searchQuery ? (
+              <div className="space-y-6">
+                {blockCategories
+                  .filter(cat => {
+                    // Filter out categories with no allowed blocks when adding to group
+                    if (addToGroupId) {
+                      const allowedTypes = ["link_button", "text", "image", "divider", "email_capture"]
+                      return cat.blocks.some(b => allowedTypes.includes(b.type))
+                    }
+                    return true
+                  })
+                  .map((category) => {
+                    // Filter blocks for group if needed
+                    const blocksToShow = addToGroupId
+                      ? category.blocks.filter(b => ["link_button", "text", "image", "divider", "email_capture"].includes(b.type))
+                      : category.blocks
+
+                    if (blocksToShow.length === 0) return null
+
+                    return (
+                      <div key={category.id}>
+                        {/* Category title */}
+                        <p className="text-sm font-semibold text-gray-900 mb-3">
+                          {category.label}
+                        </p>
+
+                        {/* Blocks in category */}
+                        <div className="space-y-1">
+                          {blocksToShow.map((block, idx) => {
+                            const Icon = block.icon
+                            const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("xtwitter", "twitter")
+                            const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram"].includes(socialId)
+                            const atLimit = isBlockTypeAtLimit(block.type)
+                            const currentCount = getBlockTypeCount(block.type)
+
+                            return (
+                              <button
+                                key={`${category.id}-${block.type}-${block.label}-${idx}`}
+                                onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
+                                disabled={atLimit}
+                                className={cn(
+                                  "w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left group",
+                                  atLimit
+                                    ? "opacity-50 cursor-not-allowed bg-gray-50"
+                                    : "hover:bg-gray-50"
+                                )}
+                              >
+                                <div
+                                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
+                                  style={{
+                                    backgroundColor: hasSocialIcon
+                                      ? SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color + "15"
+                                      : "#f3f4f6"
+                                  }}
+                                >
+                                  {hasSocialIcon ? (
+                                    <RenderSocialIcon
+                                      platform={socialId}
+                                      size={20}
+                                      color={SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color}
+                                    />
+                                  ) : (
+                                    <Icon className="h-5 w-5 text-gray-600" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm text-gray-900">{block.label}</p>
+                                  <p className="text-xs text-gray-500 truncate">
+                                    {atLimit ? `Already added (${currentCount}/2)` : block.description}
+                                  </p>
+                                </div>
+                                {atLimit ? (
+                                  <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            ) : (
+              /* Search results */
+              <div className="space-y-1">
+                {activeCategoryBlocks.length > 0 ? (
+                  activeCategoryBlocks.map((block, idx) => {
+                    const Icon = block.icon
+                    const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("xtwitter", "twitter")
+                    const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram"].includes(socialId)
+                    const atLimit = isBlockTypeAtLimit(block.type)
+                    const currentCount = getBlockTypeCount(block.type)
+
+                    return (
+                      <button
+                        key={`search-${block.type}-${block.label}-${idx}`}
+                        onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
+                        disabled={atLimit}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left group",
+                          atLimit
+                            ? "opacity-50 cursor-not-allowed bg-gray-50"
+                            : "hover:bg-gray-50"
+                        )}
+                      >
+                        <div
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
+                          style={{
+                            backgroundColor: hasSocialIcon
+                              ? SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color + "15"
+                              : "#f3f4f6"
+                          }}
+                        >
+                          {hasSocialIcon ? (
+                            <RenderSocialIcon
+                              platform={socialId}
+                              size={20}
+                              color={SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color}
+                            />
+                          ) : (
+                            <Icon className="h-5 w-5 text-gray-600" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-gray-900">{block.label}</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {atLimit ? `Already added (${currentCount}/2)` : block.description}
+                          </p>
+                        </div>
+                        {atLimit ? (
+                          <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
+                        )}
+                      </button>
+                    )
+                  })
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-gray-500">No results found for "{searchQuery}"</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
