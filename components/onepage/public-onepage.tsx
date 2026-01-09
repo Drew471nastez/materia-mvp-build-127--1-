@@ -1701,7 +1701,7 @@ function GroupBlockRenderer({
                 className="shrink-0 snap-start"
                 style={itemStyle}
               >
-                <div className="w-full">
+                <div className="w-full" style={{ overflow: 'visible' }}>
                   <PublicBlockRenderer
                     block={child}
                     theme={theme}
@@ -1711,6 +1711,7 @@ function GroupBlockRenderer({
                     isDesktop={isDesktop}
                     settings={settings}
                     isInsideCarousel={true}
+                    isInsideGroup={true}
                   />
                 </div>
               </div>
@@ -1764,28 +1765,31 @@ function GroupBlockRenderer({
     )
   }
 
-const renderStack = () => (
-  <div
-    className="w-full flex flex-col gap-3 sm:gap-4 px-2 overflow-visible"
-    style={{ paddingBottom: "10px", marginBottom: "-10px" }}
-  >
-    {enabledChildren.map((child) => (
-      <div key={child.id} className="w-full py-1 overflow-visible">
-     <PublicBlockRenderer
-  block={child}
-  theme={theme}
-  profile={profile}
-  onepageId={onepageId}
-  sellerId={sellerId}
-  isDesktop={isDesktop}
-  settings={settings}
-  isInsideCarousel={true}
-  isInsideGroup={true}
-/>
-      </div>
-    ))}
-  </div>
-)
+  // Render stack layout
+  const renderStack = () => (
+    <div 
+      className="w-full flex flex-col gap-3 sm:gap-4"
+      style={{
+        padding: '8px 12px 12px 12px',
+        overflow: 'visible',
+      }}
+    >
+      {enabledChildren.map((child) => (
+        <div key={child.id} className="w-full" style={{ overflow: 'visible' }}>
+          <PublicBlockRenderer
+            block={child}
+            theme={theme}
+            profile={profile}
+            onepageId={onepageId}
+            sellerId={sellerId}
+            isDesktop={isDesktop}
+            settings={settings}
+            isInsideGroup={true}
+          />
+        </div>
+      ))}
+    </div>
+  )
 
   return (
     <div 
@@ -1794,6 +1798,7 @@ const renderStack = () => (
         marginLeft: '-8px',
         marginRight: '-8px',
         width: 'calc(100% + 16px)',
+        overflow: 'visible',
       }}
     >
       {data.title && (
@@ -1842,7 +1847,7 @@ function PublicBlockRenderer({
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
 
-  // Subtle opacity fade on hover - disabled inside carousel (no hover animation in carousel)
+  // Subtle opacity fade on hover - disabled inside carousel or group (no hover animation in carousel/group)
   const hoverEffect = (isInsideCarousel || isInsideGroup) ? "" : "hover:opacity-90 transition-opacity"
 
   const trackClick = async (blockId: string, url: string) => {
@@ -3019,19 +3024,77 @@ function PublicBlockRenderer({
     case "group": {
       const data = (block.data || { layout: "stack", children: [] }) as GroupBlockData
       if (!data.children || data.children.length === 0) {
-        return null // Don't show empty groups on published page
+        return null
       }
 
+      const enabledChildren = data.children.filter((child) => child.enabled !== false)
+      if (enabledChildren.length === 0) {
+        return null
+      }
+
+      const layout = data.layout || "stack"
+      const isCarousel = layout === "carousel"
+
+      // For carousel, we still use the GroupBlockRenderer for swipe functionality
+      if (isCarousel) {
+        return (
+          <GroupBlockRenderer
+            data={data}
+            theme={theme}
+            profile={profile}
+            onepageId={onepageId}
+            sellerId={sellerId}
+            isDesktop={isDesktop}
+            settings={settings}
+          />
+        )
+      }
+
+      // Stack layout: inline with overflow-visible to fix cropping
       return (
-        <GroupBlockRenderer
-          data={data}
-          theme={theme}
-          profile={profile}
-          onepageId={onepageId}
-          sellerId={sellerId}
-          isDesktop={isDesktop}
-          settings={settings}
-        />
+        <div className="w-full flex flex-col gap-3">
+          {data.title && (
+            <h3 
+              className="text-sm font-medium text-center opacity-70 px-4" 
+              style={{ 
+                color: theme.text_color,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {data.title}
+            </h3>
+          )}
+          <div 
+            className="w-full flex flex-col gap-3 sm:gap-4"
+            style={{ overflow: 'visible' }}
+          >
+            {enabledChildren.map((child, index) => {
+              const isFirst = index === 0
+              const isLast = index === enabledChildren.length - 1
+
+              return (
+                <div
+                  key={child.id}
+                  className="w-full"
+                  style={{ overflow: 'visible' }}
+                >
+                  <PublicBlockRenderer
+                    block={child}
+                    theme={theme}
+                    profile={profile}
+                    onepageId={onepageId}
+                    sellerId={sellerId}
+                    isDesktop={isDesktop}
+                    settings={settings}
+                    isInsideGroup={true}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
       )
     }
 
