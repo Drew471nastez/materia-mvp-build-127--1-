@@ -86,7 +86,10 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
   const [isDirty, setIsDirty] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [templates, setTemplates] = useState<OnePageTemplate[]>([])
-  const [archivedBlocks, setArchivedBlocks] = useState<OnePageBlock[]>([])
+  // Initialize archived blocks from database (stored in onepage.archived_blocks)
+  const [archivedBlocks, setArchivedBlocks] = useState<OnePageBlock[]>(
+    () => (initialOnePage as any)?.archived_blocks || []
+  )
   
   const [history, setHistory] = useState<OnePage[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
@@ -136,6 +139,12 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     }
   }, [saveState])
 
+  // Ref to track latest archived blocks for save
+  const latestArchivedBlocksRef = useRef<OnePageBlock[]>(archivedBlocks)
+  useEffect(() => {
+    latestArchivedBlocksRef.current = archivedBlocks
+  }, [archivedBlocks])
+
   // Manual save and publish function
   const saveAndPublish = useCallback(async () => {
     const currentOnepage = latestOnepageRef.current
@@ -150,11 +159,14 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     setSaveState("saving")
 
     try {
-      // Step 1: Save draft to database
+      // Step 1: Save draft to database (include archived_blocks)
       const saveResponse = await fetch("/api/onepage", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(currentOnepage),
+        body: JSON.stringify({
+          ...currentOnepage,
+          archived_blocks: latestArchivedBlocksRef.current,
+        }),
       })
 
       if (!saveResponse.ok) {

@@ -85,6 +85,7 @@ import {
   Play,
   Layers,
   ArrowUpRight,
+  Palette,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -511,6 +512,7 @@ export function LinksTab() {
     updateSocialLinks,
     reorderBlocks,
     updateProfile,
+    setActiveSection,
   } = useOnePage()
 
   const [showAddModal, setShowAddModal] = useState(false)
@@ -3842,7 +3844,7 @@ function BlockEditor({
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   updateBlockOverride?: (blockId: string, updates: Partial<OnePageBlock>) => void
 }) {
-  const { updateBlock: contextUpdateBlock, updateSocialLinks } = useOnePage()
+  const { updateBlock: contextUpdateBlock, updateSocialLinks, setActiveSection } = useOnePage()
   const updateBlock = updateBlockOverride || contextUpdateBlock
 
   // Thumbnail editing state
@@ -4839,27 +4841,73 @@ function BlockEditor({
               <Plus className="h-4 w-4 mr-2" />
               Add Social Link
             </Button>
+
+            {/* Design Social Icons Button */}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setActiveSection("theme")}
+            >
+              <Palette className="h-4 w-4 mr-2" />
+              Design Social Icons
+            </Button>
           </div>
         )
       }
 
       case "divider": {
         const data = block.data as DividerBlockData
+        const dividerStyles = [
+          { id: "space", label: "Space", preview: <div className="w-full h-3" /> },
+          { id: "line", label: "Line", preview: <div className="w-full h-[1px] bg-gray-400" /> },
+          { id: "dots", label: "Dots", preview: (
+            <div className="flex justify-center gap-1.5">
+              {[...Array(3)].map((_, i) => <div key={i} className="w-1 h-1 rounded-full bg-gray-400" />)}
+            </div>
+          )},
+          { id: "wave", label: "Wave", preview: (
+            <svg width="100%" height="8" viewBox="0 0 60 8" preserveAspectRatio="none">
+              <path d="M0 4 Q 7.5 0, 15 4 T 30 4 T 45 4 T 60 4" fill="none" stroke="#9ca3af" strokeWidth="1" />
+            </svg>
+          )},
+          { id: "zigzag", label: "Zigzag", preview: (
+            <svg width="100%" height="8" viewBox="0 0 60 8" preserveAspectRatio="none">
+              <path d="M0 4 L10 0 L20 8 L30 0 L40 8 L50 0 L60 4" fill="none" stroke="#9ca3af" strokeWidth="1" />
+            </svg>
+          )},
+          { id: "dashed", label: "Dashed", preview: <div className="w-full border-t border-dashed border-gray-400" /> },
+          { id: "gradient", label: "Gradient", preview: (
+            <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-gray-400 to-transparent" />
+          )},
+          { id: "double", label: "Double", preview: (
+            <div className="flex flex-col gap-0.5">
+              <div className="w-full h-[1px] bg-gray-400" />
+              <div className="w-full h-[1px] bg-gray-400" />
+            </div>
+          )},
+        ] as const
+
         return (
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Style</Label>
-              <div className="flex gap-2">
-                {(["space", "line", "dots"] as const).map((style) => (
-                  <Button
-                    key={style}
-                    variant={data.style === style ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => updateData({ style })}
-                    className="capitalize h-8 flex-1"
+              <div className="grid grid-cols-4 gap-2">
+                {dividerStyles.map(({ id, label, preview }) => (
+                  <button
+                    key={id}
+                    onClick={() => updateData({ style: id })}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all",
+                      data.style === id
+                        ? "border-violet-500 bg-violet-50"
+                        : "border-gray-200 hover:border-gray-300 bg-white"
+                    )}
                   >
-                    {style}
-                  </Button>
+                    <div className="w-full h-4 flex items-center justify-center">
+                      {preview}
+                    </div>
+                    <span className="text-[10px] text-gray-600">{label}</span>
+                  </button>
                 ))}
               </div>
             </div>

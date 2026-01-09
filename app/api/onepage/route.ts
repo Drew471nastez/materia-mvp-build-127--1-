@@ -135,6 +135,7 @@ export async function PUT(request: Request) {
       social_links,
       draft_blocks,
       slug,
+      archived_blocks,
     } = body
 
     // Get existing record with current settings
@@ -173,6 +174,7 @@ export async function PUT(request: Request) {
     if (social_links !== undefined) updates.social_links = social_links
     if (draft_blocks !== undefined) updates.draft_blocks = draft_blocks
     if (slug !== undefined) updates.slug = slug
+    if (archived_blocks !== undefined) (updates as any).archived_blocks = archived_blocks
     
     // PROPERLY MERGE SETTINGS - don't overwrite, merge with existing
     if (settings !== undefined || avatar_video_crop !== undefined) {

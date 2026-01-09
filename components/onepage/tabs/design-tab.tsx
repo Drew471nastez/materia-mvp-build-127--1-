@@ -3899,12 +3899,39 @@ function SocialsSection() {
       <h2 className="text-lg md:text-xl font-semibold">Social Icons</h2>
       <div className="space-y-3">
         <Label className="text-sm font-medium">Icon style</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-3">
           {SOCIAL_STYLES.map((style) => (
-            <Button key={style.id} variant={socialStyle === style.id ? "default" : "outline"} onClick={() => updateTheme({ social_icon_style: style.id } as any)} className="h-auto py-3 flex-col gap-1">
-              <span className="text-sm font-medium">{style.label}</span>
-              <span className="text-[10px] opacity-70">{style.description}</span>
-            </Button>
+            <button
+              key={style.id}
+              onClick={() => updateTheme({ social_icon_style: style.id } as any)}
+              className={cn(
+                "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all",
+                socialStyle === style.id
+                  ? "border-violet-500 bg-violet-50"
+                  : "border-gray-200 hover:border-gray-300 bg-white"
+              )}
+            >
+              <div className="flex gap-1.5">
+                {["instagram", "youtube", "twitter"].map((platform) => {
+                  const IconComponent = SocialIconsSVG[platform]
+                  return (
+                    <div
+                      key={platform}
+                      className="w-7 h-7 rounded-full flex items-center justify-center"
+                      style={{
+                        backgroundColor: style.id === "filled" ? `${socialColor}15` : "transparent",
+                        borderWidth: style.id === "outline" ? 1.5 : 0,
+                        borderColor: socialColor,
+                        borderStyle: "solid",
+                      }}
+                    >
+                      {IconComponent && <IconComponent size={14} color={socialColor} />}
+                    </div>
+                  )
+                })}
+              </div>
+              <span className="text-xs font-medium text-gray-700">{style.label}</span>
+            </button>
           ))}
         </div>
       </div>

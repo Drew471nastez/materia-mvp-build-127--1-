@@ -34,8 +34,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "OnePage not found" }, { status: 404 })
     }
 
-    // Check if email already submitted for this page
-    const { data: existingLead } = await supabase
+    // Check if email already submitted for this page (use admin client for anonymous access)
+    const { data: existingLead } = await adminSupabase
       .from("onepage_leads")
       .select("id")
       .eq("onepage_id", onepage_id)
@@ -47,8 +47,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Already subscribed" })
     }
 
-    // Insert lead
-    const { data: lead, error: insertError } = await supabase
+    // Insert lead using admin client to bypass RLS for anonymous users
+    const { data: lead, error: insertError } = await adminSupabase
       .from("onepage_leads")
       .insert({
         onepage_id,

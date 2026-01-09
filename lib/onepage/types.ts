@@ -175,7 +175,7 @@ export interface ImageBlockData {
 }
 
 export interface DividerBlockData {
-  style: "line" | "space" | "dots"
+  style: "line" | "space" | "dots" | "wave" | "zigzag" | "dashed" | "gradient" | "double"
   height: number
 }
 

@@ -3069,6 +3069,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
     case "divider": {
       const data = block.data as DividerBlockData
       const height = data.height || 24
+      const dividerColor = `${theme.text_color}30`
+
       if (data.style === "space") return <div className="w-full" style={{ height: `${height}px` }} />
       if (data.style === "dotted" || data.style === "dots")
         return (
@@ -3076,6 +3078,41 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             {[...Array(3)].map((_, i) => (
               <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: `${theme.text_color}40` }} />
             ))}
+          </div>
+        )
+      if (data.style === "dashed")
+        return (
+          <div className="w-full flex items-center" style={{ height: `${height}px` }}>
+            <div className="w-full border-t-[1px] border-dashed" style={{ borderColor: dividerColor }} />
+          </div>
+        )
+      if (data.style === "double")
+        return (
+          <div className="w-full flex flex-col justify-center gap-[3px]" style={{ height: `${height}px` }}>
+            <div className="w-full h-px" style={{ backgroundColor: dividerColor }} />
+            <div className="w-full h-px" style={{ backgroundColor: dividerColor }} />
+          </div>
+        )
+      if (data.style === "wave")
+        return (
+          <div className="w-full flex items-center overflow-hidden" style={{ height: `${height}px` }}>
+            <svg width="100%" height="12" viewBox="0 0 200 12" preserveAspectRatio="none" style={{ opacity: 0.4 }}>
+              <path d="M0 6 Q 12.5 0, 25 6 T 50 6 T 75 6 T 100 6 T 125 6 T 150 6 T 175 6 T 200 6" fill="none" stroke={theme.text_color} strokeWidth="1.5" />
+            </svg>
+          </div>
+        )
+      if (data.style === "zigzag")
+        return (
+          <div className="w-full flex items-center overflow-hidden" style={{ height: `${height}px` }}>
+            <svg width="100%" height="10" viewBox="0 0 200 10" preserveAspectRatio="none" style={{ opacity: 0.4 }}>
+              <path d="M0 5 L 10 0 L 20 10 L 30 0 L 40 10 L 50 0 L 60 10 L 70 0 L 80 10 L 90 0 L 100 10 L 110 0 L 120 10 L 130 0 L 140 10 L 150 0 L 160 10 L 170 0 L 180 10 L 190 0 L 200 5" fill="none" stroke={theme.text_color} strokeWidth="1.5" />
+            </svg>
+          </div>
+        )
+      if (data.style === "gradient")
+        return (
+          <div className="w-full flex items-center" style={{ height: `${height}px` }}>
+            <div className="w-full h-[2px] rounded-full" style={{ background: `linear-gradient(90deg, transparent 0%, ${theme.text_color}40 20%, ${theme.text_color}40 80%, transparent 100%)` }} />
           </div>
         )
       return (
