@@ -4846,7 +4846,13 @@ function BlockEditor({
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => setActiveSection("theme")}
+              onClick={() => {
+                // Set localStorage so design tab opens to socials section
+                localStorage.setItem('onepage-design-section', 'socials')
+                // Dispatch storage event for design tab to pick up
+                window.dispatchEvent(new StorageEvent('storage', { key: 'onepage-design-section', newValue: 'socials' }))
+                setActiveSection("theme")
+              }}
             >
               <Palette className="h-4 w-4 mr-2" />
               Design Social Icons

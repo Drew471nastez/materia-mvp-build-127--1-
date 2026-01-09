@@ -2975,6 +2975,88 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         )
       }
 
+      // Check if this is an Apple Music link with modal mode (default layout)
+      const defaultAppleMusicMode = data.apple_music_mode || 'go_to_url'
+      const defaultShouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && defaultAppleMusicMode === 'audio_preview' && appleMusicModalContext
+      const defaultAppleMusicEmbedUrl = getAppleMusicEmbedUrl(data.url)
+
+      if (defaultShouldOpenAppleMusicModal && defaultAppleMusicEmbedUrl) {
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              appleMusicModalContext.openAppleMusicModal({
+                title: data.label || 'Listen on Apple Music',
+                embedUrl: defaultAppleMusicEmbedUrl,
+                appleMusicUrl: data.url
+              })
+            }}
+            className={cn(
+              s.button,
+              "w-full font-medium flex items-center gap-2",
+              hoverEffect,
+              hasThumbnailOrIcon ? "justify-start" : "justify-center",
+              getDefaultAnimationClass(data.animation_type)
+            )}
+            style={buttonStyles}
+          >
+            {data.thumbnail_url ? (
+              <img
+                src={data.thumbnail_url}
+                alt=""
+                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0")}
+                style={{ imageRendering: "auto" }}
+              />
+            ) : iconPath ? (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill={isFilledIcon ? "currentColor" : "none"}
+                stroke={isFilledIcon ? "none" : "currentColor"}
+                strokeWidth={isFilledIcon ? "0" : "2"}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="shrink-0"
+                style={{ color: iconColor }}
+              >
+                <path d={iconPath} />
+              </svg>
+            ) : null}
+            <div className={cn("flex flex-col min-w-0", hasThumbnailOrIcon ? "flex-1 text-center" : "")}>
+              <span className="truncate">{data.label || "My Link"}</span>
+              {/* Apple Music info display */}
+              {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
+                <span
+                  className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                  style={{
+                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    opacity: 0.75
+                  }}
+                >
+                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 512 512">
+                    <defs>
+                      <linearGradient id="am-def-modal-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                        <stop offset="0" stopColor="#FA233B"/>
+                        <stop offset="1" stopColor="#FB5C74"/>
+                      </linearGradient>
+                    </defs>
+                    <path fill="url(#am-def-modal-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                  </svg>
+                  <span className="truncate">
+                    {data.apple_music_type === 'song' && `Song · ${data.apple_music_artist || data.apple_music_title}`}
+                    {data.apple_music_type === 'album' && `Album · ${data.apple_music_title || data.apple_music_artist}`}
+                    {data.apple_music_type === 'artist' && (data.apple_music_artist || data.apple_music_title)}
+                    {data.apple_music_type === 'playlist' && `Playlist · ${data.apple_music_title || data.apple_music_artist}`}
+                    {!data.apple_music_type && (data.apple_music_title || data.apple_music_artist)}
+                  </span>
+                </span>
+              )}
+            </div>
+          </button>
+        )
+      }
+
       return (
         <button
           className={cn(
@@ -3029,6 +3111,33 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   {data.spotify_type === 'artist' && `Profile · ${data.spotify_artist || data.spotify_title}`}
                   {data.spotify_type === 'playlist' && `Playlist · ${data.spotify_title || data.spotify_artist}`}
                   {!data.spotify_type && (data.spotify_title || data.spotify_artist)}
+                </span>
+              </span>
+            )}
+            {/* Apple Music info display for default layout */}
+            {isAppleMusicUrl(data.url) && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
+              <span
+                className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                style={{
+                  color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                  opacity: 0.75
+                }}
+              >
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 512 512">
+                  <defs>
+                    <linearGradient id="am-def-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                      <stop offset="0" stopColor="#FA233B"/>
+                      <stop offset="1" stopColor="#FB5C74"/>
+                    </linearGradient>
+                  </defs>
+                  <path fill="url(#am-def-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                </svg>
+                <span className="truncate">
+                  {data.apple_music_type === 'song' && `Song · ${data.apple_music_artist || data.apple_music_title}`}
+                  {data.apple_music_type === 'album' && `Album · ${data.apple_music_title || data.apple_music_artist}`}
+                  {data.apple_music_type === 'artist' && (data.apple_music_artist || data.apple_music_title)}
+                  {data.apple_music_type === 'playlist' && `Playlist · ${data.apple_music_title || data.apple_music_artist}`}
+                  {!data.apple_music_type && (data.apple_music_title || data.apple_music_artist)}
                 </span>
               </span>
             )}

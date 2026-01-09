@@ -181,9 +181,9 @@ const FONT_CATEGORIES = [
 ]
 
 const SOCIAL_STYLES = [
-  { id: "filled", label: "Filled", description: "Solid background" },
-  { id: "outline", label: "Outline", description: "Border only" },
-  { id: "minimal", label: "Minimal", description: "No background" },
+  { id: "filled", label: "Solid" },
+  { id: "outline", label: "Outline" },
+  { id: "minimal", label: "Glass" },
 ]
 
 const BACKGROUND_IMAGES = [
@@ -554,6 +554,20 @@ export function DesignTab() {
   useEffect(() => {
     localStorage.setItem('onepage-design-section', activeSection)
   }, [activeSection])
+
+  // Listen for storage events to navigate to specific section (e.g., from "Design Social Icons" button)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'onepage-design-section' && e.newValue) {
+        const validSections = ['header', 'theme', 'wallpaper', 'text', 'buttons', 'socials', 'footer']
+        if (validSections.includes(e.newValue)) {
+          setActiveSection(e.newValue as DesignSection)
+        }
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   const sections = [
     { id: "header" as const, label: "Header", icon: ImageIcon },
@@ -3898,39 +3912,20 @@ function SocialsSection() {
     <div className="space-y-6 md:space-y-8">
       <h2 className="text-lg md:text-xl font-semibold">Social Icons</h2>
       <div className="space-y-3">
-        <Label className="text-sm font-medium">Icon style</Label>
+        <Label className="text-sm font-medium">Style</Label>
         <div className="grid grid-cols-3 gap-3">
           {SOCIAL_STYLES.map((style) => (
             <button
               key={style.id}
               onClick={() => updateTheme({ social_icon_style: style.id } as any)}
               className={cn(
-                "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all",
+                "py-3 px-4 rounded-2xl text-sm font-medium transition-all",
                 socialStyle === style.id
-                  ? "border-violet-500 bg-violet-50"
-                  : "border-gray-200 hover:border-gray-300 bg-white"
+                  ? "bg-gray-100 border-2 border-gray-900 text-gray-900"
+                  : "bg-gray-100 border-2 border-transparent text-gray-600 hover:bg-gray-200"
               )}
             >
-              <div className="flex gap-1.5">
-                {["instagram", "youtube", "twitter"].map((platform) => {
-                  const IconComponent = SocialIconsSVG[platform]
-                  return (
-                    <div
-                      key={platform}
-                      className="w-7 h-7 rounded-full flex items-center justify-center"
-                      style={{
-                        backgroundColor: style.id === "filled" ? `${socialColor}15` : "transparent",
-                        borderWidth: style.id === "outline" ? 1.5 : 0,
-                        borderColor: socialColor,
-                        borderStyle: "solid",
-                      }}
-                    >
-                      {IconComponent && <IconComponent size={14} color={socialColor} />}
-                    </div>
-                  )
-                })}
-              </div>
-              <span className="text-xs font-medium text-gray-700">{style.label}</span>
+              {style.label}
             </button>
           ))}
         </div>

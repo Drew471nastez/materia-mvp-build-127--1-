@@ -33,6 +33,16 @@ interface SpotifyModalContextType {
 }
 const SpotifyModalContext = createContext<SpotifyModalContextType | null>(null)
 
+// Apple Music Modal Context - allows modals to render at root level instead of inside blocks
+interface AppleMusicModalContextType {
+  openAppleMusicModal: (data: {
+    title: string
+    embedUrl: string
+    appleMusicUrl: string
+  }) => void
+}
+const AppleMusicModalContext = createContext<AppleMusicModalContextType | null>(null)
+
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
   sellerName,
@@ -879,6 +889,25 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   
   const spotifyModalContextValue = { openSpotifyModal }
 
+  // Apple Music modal state - lifted to root level to prevent clipping in groups
+  const [appleMusicModalOpen, setAppleMusicModalOpen] = useState(false)
+  const [appleMusicModalData, setAppleMusicModalData] = useState<{
+    title: string
+    embedUrl: string
+    appleMusicUrl: string
+  } | null>(null)
+
+  const openAppleMusicModal = useCallback((data: {
+    title: string
+    embedUrl: string
+    appleMusicUrl: string
+  }) => {
+    setAppleMusicModalData(data)
+    setAppleMusicModalOpen(true)
+  }, [])
+
+  const appleMusicModalContextValue = { openAppleMusicModal }
+
   // Safe defaults
   const safeTheme = theme || {
     background_type: "solid" as const,
@@ -1221,6 +1250,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
   return (
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
+    <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
       {/* Dynamic Favicon - uses avatar, video frame, or store builder avatar */}
       <OnePageDynamicFavicon avatarUrl={avatar_url} videoUrl={avatar_video_url} sellerId={seller_id} />
 
@@ -1561,6 +1591,71 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           </div>
         </div>
       )}
+
+      {/* Apple Music Modal - clean, compact, responsive design */}
+      {appleMusicModalOpen && appleMusicModalData && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setAppleMusicModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-[360px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-3 border-b">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5" viewBox="0 0 512 512">
+                  <defs>
+                    <linearGradient id="am-public-modal-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                      <stop offset="0" stopColor="#FA233B"/>
+                      <stop offset="1" stopColor="#FB5C74"/>
+                    </linearGradient>
+                  </defs>
+                  <path fill="url(#am-public-modal-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                </svg>
+                <span className="text-sm font-medium text-gray-600 truncate max-w-[220px]">
+                  {appleMusicModalData.title}
+                </span>
+              </div>
+              <button
+                onClick={() => setAppleMusicModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Apple Music Embed - compact height */}
+            <div className="p-3">
+              <iframe
+                src={appleMusicModalData.embedUrl}
+                width="100%"
+                height="175"
+                frameBorder="0"
+                allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                loading="lazy"
+                className="rounded-lg"
+                style={{ overflow: 'hidden', background: 'transparent' }}
+              />
+            </div>
+
+            {/* Open in Apple Music button */}
+            <div className="p-3 pt-0">
+              <a
+                href={appleMusicModalData.appleMusicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#FA233B] to-[#FB5C74] text-white text-center text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                Open in Apple Music
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+    </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
   )
 }
@@ -1965,6 +2060,8 @@ function PublicBlockRenderer({
   
   // Use context for Spotify modal - renders at root level to prevent clipping
   const spotifyModalContext = useContext(SpotifyModalContext)
+  // Use context for Apple Music modal - renders at root level to prevent clipping
+  const appleMusicModalContext = useContext(AppleMusicModalContext)
 
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
@@ -2038,6 +2135,37 @@ function PublicBlockRenderer({
         embedUrl: spotifyInfo.embedUrl,
         streamingServices: data.streaming_services,
         spotifyMode: data.spotify_mode || 'audio_preview'
+      })
+    }
+  }
+
+  // Apple Music URL helper
+  const isAppleMusicUrl = (url: string): boolean => {
+    if (!url) return false
+    return url.includes('music.apple.com')
+  }
+
+  // Get Apple Music embed URL
+  const getAppleMusicEmbedUrl = (url: string): string | null => {
+    try {
+      if (!url.includes('music.apple.com')) return null
+      // Convert Apple Music URL to embed URL
+      // Example: https://music.apple.com/us/album/song-name/1234567890?i=1234567891
+      // To: https://embed.music.apple.com/us/album/song-name/1234567890?i=1234567891
+      return url.replace('music.apple.com', 'embed.music.apple.com')
+    } catch {
+      return null
+    }
+  }
+
+  // Open Apple Music modal via context
+  const openAppleMusicModal = (data: LinkButtonBlockData) => {
+    const embedUrl = getAppleMusicEmbedUrl(data.url)
+    if (embedUrl && appleMusicModalContext) {
+      appleMusicModalContext.openAppleMusicModal({
+        title: data.label || 'Listen on Apple Music',
+        appleMusicUrl: data.url,
+        embedUrl: embedUrl
       })
     }
   }
@@ -2654,6 +2782,10 @@ function PublicBlockRenderer({
         const proSpotifyMode = data.spotify_mode || 'go_to_url'
         const proShouldOpenSpotifyModal = isSpotifyUrl(data.url) && (proSpotifyMode === 'audio_preview' || proSpotifyMode === 'show_streaming') && spotifyModalContext
 
+        // Check if Pro layout should open Apple Music modal
+        const proAppleMusicMode = data.apple_music_mode || 'go_to_url'
+        const proShouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && proAppleMusicMode === 'audio_preview' && appleMusicModalContext
+
         // Pro layout content (shared between button and link)
         const proLayoutContent = (
           <>
@@ -2737,6 +2869,33 @@ function PublicBlockRenderer({
                   </span>
                 </span>
               )}
+              {/* Apple Music metadata display for Pro Layout */}
+              {isAppleMusicUrl(data.url) && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
+                <span
+                  className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                  style={{
+                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    opacity: 0.75
+                  }}
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 512 512">
+                    <defs>
+                      <linearGradient id="am-pro-pub-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                        <stop offset="0" stopColor="#FA233B"/>
+                        <stop offset="1" stopColor="#FB5C74"/>
+                      </linearGradient>
+                    </defs>
+                    <path fill="url(#am-pro-pub-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                  </svg>
+                  <span className="truncate">
+                    {data.apple_music_type === 'song' && `Song · ${data.apple_music_artist || data.apple_music_title}`}
+                    {data.apple_music_type === 'album' && `Album · ${data.apple_music_title || data.apple_music_artist}`}
+                    {data.apple_music_type === 'artist' && (data.apple_music_artist || data.apple_music_title)}
+                    {data.apple_music_type === 'playlist' && `Playlist · ${data.apple_music_title || data.apple_music_artist}`}
+                    {!data.apple_music_type && (data.apple_music_title || data.apple_music_artist)}
+                  </span>
+                </span>
+              )}
             </div>
           </>
         )
@@ -2749,6 +2908,26 @@ function PublicBlockRenderer({
               onClick={() => {
                 trackClick(block.id, data.url)
                 openSpotifyModal(data)
+              }}
+              className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer", hoverEffect, getAnimationClass(data.animation_type))}
+              style={{
+                ...buttonStyles,
+                padding: 0,
+              }}
+            >
+              {proLayoutContent}
+            </button>
+          )
+        }
+
+        // If Pro layout should open Apple Music modal, render as button
+        if (proShouldOpenAppleMusicModal) {
+          return (
+            <button
+              type="button"
+              onClick={() => {
+                trackClick(block.id, data.url)
+                openAppleMusicModal(data)
               }}
               className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer", hoverEffect, getAnimationClass(data.animation_type))}
               style={{
@@ -2794,6 +2973,10 @@ function PublicBlockRenderer({
       // Check if this is a Spotify link with modal mode
       const spotifyMode = data.spotify_mode || 'go_to_url'
       const shouldOpenSpotifyModal = isSpotifyUrl(data.url) && (spotifyMode === 'audio_preview' || spotifyMode === 'show_streaming') && spotifyModalContext
+
+      // Check if this is an Apple Music link with modal mode (default layout)
+      const appleMusicMode = data.apple_music_mode || 'go_to_url'
+      const shouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && appleMusicMode === 'audio_preview' && appleMusicModalContext
 
       if (shouldOpenSpotifyModal) {
         return (
@@ -2858,6 +3041,76 @@ function PublicBlockRenderer({
           )
         }
 
+      // Apple Music modal button for Default layout
+      if (shouldOpenAppleMusicModal) {
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              trackClick(block.id, data.url)
+              openAppleMusicModal(data)
+            }}
+            className={cn(
+              "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all cursor-pointer text-left",
+              hoverEffect,
+              hasThumbnail ? "justify-start" : "justify-center",
+              getDefaultAnimationClass(data.animation_type)
+            )}
+            style={buttonStyles}
+          >
+            {data.thumbnail_url ? (
+              <img
+                src={data.thumbnail_url}
+                alt=""
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded object-cover shrink-0"
+              />
+            ) : iconPath ? (
+              <svg
+                className="w-10 h-10 sm:w-11 sm:h-11 shrink-0"
+                viewBox="0 0 24 24"
+                fill={isFilledIcon ? "currentColor" : "none"}
+                stroke={isFilledIcon ? "none" : "currentColor"}
+                strokeWidth={isFilledIcon ? "0" : "2"}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d={iconPath} />
+              </svg>
+            ) : null}
+            <div className={cn("flex flex-col min-w-0", hasThumbnail ? "flex-1 text-center" : "")}>
+              <span className="truncate">{data.label || "Link"}</span>
+              {/* Apple Music info display */}
+              {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
+                <span
+                  className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                  style={{
+                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    opacity: 0.75
+                  }}
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 512 512">
+                    <defs>
+                      <linearGradient id="am-def-pub-modal-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                        <stop offset="0" stopColor="#FA233B"/>
+                        <stop offset="1" stopColor="#FB5C74"/>
+                      </linearGradient>
+                    </defs>
+                    <path fill="url(#am-def-pub-modal-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                  </svg>
+                  <span className="truncate">
+                    {data.apple_music_type === 'song' && `Song · ${data.apple_music_artist || data.apple_music_title}`}
+                    {data.apple_music_type === 'album' && `Album · ${data.apple_music_title || data.apple_music_artist}`}
+                    {data.apple_music_type === 'artist' && (data.apple_music_artist || data.apple_music_title)}
+                    {data.apple_music_type === 'playlist' && `Playlist · ${data.apple_music_title || data.apple_music_artist}`}
+                    {!data.apple_music_type && (data.apple_music_title || data.apple_music_artist)}
+                  </span>
+                </span>
+              )}
+            </div>
+          </button>
+        )
+      }
+
       return (
         <a
           href={data.url}
@@ -2911,6 +3164,33 @@ function PublicBlockRenderer({
                   {data.spotify_type === 'artist' && `Profile · ${data.spotify_artist || data.spotify_title}`}
                   {data.spotify_type === 'playlist' && `Playlist · ${data.spotify_title || data.spotify_artist}`}
                   {!data.spotify_type && (data.spotify_title || data.spotify_artist)}
+                </span>
+              </span>
+            )}
+            {/* Apple Music info display for default layout */}
+            {isAppleMusicUrl(data.url) && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
+              <span
+                className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                style={{
+                  color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                  opacity: 0.75
+                }}
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 512 512">
+                  <defs>
+                    <linearGradient id="am-def-pub-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                      <stop offset="0" stopColor="#FA233B"/>
+                      <stop offset="1" stopColor="#FB5C74"/>
+                    </linearGradient>
+                  </defs>
+                  <path fill="url(#am-def-pub-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+                </svg>
+                <span className="truncate">
+                  {data.apple_music_type === 'song' && `Song · ${data.apple_music_artist || data.apple_music_title}`}
+                  {data.apple_music_type === 'album' && `Album · ${data.apple_music_title || data.apple_music_artist}`}
+                  {data.apple_music_type === 'artist' && (data.apple_music_artist || data.apple_music_title)}
+                  {data.apple_music_type === 'playlist' && `Playlist · ${data.apple_music_title || data.apple_music_artist}`}
+                  {!data.apple_music_type && (data.apple_music_title || data.apple_music_artist)}
                 </span>
               </span>
             )}
