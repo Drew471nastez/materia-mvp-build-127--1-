@@ -3041,7 +3041,7 @@ function PublicBlockRenderer({
           )
         }
 
-      // Apple Music modal button for Default layout
+      // Apple Music modal button for Default layout - always centered
       if (shouldOpenAppleMusicModal) {
         return (
           <button
@@ -3051,22 +3051,22 @@ function PublicBlockRenderer({
               openAppleMusicModal(data)
             }}
             className={cn(
-              "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all cursor-pointer text-left",
+              "w-full relative flex items-center justify-center py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all cursor-pointer",
               hoverEffect,
-              hasThumbnail ? "justify-start" : "justify-center",
               getDefaultAnimationClass(data.animation_type)
             )}
             style={buttonStyles}
           >
+            {/* Thumbnail positioned absolutely on left */}
             {data.thumbnail_url ? (
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded object-cover shrink-0"
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded object-cover shrink-0 absolute left-5"
               />
             ) : iconPath ? (
               <svg
-                className="w-10 h-10 sm:w-11 sm:h-11 shrink-0"
+                className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 absolute left-5"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -3077,7 +3077,7 @@ function PublicBlockRenderer({
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className={cn("flex flex-col min-w-0", hasThumbnail ? "flex-1 text-center" : "")}>
+            <div className="flex flex-col min-w-0 text-center">
               <span className="truncate">{data.label || "Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
@@ -3111,6 +3111,9 @@ function PublicBlockRenderer({
         )
       }
 
+      // Check if this is an Apple Music URL for special centering
+      const isAppleMusic = isAppleMusicUrl(data.url)
+
       return (
         <a
           href={data.url}
@@ -3118,9 +3121,10 @@ function PublicBlockRenderer({
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
           className={cn(
-            "w-full flex items-center gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all",
+            "w-full flex items-center py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all",
             hoverEffect,
-            hasThumbnail ? "justify-start" : "justify-center",
+            // Apple Music always centered, others use standard layout
+            isAppleMusic ? "relative justify-center" : (hasThumbnail ? "gap-3 justify-start" : "justify-center"),
             getDefaultAnimationClass(data.animation_type)
           )}
           style={buttonStyles}
@@ -3129,11 +3133,11 @@ function PublicBlockRenderer({
             <img
               src={data.thumbnail_url}
               alt=""
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded object-cover shrink-0"
+              className={cn("w-10 h-10 sm:w-11 sm:h-11 rounded object-cover shrink-0", isAppleMusic && "absolute left-5")}
             />
           ) : iconPath ? (
             <svg
-              className="w-10 h-10 sm:w-11 sm:h-11 shrink-0"
+              className={cn("w-10 h-10 sm:w-11 sm:h-11 shrink-0", isAppleMusic && "absolute left-5")}
               viewBox="0 0 24 24"
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
@@ -3144,7 +3148,7 @@ function PublicBlockRenderer({
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", hasThumbnail ? "flex-1 text-center" : "")}>
+          <div className={cn("flex flex-col min-w-0", isAppleMusic ? "text-center" : (hasThumbnail ? "flex-1 text-center" : ""))}>
             <span className="truncate">{data.label || "Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
@@ -3168,7 +3172,7 @@ function PublicBlockRenderer({
               </span>
             )}
             {/* Apple Music info display for default layout */}
-            {isAppleMusicUrl(data.url) && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
+            {isAppleMusic && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
               <span
                 className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                 style={{

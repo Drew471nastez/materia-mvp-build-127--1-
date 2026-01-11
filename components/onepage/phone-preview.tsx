@@ -2993,18 +2993,18 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             }}
             className={cn(
               s.button,
-              "w-full font-medium flex items-center gap-2",
+              "w-full font-medium relative flex items-center justify-center",
               hoverEffect,
-              hasThumbnailOrIcon ? "justify-start" : "justify-center",
               getDefaultAnimationClass(data.animation_type)
             )}
             style={buttonStyles}
           >
+            {/* Thumbnail positioned absolutely on left */}
             {data.thumbnail_url ? (
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0")}
+                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute left-3")}
                 style={{ imageRendering: "auto" }}
               />
             ) : iconPath ? (
@@ -3017,13 +3017,13 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 strokeWidth={isFilledIcon ? "0" : "2"}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="shrink-0"
+                className="shrink-0 absolute left-3"
                 style={{ color: iconColor }}
               >
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className={cn("flex flex-col min-w-0", hasThumbnailOrIcon ? "flex-1 text-center" : "")}>
+            <div className="flex flex-col min-w-0 text-center">
               <span className="truncate">{data.label || "My Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
@@ -3057,13 +3057,17 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         )
       }
 
+      // Check if this is an Apple Music URL for special centering
+      const isAppleMusic = isAppleMusicUrl(data.url)
+
       return (
         <button
           className={cn(
             s.button,
-            "w-full font-medium flex items-center gap-2",
+            "w-full font-medium flex items-center",
             hoverEffect,
-            hasThumbnailOrIcon ? "justify-start" : "justify-center",
+            // Apple Music always centered, others use standard layout
+            isAppleMusic ? "relative justify-center" : (hasThumbnailOrIcon ? "gap-2 justify-start" : "justify-center"),
             getDefaultAnimationClass(data.animation_type)
           )}
           style={buttonStyles}
@@ -3072,7 +3076,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <img
               src={data.thumbnail_url}
               alt=""
-              className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0")}
+              className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0", isAppleMusic && "absolute left-3")}
               style={{ imageRendering: "auto" }}
             />
           ) : iconPath ? (
@@ -3085,13 +3089,13 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               strokeWidth={isFilledIcon ? "0" : "2"}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="shrink-0"
+              className={cn("shrink-0", isAppleMusic && "absolute left-3")}
               style={{ color: iconColor }}
             >
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", hasThumbnailOrIcon ? "flex-1 text-center" : "")}>
+          <div className={cn("flex flex-col min-w-0", isAppleMusic ? "text-center" : (hasThumbnailOrIcon ? "flex-1 text-center" : ""))}>
             <span className="truncate">{data.label || "My Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
@@ -3115,7 +3119,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               </span>
             )}
             {/* Apple Music info display for default layout */}
-            {isAppleMusicUrl(data.url) && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
+            {isAppleMusic && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
               <span
                 className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
                 style={{

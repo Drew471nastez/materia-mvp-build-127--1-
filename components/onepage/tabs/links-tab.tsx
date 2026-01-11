@@ -1516,7 +1516,7 @@ export function LinksTab() {
           <Archive className="h-3 w-3 mr-1" />
           {showArchiveView ? "Back to links" : "View archive"}
           {archivedBlocks.length > 0 && !showArchiveView && (
-            <span className="ml-1.5 bg-gray-200 text-gray-600 text-[10px] px-1.5 rounded-full">{archivedBlocks.length}</span>
+            <span className="ml-1.5 bg-gray-200 text-gray-600 text-[10px] min-w-[18px] h-[18px] flex items-center justify-center rounded-full">{archivedBlocks.length}</span>
           )}
         </Button>
       </div>
