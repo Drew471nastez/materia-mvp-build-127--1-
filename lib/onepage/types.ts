@@ -144,6 +144,10 @@ export interface LinkButtonBlockData {
   soundcloud_type?: 'track' | 'playlist' | 'artist' | null
   soundcloud_thumbnail?: string | null
   soundcloud_show_metadata?: boolean
+  // TikTok-specific settings
+  tiktok_video_id?: string | null
+  tiktok_embed_url?: string | null
+  tiktok_show_embed?: boolean
 }
 
 export interface ProductBlockData {

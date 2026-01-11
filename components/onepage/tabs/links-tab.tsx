@@ -969,6 +969,37 @@ export function LinksTab() {
           thumbnailUrl = data.thumbnail_url
         }
       }
+      // TikTok video detection - video URLs contain /video/
+      else if (url.includes('tiktok.com') && (url.includes('/video/') || url.includes('vm.tiktok.com'))) {
+        try {
+          // Use TikTok oEmbed API via proxy to get video info
+          const response = await fetch(`/api/onepage/tiktok?url=${encodeURIComponent(url)}`)
+          if (response.ok) {
+            const tiktokData = await response.json()
+            thumbnailUrl = tiktokData.thumbnailUrl
+            const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
+            if (currentData) {
+              // Extract video ID from URL
+              const videoIdMatch = url.match(/video\/(\d+)/)
+              const videoId = videoIdMatch ? videoIdMatch[1] : null
+              updateBlock(blockId, {
+                data: {
+                  ...currentData,
+                  url,
+                  thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
+                  icon: thumbnailUrl ? null : currentData.icon,
+                  tiktok_video_id: videoId,
+                  tiktok_embed_url: tiktokData.embedUrl || null,
+                  tiktok_show_embed: true
+                }
+              })
+              return // Skip the generic thumbnail update below
+            }
+          }
+        } catch (e) {
+          console.error('TikTok fetch error:', e)
+        }
+      }
 
       // Update block if we got a thumbnail
       if (thumbnailUrl) {
@@ -1014,7 +1045,10 @@ export function LinksTab() {
             apple_music_type: null,
             apple_music_thumbnail: null,
             apple_music_preview_url: null,
-            apple_music_streaming_services: []
+            apple_music_streaming_services: [],
+            tiktok_video_id: null,
+            tiktok_embed_url: null,
+            tiktok_show_embed: false
           }
         })
         return
@@ -1029,9 +1063,11 @@ export function LinksTab() {
       const isSoundCloud = url.includes('soundcloud.com')
       const wasAppleMusic = currentData.url?.includes('music.apple.com')
       const isAppleMusic = url.includes('music.apple.com')
+      const wasTikTok = currentData.url?.includes('tiktok.com')
+      const isTikTok = url.includes('tiktok.com')
 
       // If switching between platforms, clear existing data and fetch new
-      const platformChanged = (wasSpotify !== isSpotify) || (wasYouTube !== isYouTube) || (wasSoundCloud !== isSoundCloud) || (wasAppleMusic !== isAppleMusic)
+      const platformChanged = (wasSpotify !== isSpotify) || (wasYouTube !== isYouTube) || (wasSoundCloud !== isSoundCloud) || (wasAppleMusic !== isAppleMusic) || (wasTikTok !== isTikTok)
       
       if (platformChanged) {
         updateBlock(blockId, {
@@ -1053,7 +1089,10 @@ export function LinksTab() {
             apple_music_type: null,
             apple_music_thumbnail: null,
             apple_music_preview_url: null,
-            apple_music_streaming_services: []
+            apple_music_streaming_services: [],
+            tiktok_video_id: null,
+            tiktok_embed_url: null,
+            tiktok_show_embed: false
           }
         })
       } else {
@@ -1062,7 +1101,7 @@ export function LinksTab() {
     }
 
     // Debounce the auto-fetch - faster response (400ms)
-    if (url.length > 10 && (url.startsWith('http://') || url.startsWith('https://') || url.includes('spotify.com') || url.includes('youtube.com') || url.includes('soundcloud.com') || url.includes('music.apple.com'))) {
+    if (url.length > 10 && (url.startsWith('http://') || url.startsWith('https://') || url.includes('spotify.com') || url.includes('youtube.com') || url.includes('soundcloud.com') || url.includes('music.apple.com') || url.includes('tiktok.com'))) {
       // Use a shorter delay for faster response
       const timeoutId = setTimeout(() => {
         autoFetchThumbnail(blockId, url)
@@ -1188,8 +1227,19 @@ export function LinksTab() {
 
         // Apply preset if provided (for link_button presets)
         if (preset && type === "link_button") {
+          // Determine default icon based on preset URL
+          let defaultIcon: string | null = null
+          if (preset.url.includes('instagram.com')) defaultIcon = 'instagram'
+          else if (preset.url.includes('x.com') || preset.url.includes('twitter.com')) defaultIcon = 'twitter'
+          else if (preset.url.includes('tiktok.com')) defaultIcon = 'tiktok'
+          else if (preset.url.includes('facebook.com')) defaultIcon = 'facebook'
+          else if (preset.url.includes('linkedin.com')) defaultIcon = 'linkedin'
+          else if (preset.url.includes('youtube.com')) defaultIcon = 'youtube'
+          else if (preset.url.includes('threads.net')) defaultIcon = 'threads'
+
           (newBlock.data as LinkButtonBlockData).label = preset.label
           ;(newBlock.data as LinkButtonBlockData).url = preset.url
+          ;(newBlock.data as LinkButtonBlockData).icon = defaultIcon
         }
 
         const newChildren = [...(groupData.children || []), newBlock]
@@ -1208,11 +1258,22 @@ export function LinksTab() {
 
     const newBlock = addBlock(type, insertAfterId || undefined)
     if (preset && newBlock) {
+      // Determine default icon based on preset URL
+      let defaultIcon: string | null = null
+      if (preset.url.includes('instagram.com')) defaultIcon = 'instagram'
+      else if (preset.url.includes('x.com') || preset.url.includes('twitter.com')) defaultIcon = 'twitter'
+      else if (preset.url.includes('tiktok.com')) defaultIcon = 'tiktok'
+      else if (preset.url.includes('facebook.com')) defaultIcon = 'facebook'
+      else if (preset.url.includes('linkedin.com')) defaultIcon = 'linkedin'
+      else if (preset.url.includes('youtube.com')) defaultIcon = 'youtube'
+      else if (preset.url.includes('threads.net')) defaultIcon = 'threads'
+
       updateBlock(newBlock.id, {
         data: {
           ...newBlock.data,
           label: preset.label,
-          url: preset.url
+          url: preset.url,
+          icon: defaultIcon
         }
       })
     }

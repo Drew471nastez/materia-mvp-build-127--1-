@@ -2145,6 +2145,19 @@ function PublicBlockRenderer({
     return url.includes('music.apple.com')
   }
 
+  // TikTok video URL helper
+  const isTikTokVideoUrl = (url: string): boolean => {
+    if (!url) return false
+    return url.includes('tiktok.com') && (url.includes('/video/') || url.includes('vm.tiktok.com'))
+  }
+
+  // Extract TikTok video ID from URL
+  const getTikTokVideoId = (url: string): string | null => {
+    if (!url) return null
+    const match = url.match(/video\/(\d+)/)
+    return match ? match[1] : null
+  }
+
   // Get Apple Music embed URL
   const getAppleMusicEmbedUrl = (url: string): string | null => {
     try {
@@ -2786,11 +2799,36 @@ function PublicBlockRenderer({
         const proAppleMusicMode = data.apple_music_mode || 'go_to_url'
         const proShouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && proAppleMusicMode === 'audio_preview' && appleMusicModalContext
 
+        // TikTok embed handling
+        const tiktokVideoId = getTikTokVideoId(data.url) || data.tiktok_video_id
+        const shouldEmbedTikTok = isTikTokVideoUrl(data.url) && data.tiktok_show_embed !== false && tiktokVideoId
+        const tiktokEmbedUrl = data.tiktok_embed_url || (tiktokVideoId ? `https://www.tiktok.com/embed/v2/${tiktokVideoId}` : null)
+
         // Pro layout content (shared between button and link)
         const proLayoutContent = (
           <>
+            {/* TikTok embed for Pro layout */}
+            {shouldEmbedTikTok && tiktokEmbedUrl ? (
+              <div
+                className="w-full relative overflow-hidden"
+                style={{
+                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  aspectRatio: '9/16',
+                  maxHeight: '500px',
+                }}
+              >
+                <iframe
+                  src={tiktokEmbedUrl}
+                  title="TikTok video player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full border-0"
+                  style={{ minHeight: '400px' }}
+                />
+              </div>
+            ) : null}
             {/* Featured thumbnail area */}
-            {data.thumbnail_url && (
+            {!shouldEmbedTikTok && data.thumbnail_url && (
               <div
                 className={cn(
                   "w-full relative overflow-hidden",

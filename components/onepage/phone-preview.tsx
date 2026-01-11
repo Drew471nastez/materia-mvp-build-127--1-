@@ -2080,6 +2080,19 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
     return url.includes('music.apple.com')
   }
 
+  // TikTok video URL helper
+  const isTikTokVideoUrl = (url: string): boolean => {
+    if (!url) return false
+    return url.includes('tiktok.com') && (url.includes('/video/') || url.includes('vm.tiktok.com'))
+  }
+
+  // Extract TikTok video ID from URL
+  const getTikTokVideoId = (url: string): string | null => {
+    if (!url) return null
+    const match = url.match(/video\/(\d+)/)
+    return match ? match[1] : null
+  }
+
   // Get Apple Music embed URL
   const getAppleMusicEmbedUrl = (url: string): string | null => {
     if (!url.includes('music.apple.com')) return null
@@ -2607,11 +2620,34 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         const proShouldOpenSpotifyModal = isSpotifyUrl(data.url) && (proSpotifyMode === 'audio_preview' || proSpotifyMode === 'show_streaming') && spotifyModalContext
         const proSpotifyInfo = proShouldOpenSpotifyModal ? getSpotifyInfo(data.url) : null
 
+        // TikTok embed handling
+        const tiktokVideoId = getTikTokVideoId(data.url) || data.tiktok_video_id
+        const shouldEmbedTikTok = isTikTokVideoUrl(data.url) && data.tiktok_show_embed !== false && tiktokVideoId
+        const tiktokEmbedUrl = data.tiktok_embed_url || (tiktokVideoId ? `https://www.tiktok.com/embed/v2/${tiktokVideoId}` : null)
+
         // Pro layout content (shared between button and div)
         const proLayoutContent = (
           <>
-            {/* Featured content area - YouTube embed or thumbnail */}
-            {shouldEmbed ? (
+            {/* Featured content area - TikTok embed, YouTube embed or thumbnail */}
+            {shouldEmbedTikTok && tiktokEmbedUrl ? (
+              <div
+                className="w-full relative overflow-hidden"
+                style={{
+                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  aspectRatio: '9/16',
+                  maxHeight: '400px',
+                }}
+              >
+                <iframe
+                  src={tiktokEmbedUrl}
+                  title="TikTok video player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full border-0"
+                  style={{ minHeight: '400px' }}
+                />
+              </div>
+            ) : shouldEmbed ? (
               <div
                 className="w-full aspect-video relative overflow-hidden"
                 style={{
