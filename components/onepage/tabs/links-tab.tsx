@@ -89,6 +89,7 @@ import {
   Layers,
   ArrowUpRight,
   Palette,
+  Check,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -4055,18 +4056,25 @@ function BlockEditor({
   const [showCtaDropdown, setShowCtaDropdown] = useState(false)
   const ctaDropdownRef = useRef<HTMLDivElement>(null)
 
+  // Product selector dropdown state
+  const [showProductDropdown, setShowProductDropdown] = useState(false)
+  const productDropdownRef = useRef<HTMLDivElement>(null)
+
   // Close CTA dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (ctaDropdownRef.current && !ctaDropdownRef.current.contains(e.target as Node)) {
         setShowCtaDropdown(false)
       }
+      if (productDropdownRef.current && !productDropdownRef.current.contains(e.target as Node)) {
+        setShowProductDropdown(false)
+      }
     }
-    if (showCtaDropdown) {
+    if (showCtaDropdown || showProductDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showCtaDropdown])
+  }, [showCtaDropdown, showProductDropdown])
 
   // Sync block platforms when socialLinks change
   useEffect(() => {
@@ -5474,48 +5482,113 @@ function BlockEditor({
 
       case "product": {
         const data = block.data as ProductBlockData
+        const selectedProduct = effectiveSellerProducts?.find(p => p.id === data.product_id)
 
         return (
           <div className="space-y-4">
-            {/* Product Selector */}
+            {/* Product Selector - Modern dropdown style */}
             <div className="space-y-1.5">
               <Label className="text-xs">Select Product</Label>
-              <select
-                value={data.product_id || ""}
-                onChange={async (e) => {
-                  const productId = e.target.value
-                  if (productId && effectiveSellerProducts) {
-                    const selectedProduct = effectiveSellerProducts.find(p => p.id === productId)
-                    if (selectedProduct) {
-                      // Truncate description
-                      let shortDesc = selectedProduct.description || ''
-                      const words = shortDesc.split(' ')
-                      if (words.length > 7) {
-                        shortDesc = words.slice(0, 7).join(' ') + '...'
-                      }
-                      updateData({
-                        product_id: productId,
-                        product_title: selectedProduct.title,
-                        product_thumbnail: selectedProduct.thumbnail_url || null,
-                        product_description: shortDesc || null,
-                        product_price_cents: selectedProduct.price_cents || 0,
-                        product_slug: selectedProduct.slug || null,
-                      })
-                    }
-                  } else {
-                    updateData({ product_id: "" })
-                  }
-                }}
-                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
-              >
-                <option value="">Select a product...</option>
-                {effectiveSellerProducts?.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.title} {product.price_cents > 0 ? `- $${(product.price_cents / 100).toFixed(2)}` : '- Free'}
-                  </option>
-                ))}
-              </select>
+              <div className="relative" ref={productDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowProductDropdown(!showProductDropdown)}
+                  className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {selectedProduct?.thumbnail_url && (
+                      <img
+                        src={selectedProduct.thumbnail_url}
+                        alt=""
+                        className="w-6 h-6 rounded object-cover shrink-0"
+                      />
+                    )}
+                    <span className="truncate">
+                      {selectedProduct ? selectedProduct.title : "Select a product..."}
+                    </span>
+                    {selectedProduct && (
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {selectedProduct.price_cents > 0 ? `$${(selectedProduct.price_cents / 100).toFixed(2)}` : 'Free'}
+                      </span>
+                    )}
+                  </div>
+                  <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform ml-2", showProductDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showProductDropdown && (
+                  <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[240px] overflow-y-auto">
+                    {effectiveSellerProducts?.length === 0 ? (
+                      <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                        No products found. Create a product first.
+                      </div>
+                    ) : (
+                      effectiveSellerProducts?.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => {
+                            // Truncate description
+                            let shortDesc = product.description || ''
+                            const words = shortDesc.split(' ')
+                            if (words.length > 7) {
+                              shortDesc = words.slice(0, 7).join(' ') + '...'
+                            }
+                            updateData({
+                              product_id: product.id,
+                              product_title: product.title,
+                              product_thumbnail: product.thumbnail_url || null,
+                              product_description: shortDesc || null,
+                              product_price_cents: product.price_cents || 0,
+                              product_slug: product.slug || null,
+                            })
+                            setShowProductDropdown(false)
+                          }}
+                          className={cn(
+                            "w-full px-3 py-2.5 text-left text-sm transition-colors flex items-center gap-2",
+                            data.product_id === product.id
+                              ? "bg-violet-50 text-violet-700"
+                              : "text-gray-700 hover:bg-gray-50"
+                          )}
+                        >
+                          {product.thumbnail_url && (
+                            <img
+                              src={product.thumbnail_url}
+                              alt=""
+                              className="w-8 h-8 rounded-lg object-cover shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("font-medium truncate", data.product_id === product.id && "text-violet-700")}>
+                              {product.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {product.price_cents > 0 ? `$${(product.price_cents / 100).toFixed(2)}` : 'Free'}
+                            </p>
+                          </div>
+                          {data.product_id === product.id && (
+                            <Check className="w-4 h-4 text-violet-600 shrink-0" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Edit Product Link */}
+            {data.product_id && (
+              <a
+                href={`/app/products/${data.product_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
+              >
+                <Pencil className="w-3 h-3" />
+                Edit Product
+              </a>
+            )}
 
             {/* Display Options */}
             <div className="space-y-2 pt-2 border-t">
@@ -5534,6 +5607,27 @@ function BlockEditor({
                 />
               </div>
             </div>
+
+            {/* Quick Checkout Toggle - Only for free products */}
+            {(data.product_price_cents === 0 || !data.product_price_cents) && data.product_id && (
+              <div className="space-y-2 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs">Quick Checkout</Label>
+                    <p className="text-[10px] text-muted-foreground">Works only for free products</p>
+                  </div>
+                  <Toggle
+                    checked={data.quick_checkout || false}
+                    onCheckedChange={(checked) => updateData({ quick_checkout: checked })}
+                  />
+                </div>
+                {data.quick_checkout && (
+                  <p className="text-[10px] text-muted-foreground bg-violet-50 p-2 rounded-lg">
+                    Users will see a quick checkout form instead of being redirected to the checkout page.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )
       }

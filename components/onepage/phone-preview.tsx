@@ -3437,7 +3437,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <div className="p-3 space-y-1">
               <p
                 className={cn(s.text, "font-medium")}
-                style={{ color: textColor }}
+                style={{ color: textColor, fontSize: scale === 'small' ? '12px' : '15px' }}
               >
                 {data.product_title || 'Product'}
               </p>
@@ -3502,7 +3502,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <div className="flex-1 min-w-0 space-y-0.5">
               <p
                 className={cn(s.text, "font-medium truncate")}
-                style={{ color: textColor }}
+                style={{ color: textColor, fontSize: scale === 'small' ? '12px' : '15px' }}
               >
                 {data.product_title || 'Product'}
               </p>

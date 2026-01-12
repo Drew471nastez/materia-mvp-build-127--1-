@@ -15,11 +15,12 @@ import type {
   SpotifyMode,
   StreamingService,
   GroupBlockData,
+  ProductBlockData,
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
-import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react"
+import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag } from "lucide-react"
 
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
@@ -42,6 +43,28 @@ interface AppleMusicModalContextType {
   }) => void
 }
 const AppleMusicModalContext = createContext<AppleMusicModalContextType | null>(null)
+
+// Quick Checkout Modal Context - for free products with quick checkout enabled
+interface QuickCheckoutModalContextType {
+  openQuickCheckoutModal: (data: {
+    productId: string
+    productTitle: string
+    productThumbnail?: string | null
+    productSlug?: string | null
+    ctaText: string
+    blockBackgroundColor: string
+    textColor: string
+    buttonBorderRadius: number
+  }) => void
+}
+const QuickCheckoutModalContext = createContext<QuickCheckoutModalContextType | null>(null)
+
+// Digital asset interface for downloads
+interface DigitalAsset {
+  id: string
+  file_name: string
+  file_path: string
+}
 
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
@@ -908,6 +931,95 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
   const appleMusicModalContextValue = { openAppleMusicModal }
 
+  // Quick Checkout modal state - for free products
+  const [quickCheckoutModalOpen, setQuickCheckoutModalOpen] = useState(false)
+  const [quickCheckoutModalData, setQuickCheckoutModalData] = useState<{
+    productId: string
+    productTitle: string
+    productThumbnail?: string | null
+    productSlug?: string | null
+    ctaText: string
+    blockBackgroundColor: string
+    textColor: string
+    buttonBorderRadius: number
+  } | null>(null)
+  const [quickCheckoutStep, setQuickCheckoutStep] = useState<'form' | 'loading' | 'success'>('form')
+  const [quickCheckoutFormData, setQuickCheckoutFormData] = useState({ firstName: '', lastName: '', email: '' })
+  const [quickCheckoutAssets, setQuickCheckoutAssets] = useState<DigitalAsset[]>([])
+  const [quickCheckoutReceiptToken, setQuickCheckoutReceiptToken] = useState<string | null>(null)
+  const [quickCheckoutError, setQuickCheckoutError] = useState<string | null>(null)
+
+  const openQuickCheckoutModal = useCallback((data: {
+    productId: string
+    productTitle: string
+    productThumbnail?: string | null
+    productSlug?: string | null
+    ctaText: string
+    blockBackgroundColor: string
+    textColor: string
+    buttonBorderRadius: number
+  }) => {
+    setQuickCheckoutModalData(data)
+    setQuickCheckoutStep('form')
+    setQuickCheckoutFormData({ firstName: '', lastName: '', email: '' })
+    setQuickCheckoutAssets([])
+    setQuickCheckoutReceiptToken(null)
+    setQuickCheckoutError(null)
+    setQuickCheckoutModalOpen(true)
+  }, [])
+
+  const handleQuickCheckoutSubmit = useCallback(async () => {
+    if (!quickCheckoutModalData || !quickCheckoutFormData.firstName || !quickCheckoutFormData.lastName || !quickCheckoutFormData.email) {
+      return
+    }
+
+    setQuickCheckoutStep('loading')
+    setQuickCheckoutError(null)
+
+    try {
+      const response = await fetch('/api/checkout/quick-free', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: quickCheckoutModalData.productId,
+          first_name: quickCheckoutFormData.firstName,
+          last_name: quickCheckoutFormData.lastName,
+          email: quickCheckoutFormData.email,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Checkout failed')
+      }
+
+      setQuickCheckoutAssets(result.assets || [])
+      setQuickCheckoutReceiptToken(result.receipt_token || null)
+      setQuickCheckoutStep('success')
+    } catch (error: any) {
+      setQuickCheckoutError(error.message || 'Something went wrong. Please try again.')
+      setQuickCheckoutStep('form')
+    }
+  }, [quickCheckoutModalData, quickCheckoutFormData])
+
+  const handleQuickCheckoutDownload = useCallback(async (asset: DigitalAsset) => {
+    if (!quickCheckoutReceiptToken) return
+
+    try {
+      const response = await fetch(`/api/download/${asset.id}?receipt=${quickCheckoutReceiptToken}`)
+      const result = await response.json()
+
+      if (result.downloadUrl) {
+        window.open(result.downloadUrl, '_blank')
+      }
+    } catch (error) {
+      console.error('Download failed:', error)
+    }
+  }, [quickCheckoutReceiptToken])
+
+  const quickCheckoutModalContextValue = { openQuickCheckoutModal }
+
   // Safe defaults
   const safeTheme = theme || {
     background_type: "solid" as const,
@@ -1251,6 +1363,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   return (
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
+    <QuickCheckoutModalContext.Provider value={quickCheckoutModalContextValue}>
       {/* Dynamic Favicon - uses avatar, video frame, or store builder avatar */}
       <OnePageDynamicFavicon avatarUrl={avatar_url} videoUrl={avatar_video_url} sellerId={seller_id} />
 
@@ -1655,6 +1768,173 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           </div>
         </div>
       )}
+
+      {/* Quick Checkout Modal */}
+      {quickCheckoutModalOpen && quickCheckoutModalData && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          onClick={() => setQuickCheckoutModalOpen(false)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" />
+
+          {/* Modal */}
+          <div
+            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setQuickCheckoutModalOpen(false)}
+              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+            >
+              <X className="w-4 h-4 text-gray-600" />
+            </button>
+
+            {/* Product Header */}
+            <div className="p-5 pb-4 border-b bg-gradient-to-b from-gray-50 to-white">
+              <div className="flex items-center gap-3">
+                {quickCheckoutModalData.productThumbnail && (
+                  <img
+                    src={quickCheckoutModalData.productThumbnail}
+                    alt=""
+                    className="w-14 h-14 rounded-xl object-cover shadow-sm"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900 truncate text-lg">
+                    {quickCheckoutModalData.productTitle}
+                  </h3>
+                  <p className="text-sm text-green-600 font-medium">Free</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5">
+              {quickCheckoutStep === 'form' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <p className="text-sm text-gray-600 text-center mb-4">
+                    Enter your details to get instant access
+                  </p>
+
+                  {quickCheckoutError && (
+                    <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg mb-4">
+                      {quickCheckoutError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="First name"
+                      value={quickCheckoutFormData.firstName}
+                      onChange={(e) => setQuickCheckoutFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Last name"
+                      value={quickCheckoutFormData.lastName}
+                      onChange={(e) => setQuickCheckoutFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      required
+                    />
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={quickCheckoutFormData.email}
+                    onChange={(e) => setQuickCheckoutFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                    required
+                  />
+
+                  <button
+                    onClick={handleQuickCheckoutSubmit}
+                    disabled={!quickCheckoutFormData.firstName || !quickCheckoutFormData.lastName || !quickCheckoutFormData.email}
+                    className="w-full py-3.5 px-4 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98]"
+                    style={{ backgroundColor: quickCheckoutModalData.blockBackgroundColor || '#7c3aed' }}
+                  >
+                    {quickCheckoutModalData.ctaText || 'Get it Now'}
+                  </button>
+
+                  <p className="text-xs text-gray-400 text-center">
+                    You'll receive a confirmation email with your download link
+                  </p>
+                </div>
+              )}
+
+              {quickCheckoutStep === 'loading' && (
+                <div className="py-12 flex flex-col items-center justify-center animate-in fade-in duration-200">
+                  <div className="relative">
+                    <Loader2 className="w-12 h-12 text-violet-500 animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <ShoppingBag className="w-5 h-5 text-violet-600" />
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-600 font-medium">Processing your order...</p>
+                  <p className="mt-1 text-xs text-gray-400">This will only take a moment</p>
+                </div>
+              )}
+
+              {quickCheckoutStep === 'success' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {/* Success Header */}
+                  <div className="text-center mb-5">
+                    <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Check className="w-7 h-7 text-green-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-900 text-lg">You're all set!</h4>
+                    <p className="text-sm text-gray-500 mt-1">Your download is ready</p>
+                  </div>
+
+                  {/* Downloads */}
+                  {quickCheckoutAssets.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {quickCheckoutAssets.map((asset) => (
+                        <button
+                          key={asset.id}
+                          onClick={() => handleQuickCheckoutDownload(asset)}
+                          className="w-full flex items-center gap-3 p-3.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors group"
+                        >
+                          <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center group-hover:bg-violet-200 transition-colors">
+                            <Download className="w-5 h-5 text-violet-600" />
+                          </div>
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="font-medium text-gray-900 text-sm truncate">{asset.file_name}</p>
+                            <p className="text-xs text-gray-500">Click to download</p>
+                          </div>
+                          <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-violet-500 transition-colors" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {quickCheckoutAssets.length === 0 && (
+                    <div className="text-center py-4 mb-4 bg-gray-50 rounded-xl">
+                      <p className="text-sm text-gray-500">Check your email for download instructions</p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-400 text-center">
+                    A confirmation email has been sent to {quickCheckoutFormData.email}
+                  </p>
+
+                  <button
+                    onClick={() => setQuickCheckoutModalOpen(false)}
+                    className="w-full mt-4 py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </QuickCheckoutModalContext.Provider>
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
   )
@@ -3514,6 +3794,307 @@ function PublicBlockRenderer({
             })}
           </div>
         </div>
+      )
+    }
+
+    case "product": {
+      const data = block.data as ProductBlockData
+      if (!data.product_id && !data.product_title) {
+        return null
+      }
+
+      // Use context for Quick Checkout modal
+      const quickCheckoutContext = useContext(QuickCheckoutModalContext)
+
+      const productUrl = data.product_slug ? `/p/${data.product_slug}` : '#'
+      const priceDisplay = data.product_price_cents && data.product_price_cents > 0
+        ? `$${(data.product_price_cents / 100).toFixed(2)}`
+        : 'Free'
+      const isFreeProduct = !data.product_price_cents || data.product_price_cents === 0
+      const useQuickCheckout = isFreeProduct && data.quick_checkout === true
+
+      // Get animation class for product blocks
+      const getProductAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
+      const productBorderRadius = theme.button_border_radius
+      const blockBackgroundColor = data.block_background_color || theme.button_color
+      const textColor = data.text_color || theme.button_text_color
+
+      // Helper to darken a hex color
+      const darkenHex = (hex: string, percent: number) => {
+        const num = parseInt(hex.replace('#', ''), 16)
+        const r = Math.max(0, Math.floor((num >> 16) * (1 - percent)))
+        const g = Math.max(0, Math.floor(((num >> 8) & 0x00FF) * (1 - percent)))
+        const b = Math.max(0, Math.floor((num & 0x0000FF) * (1 - percent)))
+        return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`
+      }
+
+      const isPreviewStyle = data.style === 'preview'
+      const ctaButtonColor = isPreviewStyle
+        ? (data.button_color || `${textColor}15`)
+        : darkenHex(blockBackgroundColor, 0.08)
+      const ctaButtonTextColor = isPreviewStyle
+        ? (data.button_text_color || textColor)
+        : textColor
+
+      // Handle click - either open quick checkout modal or navigate to product page
+      const handleProductClick = (e: React.MouseEvent) => {
+        // Track click
+        trackClick(block.id, productUrl)
+
+        if (useQuickCheckout && quickCheckoutContext) {
+          e.preventDefault()
+          quickCheckoutContext.openQuickCheckoutModal({
+            productId: data.product_id,
+            productTitle: data.product_title || 'Product',
+            productThumbnail: data.custom_thumbnail || data.product_thumbnail,
+            productSlug: data.product_slug,
+            ctaText: data.cta_text || 'Get it Now',
+            blockBackgroundColor,
+            textColor,
+            buttonBorderRadius: productBorderRadius,
+          })
+        }
+      }
+
+      // Button style - simple button
+      if (data.style === 'button') {
+        const buttonContent = (
+          <>
+            {data.product_thumbnail && (
+              <img
+                src={data.product_thumbnail}
+                alt=""
+                className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover shrink-0"
+              />
+            )}
+            <span className="truncate">{data.cta_text || 'Get My Guide'}</span>
+            {data.show_price !== false && (
+              <span className="text-sm opacity-75 shrink-0">{priceDisplay}</span>
+            )}
+          </>
+        )
+
+        if (useQuickCheckout) {
+          return (
+            <button
+              onClick={handleProductClick}
+              className={cn(
+                "w-full font-medium flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-4 sm:px-5 text-sm sm:text-base transition-all cursor-pointer",
+                hoverEffect,
+                getProductAnimationClass(data.animation_type),
+              )}
+              style={buttonStyles}
+            >
+              {buttonContent}
+            </button>
+          )
+        }
+
+        return (
+          <a
+            href={productUrl}
+            onClick={() => trackClick(block.id, productUrl)}
+            className={cn(
+              "w-full font-medium flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-4 sm:px-5 text-sm sm:text-base transition-all cursor-pointer",
+              hoverEffect,
+              getProductAnimationClass(data.animation_type),
+            )}
+            style={buttonStyles}
+          >
+            {buttonContent}
+          </a>
+        )
+      }
+
+      // Preview style - full card with image
+      if (data.style === 'preview') {
+        const previewContent = (
+          <>
+            {(data.custom_thumbnail || data.product_thumbnail) && (
+              <div className="w-full aspect-[2/1] overflow-hidden">
+                <img
+                  src={data.custom_thumbnail || data.product_thumbnail}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className="p-4 space-y-1.5">
+              <p
+                className="font-medium text-base sm:text-lg"
+                style={{ color: textColor }}
+              >
+                {data.product_title || 'Product'}
+              </p>
+              {data.show_description !== false && data.product_description && (
+                <p
+                  className="text-sm opacity-75"
+                  style={{ color: textColor }}
+                >
+                  {data.product_description}
+                </p>
+              )}
+              {data.show_price !== false && (
+                <p
+                  className="font-semibold text-base"
+                  style={{ color: textColor }}
+                >
+                  {priceDisplay}
+                </p>
+              )}
+              {/* CTA Button */}
+              <div
+                className="w-full py-2.5 mt-3 text-center font-medium text-sm sm:text-base"
+                style={{
+                  borderRadius: `${Math.max(0, productBorderRadius - 4)}px`,
+                  backgroundColor: ctaButtonColor,
+                  color: ctaButtonTextColor,
+                }}
+              >
+                {data.cta_text || 'Get My Guide'}
+              </div>
+            </div>
+          </>
+        )
+
+        if (useQuickCheckout) {
+          return (
+            <button
+              onClick={handleProductClick}
+              className={cn(
+                "w-full block overflow-hidden transition-all cursor-pointer text-left",
+                hoverEffect,
+                getProductAnimationClass(data.animation_type),
+              )}
+              style={{
+                borderRadius: `${productBorderRadius}px`,
+                backgroundColor: blockBackgroundColor,
+                border: "none",
+              }}
+            >
+              {previewContent}
+            </button>
+          )
+        }
+
+        return (
+          <a
+            href={productUrl}
+            onClick={() => trackClick(block.id, productUrl)}
+            className={cn(
+              "w-full block overflow-hidden transition-all cursor-pointer",
+              hoverEffect,
+              getProductAnimationClass(data.animation_type),
+            )}
+            style={{
+              borderRadius: `${productBorderRadius}px`,
+              backgroundColor: blockBackgroundColor,
+              border: "none",
+            }}
+          >
+            {previewContent}
+          </a>
+        )
+      }
+
+      // Callout style (default) - compact card with thumbnail
+      const calloutContent = (
+        <>
+          <div className="p-3 sm:p-4 flex gap-3 sm:gap-4">
+            {(data.custom_thumbnail || data.product_thumbnail) && (
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl overflow-hidden shrink-0 bg-gray-100">
+                <img
+                  src={data.custom_thumbnail || data.product_thumbnail}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className="flex-1 min-w-0 space-y-0.5 sm:space-y-1">
+              <p
+                className="font-medium text-base sm:text-lg truncate"
+                style={{ color: textColor }}
+              >
+                {data.product_title || 'Product'}
+              </p>
+              {data.show_description !== false && data.product_description && (
+                <p
+                  className="text-sm opacity-75 line-clamp-1"
+                  style={{ color: textColor }}
+                >
+                  {data.product_description}
+                </p>
+              )}
+              {data.show_price !== false && (
+                <p
+                  className="text-sm sm:text-base font-semibold"
+                  style={{ color: textColor }}
+                >
+                  {priceDisplay}
+                </p>
+              )}
+            </div>
+          </div>
+          {/* CTA Button */}
+          <div
+            className="w-full py-3 sm:py-3.5 text-center font-medium text-sm sm:text-base"
+            style={{
+              backgroundColor: ctaButtonColor,
+              color: ctaButtonTextColor,
+            }}
+          >
+            {data.cta_text || 'Get My Guide'}
+          </div>
+        </>
+      )
+
+      if (useQuickCheckout) {
+        return (
+          <button
+            onClick={handleProductClick}
+            className={cn(
+              "w-full block overflow-hidden transition-all cursor-pointer text-left",
+              hoverEffect,
+              getProductAnimationClass(data.animation_type),
+            )}
+            style={{
+              borderRadius: `${productBorderRadius}px`,
+              backgroundColor: blockBackgroundColor,
+              border: "none",
+            }}
+          >
+            {calloutContent}
+          </button>
+        )
+      }
+
+      return (
+        <a
+          href={productUrl}
+          onClick={() => trackClick(block.id, productUrl)}
+          className={cn(
+            "w-full block overflow-hidden transition-all cursor-pointer",
+            hoverEffect,
+            getProductAnimationClass(data.animation_type),
+          )}
+          style={{
+            borderRadius: `${productBorderRadius}px`,
+            backgroundColor: blockBackgroundColor,
+            border: "none",
+          }}
+        >
+          {calloutContent}
+        </a>
       )
     }
 

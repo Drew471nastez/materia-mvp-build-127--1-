@@ -180,6 +180,8 @@ export interface ProductBlockData {
   button_color?: string | null
   // Button (CTA) text color
   button_text_color?: string | null
+  // Quick checkout for free products (skips checkout page)
+  quick_checkout?: boolean
 }
 
 export interface SocialRowBlockData {
