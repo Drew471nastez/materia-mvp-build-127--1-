@@ -40,8 +40,8 @@ import { useRouter } from "next/navigation"
 interface Product {
   id: string
   title: string
-  price: number
-  cover_image_url?: string
+  price_cents: number
+  thumbnail_url?: string
   status: string
   type?: string // 'digital' | 'course' | 'lead_magnet' etc.
 }
@@ -106,9 +106,8 @@ export function ProductsTab() {
 
       const { data } = await supabase
         .from("products")
-        .select("id, title, price, cover_image_url, status, type")
+        .select("id, title, price_cents, thumbnail_url, status, type")
         .eq("creator_id", creator.id)
-        .eq("status", "published")
         .order("created_at", { ascending: false })
 
       setProducts(data || [])
@@ -214,9 +213,9 @@ export function ProductsTab() {
                     className="flex items-center gap-4 p-4 hover:bg-gray-50/50 transition-all"
                   >
                     <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                      {product.cover_image_url ? (
+                      {product.thumbnail_url ? (
                         <img
-                          src={product.cover_image_url}
+                          src={product.thumbnail_url}
                           alt={product.title}
                           className="w-full h-full object-cover"
                         />
@@ -234,7 +233,7 @@ export function ProductsTab() {
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {product.price > 0 ? `$${(product.price / 100).toFixed(2)}` : 'Free'}
+                        {product.price_cents > 0 ? `$${(product.price_cents / 100).toFixed(2)}` : 'Free'}
                       </p>
                     </div>
                     <Button
@@ -392,9 +391,9 @@ export function ProductsTab() {
                         className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50/50 transition-all"
                       >
                         <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                          {product.cover_image_url ? (
+                          {product.thumbnail_url ? (
                             <img
-                              src={product.cover_image_url}
+                              src={product.thumbnail_url}
                               alt={product.title}
                               className="w-full h-full object-cover"
                             />
