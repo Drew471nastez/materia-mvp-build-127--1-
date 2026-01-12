@@ -1823,7 +1823,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {/* Quick Checkout Modal */}
       {quickCheckoutModalOpen && quickCheckoutModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setQuickCheckoutModalOpen(false)}
         >
           {/* Backdrop */}
@@ -1831,7 +1831,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
           {/* Modal */}
           <div
-            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+            className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
@@ -1843,7 +1843,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             </button>
 
             {/* Product Header */}
-            <div className="p-5 pb-4 border-b bg-gradient-to-b from-gray-50 to-white">
+            <div className="p-5 pb-4 border-b bg-gradient-to-b from-gray-50 to-white shrink-0">
               <div className="flex items-center gap-3">
                 {quickCheckoutModalData.productThumbnail && (
                   <img
@@ -1862,7 +1862,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             </div>
 
             {/* Content */}
-            <div className="p-5">
+            <div className="p-5 overflow-y-auto flex-1">
               {quickCheckoutStep === 'form' && (
                 <div className="space-y-4 animate-in fade-in duration-200">
                   <p className="text-sm text-gray-600 text-center mb-4">
@@ -1905,7 +1905,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                   <button
                     onClick={handleQuickCheckoutSubmit}
                     disabled={!quickCheckoutFormData.firstName || !quickCheckoutFormData.lastName || !quickCheckoutFormData.email}
-                    className="w-full py-3.5 px-4 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98]"
+                    className="w-full py-3.5 sm:py-3.5 px-4 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98] text-base"
                     style={{
                       backgroundColor: '#000000',
                       color: '#ffffff'
@@ -1914,7 +1914,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                     {quickCheckoutModalData.ctaText || 'Get it Now'}
                   </button>
 
-                  <p className="text-xs text-gray-400 text-center">
+                  <p className="text-xs text-gray-400 text-center pb-4 sm:pb-0">
                     You'll receive a confirmation email with your download link
                   </p>
                 </div>
@@ -1978,7 +1978,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
                   <button
                     onClick={() => setQuickCheckoutModalOpen(false)}
-                    className="w-full mt-4 py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50 transition-colors"
+                    className="w-full mt-4 py-3 sm:py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50 transition-colors mb-4 sm:mb-0"
                   >
                     Close
                   </button>

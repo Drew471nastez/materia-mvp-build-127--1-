@@ -3378,6 +3378,37 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         ? (data.button_text_color || textColor)
         : textColor
 
+      // Button styles for product block (mirrors link_button styles)
+      const productButtonShadow = (theme as any).button_shadow || "none"
+      const productShadowColor = (theme as any).button_shadow_color || "#000000"
+      const productHexToRgba = (hex: string, alpha: number) => {
+        const r = Number.parseInt(hex.slice(1, 3), 16) || 0
+        const g = Number.parseInt(hex.slice(3, 5), 16) || 0
+        const b = Number.parseInt(hex.slice(5, 7), 16) || 0
+        return `rgba(${r},${g},${b},${alpha})`
+      }
+      const productShadowStyles: Record<string, string> = {
+        none: "none",
+        subtle: `0 2px 4px ${productHexToRgba(productShadowColor, 0.15)}`,
+        strong: `0 4px 12px ${productHexToRgba(productShadowColor, 0.3)}`,
+        hard: `4px 4px 0px ${productHexToRgba(productShadowColor, 0.9)}`,
+      }
+      const productButtonStyles: React.CSSProperties = {
+        backgroundColor:
+          theme.button_style === "outline"
+            ? "transparent"
+            : theme.button_style === "glass"
+              ? "rgba(255, 255, 255, 0.15)"
+              : theme.button_color,
+        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        borderRadius: `${theme.button_border_radius}px`,
+        borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
+        borderStyle: "solid" as const,
+        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
+        boxShadow: productShadowStyles[productButtonShadow] || "none",
+      }
+
       // Button style
       if (data.style === 'button') {
         return (
@@ -3390,7 +3421,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               "w-full font-medium flex items-center justify-center gap-2 transition-all cursor-pointer",
               getProductAnimationClass(data.animation_type),
             )}
-            style={buttonStyles}
+            style={productButtonStyles}
           >
             {data.product_thumbnail && (
               <img
