@@ -4256,41 +4256,14 @@ function BlockEditor({
         { id: "preview", label: "Preview" },
       ]
       const ctaOptions = ["Get My Guide", "Get it Now", "Buy Now", "Download", "Get Access", "Enroll Now", "Start Learning", "Custom"]
-      const buttonStyles: { id: ProductButtonStyle; label: string }[] = [
-        { id: "outline", label: "Outline" },
-        { id: "filled", label: "Filled" },
-      ]
-      // For callout/preview styles, use stored button_style (default to filled for callout, outline for preview)
-      const currentButtonStyle = data.style === "callout"
-        ? (data.button_style || "filled")
-        : data.style === "preview"
-          ? (data.button_style || "outline")
-          : "default"
+      const blockBackgroundColorPresets = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#1a1a1a']
+      const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#f5f5f5', '#374151', '#6b7280']
       const buttonColorPresets = ['#ffffff', '#1a1a1a', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
-      const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981']
+      const buttonTextColorPresets = ['#1a1a1a', '#ffffff', '#7c3aed', '#3b82f6', '#ef4444', '#10b981']
 
-      // Handle style selection with auto button style assignment
+      // Handle style selection (always use filled button style)
       const handleStyleSelect = (styleId: ProductBlockStyle) => {
-        if (styleId === "callout") {
-          // Callout defaults to filled button style
-          updateData({ style: styleId, button_style: data.button_style || "filled" })
-        } else if (styleId === "preview") {
-          // Preview defaults to outline button style
-          updateData({ style: styleId, button_style: data.button_style || "outline" })
-        } else {
-          // Button style doesn't use button_style
-          updateData({ style: styleId, button_style: "default" })
-        }
-      }
-
-      // Handle button style selection (auto-switch to callout if needed)
-      const handleButtonStyleSelect = (buttonStyleId: ProductButtonStyle) => {
-        if (data.style === "button") {
-          // If currently button style, switch to callout
-          updateData({ style: "callout", button_style: buttonStyleId })
-        } else {
-          updateData({ button_style: buttonStyleId })
-        }
+        updateData({ style: styleId, button_style: "filled" })
       }
 
       return (
@@ -4372,7 +4345,7 @@ function BlockEditor({
                 onClick={() => setShowCtaDropdown(!showCtaDropdown)}
                 className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               >
-                <span className="truncate">{data.cta_text || "Get My Guide"}</span>
+                <span className="truncate">{ctaOptions.slice(0, -1).includes(data.cta_text || "") ? data.cta_text : "Custom"}</span>
                 <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform", showCtaDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -4401,10 +4374,6 @@ function BlockEditor({
                   <button
                     type="button"
                     onClick={() => {
-                      // Set cta_text to empty string to trigger custom input mode
-                      if (ctaOptions.slice(0, -1).includes(data.cta_text || "Get My Guide")) {
-                        updateData({ cta_text: "" })
-                      }
                       setShowCtaDropdown(false)
                     }}
                     className={cn(
@@ -4419,108 +4388,122 @@ function BlockEditor({
                 </div>
               )}
             </div>
-            {/* Custom text input - shows when Custom is selected (when cta_text is not a preset) */}
-            {(!ctaOptions.slice(0, -1).includes(data.cta_text || "")) && (
-              <Input
-                value={data.cta_text || ""}
-                onChange={(e) => updateData({ cta_text: e.target.value })}
-                placeholder="Enter custom button text..."
-                className="h-9 rounded-lg"
-              />
-            )}
+            {/* Custom text input - always visible below dropdown */}
+            <Input
+              value={data.cta_text || ""}
+              onChange={(e) => updateData({ cta_text: e.target.value })}
+              placeholder="Enter button text..."
+              className="h-9 rounded-lg"
+            />
           </div>
 
-          {/* Button Style Selector - Only show for callout/preview styles */}
+          {/* Color Customizers - Only show for callout/preview styles */}
           {(data.style === "callout" || data.style === "preview") && (
-            <div className="space-y-2 pt-2 border-t">
-              <Label className="text-xs">Button Style</Label>
-              <div className="flex gap-2">
-                {buttonStyles.map(({ id, label }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => handleButtonStyleSelect(id)}
-                    className={cn(
-                      "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
-                      currentButtonStyle === id
-                        ? "bg-white border-gray-900 text-gray-900"
-                        : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+            <div className="space-y-4 pt-2 border-t">
+              <p className="text-xs text-muted-foreground">Override colors from Design tab</p>
 
-          {/* Outline Style Options - Only for callout/preview with outline button style */}
-          {(data.style === "callout" || data.style === "preview") && currentButtonStyle === "outline" && (
-            <div className="space-y-3 pt-2">
+              {/* Block Background Color */}
               <div className="space-y-2">
-                <Label className="text-xs">Border color</Label>
+                <Label className="text-xs">Block Background Color</Label>
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <input
                       type="color"
-                      value={data.button_border_color || "#1a1a1a"}
-                      onChange={(e) => updateData({ button_border_color: e.target.value })}
+                      value={data.block_background_color || "#7c3aed"}
+                      onChange={(e) => updateData({ block_background_color: e.target.value })}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                     <div
                       className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                      style={{ backgroundColor: data.button_border_color || "#1a1a1a" }}
+                      style={{ backgroundColor: data.block_background_color || "#7c3aed" }}
                     />
                   </div>
                   <Input
-                    value={data.button_border_color || "#1a1a1a"}
-                    onChange={(e) => updateData({ button_border_color: e.target.value })}
-                    placeholder="#1a1a1a"
+                    value={data.block_background_color || ""}
+                    onChange={(e) => updateData({ block_background_color: e.target.value })}
+                    placeholder="Use theme default"
                     className="h-12 rounded-xl flex-1 font-mono text-sm"
                   />
                 </div>
                 {/* Color presets */}
                 <div className="flex gap-2 pt-1">
-                  {buttonColorPresets.map((color) => (
+                  {blockBackgroundColorPresets.map((color) => (
                     <button
                       key={color}
                       type="button"
-                      onClick={() => updateData({ button_border_color: color })}
+                      onClick={() => updateData({ block_background_color: color })}
                       className={cn(
                         "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                        data.button_border_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+                        data.block_background_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
                       )}
                       style={{ backgroundColor: color }}
                     />
                   ))}
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Filled Style Options - Only for callout/preview with filled button style */}
-          {(data.style === "callout" || data.style === "preview") && currentButtonStyle === "filled" && (
-            <div className="space-y-4 pt-2">
-              {/* Button Color */}
+              {/* Text Color (for title, description, price) */}
               <div className="space-y-2">
-                <Label className="text-xs">Button color</Label>
+                <Label className="text-xs">Text Color</Label>
+                <p className="text-[10px] text-muted-foreground">For title, description, price</p>
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <input
                       type="color"
-                      value={data.button_color || "#7c3aed"}
+                      value={data.text_color || "#ffffff"}
+                      onChange={(e) => updateData({ text_color: e.target.value })}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div
+                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
+                      style={{ backgroundColor: data.text_color || "#ffffff" }}
+                    />
+                  </div>
+                  <Input
+                    value={data.text_color || ""}
+                    onChange={(e) => updateData({ text_color: e.target.value })}
+                    placeholder="Use theme default"
+                    className="h-12 rounded-xl flex-1 font-mono text-sm"
+                  />
+                </div>
+                {/* Color presets */}
+                <div className="flex gap-2 pt-1">
+                  {textColorPresets.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => updateData({ text_color: color })}
+                      className={cn(
+                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                        data.text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Button (CTA) Background Color */}
+              <div className="space-y-2">
+                <Label className="text-xs">Button Color</Label>
+                <p className="text-[10px] text-muted-foreground">CTA button background</p>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <input
+                      type="color"
+                      value={data.button_color || "#ffffff"}
                       onChange={(e) => updateData({ button_color: e.target.value })}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                     <div
                       className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                      style={{ backgroundColor: data.button_color || "#7c3aed" }}
+                      style={{ backgroundColor: data.button_color || "#ffffff" }}
                     />
                   </div>
                   <Input
-                    value={data.button_color || "#7c3aed"}
+                    value={data.button_color || ""}
                     onChange={(e) => updateData({ button_color: e.target.value })}
-                    placeholder="#7c3aed"
+                    placeholder="Use theme default"
                     className="h-12 rounded-xl flex-1 font-mono text-sm"
                   />
                 </div>
@@ -4541,32 +4524,32 @@ function BlockEditor({
                 </div>
               </div>
 
-              {/* Button Text Color */}
+              {/* Button (CTA) Text Color */}
               <div className="space-y-2">
-                <Label className="text-xs">Button text color</Label>
+                <Label className="text-xs">Button Text Color</Label>
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <input
                       type="color"
-                      value={data.button_text_color || "#ffffff"}
+                      value={data.button_text_color || "#1a1a1a"}
                       onChange={(e) => updateData({ button_text_color: e.target.value })}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                     <div
                       className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                      style={{ backgroundColor: data.button_text_color || "#ffffff" }}
+                      style={{ backgroundColor: data.button_text_color || "#1a1a1a" }}
                     />
                   </div>
                   <Input
-                    value={data.button_text_color || "#ffffff"}
+                    value={data.button_text_color || ""}
                     onChange={(e) => updateData({ button_text_color: e.target.value })}
-                    placeholder="#ffffff"
+                    placeholder="Use theme default"
                     className="h-12 rounded-xl flex-1 font-mono text-sm"
                   />
                 </div>
                 {/* Color presets */}
                 <div className="flex gap-2 pt-1">
-                  {textColorPresets.map((color) => (
+                  {buttonTextColorPresets.map((color) => (
                     <button
                       key={color}
                       type="button"
@@ -4582,22 +4565,6 @@ function BlockEditor({
               </div>
             </div>
           )}
-
-          {/* Border Radius Slider */}
-          <div className="space-y-2 pt-2 border-t">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Border Radius</Label>
-              <span className="text-xs text-muted-foreground">{data.button_border_radius ?? 12}px</span>
-            </div>
-            <Slider
-              value={[data.button_border_radius ?? 12]}
-              onValueChange={([value]) => updateData({ button_border_radius: value })}
-              min={0}
-              max={32}
-              step={2}
-              className="w-full"
-            />
-          </div>
         </div>
       )
     }

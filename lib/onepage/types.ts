@@ -151,7 +151,7 @@ export interface LinkButtonBlockData {
 }
 
 export type ProductBlockStyle = 'button' | 'callout' | 'preview'
-export type ProductButtonStyle = 'default' | 'outline' | 'filled'
+export type ProductButtonStyle = 'default' | 'filled'
 
 export interface ProductBlockData {
   product_id: string
@@ -170,12 +170,16 @@ export interface ProductBlockData {
   animation_type?: BlockAnimationType
   // Custom thumbnail (overrides product thumbnail)
   custom_thumbnail?: string | null
-  // Button style customization
+  // Button style customization (filled is the only style now)
   button_style?: ProductButtonStyle
+  // Block background color (entire block container)
+  block_background_color?: string | null
+  // Text color for title, description, price
+  text_color?: string | null
+  // Button (CTA) background color
   button_color?: string | null
+  // Button (CTA) text color
   button_text_color?: string | null
-  button_border_color?: string | null
-  button_border_radius?: number | null
 }
 
 export interface SocialRowBlockData {

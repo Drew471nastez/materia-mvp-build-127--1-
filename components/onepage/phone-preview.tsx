@@ -3350,22 +3350,16 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         }
       }
 
-      // Use product block's button_style if set, otherwise use theme's style
-      // For callout style: default to filled, for preview style: default to outline
-      const productButtonStyle = data.button_style && data.button_style !== "default"
-        ? data.button_style
-        : data.style === "preview"
-          ? "outline"
-          : data.style === "callout"
-            ? "filled"
-            : theme.button_style
-      const isOutlineStyle = productButtonStyle === "outline"
-
       // Get product-specific colors with fallbacks to theme
-      const productBorderRadius = data.button_border_radius ?? theme.button_border_radius
-      const productButtonColor = data.button_color || theme.button_color
-      const productButtonTextColor = data.button_text_color || theme.button_text_color
-      const productBorderColor = data.button_border_color || theme.button_border_color || theme.text_color
+      // block_background_color: entire block container background
+      // text_color: for title, description, price text
+      // button_color: CTA button background
+      // button_text_color: CTA button text
+      const productBorderRadius = theme.button_border_radius
+      const blockBackgroundColor = data.block_background_color || theme.button_color
+      const textColor = data.text_color || theme.button_text_color
+      const ctaButtonColor = data.button_color || `${textColor}15`
+      const ctaButtonTextColor = data.button_text_color || textColor
 
       // Button style
       if (data.style === 'button') {
@@ -3397,7 +3391,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       }
 
       // Preview style - full card with image
-      // Note: Outline style only affects the CTA button, not the entire block container
+      // Preview style - larger card with full-width thumbnail
       if (data.style === 'preview') {
         return (
           <a
@@ -3410,7 +3404,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             )}
             style={{
               borderRadius: `${productBorderRadius}px`,
-              backgroundColor: productButtonColor,
+              backgroundColor: blockBackgroundColor,
               border: "none",
             }}
           >
@@ -3426,14 +3420,14 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <div className="p-3 space-y-1">
               <p
                 className={cn(s.text, "font-medium")}
-                style={{ color: productButtonTextColor }}
+                style={{ color: textColor }}
               >
                 {data.product_title || 'Product'}
               </p>
               {data.show_description !== false && data.product_description && (
                 <p
                   className="text-[10px] opacity-75"
-                  style={{ color: productButtonTextColor }}
+                  style={{ color: textColor }}
                 >
                   {data.product_description}
                 </p>
@@ -3441,19 +3435,18 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               {data.show_price !== false && (
                 <p
                   className={cn(s.text, "font-semibold")}
-                  style={{ color: productButtonTextColor }}
+                  style={{ color: textColor }}
                 >
                   {priceDisplay}
                 </p>
               )}
-              {/* CTA Button - Outline style only applies here */}
+              {/* CTA Button */}
               <div
                 className="w-full py-2 mt-2 text-center font-medium text-sm"
                 style={{
                   borderRadius: `${Math.max(0, productBorderRadius - 4)}px`,
-                  backgroundColor: isOutlineStyle ? "transparent" : `${productButtonTextColor}20`,
-                  color: isOutlineStyle ? productButtonColor : productButtonTextColor,
-                  border: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
+                  backgroundColor: ctaButtonColor,
+                  color: ctaButtonTextColor,
                 }}
               >
                 {data.cta_text || 'Get My Guide'}
@@ -3464,7 +3457,6 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       }
 
       // Callout style (default) - compact card with thumbnail
-      // Note: Outline style only affects the CTA button, not the entire block container
       return (
         <a
           href={productUrl}
@@ -3476,7 +3468,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           )}
           style={{
             borderRadius: `${productBorderRadius}px`,
-            backgroundColor: productButtonColor,
+            backgroundColor: blockBackgroundColor,
             border: "none",
           }}
         >
@@ -3493,14 +3485,14 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <div className="flex-1 min-w-0 space-y-0.5">
               <p
                 className={cn(s.text, "font-medium truncate")}
-                style={{ color: productButtonTextColor }}
+                style={{ color: textColor }}
               >
                 {data.product_title || 'Product'}
               </p>
               {data.show_description !== false && data.product_description && (
                 <p
                   className="text-[10px] opacity-75 line-clamp-1"
-                  style={{ color: productButtonTextColor }}
+                  style={{ color: textColor }}
                 >
                   {data.product_description}
                 </p>
@@ -3508,21 +3500,19 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               {data.show_price !== false && (
                 <p
                   className="text-xs font-semibold"
-                  style={{ color: productButtonTextColor }}
+                  style={{ color: textColor }}
                 >
                   {priceDisplay}
                 </p>
               )}
             </div>
           </div>
-          {/* CTA Button - Outline style only applies here */}
+          {/* CTA Button */}
           <div
             className="w-full py-2.5 text-center font-medium text-sm"
             style={{
-              backgroundColor: isOutlineStyle ? "transparent" : `${productButtonTextColor}15`,
-              color: isOutlineStyle ? productButtonColor : productButtonTextColor,
-              border: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
-              borderTop: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
+              backgroundColor: ctaButtonColor,
+              color: ctaButtonTextColor,
             }}
           >
             {data.cta_text || 'Get My Guide'}
