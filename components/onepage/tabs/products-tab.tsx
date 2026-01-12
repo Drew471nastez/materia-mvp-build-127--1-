@@ -307,25 +307,32 @@ export function ProductsTab() {
                         {product.price_cents > 0 ? `$${(product.price_cents / 100).toFixed(2)}` : 'Free'}
                       </p>
                     </div>
-                    <Button
-                      variant={isAdding || addedProductIds.has(product.id) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleAddProductToPage(product)}
-                      disabled={isAdding}
-                      className={cn(
-                        "shrink-0 min-w-[70px]",
-                        (isAdding || addedProductIds.has(product.id)) && "bg-green-500 hover:bg-green-600"
-                      )}
-                    >
-                      {isAdding || addedProductIds.has(product.id) ? (
-                        <>
-                          <Check className="h-4 w-4 mr-1" />
-                          Added
-                        </>
-                      ) : (
-                        "Add"
-                      )}
-                    </Button>
+                    {addedProductIds.has(product.id) ? (
+                      <div className="shrink-0 min-w-[70px] h-8 px-3 flex items-center justify-center rounded-md bg-gray-100 text-gray-400 text-sm cursor-not-allowed">
+                        <Check className="h-4 w-4 mr-1" />
+                        Added
+                      </div>
+                    ) : (
+                      <Button
+                        variant={isAdding ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleAddProductToPage(product)}
+                        disabled={isAdding}
+                        className={cn(
+                          "shrink-0 min-w-[70px]",
+                          isAdding && "bg-violet-500 hover:bg-violet-600"
+                        )}
+                      >
+                        {isAdding ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1" />
+                            Adding...
+                          </>
+                        ) : (
+                          "Add"
+                        )}
+                      </Button>
+                    )}
                   </div>
                 )
               })}
