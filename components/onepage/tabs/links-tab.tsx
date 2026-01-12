@@ -347,7 +347,7 @@ const blockCategories = [
     label: "Most Popular",
     icon: Heart,
     blocks: [
-      { type: "link_button" as const, label: "Digital Products", description: "Upload files to sell on your Linktree", icon: ShoppingBag },
+      { type: "product" as const, label: "Digital Product", description: "Sell a digital product on your page", icon: ShoppingBag },
       { type: "link_button" as const, label: "YouTube", description: "Link to YouTube", icon: Video, preset: { label: "Subscribe on YouTube", url: "https://youtube.com/@" } },
       { type: "link_button" as const, label: "X (Twitter)", description: "Link to X", icon: Share2, preset: { label: "Follow on X", url: "https://x.com/" } },
       { type: "link_button" as const, label: "Instagram", description: "Link to Instagram", icon: Share2, preset: { label: "Follow on Instagram", url: "https://instagram.com/" } },
@@ -358,8 +358,7 @@ const blockCategories = [
     label: "Products",
     icon: ShoppingBag,
     blocks: [
-      { type: "product" as const, label: "Product", description: "Sell a product", icon: ShoppingBag },
-      { type: "link_button" as const, label: "Digital Products", description: "Upload files to sell", icon: ShoppingBag },
+      { type: "product" as const, label: "Digital Product", description: "Sell a digital product", icon: ShoppingBag },
       { type: "link_button" as const, label: "Store Link", description: "Link to your store", icon: ShoppingBag, preset: { label: "Shop Now", url: "" } },
     ],
   },
@@ -5519,8 +5518,15 @@ function BlockEditor({
                 {showProductDropdown && (
                   <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[240px] overflow-y-auto">
                     {effectiveSellerProducts?.length === 0 ? (
-                      <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                        No products found. Create a product first.
+                      <div className="px-3 py-4 text-center">
+                        <p className="text-sm text-muted-foreground mb-3">No products found.</p>
+                        <a
+                          href="/app/products/new"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add Product
+                        </a>
                       </div>
                     ) : (
                       effectiveSellerProducts?.map((product) => (
@@ -5577,17 +5583,28 @@ function BlockEditor({
               </div>
             </div>
 
-            {/* Edit Product Link */}
+            {/* Edit Product Links */}
             {data.product_id && (
-              <a
-                href={`/app/products/${data.product_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
-              >
-                <Pencil className="w-3 h-3" />
-                Edit Product
-              </a>
+              <div className="flex flex-col gap-1.5">
+                <a
+                  href={`/app/products/${data.product_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
+                >
+                  <Pencil className="w-3 h-3" />
+                  Edit Product
+                </a>
+                <a
+                  href="/store-builder?pageType=product"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
+                >
+                  <Pencil className="w-3 h-3" />
+                  Edit Product Page
+                </a>
+              </div>
             )}
 
             {/* Display Options */}

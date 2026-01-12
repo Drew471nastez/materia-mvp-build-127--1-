@@ -68,6 +68,84 @@ interface DigitalAsset {
   file_path: string
 }
 
+// Quick Checkout Form Component - isolated to prevent parent re-renders on input changes
+function QuickCheckoutFormContent({
+  ctaText,
+  error,
+  onSubmit,
+}: {
+  ctaText: string
+  error: string | null
+  onSubmit: (data: { firstName: string; lastName: string; email: string }) => void
+}) {
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+
+  const handleSubmit = () => {
+    if (firstName && lastName && email) {
+      onSubmit({ firstName, lastName, email })
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600 text-center mb-4">
+        Enter your details to get instant access
+      </p>
+
+      {error && (
+        <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg mb-4">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <input
+          type="text"
+          placeholder="First name"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Last name"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          required
+        />
+      </div>
+      <input
+        type="email"
+        placeholder="Email address"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        required
+      />
+
+      <button
+        onClick={handleSubmit}
+        disabled={!firstName || !lastName || !email}
+        className="w-full py-3.5 sm:py-3.5 px-4 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98] text-base"
+        style={{
+          backgroundColor: '#000000',
+          color: '#ffffff'
+        }}
+      >
+        {ctaText || 'Get it Now'}
+      </button>
+
+      <p className="text-xs text-gray-400 text-center pb-4 sm:pb-0">
+        You'll receive a confirmation email with your download link
+      </p>
+    </div>
+  )
+}
+
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
   sellerName,
@@ -985,13 +1063,15 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     setQuickCheckoutModalOpen(true)
   }, [])
 
-  const handleQuickCheckoutSubmit = useCallback(async () => {
-    if (!quickCheckoutModalData || !quickCheckoutFormData.firstName || !quickCheckoutFormData.lastName || !quickCheckoutFormData.email) {
+  const handleQuickCheckoutSubmit = useCallback(async (formData: { firstName: string; lastName: string; email: string }) => {
+    if (!quickCheckoutModalData || !formData.firstName || !formData.lastName || !formData.email) {
       return
     }
 
     setQuickCheckoutStep('loading')
     setQuickCheckoutError(null)
+    // Store form data for success page email display
+    setQuickCheckoutFormData(formData)
 
     try {
       const response = await fetch('/api/checkout/quick-free', {
@@ -999,9 +1079,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           product_id: quickCheckoutModalData.productId,
-          first_name: quickCheckoutFormData.firstName,
-          last_name: quickCheckoutFormData.lastName,
-          email: quickCheckoutFormData.email,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
         }),
       })
 
@@ -1034,7 +1114,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       setQuickCheckoutError(error.message || 'Something went wrong. Please try again.')
       setQuickCheckoutStep('form')
     }
-  }, [quickCheckoutModalData, quickCheckoutFormData])
+  }, [quickCheckoutModalData])
 
   const handleQuickCheckoutDownload = useCallback(async (asset: DigitalAsset) => {
     if (!quickCheckoutReceiptToken) return
@@ -1864,60 +1944,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             {/* Content */}
             <div className="p-5 overflow-y-auto flex-1">
               {quickCheckoutStep === 'form' && (
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  <p className="text-sm text-gray-600 text-center mb-4">
-                    Enter your details to get instant access
-                  </p>
-
-                  {quickCheckoutError && (
-                    <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg mb-4">
-                      {quickCheckoutError}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      placeholder="First name"
-                      value={quickCheckoutFormData.firstName}
-                      onChange={(e) => setQuickCheckoutFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Last name"
-                      value={quickCheckoutFormData.lastName}
-                      onChange={(e) => setQuickCheckoutFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      required
-                    />
-                  </div>
-                  <input
-                    type="email"
-                    placeholder="Email address"
-                    value={quickCheckoutFormData.email}
-                    onChange={(e) => setQuickCheckoutFormData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    required
-                  />
-
-                  <button
-                    onClick={handleQuickCheckoutSubmit}
-                    disabled={!quickCheckoutFormData.firstName || !quickCheckoutFormData.lastName || !quickCheckoutFormData.email}
-                    className="w-full py-3.5 sm:py-3.5 px-4 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98] text-base"
-                    style={{
-                      backgroundColor: '#000000',
-                      color: '#ffffff'
-                    }}
-                  >
-                    {quickCheckoutModalData.ctaText || 'Get it Now'}
-                  </button>
-
-                  <p className="text-xs text-gray-400 text-center pb-4 sm:pb-0">
-                    You'll receive a confirmation email with your download link
-                  </p>
-                </div>
+                <QuickCheckoutFormContent
+                  ctaText={quickCheckoutModalData.ctaText}
+                  error={quickCheckoutError}
+                  onSubmit={handleQuickCheckoutSubmit}
+                />
               )}
 
               {quickCheckoutStep === 'loading' && (
