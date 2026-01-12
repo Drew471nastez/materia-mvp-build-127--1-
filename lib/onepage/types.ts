@@ -112,8 +112,15 @@ export interface EmailCaptureBlockData {
   description?: string
   placeholder: string
   button_text: string
+  button_text_preset?: "subscribe" | "join" | "get_updates" | "sign_up" | "notify_me" | "custom"
   success_message: string
   lead_magnet_id?: string | null
+  // Digital product settings
+  enable_digital_product?: boolean
+  product_id?: string | null
+  product_image_url?: string | null
+  // Layout
+  layout?: "default" | "pro"
 }
 
 export interface HeaderBlockData {
@@ -356,8 +363,13 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           description: "Get updates and exclusive content",
           placeholder: "Enter your email",
           button_text: "Subscribe",
+          button_text_preset: "subscribe",
           success_message: "Thanks for subscribing!",
           lead_magnet_id: null,
+          enable_digital_product: false,
+          product_id: null,
+          product_image_url: null,
+          layout: "default",
         } as EmailCaptureBlockData,
       }
     case "header":

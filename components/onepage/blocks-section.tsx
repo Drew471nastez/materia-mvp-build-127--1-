@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Plus,
   GripVertical,
@@ -36,7 +37,11 @@ import {
   User,
   Eye,
   EyeOff,
+  Settings,
+  LayoutGrid,
 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
 
 const blockTypes: { type: OnePageBlockType; label: string; icon: typeof Link }[] = [
   { type: "link_button", label: "Link Button", icon: Link },
@@ -181,6 +186,241 @@ function getBlockLabel(block: OnePageBlock): string {
     default:
       return block.type
   }
+}
+
+// Button text presets
+const BUTTON_TEXT_PRESETS = {
+  subscribe: "Subscribe",
+  join: "Join Now",
+  get_updates: "Get Updates",
+  sign_up: "Sign Up",
+  notify_me: "Notify Me",
+  custom: "Custom",
+}
+
+function EmailCaptureEditor({ data, updateData }: { data: EmailCaptureBlockData; updateData: (updates: Partial<EmailCaptureBlockData>) => void }) {
+  const [products, setProducts] = useState<Array<{ id: string; title: string; thumbnail_url: string | null }>>([])
+  const [loadingProducts, setLoadingProducts] = useState(false)
+
+  useEffect(() => {
+    if (data.enable_digital_product) {
+      loadProducts()
+    }
+  }, [data.enable_digital_product])
+
+  const loadProducts = async () => {
+    setLoadingProducts(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      // Get user's creator ID
+      const { data: creator } = await supabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", user.id)
+        .single()
+
+      if (!creator) return
+
+      // Fetch products
+      const { data: productsData } = await supabase
+        .from("products")
+        .select("id, title, thumbnail_url")
+        .eq("creator_id", creator.id)
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+
+      setProducts(productsData || [])
+    } catch (error) {
+      console.error("Error loading products:", error)
+    } finally {
+      setLoadingProducts(false)
+    }
+  }
+
+  const handlePresetChange = (preset: string) => {
+    updateData({
+      button_text_preset: preset as any,
+      button_text: preset === "custom" ? data.button_text : BUTTON_TEXT_PRESETS[preset as keyof typeof BUTTON_TEXT_PRESETS]
+    })
+  }
+
+  const handleProductChange = (productId: string) => {
+    const product = products.find(p => p.id === productId)
+    updateData({
+      product_id: productId,
+      product_image_url: product?.thumbnail_url || null
+    })
+  }
+
+  return (
+    <Tabs defaultValue="settings" className="w-full">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="settings" className="flex items-center gap-2">
+          <Settings className="h-4 w-4" />
+          Settings
+        </TabsTrigger>
+        <TabsTrigger value="layout" className="flex items-center gap-2">
+          <LayoutGrid className="h-4 w-4" />
+          Layout
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="settings" className="space-y-4 mt-4">
+        <div className="space-y-2">
+          <Label>Headline</Label>
+          <Input
+            value={data.headline}
+            onChange={(e) => updateData({ headline: e.target.value })}
+            placeholder="Join my newsletter"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Description (optional)</Label>
+          <Textarea
+            value={data.description || ""}
+            onChange={(e) => updateData({ description: e.target.value })}
+            placeholder="Get updates and exclusive content"
+            rows={2}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Button Text Preset</Label>
+          <Select
+            value={data.button_text_preset || "subscribe"}
+            onValueChange={handlePresetChange}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="subscribe">Subscribe</SelectItem>
+              <SelectItem value="join">Join Now</SelectItem>
+              <SelectItem value="get_updates">Get Updates</SelectItem>
+              <SelectItem value="sign_up">Sign Up</SelectItem>
+              <SelectItem value="notify_me">Notify Me</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {data.button_text_preset === "custom" && (
+          <div className="space-y-2">
+            <Label>Custom Button Text</Label>
+            <Input
+              value={data.button_text}
+              onChange={(e) => updateData({ button_text: e.target.value })}
+              placeholder="Enter custom text"
+            />
+          </div>
+        )}
+
+        <div className="border-t pt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Enable Digital Product</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Send a free digital product in exchange for email
+              </p>
+            </div>
+            <Switch
+              checked={data.enable_digital_product || false}
+              onCheckedChange={(checked) => updateData({ enable_digital_product: checked })}
+            />
+          </div>
+
+          {data.enable_digital_product && (
+            <>
+              <div className="space-y-2">
+                <Label>Select Digital Product</Label>
+                {loadingProducts ? (
+                  <p className="text-sm text-muted-foreground">Loading products...</p>
+                ) : products.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No published products found</p>
+                ) : (
+                  <Select
+                    value={data.product_id || ""}
+                    onValueChange={handleProductChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {data.product_image_url && (
+                <div className="space-y-2">
+                  <Label>Product Image</Label>
+                  <img
+                    src={data.product_image_url}
+                    alt="Product"
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Success Message</Label>
+          <Input
+            value={data.success_message}
+            onChange={(e) => updateData({ success_message: e.target.value })}
+            placeholder="Thanks for subscribing!"
+          />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="layout" className="space-y-4 mt-4">
+        <div className="space-y-2">
+          <Label>Layout Style</Label>
+          <Select
+            value={data.layout || "default"}
+            onValueChange={(value: "default" | "pro") => updateData({ layout: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              <SelectItem value="pro">Pro (with product image)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="border rounded-lg p-3 space-y-2">
+          <p className="text-sm font-medium">Layout Preview</p>
+          {data.layout === "default" ? (
+            <div className="text-xs text-muted-foreground">
+              <p>• Vertical layout</p>
+              <p>• Email input above button</p>
+              <p>• Centered alignment</p>
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground">
+              <p>• Horizontal layout with product image</p>
+              <p>• Product thumbnail on the left</p>
+              <p>• Form fields on the right</p>
+            </div>
+          )}
+        </div>
+      </TabsContent>
+    </Tabs>
+  )
 }
 
 function BlockEditor({ block }: { block: OnePageBlock }) {
@@ -333,50 +573,7 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
 
     case "email_capture": {
       const data = block.data as EmailCaptureBlockData
-      return (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Headline</Label>
-            <Input
-              value={data.headline}
-              onChange={(e) => updateData({ headline: e.target.value })}
-              placeholder="Join my newsletter"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Description (optional)</Label>
-            <Input
-              value={data.description || ""}
-              onChange={(e) => updateData({ description: e.target.value })}
-              placeholder="Get updates and exclusive content"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Input Placeholder</Label>
-            <Input
-              value={data.placeholder}
-              onChange={(e) => updateData({ placeholder: e.target.value })}
-              placeholder="Enter your email"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Button Text</Label>
-            <Input
-              value={data.button_text}
-              onChange={(e) => updateData({ button_text: e.target.value })}
-              placeholder="Subscribe"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Success Message</Label>
-            <Input
-              value={data.success_message}
-              onChange={(e) => updateData({ success_message: e.target.value })}
-              placeholder="Thanks for subscribing!"
-            />
-          </div>
-        </div>
-      )
+      return <EmailCaptureEditor data={data} updateData={updateData} />
     }
 
     case "header": {

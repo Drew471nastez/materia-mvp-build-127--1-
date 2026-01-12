@@ -437,6 +437,8 @@ function PublicBlockRenderer({ block, theme, profile, onepageId, sellerId, isDes
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [downloadFileName, setDownloadFileName] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   const socialStyle = (theme as any).social_icon_style || "filled"
@@ -732,19 +734,36 @@ function PublicBlockRenderer({ block, theme, profile, onepageId, sellerId, isDes
 
     case "email_capture": {
       const data = (block.data || { headline: "Subscribe", placeholder: "Email", button_text: "Join", success_message: "Thanks!" }) as EmailCaptureBlockData
-      
+      const layout = data.layout || "default"
+      const hasDigitalProduct = data.enable_digital_product && data.product_id
+
       const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!email || isSubmitting) return
         setIsSubmitting(true)
-        
+
         try {
           const response = await fetch("/api/onepage/leads", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ onepage_id: onepageId, email, block_id: block.id, lead_magnet_id: data.lead_magnet_id })
+            body: JSON.stringify({
+              onepage_id: onepageId,
+              email,
+              block_id: block.id,
+              product_id: data.product_id,
+              enable_digital_product: data.enable_digital_product
+            })
           })
-          if (response.ok) setEmailSubmitted(true)
+
+          const result = await response.json()
+
+          if (response.ok) {
+            setEmailSubmitted(true)
+            if (result.download_url) {
+              setDownloadUrl(result.download_url)
+              setDownloadFileName(result.file_name)
+            }
+          }
         } catch (error) {
           console.error("Submit error:", error)
         } finally {
@@ -752,34 +771,108 @@ function PublicBlockRenderer({ block, theme, profile, onepageId, sellerId, isDes
         }
       }
 
+      const handleDownload = async () => {
+        if (downloadUrl) {
+          try {
+            const response = await fetch(downloadUrl)
+            const blob = await response.blob()
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = downloadFileName || 'download'
+            document.body.appendChild(a)
+            a.click()
+            window.URL.revokeObjectURL(url)
+            document.body.removeChild(a)
+          } catch (error) {
+            console.error("Download error:", error)
+          }
+        }
+      }
+
       if (emailSubmitted) {
         return (
           <div className="w-full p-5 sm:p-6 rounded-xl sm:rounded-2xl text-center" style={{ backgroundColor: `${theme.button_color}15` }}>
-            <p className="font-medium" style={{ color: theme.text_color }}>{data.success_message || "Thanks for subscribing!"}</p>
+            <p className="font-medium mb-3" style={{ color: theme.text_color }}>{data.success_message || "Thanks for subscribing!"}</p>
+            {downloadUrl && (
+              <button
+                onClick={handleDownload}
+                className="px-5 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+                style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+              >
+                Download
+              </button>
+            )}
           </div>
         )
       }
 
+      // Pro layout with product image
+      if (layout === "pro" && hasDigitalProduct && data.product_image_url) {
+        return (
+          <div className="w-full p-4 sm:p-5 rounded-xl sm:rounded-2xl" style={{ backgroundColor: `${theme.button_color}10` }}>
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Product Image */}
+              <div className="flex-shrink-0">
+                <img
+                  src={data.product_image_url}
+                  alt="Product"
+                  className="w-full sm:w-24 h-24 object-cover rounded-lg"
+                />
+              </div>
+
+              {/* Form */}
+              <div className="flex-1">
+                <h3 className="text-base sm:text-lg font-semibold mb-1" style={{ color: theme.text_color }}>{data.headline}</h3>
+                {data.description && (
+                  <p className="text-xs sm:text-sm mb-3" style={{ color: theme.secondary_text_color || theme.text_color }}>{data.description}</p>
+                )}
+                <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={data.placeholder || "Enter your email"}
+                    required
+                    className="w-full px-3 sm:px-4 py-2.5 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1"
+                    style={{ color: "#000" }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                    style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                  >
+                    {isSubmitting ? "..." : data.button_text || "Subscribe"}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      // Default layout - vertical with input above button
       return (
         <div className="w-full p-5 sm:p-6 rounded-xl sm:rounded-2xl" style={{ backgroundColor: `${theme.button_color}10` }}>
           <h3 className="text-base sm:text-lg font-semibold text-center mb-1" style={{ color: theme.text_color }}>{data.headline}</h3>
           {data.description && (
             <p className="text-xs sm:text-sm text-center mb-4" style={{ color: theme.secondary_text_color || theme.text_color }}>{data.description}</p>
           )}
-          <form onSubmit={handleSubmit} className="flex gap-2">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-2">
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={data.placeholder || "Enter your email"}
               required
-              className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1"
+              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1"
               style={{ color: "#000" }}
             />
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50 whitespace-normal"
               style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
             >
               {isSubmitting ? "..." : data.button_text || "Subscribe"}
