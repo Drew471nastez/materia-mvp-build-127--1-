@@ -99,6 +99,12 @@ export type SpotifyMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
 export type AppleMusicMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
 export type SoundCloudMode = 'audio_preview' | 'go_to_url'
 
+// Email capture button text presets
+export type EmailCaptureButtonPreset = 'subscribe' | 'join' | 'get_access' | 'download' | 'sign_up'
+
+// Email capture layout types
+export type EmailCaptureLayoutType = 'default' | 'pro'
+
 export interface StreamingService {
   platform: 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal' | 'deezer' | 'amazon_music' | 'spotify'
   url: string | null
@@ -217,6 +223,16 @@ export interface EmailCaptureBlockData {
   button_text: string
   success_message: string
   lead_magnet_id?: string | null
+  // NEW: Button text preset selector
+  button_preset?: EmailCaptureButtonPreset
+  custom_button_text?: string
+  // NEW: Digital product delivery
+  enable_digital_product?: boolean
+  digital_product_id?: string | null
+  digital_product_title?: string | null
+  digital_product_thumbnail?: string | null
+  // NEW: Layout type (default or pro with thumbnail)
+  layout_type?: EmailCaptureLayoutType
 }
 
 export interface HeaderBlockData {
@@ -321,6 +337,10 @@ export interface OnePageLead {
   delivery_status: "pending" | "sent" | "failed" | "not_applicable"
   delivered_at?: string | null
   created_at: string
+  // NEW: Digital product tracking
+  digital_product_id?: string | null
+  digital_download_sent?: boolean
+  digital_download_sent_at?: string | null
 }
 
 export interface OnePageLeadMagnet {
@@ -347,6 +367,15 @@ export interface OnePageEditorState {
   saveState: "idle" | "saving" | "saved" | "error"
   history: OnePage[]
   historyIndex: number
+}
+
+// Button preset labels for UI display
+export const buttonPresetLabels: Record<EmailCaptureButtonPreset, string> = {
+  subscribe: 'Subscribe',
+  join: 'Join Now',
+  get_access: 'Get Access',
+  download: 'Download',
+  sign_up: 'Sign Up',
 }
 
 // Default values
@@ -481,6 +510,13 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           button_text: "Subscribe",
           success_message: "Thanks for subscribing!",
           lead_magnet_id: null,
+          button_preset: "subscribe",
+          custom_button_text: "",
+          enable_digital_product: false,
+          digital_product_id: null,
+          digital_product_title: null,
+          digital_product_thumbnail: null,
+          layout_type: "default",
         } as EmailCaptureBlockData,
       }
     case "header":
