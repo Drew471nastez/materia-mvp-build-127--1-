@@ -423,7 +423,6 @@ const blockCategories = [
     icon: Grid3X3,
     blocks: [
       { type: "link_button" as const, label: "Link", description: "Add any URL", icon: Link },
-      { type: "header" as const, label: "Header", description: "Profile section", icon: User },
       { type: "text" as const, label: "Text", description: "Add text content", icon: Type },
       { type: "divider" as const, label: "Divider", description: "Add spacing", icon: Minus },
       { type: "group" as const, label: "Group", description: "Group blocks together", icon: Layers },
@@ -1236,6 +1235,8 @@ export function LinksTab() {
           else if (preset.url.includes('linkedin.com')) defaultIcon = 'linkedin'
           else if (preset.url.includes('youtube.com')) defaultIcon = 'youtube'
           else if (preset.url.includes('threads.net')) defaultIcon = 'threads'
+          else if (preset.url.includes('spotify.com')) defaultIcon = 'spotify'
+          else if (preset.url.includes('music.apple.com')) defaultIcon = 'apple-music'
 
           (newBlock.data as LinkButtonBlockData).label = preset.label
           ;(newBlock.data as LinkButtonBlockData).url = preset.url
@@ -1267,6 +1268,8 @@ export function LinksTab() {
       else if (preset.url.includes('linkedin.com')) defaultIcon = 'linkedin'
       else if (preset.url.includes('youtube.com')) defaultIcon = 'youtube'
       else if (preset.url.includes('threads.net')) defaultIcon = 'threads'
+      else if (preset.url.includes('spotify.com')) defaultIcon = 'spotify'
+      else if (preset.url.includes('music.apple.com')) defaultIcon = 'apple-music'
 
       updateBlock(newBlock.id, {
         data: {
@@ -4901,22 +4904,6 @@ function BlockEditor({
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Social Link
-            </Button>
-
-            {/* Design Social Icons Button */}
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                // Set localStorage so design tab opens to socials section
-                localStorage.setItem('onepage-design-section', 'socials')
-                // Dispatch storage event for design tab to pick up
-                window.dispatchEvent(new StorageEvent('storage', { key: 'onepage-design-section', newValue: 'socials' }))
-                setActiveSection("theme")
-              }}
-            >
-              <Palette className="h-4 w-4 mr-2" />
-              Design Social Icons
             </Button>
           </div>
         )

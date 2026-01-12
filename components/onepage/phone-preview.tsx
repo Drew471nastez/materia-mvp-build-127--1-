@@ -2631,21 +2631,29 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             {/* Featured content area - TikTok embed, YouTube embed or thumbnail */}
             {shouldEmbedTikTok && tiktokEmbedUrl ? (
               <div
-                className="w-full relative overflow-hidden"
+                className="w-full relative overflow-hidden flex justify-center"
                 style={{
                   borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
-                  aspectRatio: '9/16',
-                  maxHeight: '400px',
+                  backgroundColor: '#000',
                 }}
               >
-                <iframe
-                  src={tiktokEmbedUrl}
-                  title="TikTok video player"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full border-0"
-                  style={{ minHeight: '400px' }}
-                />
+                <div
+                  className="relative w-full"
+                  style={{
+                    aspectRatio: '9/16',
+                    maxHeight: 'min(500px, 70vh)',
+                    width: 'auto',
+                    maxWidth: '100%',
+                  }}
+                >
+                  <iframe
+                    src={tiktokEmbedUrl}
+                    title="TikTok video player"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full border-0"
+                  />
+                </div>
               </div>
             ) : shouldEmbed ? (
               <div
