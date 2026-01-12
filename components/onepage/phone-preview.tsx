@@ -3353,13 +3353,30 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       // Get product-specific colors with fallbacks to theme
       // block_background_color: entire block container background
       // text_color: for title, description, price text
-      // button_color: CTA button background
-      // button_text_color: CTA button text
+      // button_color: CTA button background (only for preview style)
+      // button_text_color: CTA button text (only for preview style)
       const productBorderRadius = theme.button_border_radius
       const blockBackgroundColor = data.block_background_color || theme.button_color
       const textColor = data.text_color || theme.button_text_color
-      const ctaButtonColor = data.button_color || `${textColor}15`
-      const ctaButtonTextColor = data.button_text_color || textColor
+
+      // Helper to darken a hex color by a percentage (for callout button)
+      const darkenHex = (hex: string, percent: number) => {
+        const num = parseInt(hex.replace('#', ''), 16)
+        const r = Math.max(0, Math.floor((num >> 16) * (1 - percent)))
+        const g = Math.max(0, Math.floor(((num >> 8) & 0x00FF) * (1 - percent)))
+        const b = Math.max(0, Math.floor((num & 0x0000FF) * (1 - percent)))
+        return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`
+      }
+
+      // For callout style: use slightly darkened block background for button
+      // For preview style: use custom button_color if set, otherwise use light textColor
+      const isPreviewStyle = data.style === 'preview'
+      const ctaButtonColor = isPreviewStyle
+        ? (data.button_color || `${textColor}15`)
+        : darkenHex(blockBackgroundColor, 0.08)
+      const ctaButtonTextColor = isPreviewStyle
+        ? (data.button_text_color || textColor)
+        : textColor
 
       // Button style
       if (data.style === 'button') {

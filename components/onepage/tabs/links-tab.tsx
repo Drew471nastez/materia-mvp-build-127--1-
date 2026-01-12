@@ -4445,7 +4445,7 @@ function BlockEditor({
               {/* Text Color (for title, description, price) */}
               <div className="space-y-2">
                 <Label className="text-xs">Text Color</Label>
-                <p className="text-[10px] text-muted-foreground">For title, description, price</p>
+                <p className="text-[10px] text-muted-foreground">For title, description, price{data.style === "callout" ? " and button" : ""}</p>
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <input
@@ -4483,86 +4483,90 @@ function BlockEditor({
                 </div>
               </div>
 
-              {/* Button (CTA) Background Color */}
-              <div className="space-y-2">
-                <Label className="text-xs">Button Color</Label>
-                <p className="text-[10px] text-muted-foreground">CTA button background</p>
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <input
-                      type="color"
-                      value={data.button_color || "#ffffff"}
+              {/* Button (CTA) Background Color - Only for preview style */}
+              {data.style === "preview" && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Button Color</Label>
+                  <p className="text-[10px] text-muted-foreground">CTA button background</p>
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={data.button_color || "#ffffff"}
+                        onChange={(e) => updateData({ button_color: e.target.value })}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div
+                        className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
+                        style={{ backgroundColor: data.button_color || "#ffffff" }}
+                      />
+                    </div>
+                    <Input
+                      value={data.button_color || ""}
                       onChange={(e) => updateData({ button_color: e.target.value })}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div
-                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                      style={{ backgroundColor: data.button_color || "#ffffff" }}
+                      placeholder="Use theme default"
+                      className="h-12 rounded-xl flex-1 font-mono text-sm"
                     />
                   </div>
-                  <Input
-                    value={data.button_color || ""}
-                    onChange={(e) => updateData({ button_color: e.target.value })}
-                    placeholder="Use theme default"
-                    className="h-12 rounded-xl flex-1 font-mono text-sm"
-                  />
+                  {/* Color presets */}
+                  <div className="flex gap-2 pt-1">
+                    {buttonColorPresets.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => updateData({ button_color: color })}
+                        className={cn(
+                          "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                          data.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+                        )}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
                 </div>
-                {/* Color presets */}
-                <div className="flex gap-2 pt-1">
-                  {buttonColorPresets.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => updateData({ button_color: color })}
-                      className={cn(
-                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                        data.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                      )}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
+              )}
 
-              {/* Button (CTA) Text Color */}
-              <div className="space-y-2">
-                <Label className="text-xs">Button Text Color</Label>
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <input
-                      type="color"
-                      value={data.button_text_color || "#1a1a1a"}
+              {/* Button (CTA) Text Color - Only for preview style */}
+              {data.style === "preview" && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Button Text Color</Label>
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={data.button_text_color || "#1a1a1a"}
+                        onChange={(e) => updateData({ button_text_color: e.target.value })}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div
+                        className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
+                        style={{ backgroundColor: data.button_text_color || "#1a1a1a" }}
+                      />
+                    </div>
+                    <Input
+                      value={data.button_text_color || ""}
                       onChange={(e) => updateData({ button_text_color: e.target.value })}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div
-                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                      style={{ backgroundColor: data.button_text_color || "#1a1a1a" }}
+                      placeholder="Use theme default"
+                      className="h-12 rounded-xl flex-1 font-mono text-sm"
                     />
                   </div>
-                  <Input
-                    value={data.button_text_color || ""}
-                    onChange={(e) => updateData({ button_text_color: e.target.value })}
-                    placeholder="Use theme default"
-                    className="h-12 rounded-xl flex-1 font-mono text-sm"
-                  />
+                  {/* Color presets */}
+                  <div className="flex gap-2 pt-1">
+                    {buttonTextColorPresets.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => updateData({ button_text_color: color })}
+                        className={cn(
+                          "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                          data.button_text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+                        )}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
                 </div>
-                {/* Color presets */}
-                <div className="flex gap-2 pt-1">
-                  {buttonTextColorPresets.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => updateData({ button_text_color: color })}
-                      className={cn(
-                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                        data.button_text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                      )}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
           )}
         </div>
