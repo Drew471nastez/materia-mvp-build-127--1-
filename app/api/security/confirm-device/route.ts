@@ -9,6 +9,10 @@ function getAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !serviceRoleKey) {
+    console.error("[confirm-device] Missing Supabase configuration", {
+      hasUrl: !!url,
+      hasServiceKey: !!serviceRoleKey,
+    })
     throw new Error("Missing Supabase configuration")
   }
 
@@ -18,6 +22,9 @@ function getAdminClient() {
       autoRefreshToken: false,
       detectSessionInUrl: false,
     },
+    db: {
+      schema: "public",
+    },
   })
 }
 
@@ -26,6 +33,8 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null)
     const orderId = typeof body?.orderId === "string" ? body.orderId.trim() : ""
     const code = typeof body?.code === "string" ? body.code.trim() : ""
+
+    console.log("[confirm-device] Starting device confirmation for order:", orderId)
 
     if (!orderId || !code) {
       return NextResponse.json({ error: "Order ID and code are required" }, { status: 400 })
@@ -38,24 +47,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid order ID format" }, { status: 400 })
     }
 
-    const admin = getAdminClient()
+    let admin
+    try {
+      admin = getAdminClient()
+    } catch (err) {
+      console.error("[confirm-device] Failed to create admin client:", err)
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+    }
+
     const headersList = await headers()
     const cookieStore = await cookies()
 
     console.log("[confirm-device] Looking up verification code for order:", orderId)
 
     // Find valid verification code
-    const { data: verification, error: verifyError } = await admin
-      .from("verification_codes")
-      .select("*")
-      .eq("order_id", orderId)
-      .eq("code", code)
-      .is("used_at", null)
-      .gt("expires_at", new Date().toISOString())
-      .maybeSingle()
+    let verification = null
+    let verifyError = null
+
+    try {
+      const result = await admin
+        .from("verification_codes")
+        .select("*")
+        .eq("order_id", orderId)
+        .eq("code", code)
+        .is("used_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle()
+
+      verification = result.data
+      verifyError = result.error
+    } catch (err: any) {
+      console.error("[confirm-device] Exception looking up verification code:", err?.message || err)
+      verifyError = err
+    }
 
     if (verifyError) {
-      console.error("[confirm-device] Error looking up verification code:", verifyError)
+      console.error("[confirm-device] Error looking up verification code:", verifyError?.message || verifyError)
     }
 
     if (!verification) {
@@ -67,8 +94,8 @@ export async function POST(request: Request) {
           event_type: "verification_failed",
           metadata: { reason: "invalid_or_expired_code" },
         })
-      } catch (err) {
-        console.warn("[confirm-device] Failed to log security event:", err)
+      } catch (err: any) {
+        console.warn("[confirm-device] Failed to log security event:", err?.message || err)
       }
 
       return NextResponse.json({ error: "Invalid or expired verification code" }, { status: 400 })
@@ -78,9 +105,18 @@ export async function POST(request: Request) {
 
     // Mark code as used
     try {
-      await admin.from("verification_codes").update({ used_at: new Date().toISOString() }).eq("id", verification.id)
-    } catch (err) {
-      console.warn("[confirm-device] Failed to mark code as used:", err)
+      const { error: updateErr } = await admin
+        .from("verification_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", verification.id)
+
+      if (updateErr) {
+        console.warn("[confirm-device] Failed to mark code as used:", updateErr.message)
+      } else {
+        console.log("[confirm-device] ✅ Code marked as used")
+      }
+    } catch (err: any) {
+      console.warn("[confirm-device] Exception marking code as used:", err?.message || err)
     }
 
     // Get order
@@ -159,8 +195,9 @@ export async function POST(request: Request) {
         ip,
         user_agent: userAgent,
       })
-    } catch (err) {
-      console.warn("[confirm-device] Failed to log success event:", err)
+      console.log("[confirm-device] Security event logged")
+    } catch (err: any) {
+      console.warn("[confirm-device] Failed to log success event:", err?.message || err)
     }
 
     console.log("[confirm-device] ✅ Device verified successfully for order:", orderId)
@@ -169,8 +206,11 @@ export async function POST(request: Request) {
       success: true,
       message: "Device verified successfully",
     })
-  } catch (error) {
-    console.error("[confirm-device] Error:", error)
+  } catch (error: any) {
+    console.error("[confirm-device] Unhandled error:", {
+      message: error?.message || error,
+      stack: error?.stack,
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
