@@ -3490,11 +3490,12 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               )}
               {/* CTA Button */}
               <div
-                className="w-full py-2 mt-2 text-center font-medium text-sm"
+                className="w-full py-2 mt-2 text-center font-medium text-sm transition-all"
                 style={{
                   borderRadius: `${Math.max(0, productBorderRadius - 4)}px`,
                   backgroundColor: ctaButtonColor,
                   color: ctaButtonTextColor,
+                  boxShadow: productShadowStyles[productButtonShadow] || "none",
                 }}
               >
                 {data.cta_text || 'Get My Guide'}
@@ -3557,10 +3558,12 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           </div>
           {/* CTA Button */}
           <div
-            className="w-full py-2.5 text-center font-medium text-sm"
+            className="w-full py-2.5 text-center font-medium text-sm transition-all"
             style={{
+              borderRadius: `0 0 ${productBorderRadius}px ${productBorderRadius}px`,
               backgroundColor: ctaButtonColor,
               color: ctaButtonTextColor,
+              boxShadow: productShadowStyles[productButtonShadow] || "none",
             }}
           >
             {data.cta_text || 'Get My Guide'}

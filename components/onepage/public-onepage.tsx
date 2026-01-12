@@ -4063,11 +4063,12 @@ function PublicBlockRenderer({
               )}
               {/* CTA Button */}
               <div
-                className="w-full py-2.5 mt-3 text-center font-medium text-sm sm:text-base"
+                className="w-full py-2.5 mt-3 text-center font-medium text-sm sm:text-base transition-all"
                 style={{
                   borderRadius: `${Math.max(0, productBorderRadius - 4)}px`,
                   backgroundColor: ctaButtonColor,
                   color: ctaButtonTextColor,
+                  boxShadow: shadowStyles[buttonShadow] || "none",
                 }}
               >
                 {ctaDisplayText}
@@ -4156,10 +4157,12 @@ function PublicBlockRenderer({
           </div>
           {/* CTA Button */}
           <div
-            className="w-full py-3 sm:py-3.5 text-center font-medium text-sm sm:text-base"
+            className="w-full py-3 sm:py-3.5 text-center font-medium text-sm sm:text-base transition-all"
             style={{
+              borderRadius: `0 0 ${productBorderRadius}px ${productBorderRadius}px`,
               backgroundColor: ctaButtonColor,
               color: ctaButtonTextColor,
+              boxShadow: shadowStyles[buttonShadow] || "none",
             }}
           >
             {ctaDisplayText}
