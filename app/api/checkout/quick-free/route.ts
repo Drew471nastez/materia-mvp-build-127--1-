@@ -187,10 +187,12 @@ export async function POST(request: Request) {
 
     console.log("[quick-free] Found", assets?.length || 0, "digital assets")
 
-    // Send emails asynchronously (don't block the response)
+    // Send emails immediately and await to ensure they're sent
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://materia.app"
 
-    sendOrderEmails(admin, {
+    console.log("[quick-free] Sending order emails...")
+
+    const emailResults = await sendOrderEmails(admin, {
       orderId: order.id,
       buyerEmail: email.toLowerCase().trim(),
       buyerFirstName: first_name.trim(),
@@ -201,11 +203,9 @@ export async function POST(request: Request) {
       amountCents: 0,
       feeCents: 0,
       baseUrl,
-    }).then((emailResults) => {
-      console.log("[quick-free] Email results:", emailResults)
-    }).catch((err) => {
-      console.error("[quick-free] Email error:", err)
     })
+
+    console.log("[quick-free] Email results:", emailResults)
 
     console.log("[quick-free] ✅ Quick checkout complete")
 
@@ -214,6 +214,7 @@ export async function POST(request: Request) {
       order_id: order.id,
       receipt_token: receiptToken,
       assets: assets || [],
+      email_sent: emailResults.buyerSuccess,
     })
   } catch (error) {
     console.error("[quick-free] ❌ Checkout error:", error)

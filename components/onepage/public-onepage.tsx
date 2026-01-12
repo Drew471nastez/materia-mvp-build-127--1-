@@ -1907,17 +1907,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                     disabled={!quickCheckoutFormData.firstName || !quickCheckoutFormData.lastName || !quickCheckoutFormData.email}
                     className="w-full py-3.5 px-4 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98]"
                     style={{
-                      backgroundColor: quickCheckoutModalData.blockBackgroundColor || '#7c3aed',
-                      color: (() => {
-                        // Calculate if background is light or dark to choose appropriate text color
-                        const bg = quickCheckoutModalData.blockBackgroundColor || '#7c3aed'
-                        const hex = bg.replace('#', '')
-                        const r = parseInt(hex.slice(0, 2), 16) || 0
-                        const g = parseInt(hex.slice(2, 4), 16) || 0
-                        const b = parseInt(hex.slice(4, 6), 16) || 0
-                        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-                        return luminance > 0.5 ? '#1f2937' : '#ffffff'
-                      })()
+                      backgroundColor: '#000000',
+                      color: '#ffffff'
                     }}
                   >
                     {quickCheckoutModalData.ctaText || 'Get it Now'}
