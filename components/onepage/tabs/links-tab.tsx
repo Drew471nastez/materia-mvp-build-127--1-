@@ -4051,6 +4051,23 @@ function BlockEditor({
   const [groupDragOverId, setGroupDragOverId] = useState<string | null>(null)
   const [selectedGroupChildId, setSelectedGroupChildId] = useState<string | null>(null)
 
+  // CTA dropdown state for product block
+  const [showCtaDropdown, setShowCtaDropdown] = useState(false)
+  const ctaDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close CTA dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ctaDropdownRef.current && !ctaDropdownRef.current.contains(e.target as Node)) {
+        setShowCtaDropdown(false)
+      }
+    }
+    if (showCtaDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCtaDropdown])
+
   // Sync block platforms when socialLinks change
   useEffect(() => {
     if (block.type === "social_row") {
@@ -4240,13 +4257,41 @@ function BlockEditor({
       ]
       const ctaOptions = ["Get My Guide", "Get it Now", "Buy Now", "Download", "Get Access", "Enroll Now", "Start Learning", "Custom"]
       const buttonStyles: { id: ProductButtonStyle; label: string }[] = [
-        { id: "default", label: "Default" },
         { id: "outline", label: "Outline" },
         { id: "filled", label: "Filled" },
       ]
-      const currentButtonStyle = data.button_style || "default"
+      // For callout/preview styles, use stored button_style (default to filled for callout, outline for preview)
+      const currentButtonStyle = data.style === "callout"
+        ? (data.button_style || "filled")
+        : data.style === "preview"
+          ? (data.button_style || "outline")
+          : "default"
       const buttonColorPresets = ['#ffffff', '#1a1a1a', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
       const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981']
+
+      // Handle style selection with auto button style assignment
+      const handleStyleSelect = (styleId: ProductBlockStyle) => {
+        if (styleId === "callout") {
+          // Callout defaults to filled button style
+          updateData({ style: styleId, button_style: data.button_style || "filled" })
+        } else if (styleId === "preview") {
+          // Preview defaults to outline button style
+          updateData({ style: styleId, button_style: data.button_style || "outline" })
+        } else {
+          // Button style doesn't use button_style
+          updateData({ style: styleId, button_style: "default" })
+        }
+      }
+
+      // Handle button style selection (auto-switch to callout if needed)
+      const handleButtonStyleSelect = (buttonStyleId: ProductButtonStyle) => {
+        if (data.style === "button") {
+          // If currently button style, switch to callout
+          updateData({ style: "callout", button_style: buttonStyleId })
+        } else {
+          updateData({ button_style: buttonStyleId })
+        }
+      }
 
       return (
         <div className="space-y-4">
@@ -4258,7 +4303,7 @@ function BlockEditor({
                 <button
                   key={id}
                   type="button"
-                  onClick={() => updateData({ style: id })}
+                  onClick={() => handleStyleSelect(id)}
                   className={cn(
                     "flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-all",
                     data.style === id
@@ -4318,25 +4363,57 @@ function BlockEditor({
             </div>
           </div>
 
-          {/* CTA Button Text - Dropdown */}
+          {/* CTA Button Text - Modern Dropdown */}
           <div className="space-y-2 pt-2 border-t">
             <Label className="text-xs">Button Text</Label>
-            <select
-              value={ctaOptions.includes(data.cta_text || "") ? data.cta_text : "Custom"}
-              onChange={(e) => {
-                if (e.target.value !== "Custom") {
-                  updateData({ cta_text: e.target.value })
-                }
-              }}
-              className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-            >
-              {ctaOptions.map((cta) => (
-                <option key={cta} value={cta}>
-                  {cta}
-                </option>
-              ))}
-            </select>
-            {(!ctaOptions.includes(data.cta_text || "") || data.cta_text === "Custom" || !ctaOptions.slice(0, -1).includes(data.cta_text || "")) && (
+            <div className="relative" ref={ctaDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowCtaDropdown(!showCtaDropdown)}
+                className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              >
+                <span className="truncate">{data.cta_text || "Get My Guide"}</span>
+                <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform", showCtaDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showCtaDropdown && (
+                <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[200px] overflow-y-auto">
+                  {ctaOptions.slice(0, -1).map((cta) => (
+                    <button
+                      key={cta}
+                      type="button"
+                      onClick={() => {
+                        updateData({ cta_text: cta })
+                        setShowCtaDropdown(false)
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left text-sm transition-colors",
+                        data.cta_text === cta
+                          ? "bg-violet-50 text-violet-700 font-medium"
+                          : "text-gray-700 hover:bg-gray-50"
+                      )}
+                    >
+                      {cta}
+                    </button>
+                  ))}
+                  <div className="border-t my-1" />
+                  <button
+                    type="button"
+                    onClick={() => setShowCtaDropdown(false)}
+                    className={cn(
+                      "w-full px-3 py-2 text-left text-sm transition-colors",
+                      !ctaOptions.slice(0, -1).includes(data.cta_text || "")
+                        ? "bg-violet-50 text-violet-700 font-medium"
+                        : "text-gray-700 hover:bg-gray-50"
+                    )}
+                  >
+                    Custom
+                  </button>
+                </div>
+              )}
+            </div>
+            {(!ctaOptions.slice(0, -1).includes(data.cta_text || "")) && (
               <Input
                 value={data.cta_text || ""}
                 onChange={(e) => updateData({ cta_text: e.target.value })}
@@ -4346,30 +4423,32 @@ function BlockEditor({
             )}
           </div>
 
-          {/* Button Style Selector */}
-          <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs">Button Style</Label>
-            <div className="flex gap-2">
-              {buttonStyles.map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => updateData({ button_style: id })}
-                  className={cn(
-                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
-                    currentButtonStyle === id
-                      ? "bg-white border-gray-900 text-gray-900"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+          {/* Button Style Selector - Only show for callout/preview styles */}
+          {(data.style === "callout" || data.style === "preview") && (
+            <div className="space-y-2 pt-2 border-t">
+              <Label className="text-xs">Button Style</Label>
+              <div className="flex gap-2">
+                {buttonStyles.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => handleButtonStyleSelect(id)}
+                    className={cn(
+                      "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                      currentButtonStyle === id
+                        ? "bg-white border-gray-900 text-gray-900"
+                        : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Outline Style Options */}
-          {currentButtonStyle === "outline" && (
+          {/* Outline Style Options - Only for callout/preview with outline button style */}
+          {(data.style === "callout" || data.style === "preview") && currentButtonStyle === "outline" && (
             <div className="space-y-3 pt-2">
               <div className="space-y-2">
                 <Label className="text-xs">Border color</Label>
@@ -4412,8 +4491,8 @@ function BlockEditor({
             </div>
           )}
 
-          {/* Filled Style Options */}
-          {currentButtonStyle === "filled" && (
+          {/* Filled Style Options - Only for callout/preview with filled button style */}
+          {(data.style === "callout" || data.style === "preview") && currentButtonStyle === "filled" && (
             <div className="space-y-4 pt-2">
               {/* Button Color */}
               <div className="space-y-2">

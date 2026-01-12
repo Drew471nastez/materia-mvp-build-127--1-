@@ -3350,6 +3350,23 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         }
       }
 
+      // Use product block's button_style if set, otherwise use theme's style
+      // For callout style: default to filled, for preview style: default to outline
+      const productButtonStyle = data.button_style && data.button_style !== "default"
+        ? data.button_style
+        : data.style === "preview"
+          ? "outline"
+          : data.style === "callout"
+            ? "filled"
+            : theme.button_style
+      const isOutlineStyle = productButtonStyle === "outline"
+
+      // Get product-specific colors with fallbacks to theme
+      const productBorderRadius = data.button_border_radius ?? theme.button_border_radius
+      const productButtonColor = data.button_color || theme.button_color
+      const productButtonTextColor = data.button_text_color || theme.button_text_color
+      const productBorderColor = data.button_border_color || theme.button_border_color || theme.text_color
+
       // Button style
       if (data.style === 'button') {
         return (
@@ -3391,15 +3408,15 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               getProductAnimationClass(data.animation_type),
             )}
             style={{
-              borderRadius: `${theme.button_border_radius}px`,
-              backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_color,
-              border: theme.button_style === "outline" ? `${theme.button_border_width}px solid ${theme.button_border_color}` : "none",
+              borderRadius: `${productBorderRadius}px`,
+              backgroundColor: isOutlineStyle ? "transparent" : productButtonColor,
+              border: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
             }}
           >
-            {data.product_thumbnail && (
+            {(data.custom_thumbnail || data.product_thumbnail) && (
               <div className="w-full aspect-[2/1] overflow-hidden">
                 <img
-                  src={data.product_thumbnail}
+                  src={data.custom_thumbnail || data.product_thumbnail}
                   alt=""
                   className="w-full h-full object-cover"
                 />
@@ -3408,14 +3425,14 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <div className="p-3 space-y-1">
               <p
                 className={cn(s.text, "font-medium")}
-                style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
               >
                 {data.product_title || 'Product'}
               </p>
               {data.show_description !== false && data.product_description && (
                 <p
                   className="text-[10px] opacity-75"
-                  style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                  style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
                 >
                   {data.product_description}
                 </p>
@@ -3423,16 +3440,17 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               {data.show_price !== false && (
                 <p
                   className={cn(s.text, "font-semibold")}
-                  style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                  style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
                 >
                   {priceDisplay}
                 </p>
               )}
               <div
-                className="w-full py-2 mt-2 text-center font-medium rounded-lg text-sm"
+                className="w-full py-2 mt-2 text-center font-medium text-sm"
                 style={{
-                  backgroundColor: theme.button_style === "outline" ? theme.button_color : `${theme.button_text_color}20`,
-                  color: theme.button_style === "outline" ? theme.button_text_color : theme.button_text_color,
+                  borderRadius: `${Math.max(0, productBorderRadius - 4)}px`,
+                  backgroundColor: isOutlineStyle ? productButtonColor : `${productButtonTextColor}20`,
+                  color: isOutlineStyle ? productButtonTextColor : productButtonTextColor,
                 }}
               >
                 {data.cta_text || 'Get My Guide'}
@@ -3453,16 +3471,16 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             getProductAnimationClass(data.animation_type),
           )}
           style={{
-            borderRadius: `${theme.button_border_radius}px`,
-            backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_color,
-            border: theme.button_style === "outline" ? `${theme.button_border_width}px solid ${theme.button_border_color}` : "none",
+            borderRadius: `${productBorderRadius}px`,
+            backgroundColor: isOutlineStyle ? "transparent" : productButtonColor,
+            border: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
           }}
         >
           <div className="p-3 flex gap-3">
-            {data.product_thumbnail && (
+            {(data.custom_thumbnail || data.product_thumbnail) && (
               <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100">
                 <img
-                  src={data.product_thumbnail}
+                  src={data.custom_thumbnail || data.product_thumbnail}
                   alt=""
                   className="w-full h-full object-cover"
                 />
@@ -3471,14 +3489,14 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <div className="flex-1 min-w-0 space-y-0.5">
               <p
                 className={cn(s.text, "font-medium truncate")}
-                style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
               >
                 {data.product_title || 'Product'}
               </p>
               {data.show_description !== false && data.product_description && (
                 <p
                   className="text-[10px] opacity-75 line-clamp-1"
-                  style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                  style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
                 >
                   {data.product_description}
                 </p>
@@ -3486,7 +3504,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               {data.show_price !== false && (
                 <p
                   className="text-xs font-semibold"
-                  style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                  style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
                 >
                   {priceDisplay}
                 </p>
@@ -3496,9 +3514,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           <div
             className="w-full py-2.5 text-center font-medium text-sm"
             style={{
-              backgroundColor: theme.button_style === "outline" ? theme.button_color : `${theme.button_text_color}15`,
-              color: theme.button_style === "outline" ? theme.button_text_color : theme.button_text_color,
-              borderTop: theme.button_style === "outline" ? `1px solid ${theme.button_border_color}` : "none",
+              backgroundColor: isOutlineStyle ? productButtonColor : `${productButtonTextColor}15`,
+              color: isOutlineStyle ? productButtonTextColor : productButtonTextColor,
+              borderTop: isOutlineStyle ? `1px solid ${productBorderColor}` : "none",
             }}
           >
             {data.cta_text || 'Get My Guide'}
