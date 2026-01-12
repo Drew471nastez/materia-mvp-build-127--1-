@@ -4400,7 +4400,13 @@ function BlockEditor({
                   <div className="border-t my-1" />
                   <button
                     type="button"
-                    onClick={() => setShowCtaDropdown(false)}
+                    onClick={() => {
+                      // Set cta_text to empty string to trigger custom input mode
+                      if (ctaOptions.slice(0, -1).includes(data.cta_text || "Get My Guide")) {
+                        updateData({ cta_text: "" })
+                      }
+                      setShowCtaDropdown(false)
+                    }}
                     className={cn(
                       "w-full px-3 py-2 text-left text-sm transition-colors",
                       !ctaOptions.slice(0, -1).includes(data.cta_text || "")
@@ -4413,6 +4419,7 @@ function BlockEditor({
                 </div>
               )}
             </div>
+            {/* Custom text input - shows when Custom is selected (when cta_text is not a preset) */}
             {(!ctaOptions.slice(0, -1).includes(data.cta_text || "")) && (
               <Input
                 value={data.cta_text || ""}

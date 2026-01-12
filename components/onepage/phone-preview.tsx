@@ -3397,6 +3397,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       }
 
       // Preview style - full card with image
+      // Note: Outline style only affects the CTA button, not the entire block container
       if (data.style === 'preview') {
         return (
           <a
@@ -3409,8 +3410,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             )}
             style={{
               borderRadius: `${productBorderRadius}px`,
-              backgroundColor: isOutlineStyle ? "transparent" : productButtonColor,
-              border: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
+              backgroundColor: productButtonColor,
+              border: "none",
             }}
           >
             {(data.custom_thumbnail || data.product_thumbnail) && (
@@ -3425,14 +3426,14 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <div className="p-3 space-y-1">
               <p
                 className={cn(s.text, "font-medium")}
-                style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
+                style={{ color: productButtonTextColor }}
               >
                 {data.product_title || 'Product'}
               </p>
               {data.show_description !== false && data.product_description && (
                 <p
                   className="text-[10px] opacity-75"
-                  style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
+                  style={{ color: productButtonTextColor }}
                 >
                   {data.product_description}
                 </p>
@@ -3440,17 +3441,19 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               {data.show_price !== false && (
                 <p
                   className={cn(s.text, "font-semibold")}
-                  style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
+                  style={{ color: productButtonTextColor }}
                 >
                   {priceDisplay}
                 </p>
               )}
+              {/* CTA Button - Outline style only applies here */}
               <div
                 className="w-full py-2 mt-2 text-center font-medium text-sm"
                 style={{
                   borderRadius: `${Math.max(0, productBorderRadius - 4)}px`,
-                  backgroundColor: isOutlineStyle ? productButtonColor : `${productButtonTextColor}20`,
-                  color: isOutlineStyle ? productButtonTextColor : productButtonTextColor,
+                  backgroundColor: isOutlineStyle ? "transparent" : `${productButtonTextColor}20`,
+                  color: isOutlineStyle ? productButtonColor : productButtonTextColor,
+                  border: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
                 }}
               >
                 {data.cta_text || 'Get My Guide'}
@@ -3461,6 +3464,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       }
 
       // Callout style (default) - compact card with thumbnail
+      // Note: Outline style only affects the CTA button, not the entire block container
       return (
         <a
           href={productUrl}
@@ -3472,8 +3476,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           )}
           style={{
             borderRadius: `${productBorderRadius}px`,
-            backgroundColor: isOutlineStyle ? "transparent" : productButtonColor,
-            border: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
+            backgroundColor: productButtonColor,
+            border: "none",
           }}
         >
           <div className="p-3 flex gap-3">
@@ -3489,14 +3493,14 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <div className="flex-1 min-w-0 space-y-0.5">
               <p
                 className={cn(s.text, "font-medium truncate")}
-                style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
+                style={{ color: productButtonTextColor }}
               >
                 {data.product_title || 'Product'}
               </p>
               {data.show_description !== false && data.product_description && (
                 <p
                   className="text-[10px] opacity-75 line-clamp-1"
-                  style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
+                  style={{ color: productButtonTextColor }}
                 >
                   {data.product_description}
                 </p>
@@ -3504,19 +3508,21 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               {data.show_price !== false && (
                 <p
                   className="text-xs font-semibold"
-                  style={{ color: isOutlineStyle ? theme.text_color : productButtonTextColor }}
+                  style={{ color: productButtonTextColor }}
                 >
                   {priceDisplay}
                 </p>
               )}
             </div>
           </div>
+          {/* CTA Button - Outline style only applies here */}
           <div
             className="w-full py-2.5 text-center font-medium text-sm"
             style={{
-              backgroundColor: isOutlineStyle ? productButtonColor : `${productButtonTextColor}15`,
-              color: isOutlineStyle ? productButtonTextColor : productButtonTextColor,
-              borderTop: isOutlineStyle ? `1px solid ${productBorderColor}` : "none",
+              backgroundColor: isOutlineStyle ? "transparent" : `${productButtonTextColor}15`,
+              color: isOutlineStyle ? productButtonColor : productButtonTextColor,
+              border: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
+              borderTop: isOutlineStyle ? `2px solid ${productBorderColor}` : "none",
             }}
           >
             {data.cta_text || 'Get My Guide'}
