@@ -56,6 +56,8 @@ interface QuickCheckoutModalContextType {
     textColor: string
     buttonBorderRadius: number
   }) => void
+  purchasedProducts: Record<string, { receiptToken: string; assets: DigitalAsset[] }>
+  downloadPurchasedAsset: (productId: string) => void
 }
 const QuickCheckoutModalContext = createContext<QuickCheckoutModalContextType | null>(null)
 
@@ -949,6 +951,21 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const [quickCheckoutReceiptToken, setQuickCheckoutReceiptToken] = useState<string | null>(null)
   const [quickCheckoutError, setQuickCheckoutError] = useState<string | null>(null)
 
+  // Purchased products tracking - persisted in localStorage
+  const [purchasedProducts, setPurchasedProducts] = useState<Record<string, { receiptToken: string; assets: DigitalAsset[] }>>({})
+
+  // Load purchased products from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('materia_purchased_products')
+      if (stored) {
+        setPurchasedProducts(JSON.parse(stored))
+      }
+    } catch (e) {
+      console.error('Failed to load purchased products from localStorage:', e)
+    }
+  }, [])
+
   const openQuickCheckoutModal = useCallback((data: {
     productId: string
     productTitle: string
@@ -997,6 +1014,22 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       setQuickCheckoutAssets(result.assets || [])
       setQuickCheckoutReceiptToken(result.receipt_token || null)
       setQuickCheckoutStep('success')
+
+      // Save to localStorage for persistence
+      if (quickCheckoutModalData?.productId && result.receipt_token) {
+        try {
+          const stored = localStorage.getItem('materia_purchased_products')
+          const existing = stored ? JSON.parse(stored) : {}
+          existing[quickCheckoutModalData.productId] = {
+            receiptToken: result.receipt_token,
+            assets: result.assets || [],
+          }
+          localStorage.setItem('materia_purchased_products', JSON.stringify(existing))
+          setPurchasedProducts(existing)
+        } catch (e) {
+          console.error('Failed to save purchase to localStorage:', e)
+        }
+      }
     } catch (error: any) {
       setQuickCheckoutError(error.message || 'Something went wrong. Please try again.')
       setQuickCheckoutStep('form')
@@ -1018,7 +1051,25 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     }
   }, [quickCheckoutReceiptToken])
 
-  const quickCheckoutModalContextValue = { openQuickCheckoutModal }
+  // Download function for already purchased products
+  const downloadPurchasedAsset = useCallback(async (productId: string) => {
+    const purchase = purchasedProducts[productId]
+    if (!purchase || !purchase.receiptToken || !purchase.assets?.length) return
+
+    // Download the first asset
+    const asset = purchase.assets[0]
+    try {
+      const response = await fetch(`/api/download/${asset.id}?receipt=${purchase.receiptToken}`)
+      const result = await response.json()
+      if (result.downloadUrl) {
+        window.open(result.downloadUrl, '_blank')
+      }
+    } catch (error) {
+      console.error('Download failed:', error)
+    }
+  }, [purchasedProducts])
+
+  const quickCheckoutModalContextValue = { openQuickCheckoutModal, purchasedProducts, downloadPurchasedAsset }
 
   // Safe defaults
   const safeTheme = theme || {
@@ -1854,8 +1905,20 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                   <button
                     onClick={handleQuickCheckoutSubmit}
                     disabled={!quickCheckoutFormData.firstName || !quickCheckoutFormData.lastName || !quickCheckoutFormData.email}
-                    className="w-full py-3.5 px-4 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98]"
-                    style={{ backgroundColor: quickCheckoutModalData.blockBackgroundColor || '#7c3aed' }}
+                    className="w-full py-3.5 px-4 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98]"
+                    style={{
+                      backgroundColor: quickCheckoutModalData.blockBackgroundColor || '#7c3aed',
+                      color: (() => {
+                        // Calculate if background is light or dark to choose appropriate text color
+                        const bg = quickCheckoutModalData.blockBackgroundColor || '#7c3aed'
+                        const hex = bg.replace('#', '')
+                        const r = parseInt(hex.slice(0, 2), 16) || 0
+                        const g = parseInt(hex.slice(2, 4), 16) || 0
+                        const b = parseInt(hex.slice(4, 6), 16) || 0
+                        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+                        return luminance > 0.5 ? '#1f2937' : '#ffffff'
+                      })()
+                    }}
                   >
                     {quickCheckoutModalData.ctaText || 'Get it Now'}
                   </button>
@@ -3846,10 +3909,62 @@ function PublicBlockRenderer({
         ? (data.button_text_color || textColor)
         : textColor
 
-      // Handle click - either open quick checkout modal or navigate to product page
+      // Button styles for product block (mirrors link_button styles)
+      const buttonShadow = (theme as any).button_shadow || "none"
+      const shadowColor = (theme as any).button_shadow_color || "#000000"
+      const hexToRgba = (hex: string, alpha: number) => {
+        const r = Number.parseInt(hex.slice(1, 3), 16)
+        const g = Number.parseInt(hex.slice(3, 5), 16)
+        const b = Number.parseInt(hex.slice(5, 7), 16)
+        return `rgba(${r},${g},${b},${alpha})`
+      }
+      const shadowStyles: Record<string, string> = {
+        none: "none",
+        subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
+        strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
+        hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
+      }
+      const buttonStyles: React.CSSProperties = {
+        backgroundColor:
+          theme.button_style === "filled"
+            ? theme.button_color
+            : theme.button_style === "glass"
+              ? `${theme.button_color}`
+              : "transparent",
+        color: theme.button_text_color,
+        borderRadius: `${theme.button_border_radius}px`,
+        borderWidth:
+          theme.button_style === "outline"
+            ? `${theme.button_border_width || 2}px`
+            : theme.button_style === "glass"
+              ? "1px"
+              : "0",
+        borderColor:
+          theme.button_style === "outline"
+            ? theme.button_border_color
+            : theme.button_style === "glass"
+              ? `${theme.button_text_color}30`
+              : "transparent",
+        borderStyle: "solid",
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        boxShadow: shadowStyles[buttonShadow] || "none",
+      }
+
+      // Check if product is already purchased
+      const isPurchased = quickCheckoutContext?.purchasedProducts?.[data.product_id] !== undefined
+      const purchaseInfo = isPurchased ? quickCheckoutContext?.purchasedProducts[data.product_id] : null
+
+      // Handle click - download if purchased, open checkout modal, or navigate to product page
       const handleProductClick = (e: React.MouseEvent) => {
         // Track click
         trackClick(block.id, productUrl)
+
+        // If already purchased with quick checkout, download directly
+        if (isPurchased && quickCheckoutContext && useQuickCheckout) {
+          e.preventDefault()
+          quickCheckoutContext.downloadPurchasedAsset(data.product_id)
+          return
+        }
 
         if (useQuickCheckout && quickCheckoutContext) {
           e.preventDefault()
@@ -3866,6 +3981,9 @@ function PublicBlockRenderer({
         }
       }
 
+      // Determine CTA text - show "Download" if already purchased
+      const ctaDisplayText = isPurchased && useQuickCheckout ? 'Download' : (data.cta_text || 'Get My Guide')
+
       // Button style - simple button
       if (data.style === 'button') {
         const buttonContent = (
@@ -3877,8 +3995,8 @@ function PublicBlockRenderer({
                 className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover shrink-0"
               />
             )}
-            <span className="truncate">{data.cta_text || 'Get My Guide'}</span>
-            {data.show_price !== false && (
+            <span className="truncate">{ctaDisplayText}</span>
+            {data.show_price !== false && !isPurchased && (
               <span className="text-sm opacity-75 shrink-0">{priceDisplay}</span>
             )}
           </>
@@ -3961,7 +4079,7 @@ function PublicBlockRenderer({
                   color: ctaButtonTextColor,
                 }}
               >
-                {data.cta_text || 'Get My Guide'}
+                {ctaDisplayText}
               </div>
             </div>
           </>
@@ -4053,7 +4171,7 @@ function PublicBlockRenderer({
               color: ctaButtonTextColor,
             }}
           >
-            {data.cta_text || 'Get My Guide'}
+            {ctaDisplayText}
           </div>
         </>
       )

@@ -70,7 +70,17 @@ export async function POST(request: Request) {
 
     if (codeError) {
       console.error("[v0] Error creating verification code:", codeError)
-      return NextResponse.json({ error: "Failed to generate verification code" }, { status: 500 })
+      // Check if it's a table not found error
+      if (codeError.message?.includes("relation") || codeError.code === "42P01") {
+        return NextResponse.json({
+          error: "Verification system not configured. Please contact support.",
+          details: "verification_codes table missing"
+        }, { status: 500 })
+      }
+      return NextResponse.json({
+        error: "Failed to generate verification code. Please try again.",
+        details: process.env.NODE_ENV === "development" ? codeError.message : undefined
+      }, { status: 500 })
     }
 
     // Log security event
@@ -116,7 +126,11 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Failed to send verification email" }, { status: 500 })
       }
     } else {
-      return NextResponse.json({ error: "Email service not configured" }, { status: 500 })
+      console.error("[v0] Email service not configured - RESEND_API_KEY missing")
+      return NextResponse.json({
+        error: "Email service not available. Please contact support.",
+        details: "email_service_not_configured"
+      }, { status: 500 })
     }
 
     return NextResponse.json({
