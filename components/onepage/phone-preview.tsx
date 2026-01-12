@@ -14,6 +14,7 @@ import type {
   HeaderBlockData,
   SocialRowBlockData,
   GroupBlockData,
+  ProductBlockData,
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -3319,6 +3320,171 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             </p>
           )}
         </div>
+      )
+    }
+
+    case "product": {
+      const data = block.data as ProductBlockData
+      if (!data.product_id && !data.product_title) {
+        return (
+          <div className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 text-center opacity-60">
+            <p className="text-xs" style={{ color: theme.text_color }}>Select a product</p>
+          </div>
+        )
+      }
+
+      const productUrl = data.product_slug ? `/p/${data.product_slug}` : '#'
+      const priceDisplay = data.product_price_cents && data.product_price_cents > 0
+        ? `$${(data.product_price_cents / 100).toFixed(2)}`
+        : 'Free'
+
+      // Button style
+      if (data.style === 'button') {
+        return (
+          <a
+            href={productUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              s.button,
+              "w-full font-medium flex items-center justify-center gap-2 transition-all cursor-pointer",
+            )}
+            style={buttonStyles}
+          >
+            {data.product_thumbnail && (
+              <img
+                src={data.product_thumbnail}
+                alt=""
+                className="w-5 h-5 rounded object-cover shrink-0"
+              />
+            )}
+            <span className="truncate">{data.cta_text || 'Get My Guide'}</span>
+            {data.show_price !== false && (
+              <span className="text-xs opacity-75">{priceDisplay}</span>
+            )}
+          </a>
+        )
+      }
+
+      // Preview style - full card with image
+      if (data.style === 'preview') {
+        return (
+          <a
+            href={productUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full block overflow-hidden transition-all cursor-pointer"
+            style={{
+              borderRadius: `${theme.button_border_radius}px`,
+              backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_color,
+              border: theme.button_style === "outline" ? `${theme.button_border_width}px solid ${theme.button_border_color}` : "none",
+            }}
+          >
+            {data.product_thumbnail && (
+              <div className="w-full aspect-[2/1] overflow-hidden">
+                <img
+                  src={data.product_thumbnail}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className="p-3 space-y-1">
+              <p
+                className={cn(s.text, "font-medium")}
+                style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+              >
+                {data.product_title || 'Product'}
+              </p>
+              {data.show_description !== false && data.product_description && (
+                <p
+                  className="text-[10px] opacity-75"
+                  style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                >
+                  {data.product_description}
+                </p>
+              )}
+              {data.show_price !== false && (
+                <p
+                  className={cn(s.text, "font-semibold")}
+                  style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                >
+                  {priceDisplay}
+                </p>
+              )}
+              <div
+                className="w-full py-2 mt-2 text-center font-medium rounded-lg text-sm"
+                style={{
+                  backgroundColor: theme.button_style === "outline" ? theme.button_color : `${theme.button_text_color}20`,
+                  color: theme.button_style === "outline" ? theme.button_text_color : theme.button_text_color,
+                }}
+              >
+                {data.cta_text || 'Get My Guide'}
+              </div>
+            </div>
+          </a>
+        )
+      }
+
+      // Callout style (default) - compact card with thumbnail
+      return (
+        <a
+          href={productUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full block overflow-hidden transition-all cursor-pointer"
+          style={{
+            borderRadius: `${theme.button_border_radius}px`,
+            backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_color,
+            border: theme.button_style === "outline" ? `${theme.button_border_width}px solid ${theme.button_border_color}` : "none",
+          }}
+        >
+          <div className="p-3 flex gap-3">
+            {data.product_thumbnail && (
+              <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100">
+                <img
+                  src={data.product_thumbnail}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className="flex-1 min-w-0 space-y-0.5">
+              <p
+                className={cn(s.text, "font-medium truncate")}
+                style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+              >
+                {data.product_title || 'Product'}
+              </p>
+              {data.show_description !== false && data.product_description && (
+                <p
+                  className="text-[10px] opacity-75 line-clamp-1"
+                  style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                >
+                  {data.product_description}
+                </p>
+              )}
+              {data.show_price !== false && (
+                <p
+                  className="text-xs font-semibold"
+                  style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                >
+                  {priceDisplay}
+                </p>
+              )}
+            </div>
+          </div>
+          <div
+            className="w-full py-2.5 text-center font-medium text-sm"
+            style={{
+              backgroundColor: theme.button_style === "outline" ? theme.button_color : `${theme.button_text_color}15`,
+              color: theme.button_style === "outline" ? theme.button_text_color : theme.button_text_color,
+              borderTop: theme.button_style === "outline" ? `1px solid ${theme.button_border_color}` : "none",
+            }}
+          >
+            {data.cta_text || 'Get My Guide'}
+          </div>
+        </a>
       )
     }
 

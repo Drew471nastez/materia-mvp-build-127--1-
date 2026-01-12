@@ -150,11 +150,20 @@ export interface LinkButtonBlockData {
   tiktok_show_embed?: boolean
 }
 
+export type ProductBlockStyle = 'button' | 'callout' | 'preview'
+
 export interface ProductBlockData {
   product_id: string
   show_price: boolean
   show_description: boolean
   cta_text: string
+  style: ProductBlockStyle
+  // Cached product data for display
+  product_title?: string | null
+  product_thumbnail?: string | null
+  product_description?: string | null
+  product_price_cents?: number | null
+  product_slug?: string | null
 }
 
 export interface SocialRowBlockData {
@@ -406,7 +415,8 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           product_id: "",
           show_price: true,
           show_description: true,
-          cta_text: "Get it now",
+          cta_text: "Get My Guide",
+          style: "callout",
         } as ProductBlockData,
       }
     case "social_row":

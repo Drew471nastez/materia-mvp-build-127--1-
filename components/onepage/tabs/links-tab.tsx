@@ -20,6 +20,8 @@ import {
   type GroupBlockData,
   type GroupLayoutType,
   type CarouselViewType,
+  type ProductBlockData,
+  type ProductBlockStyle,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -462,6 +464,10 @@ function getBlockPreviewData(block: OnePageBlock) {
     }
     case "social_row":
       return { title: "Social Icons", subtitle: "Social links", icon: Share2 }
+    case "product": {
+      const data = block.data as ProductBlockData
+      return { title: data.product_title || "Digital Product", subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : "Select product", icon: ShoppingBag }
+    }
     case "group": {
       const data = block.data as GroupBlockData
       const childCount = data.children?.length || 0
@@ -3431,6 +3437,10 @@ function BlockItem({
       }
       case "social_row":
         return { title: "Social Icons", subtitle: "Social links", icon: Share2 }
+      case "product": {
+        const data = block.data as ProductBlockData
+        return { title: data.product_title || "Digital Product", subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : "Select product", icon: ShoppingBag, thumbnail_url: data.product_thumbnail }
+      }
       case "group": {
         const data = block.data as GroupBlockData
         const childCount = data.children?.length || 0
@@ -3880,6 +3890,16 @@ function BlockItem({
   )
 }
 
+// Seller product interface for product selector
+interface SellerProduct {
+  id: string
+  title: string
+  price_cents: number
+  thumbnail_url?: string | null
+  description?: string | null
+  slug?: string | null
+}
+
 function BlockEditor({
   block,
   socialLinks,
@@ -3893,6 +3913,7 @@ function BlockEditor({
   onOpenAddBlockModal,
   onMoveChildToMainList,
   updateBlockOverride,
+  sellerProducts,
 }: {
   block: OnePageBlock
   socialLinks: OnePageSocialLinks
@@ -3906,9 +3927,44 @@ function BlockEditor({
   onOpenAddBlockModal?: (groupId: string) => void
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   updateBlockOverride?: (blockId: string, updates: Partial<OnePageBlock>) => void
-}) {
-  const { updateBlock: contextUpdateBlock, updateSocialLinks, setActiveSection } = useOnePage()
+  sellerProducts?: SellerProduct[]
+) {
+  const { updateBlock: contextUpdateBlock, updateSocialLinks, setActiveSection, onepage } = useOnePage()
   const updateBlock = updateBlockOverride || contextUpdateBlock
+
+  // Products for product block selector
+  const [sellerProductsLocal, setSellerProductsLocal] = useState<SellerProduct[]>([])
+
+  // Fetch seller products when product block is selected
+  useEffect(() => {
+    if (block.type === "product") {
+      const fetchProducts = async () => {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: creator } = await supabase
+          .from("creators")
+          .select("id")
+          .eq("user_id", user.id)
+          .single()
+
+        if (!creator) return
+
+        const { data } = await supabase
+          .from("products")
+          .select("id, title, price_cents, thumbnail_url, description, slug")
+          .eq("creator_id", creator.id)
+          .order("created_at", { ascending: false })
+
+        setSellerProductsLocal(data || [])
+      }
+      fetchProducts()
+    }
+  }, [block.type])
+
+  // Use provided sellerProducts or local fetch
+  const effectiveSellerProducts = sellerProducts || sellerProductsLocal
 
   // Thumbnail editing state
   const [showThumbnailPopup, setShowThumbnailPopup] = useState(false)
@@ -4997,6 +5053,129 @@ function BlockEditor({
             <div className="space-y-1.5">
               <Label className="text-xs">Link URL (optional)</Label>
               <Input value={data.link_url || ""} onChange={(e) => updateData({ link_url: e.target.value || null })} className="h-9" />
+            </div>
+          </div>
+        )
+      }
+
+      case "product": {
+        const data = block.data as ProductBlockData
+        const productStyles: { id: ProductBlockStyle; label: string; icon: React.ReactNode }[] = [
+          { id: "button", label: "Button", icon: <div className="w-full h-2 bg-current rounded-sm" /> },
+          { id: "callout", label: "Callout", icon: <div className="w-full h-4 bg-current/20 rounded-sm border border-current/40" /> },
+          { id: "preview", label: "Preview", icon: <div className="w-full h-5 bg-current/10 rounded-sm flex items-center justify-center"><div className="w-2 h-2 bg-current rounded-sm" /></div> },
+        ]
+        const ctaOptions = ["Get My Guide", "Get it Now", "Buy Now", "Download", "Get Access", "Enroll Now", "Start Learning"]
+
+        return (
+          <div className="space-y-4">
+            {/* Product Selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Select Product</Label>
+              <select
+                value={data.product_id || ""}
+                onChange={async (e) => {
+                  const productId = e.target.value
+                  if (productId && effectiveSellerProducts) {
+                    const selectedProduct = effectiveSellerProducts.find(p => p.id === productId)
+                    if (selectedProduct) {
+                      // Truncate description
+                      let shortDesc = selectedProduct.description || ''
+                      const words = shortDesc.split(' ')
+                      if (words.length > 7) {
+                        shortDesc = words.slice(0, 7).join(' ') + '...'
+                      }
+                      updateData({
+                        product_id: productId,
+                        product_title: selectedProduct.title,
+                        product_thumbnail: selectedProduct.thumbnail_url || null,
+                        product_description: shortDesc || null,
+                        product_price_cents: selectedProduct.price_cents || 0,
+                        product_slug: selectedProduct.slug || null,
+                      })
+                    }
+                  } else {
+                    updateData({ product_id: "" })
+                  }
+                }}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+              >
+                <option value="">Select a product...</option>
+                {effectiveSellerProducts?.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.title} {product.price_cents > 0 ? `- $${(product.price_cents / 100).toFixed(2)}` : '- Free'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Style Selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Style</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {productStyles.map(({ id, label, icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => updateData({ style: id })}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all",
+                      data.style === id
+                        ? "border-violet-500 bg-violet-50 text-violet-600"
+                        : "border-gray-200 hover:border-gray-300 bg-white text-gray-500"
+                    )}
+                  >
+                    <div className="w-full h-5 flex items-center justify-center">
+                      {icon}
+                    </div>
+                    <span className="text-[10px] font-medium">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* CTA Button Text */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Button Text</Label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {ctaOptions.map((cta) => (
+                  <button
+                    key={cta}
+                    onClick={() => updateData({ cta_text: cta })}
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-md border transition-all",
+                      data.cta_text === cta
+                        ? "border-violet-500 bg-violet-50 text-violet-600"
+                        : "border-gray-200 hover:border-gray-300 bg-white text-gray-600"
+                    )}
+                  >
+                    {cta}
+                  </button>
+                ))}
+              </div>
+              <Input
+                value={data.cta_text || ""}
+                onChange={(e) => updateData({ cta_text: e.target.value })}
+                placeholder="Custom button text..."
+                className="h-9"
+              />
+            </div>
+
+            {/* Display Options */}
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Show Price</Label>
+                <Toggle
+                  checked={data.show_price !== false}
+                  onCheckedChange={(checked) => updateData({ show_price: checked })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Show Description</Label>
+                <Toggle
+                  checked={data.show_description !== false}
+                  onCheckedChange={(checked) => updateData({ show_description: checked })}
+                />
+              </div>
             </div>
           </div>
         )

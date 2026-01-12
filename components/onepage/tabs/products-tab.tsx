@@ -44,6 +44,8 @@ interface Product {
   thumbnail_url?: string
   status: string
   type?: string // 'digital' | 'course' | 'lead_magnet' etc.
+  slug?: string
+  description?: string
 }
 
 // Product type options for the modal
@@ -81,7 +83,7 @@ const productTypeOptions = [
 ]
 
 export function ProductsTab() {
-  const { onepage, addBlock, setActiveSection } = useOnePage()
+  const { onepage, addBlock, updateBlock, setActiveSection } = useOnePage()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -106,7 +108,7 @@ export function ProductsTab() {
 
       const { data } = await supabase
         .from("products")
-        .select("id, title, price_cents, thumbnail_url, status, type")
+        .select("id, title, price_cents, thumbnail_url, status, type, slug, description")
         .eq("creator_id", creator.id)
         .order("created_at", { ascending: false })
 
@@ -139,9 +141,31 @@ export function ProductsTab() {
     if (product.type === 'lead_magnet' || product.type === 'email_capture') {
       addBlock("email_capture")
     } else {
-      // Add product block
+      // Add product block with product data pre-filled
       const newBlock = addBlock("product")
-      // Update the block with product_id if needed
+      if (newBlock) {
+        // Truncate description to ~7 words
+        let shortDescription = product.description || ''
+        const words = shortDescription.split(' ')
+        if (words.length > 7) {
+          shortDescription = words.slice(0, 7).join(' ') + '...'
+        }
+
+        updateBlock(newBlock.id, {
+          data: {
+            product_id: product.id,
+            show_price: true,
+            show_description: true,
+            cta_text: "Get My Guide",
+            style: "callout",
+            product_title: product.title,
+            product_thumbnail: product.thumbnail_url || null,
+            product_description: shortDescription || null,
+            product_price_cents: product.price_cents || 0,
+            product_slug: product.slug || null,
+          }
+        })
+      }
     }
 
     // Show confirmation briefly then redirect
@@ -149,7 +173,7 @@ export function ProductsTab() {
       setAddingProductId(null)
       setActiveSection("links")
     }, 500)
-  }, [addBlock, setActiveSection])
+  }, [addBlock, updateBlock, setActiveSection])
 
   // Handle modal option click
   const handleModalOptionClick = (option: typeof productTypeOptions[0]) => {
@@ -376,69 +400,6 @@ export function ProductsTab() {
                 )
               })}
             </div>
-
-            {/* Existing Products Quick Add */}
-            {products.length > 0 && (
-              <div className="mt-6 pt-6 border-t">
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">Or add an existing product</h4>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                  {products.slice(0, 5).map((product) => {
-                    const badge = getProductBadge(product.type)
-                    const isAdding = addingProductId === product.id
-                    return (
-                      <div
-                        key={product.id}
-                        className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50/50 transition-all"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                          {product.thumbnail_url ? (
-                            <img
-                              src={product.thumbnail_url}
-                              alt={product.title}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="h-4 w-4 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium truncate">{product.title}</p>
-                            <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0", badge.color)}>
-                              {badge.label}
-                            </span>
-                          </div>
-                        </div>
-                        <Button
-                          variant={isAdding ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => {
-                            handleAddProductToPage(product)
-                            setShowAddModal(false)
-                          }}
-                          disabled={isAdding}
-                          className={cn(
-                            "h-8 px-3 text-xs shrink-0",
-                            isAdding && "bg-green-500 hover:bg-green-500"
-                          )}
-                        >
-                          {isAdding ? (
-                            <>
-                              <Check className="h-3 w-3 mr-1" />
-                              Added
-                            </>
-                          ) : (
-                            "Add"
-                          )}
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         </DialogContent>
       </Dialog>
