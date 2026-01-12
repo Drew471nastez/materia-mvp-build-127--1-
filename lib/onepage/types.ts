@@ -164,6 +164,9 @@ export interface ProductBlockData {
   product_description?: string | null
   product_price_cents?: number | null
   product_slug?: string | null
+  // Layout and animation options
+  layout_type?: BlockLayoutType
+  animation_type?: BlockAnimationType
 }
 
 export interface SocialRowBlockData {

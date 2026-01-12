@@ -89,7 +89,21 @@ export function ProductsTab() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [addingProductId, setAddingProductId] = useState<string | null>(null)
+  const [addedProductIds, setAddedProductIds] = useState<Set<string>>(new Set())
   const router = useRouter()
+
+  // Check which products already have blocks on the page
+  useEffect(() => {
+    if (onepage?.draft_blocks) {
+      const productBlockIds = new Set<string>()
+      onepage.draft_blocks.forEach(block => {
+        if (block.type === "product" && (block.data as any).product_id) {
+          productBlockIds.add((block.data as any).product_id)
+        }
+      })
+      setAddedProductIds(productBlockIds)
+    }
+  }, [onepage?.draft_blocks])
 
   // Fetch user's products
   useEffect(() => {
@@ -135,23 +149,34 @@ export function ProductsTab() {
 
   // Handle adding product to Links tab
   const handleAddProductToPage = useCallback(async (product: Product) => {
+    // Check if product is already added
+    if (addedProductIds.has(product.id)) {
+      // Product already added, just navigate to links
+      setActiveSection("links")
+      return
+    }
+
     setAddingProductId(product.id)
 
     // Determine block type based on product type
     if (product.type === 'lead_magnet' || product.type === 'email_capture') {
       addBlock("email_capture")
     } else {
-      // Add product block with product data pre-filled
-      const newBlock = addBlock("product")
-      if (newBlock) {
-        // Truncate description to ~7 words
-        let shortDescription = product.description || ''
-        const words = shortDescription.split(' ')
-        if (words.length > 7) {
-          shortDescription = words.slice(0, 7).join(' ') + '...'
-        }
+      // Truncate description to ~7 words
+      let shortDescription = product.description || ''
+      const words = shortDescription.split(' ')
+      if (words.length > 7) {
+        shortDescription = words.slice(0, 7).join(' ') + '...'
+      }
 
-        updateBlock(newBlock.id, {
+      // Check if there's an existing product block without a product selected
+      const existingEmptyProductBlock = onepage?.draft_blocks?.find(
+        block => block.type === "product" && !(block.data as any).product_id
+      )
+
+      if (existingEmptyProductBlock) {
+        // Use existing empty product block
+        updateBlock(existingEmptyProductBlock.id, {
           data: {
             product_id: product.id,
             show_price: true,
@@ -165,7 +190,29 @@ export function ProductsTab() {
             product_slug: product.slug || null,
           }
         })
+      } else {
+        // Create new product block
+        const newBlock = addBlock("product")
+        if (newBlock) {
+          updateBlock(newBlock.id, {
+            data: {
+              product_id: product.id,
+              show_price: true,
+              show_description: true,
+              cta_text: "Get My Guide",
+              style: "callout",
+              product_title: product.title,
+              product_thumbnail: product.thumbnail_url || null,
+              product_description: shortDescription || null,
+              product_price_cents: product.price_cents || 0,
+              product_slug: product.slug || null,
+            }
+          })
+        }
       }
+
+      // Add to added products set
+      setAddedProductIds(prev => new Set([...prev, product.id]))
     }
 
     // Show confirmation briefly then redirect
@@ -173,7 +220,7 @@ export function ProductsTab() {
       setAddingProductId(null)
       setActiveSection("links")
     }, 500)
-  }, [addBlock, updateBlock, setActiveSection])
+  }, [addBlock, updateBlock, setActiveSection, addedProductIds, onepage?.draft_blocks])
 
   // Handle modal option click
   const handleModalOptionClick = (option: typeof productTypeOptions[0]) => {
@@ -261,16 +308,16 @@ export function ProductsTab() {
                       </p>
                     </div>
                     <Button
-                      variant={isAdding ? "default" : "outline"}
+                      variant={isAdding || addedProductIds.has(product.id) ? "default" : "outline"}
                       size="sm"
                       onClick={() => handleAddProductToPage(product)}
                       disabled={isAdding}
                       className={cn(
                         "shrink-0 min-w-[70px]",
-                        isAdding && "bg-green-500 hover:bg-green-500"
+                        (isAdding || addedProductIds.has(product.id)) && "bg-green-500 hover:bg-green-600"
                       )}
                     >
-                      {isAdding ? (
+                      {isAdding || addedProductIds.has(product.id) ? (
                         <>
                           <Check className="h-4 w-4 mr-1" />
                           Added

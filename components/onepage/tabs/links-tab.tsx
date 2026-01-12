@@ -3399,7 +3399,7 @@ function BlockItem({
   // Fetch click count on mount for link buttons and email capture
   useEffect(() => {
     const fetchClickCount = async () => {
-      if (!onepage?.id || (block.type !== "link_button" && block.type !== "email_capture" && block.type !== "group")) return
+      if (!onepage?.id || (block.type !== "link_button" && block.type !== "email_capture" && block.type !== "group" && block.type !== "product")) return
       try {
         const response = await fetch(`/api/onepage/stats?onepage_id=${onepage.id}&block_id=${block.id}&days=365`)
         if (response.ok) {
@@ -3458,7 +3458,9 @@ function BlockItem({
   const isLinkButton = block.type === "link_button"
   const isEmailCapture = block.type === "email_capture"
   const isGroup = block.type === "group"
-  const hasStats = isLinkButton || isEmailCapture || isGroup
+  const isProduct = block.type === "product"
+  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct
+  const hasAnimation = isLinkButton || isProduct
   const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
   // Check if this group block can accept the dragged block
@@ -3580,8 +3582,8 @@ function BlockItem({
           </div>
         )}
 
-        {/* Animation control for link buttons */}
-        {isLinkButton && (
+        {/* Animation control for link buttons and product blocks */}
+        {hasAnimation && (
           <div className="relative" ref={animationMenuRef}>
             <button
               type="button"
@@ -3591,7 +3593,7 @@ function BlockItem({
               }}
               className={cn(
                 "p-1.5 rounded-lg transition-colors",
-                (block.data as LinkButtonBlockData).animation_type && (block.data as LinkButtonBlockData).animation_type !== 'none'
+                (block.data as any).animation_type && (block.data as any).animation_type !== 'none'
                   ? "text-violet-600 bg-violet-50 hover:bg-violet-100"
                   : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               )}
@@ -3611,7 +3613,7 @@ function BlockItem({
                   { id: 'glow', label: 'Glow' },
                   { id: 'swipe', label: 'Swipe' },
                 ].map((anim) => {
-                  const currentAnimation = (block.data as LinkButtonBlockData).animation_type || 'none'
+                  const currentAnimation = (block.data as any).animation_type || 'none'
                   return (
                     <button
                       key={anim.id}
@@ -4153,7 +4155,7 @@ function BlockEditor({
   }
 
   // Determine if this block type supports layout options
-  const supportsLayout = ["link_button", "image"].includes(block.type)
+  const supportsLayout = ["link_button", "image", "product"].includes(block.type)
 
   // Get current layout type from block data
   const currentLayoutType = (block.data as any).layout_type || 'default'

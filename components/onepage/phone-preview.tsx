@@ -3338,6 +3338,18 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         ? `$${(data.product_price_cents / 100).toFixed(2)}`
         : 'Free'
 
+      // Get animation class for product blocks
+      const getProductAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
       // Button style
       if (data.style === 'button') {
         return (
@@ -3348,6 +3360,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             className={cn(
               s.button,
               "w-full font-medium flex items-center justify-center gap-2 transition-all cursor-pointer",
+              getProductAnimationClass(data.animation_type),
             )}
             style={buttonStyles}
           >
@@ -3373,7 +3386,10 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             href={productUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full block overflow-hidden transition-all cursor-pointer"
+            className={cn(
+              "w-full block overflow-hidden transition-all cursor-pointer",
+              getProductAnimationClass(data.animation_type),
+            )}
             style={{
               borderRadius: `${theme.button_border_radius}px`,
               backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_color,
@@ -3432,7 +3448,10 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           href={productUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full block overflow-hidden transition-all cursor-pointer"
+          className={cn(
+            "w-full block overflow-hidden transition-all cursor-pointer",
+            getProductAnimationClass(data.animation_type),
+          )}
           style={{
             borderRadius: `${theme.button_border_radius}px`,
             backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_color,
