@@ -194,34 +194,74 @@ export async function updateOrderEmailStatus(
 export async function resolveCreatorIdentity(
   admin: any,
   creatorId: string,
-): Promise<{ fromName: string; replyTo: string }> {
+): Promise<{ fromName: string; replyTo: string; sellerEmail: string }> {
   try {
-    const { data: creator } = await admin
+    console.log("[email] Resolving creator identity for:", creatorId)
+
+    const { data: creator, error: creatorError } = await admin
       .from("creators")
       .select("headline, slug, support_email, user_id")
       .eq("id", creatorId)
       .single()
 
+    if (creatorError) {
+      console.error("[email] Error fetching creator:", creatorError)
+    }
+
     let fromName = ""
     let replyTo = ""
+    let sellerEmail = ""
 
     // reply-to: prefer creator support email
-    if (creator?.support_email?.trim()) replyTo = creator.support_email.trim()
+    if (creator?.support_email?.trim()) {
+      replyTo = creator.support_email.trim()
+      sellerEmail = replyTo
+      console.log("[email] Found creator support_email:", sellerEmail)
+    }
 
     // from name: prefer PROFILE DISPLAY NAME first (what you want)
     if (creator?.user_id) {
-      const { data: profile } = await admin
+      const { data: profile, error: profileError } = await admin
         .from("profiles")
         .select("email, display_name, username")
         .eq("id", creator.user_id)
         .single()
 
+      if (profileError) {
+        console.error("[email] Error fetching profile:", profileError)
+      }
+
       // ✅ FROM NAME priority: display_name → username
       if (profile?.display_name?.trim()) fromName = profile.display_name.trim()
       else if (profile?.username?.trim()) fromName = profile.username.trim()
 
-      // fallback reply-to from profile email
-      if (!replyTo && profile?.email?.trim()) replyTo = profile.email.trim()
+      // fallback reply-to and seller email from profile email
+      if (!replyTo && profile?.email?.trim()) {
+        replyTo = profile.email.trim()
+        console.log("[email] Using profile email as replyTo:", replyTo)
+      }
+
+      // Seller email should be the profile email if we don't have support_email
+      if (!sellerEmail && profile?.email?.trim()) {
+        sellerEmail = profile.email.trim()
+        console.log("[email] Using profile email as seller email:", sellerEmail)
+      }
+    }
+
+    // Also try to get the user's auth email if we still don't have a seller email
+    if (!sellerEmail && creator?.user_id) {
+      try {
+        // Try auth.users if available via admin
+        const { data: authUser } = await admin.auth.admin.getUserById(creator.user_id)
+        if (authUser?.user?.email) {
+          sellerEmail = authUser.user.email.trim()
+          if (!replyTo) replyTo = sellerEmail
+          console.log("[email] Using auth email as seller email:", sellerEmail)
+        }
+      } catch (authErr) {
+        // This might fail if auth admin is not available, which is fine
+        console.log("[email] Could not fetch auth user email (this is fine):", authErr)
+      }
     }
 
     // last fallback for name (only if no profile display_name/username)
@@ -230,15 +270,26 @@ export async function resolveCreatorIdentity(
       else if (creator?.slug?.trim()) fromName = creator.slug.trim()
     }
 
-    return {
+    const result = {
       fromName: safeName(fromName) || PLATFORM_BRAND_NAME,
       replyTo: normalizeEmail(replyTo) || DEFAULT_SUPPORT,
+      sellerEmail: normalizeEmail(sellerEmail) || DEFAULT_SUPPORT,
     }
+
+    console.log("[email] Resolved creator identity:", {
+      creatorId,
+      fromName: result.fromName,
+      replyTo: result.replyTo,
+      sellerEmail: result.sellerEmail,
+    })
+
+    return result
   } catch (err) {
     console.error("[email] Error resolving creator identity:", err)
     return {
       fromName: PLATFORM_BRAND_NAME,
       replyTo: DEFAULT_SUPPORT,
+      sellerEmail: DEFAULT_SUPPORT,
     }
   }
 }
@@ -249,9 +300,13 @@ export async function resolveCreatorIdentity(
  * Keep this export forever so old imports never break.
  */
 export async function resolveSellerEmail(admin: any, creatorId: string): Promise<string> {
-  if (!creatorId) return DEFAULT_SUPPORT
-  const { replyTo } = await resolveCreatorIdentity(admin, creatorId)
-  return replyTo || DEFAULT_SUPPORT
+  if (!creatorId) {
+    console.warn("[email] resolveSellerEmail called without creatorId")
+    return DEFAULT_SUPPORT
+  }
+  const { sellerEmail } = await resolveCreatorIdentity(admin, creatorId)
+  console.log("[email] resolveSellerEmail result:", sellerEmail)
+  return sellerEmail || DEFAULT_SUPPORT
 }
 
 // -------------------------
@@ -567,8 +622,20 @@ export async function sendSellerNotificationEmail(
     baseUrl,
   } = params
 
+  console.log("[email] 🔔 Sending seller notification email:", {
+    orderId,
+    creatorId,
+    sellerEmail,
+    productTitle,
+    buyerEmail,
+    amountCents,
+  })
+
   const alreadySent = await wasEmailAlreadySent(admin, orderId, "seller_notification")
-  if (alreadySent) return { success: true }
+  if (alreadySent) {
+    console.log("[email] Seller notification already sent for order:", orderId)
+    return { success: true }
+  }
 
   const logId = await logEmailAttempt(admin, {
     orderId,
@@ -580,6 +647,7 @@ export async function sendSellerNotificationEmail(
 
   if (!resend) {
     const error = "Email service not configured (RESEND_API_KEY missing)"
+    console.error("[email] ❌ Seller notification failed:", error)
     if (logId) await updateEmailLog(admin, logId, "failed", error)
     await updateOrderEmailStatus(admin, orderId, "seller", false, error)
     return { success: false, error, logId: logId || undefined }
@@ -589,14 +657,22 @@ export async function sendSellerNotificationEmail(
   const fromName = identity?.fromName || PLATFORM_BRAND_NAME
   const replyTo = identity?.replyTo || DEFAULT_SUPPORT
 
-  const sellerEmailAddress = normalizeEmail(sellerEmail)
+  // Use resolved seller email if provided email is fallback
+  let finalSellerEmail = normalizeEmail(sellerEmail)
+  if (finalSellerEmail === DEFAULT_SUPPORT && identity?.sellerEmail && identity.sellerEmail !== DEFAULT_SUPPORT) {
+    finalSellerEmail = identity.sellerEmail
+    console.log("[email] Using resolved seller email instead of fallback:", finalSellerEmail)
+  }
+
   const ordersLink = buildUrl("/app/orders", baseUrl)
   const subject = `New sale: ${safeText(productTitle)}`
+
+  console.log("[email] Sending seller notification to:", finalSellerEmail, "Subject:", subject)
 
   try {
     const response = await resend.emails.send({
       from: buildFromHeader(fromName),
-      to: sellerEmailAddress,
+      to: finalSellerEmail,
       replyTo,
       subject,
       html: sellerEmailHtml({
@@ -622,11 +698,13 @@ export async function sendSellerNotificationEmail(
 
     if ((response as any)?.error) throw new Error((response as any).error.message || "Resend API error")
 
+    console.log("[email] ✅ Seller notification sent successfully to:", finalSellerEmail)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "seller", true)
     return { success: true, logId: logId || undefined }
   } catch (err: any) {
     const errorMessage = err?.message || "Unknown error sending email"
+    console.error("[email] ❌ Seller notification failed:", errorMessage)
     if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
     await updateOrderEmailStatus(admin, orderId, "seller", false, errorMessage)
     return { success: false, error: errorMessage, logId: logId || undefined }
@@ -662,6 +740,14 @@ export async function sendOrderEmails(
       baseUrl,
     } = params
 
+    console.log("[sendOrderEmails] 📧 Processing order emails:", {
+      orderId,
+      creatorId,
+      buyerEmail,
+      productTitle,
+      amountCents,
+    })
+
     // Send buyer email
     const buyerResult = await sendBuyerDownloadEmail(admin, {
       orderId,
@@ -673,10 +759,13 @@ export async function sendOrderEmails(
       baseUrl,
     })
 
-    // Get seller email
-    const sellerEmail = await resolveSellerEmail(admin, creatorId)
+    console.log("[sendOrderEmails] Buyer email result:", buyerResult.success ? "✅ sent" : "❌ failed", buyerResult.error || "")
 
-    // Send seller email
+    // Get seller email - resolve from creator
+    const sellerEmail = await resolveSellerEmail(admin, creatorId)
+    console.log("[sendOrderEmails] Resolved seller email:", sellerEmail)
+
+    // Send seller notification email IMMEDIATELY
     const sellerResult = await sendSellerNotificationEmail(admin, {
       orderId,
       creatorId,
@@ -690,12 +779,19 @@ export async function sendOrderEmails(
       baseUrl,
     })
 
+    console.log("[sendOrderEmails] Seller email result:", sellerResult.success ? "✅ sent" : "❌ failed", sellerResult.error || "")
+    console.log("[sendOrderEmails] 📧 Order emails complete:", {
+      orderId,
+      buyerSuccess: buyerResult.success,
+      sellerSuccess: sellerResult.success,
+    })
+
     return {
       buyerSuccess: buyerResult.success,
       sellerSuccess: sellerResult.success,
     }
   } catch (err: any) {
-    console.error("[sendOrderEmails] Error:", err)
+    console.error("[sendOrderEmails] ❌ Error:", err)
     return { buyerSuccess: false, sellerSuccess: false }
   }
 }
