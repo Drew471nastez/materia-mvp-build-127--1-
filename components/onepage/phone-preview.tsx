@@ -3282,6 +3282,88 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
     case "email_capture": {
       const data = block.data as EmailCaptureBlockData
+      const isPro = data.layout_type === "pro"
+      const hasDigitalProduct = data.enable_digital_product && data.digital_product_id
+      const showThumbnail = isPro && hasDigitalProduct && data.digital_product_thumbnail
+      
+      // Get button text from custom or preset
+      const getButtonText = () => {
+        if (emailSubmitted) {
+          return hasDigitalProduct ? "Download" : "Subscribed!"
+        }
+        if (data.custom_button_text) return data.custom_button_text
+        const presetLabels: Record<string, string> = {
+          subscribe: 'Subscribe',
+          join: 'Join Now',
+          get_access: 'Get Access',
+          download: 'Download',
+          sign_up: 'Sign Up',
+        }
+        return presetLabels[data.button_preset || 'subscribe'] || data.button_text || "Subscribe"
+      }
+
+      // Pro layout with thumbnail
+      if (isPro && showThumbnail) {
+        return (
+          <div 
+            className="w-full rounded-xl overflow-hidden"
+            style={{ backgroundColor: `${theme.text_color}08` }}
+          >
+            <div className="p-3 space-y-2">
+              {/* Product row */}
+              <div className="flex gap-2.5 items-start">
+                <img
+                  src={data.digital_product_thumbnail || ""}
+                  alt=""
+                  className="w-11 h-11 rounded-lg object-cover shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  {data.headline && (
+                    <h3 className={cn(s.headline, "font-semibold")} style={{ color: theme.text_color }}>
+                      {data.headline}
+                    </h3>
+                  )}
+                  {data.description && (
+                    <p
+                      className="text-[9px] line-clamp-1"
+                      style={{ color: theme.secondary_text_color || `${theme.text_color}aa` }}
+                    >
+                      {data.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {/* Input row */}
+              <div className="flex flex-col gap-1.5">
+                <input
+                  type="email"
+                  placeholder={data.placeholder || "Enter your email"}
+                  className={cn(s.input, "w-full rounded-lg bg-white/90 border-0 outline-none", emailSubmitted && "opacity-70")}
+                  style={{ color: "#000" }}
+                  disabled={emailSubmitted}
+                />
+                <button
+                  onClick={() => setEmailSubmitted(true)}
+                  disabled={emailSubmitted}
+                  className={cn(s.inputBtn, "w-full font-medium", emailSubmitted && "opacity-70")}
+                  style={buttonStyles}
+                >
+                  {getButtonText()}
+                </button>
+              </div>
+            </div>
+            {emailSubmitted && (
+              <div className="px-3 pb-2">
+                <p className="text-[9px] text-center opacity-70" style={{ color: theme.text_color }}>
+                  {data.success_message || "Thanks for subscribing!"}
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      }
+
+      // Default layout
       return (
         <div className="w-full space-y-2">
           {data.headline && (
@@ -3297,21 +3379,21 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               {data.description}
             </p>
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-1.5">
             <input
               type="email"
               placeholder={data.placeholder || "Enter your email"}
-              className={cn(s.input, "flex-1 rounded-lg bg-white/10 border-0 outline-none", emailSubmitted && "opacity-70")}
+              className={cn(s.input, "w-full rounded-lg bg-white/10 border-0 outline-none", emailSubmitted && "opacity-70")}
               style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
               disabled={emailSubmitted}
             />
             <button
               onClick={() => setEmailSubmitted(true)}
               disabled={emailSubmitted}
-              className={cn(s.inputBtn, "font-medium shrink-0", emailSubmitted && "opacity-50 cursor-not-allowed")}
+              className={cn(s.inputBtn, "w-full font-medium", emailSubmitted && "opacity-70")}
               style={buttonStyles}
             >
-              {emailSubmitted ? "Subscribed!" : data.button_text || "Subscribe"}
+              {getButtonText()}
             </button>
           </div>
           {emailSubmitted && (
