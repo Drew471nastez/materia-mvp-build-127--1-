@@ -151,6 +151,7 @@ export interface LinkButtonBlockData {
 }
 
 export type ProductBlockStyle = 'button' | 'callout' | 'preview'
+export type ProductButtonStyle = 'default' | 'outline' | 'filled'
 
 export interface ProductBlockData {
   product_id: string
@@ -167,6 +168,14 @@ export interface ProductBlockData {
   // Layout and animation options
   layout_type?: BlockLayoutType
   animation_type?: BlockAnimationType
+  // Custom thumbnail (overrides product thumbnail)
+  custom_thumbnail?: string | null
+  // Button style customization
+  button_style?: ProductButtonStyle
+  button_color?: string | null
+  button_text_color?: string | null
+  button_border_color?: string | null
+  button_border_radius?: number | null
 }
 
 export interface SocialRowBlockData {

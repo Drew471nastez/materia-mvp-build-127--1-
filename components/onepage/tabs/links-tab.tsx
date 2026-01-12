@@ -22,6 +22,7 @@ import {
   type CarouselViewType,
   type ProductBlockData,
   type ProductBlockStyle,
+  type ProductButtonStyle,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -466,7 +467,7 @@ function getBlockPreviewData(block: OnePageBlock) {
       return { title: "Social Icons", subtitle: "Social links", icon: Share2 }
     case "product": {
       const data = block.data as ProductBlockData
-      return { title: data.product_title || "Digital Product", subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : "Select product", icon: ShoppingBag }
+      return { title: data.product_title || "Digital Product", subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : "Select product", icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
     }
     case "group": {
       const data = block.data as GroupBlockData
@@ -1171,13 +1172,25 @@ export function LinksTab() {
         .from('onepage-assets')
         .getPublicUrl(fileName)
 
-      updateBlock(thumbnailBlockId, {
-        data: {
-          ...onepage.draft_blocks.find(b => b.id === thumbnailBlockId)?.data,
-          thumbnail_url: publicUrl,
-          icon: null
-        }
-      })
+      const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+      if (block?.type === 'product') {
+        // For product blocks, use custom_thumbnail
+        updateBlock(thumbnailBlockId, {
+          data: {
+            ...block.data,
+            custom_thumbnail: publicUrl
+          }
+        })
+      } else {
+        // For link_button blocks, use thumbnail_url
+        updateBlock(thumbnailBlockId, {
+          data: {
+            ...block?.data,
+            thumbnail_url: publicUrl,
+            icon: null
+          }
+        })
+      }
       setShowThumbnailModal(false)
       setShowIconLibraryInModal(false)
     } catch (error) {
@@ -1194,8 +1207,17 @@ export function LinksTab() {
   const getThumbnailBlockData = () => {
     if (!thumbnailBlockId) return null
     const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
-    if (!block || block.type !== 'link_button') return null
-    return block.data as LinkButtonBlockData
+    if (!block) return null
+    if (block.type === 'link_button') return block.data as LinkButtonBlockData
+    if (block.type === 'product') return block.data as ProductBlockData
+    return null
+  }
+
+  // Get the block type for thumbnail modal
+  const getThumbnailBlockType = () => {
+    if (!thumbnailBlockId) return null
+    const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+    return block?.type || null
   }
 
   // Check if a block type has reached its limit
@@ -2357,22 +2379,39 @@ export function LinksTab() {
           {!showIconLibraryInModal && (
             <>
               <DialogHeader className="p-4 border-b">
-                <DialogTitle className="text-base font-semibold">Edit Thumbnail</DialogTitle>
+                <DialogTitle className="text-base font-semibold">
+                  {getThumbnailBlockType() === 'product' ? 'Edit Custom Thumbnail' : 'Edit Thumbnail'}
+                </DialogTitle>
               </DialogHeader>
               <div className="p-4 space-y-3">
                 {/* Current thumbnail preview */}
                 {getThumbnailBlockData() && (
                   <div className="flex items-center justify-center pb-3 border-b">
                     <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-                      {getThumbnailBlockData()?.thumbnail_url ? (
-                        <img src={getThumbnailBlockData()?.thumbnail_url || ''} alt="" className="w-full h-full object-cover" />
-                      ) : getThumbnailBlockData()?.icon && THUMBNAIL_ICON_PATHS[getThumbnailBlockData()?.icon || ''] ? (
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
-                          <path d={THUMBNAIL_ICON_PATHS[getThumbnailBlockData()?.icon || '']} />
-                        </svg>
-                      ) : (
-                        <ImageIcon className="w-7 h-7 text-gray-400" />
-                      )}
+                      {(() => {
+                        const blockData = getThumbnailBlockData()
+                        const blockType = getThumbnailBlockType()
+                        if (blockType === 'product') {
+                          const productData = blockData as ProductBlockData | null
+                          if (productData?.custom_thumbnail) {
+                            return <img src={productData.custom_thumbnail} alt="" className="w-full h-full object-cover" />
+                          } else if (productData?.product_thumbnail) {
+                            return <img src={productData.product_thumbnail} alt="" className="w-full h-full object-cover opacity-50" />
+                          }
+                        } else {
+                          const linkData = blockData as LinkButtonBlockData | null
+                          if (linkData?.thumbnail_url) {
+                            return <img src={linkData.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          } else if (linkData?.icon && THUMBNAIL_ICON_PATHS[linkData.icon]) {
+                            return (
+                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                                <path d={THUMBNAIL_ICON_PATHS[linkData.icon]} />
+                              </svg>
+                            )
+                          }
+                        }
+                        return <ImageIcon className="w-7 h-7 text-gray-400" />
+                      })()}
                     </div>
                   </div>
                 )}
@@ -2397,46 +2436,66 @@ export function LinksTab() {
                   </div>
                 </button>
 
-                {/* Icon library button */}
-                <button
-                  type="button"
-                  onClick={() => setShowIconLibraryInModal(true)}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                    <Grid3X3 className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Choose icon</p>
-                    <p className="text-xs text-muted-foreground">From icon library</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </button>
-
-                {/* Remove thumbnail */}
-                {(getThumbnailBlockData()?.thumbnail_url || getThumbnailBlockData()?.icon) && (
+                {/* Icon library button - only for link_button blocks */}
+                {getThumbnailBlockType() === 'link_button' && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (thumbnailBlockId) {
-                        updateBlock(thumbnailBlockId, {
-                          data: {
-                            ...onepage.draft_blocks.find(b => b.id === thumbnailBlockId)?.data,
-                            thumbnail_url: null,
-                            icon: null
-                          }
-                        })
-                      }
-                      setShowThumbnailModal(false)
-                    }}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 transition-colors text-left border border-red-200 text-red-600"
+                    onClick={() => setShowIconLibraryInModal(true)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
-                      <Trash2 className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <Grid3X3 className="w-5 h-5 text-purple-600" />
                     </div>
-                    <p className="text-sm font-medium">Remove thumbnail</p>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Choose icon</p>
+                      <p className="text-xs text-muted-foreground">From icon library</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
                   </button>
                 )}
+
+                {/* Remove thumbnail */}
+                {(() => {
+                  const blockData = getThumbnailBlockData()
+                  const blockType = getThumbnailBlockType()
+                  const hasThumbnail = blockType === 'product'
+                    ? (blockData as ProductBlockData | null)?.custom_thumbnail
+                    : ((blockData as LinkButtonBlockData | null)?.thumbnail_url || (blockData as LinkButtonBlockData | null)?.icon)
+
+                  return hasThumbnail ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (thumbnailBlockId) {
+                          const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+                          if (block?.type === 'product') {
+                            updateBlock(thumbnailBlockId, {
+                              data: {
+                                ...block.data,
+                                custom_thumbnail: null
+                              }
+                            })
+                          } else {
+                            updateBlock(thumbnailBlockId, {
+                              data: {
+                                ...block?.data,
+                                thumbnail_url: null,
+                                icon: null
+                              }
+                            })
+                          }
+                        }
+                        setShowThumbnailModal(false)
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 transition-colors text-left border border-red-200 text-red-600"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+                        <Trash2 className="w-5 h-5" />
+                      </div>
+                      <p className="text-sm font-medium">Remove thumbnail</p>
+                    </button>
+                  ) : null
+                })()}
               </div>
             </>
           )}
@@ -2535,13 +2594,16 @@ export function LinksTab() {
                           type="button"
                           onClick={() => {
                             if (thumbnailBlockId) {
-                              updateBlock(thumbnailBlockId, {
-                                data: {
-                                  ...onepage.draft_blocks.find(b => b.id === thumbnailBlockId)?.data,
-                                  icon: icon.id,
-                                  thumbnail_url: null
-                                }
-                              })
+                              const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+                              if (block?.type === 'link_button') {
+                                updateBlock(thumbnailBlockId, {
+                                  data: {
+                                    ...block.data,
+                                    icon: icon.id,
+                                    thumbnail_url: null
+                                  }
+                                })
+                              }
                             }
                             setShowThumbnailModal(false)
                             setShowIconLibraryInModal(false)
@@ -2550,7 +2612,13 @@ export function LinksTab() {
                           }}
                           className={cn(
                             "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 transition-all hover:bg-gray-100 hover:shadow-sm p-2",
-                            getThumbnailBlockData()?.icon === icon.id && "bg-gray-100 shadow-sm ring-2 ring-gray-900"
+                            (() => {
+                              const blockData = getThumbnailBlockData()
+                              if (getThumbnailBlockType() === 'link_button' && blockData) {
+                                return (blockData as LinkButtonBlockData).icon === icon.id
+                              }
+                              return false
+                            })() && "bg-gray-100 shadow-sm ring-2 ring-gray-900"
                           )}
                           title={icon.name}
                         >
@@ -3439,7 +3507,7 @@ function BlockItem({
         return { title: "Social Icons", subtitle: "Social links", icon: Share2 }
       case "product": {
         const data = block.data as ProductBlockData
-        return { title: data.product_title || "Digital Product", subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : "Select product", icon: ShoppingBag, thumbnail_url: data.product_thumbnail }
+        return { title: data.product_title || "Digital Product", subtitle: data.product_price_cents ? `$${(data.product_price_cents / 100).toFixed(2)}` : "Select product", icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
       }
       case "group": {
         const data = block.data as GroupBlockData
@@ -3501,8 +3569,8 @@ function BlockItem({
           </div>
         )}
 
-        {/* Clickable thumbnail for link buttons */}
-        {isLinkButton && onOpenThumbnailModal ? (
+        {/* Clickable thumbnail for link buttons and product blocks */}
+        {(isLinkButton || isProduct) && onOpenThumbnailModal ? (
           <button
             type="button"
             onClick={(e) => {
@@ -4170,7 +4238,15 @@ function BlockEditor({
         { id: "callout", label: "Callout" },
         { id: "preview", label: "Preview" },
       ]
-      const ctaOptions = ["Get My Guide", "Get it Now", "Buy Now", "Download", "Get Access", "Enroll Now", "Start Learning"]
+      const ctaOptions = ["Get My Guide", "Get it Now", "Buy Now", "Download", "Get Access", "Enroll Now", "Start Learning", "Custom"]
+      const buttonStyles: { id: ProductButtonStyle; label: string }[] = [
+        { id: "default", label: "Default" },
+        { id: "outline", label: "Outline" },
+        { id: "filled", label: "Filled" },
+      ]
+      const currentButtonStyle = data.button_style || "default"
+      const buttonColorPresets = ['#ffffff', '#1a1a1a', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
+      const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981']
 
       return (
         <div className="space-y-4">
@@ -4196,31 +4272,244 @@ function BlockEditor({
             </div>
           </div>
 
-          {/* CTA Button Text */}
+          {/* Custom Thumbnail Section */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs">Custom Thumbnail</Label>
+            <p className="text-xs text-muted-foreground">Override the product image with a custom thumbnail</p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
+                className="group relative w-14 h-14 rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-gray-50 hover:bg-gray-100"
+              >
+                {data.custom_thumbnail ? (
+                  <img
+                    src={data.custom_thumbnail}
+                    alt="Custom thumbnail"
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                ) : data.product_thumbnail ? (
+                  <img
+                    src={data.product_thumbnail}
+                    alt="Product thumbnail"
+                    className="w-full h-full object-cover rounded-lg opacity-50"
+                  />
+                ) : (
+                  <ImageIcon className="w-6 h-6 text-gray-400" />
+                )}
+                {/* Pencil icon */}
+                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
+                  <Pencil className="w-3 h-3 text-gray-500" />
+                </div>
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
+              </button>
+              {data.custom_thumbnail && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => updateData({ custom_thumbnail: null })}
+                  className="text-xs text-gray-500 hover:text-red-500"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Remove
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* CTA Button Text - Dropdown */}
           <div className="space-y-2 pt-2 border-t">
             <Label className="text-xs">Button Text</Label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
+            <select
+              value={ctaOptions.includes(data.cta_text || "") ? data.cta_text : "Custom"}
+              onChange={(e) => {
+                if (e.target.value !== "Custom") {
+                  updateData({ cta_text: e.target.value })
+                }
+              }}
+              className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+            >
               {ctaOptions.map((cta) => (
+                <option key={cta} value={cta}>
+                  {cta}
+                </option>
+              ))}
+            </select>
+            {(!ctaOptions.includes(data.cta_text || "") || data.cta_text === "Custom" || !ctaOptions.slice(0, -1).includes(data.cta_text || "")) && (
+              <Input
+                value={data.cta_text || ""}
+                onChange={(e) => updateData({ cta_text: e.target.value })}
+                placeholder="Enter custom button text..."
+                className="h-9 rounded-lg"
+              />
+            )}
+          </div>
+
+          {/* Button Style Selector */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs">Button Style</Label>
+            <div className="flex gap-2">
+              {buttonStyles.map(({ id, label }) => (
                 <button
-                  key={cta}
+                  key={id}
                   type="button"
-                  onClick={() => updateData({ cta_text: cta })}
+                  onClick={() => updateData({ button_style: id })}
                   className={cn(
-                    "px-2.5 py-1.5 text-xs rounded-md border transition-all",
-                    data.cta_text === cta
-                      ? "border-violet-500 bg-violet-50 text-violet-600"
-                      : "border-gray-200 hover:border-gray-300 bg-white text-gray-600"
+                    "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                    currentButtonStyle === id
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
                   )}
                 >
-                  {cta}
+                  {label}
                 </button>
               ))}
             </div>
-            <Input
-              value={data.cta_text || ""}
-              onChange={(e) => updateData({ cta_text: e.target.value })}
-              placeholder="Custom button text..."
-              className="h-9"
+          </div>
+
+          {/* Outline Style Options */}
+          {currentButtonStyle === "outline" && (
+            <div className="space-y-3 pt-2">
+              <div className="space-y-2">
+                <Label className="text-xs">Border color</Label>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <input
+                      type="color"
+                      value={data.button_border_color || "#1a1a1a"}
+                      onChange={(e) => updateData({ button_border_color: e.target.value })}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div
+                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
+                      style={{ backgroundColor: data.button_border_color || "#1a1a1a" }}
+                    />
+                  </div>
+                  <Input
+                    value={data.button_border_color || "#1a1a1a"}
+                    onChange={(e) => updateData({ button_border_color: e.target.value })}
+                    placeholder="#1a1a1a"
+                    className="h-12 rounded-xl flex-1 font-mono text-sm"
+                  />
+                </div>
+                {/* Color presets */}
+                <div className="flex gap-2 pt-1">
+                  {buttonColorPresets.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => updateData({ button_border_color: color })}
+                      className={cn(
+                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                        data.button_border_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Filled Style Options */}
+          {currentButtonStyle === "filled" && (
+            <div className="space-y-4 pt-2">
+              {/* Button Color */}
+              <div className="space-y-2">
+                <Label className="text-xs">Button color</Label>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <input
+                      type="color"
+                      value={data.button_color || "#7c3aed"}
+                      onChange={(e) => updateData({ button_color: e.target.value })}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div
+                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
+                      style={{ backgroundColor: data.button_color || "#7c3aed" }}
+                    />
+                  </div>
+                  <Input
+                    value={data.button_color || "#7c3aed"}
+                    onChange={(e) => updateData({ button_color: e.target.value })}
+                    placeholder="#7c3aed"
+                    className="h-12 rounded-xl flex-1 font-mono text-sm"
+                  />
+                </div>
+                {/* Color presets */}
+                <div className="flex gap-2 pt-1">
+                  {buttonColorPresets.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => updateData({ button_color: color })}
+                      className={cn(
+                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                        data.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Button Text Color */}
+              <div className="space-y-2">
+                <Label className="text-xs">Button text color</Label>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <input
+                      type="color"
+                      value={data.button_text_color || "#ffffff"}
+                      onChange={(e) => updateData({ button_text_color: e.target.value })}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div
+                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
+                      style={{ backgroundColor: data.button_text_color || "#ffffff" }}
+                    />
+                  </div>
+                  <Input
+                    value={data.button_text_color || "#ffffff"}
+                    onChange={(e) => updateData({ button_text_color: e.target.value })}
+                    placeholder="#ffffff"
+                    className="h-12 rounded-xl flex-1 font-mono text-sm"
+                  />
+                </div>
+                {/* Color presets */}
+                <div className="flex gap-2 pt-1">
+                  {textColorPresets.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => updateData({ button_text_color: color })}
+                      className={cn(
+                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                        data.button_text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Border Radius Slider */}
+          <div className="space-y-2 pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Border Radius</Label>
+              <span className="text-xs text-muted-foreground">{data.button_border_radius ?? 12}px</span>
+            </div>
+            <Slider
+              value={[data.button_border_radius ?? 12]}
+              onValueChange={([value]) => updateData({ button_border_radius: value })}
+              min={0}
+              max={32}
+              step={2}
+              className="w-full"
             />
           </div>
         </div>
