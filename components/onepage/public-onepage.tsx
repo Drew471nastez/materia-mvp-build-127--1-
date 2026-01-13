@@ -293,14 +293,14 @@ function NotificationBell({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Hide completely when any fullscreen modal is open ON MOBILE ONLY
-  if (isAnyModalOpen && isMobile) return null
+  // On mobile, hide smoothly when PDF modal is open
+  const hideForModal = isAnyModalOpen && isMobile
 
   return (
     <div
       className={cn(
-        "fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
-        bellVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none",
+        "fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-[opacity,transform] duration-300 ease-out",
+        bellVisible && !hideForModal ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none",
       )}
     >
       {/* Bell Button */}
@@ -605,13 +605,13 @@ function ShareButton({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  const buttonWrapperClass = cn(
-    "transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
-    shareVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-1 pointer-events-none",
-  )
+  // On mobile, hide smoothly when PDF modal is open
+  const hideForModal = isAnyModalOpen && isMobile
 
-  // Hide completely when any fullscreen modal is open ON MOBILE ONLY
-  if (isAnyModalOpen && isMobile) return null
+  const buttonWrapperClass = cn(
+    "transition-[opacity,transform] duration-300 ease-out",
+    shareVisible && !hideForModal ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-2 pointer-events-none",
+  )
 
   return (
     <>
@@ -4715,6 +4715,20 @@ function PublicBlockRenderer({
       const [currentPage, setCurrentPage] = useState(1)
       const [totalPages, setTotalPages] = useState(1)
       const pdfContainerRef = useRef<HTMLDivElement>(null)
+      const { setIsAnyModalOpen } = useContext(ModalVisibilityContext)
+
+      // Sync modal state to context AFTER render - this ensures modal opens before buttons hide
+      useEffect(() => {
+        if (showPdfModal) {
+          // Small delay to ensure modal is fully rendered before hiding buttons
+          const timer = setTimeout(() => {
+            setIsAnyModalOpen(true)
+          }, 50)
+          return () => clearTimeout(timer)
+        } else {
+          setIsAnyModalOpen(false)
+        }
+      }, [showPdfModal, setIsAnyModalOpen])
 
       const handleOpenPdf = () => {
         if (pdfUrl) {
