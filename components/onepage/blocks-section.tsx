@@ -626,13 +626,8 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
             <Toggle
               checked={data.enable_digital_product || false}
               onCheckedChange={(checked) => {
-                // Preserve existing data when toggling
-                updateData({ 
-                  enable_digital_product: checked,
-                  // Keep the file URL and title if already set
-                  digital_product_file_url: checked ? (data.digital_product_file_url || null) : data.digital_product_file_url,
-                  digital_product_title: checked ? (data.digital_product_title || null) : data.digital_product_title,
-                })
+                // Only update the enable flag, preserve all other data
+                updateData({ enable_digital_product: checked })
               }}
             />
           </div>

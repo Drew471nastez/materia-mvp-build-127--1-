@@ -3734,24 +3734,29 @@ function PublicBlockRenderer({
       }) as EmailCaptureBlockData
 
       const isPro = data.layout_type === "pro"
-      const hasDigitalProduct = data.enable_digital_product && data.digital_product_id
-      const layoutImage = data.product_image || (hasDigitalProduct ? data.digital_product_thumbnail : null)
+      const hasDigitalProduct = data.enable_digital_product && data.digital_product_file_url
+      const layoutImage = data.product_image || data.digital_product_thumbnail
       const showThumbnail = isPro && layoutImage
 
       // Get button text from custom or preset
       const getButtonText = () => {
+        // If submitted and we have a download link, always show "Download"
         if (emailSubmitted && downloadLink) {
           return "Download"
         }
+        // If submitted without download link
         if (emailSubmitted) {
-          return hasDigitalProduct ? "Subscribed!" : "Subscribed!"
+          return "Subscribed!"
         }
-        if (data.custom_button_text) return data.custom_button_text
+        // Get the preset or custom button text
+        if (data.button_preset === 'custom' && data.custom_button_text) {
+          return data.custom_button_text
+        }
         const presetLabels: Record<string, string> = {
           subscribe: 'Subscribe',
           join: 'Join Now',
           get_access: 'Get Access',
-          download: 'Download Free',
+          download: 'Download',
           sign_up: 'Sign Up',
           unlock: 'Unlock Now',
         }
@@ -3773,14 +3778,14 @@ function PublicBlockRenderer({
               block_id: block.id,
               lead_magnet_id: data.lead_magnet_id,
               enable_digital_product: data.enable_digital_product,
-              digital_product_id: data.digital_product_id,
-              digital_product_title: data.digital_product_title,
               digital_product_file_url: data.digital_product_file_url,
+              digital_product_title: data.digital_product_title,
             }),
           })
           const result = await response.json()
           if (response.ok) {
             setEmailSubmitted(true)
+            // If digital product was sent, store the download link
             if (result.downloadLink) {
               setDownloadLink(result.downloadLink)
             }

@@ -20,11 +20,11 @@ export async function POST(request: Request) {
       utm_source,
       utm_medium,
       utm_campaign,
-      // Digital product fields
+      lead_magnet_id,
+      // Digital product fields (quick upload files)
       enable_digital_product,
-      digital_product_id,
-      digital_product_title,
       digital_product_file_url,
+      digital_product_title,
     } = body
 
     if (!onepage_id || !email) {
@@ -49,23 +49,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "OnePage not found" }, { status: 404 })
     }
 
-    // Get actual file URL from product if digital product enabled
-    let actualFileUrl = digital_product_file_url
-    let actualProductTitle = digital_product_title
-
-    if (enable_digital_product && digital_product_id) {
-      // Fetch the product to get the latest file URL
-      const { data: product } = await adminSupabase
-        .from("products")
-        .select("id, title, digital_file_url")
-        .eq("id", digital_product_id)
-        .single()
-
-      if (product) {
-        actualFileUrl = product.digital_file_url || digital_product_file_url
-        actualProductTitle = product.title || digital_product_title
-      }
-    }
+    // Use the file URL and title directly from the block data
+    const actualFileUrl = digital_product_file_url
+    const actualProductTitle = digital_product_title || "Free Download"
 
     // Check if email already submitted for this page (use admin client for anonymous access)
     const { data: existingLead } = await adminSupabase
@@ -96,7 +82,7 @@ export async function POST(request: Request) {
         utm_source: utm_source || null,
         utm_medium: utm_medium || null,
         utm_campaign: utm_campaign || null,
-        lead_magnet_id: digital_product_id || null,
+        lead_magnet_id: lead_magnet_id || null,
         delivery_status: enable_digital_product && actualFileUrl ? "pending" : "not_applicable",
       })
       .select()
