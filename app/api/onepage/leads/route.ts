@@ -2,34 +2,72 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { v4 as uuidv4 } from "uuid"
-import { Resend } from "resend"
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || "re_Qiw9Lx4H_6QRy8NL48DoxHVZa1qTXv6Pu"
-const resend = new Resend(RESEND_API_KEY)
+// =====================================================
+// DIRECT RESEND EMAIL SENDING - NO EXTERNAL DEPENDENCIES
+// =====================================================
 
+const RESEND_API_KEY = "re_Qiw9Lx4H_6QRy8NL48DoxHVZa1qTXv6Pu"
 const FROM_EMAIL = "noreplycustomers@materiabuilder.store"
-const PLATFORM_BRAND_NAME = "Materia Builder"
+const PLATFORM_NAME = "Materia Builder"
 
-function getBaseUrl() {
-  const envUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || ""
-  const raw = envUrl.trim()
-  if (!raw) return "https://materiabuilder.store"
-  const withScheme = raw.startsWith("http") ? raw : `https://${raw}`
-  return withScheme.replace(/\/+$/, "")
+// Send email directly via Resend API
+async function sendEmailViaResend(params: {
+  to: string
+  subject: string
+  html: string
+  fromName?: string
+}): Promise<{ success: boolean; error?: string; id?: string }> {
+  const { to, subject, html, fromName } = params
+  
+  const from = `${fromName || PLATFORM_NAME} <${FROM_EMAIL}>`
+  
+  console.log("[RESEND] 📧 Sending email:", { from, to, subject })
+  
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject,
+        html,
+      }),
+    })
+    
+    const data = await response.json()
+    
+    console.log("[RESEND] 📨 Response:", JSON.stringify(data))
+    
+    if (!response.ok) {
+      console.error("[RESEND] ❌ Error:", data)
+      return { success: false, error: data.message || "Resend API error" }
+    }
+    
+    console.log("[RESEND] ✅ Email sent successfully! ID:", data.id)
+    return { success: true, id: data.id }
+    
+  } catch (error: any) {
+    console.error("[RESEND] ❌ Fetch error:", error)
+    return { success: false, error: error.message || "Network error" }
+  }
 }
 
-// Build the download email HTML
-function buildDownloadEmailHtml(params: {
+// Build download email HTML
+function buildDownloadEmail(params: {
   productTitle: string
   downloadLink: string
-  customHeading?: string
-  customBody?: string
+  heading?: string
+  body?: string
   fromName: string
-}) {
-  const { productTitle, downloadLink, customHeading, customBody, fromName } = params
-  const heading = customHeading || "Your download is ready!"
-  const body =
-    customBody || `Thanks for subscribing! As promised, here's your free download: <strong>${productTitle}</strong>`
+}): string {
+  const { productTitle, downloadLink, heading, body, fromName } = params
+  const h = heading || "Your download is ready!"
+  const b = body || `Thanks for subscribing! Here's your free download: <strong>${productTitle}</strong>`
 
   return `<!DOCTYPE html>
 <html>
@@ -42,43 +80,31 @@ function buildDownloadEmailHtml(params: {
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 480px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-          <!-- Header -->
           <tr>
             <td style="padding: 32px 32px 24px; text-align: center; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);">
-              <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">${heading}</h1>
+              <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">${h}</h1>
               <p style="margin: 0; font-size: 14px; color: rgba(255,255,255,0.9);">from ${fromName}</p>
             </td>
           </tr>
-          
-          <!-- Body -->
           <tr>
             <td style="padding: 28px 32px 16px;">
-              <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.6; color: #374151;">${body}</p>
-              
-              <!-- Product Card -->
+              <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.6; color: #374151;">${b}</p>
               <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
                 <p style="margin: 0 0 4px; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Your Download</p>
                 <p style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">${productTitle}</p>
               </div>
             </td>
           </tr>
-          
-          <!-- Download Button -->
           <tr>
             <td style="padding: 0 32px 32px;">
-              <a href="${downloadLink}" 
-                 style="display: block; width: 100%; padding: 16px 24px; background-color: #7c3aed; color: #fff; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 600; text-align: center; box-sizing: border-box;">
+              <a href="${downloadLink}" style="display: block; width: 100%; padding: 16px 24px; background-color: #7c3aed; color: #fff; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 600; text-align: center; box-sizing: border-box;">
                 Download Now
               </a>
             </td>
           </tr>
-          
-          <!-- Footer -->
           <tr>
             <td style="padding: 20px 32px; text-align: center; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
-              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                © ${new Date().getFullYear()} ${fromName}
-              </p>
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">© ${new Date().getFullYear()} ${fromName}</p>
             </td>
           </tr>
         </table>
@@ -89,17 +115,15 @@ function buildDownloadEmailHtml(params: {
 </html>`
 }
 
-// Build welcome email HTML (no download)
-function buildWelcomeEmailHtml(params: {
-  customHeading?: string
-  customBody?: string
+// Build welcome email HTML
+function buildWelcomeEmail(params: {
+  heading?: string
+  body?: string
   fromName: string
-}) {
-  const { customHeading, customBody, fromName } = params
-  const heading = customHeading || "Thanks for subscribing!"
-  const body =
-    customBody ||
-    "Welcome to our community! We're excited to have you on board. Stay tuned for updates and exclusive content."
+}): string {
+  const { heading, body, fromName } = params
+  const h = heading || "Thanks for subscribing!"
+  const b = body || "Welcome! We're excited to have you on board. Stay tuned for updates and exclusive content."
 
   return `<!DOCTYPE html>
 <html>
@@ -112,27 +136,20 @@ function buildWelcomeEmailHtml(params: {
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 480px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-          <!-- Header -->
           <tr>
             <td style="padding: 32px 32px 24px; text-align: center; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);">
-              <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">${heading}</h1>
+              <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #fff;">${h}</h1>
               <p style="margin: 0; font-size: 14px; color: rgba(255,255,255,0.9);">from ${fromName}</p>
             </td>
           </tr>
-          
-          <!-- Body -->
           <tr>
             <td style="padding: 32px;">
-              <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #374151;">${body}</p>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #374151;">${b}</p>
             </td>
           </tr>
-          
-          <!-- Footer -->
           <tr>
             <td style="padding: 20px 32px; text-align: center; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
-              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                © ${new Date().getFullYear()} ${fromName}
-              </p>
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">© ${new Date().getFullYear()} ${fromName}</p>
             </td>
           </tr>
         </table>
@@ -143,8 +160,8 @@ function buildWelcomeEmailHtml(params: {
 </html>`
 }
 
-// Resolve creator name for email
-async function resolveCreatorName(adminSupabase: any, creatorId: string): Promise<string> {
+// Get creator display name
+async function getCreatorName(adminSupabase: any, creatorId: string): Promise<string> {
   try {
     const { data: creator } = await adminSupabase
       .from("creators")
@@ -162,27 +179,24 @@ async function resolveCreatorName(adminSupabase: any, creatorId: string): Promis
       if (profile?.display_name) return profile.display_name
       if (profile?.username) return profile.username
     }
-
     if (creator?.headline) return creator.headline
   } catch (e) {
-    console.log("[leads] Could not resolve creator name:", e)
+    console.log("[leads] Could not get creator name")
   }
-
-  return PLATFORM_BRAND_NAME
+  return PLATFORM_NAME
 }
 
-// POST - Submit a lead (public, no auth required)
+// =====================================================
+// POST - Submit lead and send email
+// =====================================================
 export async function POST(request: Request) {
-  console.log("[leads] ========================================")
-  console.log("[leads] API endpoint called")
-
+  console.log("[leads] ========== NEW SUBSCRIPTION REQUEST ==========")
+  
   try {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
     const body = await request.json()
-    console.log("[leads] Request body:", JSON.stringify(body, null, 2))
-
     const {
       onepage_id,
       email,
@@ -193,40 +207,38 @@ export async function POST(request: Request) {
       utm_medium,
       utm_campaign,
       lead_magnet_id,
-      // Digital product fields
       enable_digital_product,
       digital_product_file_url,
       digital_product_title,
-      // Email customization fields
       send_welcome_email,
       email_subject,
       email_heading,
       email_body,
     } = body
 
-    console.log("[leads] Parsed fields:")
-    console.log("[leads]   - email:", email)
-    console.log("[leads]   - onepage_id:", onepage_id)
-    console.log("[leads]   - block_id:", block_id)
-    console.log("[leads]   - enable_digital_product:", enable_digital_product)
-    console.log("[leads]   - digital_product_file_url:", digital_product_file_url || "NONE")
-    console.log("[leads]   - send_welcome_email:", send_welcome_email)
-    console.log("[leads]   - RESEND_API_KEY configured:", !!RESEND_API_KEY)
+    const subscriberEmail = (email || "").toLowerCase().trim()
+    
+    console.log("[leads] Request data:", {
+      onepage_id,
+      subscriberEmail,
+      enable_digital_product,
+      has_file_url: !!digital_product_file_url,
+      send_welcome_email,
+    })
 
-    if (!onepage_id || !email) {
-      console.log("[leads] ERROR: Missing required fields")
+    // Validate
+    if (!onepage_id || !subscriberEmail) {
+      console.log("[leads] ❌ Missing required fields")
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    const normalizedEmail = email.toLowerCase().trim()
-    if (!emailRegex.test(normalizedEmail)) {
-      console.log("[leads] ERROR: Invalid email format:", normalizedEmail)
+    if (!emailRegex.test(subscriberEmail)) {
+      console.log("[leads] ❌ Invalid email format")
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
-    // Verify the onepage exists and is published
+    // Verify onepage exists and is published
     const { data: onepage, error: onepageError } = await supabase
       .from("onepages")
       .select("id, status, seller_id, owner_id, creator_id")
@@ -235,33 +247,30 @@ export async function POST(request: Request) {
       .single()
 
     if (onepageError || !onepage) {
-      console.log("[leads] ERROR: OnePage not found:", onepageError?.message)
+      console.log("[leads] ❌ OnePage not found or not published")
       return NextResponse.json({ error: "OnePage not found" }, { status: 404 })
     }
 
-    console.log("[leads] OnePage found:", onepage.id)
+    console.log("[leads] ✓ OnePage found:", onepage.id)
 
-    const hasDigitalProduct = !!(digital_product_file_url && digital_product_file_url.trim())
-    const actualProductTitle = digital_product_title || "Free Download"
+    const fileUrl = digital_product_file_url || null
+    const productTitle = digital_product_title || "Free Download"
+    const hasDigitalProduct = enable_digital_product && fileUrl
 
-    console.log("[leads] Digital product check:")
-    console.log("[leads]   - hasDigitalProduct:", hasDigitalProduct)
-    console.log("[leads]   - productTitle:", actualProductTitle)
-
-    // Check if already subscribed
+    // Check for existing subscription
     const { data: existingLead } = await adminSupabase
       .from("onepage_leads")
       .select("id")
       .eq("onepage_id", onepage_id)
-      .eq("email", normalizedEmail)
+      .eq("email", subscriberEmail)
       .single()
 
     if (existingLead) {
-      console.log("[leads] User already subscribed")
+      console.log("[leads] Already subscribed, returning success")
       return NextResponse.json({
         success: true,
         message: "Already subscribed",
-        downloadLink: hasDigitalProduct ? digital_product_file_url : null,
+        downloadLink: hasDigitalProduct ? fileUrl : null,
       })
     }
 
@@ -270,7 +279,7 @@ export async function POST(request: Request) {
       .from("onepage_leads")
       .insert({
         onepage_id,
-        email: normalizedEmail,
+        email: subscriberEmail,
         name: name || null,
         block_id: block_id || null,
         referrer: referrer || null,
@@ -285,177 +294,174 @@ export async function POST(request: Request) {
 
     if (insertError) {
       if (insertError.code === "23505") {
-        console.log("[leads] Duplicate entry")
+        console.log("[leads] Duplicate entry, returning success")
         return NextResponse.json({
           success: true,
           message: "Already subscribed",
-          downloadLink: hasDigitalProduct ? digital_product_file_url : null,
+          downloadLink: hasDigitalProduct ? fileUrl : null,
         })
       }
-      console.error("[leads] Insert error:", insertError)
+      console.error("[leads] ❌ Insert error:", insertError)
       return NextResponse.json({ error: "Failed to save" }, { status: 500 })
     }
 
-    console.log("[leads] Lead inserted:", lead.id)
+    console.log("[leads] ✓ Lead saved:", lead.id)
 
     // Add to subscribers list
-    const subscriberCreatorId = onepage.creator_id || onepage.seller_id || onepage.owner_id
-    if (subscriberCreatorId) {
-      const unsubscribeToken = uuidv4()
-      const { data: existingSubscriber } = await adminSupabase
+    const creatorId = onepage.creator_id || onepage.seller_id || onepage.owner_id
+    if (creatorId) {
+      const { data: existingSub } = await adminSupabase
         .from("subscribers")
         .select("id, status")
-        .eq("creator_id", subscriberCreatorId)
-        .eq("email", normalizedEmail)
+        .eq("creator_id", creatorId)
+        .eq("email", subscriberEmail)
         .single()
 
-      if (!existingSubscriber) {
+      if (!existingSub) {
         await adminSupabase.from("subscribers").insert({
-          email: normalizedEmail,
+          email: subscriberEmail,
           name: name || null,
           source: "onepage",
           source_id: onepage_id,
-          creator_id: subscriberCreatorId,
+          creator_id: creatorId,
           status: "subscribed",
           is_active: true,
           subscribed_at: new Date().toISOString(),
-          consent_text: "Subscribed via OnePage email form",
+          consent_text: "Subscribed via OnePage",
           consent_timestamp: new Date().toISOString(),
-          unsubscribe_token: unsubscribeToken,
+          unsubscribe_token: uuidv4(),
         })
-        console.log("[leads] Added to subscribers list")
+        console.log("[leads] ✓ Added to subscribers")
+      } else if (existingSub.status === "unsubscribed") {
+        await adminSupabase
+          .from("subscribers")
+          .update({ status: "subscribed", is_active: true, subscribed_at: new Date().toISOString() })
+          .eq("id", existingSub.id)
+        console.log("[leads] ✓ Resubscribed")
       }
     }
 
-    // Default to sending welcome email unless explicitly disabled
-    const shouldSendEmail = hasDigitalProduct || send_welcome_email !== false
-
-    console.log("[leads] ========================================")
-    console.log("[leads] EMAIL DECISION:")
-    console.log("[leads]   - shouldSendEmail:", shouldSendEmail)
-    console.log("[leads]   - hasDigitalProduct:", hasDigitalProduct)
-    console.log("[leads]   - send_welcome_email flag:", send_welcome_email)
-    console.log("[leads]   - Recipient email:", normalizedEmail)
-    console.log("[leads] ========================================")
-
+    // =====================================================
+    // SEND EMAIL - THIS IS THE CRITICAL PART
+    // =====================================================
     let emailSent = false
-    const creatorId = onepage.creator_id || onepage.owner_id || onepage.seller_id
+    const shouldSendEmail = send_welcome_email || hasDigitalProduct
+
+    console.log("[leads] 📧 EMAIL DECISION:", {
+      shouldSendEmail,
+      send_welcome_email,
+      hasDigitalProduct,
+      enable_digital_product,
+      has_file_url: !!fileUrl,
+      recipient: subscriberEmail,
+    })
 
     if (shouldSendEmail) {
-      try {
-        const fromName = creatorId ? await resolveCreatorName(adminSupabase, creatorId) : PLATFORM_BRAND_NAME
-        const fromHeader = `${fromName} <${FROM_EMAIL}>`
+      console.log("[leads] 📧 SENDING EMAIL TO:", subscriberEmail)
+      
+      // Get creator name for email
+      const fromName = creatorId ? await getCreatorName(adminSupabase, creatorId) : PLATFORM_NAME
+      
+      let subject: string
+      let html: string
 
-        let emailHtml: string
-        let subject: string
-
-        if (hasDigitalProduct) {
-          // Download email
-          subject = email_subject || `Your download is ready: ${actualProductTitle}`
-          emailHtml = buildDownloadEmailHtml({
-            productTitle: actualProductTitle,
-            downloadLink: digital_product_file_url,
-            customHeading: email_heading,
-            customBody: email_body,
-            fromName,
-          })
-          console.log("[leads] Sending DOWNLOAD email")
-        } else {
-          // Welcome email
-          subject = email_subject || "Thanks for subscribing!"
-          emailHtml = buildWelcomeEmailHtml({
-            customHeading: email_heading,
-            customBody: email_body,
-            fromName,
-          })
-          console.log("[leads] Sending WELCOME email")
-        }
-
-        console.log("[leads] Email details:")
-        console.log("[leads]   - From:", fromHeader)
-        console.log("[leads]   - To:", normalizedEmail)
-        console.log("[leads]   - Subject:", subject)
-        console.log("[leads] Calling Resend API...")
-
-        const response = await resend.emails.send({
-          from: fromHeader,
-          to: normalizedEmail,
-          subject,
-          html: emailHtml,
+      if (hasDigitalProduct) {
+        // Download email
+        subject = email_subject || `Your download is ready: ${productTitle}`
+        html = buildDownloadEmail({
+          productTitle,
+          downloadLink: fileUrl!,
+          heading: email_heading,
+          body: email_body,
+          fromName,
         })
+        console.log("[leads] 📧 Sending DOWNLOAD email with link:", fileUrl?.substring(0, 50))
+      } else {
+        // Welcome email
+        subject = email_subject || "Thanks for subscribing!"
+        html = buildWelcomeEmail({
+          heading: email_heading,
+          body: email_body,
+          fromName,
+        })
+        console.log("[leads] 📧 Sending WELCOME email")
+      }
 
-        console.log("[leads] Resend response:", JSON.stringify(response, null, 2))
+      // SEND THE EMAIL
+      const emailResult = await sendEmailViaResend({
+        to: subscriberEmail,
+        subject,
+        html,
+        fromName,
+      })
 
-        // Check for error
-        if ((response as any)?.error) {
-          throw new Error((response as any).error.message || "Resend error")
-        }
-
+      if (emailResult.success) {
         emailSent = true
-        console.log("[leads] EMAIL SENT SUCCESSFULLY!")
-
-        // Update lead status
+        console.log("[leads] ✅ EMAIL SENT SUCCESSFULLY to:", subscriberEmail)
+        
         await adminSupabase
           .from("onepage_leads")
-          .update({
-            delivery_status: "sent",
-            delivered_at: new Date().toISOString(),
-          })
+          .update({ delivery_status: "sent", delivered_at: new Date().toISOString() })
           .eq("id", lead.id)
-      } catch (emailError: any) {
-        console.error("[leads] EMAIL FAILED:", emailError?.message || emailError)
-
-        await adminSupabase.from("onepage_leads").update({ delivery_status: "failed" }).eq("id", lead.id)
+      } else {
+        console.error("[leads] ❌ EMAIL FAILED:", emailResult.error)
+        
+        await adminSupabase
+          .from("onepage_leads")
+          .update({ delivery_status: "failed" })
+          .eq("id", lead.id)
       }
     } else {
-      console.log("[leads] Email skipped - explicitly disabled")
-      await adminSupabase.from("onepage_leads").update({ delivery_status: "not_applicable" }).eq("id", lead.id)
+      console.log("[leads] 📭 NO EMAIL SENT - conditions not met")
+      await adminSupabase
+        .from("onepage_leads")
+        .update({ delivery_status: "not_applicable" })
+        .eq("id", lead.id)
     }
 
-    console.log("[leads] ========================================")
-    console.log("[leads] COMPLETE - Email sent:", emailSent)
-    console.log("[leads] ========================================")
+    console.log("[leads] ========== REQUEST COMPLETE ==========")
+    console.log("[leads] Result:", { success: true, emailSent, downloadLink: hasDigitalProduct ? fileUrl : null })
 
     return NextResponse.json({
       success: true,
       lead_id: lead.id,
       email_sent: emailSent,
-      downloadLink: hasDigitalProduct ? digital_product_file_url : null,
+      downloadLink: hasDigitalProduct ? fileUrl : null,
     })
+
   } catch (error) {
-    console.error("[leads] Fatal error:", error)
+    console.error("[leads] ❌ FATAL ERROR:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// GET - Fetch leads for owner (authenticated)
+// =====================================================
+// GET - Fetch leads for owner
+// =====================================================
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: onepage } = await supabase.from("onepages").select("id").eq("owner_id", user.id).single()
+    const { data: onepage } = await supabase
+      .from("onepages")
+      .select("id")
+      .eq("owner_id", user.id)
+      .single()
 
     if (!onepage) {
       return NextResponse.json({ leads: [] })
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "50")
-    const offset = Number.parseInt(searchParams.get("offset") || "0")
+    const limit = parseInt(searchParams.get("limit") || "50")
+    const offset = parseInt(searchParams.get("offset") || "0")
 
-    const {
-      data: leads,
-      error,
-      count,
-    } = await supabase
+    const { data: leads, error, count } = await supabase
       .from("onepage_leads")
       .select("*", { count: "exact" })
       .eq("onepage_id", onepage.id)
@@ -463,13 +469,11 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1)
 
     if (error) {
-      console.error("Leads fetch error:", error)
       return NextResponse.json({ error: "Failed to fetch leads" }, { status: 500 })
     }
 
     return NextResponse.json({ leads, total: count })
   } catch (error) {
-    console.error("Leads GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
