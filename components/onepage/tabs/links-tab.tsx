@@ -3767,6 +3767,10 @@ function BlockItem({
         const childCount = data.children?.length || 0
         return { title: data.title || "Group", subtitle: `${childCount} item${childCount !== 1 ? 's' : ''} · ${data.layout}`, icon: Layers }
       }
+      case "pdf_document": {
+        const data = block.data as PDFDocumentBlockData
+        return { title: data.title || "PDF Document", subtitle: data.pdf_file_url ? "PDF uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+      }
       default:
         return { title: block.type, subtitle: "", icon: Link }
     }
@@ -3781,7 +3785,7 @@ function BlockItem({
   const isGroup = block.type === "group"
   const isProduct = block.type === "product"
   const isPDFDocument = block.type === "pdf_document"
-  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct
+  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument
   const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument
   const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
@@ -3989,7 +3993,7 @@ function BlockItem({
             <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
               <DialogContent className="w-[calc(100%-32px)] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
                 <DialogHeader className="p-4 border-b">
-                  <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : "Link Stats"}</DialogTitle>
+                  <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : "Link Stats"}</DialogTitle>
                 </DialogHeader>
 
                 <div className="p-4">
@@ -4051,7 +4055,7 @@ function BlockItem({
                         </div>
                         <div className="p-3 bg-violet-50 rounded-xl">
                           <div className="text-2xl font-bold text-violet-900">{statsData.total_clicks || 0}</div>
-                          <div className="text-xs text-violet-600 font-medium">{isEmailCapture ? "Submissions" : "Clicks"}</div>
+                          <div className="text-xs text-violet-600 font-medium">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</div>
                         </div>
                       </div>
 
@@ -4084,7 +4088,7 @@ function BlockItem({
                                   <div className="font-medium">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                                   <div className="flex gap-3 mt-0.5">
                                     <span className="text-blue-300">{day.views || 0} views</span>
-                                    <span className="text-violet-300">{day.clicks} {isEmailCapture ? "submissions" : "clicks"}</span>
+                                    <span className="text-violet-300">{day.clicks} {isEmailCapture ? "submissions" : isPDFDocument ? "opens" : "clicks"}</span>
                                   </div>
                                 </div>
                               </div>
@@ -4103,7 +4107,7 @@ function BlockItem({
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-sm bg-violet-400" />
-                            <span className="text-xs text-gray-600">Clicks</span>
+                            <span className="text-xs text-gray-600">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</span>
                           </div>
                         </div>
                       </div>

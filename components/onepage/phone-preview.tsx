@@ -3850,13 +3850,13 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               padding: 0,
             }}
           >
-            <div className="flex items-center gap-2 p-2">
+            <div className="flex items-center gap-3 p-2.5">
               {/* Thumbnail/Preview */}
               <div
                 className="shrink-0 flex items-center justify-center bg-gray-100"
                 style={{
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                   borderRadius: Math.max(0, theme.button_border_radius - 4),
                 }}
               >
@@ -3869,8 +3869,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   />
                 ) : (
                   <svg
-                    width="24"
-                    height="24"
+                    width="22"
+                    height="22"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -3886,18 +3886,20 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 )}
               </div>
               {/* Content */}
-              <div className="flex-1 min-w-0 text-left">
-                <div className={cn(s.button, "font-semibold truncate")} style={{ color: theme.button_text_color }}>
+              <div className="flex-1 min-w-0 text-left pr-1">
+                <div className={cn(s.button, "font-semibold leading-tight")} style={{ color: theme.button_text_color }}>
                   {data.title || "PDF Document"}
                 </div>
                 {data.description && (
-                  <p className="text-[9px] line-clamp-1 opacity-70" style={{ color: theme.button_text_color }}>
+                  <p className="text-[9px] leading-tight mt-0.5 opacity-70 line-clamp-1" style={{ color: theme.button_text_color }}>
                     {data.description}
                   </p>
                 )}
               </div>
-              {/* Arrow icon */}
-              <ExternalLink className="w-4 h-4 opacity-50 shrink-0" style={{ color: theme.button_text_color }} />
+              {/* Arrow icon - properly aligned */}
+              <div className="shrink-0 flex items-center justify-center">
+                <ExternalLink className="w-4 h-4 opacity-50" style={{ color: theme.button_text_color }} />
+              </div>
             </div>
           </button>
         )

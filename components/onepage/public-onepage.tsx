@@ -4679,6 +4679,8 @@ function PublicBlockRenderer({
       const handleOpenPdf = () => {
         if (pdfUrl) {
           setShowPdfModal(true)
+          // Track PDF open
+          trackClick(block.id, pdfUrl)
         }
       }
 
@@ -4705,8 +4707,8 @@ function PublicBlockRenderer({
                 <div
                   className="shrink-0 flex items-center justify-center bg-gray-100"
                   style={{
-                    width: 56,
-                    height: 56,
+                    width: 52,
+                    height: 52,
                     borderRadius: Math.max(0, theme.button_border_radius - 4),
                   }}
                 >
@@ -4719,8 +4721,8 @@ function PublicBlockRenderer({
                     />
                   ) : (
                     <svg
-                      width="28"
-                      height="28"
+                      width="26"
+                      height="26"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -4736,39 +4738,41 @@ function PublicBlockRenderer({
                   )}
                 </div>
                 {/* Content */}
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="font-semibold truncate" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                <div className="flex-1 min-w-0 text-left pr-2">
+                  <div className="font-semibold leading-tight" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
                     {data.title || "PDF Document"}
                   </div>
                   {data.description && (
-                    <p className="text-xs sm:text-sm line-clamp-1 opacity-70" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                    <p className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 line-clamp-1" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
                       {data.description}
                     </p>
                   )}
                 </div>
-                {/* Arrow icon */}
-                <ExternalLink className="w-5 h-5 opacity-50 shrink-0" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }} />
+                {/* Arrow icon - properly aligned */}
+                <div className="shrink-0 flex items-center justify-center">
+                  <ExternalLink className="w-5 h-5 opacity-50" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }} />
+                </div>
               </div>
             </button>
 
             {/* PDF Preview Modal - Clean light UI */}
             {showPdfModal && pdfUrl && (
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-white animate-in fade-in duration-200"
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
                 onClick={() => setShowPdfModal(false)}
               >
                 <div
-                  className="relative w-full h-full max-w-lg flex flex-col"
+                  className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Top Bar */}
-                  <div className="flex items-center justify-between px-4 py-4 border-b">
+                  <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
                     <button
                       onClick={() => setShowPdfModal(false)}
                       className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="rotate-180">
-                        <path d="M9 18l6-6-6-6" />
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
                       </svg>
                     </button>
                     <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
@@ -4783,19 +4787,19 @@ function PublicBlockRenderer({
                   </div>
 
                   {/* Preview Area */}
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-auto">
+                  <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-auto min-h-0">
                     {/* PDF Preview Frame */}
-                    <div className="relative w-full max-w-sm bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                    <div className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
                       {/* Page Counter */}
-                      <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
+                      <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
                         1 of 1
                       </div>
 
                       {/* PDF Embed/Preview */}
-                      <div className="aspect-[3/4] w-full bg-white flex items-center justify-center">
+                      <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
                         <iframe
-                          src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0`}
-                          className="w-full h-full border-0"
+                          src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                          className="w-full h-full border-0 pointer-events-auto"
                           title={data.title || "PDF Document"}
                         />
                       </div>
@@ -4810,7 +4814,7 @@ function PublicBlockRenderer({
                   </div>
 
                   {/* Bottom View Button */}
-                  <div className="px-6 pb-8 pt-4">
+                  <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
                     <a
                       href={pdfUrl}
                       target="_blank"
@@ -4861,21 +4865,21 @@ function PublicBlockRenderer({
           {/* PDF Preview Modal - Clean light UI */}
           {showPdfModal && pdfUrl && (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-white animate-in fade-in duration-200"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
               onClick={() => setShowPdfModal(false)}
             >
               <div
-                className="relative w-full h-full max-w-lg flex flex-col"
+                className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Top Bar */}
-                <div className="flex items-center justify-between px-4 py-4 border-b">
+                <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
                   <button
                     onClick={() => setShowPdfModal(false)}
                     className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="rotate-180">
-                      <path d="M9 18l6-6-6-6" />
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M19 12H5M12 19l-7-7 7-7" />
                     </svg>
                   </button>
                   <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
@@ -4890,19 +4894,19 @@ function PublicBlockRenderer({
                 </div>
 
                 {/* Preview Area */}
-                <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-auto">
+                <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-auto min-h-0">
                   {/* PDF Preview Frame */}
-                  <div className="relative w-full max-w-sm bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                  <div className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
                     {/* Page Counter */}
-                    <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
+                    <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
                       1 of 1
                     </div>
 
                     {/* PDF Embed/Preview */}
-                    <div className="aspect-[3/4] w-full bg-white flex items-center justify-center">
+                    <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
                       <iframe
-                        src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0`}
-                        className="w-full h-full border-0"
+                        src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                        className="w-full h-full border-0 pointer-events-auto"
                         title={data.title || "PDF Document"}
                       />
                     </div>
@@ -4917,7 +4921,7 @@ function PublicBlockRenderer({
                 </div>
 
                 {/* Bottom View Button */}
-                <div className="px-6 pb-8 pt-4">
+                <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
                   <a
                     href={pdfUrl}
                     target="_blank"
