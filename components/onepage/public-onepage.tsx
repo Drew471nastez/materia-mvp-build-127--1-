@@ -3075,12 +3075,13 @@ function PublicBlockRenderer({
         'snapchat': 'M11.99 2.75c-1.494-.011-3.017.567-4.003 1.714-.874.926-1.204 2.238-1.16 3.483-.004.64.004 1.28.006 1.92-.613-.152-1.234-.578-1.882-.367-.553.164-.783.886-.45 1.349.36.47.918.738 1.385 1.089.229.188.538.321.71.562 0 .577-.303 1.112-.59 1.599-.7 1.099-1.786 1.93-2.956 2.509-.3.129-.572.518-.309.812.485.453 1.167.598 1.77.811.256.08.635.168.608.507.042.365.276.758.687.76.982.114 2.036.065 2.918.59.868.501 1.756 1.059 2.777 1.117 1.02.1 2.08-.111 2.958-.663.654-.36 1.292-.81 2.06-.883.645-.15 1.338-.015 1.96-.26.4-.17.35-.66.51-.984.32-.22.72-.243 1.07-.388.46-.183 1.04-.332 1.27-.802.14-.38-.29-.586-.56-.734-1.42-.734-2.7-1.87-3.27-3.4-.06-.24-.29-.6.01-.78.62-.52 1.43-.82 1.94-1.46.39-.488.12-1.318-.52-1.418-.618-.098-1.19.24-1.77.391-.051-1.068.063-2.152-.102-3.218-.304-1.726-1.69-3.145-3.35-3.64-.565-.18-1.158-.25-1.746-.25z',
         'github': 'M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12',
         'apple-music': 'M8.5 7.5l10-1.75m-10 1.75v11.375m0-11.375V5.09a1 1 0 0 1 .83-.99l8-1.4a1.17 1.17 0 0 1 1.17.99V5.75m0 0v11.125m-12.31.154l-1.06.19a1.97 1.97 0 0 0-1.63 1.81c0 1.22 1.1 2.15 2.31 1.94l1.06-.19a1.97 1.97 0 0 0 1.63-1.81c0-1.22-1.1-2.15-2.31-1.94zm10-2l-1.06.19a1.97 1.97 0 0 0-1.63 1.81c0 1.22 1.1 2.15 2.31 1.94l1.06-.19a1.97 1.97 0 0 0 1.63-1.81c0-1.22-1.1-2.15-2.31-1.94z',
+        'vimeo': 'M22.396 7.164c-.093 2.026-1.507 4.799-4.245 8.32C15.322 19.161 12.928 21 10.97 21c-1.214 0-2.24-1.119-3.08-3.357L6.16 11.088c-.56-2.238-1.16-3.357-1.8-3.357-.14 0-.628.294-1.464.88l-.88-1.132c.92-.809 1.83-1.618 2.72-2.428 1.226-1.06 2.146-1.618 2.76-1.672 1.45-.14 2.342.852 2.675 2.976.36 2.292.612 3.719.754 4.28.42 1.906.88 2.858 1.38 2.858.39 0 .976-.617 1.76-1.85.783-1.232 1.203-2.17 1.26-2.813.112-1.06-.307-1.591-1.26-1.591-.448 0-.91.103-1.386.307.92-3.015 2.68-4.48 5.282-4.4 1.93.053 2.841 1.307 2.735 3.762z',
       }
       // Icons that should be rendered with fill instead of stroke
       const FILLED_ICONS = new Set([
         'instagram', 'twitter', 'youtube', 'tiktok', 'spotify', 'facebook', 'linkedin',
         'twitch', 'discord', 'telegram', 'whatsapp', 'pinterest', 'snapchat',
-        'github', 'apple-music'
+        'github', 'apple-music', 'vimeo'
       ])
       const iconPath = data.icon ? ICON_PATHS[data.icon] : null
       const isFilledIcon = data.icon ? FILLED_ICONS.has(data.icon) : false
@@ -3272,7 +3273,7 @@ function PublicBlockRenderer({
               </div>
             ) : null}
             {/* Featured thumbnail area */}
-            {!shouldEmbedTikTok && data.thumbnail_url && (
+            {!shouldEmbedTikTok && (data.thumbnail_url || iconPath) && (
               <div
                 className={cn(
                   "w-full relative overflow-hidden",
@@ -3280,21 +3281,38 @@ function PublicBlockRenderer({
                 )}
                 style={{
                   borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
-                  backgroundColor: displayMode === 'contain' ? (
+                  backgroundColor: displayMode === 'contain' || !data.thumbnail_url ? (
                     theme.button_style === "outline" ? `${theme.button_color}10` : `${theme.button_text_color}10`
                   ) : undefined,
                 }}
               >
-                <img
-                  src={data.thumbnail_url}
-                  alt=""
-                  className={cn(
-                    "w-full",
-                    displayMode === 'cover' && "h-full object-cover",
-                    displayMode === 'contain' && "h-full object-contain",
-                    displayMode === 'full' && "h-auto"
-                  )}
-                />
+                {data.thumbnail_url ? (
+                  <img
+                    src={data.thumbnail_url}
+                    alt=""
+                    className={cn(
+                      "w-full",
+                      displayMode === 'cover' && "h-full object-cover",
+                      displayMode === 'contain' && "h-full object-contain",
+                      displayMode === 'full' && "h-auto"
+                    )}
+                  />
+                ) : iconPath ? (
+                  <div className="w-full h-full flex items-center justify-center py-6">
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="w-16 h-16"
+                      style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                      fill={isFilledIcon ? "currentColor" : "none"}
+                      stroke={isFilledIcon ? "none" : "currentColor"}
+                      strokeWidth={isFilledIcon ? undefined : "2"}
+                      strokeLinecap={isFilledIcon ? undefined : "round"}
+                      strokeLinejoin={isFilledIcon ? undefined : "round"}
+                    >
+                      <path d={iconPath} />
+                    </svg>
+                  </div>
+                ) : null}
                 {/* Play button overlay for YouTube open_video mode */}
                 {youtubeVideoId && youtubeMode === 'open_video' && youtubeShowPlayButton && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -4732,12 +4750,55 @@ function PublicBlockRenderer({
       const [showPdfModal, setShowPdfModal] = useState(false)
       const [currentPage, setCurrentPage] = useState(1)
       const [totalPages, setTotalPages] = useState(1)
+      const [pdfLoading, setPdfLoading] = useState(false)
       const pdfContainerRef = useRef<HTMLDivElement>(null)
+      const iframeRef = useRef<HTMLIFrameElement>(null)
 
       // Dispatch custom event when modal state changes (for mobile button hiding)
       useEffect(() => {
         window.dispatchEvent(new CustomEvent('pdfModalStateChange', { detail: { isOpen: showPdfModal } }))
       }, [showPdfModal])
+
+      // Fetch PDF and count pages when modal opens
+      useEffect(() => {
+        if (showPdfModal && pdfUrl) {
+          setPdfLoading(true)
+          setTotalPages(1)
+          setCurrentPage(1)
+
+          // Fetch PDF to count pages
+          fetch(pdfUrl)
+            .then(response => response.arrayBuffer())
+            .then(buffer => {
+              const bytes = new Uint8Array(buffer)
+              const text = new TextDecoder('latin1').decode(bytes)
+
+              // Method 1: Look for /Count in Pages dictionary
+              const countMatch = text.match(/\/Count\s+(\d+)/g)
+              if (countMatch) {
+                // Get the largest count (main Pages object)
+                const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
+                const maxCount = Math.max(...counts)
+                if (maxCount > 0) {
+                  setTotalPages(maxCount)
+                  setPdfLoading(false)
+                  return
+                }
+              }
+
+              // Method 2: Count /Type /Page occurrences (excluding /Pages)
+              const pageMatches = text.match(/\/Type\s*\/Page[^s]/g)
+              if (pageMatches && pageMatches.length > 0) {
+                setTotalPages(pageMatches.length)
+              }
+              setPdfLoading(false)
+            })
+            .catch(() => {
+              setPdfLoading(false)
+              setTotalPages(1)
+            })
+        }
+      }, [showPdfModal, pdfUrl])
 
       const handleOpenPdf = () => {
         if (pdfUrl) {
@@ -4751,7 +4812,7 @@ function PublicBlockRenderer({
         setShowPdfModal(false)
       }
 
-      // Handle scroll to update page number
+      // Handle scroll to update page number based on scroll position
       const handlePdfScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const container = e.currentTarget
         const scrollTop = container.scrollTop
@@ -4875,7 +4936,7 @@ function PublicBlockRenderer({
                     >
                       {/* Page Counter */}
                       <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                        {currentPage} of {totalPages}
+                        {pdfLoading ? "Loading..." : `${currentPage} of ${totalPages}`}
                       </div>
 
                       {/* PDF Embed/Preview */}
@@ -4884,13 +4945,10 @@ function PublicBlockRenderer({
                         onScroll={handlePdfScroll}
                       >
                         <iframe
+                          ref={iframeRef}
                           src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
                           className="w-full h-full border-0 pointer-events-auto"
                           title={data.title || "PDF Document"}
-                          onLoad={() => {
-                            // Estimate pages based on typical PDF sizes - can be enhanced with PDF.js
-                            setTotalPages(1)
-                          }}
                         />
                       </div>
                     </div>
@@ -4998,7 +5056,7 @@ function PublicBlockRenderer({
                   >
                     {/* Page Counter */}
                     <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                      {currentPage} of {totalPages}
+                      {pdfLoading ? "Loading..." : `${currentPage} of ${totalPages}`}
                     </div>
 
                     {/* PDF Embed/Preview */}
@@ -5010,10 +5068,6 @@ function PublicBlockRenderer({
                         src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
                         className="w-full h-full border-0 pointer-events-auto"
                         title={data.title || "PDF Document"}
-                        onLoad={() => {
-                          // Estimate pages - can be enhanced with PDF.js
-                          setTotalPages(1)
-                        }}
                       />
                     </div>
                   </div>
