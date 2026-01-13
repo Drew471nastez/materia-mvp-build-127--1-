@@ -283,7 +283,7 @@ function NotificationBell({
 
   const s = styles[style]
   const bellVisible = isOpen || isBellVisible
-  const { isAnyModalOpen } = useContext(ModalVisibilityContext)
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -293,8 +293,17 @@ function NotificationBell({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Listen for PDF modal state changes
+  useEffect(() => {
+    const handlePdfModal = (e: CustomEvent<{ isOpen: boolean }>) => {
+      setPdfModalOpen(e.detail.isOpen)
+    }
+    window.addEventListener('pdfModalStateChange', handlePdfModal as EventListener)
+    return () => window.removeEventListener('pdfModalStateChange', handlePdfModal as EventListener)
+  }, [])
+
   // On mobile, hide smoothly when PDF modal is open
-  const hideForModal = isAnyModalOpen && isMobile
+  const hideForModal = pdfModalOpen && isMobile
 
   return (
     <div
@@ -595,7 +604,7 @@ function ShareButton({
   // Desktop (md): top-[22px] to align 2px above the subscribe button which is at top-6 (24px)
   const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-[20]"
   const shareVisible = isOpen || isShareVisible
-  const { isAnyModalOpen } = useContext(ModalVisibilityContext)
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -605,8 +614,17 @@ function ShareButton({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Listen for PDF modal state changes
+  useEffect(() => {
+    const handlePdfModal = (e: CustomEvent<{ isOpen: boolean }>) => {
+      setPdfModalOpen(e.detail.isOpen)
+    }
+    window.addEventListener('pdfModalStateChange', handlePdfModal as EventListener)
+    return () => window.removeEventListener('pdfModalStateChange', handlePdfModal as EventListener)
+  }, [])
+
   // On mobile, hide smoothly when PDF modal is open
-  const hideForModal = isAnyModalOpen && isMobile
+  const hideForModal = pdfModalOpen && isMobile
 
   const buttonWrapperClass = cn(
     "transition-[opacity,transform] duration-300 ease-out",
@@ -4715,26 +4733,16 @@ function PublicBlockRenderer({
       const [currentPage, setCurrentPage] = useState(1)
       const [totalPages, setTotalPages] = useState(1)
       const pdfContainerRef = useRef<HTMLDivElement>(null)
-      const { setIsAnyModalOpen } = useContext(ModalVisibilityContext)
 
-      // Sync modal state to context AFTER render - this ensures modal opens before buttons hide
+      // Dispatch custom event when modal state changes (for mobile button hiding)
       useEffect(() => {
-        if (showPdfModal) {
-          // Small delay to ensure modal is fully rendered before hiding buttons
-          const timer = setTimeout(() => {
-            setIsAnyModalOpen(true)
-          }, 50)
-          return () => clearTimeout(timer)
-        } else {
-          setIsAnyModalOpen(false)
-        }
-      }, [showPdfModal, setIsAnyModalOpen])
+        window.dispatchEvent(new CustomEvent('pdfModalStateChange', { detail: { isOpen: showPdfModal } }))
+      }, [showPdfModal])
 
       const handleOpenPdf = () => {
         if (pdfUrl) {
           setShowPdfModal(true)
           setCurrentPage(1)
-          // Track PDF open
           trackClick(block.id, pdfUrl)
         }
       }
