@@ -3379,23 +3379,44 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               {data.description}
             </p>
           )}
-          <div className="flex flex-col gap-1.5">
-            <input
-              type="email"
-              placeholder={data.placeholder || "Enter your email"}
-              className={cn(s.input, "w-full rounded-lg bg-white/10 border-0 outline-none", emailSubmitted && "opacity-70")}
-              style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
-              disabled={emailSubmitted}
-            />
-            <button
-              onClick={() => setEmailSubmitted(true)}
-              disabled={emailSubmitted}
-              className={cn(s.inputBtn, "w-full font-medium", emailSubmitted && "opacity-70")}
-              style={buttonStyles}
-            >
-              {getButtonText()}
-            </button>
-          </div>
+          {/* Responsive layout based on button text length */}
+          {(() => {
+            const buttonTextLength = getButtonText().length
+            const isShortButton = buttonTextLength <= 12
+            
+            return (
+              <div className={cn(
+                "gap-1.5",
+                isShortButton ? "flex flex-row" : "flex flex-col"
+              )}>
+                <input
+                  type="email"
+                  placeholder={data.placeholder || "Enter your email"}
+                  className={cn(
+                    s.input, 
+                    "rounded-lg bg-white/10 border-0 outline-none", 
+                    emailSubmitted && "opacity-70",
+                    isShortButton ? "flex-1 min-w-0" : "w-full"
+                  )}
+                  style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
+                  disabled={emailSubmitted}
+                />
+                <button
+                  onClick={() => setEmailSubmitted(true)}
+                  disabled={emailSubmitted}
+                  className={cn(
+                    s.inputBtn, 
+                    "font-medium whitespace-nowrap", 
+                    emailSubmitted && "opacity-70",
+                    isShortButton ? "shrink-0" : "w-full"
+                  )}
+                  style={buttonStyles}
+                >
+                  {getButtonText()}
+                </button>
+              </div>
+            )
+          })()}
           {emailSubmitted && (
             <p className="text-[9px] text-center opacity-70" style={{ color: theme.text_color }}>
               {data.success_message || "Thanks for subscribing!"}
