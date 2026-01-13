@@ -4717,10 +4717,14 @@ function PublicBlockRenderer({
       const pdfContainerRef = useRef<HTMLDivElement>(null)
       const { setIsAnyModalOpen } = useContext(ModalVisibilityContext)
 
+      // Sync modal visibility with context AFTER state changes to avoid re-render interference
+      useEffect(() => {
+        setIsAnyModalOpen(showPdfModal)
+      }, [showPdfModal, setIsAnyModalOpen])
+
       const handleOpenPdf = () => {
         if (pdfUrl) {
           setShowPdfModal(true)
-          setIsAnyModalOpen(true)
           setCurrentPage(1)
           // Track PDF open
           trackClick(block.id, pdfUrl)
@@ -4729,7 +4733,6 @@ function PublicBlockRenderer({
 
       const handleClosePdf = () => {
         setShowPdfModal(false)
-        setIsAnyModalOpen(false)
       }
 
       // Handle scroll to update page number
@@ -4753,10 +4756,6 @@ function PublicBlockRenderer({
           <>
             <button
               onClick={handleOpenPdf}
-              onTouchEnd={(e) => {
-                e.preventDefault()
-                handleOpenPdf()
-              }}
               className={cn(
                 "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
                 hoverEffect,
@@ -4911,10 +4910,6 @@ function PublicBlockRenderer({
         <>
           <button
             onClick={handleOpenPdf}
-            onTouchEnd={(e) => {
-              e.preventDefault()
-              handleOpenPdf()
-            }}
             className={cn(
               "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
               hoverEffect,
