@@ -1375,44 +1375,43 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* PDF Preview Modal */}
       {pdfModalOpen && pdfModalData && (
         <div
-          className="absolute inset-[10px] z-50 flex items-end justify-center bg-black/50 animate-in fade-in duration-200"
+          className="absolute inset-[10px] z-50 flex items-center justify-center bg-black/50 animate-in fade-in duration-200"
           style={{ borderRadius: "34px" }}
           onClick={() => setPdfModalOpen(false)}
         >
           <div
-            className="relative w-full bg-white rounded-t-[24px] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300"
-            style={{ maxHeight: "80%", minHeight: "50%" }}
+            className="relative w-[230px] max-h-[440px] bg-white rounded-2xl flex flex-col shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Top Bar */}
-            <div className="flex items-center justify-between px-3 py-2.5 border-b shrink-0">
+            <div className="flex items-center justify-between px-2.5 py-2 border-b shrink-0">
               <button
                 onClick={() => setPdfModalOpen(false)}
-                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h3 className="text-xs font-semibold text-gray-900 truncate flex-1 text-center px-2">
+              <h3 className="text-[11px] font-semibold text-gray-900 truncate flex-1 text-center px-1">
                 {pdfModalData.title || "PDF Document"}
               </h3>
               <button
                 onClick={() => setPdfModalOpen(false)}
-                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M18 6L6 18M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
             {/* Preview Area */}
-            <div className="flex-1 flex flex-col items-center justify-center p-2.5 overflow-auto min-h-0">
+            <div className="flex-1 flex flex-col items-center justify-center p-2 overflow-auto min-h-0">
               {/* PDF Preview Frame */}
-              <div className="relative w-full max-w-[180px] bg-gray-50 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+              <div className="relative w-full max-w-[160px] bg-gray-50 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
                 {/* Page Counter */}
-                <div className="absolute top-1.5 left-1.5 z-10 px-1.5 py-0.5 bg-white/95 backdrop-blur-sm rounded text-[9px] font-medium text-gray-600 shadow-sm">
+                <div className="absolute top-1 left-1 z-10 px-1.5 py-0.5 bg-white/95 backdrop-blur-sm rounded text-[8px] font-medium text-gray-600 shadow-sm">
                   {pdfCurrentPage} of {pdfTotalPages}
                 </div>
                 <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
@@ -1420,31 +1419,22 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                     src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
                     className="w-full h-full border-0"
                     title={pdfModalData.title || "PDF Document"}
-                    onLoad={(e) => {
-                      // Try to get page count from PDF
-                      try {
-                        const iframe = e.target as HTMLIFrameElement
-                        // Most browsers don't expose PDF page count, so we estimate based on scroll
-                        setPdfTotalPages(1)
-                      } catch {
-                        setPdfTotalPages(1)
-                      }
-                    }}
+                    onLoad={() => setPdfTotalPages(1)}
                   />
                 </div>
               </div>
               {pdfModalData.description && (
-                <p className="mt-2 text-[9px] text-gray-500 text-center max-w-[160px] line-clamp-2">{pdfModalData.description}</p>
+                <p className="mt-1.5 text-[8px] text-gray-500 text-center max-w-[150px] line-clamp-2">{pdfModalData.description}</p>
               )}
             </div>
 
             {/* Bottom View Button */}
-            <div className="px-2.5 pb-2.5 pt-1.5 shrink-0">
+            <div className="px-2 pb-2 pt-1 shrink-0">
               <a
                 href={pdfModalData.pdfUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center w-full py-2 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold rounded-lg transition-colors"
+                className="flex items-center justify-center w-full py-1.5 bg-gray-900 hover:bg-gray-800 text-white text-[10px] font-semibold rounded-lg transition-colors"
               >
                 View Full PDF
               </a>
@@ -4121,20 +4111,20 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 )}
               </div>
               {/* Content - Title and Description vertically aligned */}
-              <div className="flex-1 min-w-0 flex flex-col items-start">
-                <div
-                  className={cn(s.button, "font-semibold leading-tight truncate text-left w-full")}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <span
+                  className="text-[11px] font-semibold leading-tight truncate block"
                   style={{ color: theme.button_text_color }}
                 >
                   {data.title || "PDF Document"}
-                </div>
+                </span>
                 {data.description && (
-                  <p
-                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate text-left w-full"
+                  <span
+                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate block"
                     style={{ color: theme.button_text_color }}
                   >
                     {data.description}
-                  </p>
+                  </span>
                 )}
               </div>
               {/* Arrow icon - properly aligned */}
@@ -4165,7 +4155,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             {data.title || "PDF Document"}
           </span>
           {/* Button text with PDF icon */}
-          <div className="flex items-center justify-center gap-1.5 mt-0.5 opacity-70">
+          <div className="flex items-center justify-center gap-1.5 opacity-70">
             <svg
               width="12"
               height="12"
