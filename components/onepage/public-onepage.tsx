@@ -62,6 +62,13 @@ interface QuickCheckoutModalContextType {
 }
 const QuickCheckoutModalContext = createContext<QuickCheckoutModalContextType | null>(null)
 
+// Modal visibility context - to hide buttons when fullscreen modals are open
+interface ModalVisibilityContextType {
+  isAnyModalOpen: boolean
+  setIsAnyModalOpen: (open: boolean) => void
+}
+const ModalVisibilityContext = createContext<ModalVisibilityContextType>({ isAnyModalOpen: false, setIsAnyModalOpen: () => {} })
+
 // Digital asset interface for downloads
 interface DigitalAsset {
   id: string
@@ -276,6 +283,10 @@ function NotificationBell({
 
   const s = styles[style]
   const bellVisible = isOpen || isBellVisible
+  const { isAnyModalOpen } = useContext(ModalVisibilityContext)
+
+  // Hide completely when any fullscreen modal is open
+  if (isAnyModalOpen) return null
 
   return (
     <div
@@ -576,11 +587,15 @@ function ShareButton({
   // Desktop (md): top-[22px] to align 2px above the subscribe button which is at top-6 (24px)
   const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-[20]"
   const shareVisible = isOpen || isShareVisible
+  const { isAnyModalOpen } = useContext(ModalVisibilityContext)
 
   const buttonWrapperClass = cn(
     "transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
     shareVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-1 pointer-events-none",
   )
+
+  // Hide completely when any fullscreen modal is open
+  if (isAnyModalOpen) return null
 
   return (
     <>
@@ -969,7 +984,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     seller_id,
   } = onepage
   const sellerName = title || "Creator"
-  
+
+  // Modal visibility state - to hide buttons when fullscreen modals are open
+  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
+  const modalVisibilityContextValue = { isAnyModalOpen, setIsAnyModalOpen }
+
   // Spotify modal state - lifted to root level to prevent clipping in groups
   const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
   const [spotifyModalData, setSpotifyModalData] = useState<{
@@ -1493,6 +1512,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   )
 
   return (
+    <ModalVisibilityContext.Provider value={modalVisibilityContextValue}>
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
     <QuickCheckoutModalContext.Provider value={quickCheckoutModalContextValue}>
@@ -2023,6 +2043,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     </QuickCheckoutModalContext.Provider>
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
+    </ModalVisibilityContext.Provider>
   )
 }
 
@@ -4678,14 +4699,21 @@ function PublicBlockRenderer({
       const [currentPage, setCurrentPage] = useState(1)
       const [totalPages, setTotalPages] = useState(1)
       const pdfContainerRef = useRef<HTMLDivElement>(null)
+      const { setIsAnyModalOpen } = useContext(ModalVisibilityContext)
 
       const handleOpenPdf = () => {
         if (pdfUrl) {
           setShowPdfModal(true)
+          setIsAnyModalOpen(true)
           setCurrentPage(1)
           // Track PDF open
           trackClick(block.id, pdfUrl)
         }
+      }
+
+      const handleClosePdf = () => {
+        setShowPdfModal(false)
+        setIsAnyModalOpen(false)
       }
 
       // Handle scroll to update page number
@@ -4776,7 +4804,7 @@ function PublicBlockRenderer({
             {showPdfModal && pdfUrl && (
               <div
                 className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
-                onClick={() => setShowPdfModal(false)}
+                onClick={handleClosePdf}
               >
                 <div
                   className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
@@ -4785,7 +4813,7 @@ function PublicBlockRenderer({
                   {/* Top Bar */}
                   <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
                     <button
-                      onClick={() => setShowPdfModal(false)}
+                      onClick={handleClosePdf}
                       className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                     >
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -4796,7 +4824,7 @@ function PublicBlockRenderer({
                       {data.title || "PDF Document"}
                     </h3>
                     <button
-                      onClick={() => setShowPdfModal(false)}
+                      onClick={handleClosePdf}
                       className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                     >
                       <X className="w-5 h-5" />
@@ -4899,7 +4927,7 @@ function PublicBlockRenderer({
           {showPdfModal && pdfUrl && (
             <div
               className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
-              onClick={() => setShowPdfModal(false)}
+              onClick={handleClosePdf}
             >
               <div
                 className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
@@ -4908,7 +4936,7 @@ function PublicBlockRenderer({
                 {/* Top Bar */}
                 <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
                   <button
-                    onClick={() => setShowPdfModal(false)}
+                    onClick={handleClosePdf}
                     className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -4919,7 +4947,7 @@ function PublicBlockRenderer({
                     {data.title || "PDF Document"}
                   </h3>
                   <button
-                    onClick={() => setShowPdfModal(false)}
+                    onClick={handleClosePdf}
                     className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                   >
                     <X className="w-5 h-5" />
