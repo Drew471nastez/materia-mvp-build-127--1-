@@ -4715,12 +4715,6 @@ function PublicBlockRenderer({
       const [currentPage, setCurrentPage] = useState(1)
       const [totalPages, setTotalPages] = useState(1)
       const pdfContainerRef = useRef<HTMLDivElement>(null)
-      const { setIsAnyModalOpen } = useContext(ModalVisibilityContext)
-
-      // Sync modal visibility with context AFTER state changes to avoid re-render interference
-      useEffect(() => {
-        setIsAnyModalOpen(showPdfModal)
-      }, [showPdfModal, setIsAnyModalOpen])
 
       const handleOpenPdf = () => {
         if (pdfUrl) {
