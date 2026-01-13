@@ -3408,6 +3408,83 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         )
       }
 
+      // Preview layout - product card style with full-width image
+      if (data.layout_type === 'preview') {
+        const buttonText = getButtonText()
+        const previewImage = data.product_image || data.digital_product_thumbnail
+        const previewButtonBg = data.button_bg_color || theme.button_color
+        const previewButtonText = data.button_text_color || theme.button_text_color
+
+        return (
+          <div
+            className="w-full rounded-xl overflow-hidden"
+            style={{ backgroundColor: `${theme.text_color}08` }}
+          >
+            {/* Product image at top - full width */}
+            {previewImage && (
+              <div className="w-full aspect-[16/9] overflow-hidden">
+                <img
+                  src={previewImage}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className="p-3 space-y-2">
+              {/* Headline */}
+              {data.headline && (
+                <h3 className={cn(s.headline, "font-semibold")} style={{ color: theme.text_color }}>
+                  {data.headline}
+                </h3>
+              )}
+              {/* Description */}
+              {data.description && (
+                <p
+                  className="text-[9px]"
+                  style={{ color: theme.secondary_text_color || `${theme.text_color}aa` }}
+                >
+                  {data.description}
+                </p>
+              )}
+              {/* Email input */}
+              <input
+                type="email"
+                placeholder={data.placeholder || "Enter your email"}
+                className={cn(
+                  s.input,
+                  "rounded-lg bg-white/90 border-0 outline-none w-full",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={{ color: "#000" }}
+                disabled={emailSubmitted}
+              />
+              {/* Subscribe button with custom colors */}
+              <button
+                onClick={() => setEmailSubmitted(true)}
+                disabled={emailSubmitted}
+                className={cn(
+                  s.inputBtn,
+                  "font-medium whitespace-nowrap rounded-lg w-full",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={{
+                  backgroundColor: previewButtonBg,
+                  color: previewButtonText,
+                }}
+              >
+                {buttonText}
+              </button>
+              {/* Success message */}
+              {emailSubmitted && (
+                <p className="text-[9px] text-center opacity-70" style={{ color: theme.text_color }}>
+                  {data.success_message || "Thanks for subscribing!"}
+                </p>
+              )}
+            </div>
+          </div>
+        )
+      }
+
       // Default layout
       const buttonText = getButtonText()
       const isShortButton = buttonText.length <= 12

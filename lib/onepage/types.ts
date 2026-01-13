@@ -103,7 +103,7 @@ export type SoundCloudMode = 'audio_preview' | 'go_to_url'
 export type EmailCaptureButtonPreset = 'subscribe' | 'join' | 'get_access' | 'download' | 'sign_up' | 'unlock' | 'custom'
 
 // Email capture layout types
-export type EmailCaptureLayoutType = 'default' | 'pro'
+export type EmailCaptureLayoutType = 'default' | 'pro' | 'preview'
 
 export interface StreamingService {
   platform: 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal' | 'deezer' | 'amazon_music' | 'spotify'
@@ -234,7 +234,10 @@ export interface EmailCaptureBlockData {
   digital_product_file_url?: string | null  // URL to the digital file
   // Layout type (default or pro with thumbnail)
   layout_type?: EmailCaptureLayoutType
-  product_image?: string | null  // Custom image for Pro layout (overrides product thumbnail)
+  product_image?: string | null  // Custom image for Pro/Preview layout
+  // Button colors for Preview layout
+  button_bg_color?: string | null
+  button_text_color?: string | null
 }
 
 export interface HeaderBlockData {

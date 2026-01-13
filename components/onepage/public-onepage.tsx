@@ -2423,7 +2423,29 @@ function PublicBlockRenderer({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [downloadLink, setDownloadLink] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-  
+
+  // Load email subscription state from localStorage on mount
+  useEffect(() => {
+    if (block.type === 'email_capture' && onepageId) {
+      const storageKey = `onepage_subscribed_${onepageId}_${block.id}`
+      const storedData = localStorage.getItem(storageKey)
+      if (storedData) {
+        try {
+          const parsed = JSON.parse(storedData)
+          if (parsed.subscribed) {
+            setEmailSubmitted(true)
+            setEmail(parsed.email || '')
+            if (parsed.downloadLink) {
+              setDownloadLink(parsed.downloadLink)
+            }
+          }
+        } catch (e) {
+          // Invalid JSON, ignore
+        }
+      }
+    }
+  }, [block.type, block.id, onepageId])
+
   // Use context for Spotify modal - renders at root level to prevent clipping
   const spotifyModalContext = useContext(SpotifyModalContext)
   // Use context for Apple Music modal - renders at root level to prevent clipping
@@ -3789,6 +3811,14 @@ function PublicBlockRenderer({
             if (result.downloadLink) {
               setDownloadLink(result.downloadLink)
             }
+            // Save subscription state to localStorage for persistence
+            const storageKey = `onepage_subscribed_${onepageId}_${block.id}`
+            localStorage.setItem(storageKey, JSON.stringify({
+              subscribed: true,
+              email: email,
+              downloadLink: result.downloadLink || null,
+              timestamp: Date.now()
+            }))
           }
         } catch (error) {
           console.error("Submit error:", error)
@@ -3803,6 +3833,9 @@ function PublicBlockRenderer({
         if (emailSubmitted) {
           setEmailSubmitted(false)
           setDownloadLink(null)
+          // Clear localStorage when email is modified
+          const storageKey = `onepage_subscribed_${onepageId}_${block.id}`
+          localStorage.removeItem(storageKey)
         }
       }
 
@@ -3937,6 +3970,91 @@ function PublicBlockRenderer({
                 </p>
               </div>
             )}
+          </div>
+        )
+      }
+
+      // Preview layout - product card style with full-width image
+      if (data.layout_type === 'preview') {
+        const buttonText = getButtonText()
+        const previewImage = data.product_image || data.digital_product_thumbnail
+        const previewButtonBg = data.button_bg_color || theme.button_color
+        const previewButtonText = data.button_text_color || theme.button_text_color
+
+        return (
+          <div
+            className="w-full rounded-xl sm:rounded-2xl overflow-hidden"
+            style={{ backgroundColor: `${theme.button_color}10` }}
+          >
+            {/* Product image at top - full width */}
+            {previewImage && (
+              <div className="w-full aspect-[16/9] overflow-hidden">
+                <img
+                  src={previewImage}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className="p-4 sm:p-5 space-y-3">
+              {/* Headline */}
+              <h3 className="text-base sm:text-lg font-semibold" style={{ color: theme.text_color }}>
+                {data.headline}
+              </h3>
+              {/* Description */}
+              {data.description && (
+                <p
+                  className="text-xs sm:text-sm"
+                  style={{ color: theme.secondary_text_color || theme.text_color }}
+                >
+                  {data.description}
+                </p>
+              )}
+              {/* Email form */}
+              <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={handleEmailChange}
+                  placeholder={data.placeholder || "Enter your email"}
+                  required
+                  disabled={isSubmitting}
+                  className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 w-full"
+                  style={{ color: "#000" }}
+                />
+                {emailSubmitted && downloadLink ? (
+                  <button
+                    type="button"
+                    onClick={handleDownloadClick}
+                    className={cn(
+                      "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity whitespace-nowrap w-full",
+                      !isInsideCarousel && "hover:opacity-90"
+                    )}
+                    style={{ backgroundColor: previewButtonBg, color: previewButtonText }}
+                  >
+                    Download
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || emailSubmitted}
+                    className={cn(
+                      "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
+                      !isInsideCarousel && "hover:opacity-90"
+                    )}
+                    style={{ backgroundColor: previewButtonBg, color: previewButtonText }}
+                  >
+                    {isSubmitting ? "..." : buttonText}
+                  </button>
+                )}
+              </form>
+              {/* Success message */}
+              {emailSubmitted && (
+                <p className="text-xs text-center opacity-70" style={{ color: theme.text_color }}>
+                  {data.success_message || "Thanks for subscribing!"}
+                </p>
+              )}
+            </div>
           </div>
         )
       }

@@ -533,6 +533,7 @@ export function LinksTab() {
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
   const [imageFieldType, setImageFieldType] = useState<string | null>(null)
+  const [imageUploading, setImageUploading] = useState(false)
   const [showArchiveView, setShowArchiveView] = useState(false)
 
   // Thumbnail modal state
@@ -2681,10 +2682,12 @@ export function LinksTab() {
                   type="file"
                   id="file-upload-input"
                   accept={imageFieldType === 'digital_product_file' ? '*/*' : 'image/*'}
+                  disabled={imageUploading}
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file || !imageBlockId) return
 
+                    setImageUploading(true)
                     try {
                       const formData = new FormData()
                       formData.append('file', file)
@@ -2727,6 +2730,8 @@ export function LinksTab() {
                     } catch (error) {
                       console.error('Upload failed:', error)
                       alert('Upload failed. Please try again.')
+                    } finally {
+                      setImageUploading(false)
                     }
                     e.target.value = ''
                   }}
@@ -2734,13 +2739,22 @@ export function LinksTab() {
                 />
                 <label
                   htmlFor="file-upload-input"
-                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-violet-400 cursor-pointer transition-colors"
+                  className={cn(
+                    "flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-300 transition-colors",
+                    imageUploading ? "opacity-50 cursor-wait" : "hover:border-violet-400 cursor-pointer"
+                  )}
                 >
                   <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center">
-                    <Upload className="h-6 w-6 text-violet-600" />
+                    {imageUploading ? (
+                      <Loader2 className="h-6 w-6 text-violet-600 animate-spin" />
+                    ) : (
+                      <Upload className="h-6 w-6 text-violet-600" />
+                    )}
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="font-medium">Upload {imageFieldType === 'digital_product_file' ? 'file' : 'image'}</p>
+                    <p className="font-medium">
+                      {imageUploading ? 'Uploading...' : `Upload ${imageFieldType === 'digital_product_file' ? 'file' : 'image'}`}
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       {imageFieldType === 'digital_product_file' ? 'PDF, ZIP, or any file type' : 'JPG, PNG, GIF up to 5MB'}
                     </p>
@@ -5449,28 +5463,31 @@ function BlockEditor({
         // Button text presets
         const buttonTextPresets = [
           { id: 'subscribe', label: 'Subscribe', text: 'Subscribe' },
-          { id: 'join', label: 'Join', text: 'Join Now' },
+          { id: 'join', label: 'Join Now', text: 'Join Now' },
           { id: 'get_access', label: 'Get Access', text: 'Get Access' },
-          { id: 'download', label: 'Download', text: 'Download Free' },
-          { id: 'unlock', label: 'Unlock', text: 'Unlock Now' },
-          { id: 'custom', label: 'Custom', text: data.button_text || 'Subscribe' },
+          { id: 'download', label: 'Download', text: 'Download' },
+          { id: 'sign_up', label: 'Sign Up', text: 'Sign Up' },
+          { id: 'unlock', label: 'Unlock Now', text: 'Unlock Now' },
         ] as const
 
         // Handle preset change
         const handlePresetChange = (presetId: EmailCaptureButtonPreset) => {
           const preset = buttonTextPresets.find(p => p.id === presetId)
-          if (preset && presetId !== 'custom') {
+          if (preset) {
             updateData({ button_preset: presetId, button_text: preset.text })
-          } else {
-            updateData({ button_preset: presetId })
           }
         }
 
-        // Layout options
+        // Layout options - now includes Preview
         const layoutOptions = [
           { id: 'default', label: 'Default', description: 'Classic email form' },
-          { id: 'pro', label: 'Pro', description: 'With product image' },
+          { id: 'pro', label: 'Pro', description: 'Compact with image' },
+          { id: 'preview', label: 'Preview', description: 'Product card style' },
         ] as const
+
+        // Button color presets
+        const buttonColorPresets = ['#ffffff', '#000000', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
+        const buttonTextColorPresets = ['#000000', '#ffffff', '#8b5cf6', '#3b82f6', '#ef4444', '#10b981']
 
         return (
           <Tabs defaultValue="settings" className="w-full">
@@ -5508,40 +5525,61 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Button Text Selector */}
+              {/* Button Text Selector - Dropdown like Animation */}
               <div className="space-y-1.5">
                 <Label className="text-xs">Button Text</Label>
                 <div className="relative">
-                  <select
-                    value={data.button_preset || 'subscribe'}
-                    onChange={(e) => {
-                      const presetId = e.target.value as EmailCaptureButtonPreset
-                      handlePresetChange(presetId)
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const dropdown = e.currentTarget.nextElementSibling as HTMLElement
+                      if (dropdown) {
+                        dropdown.classList.toggle('hidden')
+                      }
                     }}
-                    className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm appearance-none cursor-pointer hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                    className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                   >
-                    {buttonTextPresets.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    <span>{buttonTextPresets.find(p => p.id === (data.button_preset || 'subscribe'))?.label || 'Subscribe'}</span>
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  </button>
+                  <div className="hidden absolute left-0 top-full mt-1 w-full bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {buttonTextPresets.map((preset) => {
+                      const isSelected = (data.button_preset || 'subscribe') === preset.id
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={(e) => {
+                            handlePresetChange(preset.id as EmailCaptureButtonPreset)
+                            const dropdown = e.currentTarget.parentElement as HTMLElement
+                            if (dropdown) dropdown.classList.add('hidden')
+                          }}
+                          className={cn(
+                            "w-full px-3 py-1.5 text-left text-sm transition-colors flex items-center justify-between",
+                            isSelected
+                              ? "bg-violet-50 text-violet-700 font-medium"
+                              : "text-gray-700 hover:bg-gray-50"
+                          )}
+                        >
+                          <span>{preset.label}</span>
+                          {isSelected && <Check className="h-3.5 w-3.5" />}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
 
-              {/* Custom Button Text Input - only show when custom is selected */}
-              {data.button_preset === 'custom' && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Custom Text</Label>
-                  <Input
-                    value={data.button_text || ""}
-                    onChange={(e) => updateData({ button_text: e.target.value })}
-                    className="h-9"
-                    placeholder="Enter custom button text"
-                  />
-                </div>
-              )}
+              {/* Custom Button Text Input - Always visible */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Custom Text</Label>
+                <Input
+                  value={data.button_text || ""}
+                  onChange={(e) => updateData({ button_text: e.target.value, button_preset: 'subscribe' })}
+                  className="h-9"
+                  placeholder="Enter custom button text"
+                />
+              </div>
 
               {/* Success Message */}
               <div className="space-y-1.5">
@@ -5552,6 +5590,43 @@ function BlockEditor({
                   className="h-9"
                   placeholder="Thanks for subscribing!"
                 />
+              </div>
+
+              {/* Product Image Picker - Always show in settings */}
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-xs">Product Image</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Display an image with your email form (used in Pro & Preview layouts)
+                </p>
+                <div className="flex gap-2 items-center">
+                  {data.product_image ? (
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                      <img src={data.product_image} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => updateData({ product_image: null })}
+                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => onOpenImageLibrary(block.id, 'product_image')}
+                      className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                    >
+                      <Upload className="w-5 h-5 text-gray-400" />
+                    </button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenImageLibrary(block.id, 'product_image')}
+                    className="h-8 text-xs"
+                  >
+                    <Upload className="w-3 h-3 mr-1.5" />
+                    {data.product_image ? 'Change' : 'Upload'}
+                  </Button>
+                </div>
               </div>
 
               {/* Enable Digital Product Toggle */}
@@ -5569,36 +5644,6 @@ function BlockEditor({
 
                 {data.enable_digital_product && (
                   <div className="space-y-3 pt-2">
-                    {/* Product Image Picker */}
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Product Image</Label>
-                      <div className="flex gap-2 items-center">
-                        {data.product_image ? (
-                          <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
-                            <img src={data.product_image} alt="" className="w-full h-full object-cover" />
-                            <button
-                              onClick={() => updateData({ product_image: null })}
-                              className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => onOpenImageLibrary(block.id, 'product_image')}
-                            className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
-                          >
-                            <Upload className="w-5 h-5 text-gray-400" />
-                          </button>
-                        )}
-                        <div className="flex-1">
-                          <p className="text-[10px] text-muted-foreground">
-                            Upload an image to display with your email form
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
                     {/* Digital Product File Picker */}
                     <div className="space-y-1.5">
                       <Label className="text-xs">Digital Product File</Label>
@@ -5655,13 +5700,13 @@ function BlockEditor({
             <TabsContent value="layout" className="mt-0 space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">Layout Style</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {layoutOptions.map((option) => (
                     <button
                       key={option.id}
                       onClick={() => updateData({ layout_type: option.id as EmailCaptureLayoutType })}
                       className={cn(
-                        "flex flex-col items-center gap-2 p-3 rounded-xl border transition-all",
+                        "flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all",
                         (data.layout_type || 'default') === option.id
                           ? "border-violet-500 bg-violet-50"
                           : "border-gray-200 hover:border-gray-300 bg-white"
@@ -5670,81 +5715,130 @@ function BlockEditor({
                       {/* Layout Preview */}
                       <div className="w-full aspect-[4/3] rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
                         {option.id === 'default' ? (
-                          <div className="w-full p-2 flex flex-col items-center gap-1">
-                            <div className="w-3/4 h-2 bg-gray-300 rounded" />
-                            <div className="w-1/2 h-1.5 bg-gray-200 rounded" />
-                            <div className="w-full h-3 bg-white rounded border border-gray-200 mt-1" />
-                            <div className="w-1/2 h-3 bg-violet-400 rounded mt-0.5" />
+                          <div className="w-full p-1.5 flex flex-col items-center gap-0.5">
+                            <div className="w-3/4 h-1.5 bg-gray-300 rounded" />
+                            <div className="w-1/2 h-1 bg-gray-200 rounded" />
+                            <div className="w-full h-2 bg-white rounded border border-gray-200 mt-0.5" />
+                            <div className="w-1/2 h-2 bg-violet-400 rounded mt-0.5" />
+                          </div>
+                        ) : option.id === 'pro' ? (
+                          <div className="w-full p-1 flex gap-1">
+                            <div className="w-1/3 aspect-square bg-gray-300 rounded" />
+                            <div className="flex-1 flex flex-col gap-0.5 justify-center">
+                              <div className="w-full h-1 bg-gray-300 rounded" />
+                              <div className="w-3/4 h-0.5 bg-gray-200 rounded" />
+                              <div className="w-full h-1.5 bg-white rounded border border-gray-200" />
+                              <div className="w-full h-1.5 bg-violet-400 rounded" />
+                            </div>
                           </div>
                         ) : (
-                          <div className="w-full p-1.5 flex gap-1.5">
-                            <div className="w-1/3 aspect-square bg-gray-300 rounded" />
-                            <div className="flex-1 flex flex-col gap-1 justify-center">
-                              <div className="w-full h-1.5 bg-gray-300 rounded" />
-                              <div className="w-3/4 h-1 bg-gray-200 rounded" />
-                              <div className="w-full h-2 bg-white rounded border border-gray-200" />
-                              <div className="w-full h-2 bg-violet-400 rounded" />
-                            </div>
+                          <div className="w-full p-1 flex flex-col gap-0.5">
+                            <div className="w-full aspect-[16/9] bg-gray-300 rounded" />
+                            <div className="w-3/4 h-1 bg-gray-300 rounded mx-auto" />
+                            <div className="w-1/2 h-0.5 bg-gray-200 rounded mx-auto" />
+                            <div className="w-full h-1.5 bg-violet-400 rounded" />
                           </div>
                         )}
                       </div>
-                      <div className="text-center">
-                        <span className={cn(
-                          "text-xs font-medium",
-                          (data.layout_type || 'default') === option.id ? "text-violet-700" : "text-gray-700"
-                        )}>
-                          {option.label}
-                        </span>
-                        <p className="text-[10px] text-muted-foreground">{option.description}</p>
-                      </div>
+                      <span className={cn(
+                        "text-[10px] font-medium",
+                        (data.layout_type || 'default') === option.id ? "text-violet-700" : "text-gray-700"
+                      )}>
+                        {option.label}
+                      </span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Pro Layout Image Picker */}
-              {(data.layout_type === 'pro') && (
-                <div className="space-y-1.5 pt-2 border-t">
-                  <Label className="text-xs">Layout Image</Label>
-                  <p className="text-[10px] text-muted-foreground mb-2">
-                    {data.enable_digital_product && data.digital_product_thumbnail
-                      ? "Using product image. Upload custom to override."
-                      : "Add an image to display with your email form"}
-                  </p>
-                  <div className="flex gap-2 items-center">
-                    {(data.product_image || (data.enable_digital_product && data.digital_product_thumbnail)) ? (
-                      <div className="relative w-20 h-20 rounded-lg overflow-hidden border">
-                        <img
-                          src={data.product_image || data.digital_product_thumbnail || ''}
-                          alt=""
-                          className="w-full h-full object-cover"
+              {/* Button Color Customizers - Only for Preview layout */}
+              {data.layout_type === 'preview' && (
+                <div className="space-y-4 pt-3 border-t">
+                  {/* Button Color */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Button Color</Label>
+                    <p className="text-[10px] text-muted-foreground">CTA button background</p>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer"
+                        style={{ backgroundColor: data.button_bg_color || '#000000' }}
+                        onClick={() => {
+                          const input = document.getElementById('btn-bg-color-input') as HTMLInputElement
+                          input?.click()
+                        }}
+                      />
+                      <input
+                        id="btn-bg-color-input"
+                        type="color"
+                        value={data.button_bg_color || '#000000'}
+                        onChange={(e) => updateData({ button_bg_color: e.target.value })}
+                        className="sr-only"
+                      />
+                      <Input
+                        value={data.button_bg_color || '#000000'}
+                        onChange={(e) => updateData({ button_bg_color: e.target.value })}
+                        className="h-10 flex-1 font-mono text-sm"
+                        placeholder="#000000"
+                      />
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      {buttonColorPresets.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => updateData({ button_bg_color: color })}
+                          className={cn(
+                            "w-8 h-8 rounded-full border-2 transition-all",
+                            (data.button_bg_color || '#000000') === color
+                              ? "border-violet-500 ring-2 ring-violet-200"
+                              : "border-gray-200 hover:border-gray-300"
+                          )}
+                          style={{ backgroundColor: color }}
                         />
-                        {data.product_image && (
-                          <button
-                            onClick={() => updateData({ product_image: null })}
-                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => onOpenImageLibrary(block.id, 'product_image')}
-                        className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
-                      >
-                        <Upload className="w-6 h-6 text-gray-400" />
-                      </button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onOpenImageLibrary(block.id, 'product_image')}
-                      className="h-8 text-xs"
-                    >
-                      <Upload className="w-3 h-3 mr-1.5" />
-                      {data.product_image ? 'Change' : 'Upload'}
-                    </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Button Text Color */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Button Text Color</Label>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer"
+                        style={{ backgroundColor: data.button_text_color || '#ffffff' }}
+                        onClick={() => {
+                          const input = document.getElementById('btn-text-color-input') as HTMLInputElement
+                          input?.click()
+                        }}
+                      />
+                      <input
+                        id="btn-text-color-input"
+                        type="color"
+                        value={data.button_text_color || '#ffffff'}
+                        onChange={(e) => updateData({ button_text_color: e.target.value })}
+                        className="sr-only"
+                      />
+                      <Input
+                        value={data.button_text_color || '#ffffff'}
+                        onChange={(e) => updateData({ button_text_color: e.target.value })}
+                        className="h-10 flex-1 font-mono text-sm"
+                        placeholder="#ffffff"
+                      />
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      {buttonTextColorPresets.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => updateData({ button_text_color: color })}
+                          className={cn(
+                            "w-8 h-8 rounded-full border-2 transition-all",
+                            (data.button_text_color || '#ffffff') === color
+                              ? "border-violet-500 ring-2 ring-violet-200"
+                              : "border-gray-200 hover:border-gray-300"
+                          )}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
