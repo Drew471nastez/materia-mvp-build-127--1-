@@ -280,7 +280,7 @@ function NotificationBell({
   return (
     <div
       className={cn(
-        "fixed top-4 right-4 sm:top-6 sm:right-6 z-40 transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+        "fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
         bellVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none",
       )}
     >
@@ -574,7 +574,7 @@ function ShareButton({
   // Share icon is always positioned on the TOP LEFT (both mobile and desktop)
   // Subscribe icon stays on TOP RIGHT
   // Desktop (md): top-[22px] to align 2px above the subscribe button which is at top-6 (24px)
-  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-40"
+  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-[20]"
   const shareVisible = isOpen || isShareVisible
 
   const buttonWrapperClass = cn(
@@ -4775,7 +4775,7 @@ function PublicBlockRenderer({
             {/* PDF Preview Modal - Clean light UI */}
             {showPdfModal && pdfUrl && (
               <div
-                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
                 onClick={() => setShowPdfModal(false)}
               >
                 <div
@@ -4898,7 +4898,7 @@ function PublicBlockRenderer({
           {/* PDF Preview Modal - Clean light UI */}
           {showPdfModal && pdfUrl && (
             <div
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
               onClick={() => setShowPdfModal(false)}
             >
               <div
