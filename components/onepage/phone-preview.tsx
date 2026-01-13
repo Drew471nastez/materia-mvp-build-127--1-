@@ -20,7 +20,7 @@ import type {
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Globe, Bell, X, Send, Check, Link2, ExternalLink } from "lucide-react"
-import { useState, useRef, useCallback, createContext, useContext } from "react"
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
 
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
