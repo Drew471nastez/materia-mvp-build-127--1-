@@ -2421,6 +2421,7 @@ function PublicBlockRenderer({
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [downloadLink, setDownloadLink] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   
   // Use context for Spotify modal - renders at root level to prevent clipping
@@ -3734,23 +3735,25 @@ function PublicBlockRenderer({
 
       const isPro = data.layout_type === "pro"
       const hasDigitalProduct = data.enable_digital_product && data.digital_product_id
-      const showThumbnail = isPro && hasDigitalProduct && data.digital_product_thumbnail
-      
-      // Track download link after submission
-      const [downloadLink, setDownloadLink] = useState<string | null>(null)
-      
+      const layoutImage = data.product_image || (hasDigitalProduct ? data.digital_product_thumbnail : null)
+      const showThumbnail = isPro && layoutImage
+
       // Get button text from custom or preset
       const getButtonText = () => {
+        if (emailSubmitted && downloadLink) {
+          return "Download"
+        }
         if (emailSubmitted) {
-          return hasDigitalProduct ? "Download" : "Subscribed!"
+          return hasDigitalProduct ? "Subscribed!" : "Subscribed!"
         }
         if (data.custom_button_text) return data.custom_button_text
         const presetLabels: Record<string, string> = {
           subscribe: 'Subscribe',
           join: 'Join Now',
           get_access: 'Get Access',
-          download: 'Download',
+          download: 'Download Free',
           sign_up: 'Sign Up',
+          unlock: 'Unlock Now',
         }
         return presetLabels[data.button_preset || 'subscribe'] || data.button_text || "Subscribe"
       }
@@ -3761,7 +3764,7 @@ function PublicBlockRenderer({
         setIsSubmitting(true)
 
         try {
-          const response = await fetch("/api/onepage/email-capture", {
+          const response = await fetch("/api/onepage/leads", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -3769,7 +3772,10 @@ function PublicBlockRenderer({
               email,
               block_id: block.id,
               lead_magnet_id: data.lead_magnet_id,
-              digital_product_id: hasDigitalProduct ? data.digital_product_id : null,
+              enable_digital_product: data.enable_digital_product,
+              digital_product_id: data.digital_product_id,
+              digital_product_title: data.digital_product_title,
+              digital_product_file_url: data.digital_product_file_url,
             }),
           })
           const result = await response.json()
@@ -3813,7 +3819,7 @@ function PublicBlockRenderer({
               {/* Product row */}
               <div className="flex gap-3 sm:gap-4 items-start">
                 <img
-                  src={data.digital_product_thumbnail || ""}
+                  src={layoutImage || ""}
                   alt=""
                   className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl object-cover shrink-0"
                 />
