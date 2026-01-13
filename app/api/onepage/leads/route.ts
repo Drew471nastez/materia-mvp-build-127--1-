@@ -4,9 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { v4 as uuidv4 } from "uuid"
 import { Resend } from "resend"
 
-// Initialize Resend with your API key
-const RESEND_API_KEY = process.env.RESEND_API_KEY || "re_Qiw9Lx4H_6QRy8NL48DoxHVZa1qTXv6Pu"
-const resend = new Resend(RESEND_API_KEY)
+// Initialize Resend with API key
+const RESEND_API_KEY = process.env.RESEND_API_KEY
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null
 
 const FROM_EMAIL = "noreplycustomers@materiabuilder.store"
 const PLATFORM_BRAND_NAME = "Materia Builder"
@@ -29,7 +29,8 @@ function buildDownloadEmailHtml(params: {
 }) {
   const { productTitle, downloadLink, customHeading, customBody, fromName } = params
   const heading = customHeading || "Your download is ready!"
-  const body = customBody || `Thanks for subscribing! As promised, here's your free download: <strong>${productTitle}</strong>`
+  const body =
+    customBody || `Thanks for subscribing! As promised, here's your free download: <strong>${productTitle}</strong>`
 
   return `<!DOCTYPE html>
 <html>
@@ -97,7 +98,9 @@ function buildWelcomeEmailHtml(params: {
 }) {
   const { customHeading, customBody, fromName } = params
   const heading = customHeading || "Thanks for subscribing!"
-  const body = customBody || "Welcome to our community! We're excited to have you on board. Stay tuned for updates and exclusive content."
+  const body =
+    customBody ||
+    "Welcome to our community! We're excited to have you on board. Stay tuned for updates and exclusive content."
 
   return `<!DOCTYPE html>
 <html>
@@ -167,7 +170,7 @@ async function resolveCreatorName(adminSupabase: any, creatorId: string): Promis
   } catch (e) {
     console.log("[leads] Could not resolve creator name:", e)
   }
-  
+
   return PLATFORM_BRAND_NAME
 }
 
@@ -199,16 +202,19 @@ export async function POST(request: Request) {
       email_body,
     } = body
 
-    // Log incoming request
-    console.log("[leads] 📨 Received subscription request:", {
-      onepage_id,
-      email,
-      enable_digital_product,
-      digital_product_file_url: digital_product_file_url ? "yes" : "no",
-      send_welcome_email,
-    })
+    console.log("[leads] ========================================")
+    console.log("[leads] New subscription request received")
+    console.log("[leads] Email:", email)
+    console.log("[leads] OnePage ID:", onepage_id)
+    console.log("[leads] Block ID:", block_id)
+    console.log("[leads] Digital Product Enabled:", enable_digital_product)
+    console.log("[leads] Digital Product File URL:", digital_product_file_url ? "YES (URL provided)" : "NO")
+    console.log("[leads] Send Welcome Email:", send_welcome_email)
+    console.log("[leads] Resend API Key configured:", !!RESEND_API_KEY)
+    console.log("[leads] ========================================")
 
     if (!onepage_id || !email) {
+      console.log("[leads] Missing required fields - onepage_id:", !!onepage_id, "email:", !!email)
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
@@ -216,6 +222,7 @@ export async function POST(request: Request) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     const normalizedEmail = email.toLowerCase().trim()
     if (!emailRegex.test(normalizedEmail)) {
+      console.log("[leads] Invalid email format:", normalizedEmail)
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
@@ -228,12 +235,25 @@ export async function POST(request: Request) {
       .single()
 
     if (onepageError || !onepage) {
-      console.log("[leads] ❌ OnePage not found:", onepageError)
+      console.log("[leads] OnePage not found or not published:", onepageError?.message)
       return NextResponse.json({ error: "OnePage not found" }, { status: 404 })
     }
 
+    console.log(
+      "[leads] OnePage found - Creator ID:",
+      onepage.creator_id,
+      "Owner ID:",
+      onepage.owner_id,
+      "Seller ID:",
+      onepage.seller_id,
+    )
+
     const actualFileUrl = digital_product_file_url
     const actualProductTitle = digital_product_title || "Free Download"
+    const hasDigitalProduct = !!(digital_product_file_url && digital_product_file_url.trim())
+
+    console.log("[leads] Has digital product:", hasDigitalProduct)
+    console.log("[leads] Product title:", actualProductTitle)
 
     // Check if already subscribed
     const { data: existingLead } = await adminSupabase
@@ -244,16 +264,15 @@ export async function POST(request: Request) {
       .single()
 
     if (existingLead) {
-      console.log("[leads] Already subscribed, returning existing")
+      console.log("[leads] User already subscribed, returning existing data")
       return NextResponse.json({
         success: true,
         message: "Already subscribed",
-        downloadLink: enable_digital_product && actualFileUrl ? actualFileUrl : null,
+        downloadLink: hasDigitalProduct ? actualFileUrl : null,
       })
     }
 
     // Insert lead
-    const hasDigitalProduct = enable_digital_product && actualFileUrl
     const { data: lead, error: insertError } = await adminSupabase
       .from("onepage_leads")
       .insert({
@@ -273,6 +292,7 @@ export async function POST(request: Request) {
 
     if (insertError) {
       if (insertError.code === "23505") {
+        console.log("[leads] Duplicate entry (already subscribed)")
         return NextResponse.json({
           success: true,
           message: "Already subscribed",
@@ -282,6 +302,8 @@ export async function POST(request: Request) {
       console.error("[leads] Lead insert error:", insertError)
       return NextResponse.json({ error: "Failed to save" }, { status: 500 })
     }
+
+    console.log("[leads] Lead inserted successfully with ID:", lead.id)
 
     // Add to subscribers list
     const subscriberCreatorId = onepage.creator_id || onepage.seller_id || onepage.owner_id
@@ -308,6 +330,7 @@ export async function POST(request: Request) {
           consent_timestamp: new Date().toISOString(),
           unsubscribe_token: unsubscribeToken,
         })
+        console.log("[leads] Added to subscribers list")
       } else if (existingSubscriber.status === "unsubscribed") {
         await adminSupabase
           .from("subscribers")
@@ -318,42 +341,55 @@ export async function POST(request: Request) {
             unsubscribed_at: null,
           })
           .eq("id", existingSubscriber.id)
+        console.log("[leads] Resubscribed existing subscriber")
       }
     }
 
-    // SEND EMAIL
     let emailSent = false
     const creatorId = onepage.creator_id || onepage.owner_id || onepage.seller_id
-    const shouldSendEmail = send_welcome_email || hasDigitalProduct
+    // Send email if: has digital product OR send_welcome_email is true
+    const shouldSendEmail = hasDigitalProduct || send_welcome_email === true
 
-    console.log("[leads] 📧 Email decision:", {
-      shouldSendEmail,
-      hasDigitalProduct,
-      send_welcome_email,
-      to: normalizedEmail,
-    })
+    console.log("[leads] Email decision:")
+    console.log("[leads]   - Should send email:", shouldSendEmail)
+    console.log("[leads]   - Has digital product:", hasDigitalProduct)
+    console.log("[leads]   - Send welcome email flag:", send_welcome_email)
+    console.log("[leads]   - Recipient:", normalizedEmail)
 
     if (shouldSendEmail) {
+      if (!resend) {
+        console.error("[leads] RESEND NOT CONFIGURED - RESEND_API_KEY environment variable is missing!")
+        console.error("[leads] Please add RESEND_API_KEY to your environment variables")
+
+        // Update lead status
+        await adminSupabase.from("onepage_leads").update({ delivery_status: "failed" }).eq("id", lead.id)
+
+        // Still return success but note email wasn't sent
+        return NextResponse.json({
+          success: true,
+          lead_id: lead.id,
+          email_sent: false,
+          email_error: "Email service not configured",
+          downloadLink: hasDigitalProduct ? actualFileUrl : null,
+        })
+      }
+
       try {
         // Get creator name for the email
-        const fromName = creatorId 
-          ? await resolveCreatorName(adminSupabase, creatorId)
-          : PLATFORM_BRAND_NAME
+        const fromName = creatorId ? await resolveCreatorName(adminSupabase, creatorId) : PLATFORM_BRAND_NAME
 
         const fromHeader = `${fromName} <${FROM_EMAIL}>`
 
-        console.log("[leads] 📧 Sending email:", {
-          from: fromHeader,
-          to: normalizedEmail,
-          hasDigitalProduct,
-          productTitle: actualProductTitle,
-        })
+        console.log("[leads] Preparing email:")
+        console.log("[leads]   - From:", fromHeader)
+        console.log("[leads]   - To:", normalizedEmail)
+        console.log("[leads]   - Type:", hasDigitalProduct ? "Download email" : "Welcome email")
 
         let emailHtml: string
         let subject: string
 
         if (hasDigitalProduct) {
-          // Send download email
+          // Send download email with the file link
           subject = email_subject || `Your download is ready: ${actualProductTitle}`
           emailHtml = buildDownloadEmailHtml({
             productTitle: actualProductTitle,
@@ -362,15 +398,20 @@ export async function POST(request: Request) {
             customBody: email_body,
             fromName,
           })
+          console.log("[leads] Built download email with link:", actualFileUrl)
         } else {
-          // Send welcome email
+          // Send welcome email (no download)
           subject = email_subject || "Thanks for subscribing!"
           emailHtml = buildWelcomeEmailHtml({
             customHeading: email_heading,
             customBody: email_body,
             fromName,
           })
+          console.log("[leads] Built welcome email (no download)")
         }
+
+        console.log("[leads] Email subject:", subject)
+        console.log("[leads] Sending email via Resend...")
 
         // Send via Resend
         const response = await resend.emails.send({
@@ -380,16 +421,19 @@ export async function POST(request: Request) {
           html: emailHtml,
         })
 
-        console.log("[leads] 📨 Resend response:", JSON.stringify(response))
+        console.log("[leads] Resend API response:", JSON.stringify(response, null, 2))
 
+        // Check for error in response
         if ((response as any)?.error) {
-          throw new Error((response as any).error.message || "Resend error")
+          const errorMsg = (response as any).error.message || JSON.stringify((response as any).error)
+          console.error("[leads] Resend returned error:", errorMsg)
+          throw new Error(errorMsg)
         }
 
         emailSent = true
-        console.log("[leads] ✅ Email sent successfully to:", normalizedEmail)
+        console.log("[leads] ✅ EMAIL SENT SUCCESSFULLY to:", normalizedEmail)
 
-        // Update lead status
+        // Update lead status to sent
         await adminSupabase
           .from("onepage_leads")
           .update({
@@ -397,23 +441,23 @@ export async function POST(request: Request) {
             delivered_at: new Date().toISOString(),
           })
           .eq("id", lead.id)
-
       } catch (emailError: any) {
-        console.error("[leads] ❌ Email send error:", emailError?.message || emailError)
-        
+        console.error("[leads] ❌ EMAIL SEND FAILED")
+        console.error("[leads] Error:", emailError?.message || emailError)
+        console.error("[leads] Full error:", JSON.stringify(emailError, null, 2))
+
         // Update lead status to failed
-        await adminSupabase
-          .from("onepage_leads")
-          .update({ delivery_status: "failed" })
-          .eq("id", lead.id)
+        await adminSupabase.from("onepage_leads").update({ delivery_status: "failed" }).eq("id", lead.id)
       }
     } else {
+      console.log("[leads] No email needed - neither digital product nor welcome email enabled")
       // No email needed
-      await adminSupabase
-        .from("onepage_leads")
-        .update({ delivery_status: "not_applicable" })
-        .eq("id", lead.id)
+      await adminSupabase.from("onepage_leads").update({ delivery_status: "not_applicable" }).eq("id", lead.id)
     }
+
+    console.log("[leads] ========================================")
+    console.log("[leads] Request complete - Email sent:", emailSent)
+    console.log("[leads] ========================================")
 
     return NextResponse.json({
       success: true,
@@ -421,7 +465,6 @@ export async function POST(request: Request) {
       email_sent: emailSent,
       downloadLink: hasDigitalProduct ? actualFileUrl : null,
     })
-
   } catch (error) {
     console.error("[leads] Fatal error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -441,21 +484,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: onepage } = await supabase
-      .from("onepages")
-      .select("id")
-      .eq("owner_id", user.id)
-      .single()
+    const { data: onepage } = await supabase.from("onepages").select("id").eq("owner_id", user.id).single()
 
     if (!onepage) {
       return NextResponse.json({ leads: [] })
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get("limit") || "50")
-    const offset = parseInt(searchParams.get("offset") || "0")
+    const limit = Number.parseInt(searchParams.get("limit") || "50")
+    const offset = Number.parseInt(searchParams.get("offset") || "0")
 
-    const { data: leads, error, count } = await supabase
+    const {
+      data: leads,
+      error,
+      count,
+    } = await supabase
       .from("onepage_leads")
       .select("*", { count: "exact" })
       .eq("onepage_id", onepage.id)
