@@ -899,6 +899,8 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           height: "580px",
           minHeight: "580px",
           maxHeight: "580px",
+          overflow: "hidden",
+          borderRadius: "44px",
         }}
       >
         {/* Animation keyframes - subtle animation */}
@@ -1215,11 +1217,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
+          style={{ borderRadius: "34px" }}
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1307,11 +1310,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
+          style={{ borderRadius: "34px" }}
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1371,44 +1375,44 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* PDF Preview Modal */}
       {pdfModalOpen && pdfModalData && (
         <div
-          className="absolute inset-0 z-50 flex items-end justify-center bg-black/50 animate-in fade-in duration-200"
-          style={{ borderRadius: "32px" }}
+          className="absolute inset-[10px] z-50 flex items-end justify-center bg-black/50 animate-in fade-in duration-200"
+          style={{ borderRadius: "34px" }}
           onClick={() => setPdfModalOpen(false)}
         >
           <div
-            className="relative w-full bg-white rounded-t-2xl flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300"
-            style={{ maxHeight: "85%", minHeight: "60%" }}
+            className="relative w-full bg-white rounded-t-[24px] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300"
+            style={{ maxHeight: "80%", minHeight: "50%" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Top Bar */}
-            <div className="flex items-center justify-between px-3 py-3 border-b shrink-0">
+            <div className="flex items-center justify-between px-3 py-2.5 border-b shrink-0">
               <button
                 onClick={() => setPdfModalOpen(false)}
                 className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h3 className="text-sm font-semibold text-gray-900 truncate flex-1 text-center px-2">
+              <h3 className="text-xs font-semibold text-gray-900 truncate flex-1 text-center px-2">
                 {pdfModalData.title || "PDF Document"}
               </h3>
               <button
                 onClick={() => setPdfModalOpen(false)}
                 className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6L6 18M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
             {/* Preview Area */}
-            <div className="flex-1 flex flex-col items-center justify-center p-3 overflow-auto min-h-0">
+            <div className="flex-1 flex flex-col items-center justify-center p-2.5 overflow-auto min-h-0">
               {/* PDF Preview Frame */}
-              <div className="relative w-full max-w-[200px] bg-gray-50 rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              <div className="relative w-full max-w-[180px] bg-gray-50 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
                 {/* Page Counter */}
-                <div className="absolute top-2 left-2 z-10 px-2 py-0.5 bg-white/95 backdrop-blur-sm rounded-md text-[10px] font-medium text-gray-600 shadow-sm">
+                <div className="absolute top-1.5 left-1.5 z-10 px-1.5 py-0.5 bg-white/95 backdrop-blur-sm rounded text-[9px] font-medium text-gray-600 shadow-sm">
                   {pdfCurrentPage} of {pdfTotalPages}
                 </div>
                 <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
@@ -1430,17 +1434,17 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 </div>
               </div>
               {pdfModalData.description && (
-                <p className="mt-3 text-[10px] text-gray-500 text-center max-w-[180px]">{pdfModalData.description}</p>
+                <p className="mt-2 text-[9px] text-gray-500 text-center max-w-[160px] line-clamp-2">{pdfModalData.description}</p>
               )}
             </div>
 
             {/* Bottom View Button */}
-            <div className="px-3 pb-3 pt-2 shrink-0">
+            <div className="px-2.5 pb-2.5 pt-1.5 shrink-0">
               <a
                 href={pdfModalData.pdfUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center w-full py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-xl transition-colors"
+                className="flex items-center justify-center w-full py-2 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold rounded-lg transition-colors"
               >
                 View Full PDF
               </a>
@@ -1763,11 +1767,12 @@ export function MobilePreviewContent() {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
+          style={{ borderRadius: "34px" }}
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1844,11 +1849,12 @@ export function MobilePreviewContent() {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
+          style={{ borderRadius: "34px" }}
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
