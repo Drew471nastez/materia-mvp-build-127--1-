@@ -5283,21 +5283,354 @@ function BlockEditor({
 
       case "email_capture": {
         const data = block.data as EmailCaptureBlockData
+        const selectedDigitalProduct = effectiveSellerProducts?.find(p => p.id === data.digital_product_id)
+
+        // Button text presets
+        const buttonTextPresets = [
+          { id: 'subscribe', label: 'Subscribe', text: 'Subscribe' },
+          { id: 'join', label: 'Join', text: 'Join Now' },
+          { id: 'get_access', label: 'Get Access', text: 'Get Access' },
+          { id: 'download', label: 'Download', text: 'Download Free' },
+          { id: 'unlock', label: 'Unlock', text: 'Unlock Now' },
+          { id: 'custom', label: 'Custom', text: data.button_text || 'Subscribe' },
+        ] as const
+
+        // Handle preset change
+        const handlePresetChange = (presetId: EmailCaptureButtonPreset) => {
+          const preset = buttonTextPresets.find(p => p.id === presetId)
+          if (preset && presetId !== 'custom') {
+            updateData({ button_preset: presetId, button_text: preset.text })
+          } else {
+            updateData({ button_preset: presetId })
+          }
+        }
+
+        // Layout options
+        const layoutOptions = [
+          { id: 'default', label: 'Default', description: 'Classic email form' },
+          { id: 'pro', label: 'Pro', description: 'With product image' },
+        ] as const
+
         return (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
-              <Input value={data.headline} onChange={(e) => updateData({ headline: e.target.value })} className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Description</Label>
-              <Input value={data.description || ""} onChange={(e) => updateData({ description: e.target.value })} className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Button Text</Label>
-              <Input value={data.button_text} onChange={(e) => updateData({ button_text: e.target.value })} className="h-9" />
-            </div>
-          </div>
+          <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
+              <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+                <Settings className="w-3.5 h-3.5" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Layout
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="mt-0 space-y-4">
+              {/* Headline */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Headline</Label>
+                <Input
+                  value={data.headline}
+                  onChange={(e) => updateData({ headline: e.target.value })}
+                  className="h-9"
+                  placeholder="Join my newsletter"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Description</Label>
+                <Input
+                  value={data.description || ""}
+                  onChange={(e) => updateData({ description: e.target.value })}
+                  className="h-9"
+                  placeholder="Get updates and exclusive content"
+                />
+              </div>
+
+              {/* Button Text Preset Selector */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {buttonTextPresets.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => handlePresetChange(preset.id as EmailCaptureButtonPreset)}
+                      className={cn(
+                        "px-2 py-1.5 rounded-lg border text-xs font-medium transition-all",
+                        (data.button_preset || 'subscribe') === preset.id
+                          ? "border-violet-500 bg-violet-50 text-violet-700"
+                          : "border-gray-200 hover:border-gray-300 bg-white text-gray-700"
+                      )}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Button Text Input */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Custom Text</Label>
+                <Input
+                  value={data.button_text}
+                  onChange={(e) => updateData({ button_text: e.target.value, button_preset: 'custom' })}
+                  className="h-9"
+                  placeholder="Enter custom button text"
+                />
+              </div>
+
+              {/* Success Message */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Success Message</Label>
+                <Input
+                  value={data.success_message}
+                  onChange={(e) => updateData({ success_message: e.target.value })}
+                  className="h-9"
+                  placeholder="Thanks for subscribing!"
+                />
+              </div>
+
+              {/* Enable Digital Product Toggle */}
+              <div className="space-y-2 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs">Enable Digital Product</Label>
+                    <p className="text-[10px] text-muted-foreground">Send a free product on signup</p>
+                  </div>
+                  <Toggle
+                    checked={data.enable_digital_product || false}
+                    onCheckedChange={(checked) => updateData({ enable_digital_product: checked })}
+                  />
+                </div>
+
+                {data.enable_digital_product && (
+                  <div className="space-y-3 pt-2">
+                    {/* Product Image Picker */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Product Image</Label>
+                      <div className="flex gap-2 items-center">
+                        {data.product_image ? (
+                          <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                            <img src={data.product_image} alt="" className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => updateData({ product_image: null })}
+                              className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => onOpenImageLibrary(block.id, 'product_image')}
+                            className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                          >
+                            <Upload className="w-5 h-5 text-gray-400" />
+                          </button>
+                        )}
+                        <div className="flex-1">
+                          <p className="text-[10px] text-muted-foreground">
+                            Upload an image to display with your email form
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Digital Product Picker */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Select Digital Product</Label>
+                      <div className="relative" ref={productDropdownRef}>
+                        <button
+                          type="button"
+                          onClick={() => setShowProductDropdown(!showProductDropdown)}
+                          className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {selectedDigitalProduct?.thumbnail_url && (
+                              <img
+                                src={selectedDigitalProduct.thumbnail_url}
+                                alt=""
+                                className="w-6 h-6 rounded object-cover shrink-0"
+                              />
+                            )}
+                            <span className="truncate">
+                              {selectedDigitalProduct ? selectedDigitalProduct.title : "Select a product..."}
+                            </span>
+                            {selectedDigitalProduct && (
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {selectedDigitalProduct.price_cents > 0 ? `$${(selectedDigitalProduct.price_cents / 100).toFixed(2)}` : 'Free'}
+                              </span>
+                            )}
+                          </div>
+                          <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform ml-2", showProductDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showProductDropdown && (
+                          <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[240px] overflow-y-auto">
+                            {effectiveSellerProducts?.filter(p => p.price_cents === 0 || !p.price_cents).length === 0 ? (
+                              <div className="px-3 py-4 text-center">
+                                <p className="text-sm text-muted-foreground mb-3">No free products found.</p>
+                                <a
+                                  href="/app/products/new"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  Add Product
+                                </a>
+                              </div>
+                            ) : (
+                              effectiveSellerProducts?.filter(p => p.price_cents === 0 || !p.price_cents).map((product) => (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  onClick={() => {
+                                    updateData({
+                                      digital_product_id: product.id,
+                                      digital_product_title: product.title,
+                                      digital_product_thumbnail: product.thumbnail_url || null,
+                                      digital_product_file_url: product.digital_file_url || null,
+                                    })
+                                    setShowProductDropdown(false)
+                                  }}
+                                  className={cn(
+                                    "w-full px-3 py-2.5 text-left text-sm transition-colors flex items-center gap-2",
+                                    data.digital_product_id === product.id
+                                      ? "bg-violet-50 text-violet-700"
+                                      : "text-gray-700 hover:bg-gray-50"
+                                  )}
+                                >
+                                  {product.thumbnail_url && (
+                                    <img
+                                      src={product.thumbnail_url}
+                                      alt=""
+                                      className="w-8 h-8 rounded-lg object-cover shrink-0"
+                                    />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className={cn("font-medium truncate", data.digital_product_id === product.id && "text-violet-700")}>
+                                      {product.title}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">Free</p>
+                                  </div>
+                                  {data.digital_product_id === product.id && (
+                                    <Check className="w-4 h-4 text-violet-600 shrink-0" />
+                                  )}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {data.digital_product_id && selectedDigitalProduct && (
+                      <p className="text-[10px] text-muted-foreground bg-violet-50 p-2 rounded-lg">
+                        When visitors subscribe, they'll receive "{selectedDigitalProduct.title}" via email and can download it directly.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="layout" className="mt-0 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Layout Style</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {layoutOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => updateData({ layout_type: option.id as EmailCaptureLayoutType })}
+                      className={cn(
+                        "flex flex-col items-center gap-2 p-3 rounded-xl border transition-all",
+                        (data.layout_type || 'default') === option.id
+                          ? "border-violet-500 bg-violet-50"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      )}
+                    >
+                      {/* Layout Preview */}
+                      <div className="w-full aspect-[4/3] rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+                        {option.id === 'default' ? (
+                          <div className="w-full p-2 flex flex-col items-center gap-1">
+                            <div className="w-3/4 h-2 bg-gray-300 rounded" />
+                            <div className="w-1/2 h-1.5 bg-gray-200 rounded" />
+                            <div className="w-full h-3 bg-white rounded border border-gray-200 mt-1" />
+                            <div className="w-1/2 h-3 bg-violet-400 rounded mt-0.5" />
+                          </div>
+                        ) : (
+                          <div className="w-full p-1.5 flex gap-1.5">
+                            <div className="w-1/3 aspect-square bg-gray-300 rounded" />
+                            <div className="flex-1 flex flex-col gap-1 justify-center">
+                              <div className="w-full h-1.5 bg-gray-300 rounded" />
+                              <div className="w-3/4 h-1 bg-gray-200 rounded" />
+                              <div className="w-full h-2 bg-white rounded border border-gray-200" />
+                              <div className="w-full h-2 bg-violet-400 rounded" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-center">
+                        <span className={cn(
+                          "text-xs font-medium",
+                          (data.layout_type || 'default') === option.id ? "text-violet-700" : "text-gray-700"
+                        )}>
+                          {option.label}
+                        </span>
+                        <p className="text-[10px] text-muted-foreground">{option.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pro Layout Image Picker */}
+              {(data.layout_type === 'pro') && (
+                <div className="space-y-1.5 pt-2 border-t">
+                  <Label className="text-xs">Layout Image</Label>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    {data.enable_digital_product && data.digital_product_thumbnail
+                      ? "Using product image. Upload custom to override."
+                      : "Add an image to display with your email form"}
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    {(data.product_image || (data.enable_digital_product && data.digital_product_thumbnail)) ? (
+                      <div className="relative w-20 h-20 rounded-lg overflow-hidden border">
+                        <img
+                          src={data.product_image || data.digital_product_thumbnail || ''}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                        {data.product_image && (
+                          <button
+                            onClick={() => updateData({ product_image: null })}
+                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onOpenImageLibrary(block.id, 'product_image')}
+                        className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                      >
+                        <Upload className="w-6 h-6 text-gray-400" />
+                      </button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onOpenImageLibrary(block.id, 'product_image')}
+                      className="h-8 text-xs"
+                    >
+                      <Upload className="w-3 h-3 mr-1.5" />
+                      {data.product_image ? 'Change' : 'Upload'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         )
       }
 

@@ -100,7 +100,7 @@ export type AppleMusicMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
 export type SoundCloudMode = 'audio_preview' | 'go_to_url'
 
 // Email capture button text presets
-export type EmailCaptureButtonPreset = 'subscribe' | 'join' | 'get_access' | 'download' | 'sign_up'
+export type EmailCaptureButtonPreset = 'subscribe' | 'join' | 'get_access' | 'download' | 'sign_up' | 'unlock' | 'custom'
 
 // Email capture layout types
 export type EmailCaptureLayoutType = 'default' | 'pro'
@@ -223,16 +223,18 @@ export interface EmailCaptureBlockData {
   button_text: string
   success_message: string
   lead_magnet_id?: string | null
-  // NEW: Button text preset selector
+  // Button text preset selector
   button_preset?: EmailCaptureButtonPreset
   custom_button_text?: string
-  // NEW: Digital product delivery
+  // Digital product delivery
   enable_digital_product?: boolean
   digital_product_id?: string | null
   digital_product_title?: string | null
   digital_product_thumbnail?: string | null
-  // NEW: Layout type (default or pro with thumbnail)
+  digital_product_file_url?: string | null  // URL to the digital file
+  // Layout type (default or pro with thumbnail)
   layout_type?: EmailCaptureLayoutType
+  product_image?: string | null  // Custom image for Pro layout (overrides product thumbnail)
 }
 
 export interface HeaderBlockData {
@@ -516,7 +518,9 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           digital_product_id: null,
           digital_product_title: null,
           digital_product_thumbnail: null,
+          digital_product_file_url: null,
           layout_type: "default",
+          product_image: null,
         } as EmailCaptureBlockData,
       }
     case "header":

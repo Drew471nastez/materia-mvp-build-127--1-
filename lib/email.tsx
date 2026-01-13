@@ -795,3 +795,158 @@ export async function sendOrderEmails(
     return { buyerSuccess: false, sellerSuccess: false }
   }
 }
+
+// -------------------------
+// Lead Magnet / Free Digital Product Email
+// -------------------------
+export interface SendLeadMagnetEmailParams {
+  recipientEmail: string
+  productTitle: string
+  productFileUrl: string
+  creatorId?: string
+  onepageId?: string
+  baseUrl?: string
+}
+
+function leadMagnetEmailHtml(params: {
+  productTitle: string
+  downloadLink: string
+  supportEmail: string
+  footerBrand: string
+}) {
+  const productTitle = safeText(params.productTitle)
+  const downloadLink = params.downloadLink
+  const supportEmail = params.supportEmail
+  const footerBrand = safeText(params.footerBrand)
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>Your download is ready</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
+  <table role="presentation" style="width:100%;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="padding:44px 36px 30px;text-align:center;background:#7c3aed;">
+              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">Thank you for joining!</h1>
+              <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.9);">Here's your free download</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:34px 34px 12px;">
+              <p style="margin:0 0 18px 0;font-size:15px;color:#374151;line-height:1.55;">
+                Thanks for subscribing! As promised, here's your free digital download: <strong>${productTitle}</strong>
+              </p>
+
+              <table role="presentation" style="width:100%;background:#f3f4f6;border-radius:10px;padding:18px;margin:0 0 22px 0;">
+                <tr>
+                  <td>
+                    <p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.9px;font-weight:700;">Your Download</p>
+                    <p style="margin:0;font-size:18px;font-weight:800;color:#111827;">${productTitle}</p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" style="width:100%;margin:0 0 18px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${downloadLink}" style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;padding:14px 26px;border-radius:10px;font-size:15px;font-weight:800;">
+                      Download now
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">If the button doesn't work, copy this link:</p>
+              <p style="margin:0 0 24px 0;font-size:12px;color:#7c3aed;word-break:break-all;">${downloadLink}</p>
+
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;" />
+
+              <p style="margin:0;font-size:12px;color:#6b7280;text-align:center;line-height:1.5;">
+                Need help? Contact <a href="mailto:${supportEmail}" style="color:#7c3aed;text-decoration:none;">${supportEmail}</a>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+              © ${new Date().getFullYear()} ${footerBrand}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+function leadMagnetEmailText(params: { productTitle: string; downloadLink: string }) {
+  const productTitle = safeText(params.productTitle)
+  const downloadLink = params.downloadLink
+
+  return `Thank you for joining!
+
+Thanks for subscribing! As promised, here's your free digital download: "${productTitle}"
+
+Download: ${downloadLink}
+
+If you need help, reply to this email.`
+}
+
+export async function sendLeadMagnetEmail(
+  admin: any,
+  params: SendLeadMagnetEmailParams,
+): Promise<{ success: boolean; error?: string }> {
+  const { recipientEmail, productTitle, productFileUrl, creatorId } = params
+
+  if (!resend) {
+    const error = "Email service not configured (RESEND_API_KEY missing)"
+    console.error("[email] ❌ Lead magnet email failed:", error)
+    return { success: false, error }
+  }
+
+  const identity = creatorId ? await resolveCreatorIdentity(admin, creatorId) : null
+  const fromName = identity?.fromName || PLATFORM_BRAND_NAME
+  const replyTo = identity?.replyTo || DEFAULT_SUPPORT
+
+  const customerEmail = normalizeEmail(recipientEmail)
+  const subject = `Your download is ready - ${safeText(productTitle)}`
+
+  console.log("[email] 📧 Sending lead magnet email:", {
+    to: customerEmail,
+    productTitle,
+    fromName,
+  })
+
+  try {
+    const response = await resend.emails.send({
+      from: buildFromHeader(fromName),
+      to: customerEmail,
+      replyTo,
+      subject,
+      html: leadMagnetEmailHtml({
+        productTitle,
+        downloadLink: productFileUrl,
+        supportEmail: replyTo,
+        footerBrand: fromName,
+      }),
+      text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
+    })
+
+    if ((response as any)?.error) throw new Error((response as any).error.message || "Resend API error")
+
+    console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail)
+    return { success: true }
+  } catch (err: any) {
+    const errorMessage = err?.message || "Unknown error sending email"
+    console.error("[email] ❌ Lead magnet email failed:", errorMessage)
+    return { success: false, error: errorMessage }
+  }
+}
