@@ -924,6 +924,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           borderRadius: "44px",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
           padding: "10px",
+          overflow: "hidden",
         }}
       >
         <div
@@ -4114,16 +4115,16 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 )}
               </div>
               {/* Content - Title and Description vertically aligned */}
-              <div className="flex-1 min-w-0 text-left">
+              <div className="flex-1 min-w-0 flex flex-col items-start">
                 <div
-                  className={cn(s.button, "font-semibold leading-tight truncate")}
+                  className={cn(s.button, "font-semibold leading-tight truncate text-left w-full")}
                   style={{ color: theme.button_text_color }}
                 >
                   {data.title || "PDF Document"}
                 </div>
                 {data.description && (
                   <p
-                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate"
+                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate text-left w-full"
                     style={{ color: theme.button_text_color }}
                   >
                     {data.description}
@@ -4158,7 +4159,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             {data.title || "PDF Document"}
           </span>
           {/* Button text with PDF icon */}
-          <div className="flex items-center justify-center gap-1.5 mt-1 opacity-70">
+          <div className="flex items-center justify-center gap-1.5 mt-0.5 opacity-70">
             <svg
               width="12"
               height="12"

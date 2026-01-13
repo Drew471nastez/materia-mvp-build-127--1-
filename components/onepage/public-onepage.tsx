@@ -4775,7 +4775,7 @@ function PublicBlockRenderer({
             {/* PDF Preview Modal - Clean light UI */}
             {showPdfModal && pdfUrl && (
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
+                className="fixed inset-0 z-[55] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
                 onClick={() => setShowPdfModal(false)}
               >
                 <div
@@ -4875,7 +4875,7 @@ function PublicBlockRenderer({
               {data.title || "PDF Document"}
             </span>
             {/* Button text with PDF icon */}
-            <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-1 opacity-70">
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-0.5 opacity-70">
               <svg
                 width="14"
                 height="14"
@@ -4898,7 +4898,7 @@ function PublicBlockRenderer({
           {/* PDF Preview Modal - Clean light UI */}
           {showPdfModal && pdfUrl && (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
+              className="fixed inset-0 z-[55] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
               onClick={() => setShowPdfModal(false)}
             >
               <div
