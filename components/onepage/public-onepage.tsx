@@ -3802,6 +3802,11 @@ function PublicBlockRenderer({
               enable_digital_product: data.enable_digital_product,
               digital_product_file_url: data.digital_product_file_url,
               digital_product_title: data.digital_product_title,
+              // Email customization fields
+              send_welcome_email: data.send_welcome_email,
+              email_subject: data.email_subject,
+              email_heading: data.email_heading,
+              email_body: data.email_body,
             }),
           })
           const result = await response.json()

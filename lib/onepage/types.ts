@@ -235,6 +235,11 @@ export interface EmailCaptureBlockData {
   // Layout type (default or pro with thumbnail)
   layout_type?: EmailCaptureLayoutType
   product_image?: string | null  // Custom image for Pro layout
+  // Email customization
+  send_welcome_email?: boolean  // Always send welcome email on subscription
+  email_subject?: string  // Custom email subject
+  email_heading?: string  // Custom email heading
+  email_body?: string  // Custom email body text
 }
 
 export interface HeaderBlockData {

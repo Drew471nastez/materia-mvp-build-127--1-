@@ -554,6 +554,10 @@ export function LinksTab() {
   const [streamingBlockData, setStreamingBlockData] = useState<LinkButtonBlockData | null>(null)
   const [streamingBlockUpdateFn, setStreamingBlockUpdateFn] = useState<((data: Partial<LinkButtonBlockData>) => void) | null>(null)
 
+  // Email editor modal state
+  const [showEmailEditor, setShowEmailEditor] = useState(false)
+  const [emailEditorBlockId, setEmailEditorBlockId] = useState<string | null>(null)
+
   // Track which blocks have had auto-fetch attempted to avoid repeated requests
   const autoFetchedBlocksRef = useRef<Set<string>>(new Set())
   
@@ -1721,6 +1725,10 @@ export function LinksTab() {
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
                   setShowAddModal(true)
+                }}
+                onOpenEmailEditor={(blockId) => {
+                  setEmailEditorBlockId(blockId)
+                  setShowEmailEditor(true)
                 }}
               />
             </div>
@@ -3510,6 +3518,84 @@ export function LinksTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Email Editor Modal */}
+      <Dialog open={showEmailEditor} onOpenChange={(open) => {
+        setShowEmailEditor(open)
+        if (!open) setEmailEditorBlockId(null)
+      }}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-4 sm:p-5 border-b">
+            <DialogTitle className="text-base sm:text-lg font-semibold">Edit Email</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 sm:p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+            {emailEditorBlockId && (() => {
+              const block = sortedBlocks.find(b => b.id === emailEditorBlockId)
+              if (!block || block.type !== 'email_capture') return null
+              const data = block.data as EmailCaptureBlockData
+
+              return (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Email Subject</Label>
+                    <Input
+                      value={data.email_subject || ''}
+                      onChange={(e) => updateBlock(block.id, {
+                        data: { ...data, email_subject: e.target.value }
+                      })}
+                      placeholder="Thanks for subscribing!"
+                      className="h-10"
+                    />
+                    <p className="text-xs text-muted-foreground">Subject line your subscribers will see</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Email Heading</Label>
+                    <Input
+                      value={data.email_heading || ''}
+                      onChange={(e) => updateBlock(block.id, {
+                        data: { ...data, email_heading: e.target.value }
+                      })}
+                      placeholder="Welcome!"
+                      className="h-10"
+                    />
+                    <p className="text-xs text-muted-foreground">Main heading inside the email</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Email Body</Label>
+                    <Textarea
+                      value={data.email_body || ''}
+                      onChange={(e) => updateBlock(block.id, {
+                        data: { ...data, email_body: e.target.value }
+                      })}
+                      placeholder="Thanks for joining our newsletter. We're excited to have you!"
+                      className="min-h-[100px] resize-none"
+                    />
+                    <p className="text-xs text-muted-foreground">The main message content</p>
+                  </div>
+
+                  {data.enable_digital_product && data.digital_product_file_url && (
+                    <div className="bg-violet-50 p-3 rounded-xl">
+                      <p className="text-xs text-violet-700">
+                        <strong>Note:</strong> A download link for "{data.digital_product_title || 'your file'}" will automatically be included in the email.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+          </div>
+          <div className="p-4 sm:p-5 border-t bg-gray-50">
+            <Button
+              onClick={() => setShowEmailEditor(false)}
+              className="w-full bg-black hover:bg-gray-800 text-white h-11 rounded-xl"
+            >
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -3539,6 +3625,7 @@ interface BlockItemProps {
   draggedBlockType?: OnePageBlockType | null
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   onOpenAddBlockModal?: (groupId: string) => void
+  onOpenEmailEditor?: (blockId: string) => void
 }
 
 function BlockItem({
@@ -3566,6 +3653,7 @@ function BlockItem({
   draggedBlockType,
   onMoveChildToMainList,
   onOpenAddBlockModal,
+  onOpenEmailEditor,
 }: BlockItemProps) {
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -4061,6 +4149,7 @@ function BlockItem({
             onOpenStreamingModal={onOpenStreamingModal}
             onOpenAddBlockModal={onOpenAddBlockModal}
             onMoveChildToMainList={onMoveChildToMainList}
+            onOpenEmailEditor={onOpenEmailEditor}
           />
           {!isHeaderBlock && (
             <div className="pt-3 border-t">
@@ -4161,6 +4250,7 @@ function BlockEditor({
   onMoveChildToMainList,
   updateBlockOverride,
   sellerProducts,
+  onOpenEmailEditor,
 }: {
   block: OnePageBlock
   socialLinks: OnePageSocialLinks
@@ -4175,6 +4265,7 @@ function BlockEditor({
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   updateBlockOverride?: (blockId: string, updates: Partial<OnePageBlock>) => void
   sellerProducts?: SellerProduct[]
+  onOpenEmailEditor?: (blockId: string) => void
 }) {
   const { updateBlock: contextUpdateBlock, updateSocialLinks, setActiveSection, onepage } = useOnePage()
   const updateBlock = updateBlockOverride || contextUpdateBlock
@@ -5700,6 +5791,36 @@ function BlockEditor({
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Email Settings Section */}
+              <div className="space-y-3 pt-3 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs">Send Welcome Email</Label>
+                    <p className="text-[10px] text-muted-foreground">Send an email when someone subscribes</p>
+                  </div>
+                  <Toggle
+                    checked={data.send_welcome_email || data.enable_digital_product || false}
+                    onCheckedChange={(checked) => updateData({ send_welcome_email: checked })}
+                  />
+                </div>
+
+                {/* Edit Email Button */}
+                <button
+                  type="button"
+                  onClick={() => onOpenEmailEditor?.(block.id)}
+                  className="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-violet-600" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-xs font-medium">Edit Email</p>
+                    <p className="text-[10px] text-muted-foreground">Customize the email content</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                </button>
               </div>
             </TabsContent>
 

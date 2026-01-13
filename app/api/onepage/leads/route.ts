@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { v4 as uuidv4 } from "uuid"
-import { sendLeadMagnetEmail } from "@/lib/email"
+import { sendLeadMagnetEmail, sendWelcomeEmail } from "@/lib/email"
 
 // POST - Submit a lead (public, no auth required)
 export async function POST(request: Request) {
@@ -25,6 +25,11 @@ export async function POST(request: Request) {
       enable_digital_product,
       digital_product_file_url,
       digital_product_title,
+      // Email customization fields
+      send_welcome_email,
+      email_subject,
+      email_heading,
+      email_body,
     } = body
 
     if (!onepage_id || !email) {
@@ -148,29 +153,56 @@ export async function POST(request: Request) {
       }
     }
 
-    // Send email when digital product is enabled and file exists
+    // Send email - either welcome email or digital product email
     let emailSent = false
     const hasDigitalProduct = enable_digital_product && actualFileUrl
+    const shouldSendEmail = send_welcome_email || hasDigitalProduct
+    const creatorId = onepage.creator_id || onepage.owner_id || onepage.seller_id
 
-    if (hasDigitalProduct) {
+    console.log("[leads] 📧 Email sending decision:", {
+      send_welcome_email,
+      hasDigitalProduct,
+      shouldSendEmail,
+      hasResendKey: !!process.env.RESEND_API_KEY,
+      to: email,
+    })
+
+    if (shouldSendEmail) {
       try {
-        // Use creator_id first, then owner_id, then seller_id for resolving identity
-        const creatorId = onepage.creator_id || onepage.owner_id || onepage.seller_id
-        console.log("[leads] 📧 Attempting to send lead magnet email:", {
+        console.log("[leads] 📧 Attempting to send email:", {
           creatorId,
           to: email,
           product: actualProductTitle,
           fileUrl: actualFileUrl ? actualFileUrl.substring(0, 50) + "..." : "none",
-          hasResendKey: !!process.env.RESEND_API_KEY,
+          customSubject: email_subject,
+          customHeading: email_heading,
         })
 
-        const emailResult = await sendLeadMagnetEmail(adminSupabase, {
-          recipientEmail: email.toLowerCase().trim(),
-          productTitle: actualProductTitle,
-          productFileUrl: actualFileUrl,
-          creatorId: creatorId || undefined,
-          onepageId: onepage_id,
-        })
+        let emailResult
+
+        if (hasDigitalProduct) {
+          // Send digital product email with download link
+          emailResult = await sendLeadMagnetEmail(adminSupabase, {
+            recipientEmail: email.toLowerCase().trim(),
+            productTitle: actualProductTitle,
+            productFileUrl: actualFileUrl,
+            creatorId: creatorId || undefined,
+            onepageId: onepage_id,
+            customSubject: email_subject,
+            customHeading: email_heading,
+            customBody: email_body,
+          })
+        } else {
+          // Send welcome email without download link
+          emailResult = await sendWelcomeEmail(adminSupabase, {
+            recipientEmail: email.toLowerCase().trim(),
+            creatorId: creatorId || undefined,
+            onepageId: onepage_id,
+            customSubject: email_subject || "Thanks for subscribing!",
+            customHeading: email_heading || "Welcome!",
+            customBody: email_body || "Thanks for joining our newsletter. We're excited to have you!",
+          })
+        }
 
         console.log("[leads] Email result:", emailResult)
 
@@ -185,7 +217,7 @@ export async function POST(request: Request) {
             })
             .eq("id", lead.id)
         } else {
-          console.error("[leads] ❌ Failed to send lead magnet email:", emailResult.error)
+          console.error("[leads] ❌ Failed to send email:", emailResult.error)
           // Update lead delivery status to failed
           await adminSupabase
             .from("onepage_leads")
@@ -193,17 +225,17 @@ export async function POST(request: Request) {
             .eq("id", lead.id)
         }
       } catch (emailError) {
-        console.error("[leads] ❌ Error sending lead magnet email:", emailError)
+        console.error("[leads] ❌ Error sending email:", emailError)
         await adminSupabase
           .from("onepage_leads")
           .update({ delivery_status: "failed" })
           .eq("id", lead.id)
       }
     } else {
-      console.log("[leads] 📭 Digital product email NOT sent - conditions not met:", {
+      console.log("[leads] 📭 Email NOT sent - no email option enabled:", {
+        send_welcome_email,
         enable_digital_product,
         hasFileUrl: !!actualFileUrl,
-        hasTitle: !!actualProductTitle,
       })
     }
 
@@ -211,7 +243,7 @@ export async function POST(request: Request) {
       success: true,
       lead_id: lead.id,
       email_sent: emailSent,
-      downloadLink: enable_digital_product && actualFileUrl ? actualFileUrl : null,
+      downloadLink: hasDigitalProduct ? actualFileUrl : null,
     })
   } catch (error) {
     console.error("Lead submission error:", error)

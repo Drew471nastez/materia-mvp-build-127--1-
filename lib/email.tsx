@@ -806,6 +806,20 @@ export interface SendLeadMagnetEmailParams {
   creatorId?: string
   onepageId?: string
   baseUrl?: string
+  // Custom email content
+  customSubject?: string
+  customHeading?: string
+  customBody?: string
+}
+
+export interface SendWelcomeEmailParams {
+  recipientEmail: string
+  creatorId?: string
+  onepageId?: string
+  baseUrl?: string
+  customSubject?: string
+  customHeading?: string
+  customBody?: string
 }
 
 function leadMagnetEmailHtml(params: {
@@ -813,11 +827,15 @@ function leadMagnetEmailHtml(params: {
   downloadLink: string
   supportEmail: string
   footerBrand: string
+  customHeading?: string
+  customBody?: string
 }) {
   const productTitle = safeText(params.productTitle)
   const downloadLink = params.downloadLink
   const supportEmail = params.supportEmail
   const footerBrand = safeText(params.footerBrand)
+  const heading = params.customHeading ? safeText(params.customHeading) : "Thank you for joining!"
+  const bodyText = params.customBody ? safeText(params.customBody) : `Thanks for subscribing! As promised, here's your free digital download: <strong>${productTitle}</strong>`
 
   return `<!DOCTYPE html>
 <html>
@@ -833,7 +851,7 @@ function leadMagnetEmailHtml(params: {
         <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
           <tr>
             <td style="padding:44px 36px 30px;text-align:center;background:#7c3aed;">
-              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">Thank you for joining!</h1>
+              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">${heading}</h1>
               <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.9);">Here's your free download</p>
             </td>
           </tr>
@@ -841,7 +859,7 @@ function leadMagnetEmailHtml(params: {
           <tr>
             <td style="padding:34px 34px 12px;">
               <p style="margin:0 0 18px 0;font-size:15px;color:#374151;line-height:1.55;">
-                Thanks for subscribing! As promised, here's your free digital download: <strong>${productTitle}</strong>
+                ${bodyText}
               </p>
 
               <table role="presentation" style="width:100%;background:#f3f4f6;border-radius:10px;padding:18px;margin:0 0 22px 0;">
@@ -904,7 +922,7 @@ export async function sendLeadMagnetEmail(
   admin: any,
   params: SendLeadMagnetEmailParams,
 ): Promise<{ success: boolean; error?: string }> {
-  const { recipientEmail, productTitle, productFileUrl, creatorId } = params
+  const { recipientEmail, productTitle, productFileUrl, creatorId, customSubject, customHeading, customBody } = params
 
   console.log("[email] 🔍 sendLeadMagnetEmail called with:", {
     recipientEmail,
@@ -913,6 +931,8 @@ export async function sendLeadMagnetEmail(
     creatorId,
     hasResendKey: !!process.env.RESEND_API_KEY,
     resendInitialized: !!resend,
+    customSubject,
+    customHeading,
   })
 
   if (!resend) {
@@ -926,7 +946,7 @@ export async function sendLeadMagnetEmail(
   const replyTo = identity?.replyTo || DEFAULT_SUPPORT
 
   const customerEmail = normalizeEmail(recipientEmail)
-  const subject = `Your download is ready - ${safeText(productTitle)}`
+  const subject = customSubject || `Your download is ready - ${safeText(productTitle)}`
   const fromHeader = buildFromHeader(fromName)
 
   console.log("[email] 📧 Sending lead magnet email:", {
@@ -949,6 +969,8 @@ export async function sendLeadMagnetEmail(
         downloadLink: productFileUrl,
         supportEmail: replyTo,
         footerBrand: fromName,
+        customHeading,
+        customBody,
       }),
       text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
     })
@@ -964,6 +986,142 @@ export async function sendLeadMagnetEmail(
   } catch (err: any) {
     const errorMessage = err?.message || "Unknown error sending email"
     console.error("[email] ❌ Lead magnet email failed:", errorMessage, err)
+    return { success: false, error: errorMessage }
+  }
+}
+
+// -------------------------
+// Welcome Email (no download)
+// -------------------------
+function welcomeEmailHtml(params: {
+  heading: string
+  bodyText: string
+  supportEmail: string
+  footerBrand: string
+}) {
+  const heading = safeText(params.heading)
+  const bodyText = safeText(params.bodyText)
+  const supportEmail = params.supportEmail
+  const footerBrand = safeText(params.footerBrand)
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>${heading}</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
+  <table role="presentation" style="width:100%;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="padding:44px 36px 30px;text-align:center;background:#7c3aed;">
+              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">${heading}</h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:34px 34px 12px;">
+              <p style="margin:0 0 24px 0;font-size:15px;color:#374151;line-height:1.55;">
+                ${bodyText}
+              </p>
+
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;" />
+
+              <p style="margin:0;font-size:12px;color:#6b7280;text-align:center;line-height:1.5;">
+                Need help? Contact <a href="mailto:${supportEmail}" style="color:#7c3aed;text-decoration:none;">${supportEmail}</a>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+              © ${new Date().getFullYear()} ${footerBrand}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+function welcomeEmailText(params: { heading: string; bodyText: string }) {
+  return `${params.heading}
+
+${params.bodyText}
+
+If you need help, reply to this email.`
+}
+
+export async function sendWelcomeEmail(
+  admin: any,
+  params: SendWelcomeEmailParams,
+): Promise<{ success: boolean; error?: string }> {
+  const { recipientEmail, creatorId, customSubject, customHeading, customBody } = params
+
+  console.log("[email] 🔍 sendWelcomeEmail called with:", {
+    recipientEmail,
+    creatorId,
+    hasResendKey: !!process.env.RESEND_API_KEY,
+    resendInitialized: !!resend,
+    customSubject,
+    customHeading,
+  })
+
+  if (!resend) {
+    const error = "Email service not configured (RESEND_API_KEY missing)"
+    console.error("[email] ❌ Welcome email failed:", error)
+    return { success: false, error }
+  }
+
+  const identity = creatorId ? await resolveCreatorIdentity(admin, creatorId) : null
+  const fromName = identity?.fromName || PLATFORM_BRAND_NAME
+  const replyTo = identity?.replyTo || DEFAULT_SUPPORT
+
+  const customerEmail = normalizeEmail(recipientEmail)
+  const subject = customSubject || "Thanks for subscribing!"
+  const heading = customHeading || "Welcome!"
+  const bodyText = customBody || "Thanks for joining our newsletter. We're excited to have you!"
+  const fromHeader = buildFromHeader(fromName)
+
+  console.log("[email] 📧 Sending welcome email:", {
+    from: fromHeader,
+    to: customerEmail,
+    replyTo,
+    subject,
+    heading,
+  })
+
+  try {
+    const response = await resend.emails.send({
+      from: fromHeader,
+      to: customerEmail,
+      replyTo,
+      subject,
+      html: welcomeEmailHtml({
+        heading,
+        bodyText,
+        supportEmail: replyTo,
+        footerBrand: fromName,
+      }),
+      text: welcomeEmailText({ heading, bodyText }),
+    })
+
+    console.log("[email] 📨 Resend API response:", JSON.stringify(response))
+
+    if ((response as any)?.error) {
+      throw new Error((response as any).error.message || "Resend API error")
+    }
+
+    console.log("[email] ✅ Welcome email sent successfully to:", customerEmail)
+    return { success: true }
+  } catch (err: any) {
+    const errorMessage = err?.message || "Unknown error sending email"
+    console.error("[email] ❌ Welcome email failed:", errorMessage, err)
     return { success: false, error: errorMessage }
   }
 }
