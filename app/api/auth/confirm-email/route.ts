@@ -9,20 +9,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User ID and code are required" }, { status: 400 })
     }
 
+    // Validate code format (should be 6 digits)
+    if (!/^\d{6}$/.test(code)) {
+      return NextResponse.json({ error: "Please enter a valid 6-digit code" }, { status: 400 })
+    }
+
     const admin = createAdminClient()
 
-    const { data: verification, error: verifyError } = await admin
+    // First check if any code exists for this user with this code value
+    const { data: anyCodeMatch, error: anyCodeError } = await admin
       .from("verification_codes")
       .select("*")
       .eq("user_id", userId)
       .eq("code", code)
-      .is("used_at", null)
-      .gt("expires_at", new Date().toISOString())
-      .single()
+      .maybeSingle()
 
-    if (verifyError || !verification) {
-      return NextResponse.json({ error: "Invalid or expired verification code" }, { status: 400 })
+    // If no code matches at all, it's an incorrect code
+    if (!anyCodeMatch) {
+      console.log("[confirm-email] No matching code found for user:", userId.slice(0, 8) + "...")
+      return NextResponse.json({ error: "Incorrect verification code. Please check and try again." }, { status: 400 })
     }
+
+    // Check if code was already used
+    if (anyCodeMatch.used_at) {
+      console.log("[confirm-email] Code already used for user:", userId.slice(0, 8) + "...")
+      return NextResponse.json({ error: "This code has already been used. Please request a new code." }, { status: 400 })
+    }
+
+    // Check if code is expired
+    if (new Date(anyCodeMatch.expires_at) < new Date()) {
+      console.log("[confirm-email] Code expired for user:", userId.slice(0, 8) + "...")
+      return NextResponse.json({ error: "This code has expired. Please request a new code." }, { status: 400 })
+    }
+
+    // Code is valid - use it
+    const verification = anyCodeMatch
 
     // Mark code as used
     await admin.from("verification_codes").update({ used_at: new Date().toISOString() }).eq("id", verification.id)

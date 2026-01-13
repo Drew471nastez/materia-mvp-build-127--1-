@@ -1,13 +1,31 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { v4 as uuidv4 } from "uuid"
+import { sendLeadMagnetEmail } from "@/lib/email"
 
 // POST - Submit a lead (public, no auth required)
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     const body = await request.json()
-    const { onepage_id, email, name, block_id, referrer, utm_source, utm_medium, utm_campaign } = body
+    const {
+      onepage_id,
+      email,
+      name,
+      block_id,
+      referrer,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      lead_magnet_id,
+      // Digital product fields (quick upload files)
+      enable_digital_product,
+      digital_product_file_url,
+      digital_product_title,
+    } = body
 
     if (!onepage_id || !email) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -19,10 +37,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
-    // Verify the onepage exists and is published
+    // Verify the onepage exists and is published, and get seller_id
     const { data: onepage, error: onepageError } = await supabase
       .from("onepages")
-      .select("id, status")
+      .select("id, status, seller_id, owner_id")
       .eq("id", onepage_id)
       .eq("status", "published")
       .single()
@@ -31,8 +49,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "OnePage not found" }, { status: 404 })
     }
 
-    // Check if email already submitted for this page
-    const { data: existingLead } = await supabase
+    // Use the file URL and title directly from the block data
+    const actualFileUrl = digital_product_file_url
+    const actualProductTitle = digital_product_title || "Free Download"
+
+    // Check if email already submitted for this page (use admin client for anonymous access)
+    const { data: existingLead } = await adminSupabase
       .from("onepage_leads")
       .select("id")
       .eq("onepage_id", onepage_id)
@@ -40,12 +62,16 @@ export async function POST(request: Request) {
       .single()
 
     if (existingLead) {
-      // Return success even if already exists (good UX)
-      return NextResponse.json({ success: true, message: "Already subscribed" })
+      // Return success even if already exists, but still provide download URL
+      return NextResponse.json({
+        success: true,
+        message: "Already subscribed",
+        downloadLink: enable_digital_product && actualFileUrl ? actualFileUrl : null,
+      })
     }
 
-    // Insert lead
-    const { data: lead, error: insertError } = await supabase
+    // Insert lead using admin client to bypass RLS for anonymous users
+    const { data: lead, error: insertError } = await adminSupabase
       .from("onepage_leads")
       .insert({
         onepage_id,
@@ -56,7 +82,8 @@ export async function POST(request: Request) {
         utm_source: utm_source || null,
         utm_medium: utm_medium || null,
         utm_campaign: utm_campaign || null,
-        delivery_status: "not_applicable", // Change to 'pending' if lead magnet configured
+        lead_magnet_id: lead_magnet_id || null,
+        delivery_status: enable_digital_product && actualFileUrl ? "pending" : "not_applicable",
       })
       .select()
       .single()
@@ -64,16 +91,101 @@ export async function POST(request: Request) {
     if (insertError) {
       // Handle unique constraint violation gracefully
       if (insertError.code === "23505") {
-        return NextResponse.json({ success: true, message: "Already subscribed" })
+        return NextResponse.json({
+          success: true,
+          message: "Already subscribed",
+          downloadLink: enable_digital_product && actualFileUrl ? actualFileUrl : null,
+        })
       }
       console.error("Lead insert error:", insertError)
       return NextResponse.json({ error: "Failed to save" }, { status: 500 })
     }
 
-    // TODO: If lead magnet is configured, trigger email delivery
-    // This would be done via an edge function or background job
+    // Also add to subscribers list for the seller
+    if (onepage.seller_id) {
+      const unsubscribeToken = uuidv4()
+      const { data: existingSubscriber } = await adminSupabase
+        .from("subscribers")
+        .select("id, status")
+        .eq("creator_id", onepage.seller_id)
+        .eq("email", email.toLowerCase().trim())
+        .single()
 
-    return NextResponse.json({ success: true, lead_id: lead.id })
+      if (!existingSubscriber) {
+        // Create new subscriber
+        await adminSupabase.from("subscribers").insert({
+          email: email.toLowerCase().trim(),
+          name: name || null,
+          source: "onepage",
+          source_id: onepage_id,
+          creator_id: onepage.seller_id,
+          status: "subscribed",
+          is_active: true,
+          subscribed_at: new Date().toISOString(),
+          consent_text: "Subscribed via OnePage email form",
+          consent_timestamp: new Date().toISOString(),
+          unsubscribe_token: unsubscribeToken,
+        })
+      } else if (existingSubscriber.status === "unsubscribed") {
+        // Resubscribe
+        await adminSupabase
+          .from("subscribers")
+          .update({
+            status: "subscribed",
+            is_active: true,
+            subscribed_at: new Date().toISOString(),
+            unsubscribed_at: null,
+          })
+          .eq("id", existingSubscriber.id)
+      }
+    }
+
+    // Send digital product email if enabled
+    let emailSent = false
+    if (enable_digital_product && actualFileUrl && actualProductTitle) {
+      try {
+        const creatorId = onepage.owner_id || onepage.seller_id
+        const emailResult = await sendLeadMagnetEmail(adminSupabase, {
+          recipientEmail: email.toLowerCase().trim(),
+          productTitle: actualProductTitle,
+          productFileUrl: actualFileUrl,
+          creatorId: creatorId || undefined,
+          onepageId: onepage_id,
+        })
+
+        if (emailResult.success) {
+          emailSent = true
+          // Update lead delivery status
+          await adminSupabase
+            .from("onepage_leads")
+            .update({
+              delivery_status: "sent",
+              delivered_at: new Date().toISOString(),
+            })
+            .eq("id", lead.id)
+        } else {
+          console.error("Failed to send lead magnet email:", emailResult.error)
+          // Update lead delivery status to failed
+          await adminSupabase
+            .from("onepage_leads")
+            .update({ delivery_status: "failed" })
+            .eq("id", lead.id)
+        }
+      } catch (emailError) {
+        console.error("Error sending lead magnet email:", emailError)
+        await adminSupabase
+          .from("onepage_leads")
+          .update({ delivery_status: "failed" })
+          .eq("id", lead.id)
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      lead_id: lead.id,
+      email_sent: emailSent,
+      downloadLink: enable_digital_product && actualFileUrl ? actualFileUrl : null,
+    })
   } catch (error) {
     console.error("Lead submission error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

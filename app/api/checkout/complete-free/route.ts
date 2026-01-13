@@ -114,11 +114,13 @@ export async function POST(req: Request) {
     })
     if (entErr) console.error("[complete-free] entitlementError:", entErr)
 
-    await admin.rpc("increment_product_sales", { p_product_id: product.id }).catch(() => {})
-    await admin
+    const { error: salesError } = await admin.rpc("increment_product_sales", { p_product_id: product.id })
+    if (salesError) console.error("[complete-free] Error incrementing sales:", salesError)
+
+    const { error: analyticsError } = await admin
       .from("analytics_events")
       .insert({ creator_id: product.creator_id, product_id: product.id, event_type: "purchase" })
-      .catch(() => {})
+    if (analyticsError) console.error("[complete-free] Error recording analytics:", analyticsError)
 
     const baseUrl = getBaseUrl()
 

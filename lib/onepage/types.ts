@@ -10,6 +10,7 @@ export type OnePageBlockType =
   | "divider"
   | "email_capture"
   | "header"
+  | "group"
 
 export interface OnePageTheme {
   template_id: string
@@ -27,6 +28,9 @@ export interface OnePageTheme {
   button_border_color: string
   button_hover_color?: string
   font_family: string
+  // Title customization
+  title_font?: string | null
+  title_color?: string | null
   card_width: "narrow" | "standard" | "wide"
   spacing: "compact" | "normal" | "comfortable"
   // New gradient properties
@@ -55,6 +59,12 @@ export interface OnePageSettings {
   social_image_url?: string | null
   custom_domain?: string | null
   analytics_enabled: boolean
+  subscribe_enabled?: boolean
+  subscribe_style?: "glass" | "white" | "black"
+  share_enabled?: boolean
+  share_style?: "glass" | "white" | "black"
+  verified_badge_enabled?: boolean
+  verified_badge_type?: "verified_creator" | "verified_brand" | "verified_business" | "official_page" | "verified_artist"
 }
 
 export interface OnePageSocialLinks {
@@ -65,21 +75,119 @@ export interface OnePageSocialLinks {
   spotify?: string | null
   website?: string | null
   email?: string | null
+  threads?: string | null
+  facebook?: string | null
+  whatsapp?: string | null
+  snapchat?: string | null
+  discord?: string | null
+  github?: string | null
+  kick?: string | null
+  linkedin?: string | null
+  patreon?: string | null
+  pinterest?: string | null
+  soundcloud?: string | null
+  telegram?: string | null
+  twitch?: string | null
 }
 
 // Block data types
+export type BlockLayoutType = 'default' | 'pro'
+export type BlockAnimationType = 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
+export type BlockDisplayMode = 'cover' | 'contain' | 'full'
+export type YouTubeMode = 'embed_video' | 'open_profile' | 'open_latest' | 'embed_latest'
+export type SpotifyMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
+export type AppleMusicMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
+export type SoundCloudMode = 'audio_preview' | 'go_to_url'
+
+// Email capture button text presets
+export type EmailCaptureButtonPreset = 'subscribe' | 'join' | 'get_access' | 'download' | 'sign_up' | 'unlock' | 'custom'
+
+// Email capture layout types
+export type EmailCaptureLayoutType = 'default' | 'pro'
+
+export interface StreamingService {
+  platform: 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal' | 'deezer' | 'amazon_music' | 'spotify'
+  url: string | null
+  found: boolean
+}
+
 export interface LinkButtonBlockData {
   label: string
   url: string
   icon?: string | null
   thumbnail_url?: string | null
+  layout_type?: BlockLayoutType
+  animation_type?: BlockAnimationType
+  display_mode?: BlockDisplayMode
+  // YouTube-specific settings
+  youtube_mode?: YouTubeMode
+  youtube_channel_id?: string | null
+  youtube_latest_video_id?: string | null
+  // Spotify-specific settings
+  spotify_mode?: SpotifyMode
+  spotify_artist_id?: string | null
+  spotify_preview_url?: string | null
+  streaming_services?: StreamingService[]
+  // Spotify metadata for display
+  spotify_title?: string | null
+  spotify_artist?: string | null
+  spotify_type?: 'track' | 'album' | 'artist' | 'playlist' | null
+  spotify_thumbnail?: string | null
+  spotify_show_metadata?: boolean
+  // Apple Music-specific settings
+  apple_music_mode?: AppleMusicMode
+  apple_music_title?: string | null
+  apple_music_artist?: string | null
+  apple_music_type?: 'song' | 'album' | 'artist' | 'playlist' | null
+  apple_music_thumbnail?: string | null
+  apple_music_show_metadata?: boolean
+  apple_music_preview_url?: string | null
+  apple_music_streaming_services?: StreamingService[]
+  // SoundCloud-specific settings
+  soundcloud_mode?: SoundCloudMode
+  soundcloud_title?: string | null
+  soundcloud_artist?: string | null
+  soundcloud_type?: 'track' | 'playlist' | 'artist' | null
+  soundcloud_thumbnail?: string | null
+  soundcloud_show_metadata?: boolean
+  // TikTok-specific settings
+  tiktok_video_id?: string | null
+  tiktok_embed_url?: string | null
+  tiktok_show_embed?: boolean
 }
+
+export type ProductBlockStyle = 'button' | 'callout' | 'preview'
+export type ProductButtonStyle = 'default' | 'filled'
 
 export interface ProductBlockData {
   product_id: string
   show_price: boolean
   show_description: boolean
   cta_text: string
+  style: ProductBlockStyle
+  // Cached product data for display
+  product_title?: string | null
+  product_thumbnail?: string | null
+  product_description?: string | null
+  product_price_cents?: number | null
+  product_slug?: string | null
+  // Layout and animation options
+  layout_type?: BlockLayoutType
+  animation_type?: BlockAnimationType
+  // Custom thumbnail (overrides product thumbnail)
+  custom_thumbnail?: string | null
+  // Button style customization (filled is the only style now)
+  button_style?: ProductButtonStyle
+  // Block background color (entire block container)
+  block_background_color?: string | null
+  // Text color for title, description, price
+  text_color?: string | null
+  // Button (CTA) background color
+  button_color?: string | null
+  // Button (CTA) text color
+  button_text_color?: string | null
+  // Quick checkout for free products (skips checkout page)
+  quick_checkout?: boolean
 }
 
 export interface SocialRowBlockData {
@@ -100,10 +208,11 @@ export interface ImageBlockData {
   alt_text?: string
   link_url?: string | null
   aspect_ratio?: "auto" | "square" | "video" | "wide"
+  layout_type?: BlockLayoutType
 }
 
 export interface DividerBlockData {
-  style: "line" | "space" | "dots"
+  style: "line" | "space" | "dots" | "wave" | "zigzag" | "dashed" | "gradient" | "double"
   height: number
 }
 
@@ -114,12 +223,36 @@ export interface EmailCaptureBlockData {
   button_text: string
   success_message: string
   lead_magnet_id?: string | null
+  // Button text preset selector
+  button_preset?: EmailCaptureButtonPreset
+  custom_button_text?: string
+  // Digital product delivery
+  enable_digital_product?: boolean
+  digital_product_id?: string | null
+  digital_product_title?: string | null
+  digital_product_thumbnail?: string | null
+  digital_product_file_url?: string | null  // URL to the digital file
+  // Layout type (default or pro with thumbnail)
+  layout_type?: EmailCaptureLayoutType
+  product_image?: string | null  // Custom image for Pro layout (overrides product thumbnail)
 }
 
 export interface HeaderBlockData {
   show_avatar: boolean
   show_name: boolean
   show_bio: boolean
+}
+
+export type GroupLayoutType = "stack" | "carousel"
+
+export type CarouselViewType = "1" | "1.2" | "1.5"
+
+export interface GroupBlockData {
+  title?: string | null
+  layout: GroupLayoutType
+  children: OnePageBlock[]
+  carousel_view?: CarouselViewType
+  carousel_fade_edges?: boolean
 }
 
 export type OnePageBlockData =
@@ -131,6 +264,7 @@ export type OnePageBlockData =
   | DividerBlockData
   | EmailCaptureBlockData
   | HeaderBlockData
+  | GroupBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -205,6 +339,10 @@ export interface OnePageLead {
   delivery_status: "pending" | "sent" | "failed" | "not_applicable"
   delivered_at?: string | null
   created_at: string
+  // NEW: Digital product tracking
+  digital_product_id?: string | null
+  digital_download_sent?: boolean
+  digital_download_sent_at?: string | null
 }
 
 export interface OnePageLeadMagnet {
@@ -231,6 +369,15 @@ export interface OnePageEditorState {
   saveState: "idle" | "saving" | "saved" | "error"
   history: OnePage[]
   historyIndex: number
+}
+
+// Button preset labels for UI display
+export const buttonPresetLabels: Record<EmailCaptureButtonPreset, string> = {
+  subscribe: 'Subscribe',
+  join: 'Join Now',
+  get_access: 'Get Access',
+  download: 'Download',
+  sign_up: 'Sign Up',
 }
 
 // Default values
@@ -268,6 +415,12 @@ export const defaultSettings: OnePageSettings = {
   social_image_url: null,
   custom_domain: null,
   analytics_enabled: true,
+  subscribe_enabled: true,
+  subscribe_style: "glass",
+  share_enabled: true,
+  share_style: "white",
+  verified_badge_enabled: false,
+  verified_badge_type: "verified_creator",
 }
 
 export const defaultSocialLinks: OnePageSocialLinks = {
@@ -311,7 +464,8 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           product_id: "",
           show_price: true,
           show_description: true,
-          cta_text: "Get it now",
+          cta_text: "Get My Guide",
+          style: "callout",
         } as ProductBlockData,
       }
     case "social_row":
@@ -358,6 +512,15 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           button_text: "Subscribe",
           success_message: "Thanks for subscribing!",
           lead_magnet_id: null,
+          button_preset: "subscribe",
+          custom_button_text: "",
+          enable_digital_product: false,
+          digital_product_id: null,
+          digital_product_title: null,
+          digital_product_thumbnail: null,
+          digital_product_file_url: null,
+          layout_type: "default",
+          product_image: null,
         } as EmailCaptureBlockData,
       }
     case "header":
@@ -368,6 +531,15 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           show_name: true,
           show_bio: true,
         } as HeaderBlockData,
+      }
+    case "group":
+      return {
+        ...baseBlock,
+        data: {
+          title: null,
+          layout: "stack",
+          children: [],
+        } as GroupBlockData,
       }
     default:
       return baseBlock as OnePageBlock
