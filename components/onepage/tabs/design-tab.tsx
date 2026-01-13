@@ -7,19 +7,18 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
+import { Slider as BaseSlider } from "@/components/ui/slider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { 
-  ImageIcon, 
-  Droplets, 
-  ChevronRight, 
-  ChevronLeft, 
-  Layers, 
-  Type, 
-  RectangleHorizontal, 
+import {
+  ImageIcon,
+  Droplets,
+  ChevronRight,
+  ChevronLeft,
+  Layers,
+  Type,
+  RectangleHorizontal,
   Sparkles,
   Check,
   Loader2,
@@ -31,6 +30,7 @@ import {
   Upload,
   Move,
   X,
+  Pipette,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -38,6 +38,65 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { OnePageTheme } from "@/lib/onepage/types"
 
 type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
+
+// Custom Toggle Component with theme-style design
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox"
+    />
+  )
+}
+
+// Custom Slider Component with premium minimal styling
+function Slider({ value, onValueChange, min = 0, max = 100, step = 1 }: {
+  value: number[];
+  onValueChange: (value: number[]) => void;
+  min?: number;
+  max?: number;
+  step?: number
+}) {
+  const percentage = ((value[0] - min) / (max - min)) * 100
+  const numTicks = 5
+  const ticks = Array.from({ length: numTicks }, (_, i) => (i / (numTicks - 1)) * 100)
+
+  return (
+    <div className="relative w-full h-6 flex items-center">
+      {/* Track */}
+      <div className="relative w-full h-[4px] bg-[#f0f0f0] rounded-full">
+        {/* Tick markers */}
+        {ticks.map((pos, i) => (
+          <div
+            key={i}
+            className="absolute w-[6px] h-[6px] bg-[#e0e0e0] rounded-full -translate-y-1/2 top-1/2"
+            style={{ left: `calc(${pos}% - 3px)` }}
+          />
+        ))}
+        {/* Hidden input for interaction */}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value[0]}
+          onChange={(e) => onValueChange([Number(e.target.value)])}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+        />
+        {/* Thumb */}
+        <div
+          className="absolute w-[21px] h-[21px] bg-white rounded-full -translate-y-1/2 top-1/2 pointer-events-none"
+          style={{
+            left: `calc(${percentage}% - 10.5px)`,
+            boxShadow: '0 2px 5px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)'
+          }}
+        />
+      </div>
+    </div>
+  )
+}
 
 // Social icons SVG components for preview in design tab
 const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>> = {
@@ -58,31 +117,59 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
   ),
 }
 
+// Body text fonts
 const FONTS = [
-  // Sans Serif - Most Popular
-  { name: "Inter", category: "sans", style: "Clean & Professional" },
-  { name: "Roboto", category: "sans", style: "Modern & Versatile" },
-  { name: "Poppins", category: "sans", style: "Rounded & Friendly" },
-  { name: "Montserrat", category: "sans", style: "Elegant & Bold" },
-  { name: "Open Sans", category: "sans", style: "Web Standard" },
-  { name: "Lato", category: "sans", style: "Balanced & Warm" },
-  { name: "DM Sans", category: "sans", style: "Geometric & Sharp" },
-  { name: "Nunito", category: "sans", style: "Soft & Rounded" },
-  // Serif
-  { name: "Playfair Display", category: "serif", style: "Elegant & Editorial" },
-  { name: "Merriweather", category: "serif", style: "Traditional & Warm" },
-  { name: "Lora", category: "serif", style: "Classic & Readable" },
-  { name: "Georgia", category: "serif", style: "Web Classic" },
-  // Display
-  { name: "Bebas Neue", category: "display", style: "Tall & Condensed" },
-  { name: "Oswald", category: "display", style: "Strong & Narrow" },
-  { name: "Anton", category: "display", style: "Bold Impact" },
-  { name: "Archivo Black", category: "display", style: "Heavy & Modern" },
-  // Script / Handwritten
-  { name: "Caveat", category: "script", style: "Casual & Personal" },
-  { name: "Dancing Script", category: "script", style: "Elegant Script" },
-  { name: "Pacifico", category: "script", style: "Fun & Friendly" },
-  { name: "Sacramento", category: "script", style: "Flowing & Delicate" },
+  { name: "Inter", category: "sans", style: "Clean & Professional", value: "'Inter', sans-serif" },
+  { name: "Poppins", category: "sans", style: "Rounded & Friendly", value: "'Poppins', sans-serif" },
+  { name: "Montserrat", category: "sans", style: "Elegant & Bold", value: "'Montserrat', sans-serif" },
+  { name: "Lato", category: "sans", style: "Balanced & Warm", value: "'Lato', sans-serif" },
+  { name: "Open Sans", category: "sans", style: "Web Standard", value: "'Open Sans', sans-serif" },
+  { name: "Roboto", category: "sans", style: "Modern & Versatile", value: "'Roboto', sans-serif" },
+  { name: "Raleway", category: "sans", style: "Elegant & Thin", value: "'Raleway', sans-serif" },
+  { name: "Nunito", category: "sans", style: "Soft & Rounded", value: "'Nunito', sans-serif" },
+  { name: "Quicksand", category: "sans", style: "Geometric & Friendly", value: "'Quicksand', sans-serif" },
+  { name: "Comfortaa", category: "sans", style: "Round & Geometric", value: "'Comfortaa', cursive" },
+  { name: "DM Sans", category: "sans", style: "Modern & Clean", value: "'DM Sans', sans-serif" },
+  { name: "Space Grotesk", category: "sans", style: "Geometric Modern", value: "'Space Grotesk', sans-serif" },
+  { name: "Sora", category: "sans", style: "Contemporary Clean", value: "'Sora', sans-serif" },
+  { name: "Playfair Display", category: "serif", style: "Elegant & Editorial", value: "'Playfair Display', serif" },
+  { name: "Merriweather", category: "serif", style: "Traditional & Warm", value: "'Merriweather', serif" },
+  { name: "Lora", category: "serif", style: "Classic & Readable", value: "'Lora', serif" },
+  { name: "Crimson Text", category: "serif", style: "Old Style & Elegant", value: "'Crimson Text', serif" },
+  { name: "Source Serif Pro", category: "serif", style: "Transitional Serif", value: "'Source Serif Pro', serif" },
+  { name: "Oswald", category: "display", style: "Strong & Narrow", value: "'Oswald', sans-serif" },
+  { name: "Archivo Black", category: "display", style: "Bold & Impact", value: "'Archivo Black', sans-serif" },
+  { name: "Barlow Condensed", category: "display", style: "Modern Condensed", value: "'Barlow Condensed', sans-serif" },
+  { name: "Dancing Script", category: "script", style: "Elegant Script", value: "'Dancing Script', cursive" },
+  { name: "Caveat", category: "script", style: "Natural Handwriting", value: "'Caveat', cursive" },
+]
+
+// Display fonts for Title customization
+const TITLE_FONTS = [
+  { name: "Default (Same as body)", value: null },
+  { name: "Playfair Display", value: "'Playfair Display', serif" },
+  { name: "Bebas Neue", value: "'Bebas Neue', sans-serif" },
+  { name: "Pacifico", value: "'Pacifico', cursive" },
+  { name: "Oswald", value: "'Oswald', sans-serif" },
+  { name: "Lobster", value: "'Lobster', cursive" },
+  { name: "Dancing Script", value: "'Dancing Script', cursive" },
+  { name: "Permanent Marker", value: "'Permanent Marker', cursive" },
+  { name: "Bangers", value: "'Bangers', cursive" },
+  { name: "Orbitron", value: "'Orbitron', sans-serif" },
+  { name: "Anton", value: "'Anton', sans-serif" },
+  { name: "Righteous", value: "'Righteous', cursive" },
+  { name: "Alfa Slab One", value: "'Alfa Slab One', cursive" },
+  { name: "Russo One", value: "'Russo One', sans-serif" },
+  { name: "Abril Fatface", value: "'Abril Fatface', cursive" },
+  { name: "Satisfy", value: "'Satisfy', cursive" },
+  { name: "Archivo Black", value: "'Archivo Black', sans-serif" },
+  { name: "Quicksand", value: "'Quicksand', sans-serif" },
+  { name: "Comfortaa", value: "'Comfortaa', cursive" },
+  { name: "Caveat", value: "'Caveat', cursive" },
+  { name: "Barlow Condensed", value: "'Barlow Condensed', sans-serif" },
+  { name: "DM Sans", value: "'DM Sans', sans-serif" },
+  { name: "Space Grotesk", value: "'Space Grotesk', sans-serif" },
+  { name: "Sora", value: "'Sora', sans-serif" },
 ]
 
 const FONT_CATEGORIES = [
@@ -94,27 +181,69 @@ const FONT_CATEGORIES = [
 ]
 
 const SOCIAL_STYLES = [
-  { id: "filled", label: "Filled", description: "Solid background" },
-  { id: "outline", label: "Outline", description: "Border only" },
-  { id: "minimal", label: "Minimal", description: "No background" },
+  { id: "filled", label: "Solid" },
+  { id: "outline", label: "Outline" },
+  { id: "minimal", label: "Glass" },
 ]
 
 const BACKGROUND_IMAGES = [
-  { id: "gradient1", url: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=800&q=80", label: "Purple Gradient" },
-  { id: "gradient2", url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80", label: "Colorful Gradient" },
-  { id: "gradient3", url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=800&q=80", label: "Blue Gradient" },
-  { id: "abstract1", url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=800&q=80", label: "Abstract" },
-  { id: "abstract2", url: "https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=800&q=80", label: "Waves" },
-  { id: "mesh1", url: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80", label: "Mesh" },
-  { id: "dark1", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=800&q=80", label: "Dark" },
-  { id: "mountains", url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80", label: "Mountains" },
-  { id: "marble", url: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=800&q=80", label: "Marble" },
-  { id: "texture", url: "https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=800&q=80", label: "Texture" },
-  { id: "ocean", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80", label: "Ocean" },
-  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=800&q=80", label: "Forest" },
+  { id: "gradient1", url: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1920&q=95", label: "Purple Gradient" },
+  { id: "gradient2", url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1920&q=95", label: "Colorful Gradient" },
+  { id: "gradient3", url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=1920&q=95", label: "Blue Gradient" },
+  { id: "abstract1", url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=1920&q=95", label: "Abstract" },
+  { id: "abstract2", url: "https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=1920&q=95", label: "Waves" },
+  { id: "mesh1", url: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=1920&q=95", label: "Mesh" },
+  { id: "dark1", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=95", label: "Dark" },
+  { id: "mountains", url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=95", label: "Mountains" },
+  { id: "marble", url: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=1920&q=95", label: "Marble" },
+  { id: "texture", url: "https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=1920&q=95", label: "Texture" },
+  { id: "ocean", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=95", label: "Ocean" },
+  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", label: "Forest" },
+]
+
+const BACKGROUND_PATTERNS = [
+  { id: "none", name: "None", preview: null },
+  { id: "grid", name: "Grid", preview: "grid" },
+  { id: "dots", name: "Dots", preview: "dots" },
+  { id: "waves", name: "Waves", preview: "waves" },
+  { id: "zigzag", name: "Zigzag", preview: "zigzag" },
+  { id: "cross", name: "Cross", preview: "cross" },
+  { id: "diagonal", name: "Diagonal", preview: "diagonal" },
+  { id: "morph", name: "Morph", preview: "morph" },
+  { id: "organic", name: "Organic", preview: "organic" },
 ]
 
 const THEME_TEMPLATES = [
+  {
+    id: "default",
+    name: "Default",
+    category: "light",
+    isDefault: true,
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#ffffff",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#000000",
+      secondary_text_color: "#000000",
+      button_color: "#000000",
+      button_text_color: "#ffffff",
+      button_style: "filled" as const,
+      button_border_radius: 8,
+      button_border_width: 0,
+      button_border_color: "#000000",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Inter', sans-serif",
+      title_color: "#000000",
+      social_icon_color: "#000000",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+    },
+    profile_layout: "classic" as const,
+    skipLayoutDialog: true,
+  },
   {
     id: "air",
     name: "Air",
@@ -132,7 +261,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 8,
       button_border_width: 0,
       button_border_color: "#0f172a",
-      font_family: "Inter",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Inter', sans-serif",
+      title_color: "#0f172a",
+      social_icon_color: "#64748b",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -154,7 +287,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 1,
       button_border_color: "#3f3f46",
-      font_family: "Inter",
+      button_shadow: "none",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Montserrat', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#a1a1aa",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -176,7 +313,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 0,
       button_border_color: "#ffffff",
-      font_family: "Inter",
+      button_shadow: "strong",
+      font_family: "'Poppins', sans-serif",
+      title_font: "'Poppins', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#ffffff",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -198,7 +339,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 0,
       button_border_color: "#38bdf8",
-      font_family: "Inter",
+      button_shadow: "subtle",
+      font_family: "'Nunito', sans-serif",
+      title_font: "'Nunito', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#bae6fd",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -220,7 +365,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 16,
       button_border_width: 0,
       button_border_color: "#ffffff",
-      font_family: "Poppins",
+      button_shadow: "strong",
+      font_family: "'Poppins', sans-serif",
+      title_font: "'Playfair Display', serif",
+      title_color: "#ffffff",
+      social_icon_color: "#ffffff",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -242,7 +391,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 10,
       button_border_width: 0,
       button_border_color: "#3b82f6",
-      font_family: "Inter",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Oswald', sans-serif",
+      title_color: "#f8fafc",
+      social_icon_color: "#3b82f6",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -264,7 +417,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 24,
       button_border_width: 2,
       button_border_color: "#1c1917",
-      font_family: "DM Sans",
+      button_shadow: "none",
+      font_family: "'Lora', serif",
+      title_font: "'Playfair Display', serif",
+      title_color: "#1c1917",
+      social_icon_color: "#78716c",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -286,7 +443,13 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 1,
       button_border_color: "rgba(255, 255, 255, 0.2)",
-      font_family: "Inter",
+      button_shadow: "none",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Raleway', sans-serif",
+      title_color: "#e0e7ff",
+      social_icon_color: "#a5b4fc",
+      background_pattern: "dots",
+      pattern_color: "#ffffff90",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -308,10 +471,16 @@ const THEME_TEMPLATES = [
       button_border_radius: 16,
       button_border_width: 1,
       button_border_color: "rgba(139, 92, 246, 0.5)",
-      font_family: "Space Grotesk",
+      button_shadow: "none",
+      font_family: "'Space Grotesk', sans-serif",
+      title_font: "'Space Grotesk', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#a78bfa",
+      background_pattern: "morph",
+      pattern_color: "#ffffff90",
       spacing: "normal" as const,
       card_width: "standard" as const,
-      animated_gradient: true,
+      animated_gradient: false,
     },
   },
   {
@@ -331,7 +500,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 8,
       button_border_width: 1,
       button_border_color: "#22d3ee",
-      font_family: "JetBrains Mono",
+      button_shadow: "hard",
+      font_family: "'JetBrains Mono', monospace",
+      title_font: "'Orbitron', sans-serif",
+      title_color: "#22d3ee",
+      social_icon_color: "#22d3ee",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "hero",
@@ -345,7 +518,7 @@ const THEME_TEMPLATES = [
       background_type: "image" as const,
       background_color: "#1a2e1a",
       background_gradient: "",
-      background_image_url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1200&q=80",
+      background_image_url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95",
       text_color: "#ffffff",
       secondary_text_color: "#d1fae5",
       button_color: "rgba(255, 255, 255, 0.9)",
@@ -354,7 +527,11 @@ const THEME_TEMPLATES = [
       button_border_radius: 24,
       button_border_width: 0,
       button_border_color: "#ffffff",
-      font_family: "Nunito",
+      button_shadow: "subtle",
+      font_family: "'Nunito', sans-serif",
+      title_font: "'Lora', serif",
+      title_color: "#ffffff",
+      social_icon_color: "#d1fae5",
       spacing: "normal" as const,
       card_width: "standard" as const,
     },
@@ -362,8 +539,35 @@ const THEME_TEMPLATES = [
 ]
 
 export function DesignTab() {
-  const [activeSection, setActiveSection] = useState<DesignSection>("theme")
+  const [activeSection, setActiveSection] = useState<DesignSection>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('onepage-design-section')
+      if (saved && ['header', 'theme', 'wallpaper', 'text', 'buttons', 'socials', 'footer'].includes(saved)) {
+        return saved as DesignSection
+      }
+    }
+    return "theme"
+  })
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
+
+  // Save active section to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('onepage-design-section', activeSection)
+  }, [activeSection])
+
+  // Listen for storage events to navigate to specific section (e.g., from "Design Social Icons" button)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'onepage-design-section' && e.newValue) {
+        const validSections = ['header', 'theme', 'wallpaper', 'text', 'buttons', 'socials', 'footer']
+        if (validSections.includes(e.newValue)) {
+          setActiveSection(e.newValue as DesignSection)
+        }
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   const sections = [
     { id: "header" as const, label: "Header", icon: ImageIcon },
@@ -453,11 +657,34 @@ function HeaderSection() {
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Title font modal state
+  const [showTitleFontModal, setShowTitleFontModal] = useState(false)
+
+  // Logo upload/crop states
+  const [showLogoUploadModal, setShowLogoUploadModal] = useState(false)
+  const [showLogoCropModal, setShowLogoCropModal] = useState(false)
+  const [tempLogoUrl, setTempLogoUrl] = useState<string | null>(null)
+  const [tempLogoFile, setTempLogoFile] = useState<File | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const logoFileInputRef = useRef<HTMLInputElement>(null)
+  const logoCropContainerRef = useRef<HTMLDivElement>(null)
+
+  // Logo crop state - percentage based like video cropper
+  const [logoCropBox, setLogoCropBox] = useState({ x: 10, y: 10, width: 80, height: 80 })
+  const [isLogoDragging, setIsLogoDragging] = useState(false)
+  const [isLogoResizing, setIsLogoResizing] = useState<string | null>(null)
+  const [logoDragStart, setLogoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
+  const [logoImageSize, setLogoImageSize] = useState({ width: 0, height: 0 })
+
+  // Pattern/Hero conflict dialog state
+  const [showPatternHeroConflict, setShowPatternHeroConflict] = useState(false)
+
+
   if (!onepage) return null
 
   const { theme } = onepage
   const headerLayout = (theme as any).header_layout || "classic"
-  const effectiveLayout = theme.background_type === "image" ? "classic" : headerLayout
+  const effectiveLayout = (theme.background_type === "image" || theme.background_type === "video") ? "classic" : headerLayout
   const avatarVideoUrl = (onepage as any).avatar_video_url
 
   const handleVideoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -575,16 +802,103 @@ function HeaderSection() {
     setIsVideoResizing(null)
   }, [])
 
+  // Touch handlers for video cropper
+  const handleVideoCropTouchStart = (e: React.TouchEvent, type: 'drag' | 'resize', corner?: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const touch = e.touches[0]
+    const container = videoCropContainerRef.current
+    if (!container || !touch) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((touch.clientX - rect.left) / rect.width) * 100
+    const y = ((touch.clientY - rect.top) / rect.height) * 100
+
+    setVideoDragStart({
+      x,
+      y,
+      boxX: videoCropBox.x,
+      boxY: videoCropBox.y,
+      boxW: videoCropBox.width,
+      boxH: videoCropBox.height
+    })
+
+    if (type === 'drag') {
+      setIsVideoDragging(true)
+    } else {
+      setIsVideoResizing(corner || null)
+    }
+  }
+
+  const handleVideoCropTouchMove = useCallback((e: TouchEvent) => {
+    const touch = e.touches[0]
+    const container = videoCropContainerRef.current
+    if (!container || !touch) return
+
+    e.preventDefault()
+    const rect = container.getBoundingClientRect()
+    const x = ((touch.clientX - rect.left) / rect.width) * 100
+    const y = ((touch.clientY - rect.top) / rect.height) * 100
+
+    if (isVideoDragging) {
+      const deltaX = x - videoDragStart.x
+      const deltaY = y - videoDragStart.y
+
+      let newX = videoDragStart.boxX + deltaX
+      let newY = videoDragStart.boxY + deltaY
+
+      newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
+      newY = Math.max(0, Math.min(100 - videoCropBox.height, newY))
+
+      setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+    } else if (isVideoResizing) {
+      const deltaX = x - videoDragStart.x
+      const deltaY = y - videoDragStart.y
+
+      let newBox = { ...videoCropBox }
+
+      if (isVideoResizing.includes('right')) {
+        newBox.width = Math.max(20, Math.min(100 - videoDragStart.boxX, videoDragStart.boxW + deltaX))
+      }
+      if (isVideoResizing.includes('left')) {
+        const newWidth = Math.max(20, videoDragStart.boxW - deltaX)
+        const maxX = videoDragStart.boxX + videoDragStart.boxW - 20
+        newBox.x = Math.max(0, Math.min(maxX, videoDragStart.boxX + deltaX))
+        newBox.width = videoDragStart.boxX + videoDragStart.boxW - newBox.x
+      }
+      if (isVideoResizing.includes('bottom')) {
+        newBox.height = Math.max(20, Math.min(100 - videoDragStart.boxY, videoDragStart.boxH + deltaY))
+      }
+      if (isVideoResizing.includes('top')) {
+        const newHeight = Math.max(20, videoDragStart.boxH - deltaY)
+        const maxY = videoDragStart.boxY + videoDragStart.boxH - 20
+        newBox.y = Math.max(0, Math.min(maxY, videoDragStart.boxY + deltaY))
+        newBox.height = videoDragStart.boxY + videoDragStart.boxH - newBox.y
+      }
+
+      setVideoCropBox(newBox)
+    }
+  }, [isVideoDragging, isVideoResizing, videoDragStart, videoCropBox])
+
+  const handleVideoCropTouchEnd = useCallback(() => {
+    setIsVideoDragging(false)
+    setIsVideoResizing(null)
+  }, [])
+
   useEffect(() => {
     if (isVideoDragging || isVideoResizing) {
       window.addEventListener('mousemove', handleVideoCropMouseMove)
       window.addEventListener('mouseup', handleVideoCropMouseUp)
+      window.addEventListener('touchmove', handleVideoCropTouchMove, { passive: false })
+      window.addEventListener('touchend', handleVideoCropTouchEnd)
       return () => {
         window.removeEventListener('mousemove', handleVideoCropMouseMove)
         window.removeEventListener('mouseup', handleVideoCropMouseUp)
+        window.removeEventListener('touchmove', handleVideoCropTouchMove)
+        window.removeEventListener('touchend', handleVideoCropTouchEnd)
       }
     }
-  }, [isVideoDragging, isVideoResizing, handleVideoCropMouseMove, handleVideoCropMouseUp])
+  }, [isVideoDragging, isVideoResizing, handleVideoCropMouseMove, handleVideoCropMouseUp, handleVideoCropTouchMove, handleVideoCropTouchEnd])
 
   const handleVideoCropSave = async () => {
     if (!tempVideoUrl) return
@@ -627,8 +941,8 @@ function HeaderSection() {
         console.log("Video uploaded successfully:", finalVideoUrl)
       }
       
-      // Update the profile with video URL and crop data
-      updateProfile({ avatar_video_url: finalVideoUrl, avatar_video_crop: videoCropBox })
+      // Update the profile with video URL and crop data, clear image when uploading video
+      updateProfile({ avatar_video_url: finalVideoUrl, avatar_video_crop: videoCropBox, avatar_url: null })
       
       setShowVideoCropModal(false)
       setTempVideoUrl(null)
@@ -728,7 +1042,8 @@ function HeaderSection() {
       if (error) throw error
 
       const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-      updateProfile({ avatar_url: publicUrl })
+      // Clear video when uploading an image to replace it
+      updateProfile({ avatar_url: publicUrl, avatar_video_url: null })
       setShowCropModal(false)
     } catch (error) {
       console.error("Upload error:", error)
@@ -748,8 +1063,329 @@ function HeaderSection() {
   }
 
   const handleLayoutChange = (layout: string) => {
-    if (layout === "hero" && (theme.background_type === "image" || theme.background_type === "gradient")) return
+    if (layout === "hero" && (theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video")) return
+    // Block switching to Hero if pattern is active
+    if (layout === "hero" && (theme as any).background_pattern && (theme as any).background_pattern !== "none") {
+      return // Silently block - pattern takes precedence
+    }
     updateTheme({ header_layout: layout } as any)
+  }
+
+  // Logo file selection handler - detects image aspect ratio
+  const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = URL.createObjectURL(file)
+
+    // Load image to detect dimensions and set appropriate crop box
+    const img = new Image()
+    img.onload = () => {
+      const imgWidth = img.width
+      const imgHeight = img.height
+      const aspectRatio = imgWidth / imgHeight
+
+      setLogoImageSize({ width: imgWidth, height: imgHeight })
+      setTempLogoUrl(url)
+      setTempLogoFile(file)
+      setShowLogoUploadModal(false)
+      setShowLogoCropModal(true)
+
+      // Set crop box based on aspect ratio - adapts to image shape
+      // For wide images (aspect > 1.2), use wider crop
+      // For tall images (aspect < 0.8), use taller crop
+      // Otherwise use square-ish crop
+      if (aspectRatio > 1.2) {
+        // Wide image - use wide crop box
+        setLogoCropBox({ x: 5, y: 15, width: 90, height: 70 })
+      } else if (aspectRatio < 0.8) {
+        // Tall image - use tall crop box
+        setLogoCropBox({ x: 15, y: 5, width: 70, height: 90 })
+      } else {
+        // Square-ish - use centered square
+        setLogoCropBox({ x: 10, y: 10, width: 80, height: 80 })
+      }
+    }
+    img.src = url
+
+    // Reset file input for next selection
+    e.target.value = ''
+  }
+
+  // Logo crop drag handlers - percentage based like video cropper
+  const handleLogoCropMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize', corner?: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const container = logoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    setLogoDragStart({
+      x,
+      y,
+      boxX: logoCropBox.x,
+      boxY: logoCropBox.y,
+      boxW: logoCropBox.width,
+      boxH: logoCropBox.height
+    })
+
+    if (type === 'drag') {
+      setIsLogoDragging(true)
+    } else {
+      setIsLogoResizing(corner || null)
+    }
+  }
+
+  const handleLogoCropTouchStart = (e: React.TouchEvent, type: 'drag' | 'resize', corner?: string) => {
+    e.stopPropagation()
+    const touch = e.touches[0]
+    const container = logoCropContainerRef.current
+    if (!container || !touch) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((touch.clientX - rect.left) / rect.width) * 100
+    const y = ((touch.clientY - rect.top) / rect.height) * 100
+
+    setLogoDragStart({
+      x,
+      y,
+      boxX: logoCropBox.x,
+      boxY: logoCropBox.y,
+      boxW: logoCropBox.width,
+      boxH: logoCropBox.height
+    })
+
+    if (type === 'drag') {
+      setIsLogoDragging(true)
+    } else {
+      setIsLogoResizing(corner || null)
+    }
+  }
+
+  const handleLogoCropMouseMove = useCallback((e: MouseEvent) => {
+    const container = logoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    if (isLogoDragging) {
+      const deltaX = x - logoDragStart.x
+      const deltaY = y - logoDragStart.y
+
+      let newX = logoDragStart.boxX + deltaX
+      let newY = logoDragStart.boxY + deltaY
+
+      // Constrain to container
+      newX = Math.max(0, Math.min(100 - logoCropBox.width, newX))
+      newY = Math.max(0, Math.min(100 - logoCropBox.height, newY))
+
+      setLogoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+    } else if (isLogoResizing) {
+      const deltaX = x - logoDragStart.x
+      const deltaY = y - logoDragStart.y
+
+      let newBox = { ...logoCropBox }
+
+      if (isLogoResizing.includes('right')) {
+        newBox.width = Math.max(20, Math.min(100 - logoDragStart.boxX, logoDragStart.boxW + deltaX))
+      }
+      if (isLogoResizing.includes('left')) {
+        const newWidth = Math.max(20, logoDragStart.boxW - deltaX)
+        const maxWidth = logoDragStart.boxX + logoDragStart.boxW
+        newBox.width = Math.min(newWidth, maxWidth)
+        newBox.x = logoDragStart.boxX + logoDragStart.boxW - newBox.width
+      }
+      if (isLogoResizing.includes('bottom')) {
+        newBox.height = Math.max(20, Math.min(100 - logoDragStart.boxY, logoDragStart.boxH + deltaY))
+      }
+      if (isLogoResizing.includes('top')) {
+        const newHeight = Math.max(20, logoDragStart.boxH - deltaY)
+        const maxHeight = logoDragStart.boxY + logoDragStart.boxH
+        newBox.height = Math.min(newHeight, maxHeight)
+        newBox.y = logoDragStart.boxY + logoDragStart.boxH - newBox.height
+      }
+
+      // Keep square aspect ratio
+      const size = Math.min(newBox.width, newBox.height)
+      if (isLogoResizing.includes('right') || isLogoResizing.includes('bottom')) {
+        newBox.width = size
+        newBox.height = size
+      } else {
+        // Adjust position when resizing from left/top
+        if (isLogoResizing.includes('left')) {
+          newBox.x = logoDragStart.boxX + logoDragStart.boxW - size
+        }
+        if (isLogoResizing.includes('top')) {
+          newBox.y = logoDragStart.boxY + logoDragStart.boxH - size
+        }
+        newBox.width = size
+        newBox.height = size
+      }
+
+      setLogoCropBox(newBox)
+    }
+  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.width, logoCropBox.height])
+
+  const handleLogoCropTouchMove = useCallback((e: TouchEvent) => {
+    const touch = e.touches[0]
+    if (!touch) return
+    const container = logoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((touch.clientX - rect.left) / rect.width) * 100
+    const y = ((touch.clientY - rect.top) / rect.height) * 100
+
+    if (isLogoDragging) {
+      const deltaX = x - logoDragStart.x
+      const deltaY = y - logoDragStart.y
+
+      let newX = logoDragStart.boxX + deltaX
+      let newY = logoDragStart.boxY + deltaY
+
+      newX = Math.max(0, Math.min(100 - logoCropBox.width, newX))
+      newY = Math.max(0, Math.min(100 - logoCropBox.height, newY))
+
+      setLogoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+    } else if (isLogoResizing) {
+      const deltaX = x - logoDragStart.x
+      const deltaY = y - logoDragStart.y
+
+      let newBox = { ...logoCropBox }
+
+      if (isLogoResizing.includes('right')) {
+        newBox.width = Math.max(20, Math.min(100 - logoDragStart.boxX, logoDragStart.boxW + deltaX))
+      }
+      if (isLogoResizing.includes('left')) {
+        const newWidth = Math.max(20, logoDragStart.boxW - deltaX)
+        const maxWidth = logoDragStart.boxX + logoDragStart.boxW
+        newBox.width = Math.min(newWidth, maxWidth)
+        newBox.x = logoDragStart.boxX + logoDragStart.boxW - newBox.width
+      }
+      if (isLogoResizing.includes('bottom')) {
+        newBox.height = Math.max(20, Math.min(100 - logoDragStart.boxY, logoDragStart.boxH + deltaY))
+      }
+      if (isLogoResizing.includes('top')) {
+        const newHeight = Math.max(20, logoDragStart.boxH - deltaY)
+        const maxHeight = logoDragStart.boxY + logoDragStart.boxH
+        newBox.height = Math.min(newHeight, maxHeight)
+        newBox.y = logoDragStart.boxY + logoDragStart.boxH - newBox.height
+      }
+
+      // Keep square aspect ratio
+      const size = Math.min(newBox.width, newBox.height)
+      newBox.width = size
+      newBox.height = size
+
+      setLogoCropBox(newBox)
+    }
+  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.width, logoCropBox.height])
+
+  const handleLogoCropMouseUp = useCallback(() => {
+    setIsLogoDragging(false)
+    setIsLogoResizing(null)
+  }, [])
+
+  // Add/remove logo crop event listeners
+  useEffect(() => {
+    if (isLogoDragging || isLogoResizing) {
+      window.addEventListener('mousemove', handleLogoCropMouseMove)
+      window.addEventListener('mouseup', handleLogoCropMouseUp)
+      window.addEventListener('touchmove', handleLogoCropTouchMove, { passive: false })
+      window.addEventListener('touchend', handleLogoCropMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleLogoCropMouseMove)
+        window.removeEventListener('mouseup', handleLogoCropMouseUp)
+        window.removeEventListener('touchmove', handleLogoCropTouchMove)
+        window.removeEventListener('touchend', handleLogoCropMouseUp)
+      }
+    }
+  }, [isLogoDragging, isLogoResizing, handleLogoCropMouseMove, handleLogoCropTouchMove, handleLogoCropMouseUp])
+
+  const handleLogoCropSave = async () => {
+    if (!tempLogoFile || !tempLogoUrl) return
+    setUploadingLogo(true)
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = reject
+        img.src = tempLogoUrl
+      })
+
+      // Convert percentage-based crop box to actual image coordinates
+      const actualX = (logoCropBox.x / 100) * img.width
+      const actualY = (logoCropBox.y / 100) * img.height
+      const actualWidth = (logoCropBox.width / 100) * img.width
+      const actualHeight = (logoCropBox.height / 100) * img.height
+
+      // Output size - preserve aspect ratio for high quality logo (no distortion)
+      const maxOutputDimension = 500
+      const cropAspectRatio = actualWidth / actualHeight
+      let outputWidth: number
+      let outputHeight: number
+
+      if (cropAspectRatio >= 1) {
+        // Wide or square - constrain by width
+        outputWidth = maxOutputDimension
+        outputHeight = Math.round(maxOutputDimension / cropAspectRatio)
+      } else {
+        // Tall - constrain by height
+        outputHeight = maxOutputDimension
+        outputWidth = Math.round(maxOutputDimension * cropAspectRatio)
+      }
+
+      canvas.width = outputWidth
+      canvas.height = outputHeight
+
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(
+          img,
+          actualX, actualY, actualWidth, actualHeight,
+          0, 0, outputWidth, outputHeight
+        )
+      }
+
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob!), 'image/png', 1.0)
+      })
+
+      const fileName = `${user.id}/logo-${Date.now()}.png`
+      const { error } = await supabase.storage.from("onepage-assets").upload(fileName, blob, { upsert: true })
+      if (error) throw error
+
+      const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
+      updateTheme({ title_logo_url: publicUrl, title_style: 'logo' } as any)
+      setShowLogoCropModal(false)
+    } catch (error) {
+      console.error("Logo upload error:", error)
+      alert('Failed to save logo. Please try again.')
+    } finally {
+      setUploadingLogo(false)
+      if (tempLogoUrl) {
+        URL.revokeObjectURL(tempLogoUrl)
+        setTempLogoUrl(null)
+        setTempLogoFile(null)
+      }
+    }
+  }
+
+  const handleRemoveLogo = () => {
+    updateTheme({ title_logo_url: null, title_style: 'text' } as any)
   }
 
   // Mouse/Touch handlers for crop box
@@ -848,10 +1484,12 @@ function HeaderSection() {
             </>
           )}
         </Avatar>
-        <Button variant="outline" onClick={() => setShowEditModal(true)} disabled={uploading} className="h-9 rounded-lg" data-avatar-edit>
-          <ImageIcon className="h-4 w-4 mr-2" />
-          {uploading ? "Uploading..." : "Edit"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowEditModal(true)} disabled={uploading} className="h-9 rounded-lg" data-avatar-edit>
+            <ImageIcon className="h-4 w-4 mr-2" />
+            {uploading ? "Uploading..." : "Edit"}
+          </Button>
+        </div>
       </div>
 
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
@@ -921,23 +1559,21 @@ function HeaderSection() {
               <>
                 <div
                   ref={videoCropContainerRef}
-                  className="relative mx-auto bg-black rounded-xl overflow-hidden select-none"
-                  style={{ width: '300px', height: '400px' }}
+                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
+                  style={{ width: '300px', height: '400px', touchAction: 'none' }}
                 >
                   <video
                     ref={videoPreviewRef}
                     src={tempVideoUrl}
-                    className="w-full h-full object-cover pointer-events-none"
+                    className="w-full h-full object-cover pointer-events-none rounded-xl"
                     autoPlay
                     loop
                     muted
                     playsInline
                   />
-                  {/* Dark overlay outside crop area */}
-                  <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 9999px rgba(0,0,0,0.5)' }} />
-                  
+
                   {/* Crop box - draggable */}
-                  <div 
+                  <div
                     className="absolute border-2 border-white border-dashed cursor-move"
                     style={{
                       left: `${videoCropBox.x}%`,
@@ -945,9 +1581,11 @@ function HeaderSection() {
                       width: `${videoCropBox.width}%`,
                       height: `${videoCropBox.height}%`,
                       boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      background: 'transparent'
+                      background: 'transparent',
+                      touchAction: 'none'
                     }}
                     onMouseDown={(e) => handleVideoCropMouseDown(e, 'drag')}
+                    onTouchStart={(e) => handleVideoCropTouchStart(e, 'drag')}
                   >
                     {/* Grid lines */}
                     <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
@@ -955,41 +1593,57 @@ function HeaderSection() {
                         <div key={i} className="border border-white/30" />
                       ))}
                     </div>
-                    
-                    {/* Corner resize handles */}
-                    <div 
-                      className="absolute -top-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-nw-resize z-10"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'top-left')}
+
+                    {/* Corner resize handles - much larger for mobile touch */}
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
+                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'top-left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'top-left') }}
                     />
-                    <div 
-                      className="absolute -top-2 -right-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-ne-resize z-10"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'top-right')}
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
+                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'top-right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'top-right') }}
                     />
-                    <div 
-                      className="absolute -bottom-2 -left-2 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-sw-resize z-10"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'bottom-left')}
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
+                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom-left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom-left') }}
                     />
-                    <div 
-                      className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize z-10"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'bottom-right')}
+                    <div
+                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
+                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom-right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom-right') }}
                     />
-                    
-                    {/* Edge resize handles */}
-                    <div 
-                      className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-2 bg-white/80 rounded cursor-n-resize z-10"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'top')}
+
+                    {/* Edge resize handles - larger for mobile touch */}
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-n-resize z-50"
+                      style={{ top: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'top') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'top') }}
                     />
-                    <div 
-                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-2 bg-white/80 rounded cursor-s-resize z-10"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'bottom')}
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-s-resize z-50"
+                      style={{ bottom: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom') }}
                     />
-                    <div 
-                      className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-8 bg-white/80 rounded cursor-w-resize z-10"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'left')}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-w-resize z-50"
+                      style={{ left: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'left') }}
                     />
-                    <div 
-                      className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-8 bg-white/80 rounded cursor-e-resize z-10"
-                      onMouseDown={(e) => handleVideoCropMouseDown(e, 'resize', 'right')}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-e-resize z-50"
+                      style={{ right: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'right') }}
                     />
                   </div>
                 </div>
@@ -1113,6 +1767,144 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
+      {/* Logo Upload Modal */}
+      <Dialog open={showLogoUploadModal} onOpenChange={setShowLogoUploadModal}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => setShowLogoUploadModal(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Logo</DialogTitle>
+          </DialogHeader>
+          <div className="p-5">
+            <div onClick={() => logoFileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
+              <Upload className="h-12 w-12 text-gray-300 mb-4" />
+              <p className="font-medium text-gray-600">Select logo to upload,</p>
+              <p className="font-medium text-gray-600">or drag-and-drop file</p>
+              <p className="text-sm text-gray-400 mt-2">PNG with transparent background recommended</p>
+            </div>
+            <input ref={logoFileInputRef} type="file" accept="image/*" onChange={handleLogoFileSelect} className="hidden" />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logo Crop Modal */}
+      <Dialog open={showLogoCropModal} onOpenChange={(open) => {
+        setShowLogoCropModal(open)
+        if (!open && tempLogoUrl) {
+          URL.revokeObjectURL(tempLogoUrl)
+          setTempLogoUrl(null)
+          setTempLogoFile(null)
+          setIsLogoDragging(false)
+          setIsLogoResizing(null)
+        }
+      }}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => { setShowLogoCropModal(false); setShowLogoUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Logo</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-4">
+            {tempLogoUrl && (
+              <>
+                <div
+                  ref={logoCropContainerRef}
+                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden select-none"
+                  style={{ width: '300px', height: '300px', touchAction: 'none' }}
+                >
+                  {/* Image fills container */}
+                  <img
+                    src={tempLogoUrl}
+                    alt="Preview"
+                    className="w-full h-full object-contain pointer-events-none select-none"
+                    draggable={false}
+                  />
+
+                  {/* Crop box - percentage based like video cropper */}
+                  <div
+                    className="absolute border-2 border-white border-dashed cursor-move"
+                    style={{
+                      left: `${logoCropBox.x}%`,
+                      top: `${logoCropBox.y}%`,
+                      width: `${logoCropBox.width}%`,
+                      height: `${logoCropBox.height}%`,
+                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+                      background: 'transparent',
+                      touchAction: 'none'
+                    }}
+                    onMouseDown={(e) => handleLogoCropMouseDown(e, 'drag')}
+                    onTouchStart={(e) => handleLogoCropTouchStart(e, 'drag')}
+                  >
+                    {/* Grid lines */}
+                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
+                      {[...Array(9)].map((_, i) => (
+                        <div key={i} className="border border-white/30" />
+                      ))}
+                    </div>
+
+                    {/* Corner resize handles - larger for mobile touch */}
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
+                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top-left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top-left') }}
+                    />
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
+                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top-right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top-right') }}
+                    />
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
+                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom-left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom-left') }}
+                    />
+                    <div
+                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
+                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom-right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom-right') }}
+                    />
+
+                    {/* Edge resize handles */}
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-n-resize z-50"
+                      style={{ top: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top') }}
+                    />
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-s-resize z-50"
+                      style={{ bottom: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom') }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-w-resize z-50"
+                      style={{ left: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'left') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'left') }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-e-resize z-50"
+                      style={{ right: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'right') }}
+                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'right') }}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize freely</p>
+
+                <Button onClick={handleLogoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingLogo}>
+                  {uploadingLogo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-3">
         <Label className="text-sm font-medium">Profile image layout</Label>
         <div className="grid grid-cols-2 gap-2 md:gap-3">
@@ -1120,19 +1912,325 @@ function HeaderSection() {
             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center"><User className="h-5 w-5 text-gray-400" /></div>
             <span className="text-xs md:text-sm font-medium">Classic</span>
           </button>
-          <button onClick={() => handleLayoutChange("hero")} disabled={theme.background_type === "image" || theme.background_type === "gradient"} className={cn("border-2 rounded-xl p-4 md:p-5 flex flex-col items-center gap-2 md:gap-3 transition-all relative", effectiveLayout === "hero" ? "border-foreground bg-white" : "border-gray-200 hover:border-gray-300", (theme.background_type === "image" || theme.background_type === "gradient") && "opacity-50 cursor-not-allowed")}>
+          <button onClick={() => handleLayoutChange("hero")} disabled={theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")} className={cn("border-2 rounded-xl p-4 md:p-5 flex flex-col items-center gap-2 md:gap-3 transition-all relative", effectiveLayout === "hero" ? "border-foreground bg-white" : "border-gray-200 hover:border-gray-300", (theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")) && "opacity-50 cursor-not-allowed")}>
             <div className="w-full h-10 bg-gradient-to-b from-gray-300 to-gray-100 rounded-lg flex items-end justify-center pb-1"><Move className="h-4 w-4 text-gray-400" /></div>
             <span className="text-xs md:text-sm font-medium">Hero</span>
           </button>
         </div>
-        {theme.background_type === "image" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using an image wallpaper.</p>}
-        {theme.background_type === "gradient" && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">Hero layout is disabled when using a gradient wallpaper.</p>}
-        {effectiveLayout === "hero" && theme.background_type === "solid" && <p className="text-xs text-muted-foreground">Hero displays your avatar as a full-width background with fade</p>}
+        {theme.background_type === "image" && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+            Hero layout is disabled when using an image wallpaper.{" "}
+            <button onClick={() => updateTheme({ background_type: "solid" })} className="underline font-medium hover:text-amber-700">Disable</button>
+          </p>
+        )}
+        {theme.background_type === "gradient" && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+            Hero layout is disabled when using a gradient wallpaper.{" "}
+            <button onClick={() => updateTheme({ background_type: "solid" })} className="underline font-medium hover:text-amber-700">Disable</button>
+          </p>
+        )}
+        {theme.background_type === "video" && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+            Hero layout is disabled when using a video wallpaper.{" "}
+            <button onClick={() => updateTheme({ background_type: "solid" })} className="underline font-medium hover:text-amber-700">Disable</button>
+          </p>
+        )}
+        {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+            Hero layout is disabled when using a pattern.{" "}
+            <button onClick={() => updateTheme({ background_pattern: "none" } as any)} className="underline font-medium hover:text-amber-700">Disable</button>
+          </p>
+        )}
+        {effectiveLayout === "hero" && theme.background_type === "solid" && !((theme as any).background_pattern && (theme as any).background_pattern !== "none") && <p className="text-xs text-muted-foreground">Hero displays your avatar as a full-width background with fade</p>}
+      </div>
+
+      {/* Laser Glow Avatar */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-blue-500" />
+            <Label className="text-sm font-medium">Laser Glow Avatar</Label>
+          </div>
+          <Toggle
+            checked={(theme as any).laser_glow_enabled || false}
+            onCheckedChange={(checked) => updateTheme({ laser_glow_enabled: checked } as any)}
+          />
+        </div>
+        {(theme as any).laser_glow_enabled && (
+          <div className="space-y-3 pl-6">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Glow Color</Label>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input type="color" value={(theme as any).laser_glow_color || "#3b82f6"} onChange={(e) => updateTheme({ laser_glow_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <div className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).laser_glow_color || "#3b82f6" }} />
+                </div>
+                <Input value={(theme as any).laser_glow_color || "#3b82f6"} onChange={(e) => updateTheme({ laser_glow_color: e.target.value } as any)} placeholder="#3b82f6" className="h-10 rounded-lg flex-1 font-mono text-sm" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Intensity</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { id: "low", label: "Low" },
+                  { id: "medium", label: "Medium" },
+                  { id: "hard", label: "Hard" },
+                ] as const).map((intensity) => (
+                  <button
+                    key={intensity.id}
+                    onClick={() => updateTheme({ laser_glow_intensity: intensity.id } as any)}
+                    className={cn(
+                      "py-2 rounded-lg border-2 text-xs font-medium transition-colors",
+                      ((theme as any).laser_glow_intensity || "medium") === intensity.id
+                        ? "border-foreground bg-gray-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    )}
+                  >
+                    {intensity.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Display Name</Label>
         <Input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder="Your name" className="h-10 rounded-lg" />
+      </div>
+
+      {/* Title Style Selector */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title Style</Label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => updateTheme({ title_style: "text" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              ((theme as any).title_style || "text") === "text"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            Text Based
+          </button>
+          <button
+            onClick={() => updateTheme({ title_style: "logo" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              (theme as any).title_style === "logo"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            Logo Based
+          </button>
+        </div>
+      </div>
+
+      {/* Logo Upload - only show when Logo Based is selected */}
+      {(theme as any).title_style === "logo" && (
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">Logo Image</Label>
+          {(theme as any).title_logo_url ? (
+            <div className="flex items-center gap-3">
+              <div className="w-16 h-16 rounded-xl border-2 border-gray-200 overflow-hidden bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/10px_10px]">
+                <img src={(theme as any).title_logo_url} alt="Logo" className="w-full h-full object-contain" />
+              </div>
+              <div className="flex-1 flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowLogoUploadModal(true)}
+                  className="flex-1 h-9 rounded-lg"
+                >
+                  Change
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRemoveLogo}
+                  className="h-9 w-9 p-0 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLogoUploadModal(true)}
+              className="w-full py-4 px-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors flex flex-col items-center justify-center gap-2"
+            >
+              <Upload className="h-8 w-8 text-gray-400" />
+              <span className="text-sm font-medium text-gray-600">Upload Logo</span>
+            </button>
+          )}
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg flex items-start gap-2">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>For best results, use a logo with a transparent background (PNG format)</span>
+          </p>
+
+          {/* Logo Position */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Logo Position</Label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => updateTheme({ logo_position: "default" } as any)}
+                className={cn(
+                  "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                  (theme as any).logo_position !== "more_up"
+                    ? "bg-white border-gray-900 text-gray-900"
+                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                )}
+              >
+                Default
+              </button>
+              <button
+                onClick={() => updateTheme({ logo_position: "more_up" } as any)}
+                className={cn(
+                  "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
+                  (theme as any).logo_position === "more_up"
+                    ? "bg-white border-gray-900 text-gray-900"
+                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                )}
+              >
+                More Up
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Title Font Selector */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title Font</Label>
+        <button
+          onClick={() => setShowTitleFontModal(true)}
+          className="w-full h-10 px-3 rounded-lg border border-input bg-background flex items-center justify-between hover:bg-accent transition-colors"
+        >
+          <span
+            className="truncate"
+            style={{ fontFamily: (theme as any).title_font || theme.font_family }}
+          >
+            {(theme as any).title_font || "Default (Same as body)"}
+          </span>
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+        </button>
+      </div>
+
+      {/* Title Font Modal */}
+      <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
+          <DialogHeader className="p-4 border-b shrink-0">
+            <DialogTitle className="text-lg font-semibold">Select Title Font</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-2 pb-[max(8px,env(safe-area-inset-bottom))]">
+            {TITLE_FONTS.map((font) => (
+              <button
+                key={font.name}
+                onClick={() => {
+                  updateTheme({ title_font: font.value } as any)
+                  setShowTitleFontModal(false)
+                }}
+                className={cn(
+                  "w-full p-4 sm:p-3 rounded-lg text-left transition-colors flex items-center justify-between",
+                  (theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)
+                    ? "bg-violet-50"
+                    : "hover:bg-gray-50"
+                )}
+              >
+                <span
+                  className="text-base sm:text-lg truncate flex-1 min-w-0"
+                  style={{ fontFamily: font.value || theme.font_family }}
+                >
+                  {font.name}
+                </span>
+                {((theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)) && (
+                  <Check className="h-5 w-5 text-violet-500 shrink-0 ml-2" />
+                )}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Title & Logo Size Selector */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title & Logo size</Label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => updateTheme({ title_size: "default" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              ((theme as any).title_size || "default") === "default"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            Default
+          </button>
+          <button
+            onClick={() => updateTheme({ title_size: "large" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              (theme as any).title_size === "large"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            Large
+          </button>
+        </div>
+      </div>
+
+      {/* Title Color Picker - Simple & Reliable */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title color</Label>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input
+              type="color"
+              value={(theme as any).title_color || theme.text_color}
+              onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <div
+              className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
+              style={{ backgroundColor: (theme as any).title_color || theme.text_color }}
+            />
+          </div>
+          <Input
+            value={(theme as any).title_color || theme.text_color}
+            onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
+            placeholder="#000000"
+            className="h-12 rounded-xl flex-1 font-mono text-sm"
+          />
+          {(theme as any).title_color && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => updateTheme({ title_color: null } as any)}
+              className="h-12 px-3"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        {/* Suggested Colors */}
+        <div className="flex gap-2 pt-1">
+          {['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'].map((color) => (
+            <button
+              key={color}
+              onClick={() => updateTheme({ title_color: color } as any)}
+              className={cn(
+                "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                (theme as any).title_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+              )}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -1155,16 +2253,18 @@ function ThemeSection() {
 
   const handleApplyTemplate = (template: typeof THEME_TEMPLATES[0]) => {
     const config = template.theme_config
-    const needsClassicLayout = config.background_type === "gradient" || config.background_type === "image"
-    
-    // If current layout is Hero and new template has gradient/image background, show dialog
-    if (needsClassicLayout && currentHeaderLayout === "hero") {
+    const templateLayout = (template as any).profile_layout
+    const skipDialog = (template as any).skipLayoutDialog
+    const needsClassicLayout = config.background_type === "gradient" || config.background_type === "image" || templateLayout === "classic"
+
+    // If current layout is Hero and new template requires classic layout, show dialog (unless skipLayoutDialog is true)
+    if (needsClassicLayout && currentHeaderLayout === "hero" && !skipDialog) {
       setPendingTemplate(template)
       setShowLayoutChangeDialog(true)
       return
     }
-    
-    // Apply template, ensuring Classic layout for gradient/image backgrounds
+
+    // Apply template, ensuring Classic layout for gradient/image backgrounds or if template specifies it
     const updatedConfig = { ...config, template_id: template.id }
     if (needsClassicLayout) {
       (updatedConfig as any).header_layout = "classic"
@@ -1196,9 +2296,24 @@ function ThemeSection() {
           const config = template.theme_config
           if (!config) return null
           const isSelected = theme.template_id === template.id
-          const bgStyle = config.background_type === "image" && config.background_image_url 
+          const isDefaultTheme = (template as any).isDefault
+          const bgStyle = config.background_type === "image" && config.background_image_url
             ? { backgroundImage: `url(${config.background_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
             : { background: config.background_type === "gradient" && config.background_gradient ? config.background_gradient : config.background_color }
+
+          // Special rendering for Default theme
+          if (isDefaultTheme) {
+            return (
+              <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group border-2", isSelected ? "ring-2 ring-violet-500 ring-offset-2 border-gray-200" : "border-gray-200 hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
+                <div className="absolute inset-0 bg-white" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[11px] font-medium text-gray-400">Default</span>
+                </div>
+                {isSelected && <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center"><Check className="h-3 w-3 text-white" /></div>}
+              </button>
+            )
+          }
+
           return (
             <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group", isSelected ? "ring-2 ring-violet-500 ring-offset-2" : "hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
               <div className="absolute inset-0" style={bgStyle} />
@@ -1208,7 +2323,7 @@ function ThemeSection() {
                 <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
                 <div className="w-full max-w-[60px] md:max-w-[80px] h-5 md:h-6 rounded-md mt-2" style={{ backgroundColor: config.button_color, borderWidth: config.button_border_width, borderColor: config.button_border_color, borderRadius: `${config.button_border_radius}px` }} />
               </div>
-              {isSelected && <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center"><Check className="h-3 w-3 text-white" /></div>}
+              {isSelected && <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center bg-ring"><Check className="h-3 w-3 text-white" /></div>}
               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/50 to-transparent">
                 <p className="text-[10px] md:text-xs font-medium text-white text-center">{template.name}</p>
               </div>
@@ -1268,12 +2383,129 @@ function ThemeSection() {
   )
 }
 
+// Pattern Preview Component for showing pattern thumbnails
+function PatternPreview({ pattern, color }: { pattern: string; color: string }) {
+  const patternSVGs: Record<string, React.ReactNode> = {
+    grid: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`grid-${color}`} width="16" height="16" patternUnits="userSpaceOnUse">
+            <path d="M 16 0 L 0 0 0 16" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#grid-${color})`} />
+      </svg>
+    ),
+    dots: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`dots-${color}`} width="12" height="12" patternUnits="userSpaceOnUse">
+            <circle cx="6" cy="6" r="1.5" fill={color} />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#dots-${color})`} />
+      </svg>
+    ),
+    waves: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`waves-${color}`} width="40" height="20" patternUnits="userSpaceOnUse">
+            <path d="M0 10 Q10 0, 20 10 T40 10" fill="none" stroke={color} strokeWidth="1.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#waves-${color})`} />
+      </svg>
+    ),
+    zigzag: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`zigzag-${color}`} width="20" height="12" patternUnits="userSpaceOnUse">
+            <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={color} strokeWidth="1.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#zigzag-${color})`} />
+      </svg>
+    ),
+    cross: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`cross-${color}`} width="16" height="16" patternUnits="userSpaceOnUse">
+            <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#cross-${color})`} />
+      </svg>
+    ),
+    diagonal: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`diagonal-${color}`} width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M0 10 L10 0" fill="none" stroke={color} strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#diagonal-${color})`} />
+      </svg>
+    ),
+    morph: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`morph-${color}`} width="200" height="200" patternUnits="userSpaceOnUse">
+            {/* Futuristic melting/morphing shapes - tech aesthetic */}
+            <path d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180" fill="none" stroke={color} strokeWidth="2" opacity="0.5" />
+            <path d="M120 10 Q140 30, 160 20 Q180 40, 160 60 Q180 80, 160 100 Q140 80, 120 100 Q100 80, 120 60" fill="none" stroke={color} strokeWidth="2" opacity="0.4" />
+            <path d="M100 140 Q120 160, 140 150 Q160 170, 140 190 Q120 170, 100 180" fill="none" stroke={color} strokeWidth="2" opacity="0.45" />
+            <circle cx="50" cy="50" r="8" fill={color} opacity="0.3" />
+            <circle cx="150" cy="70" r="6" fill={color} opacity="0.25" />
+            <circle cx="100" cy="160" r="5" fill={color} opacity="0.3" />
+            <rect x="170" y="150" width="20" height="2" fill={color} opacity="0.4" rx="1" />
+            <rect x="10" y="100" width="15" height="2" fill={color} opacity="0.35" rx="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#morph-${color})`} />
+      </svg>
+    ),
+    organic: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`organic-${color}`} width="200" height="200" patternUnits="userSpaceOnUse">
+            {/* Natural, soft, irregular organic shapes */}
+            <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={color} opacity="0.35" />
+            <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={color} opacity="0.3" />
+            <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={color} opacity="0.32" />
+            <path d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140" fill={color} opacity="0.28" />
+            <path d="M20 160 Q35 150, 45 165 Q50 180, 35 190 Q20 185, 15 175 Q12 165, 20 160" fill={color} opacity="0.25" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#organic-${color})`} />
+      </svg>
+    ),
+  }
+
+  return patternSVGs[pattern] || null
+}
+
 function WallpaperSection() {
   const { onepage, updateTheme } = useOnePage()
   const [uploading, setUploading] = useState(false)
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
-  const [pendingBgType, setPendingBgType] = useState<"gradient" | "image" | null>(null)
+  const [pendingBgType, setPendingBgType] = useState<"gradient" | "image" | "video" | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Video wallpaper states
+  const [showWallpaperVideoModal, setShowWallpaperVideoModal] = useState(false)
+  const [showWallpaperVideoCropModal, setShowWallpaperVideoCropModal] = useState(false)
+  const [tempWallpaperVideoUrl, setTempWallpaperVideoUrl] = useState<string | null>(null)
+  const [tempWallpaperVideoFile, setTempWallpaperVideoFile] = useState<File | null>(null)
+  const [uploadingWallpaperVideo, setUploadingWallpaperVideo] = useState(false)
+  const wallpaperVideoFileInputRef = useRef<HTMLInputElement>(null)
+  const wallpaperVideoPreviewRef = useRef<HTMLVideoElement>(null)
+  const wallpaperVideoCropContainerRef = useRef<HTMLDivElement>(null)
+
+  // Video crop state for wallpaper
+  const [wallpaperVideoCropBox, setWallpaperVideoCropBox] = useState({ x: 0, y: 0, width: 100, height: 100 }) // 9:16 container, full coverage default
+  const [isWallpaperVideoDragging, setIsWallpaperVideoDragging] = useState(false)
+  const [isWallpaperVideoResizing, setIsWallpaperVideoResizing] = useState<string | null>(null)
+  const [wallpaperVideoDragStart, setWallpaperVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
 
   if (!onepage) return null
   const { theme } = onepage
@@ -1292,20 +2524,32 @@ function WallpaperSection() {
 
   const gradientInfo = parseGradient(theme.background_gradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)")
 
-  const handleBgTypeChange = (type: "solid" | "gradient" | "image") => {
-    // If switching to gradient or image and Hero layout is active, show dialog
-    if ((type === "gradient" || type === "image") && currentHeaderLayout === "hero") {
+  const handleBgTypeChange = (type: "solid" | "gradient" | "image" | "video") => {
+    // If switching to gradient, image, or video and Hero layout is active, show dialog
+    if ((type === "gradient" || type === "image" || type === "video") && currentHeaderLayout === "hero") {
       setPendingBgType(type)
       setShowLayoutChangeDialog(true)
       return
     }
-    
+
+    // For video type, open the video picker modal
+    if (type === "video") {
+      setShowWallpaperVideoModal(true)
+      return
+    }
+
     updateTheme({ background_type: type })
   }
 
   const handleConfirmLayoutChange = () => {
     if (pendingBgType) {
-      updateTheme({ background_type: pendingBgType, header_layout: "classic" } as any)
+      // For video, also open the video picker modal after confirming layout change
+      if (pendingBgType === "video") {
+        updateTheme({ header_layout: "classic" } as any)
+        setShowWallpaperVideoModal(true)
+      } else {
+        updateTheme({ background_type: pendingBgType, header_layout: "classic" } as any)
+      }
     }
     setShowLayoutChangeDialog(false)
     setPendingBgType(null)
@@ -1355,6 +2599,185 @@ function WallpaperSection() {
       return
     }
     updateTheme({ background_image_url: url })
+  }
+
+  // Wallpaper video handlers
+  const handleWallpaperVideoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v', 'video/mpeg']
+    if (!validTypes.includes(file.type) && !file.type.startsWith('video/')) {
+      alert('Please select a valid video file (MP4, WebM, or MOV)')
+      return
+    }
+
+    // Validate file size (max 100MB)
+    if (file.size > 100 * 1024 * 1024) {
+      alert('Video file must be less than 100MB')
+      return
+    }
+
+    const url = URL.createObjectURL(file)
+    setTempWallpaperVideoUrl(url)
+    setTempWallpaperVideoFile(file)
+    // Default to portrait 9:16 aspect ratio crop box (centered)
+    setWallpaperVideoCropBox({ x: 21.875, y: 0, width: 56.25, height: 100 })
+    setShowWallpaperVideoModal(false)
+    setShowWallpaperVideoCropModal(true)
+    e.target.value = ''
+  }
+
+  const handleWallpaperVideoCropMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize', corner?: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const container = wallpaperVideoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    setWallpaperVideoDragStart({
+      x,
+      y,
+      boxX: wallpaperVideoCropBox.x,
+      boxY: wallpaperVideoCropBox.y,
+      boxW: wallpaperVideoCropBox.width,
+      boxH: wallpaperVideoCropBox.height
+    })
+
+    if (type === 'drag') {
+      setIsWallpaperVideoDragging(true)
+    } else {
+      setIsWallpaperVideoResizing(corner || null)
+    }
+  }
+
+  const handleWallpaperVideoCropMouseMove = useCallback((e: MouseEvent) => {
+    const container = wallpaperVideoCropContainerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    if (isWallpaperVideoDragging) {
+      const deltaX = x - wallpaperVideoDragStart.x
+      const deltaY = y - wallpaperVideoDragStart.y
+
+      let newX = wallpaperVideoDragStart.boxX + deltaX
+      let newY = wallpaperVideoDragStart.boxY + deltaY
+
+      newX = Math.max(0, Math.min(100 - wallpaperVideoCropBox.width, newX))
+      newY = Math.max(0, Math.min(100 - wallpaperVideoCropBox.height, newY))
+
+      setWallpaperVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
+    } else if (isWallpaperVideoResizing) {
+      const deltaY = y - wallpaperVideoDragStart.y
+
+      // 9:16 aspect ratio locked - container is 200x356 (portrait 9:16)
+      // For 9:16 crop on 9:16 container: width% = height% (approximately 1:1 ratio in percentages)
+      const aspectFactor = 1 // Since container is already 9:16, percentages match
+
+      let newBox = { ...wallpaperVideoCropBox }
+
+      // Resize maintains square percentage (which gives 9:16 actual ratio)
+      if (isWallpaperVideoResizing.includes('bottom')) {
+        const newHeight = Math.max(30, Math.min(100 - wallpaperVideoDragStart.boxY, wallpaperVideoDragStart.boxH + deltaY))
+        const newWidth = newHeight * aspectFactor
+        if (newBox.x + newWidth <= 100) {
+          newBox.height = newHeight
+          newBox.width = newWidth
+        }
+      }
+      if (isWallpaperVideoResizing.includes('top')) {
+        const proposedHeight = wallpaperVideoDragStart.boxH - deltaY
+        const newHeight = Math.max(30, proposedHeight)
+        const newWidth = newHeight * aspectFactor
+        if (newWidth <= 100) {
+          const maxY = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - 30
+          newBox.y = Math.max(0, Math.min(maxY, wallpaperVideoDragStart.boxY + deltaY))
+          newBox.height = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - newBox.y
+          newBox.width = newBox.height * aspectFactor
+          if (newBox.x + newBox.width > 100) {
+            newBox.x = 100 - newBox.width
+          }
+        }
+      }
+      // Corner resizing
+      if (isWallpaperVideoResizing.includes('right') || isWallpaperVideoResizing.includes('left')) {
+        const newHeight = Math.max(30, Math.min(100 - newBox.y, wallpaperVideoDragStart.boxH + deltaY))
+        const newWidth = newHeight * aspectFactor
+        if (newBox.x + newWidth <= 100) {
+          newBox.height = newHeight
+          newBox.width = newWidth
+        }
+      }
+
+      setWallpaperVideoCropBox(newBox)
+    }
+  }, [isWallpaperVideoDragging, isWallpaperVideoResizing, wallpaperVideoDragStart, wallpaperVideoCropBox.width, wallpaperVideoCropBox.height])
+
+  const handleWallpaperVideoCropMouseUp = useCallback(() => {
+    setIsWallpaperVideoDragging(false)
+    setIsWallpaperVideoResizing(null)
+  }, [])
+
+  useEffect(() => {
+    if (isWallpaperVideoDragging || isWallpaperVideoResizing) {
+      window.addEventListener('mousemove', handleWallpaperVideoCropMouseMove)
+      window.addEventListener('mouseup', handleWallpaperVideoCropMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleWallpaperVideoCropMouseMove)
+        window.removeEventListener('mouseup', handleWallpaperVideoCropMouseUp)
+      }
+    }
+  }, [isWallpaperVideoDragging, isWallpaperVideoResizing, handleWallpaperVideoCropMouseMove, handleWallpaperVideoCropMouseUp])
+
+  const handleWallpaperVideoCropSave = async () => {
+    if (!tempWallpaperVideoFile || !tempWallpaperVideoUrl) return
+    setUploadingWallpaperVideo(true)
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const fileName = `${user.id}/wallpaper-video-${Date.now()}.${tempWallpaperVideoFile.name.split('.').pop()}`
+      const { error } = await supabase.storage.from("onepage-assets").upload(fileName, tempWallpaperVideoFile, { upsert: true })
+      if (error) throw error
+
+      const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
+
+      // Save video URL and crop data to theme
+      updateTheme({
+        background_type: "video",
+        background_video_url: publicUrl,
+        background_video_crop: wallpaperVideoCropBox
+      } as any)
+
+      setShowWallpaperVideoCropModal(false)
+    } catch (error) {
+      console.error("Wallpaper video upload error:", error)
+      alert('Failed to upload video. Please try again.')
+    } finally {
+      setUploadingWallpaperVideo(false)
+      if (tempWallpaperVideoUrl) {
+        URL.revokeObjectURL(tempWallpaperVideoUrl)
+        setTempWallpaperVideoUrl(null)
+        setTempWallpaperVideoFile(null)
+      }
+    }
+  }
+
+  const handleRemoveWallpaperVideo = () => {
+    updateTheme({
+      background_type: "solid",
+      background_video_url: null,
+      background_video_crop: null
+    } as any)
   }
 
   // Gradient direction component - improved with better UX
@@ -1459,20 +2882,133 @@ function WallpaperSection() {
 
       <div className="space-y-3">
         <Label className="text-sm font-medium">Type</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {(["solid", "gradient", "image"] as const).map((type) => (
+        <div className="grid grid-cols-4 gap-2">
+          {(["solid", "gradient", "image", "video"] as const).map((type) => (
             <button key={type} onClick={() => handleBgTypeChange(type)} className={cn("py-3 md:py-3.5 rounded-xl border-2 text-xs md:text-sm font-medium capitalize transition-colors", theme.background_type === type ? "border-foreground bg-gray-50" : "border-gray-200 hover:border-gray-300")}>{type}</button>
           ))}
         </div>
       </div>
 
       {theme.background_type === "solid" && (
-        <div className="space-y-3">
-          <Label className="text-sm font-medium">Background color</Label>
-          <div className="flex items-center gap-3 p-3 border rounded-xl">
-            <Input type="color" value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-            <Input value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Background color</Label>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input type="color" value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.background_color }} />
+              </div>
+              <Input value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+            </div>
+            <div className="flex gap-2 pt-1">
+              {['#ffffff', '#f8f9fa', '#e9ecef', '#1a1a1a', '#0f172a', '#fef3c7'].map((color) => (
+                <button key={color} onClick={() => updateTheme({ background_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.background_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+              ))}
+            </div>
           </div>
+
+          {/* Pattern Selector */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Pattern</Label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {BACKGROUND_PATTERNS.map((pattern) => {
+                const currentPattern = (theme as any).background_pattern || "none"
+                const patternColor = (theme as any).pattern_color || "#00000090"
+                return (
+                  <button
+                    key={pattern.id}
+                    onClick={() => updateTheme({ background_pattern: pattern.id } as any)}
+                    className={cn(
+                      "aspect-square rounded-xl border-2 overflow-hidden transition-all relative",
+                      currentPattern === pattern.id ? "border-foreground ring-1 ring-foreground" : "border-gray-200 hover:border-gray-300"
+                    )}
+                    style={{ backgroundColor: theme.background_color }}
+                  >
+                    {pattern.id === "none" ? (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <X className="w-4 h-4 text-gray-400" />
+                      </div>
+                    ) : (
+                      <PatternPreview pattern={pattern.id} color={patternColor} />
+                    )}
+                    <span className="absolute bottom-1 left-0 right-0 text-[9px] font-medium text-center text-gray-600">{pattern.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Pattern Color */}
+          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pattern color</Label>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#000000"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "90" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#00000090" }} />
+                </div>
+                <Input value={(theme as any).pattern_color || "#00000090"} onChange={(e) => { const val = e.target.value; const normalized = val.match(/^#[0-9a-f]{6}/i) ? val.slice(0, 7) + "90" : val; updateTheme({ pattern_color: normalized } as any) }} placeholder="#00000090" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                {['#00000090', '#ffffff90', '#3b82f690', '#10b98190', '#f59e0b90', '#ef444490'].map((color) => (
+                  <button key={color} onClick={() => updateTheme({ pattern_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme as any).pattern_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pattern Opacity */}
+          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pattern opacity</Label>
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "low" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "low"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Low
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "medium" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    ((theme as any).pattern_opacity || "medium") === "medium"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Medium
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "hard" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "hard"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Hard
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "very_hard" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "very_hard"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  V.Hard
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1501,31 +3037,25 @@ function WallpaperSection() {
                 
                 {/* Color Pickers */}
                 <div className="flex-1 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      type="color" 
-                      value={gradientInfo.color1} 
-                      onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} 
-                      className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" 
-                    />
-                    <Input 
-                      value={gradientInfo.color1} 
-                      onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} 
-                      className="flex-1 font-mono text-xs h-8" 
-                    />
+                  <div className="space-y-1.5">
+                    <span className="text-xs text-muted-foreground">Start color</span>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <input type="color" value={gradientInfo.color1} onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <div className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: gradientInfo.color1 }} />
+                      </div>
+                      <Input value={gradientInfo.color1} onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} className="flex-1 font-mono text-xs h-10 rounded-lg" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      type="color" 
-                      value={gradientInfo.color2} 
-                      onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} 
-                      className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" 
-                    />
-                    <Input 
-                      value={gradientInfo.color2} 
-                      onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} 
-                      className="flex-1 font-mono text-xs h-8" 
-                    />
+                  <div className="space-y-1.5">
+                    <span className="text-xs text-muted-foreground">End color</span>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <input type="color" value={gradientInfo.color2} onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <div className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: gradientInfo.color2 }} />
+                      </div>
+                      <Input value={gradientInfo.color2} onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} className="flex-1 font-mono text-xs h-10 rounded-lg" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1538,25 +3068,46 @@ function WallpaperSection() {
               <Sparkles className="h-5 w-5 text-gray-500" />
               <span className="text-sm font-medium">Animate</span>
             </div>
-            <Switch
+            <Toggle
               checked={theme.animated_gradient || false}
               onCheckedChange={(checked) => updateTheme({ animated_gradient: checked })}
             />
           </div>
 
           {/* Noise Toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
-              </svg>
-              <span className="text-sm font-medium">Noise</span>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center gap-3">
+                <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
+                </svg>
+                <span className="text-sm font-medium">Noise</span>
+              </div>
+              <Toggle
+                checked={theme.gradient_noise || false}
+                onCheckedChange={(checked) => updateTheme({ gradient_noise: checked })}
+              />
             </div>
-            <Switch
-              checked={theme.gradient_noise || false}
-              onCheckedChange={(checked) => updateTheme({ gradient_noise: checked })}
-            />
+            {theme.gradient_noise && (
+              <div className="px-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-sm font-medium">Noise strength</Label>
+                  <span className="text-sm text-muted-foreground">{(theme as any).noise_strength || 15}%</span>
+                </div>
+                <Slider
+                  value={[(theme as any).noise_strength || 15]}
+                  onValueChange={([value]) => updateTheme({ noise_strength: value } as any)}
+                  min={5}
+                  max={50}
+                  step={5}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Subtle</span>
+                  <span>Strong</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Gradient Presets */}
@@ -1585,6 +3136,109 @@ function WallpaperSection() {
               ))}
             </div>
           </div>
+
+          {/* Pattern Selector for Gradient */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Pattern</Label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {BACKGROUND_PATTERNS.map((pattern) => {
+                const currentPattern = (theme as any).background_pattern || "none"
+                const patternColor = (theme as any).pattern_color || "#ffffff90"
+                return (
+                  <button
+                    key={pattern.id}
+                    onClick={() => updateTheme({ background_pattern: pattern.id } as any)}
+                    className={cn(
+                      "aspect-square rounded-xl border-2 overflow-hidden transition-all relative",
+                      currentPattern === pattern.id ? "border-white ring-1 ring-white" : "border-white/30 hover:border-white/50"
+                    )}
+                    style={{ background: theme.background_gradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}
+                  >
+                    {pattern.id === "none" ? (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <X className="w-4 h-4 text-white/60" />
+                      </div>
+                    ) : (
+                      <PatternPreview pattern={pattern.id} color={patternColor} />
+                    )}
+                    <span className="absolute bottom-1 left-0 right-0 text-[9px] font-medium text-center text-white/80">{pattern.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Pattern Color for Gradient */}
+          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pattern color</Label>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#ffffff"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "90" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#ffffff90" }} />
+                </div>
+                <Input value={(theme as any).pattern_color || "#ffffff90"} onChange={(e) => { const val = e.target.value; const normalized = val.match(/^#[0-9a-f]{6}/i) ? val.slice(0, 7) + "90" : val; updateTheme({ pattern_color: normalized } as any) }} placeholder="#ffffff90" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                {['#ffffff90', '#00000090', '#3b82f690', '#10b98190', '#f59e0b90', '#ef444490'].map((color) => (
+                  <button key={color} onClick={() => updateTheme({ pattern_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme as any).pattern_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pattern Opacity for Gradient */}
+          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pattern opacity</Label>
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "low" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "low"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Low
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "medium" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    ((theme as any).pattern_opacity || "medium") === "medium"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Medium
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "hard" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "hard"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  Hard
+                </button>
+                <button
+                  onClick={() => updateTheme({ pattern_opacity: "very_hard" } as any)}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                    (theme as any).pattern_opacity === "very_hard"
+                      ? "bg-white border-gray-900 text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  )}
+                >
+                  V.Hard
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1648,18 +3302,39 @@ function WallpaperSection() {
               </div>
 
               {/* Noise Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
-                  </svg>
-                  <span className="text-sm font-medium">Noise</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
+                    </svg>
+                    <span className="text-sm font-medium">Noise</span>
+                  </div>
+                  <Toggle
+                    checked={(theme as any).image_noise || false}
+                    onCheckedChange={(checked) => updateTheme({ image_noise: checked } as any)}
+                  />
                 </div>
-                <Switch 
-                  checked={(theme as any).image_noise || false} 
-                  onCheckedChange={(checked) => updateTheme({ image_noise: checked } as any)} 
-                />
+                {(theme as any).image_noise && (
+                  <div className="px-4 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-sm font-medium">Noise strength</Label>
+                      <span className="text-sm text-muted-foreground">{(theme as any).noise_strength || 15}%</span>
+                    </div>
+                    <Slider
+                      value={[(theme as any).noise_strength || 15]}
+                      onValueChange={([value]) => updateTheme({ noise_strength: value } as any)}
+                      min={5}
+                      max={50}
+                      step={5}
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Subtle</span>
+                      <span>Strong</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1676,6 +3351,186 @@ function WallpaperSection() {
           </div>
         </div>
       )}
+
+      {theme.background_type === "video" && (
+        <div className="space-y-5">
+          {/* Video Preview */}
+          {(theme as any).background_video_url ? (
+            <>
+              <div className="relative rounded-xl overflow-hidden aspect-[9/16] max-h-[300px] mx-auto">
+                <video
+                  src={(theme as any).background_video_url}
+                  className="w-full h-full object-cover"
+                  style={{
+                    filter: `brightness(${(theme as any).video_brightness || 100}%)`
+                  }}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+                <button onClick={handleRemoveWallpaperVideo} className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full hover:bg-black/70 transition-colors"><X className="h-4 w-4 text-white" /></button>
+              </div>
+
+              {/* Video Brightness Options */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Brightness</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { label: "Normal", value: 100 },
+                    { label: "Medium", value: 85 },
+                    { label: "Low", value: 70 },
+                    { label: "Very Low", value: 40 },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => updateTheme({ video_brightness: option.value } as any)}
+                      className={cn(
+                        "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
+                        ((theme as any).video_brightness || 100) === option.value
+                          ? "bg-white border-gray-900 text-gray-900"
+                          : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Change Video Button */}
+              <Button
+                variant="outline"
+                onClick={() => setShowWallpaperVideoModal(true)}
+                className="w-full h-12 rounded-xl"
+              >
+                <Video className="h-4 w-4 mr-2" />
+                Change Video
+              </Button>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Background video</Label>
+              <div onClick={() => setShowWallpaperVideoModal(true)} className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
+                <Video className="h-8 w-8 text-gray-300 mb-2" />
+                <p className="text-sm text-gray-500">Upload video</p>
+                <p className="text-xs text-gray-400 mt-1">MP4, WebM, or MOV (max 100MB)</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Video Picker Modal */}
+      <Dialog open={showWallpaperVideoModal} onOpenChange={setShowWallpaperVideoModal}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => setShowWallpaperVideoModal(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Video</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-3">
+            <button onClick={() => wallpaperVideoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
+              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><Upload className="h-6 w-6 text-gray-600" /></div>
+              <div className="flex-1 text-left">
+                <p className="font-medium">Upload from device</p>
+                <p className="text-sm text-gray-500">MP4, WebM, or MOV</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </button>
+            <input ref={wallpaperVideoFileInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleWallpaperVideoFileSelect} className="hidden" />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Crop Modal */}
+      <Dialog open={showWallpaperVideoCropModal} onOpenChange={(open) => {
+        setShowWallpaperVideoCropModal(open)
+        if (!open) {
+          if (tempWallpaperVideoUrl) URL.revokeObjectURL(tempWallpaperVideoUrl)
+          setTempWallpaperVideoUrl(null)
+          setTempWallpaperVideoFile(null)
+          setIsWallpaperVideoDragging(false)
+          setIsWallpaperVideoResizing(null)
+        }
+      }}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => { setShowWallpaperVideoCropModal(false); setShowWallpaperVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-4">
+            {tempWallpaperVideoUrl && (
+              <>
+                <div
+                  ref={wallpaperVideoCropContainerRef}
+                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
+                  style={{ width: '200px', height: '356px', touchAction: 'none' }}
+                >
+                  <video
+                    ref={wallpaperVideoPreviewRef}
+                    src={tempWallpaperVideoUrl}
+                    className="w-full h-full object-cover pointer-events-none rounded-xl"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+
+                  {/* Crop box - draggable */}
+                  <div
+                    className="absolute border-2 border-white border-dashed cursor-move"
+                    style={{
+                      left: `${wallpaperVideoCropBox.x}%`,
+                      top: `${wallpaperVideoCropBox.y}%`,
+                      width: `${wallpaperVideoCropBox.width}%`,
+                      height: `${wallpaperVideoCropBox.height}%`,
+                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+                      background: 'transparent',
+                      touchAction: 'none'
+                    }}
+                    onMouseDown={(e) => handleWallpaperVideoCropMouseDown(e, 'drag')}
+                  >
+                    {/* Grid lines */}
+                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
+                      {[...Array(9)].map((_, i) => (
+                        <div key={i} className="border border-white/30" />
+                      ))}
+                    </div>
+
+                    {/* Corner resize handles */}
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
+                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'top-left') }}
+                    />
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
+                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'top-right') }}
+                    />
+                    <div
+                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
+                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'bottom-left') }}
+                    />
+                    <div
+                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
+                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'bottom-right') }}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize (9:16 portrait ratio locked)</p>
+
+                <Button onClick={handleWallpaperVideoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingWallpaperVideo}>
+                  {uploadingWallpaperVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Layout Change Dialog */}
       <Dialog open={showLayoutChangeDialog} onOpenChange={setShowLayoutChangeDialog}>
@@ -1731,11 +3586,13 @@ function WallpaperSection() {
 function TextSection() {
   const { onepage, updateTheme } = useOnePage()
   const [showFontModal, setShowFontModal] = useState(false)
+  const [showTitleFontModal, setShowTitleFontModal] = useState(false)
   const [fontFilter, setFontFilter] = useState<"all" | "sans" | "serif" | "display" | "mono" | "handwritten">("all")
   const [fontSearch, setFontSearch] = useState("")
 
   if (!onepage) return null
   const { theme } = onepage
+  const titleFont = (theme as any).title_font || null
 
   const filteredFonts = FONTS.filter(font => {
     const matchesFilter = fontFilter === "all" || font.category === fontFilter
@@ -1752,8 +3609,8 @@ function TextSection() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center"><Type className="h-5 w-5 text-gray-500" /></div>
             <div className="text-left">
-              <p className="font-medium" style={{ fontFamily: theme.font_family }}>{theme.font_family}</p>
-              <p className="text-xs text-muted-foreground">{FONTS.find(f => f.name === theme.font_family)?.style || "Custom"}</p>
+              <p className="font-medium" style={{ fontFamily: theme.font_family }}>{FONTS.find(f => f.value === theme.font_family)?.name || theme.font_family}</p>
+              <p className="text-xs text-muted-foreground">{FONTS.find(f => f.value === theme.font_family)?.style || "Custom"}</p>
             </div>
           </div>
           <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -1775,26 +3632,132 @@ function TextSection() {
           </DialogHeader>
           <div className="overflow-y-auto max-h-[400px] p-2">
             {filteredFonts.map((font) => (
-              <button key={font.name} onClick={() => { updateTheme({ font_family: font.name }); setShowFontModal(false) }} className={cn("w-full p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", theme.font_family === font.name && "bg-violet-50")}>
-                <div><p style={{ fontFamily: font.name }} className="text-base">{font.name}</p><p className="text-xs text-muted-foreground">{font.style}</p></div>
-                {theme.font_family === font.name && <Check className="h-5 w-5 text-violet-500" />}
+              <button key={font.name} onClick={() => { updateTheme({ font_family: font.value }); setShowFontModal(false) }} className={cn("w-full p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", theme.font_family === font.value && "bg-violet-50")}>
+                <div><p style={{ fontFamily: font.value }} className="text-base">{font.name}</p><p className="text-xs text-muted-foreground">{font.style}</p></div>
+                {theme.font_family === font.value && <Check className="h-5 w-5 text-violet-500" />}
               </button>
             ))}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Title Font Selector */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium">Text color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+        <Label className="text-sm font-medium">Title font</Label>
+        <button onClick={() => setShowTitleFontModal(true)} className="w-full flex items-center justify-between p-4 border rounded-xl hover:bg-gray-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center"><Type className="h-5 w-5 text-gray-500" /></div>
+            <div className="text-left">
+              <p className="font-medium" style={{ fontFamily: titleFont || theme.font_family }}>
+                {titleFont ? TITLE_FONTS.find(f => f.value === titleFont)?.name || titleFont : "Default (Same as body)"}
+              </p>
+              <p className="text-xs text-muted-foreground">{titleFont ? "Custom title font" : "Uses body font"}</p>
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-gray-400" />
+        </button>
+      </div>
+      <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
+          <DialogHeader className="p-4 border-b shrink-0">
+            <DialogTitle className="text-lg font-semibold">Choose Title Font</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 p-2 pb-[max(8px,env(safe-area-inset-bottom))]">
+            {TITLE_FONTS.map((font) => (
+              <button
+                key={font.name}
+                onClick={() => { updateTheme({ title_font: font.value } as any); setShowTitleFontModal(false) }}
+                className={cn(
+                  "w-full p-4 sm:p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors",
+                  titleFont === font.value && "bg-violet-50"
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <p style={{ fontFamily: font.value || theme.font_family }} className="text-base sm:text-base truncate">
+                    {font.name}
+                  </p>
+                </div>
+                {titleFont === font.value && <Check className="h-5 w-5 text-violet-500 shrink-0 ml-2" />}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Title & Logo Size Selector */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title & Logo size</Label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => updateTheme({ title_size: "default" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              ((theme as any).title_size || "default") === "default"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            Default
+          </button>
+          <button
+            onClick={() => updateTheme({ title_size: "large" } as any)}
+            className={cn(
+              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
+              (theme as any).title_size === "large"
+                ? "bg-white border-gray-900 text-gray-900"
+                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            Large
+          </button>
         </div>
       </div>
-      <div className="space-y-3">
+
+      {/* Title color */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title color</Label>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={(theme as any).title_color || theme.text_color} onChange={(e) => updateTheme({ title_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).title_color || theme.text_color }} />
+          </div>
+          <Input value={(theme as any).title_color || theme.text_color} onChange={(e) => updateTheme({ title_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ title_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", ((theme as any).title_color || theme.text_color) === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Text color</Label>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.text_color }} />
+          </div>
+          <Input value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ text_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
         <Label className="text-sm font-medium">Secondary text color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.secondary_text_color || theme.text_color }} />
+          </div>
+          <Input value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#6b7280', '#9ca3af', '#d1d5db', '#374151', '#1f2937', '#111827'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ secondary_text_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme.secondary_text_color || theme.text_color) === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
         </div>
       </div>
     </div>
@@ -1817,13 +3780,73 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Label className="text-sm font-medium">Button color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.button_color }} />
+          </div>
+          <Input value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#000000', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ button_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
         </div>
       </div>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Button text color</Label>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.button_text_color} onChange={(e) => updateTheme({ button_text_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.button_text_color }} />
+          </div>
+          <Input value={theme.button_text_color} onChange={(e) => updateTheme({ button_text_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#ffffff', '#000000', '#1a1a1a', '#f8fafc', '#fef3c7', '#ecfdf5'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ button_text_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Shadows</Label>
+        <div className="grid grid-cols-4 gap-2">
+          {([
+            { id: "none", label: "None" },
+            { id: "subtle", label: "Subtle" },
+            { id: "strong", label: "Strong" },
+            { id: "hard", label: "Hard" },
+          ] as const).map((shadow) => (
+            <button
+              key={shadow.id}
+              onClick={() => updateTheme({ button_shadow: shadow.id } as any)}
+              className={cn(
+                "py-3 rounded-xl border-2 text-xs md:text-sm font-medium transition-colors",
+                (theme as any).button_shadow === shadow.id || (!((theme as any).button_shadow) && shadow.id === "none")
+                  ? "border-foreground bg-gray-50"
+                  : "border-gray-200 hover:border-gray-300"
+              )}
+            >
+              {shadow.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Shadow Color - only show when shadow is enabled */}
+      {(theme as any).button_shadow && (theme as any).button_shadow !== "none" && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Shadow color</Label>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <input type="color" value={(theme as any).button_shadow_color || "#000000"} onChange={(e) => updateTheme({ button_shadow_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+              <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).button_shadow_color || "#000000" }} />
+            </div>
+            <Input value={(theme as any).button_shadow_color || "#000000"} onChange={(e) => updateTheme({ button_shadow_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+          </div>
+        </div>
+      )}
       <div className="space-y-3">
         <div className="flex justify-between items-center"><Label className="text-sm font-medium">Corners</Label><span className="text-sm text-muted-foreground">{theme.button_border_radius}px</span></div>
         <Slider value={[theme.button_border_radius]} onValueChange={([value]) => updateTheme({ button_border_radius: value })} min={0} max={24} step={2} />
@@ -1833,11 +3856,45 @@ function ButtonsSection() {
         <div className="flex justify-between items-center"><Label className="text-sm font-medium">Border width</Label><span className="text-sm text-muted-foreground">{theme.button_border_width}px</span></div>
         <Slider value={[theme.button_border_width]} onValueChange={([value]) => updateTheme({ button_border_width: value })} min={0} max={4} step={1} />
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Label className="text-sm font-medium">Border color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.button_border_color }} />
+          </div>
+          <Input value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#000000', '#ffffff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ button_border_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_border_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
+        </div>
+      </div>
+      {/* Button Animations Section */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Button Animations</Label>
+        <p className="text-xs text-muted-foreground -mt-1">Subtle hover effects for buttons</p>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { id: "default", label: "Default", desc: "Scale up" },
+            { id: "fade", label: "Fade", desc: "Opacity" },
+            { id: "zoom", label: "Zoom", desc: "Grow" },
+          ] as const).map((animation) => (
+            <button
+              key={animation.id}
+              onClick={() => updateTheme({ button_hover_animation: animation.id } as any)}
+              className={cn(
+                "py-3 px-2 rounded-xl border-2 text-xs md:text-sm font-medium transition-colors flex flex-col items-center gap-0.5",
+                ((theme as any).button_hover_animation || "default") === animation.id
+                  ? "border-foreground bg-gray-50"
+                  : "border-gray-200 hover:border-gray-300"
+              )}
+            >
+              <span>{animation.label}</span>
+              <span className="text-[10px] text-muted-foreground font-normal">{animation.desc}</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -1855,21 +3912,37 @@ function SocialsSection() {
     <div className="space-y-6 md:space-y-8">
       <h2 className="text-lg md:text-xl font-semibold">Social Icons</h2>
       <div className="space-y-3">
-        <Label className="text-sm font-medium">Icon style</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <Label className="text-sm font-medium">Style</Label>
+        <div className="grid grid-cols-3 gap-3">
           {SOCIAL_STYLES.map((style) => (
-            <Button key={style.id} variant={socialStyle === style.id ? "default" : "outline"} onClick={() => updateTheme({ social_icon_style: style.id } as any)} className="h-auto py-3 flex-col gap-1">
-              <span className="text-sm font-medium">{style.label}</span>
-              <span className="text-[10px] opacity-70">{style.description}</span>
-            </Button>
+            <button
+              key={style.id}
+              onClick={() => updateTheme({ social_icon_style: style.id } as any)}
+              className={cn(
+                "py-3 px-4 rounded-2xl text-sm font-medium transition-all",
+                socialStyle === style.id
+                  ? "bg-gray-100 border-2 border-gray-900 text-gray-900"
+                  : "bg-gray-100 border-2 border-transparent text-gray-600 hover:bg-gray-200"
+              )}
+            >
+              {style.label}
+            </button>
           ))}
         </div>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2">
         <Label className="text-sm font-medium">Icon color</Label>
-        <div className="flex items-center gap-3 p-3 border rounded-xl">
-          <Input type="color" value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} className="w-10 h-10 p-0.5 cursor-pointer rounded-lg border-0" />
-          <Input value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} className="flex-1 border-0 bg-transparent font-mono h-8 text-sm" placeholder="#000000" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input type="color" value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: socialColor }} />
+          </div>
+          <Input value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+        </div>
+        <div className="flex gap-2 pt-1">
+          {['#000000', '#ffffff', '#3b82f6', '#e1306c', '#ff0000', '#1da1f2'].map((color) => (
+            <button key={color} onClick={() => updateTheme({ social_icon_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", socialColor === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
         </div>
       </div>
       <div className="p-4 bg-gray-100 rounded-xl">
@@ -1909,11 +3982,11 @@ function FooterSection() {
       <div className="space-y-3 md:space-y-4">
         <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
           <div><p className="font-medium text-sm">Show Materia branding</p><p className="text-xs text-muted-foreground mt-0.5">Display "Powered by Materia"</p></div>
-          <Switch checked={settings.show_branding} onCheckedChange={(checked) => updateSettings({ show_branding: checked })} />
+          <Toggle checked={settings.show_branding} onCheckedChange={(checked) => updateSettings({ show_branding: checked })} />
         </div>
         <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
           <div><p className="font-medium text-sm">Analytics</p><p className="text-xs text-muted-foreground mt-0.5">Track page views</p></div>
-          <Switch checked={settings.analytics_enabled} onCheckedChange={(checked) => updateSettings({ analytics_enabled: checked })} />
+          <Toggle checked={settings.analytics_enabled} onCheckedChange={(checked) => updateSettings({ analytics_enabled: checked })} />
         </div>
       </div>
     </div>

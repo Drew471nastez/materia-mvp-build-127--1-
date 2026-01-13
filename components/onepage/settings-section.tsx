@@ -4,7 +4,18 @@ import { useOnePage } from "@/lib/onepage/context"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
+
+// Custom Toggle Component with theme-style design
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox"
+    />
+  )
+}
 
 export function SettingsSection() {
   const { onepage, updateSettings } = useOnePage()
@@ -30,7 +41,7 @@ export function SettingsSection() {
               Display "Powered by Materia" at the bottom
             </p>
           </div>
-          <Switch
+          <Toggle
             checked={settings.show_branding}
             onCheckedChange={(checked) => updateSettings({ show_branding: checked })}
           />
@@ -43,7 +54,7 @@ export function SettingsSection() {
               Track page views and engagement
             </p>
           </div>
-          <Switch
+          <Toggle
             checked={settings.analytics_enabled}
             onCheckedChange={(checked) => updateSettings({ analytics_enabled: checked })}
           />
