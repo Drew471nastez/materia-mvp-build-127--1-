@@ -4141,7 +4141,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         <button
           onClick={handlePDFClick}
           className={cn(
-            "w-full flex flex-col items-center justify-center font-medium transition-all cursor-pointer py-3 px-4",
+            "w-full flex flex-col items-center justify-center font-medium transition-all cursor-pointer py-2.5 px-3",
             hoverEffect,
             getAnimationClass(data.animation_type)
           )}
@@ -4149,13 +4149,13 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         >
           {/* Title */}
           <span
-            className={cn(s.button, "font-semibold truncate w-full text-center")}
+            className="text-[11px] font-semibold truncate w-full text-center"
             style={{ color: theme.button_text_color }}
           >
             {data.title || "PDF Document"}
           </span>
           {/* Button text with PDF icon */}
-          <div className="flex items-center justify-center gap-1.5 opacity-70">
+          <div className="flex items-center justify-center gap-1 opacity-70">
             <svg
               width="12"
               height="12"
