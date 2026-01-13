@@ -2688,8 +2688,9 @@ export function LinksTab() {
                     try {
                       const formData = new FormData()
                       formData.append('file', file)
+                      formData.append('type', imageFieldType === 'digital_product_file' ? 'digital' : 'image')
 
-                      const response = await fetch('/api/onepage/seller-avatar', {
+                      const response = await fetch('/api/onepage/upload-file', {
                         method: 'POST',
                         body: formData,
                       })
@@ -2718,9 +2719,14 @@ export function LinksTab() {
                         setShowImageLibrary(false)
                         setImageBlockId(null)
                         setImageFieldType(null)
+                      } else {
+                        const errorData = await response.json()
+                        console.error('Upload failed:', errorData.error)
+                        alert('Upload failed: ' + (errorData.error || 'Unknown error'))
                       }
                     } catch (error) {
                       console.error('Upload failed:', error)
+                      alert('Upload failed. Please try again.')
                     }
                     e.target.value = ''
                   }}
@@ -2796,36 +2802,29 @@ export function LinksTab() {
               </div>
             )}
 
-            {/* Show image library only for regular image selection (not file upload) */}
-            {imageFieldType !== 'digital_product_file' && (
-              <>
-                {imageFieldType === 'product_image' && <div className="border-t my-4" />}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {IMAGE_LIBRARY.map((img) => (
-                    <button
-                      key={img.id}
-                      onClick={() => {
-                        if (imageBlockId) {
-                          const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
-                          if (block) {
-                            if (imageFieldType === 'product_image') {
-                              updateBlock(imageBlockId, { data: { ...block.data, product_image: img.url } })
-                            } else {
-                              updateBlock(imageBlockId, { data: { ...block.data, image_url: img.url } })
-                            }
-                          }
+            {/* Show image library only for regular image blocks (not product_image or digital_product_file) */}
+            {!imageFieldType && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {IMAGE_LIBRARY.map((img) => (
+                  <button
+                    key={img.id}
+                    onClick={() => {
+                      if (imageBlockId) {
+                        const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                        if (block) {
+                          updateBlock(imageBlockId, { data: { ...block.data, image_url: img.url } })
                         }
-                        setShowImageLibrary(false)
-                        setImageBlockId(null)
-                        setImageFieldType(null)
-                      }}
-                      className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-violet-500 transition-all group"
-                    >
-                      <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    </button>
-                  ))}
-                </div>
-              </>
+                      }
+                      setShowImageLibrary(false)
+                      setImageBlockId(null)
+                      setImageFieldType(null)
+                    }}
+                    className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-violet-500 transition-all group"
+                  >
+                    <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </DialogContent>
@@ -3866,70 +3865,6 @@ function BlockItem({
                       )}
                     >
                       {anim.label}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Button Text selector for email capture blocks */}
-        {isEmailCapture && (
-          <div className="relative" ref={buttonTextMenuRef}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowButtonTextMenu(!showButtonTextMenu)
-              }}
-              className={cn(
-                "p-1.5 rounded-lg transition-colors",
-                (block.data as EmailCaptureBlockData).button_preset && (block.data as EmailCaptureBlockData).button_preset !== 'subscribe'
-                  ? "text-violet-600 bg-violet-50 hover:bg-violet-100"
-                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              )}
-              title="Button Text"
-            >
-              <Type className="h-4 w-4" />
-            </button>
-
-            {/* Button text dropdown menu */}
-            {showButtonTextMenu && (
-              <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                {[
-                  { id: 'subscribe', label: 'Subscribe' },
-                  { id: 'join', label: 'Join Now' },
-                  { id: 'get_access', label: 'Get Access' },
-                  { id: 'download', label: 'Download' },
-                  { id: 'sign_up', label: 'Sign Up' },
-                  { id: 'unlock', label: 'Unlock Now' },
-                ].map((preset) => {
-                  const currentPreset = (block.data as EmailCaptureBlockData).button_preset || 'subscribe'
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        updateBlock(block.id, {
-                          data: {
-                            ...block.data,
-                            button_preset: preset.id as EmailCaptureButtonPreset,
-                            custom_button_text: preset.label
-                          }
-                        })
-                        setShowButtonTextMenu(false)
-                      }}
-                      className={cn(
-                        "w-full px-3 py-1.5 text-left text-sm transition-colors flex items-center justify-between",
-                        currentPreset === preset.id
-                          ? "bg-violet-50 text-violet-700 font-medium"
-                          : "text-gray-700 hover:bg-gray-50"
-                      )}
-                    >
-                      <span>{preset.label}</span>
-                      {currentPreset === preset.id && <Check className="h-3.5 w-3.5" />}
                     </button>
                   )
                 })}
@@ -5555,7 +5490,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">Headline</Label>
                 <Input
-                  value={data.headline}
+                  value={data.headline || "Join my newsletter"}
                   onChange={(e) => updateData({ headline: e.target.value })}
                   className="h-9"
                   placeholder="Join my newsletter"
@@ -5566,18 +5501,53 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">Description</Label>
                 <Input
-                  value={data.description || ""}
+                  value={data.description || "Get updates and exclusive content"}
                   onChange={(e) => updateData({ description: e.target.value })}
                   className="h-9"
                   placeholder="Get updates and exclusive content"
                 />
               </div>
 
+              {/* Button Text Selector */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <div className="relative">
+                  <select
+                    value={data.button_preset || 'subscribe'}
+                    onChange={(e) => {
+                      const presetId = e.target.value as EmailCaptureButtonPreset
+                      handlePresetChange(presetId)
+                    }}
+                    className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm appearance-none cursor-pointer hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  >
+                    {buttonTextPresets.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Custom Button Text Input - only show when custom is selected */}
+              {data.button_preset === 'custom' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Custom Text</Label>
+                  <Input
+                    value={data.button_text || ""}
+                    onChange={(e) => updateData({ button_text: e.target.value })}
+                    className="h-9"
+                    placeholder="Enter custom button text"
+                  />
+                </div>
+              )}
+
               {/* Success Message */}
               <div className="space-y-1.5">
                 <Label className="text-xs">Success Message</Label>
                 <Input
-                  value={data.success_message}
+                  value={data.success_message || "Thanks for subscribing!"}
                   onChange={(e) => updateData({ success_message: e.target.value })}
                   className="h-9"
                   placeholder="Thanks for subscribing!"
