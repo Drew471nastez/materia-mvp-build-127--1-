@@ -37,10 +37,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
-    // Verify the onepage exists and is published, and get seller_id
+    // Verify the onepage exists and is published, and get creator info
     const { data: onepage, error: onepageError } = await supabase
       .from("onepages")
-      .select("id, status, seller_id, owner_id")
+      .select("id, status, seller_id, owner_id, creator_id")
       .eq("id", onepage_id)
       .eq("status", "published")
       .single()
@@ -52,6 +52,13 @@ export async function POST(request: Request) {
     // Use the file URL and title directly from the block data
     const actualFileUrl = digital_product_file_url
     const actualProductTitle = digital_product_title || "Free Download"
+
+    // Log digital product info for debugging
+    console.log("[leads] Digital product info:", {
+      enable_digital_product,
+      digital_product_file_url: actualFileUrl ? "present" : "missing",
+      digital_product_title: actualProductTitle,
+    })
 
     // Check if email already submitted for this page (use admin client for anonymous access)
     const { data: existingLead } = await adminSupabase
@@ -101,13 +108,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to save" }, { status: 500 })
     }
 
-    // Also add to subscribers list for the seller
-    if (onepage.seller_id) {
+    // Also add to subscribers list for the creator/seller
+    const subscriberCreatorId = onepage.creator_id || onepage.seller_id || onepage.owner_id
+    if (subscriberCreatorId) {
       const unsubscribeToken = uuidv4()
       const { data: existingSubscriber } = await adminSupabase
         .from("subscribers")
         .select("id, status")
-        .eq("creator_id", onepage.seller_id)
+        .eq("creator_id", subscriberCreatorId)
         .eq("email", email.toLowerCase().trim())
         .single()
 
@@ -118,7 +126,7 @@ export async function POST(request: Request) {
           name: name || null,
           source: "onepage",
           source_id: onepage_id,
-          creator_id: onepage.seller_id,
+          creator_id: subscriberCreatorId,
           status: "subscribed",
           is_active: true,
           subscribed_at: new Date().toISOString(),
@@ -144,7 +152,14 @@ export async function POST(request: Request) {
     let emailSent = false
     if (enable_digital_product && actualFileUrl && actualProductTitle) {
       try {
-        const creatorId = onepage.owner_id || onepage.seller_id
+        // Use creator_id first, then owner_id, then seller_id for resolving identity
+        const creatorId = onepage.creator_id || onepage.owner_id || onepage.seller_id
+        console.log("[leads] 📧 Sending lead magnet email:", {
+          creatorId,
+          to: email,
+          product: actualProductTitle,
+          fileUrl: actualFileUrl.substring(0, 50) + "...",
+        })
         const emailResult = await sendLeadMagnetEmail(adminSupabase, {
           recipientEmail: email.toLowerCase().trim(),
           productTitle: actualProductTitle,
@@ -178,6 +193,12 @@ export async function POST(request: Request) {
           .update({ delivery_status: "failed" })
           .eq("id", lead.id)
       }
+    } else {
+      console.log("[leads] 📭 Digital product email NOT sent - conditions not met:", {
+        enable_digital_product,
+        hasFileUrl: !!actualFileUrl,
+        hasTitle: !!actualProductTitle,
+      })
     }
 
     return NextResponse.json({
