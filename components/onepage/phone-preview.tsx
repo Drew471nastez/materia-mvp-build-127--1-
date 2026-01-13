@@ -818,6 +818,46 @@ export function PhonePreview({ className }: PhonePreviewProps) {
   } | null>(null)
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
   const [pdfTotalPages, setPdfTotalPages] = useState(1)
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  // Fetch PDF and count pages when modal opens
+  useEffect(() => {
+    if (pdfModalOpen && pdfModalData?.pdfUrl) {
+      setPdfLoading(true)
+      setPdfTotalPages(1)
+      setPdfCurrentPage(1)
+
+      fetch(pdfModalData.pdfUrl)
+        .then(response => response.arrayBuffer())
+        .then(buffer => {
+          const bytes = new Uint8Array(buffer)
+          const text = new TextDecoder('latin1').decode(bytes)
+
+          // Method 1: Look for /Count in Pages dictionary
+          const countMatch = text.match(/\/Count\s+(\d+)/g)
+          if (countMatch) {
+            const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
+            const maxCount = Math.max(...counts)
+            if (maxCount > 0) {
+              setPdfTotalPages(maxCount)
+              setPdfLoading(false)
+              return
+            }
+          }
+
+          // Method 2: Count /Type /Page occurrences
+          const pageMatches = text.match(/\/Type\s*\/Page[^s]/g)
+          if (pageMatches && pageMatches.length > 0) {
+            setPdfTotalPages(pageMatches.length)
+          }
+          setPdfLoading(false)
+        })
+        .catch(() => {
+          setPdfLoading(false)
+          setPdfTotalPages(1)
+        })
+    }
+  }, [pdfModalOpen, pdfModalData?.pdfUrl])
 
   const openPDFModal = useCallback((data: {
     title: string
@@ -1412,14 +1452,13 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               <div className="relative w-full max-w-[160px] bg-gray-50 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
                 {/* Page Counter */}
                 <div className="absolute top-1 left-1 z-10 px-1.5 py-0.5 bg-white/95 backdrop-blur-sm rounded text-[8px] font-medium text-gray-600 shadow-sm">
-                  {pdfCurrentPage} of {pdfTotalPages}
+                  {pdfLoading ? "..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
                 </div>
                 <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
                   <iframe
                     src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
                     className="w-full h-full border-0"
                     title={pdfModalData.title || "PDF Document"}
-                    onLoad={() => setPdfTotalPages(1)}
                   />
                 </div>
               </div>
@@ -1506,6 +1545,46 @@ export function MobilePreviewContent() {
   } | null>(null)
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
   const [pdfTotalPages, setPdfTotalPages] = useState(1)
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  // Fetch PDF and count pages when modal opens
+  useEffect(() => {
+    if (pdfModalOpen && pdfModalData?.pdfUrl) {
+      setPdfLoading(true)
+      setPdfTotalPages(1)
+      setPdfCurrentPage(1)
+
+      fetch(pdfModalData.pdfUrl)
+        .then(response => response.arrayBuffer())
+        .then(buffer => {
+          const bytes = new Uint8Array(buffer)
+          const text = new TextDecoder('latin1').decode(bytes)
+
+          // Method 1: Look for /Count in Pages dictionary
+          const countMatch = text.match(/\/Count\s+(\d+)/g)
+          if (countMatch) {
+            const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
+            const maxCount = Math.max(...counts)
+            if (maxCount > 0) {
+              setPdfTotalPages(maxCount)
+              setPdfLoading(false)
+              return
+            }
+          }
+
+          // Method 2: Count /Type /Page occurrences
+          const pageMatches = text.match(/\/Type\s*\/Page[^s]/g)
+          if (pageMatches && pageMatches.length > 0) {
+            setPdfTotalPages(pageMatches.length)
+          }
+          setPdfLoading(false)
+        })
+        .catch(() => {
+          setPdfLoading(false)
+          setPdfTotalPages(1)
+        })
+    }
+  }, [pdfModalOpen, pdfModalData?.pdfUrl])
 
   const openPDFModal = useCallback((data: {
     title: string
@@ -1941,7 +2020,7 @@ export function MobilePreviewContent() {
               <div className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
                 {/* Page Counter */}
                 <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                  {pdfCurrentPage} of {pdfTotalPages}
+                  {pdfLoading ? "Loading..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
                 </div>
                 <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
                   <iframe
