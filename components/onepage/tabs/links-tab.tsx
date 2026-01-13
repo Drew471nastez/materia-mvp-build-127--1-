@@ -2708,6 +2708,7 @@ export function LinksTab() {
                                 ...block.data,
                                 digital_product_file_url: url,
                                 digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
+                                enable_digital_product: true, // Enable digital product delivery when file is uploaded
                               }
                             })
                           } else if (imageFieldType === 'product_image') {
@@ -2792,6 +2793,7 @@ export function LinksTab() {
                                 ...block.data,
                                 digital_product_file_url: null,
                                 digital_product_title: null,
+                                enable_digital_product: false, // Disable when file is removed
                               }
                             })
                           } else {
@@ -5470,24 +5472,19 @@ function BlockEditor({
           { id: 'unlock', label: 'Unlock Now', text: 'Unlock Now' },
         ] as const
 
-        // Handle preset change
+        // Handle preset change - clear custom text when selecting a preset
         const handlePresetChange = (presetId: EmailCaptureButtonPreset) => {
           const preset = buttonTextPresets.find(p => p.id === presetId)
           if (preset) {
-            updateData({ button_preset: presetId, button_text: preset.text })
+            updateData({ button_preset: presetId, button_text: preset.text, custom_button_text: '' })
           }
         }
 
-        // Layout options - now includes Preview
+        // Layout options
         const layoutOptions = [
           { id: 'default', label: 'Default', description: 'Classic email form' },
           { id: 'pro', label: 'Pro', description: 'Compact with image' },
-          { id: 'preview', label: 'Preview', description: 'Product card style' },
         ] as const
-
-        // Button color presets
-        const buttonColorPresets = ['#ffffff', '#000000', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
-        const buttonTextColorPresets = ['#000000', '#ffffff', '#8b5cf6', '#3b82f6', '#ef4444', '#10b981']
 
         return (
           <Tabs defaultValue="settings" className="w-full">
@@ -5574,8 +5571,17 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">Custom Text</Label>
                 <Input
-                  value={data.button_text || ""}
-                  onChange={(e) => updateData({ button_text: e.target.value, button_preset: 'subscribe' })}
+                  value={data.custom_button_text || ""}
+                  onChange={(e) => {
+                    const customText = e.target.value
+                    if (customText.trim()) {
+                      // When custom text is entered, set preset to 'custom'
+                      updateData({ custom_button_text: customText, button_preset: 'custom' })
+                    } else {
+                      // When cleared, fall back to default
+                      updateData({ custom_button_text: '', button_preset: 'subscribe' })
+                    }
+                  }}
                   className="h-9"
                   placeholder="Enter custom button text"
                 />
@@ -5596,7 +5602,7 @@ function BlockEditor({
               <div className="space-y-2 pt-2 border-t">
                 <Label className="text-xs">Product Image</Label>
                 <p className="text-[10px] text-muted-foreground">
-                  Display an image with your email form (used in Pro & Preview layouts)
+                  Display an image with your email form (used in Pro layout)
                 </p>
                 <div className="flex gap-2 items-center">
                   {data.product_image ? (
@@ -5751,97 +5757,6 @@ function BlockEditor({
                 </div>
               </div>
 
-              {/* Button Color Customizers - Only for Preview layout */}
-              {data.layout_type === 'preview' && (
-                <div className="space-y-4 pt-3 border-t">
-                  {/* Button Color */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Button Color</Label>
-                    <p className="text-[10px] text-muted-foreground">CTA button background</p>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer"
-                        style={{ backgroundColor: data.button_bg_color || '#000000' }}
-                        onClick={() => {
-                          const input = document.getElementById('btn-bg-color-input') as HTMLInputElement
-                          input?.click()
-                        }}
-                      />
-                      <input
-                        id="btn-bg-color-input"
-                        type="color"
-                        value={data.button_bg_color || '#000000'}
-                        onChange={(e) => updateData({ button_bg_color: e.target.value })}
-                        className="sr-only"
-                      />
-                      <Input
-                        value={data.button_bg_color || '#000000'}
-                        onChange={(e) => updateData({ button_bg_color: e.target.value })}
-                        className="h-10 flex-1 font-mono text-sm"
-                        placeholder="#000000"
-                      />
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      {buttonColorPresets.map((color) => (
-                        <button
-                          key={color}
-                          onClick={() => updateData({ button_bg_color: color })}
-                          className={cn(
-                            "w-8 h-8 rounded-full border-2 transition-all",
-                            (data.button_bg_color || '#000000') === color
-                              ? "border-violet-500 ring-2 ring-violet-200"
-                              : "border-gray-200 hover:border-gray-300"
-                          )}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Button Text Color */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Button Text Color</Label>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer"
-                        style={{ backgroundColor: data.button_text_color || '#ffffff' }}
-                        onClick={() => {
-                          const input = document.getElementById('btn-text-color-input') as HTMLInputElement
-                          input?.click()
-                        }}
-                      />
-                      <input
-                        id="btn-text-color-input"
-                        type="color"
-                        value={data.button_text_color || '#ffffff'}
-                        onChange={(e) => updateData({ button_text_color: e.target.value })}
-                        className="sr-only"
-                      />
-                      <Input
-                        value={data.button_text_color || '#ffffff'}
-                        onChange={(e) => updateData({ button_text_color: e.target.value })}
-                        className="h-10 flex-1 font-mono text-sm"
-                        placeholder="#ffffff"
-                      />
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      {buttonTextColorPresets.map((color) => (
-                        <button
-                          key={color}
-                          onClick={() => updateData({ button_text_color: color })}
-                          className={cn(
-                            "w-8 h-8 rounded-full border-2 transition-all",
-                            (data.button_text_color || '#ffffff') === color
-                              ? "border-violet-500 ring-2 ring-violet-200"
-                              : "border-gray-200 hover:border-gray-300"
-                          )}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
             </TabsContent>
           </Tabs>
         )
