@@ -906,6 +906,15 @@ export async function sendLeadMagnetEmail(
 ): Promise<{ success: boolean; error?: string }> {
   const { recipientEmail, productTitle, productFileUrl, creatorId } = params
 
+  console.log("[email] 🔍 sendLeadMagnetEmail called with:", {
+    recipientEmail,
+    productTitle,
+    productFileUrl: productFileUrl ? productFileUrl.substring(0, 50) + "..." : "none",
+    creatorId,
+    hasResendKey: !!process.env.RESEND_API_KEY,
+    resendInitialized: !!resend,
+  })
+
   if (!resend) {
     const error = "Email service not configured (RESEND_API_KEY missing)"
     console.error("[email] ❌ Lead magnet email failed:", error)
@@ -918,16 +927,20 @@ export async function sendLeadMagnetEmail(
 
   const customerEmail = normalizeEmail(recipientEmail)
   const subject = `Your download is ready - ${safeText(productTitle)}`
+  const fromHeader = buildFromHeader(fromName)
 
   console.log("[email] 📧 Sending lead magnet email:", {
+    from: fromHeader,
     to: customerEmail,
+    replyTo,
+    subject,
     productTitle,
-    fromName,
+    downloadLink: productFileUrl,
   })
 
   try {
     const response = await resend.emails.send({
-      from: buildFromHeader(fromName),
+      from: fromHeader,
       to: customerEmail,
       replyTo,
       subject,
@@ -940,13 +953,17 @@ export async function sendLeadMagnetEmail(
       text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
     })
 
-    if ((response as any)?.error) throw new Error((response as any).error.message || "Resend API error")
+    console.log("[email] 📨 Resend API response:", JSON.stringify(response))
+
+    if ((response as any)?.error) {
+      throw new Error((response as any).error.message || "Resend API error")
+    }
 
     console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail)
     return { success: true }
   } catch (err: any) {
     const errorMessage = err?.message || "Unknown error sending email"
-    console.error("[email] ❌ Lead magnet email failed:", errorMessage)
+    console.error("[email] ❌ Lead magnet email failed:", errorMessage, err)
     return { success: false, error: errorMessage }
   }
 }

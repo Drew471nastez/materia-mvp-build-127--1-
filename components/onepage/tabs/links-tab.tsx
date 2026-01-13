@@ -5703,60 +5703,77 @@ function BlockEditor({
               </div>
             </TabsContent>
 
-            <TabsContent value="layout" className="mt-0 space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Layout Style</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {layoutOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => updateData({ layout_type: option.id as EmailCaptureLayoutType })}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all",
-                        (data.layout_type || 'default') === option.id
-                          ? "border-violet-500 bg-violet-50"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                      )}
-                    >
-                      {/* Layout Preview */}
-                      <div className="w-full aspect-[4/3] rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-                        {option.id === 'default' ? (
-                          <div className="w-full p-1.5 flex flex-col items-center gap-0.5">
-                            <div className="w-3/4 h-1.5 bg-gray-300 rounded" />
-                            <div className="w-1/2 h-1 bg-gray-200 rounded" />
-                            <div className="w-full h-2 bg-white rounded border border-gray-200 mt-0.5" />
-                            <div className="w-1/2 h-2 bg-violet-400 rounded mt-0.5" />
-                          </div>
-                        ) : option.id === 'pro' ? (
-                          <div className="w-full p-1 flex gap-1">
-                            <div className="w-1/3 aspect-square bg-gray-300 rounded" />
-                            <div className="flex-1 flex flex-col gap-0.5 justify-center">
-                              <div className="w-full h-1 bg-gray-300 rounded" />
-                              <div className="w-3/4 h-0.5 bg-gray-200 rounded" />
-                              <div className="w-full h-1.5 bg-white rounded border border-gray-200" />
-                              <div className="w-full h-1.5 bg-violet-400 rounded" />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-full p-1 flex flex-col gap-0.5">
-                            <div className="w-full aspect-[16/9] bg-gray-300 rounded" />
-                            <div className="w-3/4 h-1 bg-gray-300 rounded mx-auto" />
-                            <div className="w-1/2 h-0.5 bg-gray-200 rounded mx-auto" />
-                            <div className="w-full h-1.5 bg-violet-400 rounded" />
-                          </div>
-                        )}
-                      </div>
-                      <span className={cn(
-                        "text-[10px] font-medium",
-                        (data.layout_type || 'default') === option.id ? "text-violet-700" : "text-gray-700"
-                      )}>
-                        {option.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <TabsContent value="layout" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground">Choose how this block displays on your page</p>
 
+              {/* Default Layout Option */}
+              <button
+                type="button"
+                onClick={() => updateData({ layout_type: 'default' as EmailCaptureLayoutType })}
+                className={cn(
+                  "w-full p-4 rounded-xl border-2 text-left transition-all",
+                  (data.layout_type || 'default') === 'default'
+                    ? "border-violet-500 bg-violet-50"
+                    : "border-gray-200 hover:border-gray-300 bg-white"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
+                    (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                  )}>
+                    {(data.layout_type || 'default') === 'default' && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">Default</div>
+                    <p className="text-xs text-muted-foreground">Standard display for your link</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Pro Layout Option */}
+              <button
+                type="button"
+                onClick={() => updateData({ layout_type: 'pro' as EmailCaptureLayoutType })}
+                className={cn(
+                  "w-full p-4 rounded-xl border-2 text-left transition-all",
+                  data.layout_type === 'pro'
+                    ? "border-violet-500 bg-violet-50"
+                    : "border-gray-200 hover:border-gray-300 bg-white"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
+                    data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                  )}>
+                    {data.layout_type === 'pro' && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm flex items-center gap-1.5">
+                      Pro Layout
+                      <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Make your link stand out with a larger, more attractive display featuring your thumbnail prominently</p>
+                  </div>
+                </div>
+                {/* Pro Layout Preview */}
+                <div className="mt-3 p-3 rounded-lg bg-gray-100">
+                  <div className="flex gap-2 items-center">
+                    <div className="w-10 h-10 rounded-lg bg-gray-300 flex items-center justify-center shrink-0">
+                      <ImageIcon className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <div className="w-3/4 h-2 bg-gray-300 rounded" />
+                      <div className="w-1/2 h-1.5 bg-gray-200 rounded" />
+                    </div>
+                  </div>
+                </div>
+              </button>
             </TabsContent>
           </Tabs>
         )

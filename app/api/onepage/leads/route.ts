@@ -148,18 +148,22 @@ export async function POST(request: Request) {
       }
     }
 
-    // Send digital product email if enabled
+    // Send email when digital product is enabled and file exists
     let emailSent = false
-    if (enable_digital_product && actualFileUrl && actualProductTitle) {
+    const hasDigitalProduct = enable_digital_product && actualFileUrl
+
+    if (hasDigitalProduct) {
       try {
         // Use creator_id first, then owner_id, then seller_id for resolving identity
         const creatorId = onepage.creator_id || onepage.owner_id || onepage.seller_id
-        console.log("[leads] 📧 Sending lead magnet email:", {
+        console.log("[leads] 📧 Attempting to send lead magnet email:", {
           creatorId,
           to: email,
           product: actualProductTitle,
-          fileUrl: actualFileUrl.substring(0, 50) + "...",
+          fileUrl: actualFileUrl ? actualFileUrl.substring(0, 50) + "..." : "none",
+          hasResendKey: !!process.env.RESEND_API_KEY,
         })
+
         const emailResult = await sendLeadMagnetEmail(adminSupabase, {
           recipientEmail: email.toLowerCase().trim(),
           productTitle: actualProductTitle,
@@ -167,6 +171,8 @@ export async function POST(request: Request) {
           creatorId: creatorId || undefined,
           onepageId: onepage_id,
         })
+
+        console.log("[leads] Email result:", emailResult)
 
         if (emailResult.success) {
           emailSent = true
@@ -179,7 +185,7 @@ export async function POST(request: Request) {
             })
             .eq("id", lead.id)
         } else {
-          console.error("Failed to send lead magnet email:", emailResult.error)
+          console.error("[leads] ❌ Failed to send lead magnet email:", emailResult.error)
           // Update lead delivery status to failed
           await adminSupabase
             .from("onepage_leads")
@@ -187,7 +193,7 @@ export async function POST(request: Request) {
             .eq("id", lead.id)
         }
       } catch (emailError) {
-        console.error("Error sending lead magnet email:", emailError)
+        console.error("[leads] ❌ Error sending lead magnet email:", emailError)
         await adminSupabase
           .from("onepage_leads")
           .update({ delivery_status: "failed" })
