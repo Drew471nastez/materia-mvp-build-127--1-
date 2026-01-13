@@ -3083,8 +3083,25 @@ function PublicBlockRenderer({
         'twitch', 'discord', 'telegram', 'whatsapp', 'pinterest', 'snapchat',
         'github', 'apple-music', 'vimeo'
       ])
-      const iconPath = data.icon ? ICON_PATHS[data.icon] : null
-      const isFilledIcon = data.icon ? FILLED_ICONS.has(data.icon) : false
+
+      // Auto-detect icon from URL for WhatsApp, Telegram, and Vimeo
+      const getIconFromUrl = (url: string): string | null => {
+        const lowerUrl = url.toLowerCase()
+        if (lowerUrl.includes('wa.me') || lowerUrl.includes('whatsapp.com') || lowerUrl.includes('api.whatsapp.com')) {
+          return 'whatsapp'
+        }
+        if (lowerUrl.includes('t.me') || lowerUrl.includes('telegram.me') || lowerUrl.includes('telegram.org')) {
+          return 'telegram'
+        }
+        if (lowerUrl.includes('vimeo.com')) {
+          return 'vimeo'
+        }
+        return null
+      }
+
+      const detectedIcon = data.icon || getIconFromUrl(data.url)
+      const iconPath = detectedIcon ? ICON_PATHS[detectedIcon] : null
+      const isFilledIcon = detectedIcon ? FILLED_ICONS.has(detectedIcon) : false
 
       const buttonShadow = (theme as any).button_shadow || "none"
       const shadowColor = (theme as any).button_shadow_color || "#000000"
