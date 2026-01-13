@@ -4673,20 +4673,37 @@ function PublicBlockRenderer({
         }
       }
 
-      // State for PDF preview modal
+      // State for PDF preview modal and page tracking
       const [showPdfModal, setShowPdfModal] = useState(false)
+      const [currentPage, setCurrentPage] = useState(1)
+      const [totalPages, setTotalPages] = useState(1)
+      const pdfContainerRef = useRef<HTMLDivElement>(null)
 
       const handleOpenPdf = () => {
         if (pdfUrl) {
           setShowPdfModal(true)
+          setCurrentPage(1)
           // Track PDF open
           trackClick(block.id, pdfUrl)
         }
       }
 
+      // Handle scroll to update page number
+      const handlePdfScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const container = e.currentTarget
+        const scrollTop = container.scrollTop
+        const scrollHeight = container.scrollHeight - container.clientHeight
+        if (scrollHeight > 0 && totalPages > 1) {
+          const progress = scrollTop / scrollHeight
+          const page = Math.min(totalPages, Math.max(1, Math.ceil(progress * totalPages) || 1))
+          setCurrentPage(page)
+        }
+      }
+
+      const textColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
       const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
 
-      // Pro layout with thumbnail, title, description
+      // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
         return (
           <>
@@ -4737,20 +4754,20 @@ function PublicBlockRenderer({
                     </svg>
                   )}
                 </div>
-                {/* Content */}
-                <div className="flex-1 min-w-0 text-left pr-2">
-                  <div className="font-semibold leading-tight" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                {/* Content - Title and Description vertically aligned */}
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="font-semibold leading-tight truncate" style={{ color: textColor }}>
                     {data.title || "PDF Document"}
                   </div>
                   {data.description && (
-                    <p className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 line-clamp-1" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                    <p className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate" style={{ color: textColor }}>
                       {data.description}
                     </p>
                   )}
                 </div>
                 {/* Arrow icon - properly aligned */}
-                <div className="shrink-0 flex items-center justify-center">
-                  <ExternalLink className="w-5 h-5 opacity-50" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }} />
+                <div className="shrink-0 flex items-center justify-center pr-1">
+                  <ExternalLink className="w-5 h-5 opacity-50" style={{ color: textColor }} />
                 </div>
               </div>
             </button>
@@ -4789,18 +4806,28 @@ function PublicBlockRenderer({
                   {/* Preview Area */}
                   <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-auto min-h-0">
                     {/* PDF Preview Frame */}
-                    <div className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                    <div
+                      ref={pdfContainerRef}
+                      className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
+                    >
                       {/* Page Counter */}
                       <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                        1 of 1
+                        {currentPage} of {totalPages}
                       </div>
 
                       {/* PDF Embed/Preview */}
-                      <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
+                      <div
+                        className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-auto"
+                        onScroll={handlePdfScroll}
+                      >
                         <iframe
                           src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
                           className="w-full h-full border-0 pointer-events-auto"
                           title={data.title || "PDF Document"}
+                          onLoad={() => {
+                            // Estimate pages based on typical PDF sizes - can be enhanced with PDF.js
+                            setTotalPages(1)
+                          }}
                         />
                       </div>
                     </div>
@@ -4821,7 +4848,7 @@ function PublicBlockRenderer({
                       rel="noopener noreferrer"
                       className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
                     >
-                      View
+                      View Full PDF
                     </a>
                   </div>
                 </div>
@@ -4831,35 +4858,41 @@ function PublicBlockRenderer({
         )
       }
 
-      // Default layout - button with document icon
+      // Default layout - Title on top, button text below with icon
       return (
         <>
           <button
             onClick={handleOpenPdf}
             className={cn(
-              "w-full flex items-center justify-center gap-2 sm:gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all cursor-pointer",
+              "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
               hoverEffect,
               getAnimationClass(data.animation_type)
             )}
             style={pdfButtonStyles}
           >
-            {/* PDF icon */}
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="shrink-0"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14,2 14,8 20,8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <line x1="10" y1="9" x2="8" y2="9" />
-            </svg>
-            <span className="truncate">{data.button_text || "View PDF"}</span>
+            {/* Title */}
+            <span className="font-semibold truncate w-full text-center" style={{ color: textColor }}>
+              {data.title || "PDF Document"}
+            </span>
+            {/* Button text with PDF icon */}
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-1 opacity-70">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="shrink-0"
+                style={{ color: textColor }}
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14,2 14,8 20,8" />
+              </svg>
+              <span className="text-xs sm:text-sm truncate" style={{ color: textColor }}>
+                {data.button_text || "View PDF"}
+              </span>
+            </div>
           </button>
 
           {/* PDF Preview Modal - Clean light UI */}
@@ -4896,18 +4929,28 @@ function PublicBlockRenderer({
                 {/* Preview Area */}
                 <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-auto min-h-0">
                   {/* PDF Preview Frame */}
-                  <div className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                  <div
+                    ref={pdfContainerRef}
+                    className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
+                  >
                     {/* Page Counter */}
                     <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                      1 of 1
+                      {currentPage} of {totalPages}
                     </div>
 
                     {/* PDF Embed/Preview */}
-                    <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
+                    <div
+                      className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-auto"
+                      onScroll={handlePdfScroll}
+                    >
                       <iframe
                         src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
                         className="w-full h-full border-0 pointer-events-auto"
                         title={data.title || "PDF Document"}
+                        onLoad={() => {
+                          // Estimate pages - can be enhanced with PDF.js
+                          setTotalPages(1)
+                        }}
                       />
                     </div>
                   </div>
@@ -4928,7 +4971,7 @@ function PublicBlockRenderer({
                     rel="noopener noreferrer"
                     className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
                   >
-                    View
+                    View Full PDF
                   </a>
                 </div>
               </div>

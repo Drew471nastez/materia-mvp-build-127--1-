@@ -44,6 +44,16 @@ interface AppleMusicModalContextType {
 }
 const AppleMusicModalContext = createContext<AppleMusicModalContextType | null>(null)
 
+// PDF Modal Context - allows PDF preview modals to render at root level
+interface PDFModalContextType {
+  openPDFModal: (data: {
+    title: string
+    description?: string
+    pdfUrl: string
+  }) => void
+}
+const PDFModalContext = createContext<PDFModalContextType | null>(null)
+
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
   sellerName,
@@ -799,6 +809,29 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
   const appleMusicModalContextValue = { openAppleMusicModal }
 
+  // PDF modal state
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
+  const [pdfModalData, setPdfModalData] = useState<{
+    title: string
+    description?: string
+    pdfUrl: string
+  } | null>(null)
+  const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
+  const [pdfTotalPages, setPdfTotalPages] = useState(1)
+
+  const openPDFModal = useCallback((data: {
+    title: string
+    description?: string
+    pdfUrl: string
+  }) => {
+    setPdfModalData(data)
+    setPdfCurrentPage(1)
+    setPdfTotalPages(1)
+    setPdfModalOpen(true)
+  }, [])
+
+  const pdfModalContextValue = { openPDFModal }
+
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current
@@ -856,6 +889,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
   return (
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
+    <PDFModalContext.Provider value={pdfModalContextValue}>
       <div
         className={cn("relative flex-shrink-0", className)}
         style={{
@@ -1332,7 +1366,89 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           </div>
         </div>
       )}
+
+      {/* PDF Preview Modal */}
+      {pdfModalOpen && pdfModalData && (
+        <div
+          className="absolute inset-0 z-50 flex items-end justify-center bg-black/50 animate-in fade-in duration-200"
+          style={{ borderRadius: "32px" }}
+          onClick={() => setPdfModalOpen(false)}
+        >
+          <div
+            className="relative w-full bg-white rounded-t-2xl flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300"
+            style={{ maxHeight: "85%", minHeight: "60%" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-3 py-3 border-b shrink-0">
+              <button
+                onClick={() => setPdfModalOpen(false)}
+                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-sm font-semibold text-gray-900 truncate flex-1 text-center px-2">
+                {pdfModalData.title || "PDF Document"}
+              </h3>
+              <button
+                onClick={() => setPdfModalOpen(false)}
+                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Preview Area */}
+            <div className="flex-1 flex flex-col items-center justify-center p-3 overflow-auto min-h-0">
+              {/* PDF Preview Frame */}
+              <div className="relative w-full max-w-[200px] bg-gray-50 rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                {/* Page Counter */}
+                <div className="absolute top-2 left-2 z-10 px-2 py-0.5 bg-white/95 backdrop-blur-sm rounded-md text-[10px] font-medium text-gray-600 shadow-sm">
+                  {pdfCurrentPage} of {pdfTotalPages}
+                </div>
+                <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
+                  <iframe
+                    src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                    className="w-full h-full border-0"
+                    title={pdfModalData.title || "PDF Document"}
+                    onLoad={(e) => {
+                      // Try to get page count from PDF
+                      try {
+                        const iframe = e.target as HTMLIFrameElement
+                        // Most browsers don't expose PDF page count, so we estimate based on scroll
+                        setPdfTotalPages(1)
+                      } catch {
+                        setPdfTotalPages(1)
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              {pdfModalData.description && (
+                <p className="mt-3 text-[10px] text-gray-500 text-center max-w-[180px]">{pdfModalData.description}</p>
+              )}
+            </div>
+
+            {/* Bottom View Button */}
+            <div className="px-3 pb-3 pt-2 shrink-0">
+              <a
+                href={pdfModalData.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-full py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-xl transition-colors"
+              >
+                View Full PDF
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    </PDFModalContext.Provider>
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
   )
@@ -1385,6 +1501,29 @@ export function MobilePreviewContent() {
   }, [])
 
   const appleMusicModalContextValue = { openAppleMusicModal }
+
+  // PDF modal state
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
+  const [pdfModalData, setPdfModalData] = useState<{
+    title: string
+    description?: string
+    pdfUrl: string
+  } | null>(null)
+  const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
+  const [pdfTotalPages, setPdfTotalPages] = useState(1)
+
+  const openPDFModal = useCallback((data: {
+    title: string
+    description?: string
+    pdfUrl: string
+  }) => {
+    setPdfModalData(data)
+    setPdfCurrentPage(1)
+    setPdfTotalPages(1)
+    setPdfModalOpen(true)
+  }, [])
+
+  const pdfModalContextValue = { openPDFModal }
 
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
@@ -1443,6 +1582,7 @@ export function MobilePreviewContent() {
   return (
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
+    <PDFModalContext.Provider value={pdfModalContextValue}>
       {/* Animation keyframes */}
       <style
         dangerouslySetInnerHTML={{
@@ -1763,6 +1903,77 @@ export function MobilePreviewContent() {
           </div>
         </div>
       )}
+
+      {/* PDF Preview Modal */}
+      {pdfModalOpen && pdfModalData && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 animate-in fade-in duration-200"
+          onClick={() => setPdfModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-md bg-white rounded-t-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300"
+            style={{ maxHeight: "90vh", minHeight: "70vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
+              <button
+                onClick={() => setPdfModalOpen(false)}
+                className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
+                {pdfModalData.title || "PDF Document"}
+              </h3>
+              <button
+                onClick={() => setPdfModalOpen(false)}
+                className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Preview Area */}
+            <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-auto min-h-0">
+              {/* PDF Preview Frame */}
+              <div className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                {/* Page Counter */}
+                <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
+                  {pdfCurrentPage} of {pdfTotalPages}
+                </div>
+                <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
+                  <iframe
+                    src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                    className="w-full h-full border-0"
+                    title={pdfModalData.title || "PDF Document"}
+                  />
+                </div>
+              </div>
+              {pdfModalData.description && (
+                <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">{pdfModalData.description}</p>
+              )}
+            </div>
+
+            {/* Bottom View Button */}
+            <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
+              <a
+                href={pdfModalData.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
+              >
+                View Full PDF
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+    </PDFModalContext.Provider>
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
   )
@@ -2044,9 +2255,12 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
   // Use context for Spotify modal - renders at root level to prevent clipping
   const spotifyModalContext = useContext(SpotifyModalContext)
-  
+
   // Use context for Apple Music modal - renders at root level to prevent clipping
   const appleMusicModalContext = useContext(AppleMusicModalContext)
+
+  // Use context for PDF modal - renders at root level to prevent clipping
+  const pdfModalContext = useContext(PDFModalContext)
 
   // Button hover animation - based on theme setting, disabled inside carousel
   const buttonHoverAnimation = (theme as any).button_hover_animation || "default"
@@ -3824,6 +4038,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const data = block.data as PDFDocumentBlockData
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
+      const pdfUrl = data.pdf_file_url
 
       // Get animation class
       const getAnimationClass = (animationType?: string) => {
@@ -3837,12 +4052,25 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         }
       }
 
-      // Pro layout with thumbnail
-      if (isPro && (thumbnailUrl || data.pdf_file_url)) {
+      // Handle click to open PDF modal
+      const handlePDFClick = () => {
+        if (pdfUrl && pdfModalContext) {
+          pdfModalContext.openPDFModal({
+            title: data.title || "PDF Document",
+            description: data.description,
+            pdfUrl: pdfUrl,
+          })
+        }
+      }
+
+      // Featured (Pro) layout with thumbnail
+      if (isPro) {
         return (
           <button
+            onClick={handlePDFClick}
             className={cn(
               "w-full overflow-hidden font-medium transition-all cursor-pointer",
+              hoverEffect,
               getAnimationClass(data.animation_type)
             )}
             style={{
@@ -3885,19 +4113,25 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   </svg>
                 )}
               </div>
-              {/* Content */}
-              <div className="flex-1 min-w-0 text-left pr-1">
-                <div className={cn(s.button, "font-semibold leading-tight")} style={{ color: theme.button_text_color }}>
+              {/* Content - Title and Description vertically aligned */}
+              <div className="flex-1 min-w-0 text-left">
+                <div
+                  className={cn(s.button, "font-semibold leading-tight truncate")}
+                  style={{ color: theme.button_text_color }}
+                >
                   {data.title || "PDF Document"}
                 </div>
                 {data.description && (
-                  <p className="text-[9px] leading-tight mt-0.5 opacity-70 line-clamp-1" style={{ color: theme.button_text_color }}>
+                  <p
+                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate"
+                    style={{ color: theme.button_text_color }}
+                  >
                     {data.description}
                   </p>
                 )}
               </div>
               {/* Arrow icon - properly aligned */}
-              <div className="shrink-0 flex items-center justify-center">
+              <div className="shrink-0 flex items-center justify-center pr-1">
                 <ExternalLink className="w-4 h-4 opacity-50" style={{ color: theme.button_text_color }} />
               </div>
             </div>
@@ -3905,33 +4139,46 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         )
       }
 
-      // Default layout - button with document icon
+      // Default layout - Title on top, button text below with icon
       return (
         <button
+          onClick={handlePDFClick}
           className={cn(
-            "w-full flex items-center justify-center gap-2 font-medium transition-all cursor-pointer",
-            s.button,
+            "w-full flex flex-col items-center justify-center font-medium transition-all cursor-pointer py-3 px-4",
+            hoverEffect,
             getAnimationClass(data.animation_type)
           )}
           style={buttonStyles}
         >
-          {/* PDF icon */}
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="shrink-0"
+          {/* Title */}
+          <span
+            className={cn(s.button, "font-semibold truncate w-full text-center")}
+            style={{ color: theme.button_text_color }}
           >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14,2 14,8 20,8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <line x1="10" y1="9" x2="8" y2="9" />
-          </svg>
-          <span className="truncate">{data.button_text || "View PDF"}</span>
+            {data.title || "PDF Document"}
+          </span>
+          {/* Button text with PDF icon */}
+          <div className="flex items-center justify-center gap-1.5 mt-1 opacity-70">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="shrink-0"
+              style={{ color: theme.button_text_color }}
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14,2 14,8 20,8" />
+            </svg>
+            <span
+              className="text-[10px] truncate"
+              style={{ color: theme.button_text_color }}
+            >
+              {data.button_text || "View PDF"}
+            </span>
+          </div>
         </button>
       )
     }
