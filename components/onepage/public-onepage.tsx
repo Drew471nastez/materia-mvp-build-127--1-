@@ -3785,9 +3785,57 @@ function PublicBlockRenderer({
         return presetLabels[data.button_preset || 'subscribe'] || data.button_text || "Subscribe"
       }
 
+      // Check if user has exceeded subscription limit (3 per device in 3 days)
+      const checkSubscriptionLimit = (): boolean => {
+        const rateLimitKey = `onepage_subscription_limit`
+        const threeDaysMs = 3 * 24 * 60 * 60 * 1000
+        try {
+          const stored = localStorage.getItem(rateLimitKey)
+          if (stored) {
+            const data = JSON.parse(stored)
+            const now = Date.now()
+            // Filter out entries older than 3 days
+            const recentAttempts = (data.attempts || []).filter((timestamp: number) => now - timestamp < threeDaysMs)
+            if (recentAttempts.length >= 3) {
+              return false // Limit exceeded
+            }
+          }
+          return true // Within limit
+        } catch {
+          return true // Default to allowing if localStorage fails
+        }
+      }
+
+      // Record a subscription attempt
+      const recordSubscriptionAttempt = () => {
+        const rateLimitKey = `onepage_subscription_limit`
+        const threeDaysMs = 3 * 24 * 60 * 60 * 1000
+        try {
+          const stored = localStorage.getItem(rateLimitKey)
+          const now = Date.now()
+          let attempts: number[] = []
+          if (stored) {
+            const data = JSON.parse(stored)
+            // Keep only recent attempts (within 3 days)
+            attempts = (data.attempts || []).filter((timestamp: number) => now - timestamp < threeDaysMs)
+          }
+          attempts.push(now)
+          localStorage.setItem(rateLimitKey, JSON.stringify({ attempts }))
+        } catch {
+          // Ignore localStorage errors
+        }
+      }
+
       const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!email || isSubmitting || emailSubmitted) return
+
+        // Check subscription rate limit
+        if (!checkSubscriptionLimit()) {
+          alert("You've reached the maximum number of subscriptions from this device. Please try again in 3 days.")
+          return
+        }
+
         setIsSubmitting(true)
 
         try {
@@ -3802,26 +3850,23 @@ function PublicBlockRenderer({
               enable_digital_product: data.enable_digital_product,
               digital_product_file_url: data.digital_product_file_url,
               digital_product_title: data.digital_product_title,
-              // Email customization fields
-              send_welcome_email: data.send_welcome_email,
-              email_subject: data.email_subject,
-              email_heading: data.email_heading,
-              email_body: data.email_body,
             }),
           })
           const result = await response.json()
           if (response.ok) {
             setEmailSubmitted(true)
-            // If digital product was sent, store the download link
-            if (result.downloadLink) {
-              setDownloadLink(result.downloadLink)
+            // Record the subscription attempt for rate limiting
+            recordSubscriptionAttempt()
+            // Store the download link directly from data if digital product is enabled
+            if (data.enable_digital_product && data.digital_product_file_url) {
+              setDownloadLink(data.digital_product_file_url)
             }
             // Save subscription state to localStorage for persistence
             const storageKey = `onepage_subscribed_${onepageId}_${block.id}`
             localStorage.setItem(storageKey, JSON.stringify({
               subscribed: true,
               email: email,
-              downloadLink: result.downloadLink || null,
+              downloadLink: data.enable_digital_product ? data.digital_product_file_url : null,
               timestamp: Date.now()
             }))
           }
@@ -3844,10 +3889,17 @@ function PublicBlockRenderer({
         }
       }
 
-      // Handle download click
+      // Handle download click - triggers direct download
       const handleDownloadClick = () => {
         if (downloadLink) {
-          window.open(downloadLink, "_blank")
+          // Create a temporary anchor element to trigger download
+          const link = document.createElement('a')
+          link.href = downloadLink
+          link.download = data.digital_product_title || 'download'
+          link.target = '_blank'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
         }
       }
 

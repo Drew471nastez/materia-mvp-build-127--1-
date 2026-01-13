@@ -350,8 +350,10 @@ const blockCategories = [
     icon: Heart,
     blocks: [
       { type: "product" as const, label: "Digital Product", description: "Sell a digital product on your page", icon: ShoppingBag },
+      { type: "email_capture" as const, label: "Email Signup", description: "Collect emails from visitors", icon: Mail },
       { type: "link_button" as const, label: "YouTube", description: "Link to YouTube", icon: Video, preset: { label: "Subscribe on YouTube", url: "https://youtube.com/@" } },
-      { type: "link_button" as const, label: "X (Twitter)", description: "Link to X", icon: Share2, preset: { label: "Follow on X", url: "https://x.com/" } },
+      { type: "link_button" as const, label: "Spotify", description: "Share your music", icon: Share2, preset: { label: "Listen on Spotify", url: "https://open.spotify.com/" } },
+      { type: "link_button" as const, label: "TikTok", description: "Link to TikTok", icon: Share2, preset: { label: "Follow on TikTok", url: "https://tiktok.com/@" } },
       { type: "link_button" as const, label: "Instagram", description: "Link to Instagram", icon: Share2, preset: { label: "Follow on Instagram", url: "https://instagram.com/" } },
     ],
   },
@@ -361,7 +363,11 @@ const blockCategories = [
     icon: ShoppingBag,
     blocks: [
       { type: "product" as const, label: "Digital Product", description: "Sell a digital product", icon: ShoppingBag },
+      { type: "email_capture" as const, label: "Email Signup", description: "Collect emails from visitors", icon: Mail },
+      { type: "link_button" as const, label: "My Link", description: "Add a simple link", icon: Link, preset: { label: "My Link", url: "" } },
       { type: "link_button" as const, label: "Store Link", description: "Link to your store", icon: ShoppingBag, preset: { label: "Shop Now", url: "" } },
+      { type: "link_button" as const, label: "eCourse", description: "Sell online courses", icon: Video, comingSoon: true, preset: { label: "View Course", url: "" } },
+      { type: "link_button" as const, label: "Coaching", description: "Offer coaching sessions", icon: User, comingSoon: true, preset: { label: "Book Coaching", url: "" } },
     ],
   },
   {
@@ -416,7 +422,7 @@ const blockCategories = [
     icon: MessageSquare,
     blocks: [
       { type: "email_capture" as const, label: "Email Signup", description: "Collect emails", icon: Mail },
-      { type: "link_button" as const, label: "Contact Form", description: "Link to form", icon: FileText, preset: { label: "Contact Me", url: "" } },
+      { type: "link_button" as const, label: "Contact Form", description: "Link to form", icon: FileText, comingSoon: true, preset: { label: "Contact Me", url: "" } },
       { type: "link_button" as const, label: "WhatsApp", description: "Link to WhatsApp", icon: MessageSquare, preset: { label: "Message on WhatsApp", url: "https://wa.me/" } },
       { type: "link_button" as const, label: "Telegram", description: "Link to Telegram", icon: MessageSquare, preset: { label: "Message on Telegram", url: "https://t.me/" } },
     ],
@@ -554,9 +560,6 @@ export function LinksTab() {
   const [streamingBlockData, setStreamingBlockData] = useState<LinkButtonBlockData | null>(null)
   const [streamingBlockUpdateFn, setStreamingBlockUpdateFn] = useState<((data: Partial<LinkButtonBlockData>) => void) | null>(null)
 
-  // Email editor modal state
-  const [showEmailEditor, setShowEmailEditor] = useState(false)
-  const [emailEditorBlockId, setEmailEditorBlockId] = useState<string | null>(null)
 
   // Track which blocks have had auto-fetch attempted to avoid repeated requests
   const autoFetchedBlocksRef = useRef<Set<string>>(new Set())
@@ -1726,10 +1729,6 @@ export function LinksTab() {
                   setAddToGroupId(groupId)
                   setShowAddModal(true)
                 }}
-                onOpenEmailEditor={(blockId) => {
-                  setEmailEditorBlockId(blockId)
-                  setShowEmailEditor(true)
-                }}
               />
             </div>
 
@@ -1886,15 +1885,16 @@ export function LinksTab() {
                             const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram"].includes(socialId)
                             const atLimit = isBlockTypeAtLimit(block.type)
                             const currentCount = getBlockTypeCount(block.type)
+                            const isComingSoon = (block as any).comingSoon === true
 
                             return (
                               <button
                                 key={`${category.id}-${block.type}-${block.label}-${idx}`}
-                                onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
-                                disabled={atLimit}
+                                onClick={() => !atLimit && !isComingSoon && handleAddBlock(block.type, (block as any).preset)}
+                                disabled={atLimit || isComingSoon}
                                 className={cn(
                                   "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
-                                  atLimit
+                                  (atLimit || isComingSoon)
                                     ? "opacity-50 cursor-not-allowed bg-gray-50"
                                     : "hover:bg-gray-50 active:bg-gray-100"
                                 )}
@@ -1923,7 +1923,9 @@ export function LinksTab() {
                                     {atLimit ? `Already added (${currentCount}/2)` : block.description}
                                   </p>
                                 </div>
-                                {atLimit ? (
+                                {isComingSoon ? (
+                                  <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full flex-shrink-0">Coming Soon</span>
+                                ) : atLimit ? (
                                   <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
                                 ) : (
                                   <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
@@ -1946,15 +1948,16 @@ export function LinksTab() {
                     const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram"].includes(socialId)
                     const atLimit = isBlockTypeAtLimit(block.type)
                     const currentCount = getBlockTypeCount(block.type)
+                    const isComingSoon = (block as any).comingSoon === true
 
                     return (
                       <button
                         key={`search-${block.type}-${block.label}-${idx}`}
-                        onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
-                        disabled={atLimit}
+                        onClick={() => !atLimit && !isComingSoon && handleAddBlock(block.type, (block as any).preset)}
+                        disabled={atLimit || isComingSoon}
                         className={cn(
                           "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
-                          atLimit
+                          (atLimit || isComingSoon)
                             ? "opacity-50 cursor-not-allowed bg-gray-50"
                             : "hover:bg-gray-50 active:bg-gray-100"
                         )}
@@ -1983,7 +1986,9 @@ export function LinksTab() {
                             {atLimit ? `Already added (${currentCount}/2)` : block.description}
                           </p>
                         </div>
-                        {atLimit ? (
+                        {isComingSoon ? (
+                          <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full flex-shrink-0">Coming Soon</span>
+                        ) : atLimit ? (
                           <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
                         ) : (
                           <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
@@ -3518,117 +3523,6 @@ export function LinksTab() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Email Editor Modal */}
-      <Dialog open={showEmailEditor} onOpenChange={(open) => {
-        setShowEmailEditor(open)
-        if (!open) setEmailEditorBlockId(null)
-      }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-4 sm:p-5 border-b">
-            <DialogTitle className="text-base sm:text-lg font-semibold">Edit Email</DialogTitle>
-          </DialogHeader>
-          <div className="p-4 sm:p-5 space-y-4 max-h-[60vh] overflow-y-auto">
-            {emailEditorBlockId && (() => {
-              const block = sortedBlocks.find(b => b.id === emailEditorBlockId)
-              if (!block || block.type !== 'email_capture') return null
-              const data = block.data as EmailCaptureBlockData
-              
-              // Default template values
-              const hasDownload = data.enable_digital_product && data.digital_product_file_url
-              const defaultSubject = hasDownload 
-                ? `Your download is ready: ${data.digital_product_title || 'Free Download'}`
-                : "Thanks for subscribing!"
-              const defaultHeading = hasDownload 
-                ? "Your download is ready!" 
-                : "Welcome!"
-              const defaultBody = hasDownload
-                ? `Thanks for subscribing! As promised, here's your free download.`
-                : "Thanks for joining our newsletter. We're excited to have you!"
-
-              return (
-                <>
-                  {/* Email Preview Card */}
-                  <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl p-4 text-white">
-                    <div className="text-center space-y-1">
-                      <p className="text-xs opacity-80">Preview</p>
-                      <p className="font-semibold text-sm">{data.email_heading || defaultHeading}</p>
-                      {hasDownload && (
-                        <div className="mt-2 bg-white/20 rounded-lg px-3 py-2">
-                          <p className="text-xs opacity-90">📦 {data.digital_product_title || 'Download'}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Email Subject</Label>
-                    <Input
-                      value={data.email_subject ?? defaultSubject}
-                      onChange={(e) => updateBlock(block.id, {
-                        data: { ...data, email_subject: e.target.value }
-                      })}
-                      placeholder={defaultSubject}
-                      className="h-10"
-                    />
-                    <p className="text-xs text-muted-foreground">Subject line your subscribers will see</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Email Heading</Label>
-                    <Input
-                      value={data.email_heading ?? defaultHeading}
-                      onChange={(e) => updateBlock(block.id, {
-                        data: { ...data, email_heading: e.target.value }
-                      })}
-                      placeholder={defaultHeading}
-                      className="h-10"
-                    />
-                    <p className="text-xs text-muted-foreground">Main heading inside the email</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Email Body</Label>
-                    <Textarea
-                      value={data.email_body ?? defaultBody}
-                      onChange={(e) => updateBlock(block.id, {
-                        data: { ...data, email_body: e.target.value }
-                      })}
-                      placeholder={defaultBody}
-                      className="min-h-[100px] resize-none"
-                    />
-                    <p className="text-xs text-muted-foreground">The main message content</p>
-                  </div>
-
-                  {hasDownload && (
-                    <div className="bg-violet-50 p-3 rounded-xl border border-violet-100">
-                      <p className="text-xs text-violet-700">
-                        <strong>✓ Download included:</strong> A download button for "{data.digital_product_title || 'your file'}" will automatically be added to the email.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {!hasDownload && !data.send_welcome_email && (
-                    <div className="bg-amber-50 p-3 rounded-xl border border-amber-100">
-                      <p className="text-xs text-amber-700">
-                        <strong>Note:</strong> Enable "Send Welcome Email" in the block settings to send this email when someone subscribes.
-                      </p>
-                    </div>
-                  )}
-                </>
-              )
-            })()}
-          </div>
-          <div className="p-4 sm:p-5 border-t bg-gray-50">
-            <Button
-              onClick={() => setShowEmailEditor(false)}
-              className="w-full bg-black hover:bg-gray-800 text-white h-11 rounded-xl"
-            >
-              Save
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
@@ -3658,7 +3552,6 @@ interface BlockItemProps {
   draggedBlockType?: OnePageBlockType | null
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   onOpenAddBlockModal?: (groupId: string) => void
-  onOpenEmailEditor?: (blockId: string) => void
 }
 
 function BlockItem({
@@ -3686,7 +3579,6 @@ function BlockItem({
   draggedBlockType,
   onMoveChildToMainList,
   onOpenAddBlockModal,
-  onOpenEmailEditor,
 }: BlockItemProps) {
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -3826,7 +3718,7 @@ function BlockItem({
   const isGroup = block.type === "group"
   const isProduct = block.type === "product"
   const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct
-  const hasAnimation = isLinkButton || isProduct
+  const hasAnimation = isLinkButton || isProduct || isEmailCapture
   const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
   // Check if this group block can accept the dragged block
@@ -4182,7 +4074,6 @@ function BlockItem({
             onOpenStreamingModal={onOpenStreamingModal}
             onOpenAddBlockModal={onOpenAddBlockModal}
             onMoveChildToMainList={onMoveChildToMainList}
-            onOpenEmailEditor={onOpenEmailEditor}
           />
           {!isHeaderBlock && (
             <div className="pt-3 border-t">
@@ -4283,7 +4174,6 @@ function BlockEditor({
   onMoveChildToMainList,
   updateBlockOverride,
   sellerProducts,
-  onOpenEmailEditor,
 }: {
   block: OnePageBlock
   socialLinks: OnePageSocialLinks
@@ -4298,7 +4188,6 @@ function BlockEditor({
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   updateBlockOverride?: (blockId: string, updates: Partial<OnePageBlock>) => void
   sellerProducts?: SellerProduct[]
-  onOpenEmailEditor?: (blockId: string) => void
 }) {
   const { updateBlock: contextUpdateBlock, updateSocialLinks, setActiveSection, onepage } = useOnePage()
   const updateBlock = updateBlockOverride || contextUpdateBlock
@@ -5766,7 +5655,7 @@ function BlockEditor({
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-xs">Enable Digital Product</Label>
-                    <p className="text-[10px] text-muted-foreground">Send a free product on signup</p>
+                    <p className="text-[10px] text-muted-foreground">Allow subscribers get a free product on signup</p>
                   </div>
                   <Toggle
                     checked={data.enable_digital_product || false}
@@ -5808,7 +5697,7 @@ function BlockEditor({
 
                       {data.digital_product_file_url && (
                         <div className="space-y-1.5 mt-2">
-                          <Label className="text-[10px]">File Name (shown in email)</Label>
+                          <Label className="text-[10px]">File Name</Label>
                           <Input
                             value={data.digital_product_title || ""}
                             onChange={(e) => updateData({ digital_product_title: e.target.value })}
@@ -5821,41 +5710,11 @@ function BlockEditor({
 
                     {data.digital_product_file_url && (
                       <p className="text-[10px] text-muted-foreground bg-violet-50 p-2 rounded-lg">
-                        When visitors subscribe, they'll receive "{data.digital_product_title || 'your file'}" via email with a download button.
+                        When visitors subscribe, they can download "{data.digital_product_title || 'your file'}" directly on this page.
                       </p>
                     )}
                   </div>
                 )}
-              </div>
-
-              {/* Email Settings Section */}
-              <div className="space-y-3 pt-3 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs">Send Welcome Email</Label>
-                    <p className="text-[10px] text-muted-foreground">Send an email when someone subscribes</p>
-                  </div>
-                  <Toggle
-                    checked={data.send_welcome_email || data.enable_digital_product || false}
-                    onCheckedChange={(checked) => updateData({ send_welcome_email: checked })}
-                  />
-                </div>
-
-                {/* Edit Email Button */}
-                <button
-                  type="button"
-                  onClick={() => onOpenEmailEditor?.(block.id)}
-                  className="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
-                    <Mail className="w-5 h-5 text-violet-600" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-xs font-medium">Edit Email</p>
-                    <p className="text-[10px] text-muted-foreground">Customize the email content</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                </button>
               </div>
             </TabsContent>
 
