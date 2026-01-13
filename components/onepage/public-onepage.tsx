@@ -284,9 +284,17 @@ function NotificationBell({
   const s = styles[style]
   const bellVisible = isOpen || isBellVisible
   const { isAnyModalOpen } = useContext(ModalVisibilityContext)
+  const [isMobile, setIsMobile] = useState(false)
 
-  // Hide completely when any fullscreen modal is open
-  if (isAnyModalOpen) return null
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Hide completely when any fullscreen modal is open ON MOBILE ONLY
+  if (isAnyModalOpen && isMobile) return null
 
   return (
     <div
@@ -588,14 +596,22 @@ function ShareButton({
   const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-[20]"
   const shareVisible = isOpen || isShareVisible
   const { isAnyModalOpen } = useContext(ModalVisibilityContext)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const buttonWrapperClass = cn(
     "transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
     shareVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-1 pointer-events-none",
   )
 
-  // Hide completely when any fullscreen modal is open
-  if (isAnyModalOpen) return null
+  // Hide completely when any fullscreen modal is open ON MOBILE ONLY
+  if (isAnyModalOpen && isMobile) return null
 
   return (
     <>
@@ -4737,6 +4753,10 @@ function PublicBlockRenderer({
           <>
             <button
               onClick={handleOpenPdf}
+              onTouchEnd={(e) => {
+                e.preventDefault()
+                handleOpenPdf()
+              }}
               className={cn(
                 "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
                 hoverEffect,
@@ -4891,6 +4911,10 @@ function PublicBlockRenderer({
         <>
           <button
             onClick={handleOpenPdf}
+            onTouchEnd={(e) => {
+              e.preventDefault()
+              handleOpenPdf()
+            }}
             className={cn(
               "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
               hoverEffect,
