@@ -5573,38 +5573,6 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Button Text Preset Selector */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Button Text</Label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {buttonTextPresets.map((preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => handlePresetChange(preset.id as EmailCaptureButtonPreset)}
-                      className={cn(
-                        "px-2 py-1.5 rounded-lg border text-xs font-medium transition-all",
-                        (data.button_preset || 'subscribe') === preset.id
-                          ? "border-violet-500 bg-violet-50 text-violet-700"
-                          : "border-gray-200 hover:border-gray-300 bg-white text-gray-700"
-                      )}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Custom Button Text Input */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Custom Text</Label>
-                <Input
-                  value={data.button_text}
-                  onChange={(e) => updateData({ button_text: e.target.value, button_preset: 'custom' })}
-                  className="h-9"
-                  placeholder="Enter custom button text"
-                />
-              </div>
-
               {/* Success Message */}
               <div className="space-y-1.5">
                 <Label className="text-xs">Success Message</Label>

@@ -3343,36 +3343,59 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 </div>
               </div>
               {/* Input row - responsive layout */}
-              <div className={cn(
-                "gap-1.5",
-                isShortButton ? "flex flex-row" : "flex flex-col"
-              )}>
-                <input
-                  type="email"
-                  placeholder={data.placeholder || "Enter your email"}
-                  className={cn(
-                    s.input,
-                    "rounded-lg bg-white/90 border-0 outline-none",
-                    emailSubmitted && "opacity-70",
-                    isShortButton ? "flex-1 min-w-0" : "w-full"
-                  )}
-                  style={{ color: "#000" }}
-                  disabled={emailSubmitted}
-                />
-                <button
-                  onClick={() => setEmailSubmitted(true)}
-                  disabled={emailSubmitted}
-                  className={cn(
-                    s.inputBtn,
-                    "font-medium whitespace-nowrap",
-                    emailSubmitted && "opacity-70",
-                    isShortButton ? "shrink-0 px-3" : "w-full"
-                  )}
-                  style={buttonStyles}
-                >
-                  {buttonText}
-                </button>
-              </div>
+              {isShortButton ? (
+                <div className="flex flex-row gap-1.5 items-stretch">
+                  <input
+                    type="email"
+                    placeholder={data.placeholder || "Enter your email"}
+                    className={cn(
+                      s.input,
+                      "rounded-lg bg-white/90 border-0 outline-none flex-1 min-w-0",
+                      emailSubmitted && "opacity-70"
+                    )}
+                    style={{ color: "#000", width: '60%' }}
+                    disabled={emailSubmitted}
+                  />
+                  <button
+                    onClick={() => setEmailSubmitted(true)}
+                    disabled={emailSubmitted}
+                    className={cn(
+                      s.inputBtn,
+                      "font-medium whitespace-nowrap rounded-lg shrink-0",
+                      emailSubmitted && "opacity-70"
+                    )}
+                    style={buttonStyles}
+                  >
+                    {buttonText}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <input
+                    type="email"
+                    placeholder={data.placeholder || "Enter your email"}
+                    className={cn(
+                      s.input,
+                      "rounded-lg bg-white/90 border-0 outline-none w-full",
+                      emailSubmitted && "opacity-70"
+                    )}
+                    style={{ color: "#000" }}
+                    disabled={emailSubmitted}
+                  />
+                  <button
+                    onClick={() => setEmailSubmitted(true)}
+                    disabled={emailSubmitted}
+                    className={cn(
+                      s.inputBtn,
+                      "font-medium whitespace-nowrap rounded-lg w-full",
+                      emailSubmitted && "opacity-70"
+                    )}
+                    style={buttonStyles}
+                  >
+                    {buttonText}
+                  </button>
+                </div>
+              )}
             </div>
             {emailSubmitted && (
               <div className="px-3 pb-2">
@@ -3405,36 +3428,59 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             </p>
           )}
           {/* Responsive layout based on button text length */}
-          <div className={cn(
-            "gap-1.5",
-            isShortButton ? "flex flex-row" : "flex flex-col"
-          )}>
-            <input
-              type="email"
-              placeholder={data.placeholder || "Enter your email"}
-              className={cn(
-                s.input,
-                "rounded-lg bg-white/10 border-0 outline-none",
-                emailSubmitted && "opacity-70",
-                isShortButton ? "flex-[2] min-w-0" : "w-full"
-              )}
-              style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
-              disabled={emailSubmitted}
-            />
-            <button
-              onClick={() => setEmailSubmitted(true)}
-              disabled={emailSubmitted}
-              className={cn(
-                s.inputBtn,
-                "font-medium whitespace-nowrap",
-                emailSubmitted && "opacity-70",
-                isShortButton ? "shrink-0 flex-1 px-2" : "w-full"
-              )}
-              style={buttonStyles}
-            >
-              {buttonText}
-            </button>
-          </div>
+          {isShortButton ? (
+            <div className="flex flex-row gap-1.5 items-stretch">
+              <input
+                type="email"
+                placeholder={data.placeholder || "Enter your email"}
+                className={cn(
+                  s.input,
+                  "rounded-lg bg-white/10 border-0 outline-none flex-1 min-w-0",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10`, width: '60%' }}
+                disabled={emailSubmitted}
+              />
+              <button
+                onClick={() => setEmailSubmitted(true)}
+                disabled={emailSubmitted}
+                className={cn(
+                  s.inputBtn,
+                  "font-medium whitespace-nowrap rounded-lg shrink-0",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={buttonStyles}
+              >
+                {buttonText}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <input
+                type="email"
+                placeholder={data.placeholder || "Enter your email"}
+                className={cn(
+                  s.input,
+                  "rounded-lg bg-white/10 border-0 outline-none w-full",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
+                disabled={emailSubmitted}
+              />
+              <button
+                onClick={() => setEmailSubmitted(true)}
+                disabled={emailSubmitted}
+                className={cn(
+                  s.inputBtn,
+                  "font-medium whitespace-nowrap rounded-lg w-full",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={buttonStyles}
+              >
+                {buttonText}
+              </button>
+            </div>
+          )}
           {emailSubmitted && (
             <p className="text-[9px] text-center opacity-70" style={{ color: theme.text_color }}>
               {data.success_message || "Thanks for subscribing!"}
