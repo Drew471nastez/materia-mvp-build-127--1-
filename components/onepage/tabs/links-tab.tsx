@@ -2690,17 +2690,25 @@ export function LinksTab() {
         <DialogContent className="w-[calc(100%-32px)] max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
           <DialogHeader className="p-4 sm:p-5 border-b">
             <DialogTitle className="text-base sm:text-lg font-semibold">
-              {imageFieldType === 'digital_product_file' ? 'Upload Digital File' : imageFieldType === 'product_image' ? 'Product Image' : 'Choose an Image'}
+              {imageFieldType === 'digital_product_file' ? 'Upload Digital File'
+                : imageFieldType === 'product_image' ? 'Product Image'
+                : imageFieldType === 'pdf_file' ? 'Upload PDF File'
+                : imageFieldType === 'thumbnail_url' ? 'Upload Thumbnail'
+                : 'Choose an Image'}
             </DialogTitle>
           </DialogHeader>
           <div className="p-4 sm:p-5 max-h-[60vh] overflow-y-auto">
-            {/* File Upload Section for digital product file or product image */}
-            {(imageFieldType === 'digital_product_file' || imageFieldType === 'product_image') && (
+            {/* File Upload Section for digital product file, product image, PDF file, or thumbnail */}
+            {(imageFieldType === 'digital_product_file' || imageFieldType === 'product_image' || imageFieldType === 'pdf_file' || imageFieldType === 'thumbnail_url') && (
               <div className="mb-4">
                 <input
                   type="file"
                   id="file-upload-input"
-                  accept={imageFieldType === 'digital_product_file' ? '*/*' : 'image/*'}
+                  accept={
+                    imageFieldType === 'digital_product_file' ? '*/*'
+                    : imageFieldType === 'pdf_file' ? '.pdf,application/pdf'
+                    : 'image/*'
+                  }
                   disabled={imageUploading}
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
@@ -2710,7 +2718,7 @@ export function LinksTab() {
                     try {
                       const formData = new FormData()
                       formData.append('file', file)
-                      formData.append('type', imageFieldType === 'digital_product_file' ? 'digital' : 'image')
+                      formData.append('type', (imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file') ? 'digital' : 'image')
 
                       const response = await fetch('/api/onepage/upload-file', {
                         method: 'POST',
@@ -2735,6 +2743,21 @@ export function LinksTab() {
                               data: {
                                 ...block.data,
                                 product_image: url,
+                              }
+                            })
+                          } else if (imageFieldType === 'pdf_file') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                pdf_file_url: url,
+                                title: block.data.title || file.name.replace(/\.[^/.]+$/, ""),
+                              }
+                            })
+                          } else if (imageFieldType === 'thumbnail_url') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                thumbnail_url: url,
                               }
                             })
                           }
@@ -2764,19 +2787,28 @@ export function LinksTab() {
                     imageUploading ? "opacity-50 cursor-wait" : "hover:border-violet-400 cursor-pointer"
                   )}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center">
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center",
+                    imageFieldType === 'pdf_file' ? "bg-red-100" : "bg-violet-100"
+                  )}>
                     {imageUploading ? (
-                      <Loader2 className="h-6 w-6 text-violet-600 animate-spin" />
+                      <Loader2 className={cn("h-6 w-6 animate-spin", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
                     ) : (
-                      <Upload className="h-6 w-6 text-violet-600" />
+                      <Upload className={cn("h-6 w-6", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
                     )}
                   </div>
                   <div className="flex-1 text-left">
                     <p className="font-medium">
-                      {imageUploading ? 'Uploading...' : `Upload ${imageFieldType === 'digital_product_file' ? 'file' : 'image'}`}
+                      {imageUploading ? 'Uploading...'
+                        : imageFieldType === 'digital_product_file' ? 'Upload file'
+                        : imageFieldType === 'pdf_file' ? 'Upload PDF'
+                        : imageFieldType === 'thumbnail_url' ? 'Upload thumbnail'
+                        : 'Upload image'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {imageFieldType === 'digital_product_file' ? 'PDF, ZIP, or any file type' : 'JPG, PNG, GIF up to 5MB'}
+                      {imageFieldType === 'digital_product_file' ? 'PDF, ZIP, or any file type'
+                        : imageFieldType === 'pdf_file' ? 'PDF files only'
+                        : 'JPG, PNG, GIF up to 5MB'}
                     </p>
                   </div>
                 </label>
@@ -2785,8 +2817,11 @@ export function LinksTab() {
                 {imageBlockId && (() => {
                   const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
                   if (!block) return null
-                  const data = block.data as EmailCaptureBlockData
-                  const hasFile = imageFieldType === 'digital_product_file' ? data.digital_product_file_url : data.product_image
+                  const data = block.data as any
+                  const hasFile = imageFieldType === 'digital_product_file' ? data.digital_product_file_url
+                    : imageFieldType === 'pdf_file' ? data.pdf_file_url
+                    : imageFieldType === 'thumbnail_url' ? data.thumbnail_url
+                    : data.product_image
                   if (!hasFile) return null
 
                   return (
@@ -2795,12 +2830,20 @@ export function LinksTab() {
                         <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
                           <FileText className="h-5 w-5 text-violet-600" />
                         </div>
+                      ) : imageFieldType === 'pdf_file' ? (
+                        <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                          <FileText className="h-5 w-5 text-red-600" />
+                        </div>
+                      ) : imageFieldType === 'thumbnail_url' ? (
+                        <img src={data.thumbnail_url || ''} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                       ) : (
                         <img src={data.product_image || ''} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {imageFieldType === 'digital_product_file' ? (data.digital_product_title || 'Current file') : 'Current image'}
+                          {imageFieldType === 'digital_product_file' ? (data.digital_product_title || 'Current file')
+                            : imageFieldType === 'pdf_file' ? (data.title || 'PDF file')
+                            : 'Current image'}
                         </p>
                       </div>
                       <button
@@ -2813,6 +2856,20 @@ export function LinksTab() {
                                 digital_product_file_url: null,
                                 digital_product_title: null,
                                 enable_digital_product: false, // Disable when file is removed
+                              }
+                            })
+                          } else if (imageFieldType === 'pdf_file') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                pdf_file_url: null,
+                              }
+                            })
+                          } else if (imageFieldType === 'thumbnail_url') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                thumbnail_url: null,
                               }
                             })
                           } else {
@@ -5723,6 +5780,17 @@ function BlockEditor({
                   </div>
                 )}
               </div>
+
+              {/* See Subscribers Link */}
+              <div className="pt-3 border-t">
+                <a
+                  href="/app/emails"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors"
+                >
+                  <Mail className="w-4 h-4" />
+                  See subscribers
+                </a>
+              </div>
             </TabsContent>
 
             <TabsContent value="layout" className="mt-0 space-y-3">
@@ -6043,34 +6111,45 @@ function BlockEditor({
               {/* PDF File Upload */}
               <div className="space-y-2 pt-2 border-t">
                 <Label className="text-xs">PDF File</Label>
-                <p className="text-[10px] text-muted-foreground">
-                  Upload a PDF file to share with your visitors
-                </p>
-                <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenImageLibrary(block.id, 'pdf_file')}
+                  className="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors"
+                >
                   {data.pdf_file_url ? (
-                    <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
-                      <FileText className="w-5 h-5 text-green-600" />
-                      <span className="flex-1 text-sm text-green-700 truncate">
-                        PDF uploaded
-                      </span>
-                      <button
-                        onClick={() => updateData({ pdf_file_url: null, thumbnail_url: null })}
-                        className="p-1 hover:bg-green-100 rounded transition-colors"
-                      >
-                        <X className="w-4 h-4 text-green-600" />
-                      </button>
+                    <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-red-600" />
                     </div>
                   ) : (
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {data.pdf_file_url ? data.title || "PDF File" : "Upload PDF"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {data.pdf_file_url
+                        ? "Click to change file"
+                        : "Select a PDF from your device"}
+                    </p>
+                  </div>
+                  {data.pdf_file_url ? (
                     <button
                       type="button"
-                      onClick={() => onOpenImageLibrary(block.id, 'pdf_file')}
-                      className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 hover:bg-violet-50/50 transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        updateData({ pdf_file_url: null })
+                      }}
+                      className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                     >
-                      <Upload className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">Upload PDF</span>
+                      <X className="w-4 h-4 text-gray-400 hover:text-red-500" />
                     </button>
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
                   )}
-                </div>
+                </button>
               </div>
 
               {/* Button Text */}
@@ -6085,66 +6164,94 @@ function BlockEditor({
               </div>
             </TabsContent>
 
-            <TabsContent value="layout" className="mt-0 space-y-4">
-              {/* Layout Options */}
-              <div className="space-y-2">
-                <Label className="text-xs">Layout Style</Label>
-                <div className="grid gap-2">
-                  {/* Default Layout */}
-                  <button
-                    type="button"
-                    onClick={() => updateData({ layout_type: 'default' })}
-                    className={cn(
-                      "flex items-start gap-3 p-3 rounded-xl border-2 transition-all text-left",
-                      data.layout_type !== 'pro'
-                        ? "border-violet-500 bg-violet-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    )}
-                  >
-                    <div className="flex items-center justify-center w-4 h-4 mt-0.5 rounded-full border-2 border-current shrink-0">
-                      {data.layout_type !== 'pro' && (
+            <TabsContent value="layout" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+
+              {/* Layout Options Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Default Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    (data.layout_type || 'default') === 'default'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
+                      <FileText className="w-5 h-5 text-red-500" />
+                      <div className="h-2.5 w-16 bg-gray-300 rounded" />
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {(data.layout_type || 'default') === 'default' && (
                         <div className="w-2 h-2 rounded-full bg-violet-500" />
                       )}
                     </div>
-                    <div>
-                      <span className="font-medium text-sm">Default</span>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">Button with document icon</p>
-                    </div>
-                  </button>
+                    <span className="font-medium text-sm">Default</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Button with icon</p>
+                </button>
 
-                  {/* Pro Layout */}
-                  <button
-                    type="button"
-                    onClick={() => updateData({ layout_type: 'pro' })}
-                    className={cn(
-                      "flex items-start gap-3 p-3 rounded-xl border-2 transition-all text-left",
-                      data.layout_type === 'pro'
-                        ? "border-violet-500 bg-violet-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    )}
-                  >
-                    <div className="flex items-center justify-center w-4 h-4 mt-0.5 rounded-full border-2 border-current shrink-0">
+                {/* Pro Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    data.layout_type === 'pro'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-100 to-red-200 shrink-0 flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-red-500" />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-full bg-gray-200 rounded" />
+                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                    )}>
                       {data.layout_type === 'pro' && (
                         <div className="w-2 h-2 rounded-full bg-violet-500" />
                       )}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">Featured</span>
-                        <Sparkles className="w-3 h-3 text-violet-500" />
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">Image, title, description & button</p>
-                    </div>
-                  </button>
-                </div>
+                    <span className="font-medium text-sm">Featured</span>
+                    <Sparkles className="w-3 h-3 text-violet-500" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
+                </button>
               </div>
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (
-                <div className="space-y-2 pt-2 border-t">
+                <div className="space-y-2 pt-3 border-t">
                   <Label className="text-xs">Thumbnail Image</Label>
                   <p className="text-[10px] text-muted-foreground">
-                    Custom thumbnail for the Pro layout (defaults to PDF preview)
+                    Display an image with your PDF (used in Featured layout)
                   </p>
                   <div className="flex gap-2 items-center">
                     {data.thumbnail_url ? (

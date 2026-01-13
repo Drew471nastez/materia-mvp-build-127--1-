@@ -3289,6 +3289,18 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const layoutImage = data.product_image || data.digital_product_thumbnail
       const showThumbnail = isPro && layoutImage
 
+      // Get animation class for email capture blocks
+      const getEmailAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
       // Get button text from custom or preset
       const getButtonText = () => {
         if (emailSubmitted) {
@@ -3316,7 +3328,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
         return (
           <div
-            className="w-full rounded-xl overflow-hidden"
+            className={cn("w-full rounded-xl overflow-hidden", getEmailAnimationClass(data.animation_type))}
             style={{ backgroundColor: `${theme.text_color}08` }}
           >
             <div className="p-3 space-y-2">
@@ -3414,7 +3426,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const isShortButton = buttonText.length <= 12
 
       return (
-        <div className="w-full space-y-2">
+        <div className={cn("w-full space-y-2", getEmailAnimationClass(data.animation_type))}>
           {data.headline && (
             <h3 className={cn(s.headline, "font-semibold text-center")} style={{ color: theme.text_color }}>
               {data.headline}

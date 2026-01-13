@@ -241,6 +241,8 @@ export interface EmailCaptureBlockData {
   email_subject?: string  // Custom email subject
   email_heading?: string  // Custom email heading
   email_body?: string  // Custom email body text
+  // Animation option
+  animation_type?: BlockAnimationType
 }
 
 // PDF document layout types
@@ -545,6 +547,7 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           digital_product_file_url: null,
           layout_type: "default",
           product_image: null,
+          animation_type: "none",
         } as EmailCaptureBlockData,
       }
     case "header":
