@@ -23,6 +23,8 @@ import {
   type ProductBlockData,
   type ProductBlockStyle,
   type ProductButtonStyle,
+  type EmailCaptureButtonPreset,
+  type EmailCaptureLayoutType,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -530,6 +532,7 @@ export function LinksTab() {
   const [socialUrlError, setSocialUrlError] = useState<string | null>(null)
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
+  const [imageFieldType, setImageFieldType] = useState<string | null>(null)
   const [showArchiveView, setShowArchiveView] = useState(false)
 
   // Thumbnail modal state
@@ -1692,7 +1695,7 @@ export function LinksTab() {
                 isFirst={index === 0 || (block.type === "social_row" && (onepage.theme as any)?.header_layout === "hero" && index === sortedBlocks.findIndex(b => b.type === "header") + 1)}
                 isLast={index === sortedBlocks.length - 1}
                 socialLinks={social_links}
-                onOpenImageLibrary={(blockId) => { setImageBlockId(blockId); setShowImageLibrary(true) }}
+                onOpenImageLibrary={(blockId, fieldType) => { setImageBlockId(blockId); setImageFieldType(fieldType || null); setShowImageLibrary(true) }}
                 onOpenSocialModal={() => setShowSocialModal(true)}
                 onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(true); setShowIconLibraryInModal(false) }}
                 iconPaths={THUMBNAIL_ICON_PATHS}
@@ -2656,30 +2659,174 @@ export function LinksTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Image Library Modal */}
-      <Dialog open={showImageLibrary} onOpenChange={setShowImageLibrary}>
+      {/* Image Library Modal / File Upload Modal */}
+      <Dialog open={showImageLibrary} onOpenChange={(open) => {
+        setShowImageLibrary(open)
+        if (!open) {
+          setImageBlockId(null)
+          setImageFieldType(null)
+        }
+      }}>
         <DialogContent className="w-[calc(100%-32px)] max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
           <DialogHeader className="p-4 sm:p-5 border-b">
-            <DialogTitle className="text-base sm:text-lg font-semibold">Choose an Image</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-semibold">
+              {imageFieldType === 'digital_product_file' ? 'Upload Digital File' : imageFieldType === 'product_image' ? 'Product Image' : 'Choose an Image'}
+            </DialogTitle>
           </DialogHeader>
           <div className="p-4 sm:p-5 max-h-[60vh] overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {IMAGE_LIBRARY.map((img) => (
-                <button
-                  key={img.id}
-                  onClick={() => {
-                    if (imageBlockId) {
-                      updateBlock(imageBlockId, { data: { image_url: img.url } })
+            {/* File Upload Section for digital product file or product image */}
+            {(imageFieldType === 'digital_product_file' || imageFieldType === 'product_image') && (
+              <div className="mb-4">
+                <input
+                  type="file"
+                  id="file-upload-input"
+                  accept={imageFieldType === 'digital_product_file' ? '*/*' : 'image/*'}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file || !imageBlockId) return
+
+                    try {
+                      const formData = new FormData()
+                      formData.append('file', file)
+
+                      const response = await fetch('/api/onepage/seller-avatar', {
+                        method: 'POST',
+                        body: formData,
+                      })
+
+                      if (response.ok) {
+                        const { url } = await response.json()
+                        const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                        if (block) {
+                          if (imageFieldType === 'digital_product_file') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                digital_product_file_url: url,
+                                digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
+                              }
+                            })
+                          } else if (imageFieldType === 'product_image') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                product_image: url,
+                              }
+                            })
+                          }
+                        }
+                        setShowImageLibrary(false)
+                        setImageBlockId(null)
+                        setImageFieldType(null)
+                      }
+                    } catch (error) {
+                      console.error('Upload failed:', error)
                     }
-                    setShowImageLibrary(false)
-                    setImageBlockId(null)
+                    e.target.value = ''
                   }}
-                  className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-violet-500 transition-all group"
+                  className="hidden"
+                />
+                <label
+                  htmlFor="file-upload-input"
+                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-violet-400 cursor-pointer transition-colors"
                 >
-                  <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                </button>
-              ))}
-            </div>
+                  <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center">
+                    <Upload className="h-6 w-6 text-violet-600" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-medium">Upload {imageFieldType === 'digital_product_file' ? 'file' : 'image'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {imageFieldType === 'digital_product_file' ? 'PDF, ZIP, or any file type' : 'JPG, PNG, GIF up to 5MB'}
+                    </p>
+                  </div>
+                </label>
+
+                {/* Show current file/image if exists */}
+                {imageBlockId && (() => {
+                  const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                  if (!block) return null
+                  const data = block.data as EmailCaptureBlockData
+                  const hasFile = imageFieldType === 'digital_product_file' ? data.digital_product_file_url : data.product_image
+                  if (!hasFile) return null
+
+                  return (
+                    <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-gray-50 border">
+                      {imageFieldType === 'digital_product_file' ? (
+                        <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
+                          <FileText className="h-5 w-5 text-violet-600" />
+                        </div>
+                      ) : (
+                        <img src={data.product_image || ''} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {imageFieldType === 'digital_product_file' ? (data.digital_product_title || 'Current file') : 'Current image'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (imageFieldType === 'digital_product_file') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                digital_product_file_url: null,
+                                digital_product_title: null,
+                              }
+                            })
+                          } else {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                product_image: null,
+                              }
+                            })
+                          }
+                          setShowImageLibrary(false)
+                          setImageBlockId(null)
+                          setImageFieldType(null)
+                        }}
+                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
+            {/* Show image library only for regular image selection (not file upload) */}
+            {imageFieldType !== 'digital_product_file' && (
+              <>
+                {imageFieldType === 'product_image' && <div className="border-t my-4" />}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {IMAGE_LIBRARY.map((img) => (
+                    <button
+                      key={img.id}
+                      onClick={() => {
+                        if (imageBlockId) {
+                          const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                          if (block) {
+                            if (imageFieldType === 'product_image') {
+                              updateBlock(imageBlockId, { data: { ...block.data, product_image: img.url } })
+                            } else {
+                              updateBlock(imageBlockId, { data: { ...block.data, image_url: img.url } })
+                            }
+                          }
+                        }
+                        setShowImageLibrary(false)
+                        setImageBlockId(null)
+                        setImageFieldType(null)
+                      }}
+                      className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-violet-500 transition-all group"
+                    >
+                      <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -3364,7 +3511,7 @@ interface BlockItemProps {
   isFirst: boolean
   isLast: boolean
   socialLinks: OnePageSocialLinks
-  onOpenImageLibrary: (blockId: string) => void
+  onOpenImageLibrary: (blockId: string, fieldType?: string) => void
   onOpenSocialModal: () => void
   onOpenThumbnailModal?: (blockId: string) => void
   iconPaths: Record<string, string>
@@ -3408,6 +3555,7 @@ function BlockItem({
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAnimationMenu, setShowAnimationMenu] = useState(false)
+  const [showButtonTextMenu, setShowButtonTextMenu] = useState(false)
   const [showStatsModal, setShowStatsModal] = useState(false)
   const [statsData, setStatsData] = useState<{ total_clicks: number; total_views: number; chart_data: { date: string; clicks: number; views: number }[] } | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
@@ -3416,6 +3564,7 @@ function BlockItem({
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
   const animationMenuRef = useRef<HTMLDivElement>(null)
+  const buttonTextMenuRef = useRef<HTMLDivElement>(null)
 
   // Close animation menu when clicking outside
   useEffect(() => {
@@ -3429,6 +3578,19 @@ function BlockItem({
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showAnimationMenu])
+
+  // Close button text menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (buttonTextMenuRef.current && !buttonTextMenuRef.current.contains(e.target as Node)) {
+        setShowButtonTextMenu(false)
+      }
+    }
+    if (showButtonTextMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showButtonTextMenu])
 
   // Fetch stats when modal is opened or timeframe changes
   const fetchStats = async (days?: number, startDate?: string, endDate?: string) => {
@@ -3712,6 +3874,70 @@ function BlockItem({
           </div>
         )}
 
+        {/* Button Text selector for email capture blocks */}
+        {isEmailCapture && (
+          <div className="relative" ref={buttonTextMenuRef}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowButtonTextMenu(!showButtonTextMenu)
+              }}
+              className={cn(
+                "p-1.5 rounded-lg transition-colors",
+                (block.data as EmailCaptureBlockData).button_preset && (block.data as EmailCaptureBlockData).button_preset !== 'subscribe'
+                  ? "text-violet-600 bg-violet-50 hover:bg-violet-100"
+                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              )}
+              title="Button Text"
+            >
+              <Type className="h-4 w-4" />
+            </button>
+
+            {/* Button text dropdown menu */}
+            {showButtonTextMenu && (
+              <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                {[
+                  { id: 'subscribe', label: 'Subscribe' },
+                  { id: 'join', label: 'Join Now' },
+                  { id: 'get_access', label: 'Get Access' },
+                  { id: 'download', label: 'Download' },
+                  { id: 'sign_up', label: 'Sign Up' },
+                  { id: 'unlock', label: 'Unlock Now' },
+                ].map((preset) => {
+                  const currentPreset = (block.data as EmailCaptureBlockData).button_preset || 'subscribe'
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        updateBlock(block.id, {
+                          data: {
+                            ...block.data,
+                            button_preset: preset.id as EmailCaptureButtonPreset,
+                            custom_button_text: preset.label
+                          }
+                        })
+                        setShowButtonTextMenu(false)
+                      }}
+                      className={cn(
+                        "w-full px-3 py-1.5 text-left text-sm transition-colors flex items-center justify-between",
+                        currentPreset === preset.id
+                          ? "bg-violet-50 text-violet-700 font-medium"
+                          : "text-gray-700 hover:bg-gray-50"
+                      )}
+                    >
+                      <span>{preset.label}</span>
+                      {currentPreset === preset.id && <Check className="h-3.5 w-3.5" />}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Stats control for link buttons and email capture */}
         {hasStats && (
           <>
@@ -3987,7 +4213,7 @@ function BlockEditor({
 }: {
   block: OnePageBlock
   socialLinks: OnePageSocialLinks
-  onOpenImageLibrary: (blockId: string) => void
+  onOpenImageLibrary: (blockId: string, fieldType?: string) => void
   onOpenSocialModal: () => void
   onOpenThumbnailModal?: (blockId: string) => void
   iconPaths?: Record<string, string>
@@ -5435,97 +5661,52 @@ function BlockEditor({
                       </div>
                     </div>
 
-                    {/* Digital Product Picker */}
+                    {/* Digital Product File Picker */}
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Select Digital Product</Label>
-                      <div className="relative" ref={productDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setShowProductDropdown(!showProductDropdown)}
-                          className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                        >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            {selectedDigitalProduct?.thumbnail_url && (
-                              <img
-                                src={selectedDigitalProduct.thumbnail_url}
-                                alt=""
-                                className="w-6 h-6 rounded object-cover shrink-0"
-                              />
-                            )}
-                            <span className="truncate">
-                              {selectedDigitalProduct ? selectedDigitalProduct.title : "Select a product..."}
-                            </span>
-                            {selectedDigitalProduct && (
-                              <span className="text-xs text-muted-foreground shrink-0">
-                                {selectedDigitalProduct.price_cents > 0 ? `$${(selectedDigitalProduct.price_cents / 100).toFixed(2)}` : 'Free'}
-                              </span>
-                            )}
+                      <Label className="text-xs">Digital Product File</Label>
+                      <button
+                        type="button"
+                        onClick={() => onOpenImageLibrary(block.id, 'digital_product_file')}
+                        className="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors"
+                      >
+                        {data.digital_product_file_url ? (
+                          <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
+                            <FileText className="w-5 h-5 text-violet-600" />
                           </div>
-                          <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform ml-2", showProductDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {showProductDropdown && (
-                          <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[240px] overflow-y-auto">
-                            {effectiveSellerProducts?.filter(p => p.price_cents === 0 || !p.price_cents).length === 0 ? (
-                              <div className="px-3 py-4 text-center">
-                                <p className="text-sm text-muted-foreground mb-3">No free products found.</p>
-                                <a
-                                  href="/app/products/new"
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                  Add Product
-                                </a>
-                              </div>
-                            ) : (
-                              effectiveSellerProducts?.filter(p => p.price_cents === 0 || !p.price_cents).map((product) => (
-                                <button
-                                  key={product.id}
-                                  type="button"
-                                  onClick={() => {
-                                    updateData({
-                                      digital_product_id: product.id,
-                                      digital_product_title: product.title,
-                                      digital_product_thumbnail: product.thumbnail_url || null,
-                                      digital_product_file_url: product.digital_file_url || null,
-                                    })
-                                    setShowProductDropdown(false)
-                                  }}
-                                  className={cn(
-                                    "w-full px-3 py-2.5 text-left text-sm transition-colors flex items-center gap-2",
-                                    data.digital_product_id === product.id
-                                      ? "bg-violet-50 text-violet-700"
-                                      : "text-gray-700 hover:bg-gray-50"
-                                  )}
-                                >
-                                  {product.thumbnail_url && (
-                                    <img
-                                      src={product.thumbnail_url}
-                                      alt=""
-                                      className="w-8 h-8 rounded-lg object-cover shrink-0"
-                                    />
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className={cn("font-medium truncate", data.digital_product_id === product.id && "text-violet-700")}>
-                                      {product.title}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">Free</p>
-                                  </div>
-                                  {data.digital_product_id === product.id && (
-                                    <Check className="w-4 h-4 text-violet-600 shrink-0" />
-                                  )}
-                                </button>
-                              ))
-                            )}
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                            <Upload className="w-5 h-5 text-gray-400" />
                           </div>
                         )}
-                      </div>
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="text-xs font-medium truncate">
+                            {data.digital_product_title || "Upload file"}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {data.digital_product_file_url
+                              ? "Click to change file"
+                              : "PDF, ZIP, or any file type"}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                      </button>
+
+                      {data.digital_product_file_url && (
+                        <div className="space-y-1.5 mt-2">
+                          <Label className="text-[10px]">File Name (shown in email)</Label>
+                          <Input
+                            value={data.digital_product_title || ""}
+                            onChange={(e) => updateData({ digital_product_title: e.target.value })}
+                            className="h-8 text-xs"
+                            placeholder="My Free Guide"
+                          />
+                        </div>
+                      )}
                     </div>
 
-                    {data.digital_product_id && selectedDigitalProduct && (
+                    {data.digital_product_file_url && (
                       <p className="text-[10px] text-muted-foreground bg-violet-50 p-2 rounded-lg">
-                        When visitors subscribe, they'll receive "{selectedDigitalProduct.title}" via email and can download it directly.
+                        When visitors subscribe, they'll receive "{data.digital_product_title || 'your file'}" via email with a download button.
                       </p>
                     )}
                   </div>
