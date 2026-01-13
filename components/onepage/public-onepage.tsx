@@ -3844,9 +3844,9 @@ function PublicBlockRenderer({
               </div>
               {/* Form - Responsive layout based on button text length */}
               {(() => {
-                const buttonTextLength = getButtonText().length
-                const isShortButton = buttonTextLength <= 12
-                
+                const buttonText = getButtonText()
+                const isShortButton = buttonText.length <= 12
+
                 return (
                   <form onSubmit={handleSubmit} className={cn(
                     "gap-2",
@@ -3861,7 +3861,7 @@ function PublicBlockRenderer({
                       disabled={isSubmitting}
                       className={cn(
                         "px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70",
-                        isShortButton ? "flex-1 min-w-0" : "w-full"
+                        isShortButton ? "flex-[2] min-w-0" : "w-full"
                       )}
                       style={{ color: "#000" }}
                     />
@@ -3872,7 +3872,7 @@ function PublicBlockRenderer({
                         className={cn(
                           "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity whitespace-nowrap",
                           !isInsideCarousel && "hover:opacity-90",
-                          isShortButton ? "shrink-0" : "w-full"
+                          isShortButton ? "shrink-0 flex-1" : "w-full"
                         )}
                         style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
                       >
@@ -3885,11 +3885,11 @@ function PublicBlockRenderer({
                         className={cn(
                           "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap",
                           !isInsideCarousel && "hover:opacity-90",
-                          isShortButton ? "shrink-0" : "w-full"
+                          isShortButton ? "shrink-0 flex-1" : "w-full"
                         )}
                         style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
                       >
-                        {isSubmitting ? "..." : getButtonText()}
+                        {isSubmitting ? "..." : buttonText}
                       </button>
                     )}
                   </form>
@@ -3908,6 +3908,9 @@ function PublicBlockRenderer({
       }
 
       // Default layout
+      const buttonText = getButtonText()
+      const isShortButton = buttonText.length <= 12
+
       return (
         <div
           className="w-full p-5 sm:p-6 rounded-xl sm:rounded-2xl"
@@ -3925,58 +3928,51 @@ function PublicBlockRenderer({
             </p>
           )}
           {/* Form - Responsive layout based on button text length */}
-          {(() => {
-            const buttonTextLength = getButtonText().length
-            const isShortButton = buttonTextLength <= 12
-            
-            return (
-              <form onSubmit={handleSubmit} className={cn(
-                "gap-2",
-                isShortButton ? "flex flex-row" : "flex flex-col"
-              )}>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={handleEmailChange}
-                  placeholder={data.placeholder || "Enter your email"}
-                  required
-                  disabled={isSubmitting}
-                  className={cn(
-                    "px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70",
-                    isShortButton ? "flex-1 min-w-0" : "w-full"
-                  )}
-                  style={{ color: "#000" }}
-                />
-                {emailSubmitted && downloadLink ? (
-                  <button
-                    type="button"
-                    onClick={handleDownloadClick}
-                    className={cn(
-                      "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity whitespace-nowrap",
-                      !isInsideCarousel && "hover:opacity-90",
-                      isShortButton ? "shrink-0" : "w-full"
-                    )}
-                    style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
-                  >
-                    Download
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || emailSubmitted}
-                    className={cn(
-                      "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap",
-                      !isInsideCarousel && "hover:opacity-90",
-                      isShortButton ? "shrink-0" : "w-full"
-                    )}
-                    style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
-                  >
-                    {isSubmitting ? "..." : getButtonText()}
-                  </button>
+          <form onSubmit={handleSubmit} className={cn(
+            "gap-2",
+            isShortButton ? "flex flex-row" : "flex flex-col"
+          )}>
+            <input
+              type="email"
+              value={email}
+              onChange={handleEmailChange}
+              placeholder={data.placeholder || "Enter your email"}
+              required
+              disabled={isSubmitting}
+              className={cn(
+                "px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70",
+                isShortButton ? "flex-[2] min-w-0" : "w-full"
+              )}
+              style={{ color: "#000" }}
+            />
+            {emailSubmitted && downloadLink ? (
+              <button
+                type="button"
+                onClick={handleDownloadClick}
+                className={cn(
+                  "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity whitespace-nowrap",
+                  !isInsideCarousel && "hover:opacity-90",
+                  isShortButton ? "shrink-0 flex-1" : "w-full"
                 )}
-              </form>
-            )
-          })()}
+                style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+              >
+                Download
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting || emailSubmitted}
+                className={cn(
+                  "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap",
+                  !isInsideCarousel && "hover:opacity-90",
+                  isShortButton ? "shrink-0 flex-1" : "w-full"
+                )}
+                style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+              >
+                {isSubmitting ? "..." : buttonText}
+              </button>
+            )}
+          </form>
           {emailSubmitted && (
             <p className="text-xs text-center mt-2 opacity-70" style={{ color: theme.text_color }}>
               {data.success_message || "Thanks for subscribing!"}

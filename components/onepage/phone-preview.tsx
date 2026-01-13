@@ -3283,29 +3283,38 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
     case "email_capture": {
       const data = block.data as EmailCaptureBlockData
       const isPro = data.layout_type === "pro"
-      const hasDigitalProduct = data.enable_digital_product && data.digital_product_id
-      const showThumbnail = isPro && hasDigitalProduct && data.digital_product_thumbnail
-      
+      const hasDigitalProduct = data.enable_digital_product && data.digital_product_file_url
+      // Pro layout shows thumbnail from product_image or digital_product_thumbnail
+      const layoutImage = data.product_image || data.digital_product_thumbnail
+      const showThumbnail = isPro && layoutImage
+
       // Get button text from custom or preset
       const getButtonText = () => {
         if (emailSubmitted) {
           return hasDigitalProduct ? "Download" : "Subscribed!"
         }
-        if (data.custom_button_text) return data.custom_button_text
+        // Check for custom preset with custom_button_text
+        if (data.button_preset === 'custom' && data.custom_button_text) {
+          return data.custom_button_text
+        }
         const presetLabels: Record<string, string> = {
           subscribe: 'Subscribe',
           join: 'Join Now',
           get_access: 'Get Access',
           download: 'Download',
           sign_up: 'Sign Up',
+          unlock: 'Unlock Now',
         }
         return presetLabels[data.button_preset || 'subscribe'] || data.button_text || "Subscribe"
       }
 
       // Pro layout with thumbnail
       if (isPro && showThumbnail) {
+        const buttonText = getButtonText()
+        const isShortButton = buttonText.length <= 12
+
         return (
-          <div 
+          <div
             className="w-full rounded-xl overflow-hidden"
             style={{ backgroundColor: `${theme.text_color}08` }}
           >
@@ -3313,7 +3322,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               {/* Product row */}
               <div className="flex gap-2.5 items-start">
                 <img
-                  src={data.digital_product_thumbnail || ""}
+                  src={layoutImage || ""}
                   alt=""
                   className="w-11 h-11 rounded-lg object-cover shrink-0"
                 />
@@ -3333,22 +3342,35 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   )}
                 </div>
               </div>
-              {/* Input row */}
-              <div className="flex flex-col gap-1.5">
+              {/* Input row - responsive layout */}
+              <div className={cn(
+                "gap-1.5",
+                isShortButton ? "flex flex-row" : "flex flex-col"
+              )}>
                 <input
                   type="email"
                   placeholder={data.placeholder || "Enter your email"}
-                  className={cn(s.input, "w-full rounded-lg bg-white/90 border-0 outline-none", emailSubmitted && "opacity-70")}
+                  className={cn(
+                    s.input,
+                    "rounded-lg bg-white/90 border-0 outline-none",
+                    emailSubmitted && "opacity-70",
+                    isShortButton ? "flex-1 min-w-0" : "w-full"
+                  )}
                   style={{ color: "#000" }}
                   disabled={emailSubmitted}
                 />
                 <button
                   onClick={() => setEmailSubmitted(true)}
                   disabled={emailSubmitted}
-                  className={cn(s.inputBtn, "w-full font-medium", emailSubmitted && "opacity-70")}
+                  className={cn(
+                    s.inputBtn,
+                    "font-medium whitespace-nowrap",
+                    emailSubmitted && "opacity-70",
+                    isShortButton ? "shrink-0 px-3" : "w-full"
+                  )}
                   style={buttonStyles}
                 >
-                  {getButtonText()}
+                  {buttonText}
                 </button>
               </div>
             </div>
@@ -3364,6 +3386,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       }
 
       // Default layout
+      const buttonText = getButtonText()
+      const isShortButton = buttonText.length <= 12
+
       return (
         <div className="w-full space-y-2">
           {data.headline && (
@@ -3380,43 +3405,36 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             </p>
           )}
           {/* Responsive layout based on button text length */}
-          {(() => {
-            const buttonTextLength = getButtonText().length
-            const isShortButton = buttonTextLength <= 12
-            
-            return (
-              <div className={cn(
-                "gap-1.5",
-                isShortButton ? "flex flex-row" : "flex flex-col"
-              )}>
-                <input
-                  type="email"
-                  placeholder={data.placeholder || "Enter your email"}
-                  className={cn(
-                    s.input, 
-                    "rounded-lg bg-white/10 border-0 outline-none", 
-                    emailSubmitted && "opacity-70",
-                    isShortButton ? "flex-1 min-w-0" : "w-full"
-                  )}
-                  style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
-                  disabled={emailSubmitted}
-                />
-                <button
-                  onClick={() => setEmailSubmitted(true)}
-                  disabled={emailSubmitted}
-                  className={cn(
-                    s.inputBtn, 
-                    "font-medium whitespace-nowrap", 
-                    emailSubmitted && "opacity-70",
-                    isShortButton ? "shrink-0" : "w-full"
-                  )}
-                  style={buttonStyles}
-                >
-                  {getButtonText()}
-                </button>
-              </div>
-            )
-          })()}
+          <div className={cn(
+            "gap-1.5",
+            isShortButton ? "flex flex-row" : "flex flex-col"
+          )}>
+            <input
+              type="email"
+              placeholder={data.placeholder || "Enter your email"}
+              className={cn(
+                s.input,
+                "rounded-lg bg-white/10 border-0 outline-none",
+                emailSubmitted && "opacity-70",
+                isShortButton ? "flex-[2] min-w-0" : "w-full"
+              )}
+              style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
+              disabled={emailSubmitted}
+            />
+            <button
+              onClick={() => setEmailSubmitted(true)}
+              disabled={emailSubmitted}
+              className={cn(
+                s.inputBtn,
+                "font-medium whitespace-nowrap",
+                emailSubmitted && "opacity-70",
+                isShortButton ? "shrink-0 flex-1 px-2" : "w-full"
+              )}
+              style={buttonStyles}
+            >
+              {buttonText}
+            </button>
+          </div>
           {emailSubmitted && (
             <p className="text-[9px] text-center opacity-70" style={{ color: theme.text_color }}>
               {data.success_message || "Thanks for subscribing!"}
