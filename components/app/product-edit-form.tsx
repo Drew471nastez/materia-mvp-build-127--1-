@@ -1,0 +1,470 @@
+"use client"
+
+import type React from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
+import {
+  ArrowLeft,
+  Trash2,
+  ExternalLink,
+  Copy,
+  Check,
+  AlertCircle,
+  Loader2,
+  Plus,
+  X,
+  Lock,
+  GripVertical,
+} from "lucide-react"
+import Link from "next/link"
+import { CategoriesSelector } from "@/components/app/categories-selector"
+import type { Product, DigitalAsset } from "@/lib/types"
+import { FileUpload } from "@/components/app/file-upload"
+import { ImageUpload } from "@/components/app/image-upload"
+import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
+
+interface ProductEditFormProps {
+  product: Product & {
+    gallery_urls?: string[]
+    whats_included?: string[]
+    show_sales_badge?: boolean
+  }
+  assets: DigitalAsset[]
+  creatorId: string
+}
+
+const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
+
+export function ProductEditForm({ product, assets: initialAssets, creatorId }: ProductEditFormProps) {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [assets, setAssets] = useState(initialAssets)
+
+  const [title, setTitle] = useState(product.title)
+  const [description, setDescription] = useState(product.description || "")
+  const [price, setPrice] = useState((product.price_cents / 100).toString())
+  const [compareAtPrice, setCompareAtPrice] = useState(
+    product.compare_at_cents ? (product.compare_at_cents / 100).toString() : "",
+  )
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(product.thumbnail_url)
+  const [galleryUrls, setGalleryUrls] = useState<string[]>(product.gallery_urls || [])
+  const [status, setStatus] = useState(product.status)
+
+  const initialWhatsIncluded =
+    product.whats_included && product.whats_included.length > 0 ? product.whats_included : [...DEFAULT_WHATS_INCLUDED]
+  const [whatsIncluded, setWhatsIncluded] = useState<string[]>(initialWhatsIncluded)
+  const [newIncludeItem, setNewIncludeItem] = useState("")
+  const [showSalesBadge, setShowSalesBadge] = useState(product.show_sales_badge !== false)
+
+  const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      const supabase = createClient()
+      const { data } = await supabase.from("product_categories").select("category_id").eq("product_id", product.id)
+
+      if (data && data.length > 0) {
+        setCategoryId(data[0].category_id)
+      }
+      setIsLoadingCategories(false)
+    }
+
+    loadCategories()
+  }, [product.id])
+
+  const canPublish = !!thumbnailUrl && (product.type !== "digital" || assets.length > 0)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError(null)
+
+    const supabase = createClient()
+
+    try {
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({
+          title,
+          description,
+          price_cents: Math.round(Number.parseFloat(price) * 100),
+          compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
+          thumbnail_url: thumbnailUrl,
+          gallery_urls: galleryUrls,
+          status,
+          whats_included: whatsIncluded,
+          show_sales_badge: showSalesBadge,
+        })
+        .eq("id", product.id)
+
+      if (updateError) throw updateError
+
+      await supabase.from("product_categories").delete().eq("product_id", product.id)
+
+      if (categoryId) {
+        await supabase.from("product_categories").insert({
+          product_id: product.id,
+          category_id: categoryId,
+        })
+      }
+
+      router.refresh()
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "An error occurred")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this product? This action cannot be undone.")) return
+
+    const supabase = createClient()
+    const { error } = await supabase.from("products").delete().eq("id", product.id)
+
+    if (error) {
+      setError(error.message)
+    } else {
+      router.push("/app/products")
+    }
+  }
+
+  const togglePublish = async () => {
+    if (status === "draft") {
+      if (!thumbnailUrl) {
+        setError("Please upload a cover image before publishing")
+        return
+      }
+      if (product.type === "digital" && assets.length === 0) {
+        setError("Please upload at least one file before publishing a digital product")
+        return
+      }
+    }
+
+    const newStatus = status === "published" ? "draft" : "published"
+    setStatus(newStatus)
+
+    const supabase = createClient()
+    await supabase.from("products").update({ status: newStatus }).eq("id", product.id)
+
+    router.refresh()
+  }
+
+  const copyProductLink = () => {
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
+    navigator.clipboard.writeText(`${baseUrl}/p/${product.slug}`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const addIncludeItem = () => {
+    if (newIncludeItem.trim() && whatsIncluded.length < 10) {
+      setWhatsIncluded([...whatsIncluded, newIncludeItem.trim()])
+      setNewIncludeItem("")
+    }
+  }
+
+  const removeIncludeItem = (index: number) => {
+    if (index < DEFAULT_WHATS_INCLUDED.length) return
+    setWhatsIncluded(whatsIncluded.filter((_, i) => i !== index))
+  }
+
+  const isDefaultItem = (index: number) => index < DEFAULT_WHATS_INCLUDED.length
+
+  const updateIncludeItem = (index: number, value: string) => {
+    const updated = [...whatsIncluded]
+    updated[index] = value
+    setWhatsIncluded(updated)
+  }
+
+  return (
+    <div className="min-h-screen bg-background p-8">
+      <div className="mb-8">
+        <Link
+          href="/app/products"
+          className="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to products
+        </Link>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">{product.title}</h1>
+            <div className="mt-1 flex items-center gap-2">
+              <Badge variant={status === "published" ? "default" : "outline"} className="capitalize">
+                {status}
+              </Badge>
+              <Badge variant="secondary" className="capitalize">
+                {product.type}
+              </Badge>
+              {product.sales_count > 0 && (
+                <span className="text-sm text-muted-foreground">{product.sales_count} sales</span>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {status === "published" && (
+              <>
+                <Button variant="outline" size="icon" onClick={copyProductLink} title="Copy product link">
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <Button variant="outline" size="icon" asChild title="View product page">
+                  <a href={`/p/${product.slug}`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </>
+            )}
+            <Button
+              variant={status === "published" ? "outline" : "default"}
+              onClick={togglePublish}
+              disabled={!canPublish && status === "draft"}
+            >
+              {status === "published" ? "Unpublish" : "Publish"}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {!thumbnailUrl && (
+        <div className="mb-6 flex items-center gap-2 rounded-lg border border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Upload a cover image to publish this product</span>
+        </div>
+      )}
+      {product.type === "digital" && assets.length === 0 && (
+        <div className="mb-6 flex items-center gap-2 rounded-lg border border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Upload at least one file to publish this digital product</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle>Cover Image</CardTitle>
+            <CardDescription>Required. This is the main image customers will see.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ImageUpload
+              bucket="product-images"
+              folder={`${creatorId}/${product.id}`}
+              value={thumbnailUrl || undefined}
+              onChange={(url) => setThumbnailUrl(url)}
+              aspectRatio="video"
+              maxSizeMB={10}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle>Gallery Images</CardTitle>
+            <CardDescription>Optional. Drag to reorder images.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DraggableGalleryUpload
+              folder={`${creatorId}/${product.id}/gallery`}
+              value={galleryUrls}
+              onChange={setGalleryUrls}
+              maxImages={8}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle>Product Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                placeholder="Describe what's included in this product..."
+              />
+            </div>
+            <div className="grid gap-2">
+              {isLoadingCategories ? (
+                <div className="text-sm text-muted-foreground">Loading categories...</div>
+              ) : (
+                <CategoriesSelector selectedCategory={categoryId} onChange={setCategoryId} />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle>What&apos;s Included</CardTitle>
+            <CardDescription>
+              Customize the bullet points shown on the product page. Default items (with lock icon) cannot be deleted
+              but can be edited.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. 50+ premium templates"
+                value={newIncludeItem}
+                onChange={(e) => setNewIncludeItem(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addIncludeItem())}
+              />
+              <Button type="button" variant="outline" onClick={addIncludeItem} disabled={whatsIncluded.length >= 10}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {whatsIncluded.length > 0 && (
+              <ul className="space-y-2">
+                {whatsIncluded.map((item, index) => (
+                  <li key={index} className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2 flex-1">
+                      {isDefaultItem(index) ? (
+                        <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <Check className="h-4 w-4 text-green-600 shrink-0" />
+                      <Input
+                        value={item}
+                        onChange={(e) => updateIncludeItem(index, e.target.value)}
+                        className="border-0 p-0 h-auto text-sm focus-visible:ring-0"
+                      />
+                    </div>
+                    {!isDefaultItem(index) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => removeIncludeItem(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle>Pricing</CardTitle>
+            <CardDescription>Set your price and optional sale pricing</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="price">Price (USD)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="compareAtPrice">Compare at price (optional)</Label>
+                <Input
+                  id="compareAtPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Original price for sales"
+                  value={compareAtPrice}
+                  onChange={(e) => setCompareAtPrice(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div>
+                <p className="font-medium">Show sales badge</p>
+                <p className="text-sm text-muted-foreground">Display number of sales on product page</p>
+              </div>
+              <Switch checked={showSalesBadge} onCheckedChange={setShowSalesBadge} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {product.type === "digital" && (
+          <Card className="border-border">
+            <CardHeader>
+              <CardTitle>Digital Files</CardTitle>
+              <CardDescription>Upload the files customers will receive after purchase (max 1GB each)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FileUpload
+                productId={product.id}
+                existingFiles={assets.map((a) => ({
+                  id: a.id,
+                  file_name: a.file_name,
+                  file_path: a.file_path,
+                  file_size: a.file_size || 0,
+                }))}
+                onUploadComplete={(files) =>
+                  setAssets(
+                    files.map((f) => ({
+                      id: f.id || "",
+                      product_id: product.id,
+                      file_name: f.file_name,
+                      file_path: f.file_path,
+                      file_size: f.file_size,
+                      created_at: new Date().toISOString(),
+                    })),
+                  )
+                }
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {error && <div className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
+
+        <div className="flex justify-between">
+          <div className="flex gap-4">
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
+            <Button type="button" variant="outline" asChild>
+              <Link href="/app/products">Cancel</Link>
+            </Button>
+          </div>
+          <Button type="button" variant="destructive" onClick={handleDelete}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}

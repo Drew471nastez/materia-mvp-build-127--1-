@@ -1,0 +1,200 @@
+import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Search, Users } from "lucide-react"
+
+export const metadata = {
+  title: "Customers | Materia",
+}
+
+export default async function CustomersPage() {
+  const supabase = await createClient()
+  const admin = createAdminClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
+
+  if (!creator) {
+    redirect("/onboarding")
+  }
+
+  // Fetch customers
+  const { data: customers } = await admin
+    .from("customers")
+    .select("*")
+    .eq("creator_id", creator.id)
+    .order("created_at", { ascending: false })
+
+  // Fetch orders with product info for each customer
+  const { data: allOrders } = await admin
+    .from("orders")
+    .select(`
+      *,
+      product:products(id, title, type)
+    `)
+    .in(
+      "product_id",
+      (await admin.from("products").select("id").eq("creator_id", creator.id)).data?.map((p) => p.id) || [],
+    )
+    .order("created_at", { ascending: false })
+
+  const formatPrice = (cents: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(cents / 100)
+  }
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+  }
+
+  const getCustomerOrders = (email: string) => {
+    return allOrders?.filter((o) => o.buyer_email === email) || []
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Customers</h1>
+        <p className="text-muted-foreground">Manage your customer relationships</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Search className="h-5 w-5 text-muted-foreground" />
+            <Input
+              placeholder="Search through customers and orders..."
+              className="border-0 shadow-none focus-visible:ring-0"
+            />
+          </div>
+        </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Customers ({customers?.length || 0})</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 sm:p-6 sm:pt-0">
+          {customers && customers.length > 0 ? (
+            <>
+              {/* Mobile view */}
+              <div className="divide-y divide-border sm:hidden">
+                {customers.map((customer) => {
+                  const orders = getCustomerOrders(customer.email)
+                  const lastOrder = orders[0]
+                  return (
+                    <div key={customer.id} className="p-4 space-y-3">
+                      <div>
+                        <p className="font-medium">
+                          {customer.first_name} {customer.last_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground truncate">{customer.email}</p>
+                        {customer.city && customer.country && (
+                          <p className="text-xs text-muted-foreground">
+                            {customer.city}, {customer.country}
+                          </p>
+                        )}
+                      </div>
+                      {lastOrder && (
+                        <div className="text-sm">
+                          <p className="font-medium truncate">{lastOrder.product?.title}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-muted-foreground">{formatDate(lastOrder.created_at)}</span>
+                            <span className="font-medium">{formatPrice(lastOrder.amount_cents)}</span>
+                          </div>
+                          <Badge variant="secondary" className="mt-2 capitalize text-xs">
+                            {lastOrder.provider}
+                          </Badge>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>
+                          {orders.length} order{orders.length !== 1 ? "s" : ""}
+                        </span>
+                        <span>Total: {formatPrice(customer.total_spent_cents)}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Desktop view */}
+              <div className="hidden sm:block table-scroll">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Customer</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Location</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Last Order</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Orders</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Total Spent</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Joined</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customers.map((customer) => {
+                      const orders = getCustomerOrders(customer.email)
+                      const lastOrder = orders[0]
+                      return (
+                        <tr key={customer.id} className="border-b border-border last:border-0">
+                          <td className="px-4 py-3">
+                            <div className="font-medium">
+                              {customer.first_name} {customer.last_name}
+                            </div>
+                            <div className="text-sm text-muted-foreground">{customer.email}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
+                            {customer.city && customer.country ? `${customer.city}, ${customer.country}` : "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            {lastOrder ? (
+                              <div>
+                                <div className="text-sm font-medium">{lastOrder.product?.title}</div>
+                                <div className="text-xs text-muted-foreground">{formatDate(lastOrder.created_at)}</div>
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">{orders.length}</td>
+                          <td className="px-4 py-3 text-sm font-medium">{formatPrice(customer.total_spent_cents)}</td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                            {formatDate(customer.created_at)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <div className="py-12 text-center px-4">
+              <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <p className="mt-4 text-muted-foreground">No customers yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Customers will appear here when they purchase your products.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

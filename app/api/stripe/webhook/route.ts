@@ -1,0 +1,316 @@
+import { NextResponse } from "next/server"
+import { headers } from "next/headers"
+import type Stripe from "stripe"
+import { stripe } from "@/lib/stripe"
+import { createClient } from "@supabase/supabase-js"
+import { generateReceiptToken } from "@/lib/security"
+import { sendOrderEmails } from "@/lib/email"
+
+const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+export async function POST(request: Request) {
+  console.log("[v0] Webhook received")
+
+  const body = await request.text()
+  const headersList = await headers()
+  const signature = headersList.get("stripe-signature")
+
+  if (!signature) {
+    console.error("[v0] Missing Stripe signature")
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 })
+  }
+
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error("[v0] Missing STRIPE_WEBHOOK_SECRET env")
+    return NextResponse.json({ error: "Missing webhook secret" }, { status: 500 })
+  }
+
+  let event: Stripe.Event
+  try {
+    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
+    console.log("[v0] Webhook event type:", event.type)
+  } catch (err) {
+    console.error("[v0] Signature verification failed:", err)
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
+  }
+
+  // --------------------------------------------
+  // ✅ MAIN PAID FLOW
+  // --------------------------------------------
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session
+
+    console.log("[v0] Processing checkout session:", session.id)
+
+    // NOTE: For card payments, this should already be "paid".
+    // If you support async methods, you might want to also handle checkout.session.async_payment_succeeded.
+    if (session.payment_status !== "paid") {
+      console.log("[v0] Payment not completed yet:", session.payment_status)
+      return NextResponse.json({ received: true, message: "Payment not completed" })
+    }
+
+    const metadata = session.metadata || {}
+    const productId = metadata.product_id
+    const creatorId = metadata.creator_id
+    const buyerId = metadata.buyer_id || null
+
+    const buyerEmail = (session.customer_details?.email || metadata.buyer_email || "").toString()
+    const buyerFirstName = (metadata.buyer_first_name || "").toString()
+    const buyerLastName = (metadata.buyer_last_name || "").toString()
+
+    const tipCents = Number.parseInt(metadata.tip_cents || "0", 10) || 0
+    const accessToken = metadata.access_token || null
+    const sessionFingerprint = metadata.session_fingerprint || null
+    const receiptToken = metadata.receipt_token || generateReceiptToken()
+
+    console.log("[v0] Session metadata:", { productId, creatorId, buyerId, buyerEmail })
+
+    if (!productId || !creatorId) {
+      console.error("[v0] Missing required metadata:", { productId, creatorId })
+      return NextResponse.json({ error: "Missing metadata" }, { status: 400 })
+    }
+
+    // idempotency: prevent duplicates
+    const { data: existingOrder } = await supabaseAdmin
+      .from("orders")
+      .select("id")
+      .eq("stripe_session_id", session.id)
+      .maybeSingle()
+
+    if (existingOrder) {
+      console.log("[v0] Order already exists:", existingOrder.id)
+      return NextResponse.json({ received: true, message: "Already processed" })
+    }
+
+    const totalAmount = session.amount_total || 0
+
+    // your platform fee logic (kept)
+    const platformFeeCents =
+      Number.parseInt(metadata.platform_fee_cents || "0", 10) || Math.round(totalAmount * 0.06) + 30
+
+    let applicationFeeAmount = platformFeeCents
+    let transferId: string | null = null
+    let destinationPaymentId: string | null = null
+
+    try {
+      if (session.payment_intent) {
+        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string, {
+          expand: ["charges", "transfer"],
+        })
+
+        if (paymentIntent.application_fee_amount) {
+          applicationFeeAmount = paymentIntent.application_fee_amount
+        }
+
+        if (paymentIntent.transfer) {
+          transferId = typeof paymentIntent.transfer === "string" ? paymentIntent.transfer : paymentIntent.transfer.id
+        }
+
+        if (paymentIntent.charges?.data?.[0]) {
+          destinationPaymentId = (paymentIntent.charges.data[0].destination_payment as string) || null
+        }
+
+        console.log("[v0] Payment Intent details:", {
+          id: paymentIntent.id,
+          application_fee_amount: applicationFeeAmount,
+          transfer: transferId,
+          destination_payment: destinationPaymentId,
+        })
+      }
+    } catch (error) {
+      console.error("[v0] Failed to retrieve payment intent details:", error)
+    }
+
+    // Get product title for email subject + seller email
+    let productTitle = (metadata.product_title || "").toString().trim()
+    if (!productTitle) {
+      const { data: productRow } = await supabaseAdmin.from("products").select("title").eq("id", productId).maybeSingle()
+      productTitle = productRow?.title || "Product"
+    }
+
+    const orderData: any = {
+      buyer_id: buyerId || null,
+      buyer_first_name: buyerFirstName || null,
+      buyer_last_name: buyerLastName || null,
+      buyer_email: buyerEmail || null,
+
+      creator_id: creatorId, // IMPORTANT (some flows need it)
+      product_id: productId,
+
+      amount_cents: totalAmount,
+      tip_cents: tipCents,
+
+      // kept your fee fields as-is
+      fee_cents: applicationFeeAmount,
+      application_fee_cents: applicationFeeAmount,
+      transfer_id: transferId,
+
+      currency: session.currency || "usd",
+      provider: "stripe",
+      status: "completed",
+
+      stripe_session_id: session.id,
+      stripe_payment_intent_id: session.payment_intent as string,
+
+      session_fingerprint: sessionFingerprint,
+      receipt_token: receiptToken,
+      allowed_fingerprints: sessionFingerprint ? [sessionFingerprint] : [],
+
+      agreed_to_terms: metadata.agreed_to_terms === "true",
+      agreed_at: metadata.agreed_at || null,
+    }
+
+    if (!buyerId) {
+      orderData.access_token = accessToken
+    }
+
+    console.log("[v0] Creating order with transfer details:", {
+      fee: applicationFeeAmount,
+      transfer: transferId,
+      destination_payment: destinationPaymentId,
+    })
+
+    const { data: order, error: orderError } = await supabaseAdmin.from("orders").insert(orderData).select().single()
+
+    if (orderError) {
+      console.error("[v0] Order creation failed:", orderError)
+      return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
+    }
+
+    console.log("[v0] ✅ Order created:", order.id)
+
+    // Customer record upsert (kept)
+    if (buyerEmail && creatorId) {
+      await supabaseAdmin.from("customers").upsert(
+        {
+          email: buyerEmail.toLowerCase().trim(),
+          creator_id: creatorId,
+          first_name: buyerFirstName || null,
+          last_name: buyerLastName || null,
+          order_count: 1,
+          total_spent_cents: totalAmount,
+        },
+        {
+          onConflict: "email,creator_id",
+          ignoreDuplicates: false,
+        },
+      )
+      console.log("[v0] ✅ Customer record upserted")
+    }
+
+    // Entitlement (kept)
+    if (buyerId) {
+      const { data: existingEntitlement } = await supabaseAdmin
+        .from("entitlements")
+        .select("id")
+        .eq("buyer_id", buyerId)
+        .eq("product_id", productId)
+        .maybeSingle()
+
+      if (!existingEntitlement) {
+        console.log("[v0] Creating entitlement for user:", buyerId)
+
+        const { error: entitlementError } = await supabaseAdmin.from("entitlements").insert({
+          buyer_id: buyerId,
+          creator_id: creatorId,
+          product_id: productId,
+          community_access: metadata.includes_community === "true" || metadata.product_type === "course",
+        })
+
+        if (entitlementError) {
+          console.error("[v0] Entitlement creation failed:", entitlementError)
+        } else {
+          console.log("[v0] ✅ Entitlement created")
+        }
+      }
+    }
+
+    // Sales count (kept)
+    console.log("[v0] Incrementing sales count...")
+    await supabaseAdmin.rpc("increment_product_sales", { p_product_id: productId }).catch((err) => {
+      console.error("[v0] Failed to increment sales:", err)
+    })
+
+    // Analytics (kept)
+    console.log("[v0] Recording analytics...")
+    await supabaseAdmin
+      .from("analytics_events")
+      .insert({
+        creator_id: creatorId,
+        product_id: productId,
+        event_type: "purchase",
+      })
+      .catch((err) => {
+        console.error("[v0] Failed to record analytics:", err)
+      })
+
+    // --------------------------------------------
+    // ✅ EMAILS: Use the ONE working pipeline
+    // This fixes paid emails not sending + keeps sender display_name logic
+    // --------------------------------------------
+    try {
+      const baseUrl =
+        process.env.SITE_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.APP_URL ||
+        "https://materiabuilder.store"
+
+      const emailResult = await sendOrderEmails(supabaseAdmin, {
+        orderId: order.id,
+        creatorId,
+        buyerEmail,
+        buyerFirstName,
+        buyerLastName,
+        productTitle,
+        receiptToken,
+        amountCents: totalAmount,
+        feeCents: applicationFeeAmount,
+        baseUrl,
+      })
+
+      console.log("[v0] ✅ Email result:", emailResult)
+    } catch (emailErr) {
+      console.error("[v0] ❌ Email sending failed (order still ok):", emailErr)
+      // IMPORTANT: do not fail webhook response — order is already created
+    }
+
+    console.log("[v0] Webhook processing complete")
+    return NextResponse.json({ received: true })
+  }
+
+  // Optional logs (kept)
+  if (event.type === "payment_intent.succeeded") {
+    const pi = event.data.object as Stripe.PaymentIntent
+    console.log("[v0] Processing payment intent:", pi.id)
+
+    const { data: existingOrder } = await supabaseAdmin
+      .from("orders")
+      .select("id")
+      .eq("stripe_payment_intent_id", pi.id)
+      .maybeSingle()
+
+    if (existingOrder) {
+      console.log("[v0] Payment intent already processed via checkout session")
+      return NextResponse.json({ received: true, message: "Already processed" })
+    }
+
+    const metadata = pi.metadata || {}
+    const productId = metadata.product_id
+    const creatorId = metadata.creator_id
+
+    if (!productId || !creatorId) {
+      console.log("[v0] Payment intent missing metadata, skipping")
+      return NextResponse.json({ received: true, message: "Missing metadata" })
+    }
+
+    console.log("[v0] Processing payment intent as direct payment (no-op here)")
+  }
+
+  if (event.type === "payment_intent.payment_failed") {
+    const pi = event.data.object as Stripe.PaymentIntent
+    console.error("[v0] Payment failed:", pi.id, pi.last_payment_error?.message)
+  }
+
+  return NextResponse.json({ received: true })
+}

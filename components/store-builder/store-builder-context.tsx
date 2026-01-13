@@ -1,0 +1,758 @@
+"use client"
+
+import type React from "react"
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import type {
+  PageConfig,
+  PageType,
+  Section,
+  DeviceType,
+  SelectedElement,
+  SaveState,
+  ProductTemplate,
+} from "@/lib/store-builder/types"
+import {
+  defaultShopPageConfig,
+  defaultProductPageConfig,
+  createSectionFromLibrary,
+  sectionLibrary,
+  defaultMoreFromSellerSettings,
+  defaultReviewsSettings,
+  defaultSubscribeBarSettings,
+  generateSectionId,
+} from "@/lib/store-builder/defaults"
+
+interface HistoryState {
+  config: PageConfig
+  timestamp: number
+}
+
+interface StoreBuilderContextType {
+  // Current state
+  currentPageType: PageType
+  draftConfig: PageConfig
+  publishedConfig: PageConfig
+  selectedSectionId: string | null
+  selectedElement: SelectedElement | null
+  previewDevice: DeviceType
+  isLoading: boolean
+  addSectionModalOpen: boolean
+  canUndo: boolean
+  canRedo: boolean
+  sidebarMode: "sections" | "settings"
+  selectedProductId: string | null
+  products: Array<{ id: string; title: string; thumbnail_url?: string }>
+  saveState: SaveState
+  hasEverBeenPublished: boolean
+
+  // Product templates
+  templates: ProductTemplate[]
+  selectedTemplateId: string | null
+  isEditingProductTemplate: boolean
+  showProductModeSelector: boolean
+
+  // Actions
+  setCurrentPageType: (pageType: PageType) => void
+  setSelectedSectionId: (id: string | null) => void
+  setSelectedElement: (element: SelectedElement | null) => void
+  setPreviewDevice: (device: DeviceType) => void
+  updateDraftConfig: (config: PageConfig) => void
+  updateSection: (sectionId: string, updates: Partial<Section>) => void
+  updateSectionSettings: (sectionId: string, settings: any) => void
+  addSection: (section: Section) => void
+  removeSection: (sectionId: string) => void
+  reorderSections: (sections: Section[]) => void
+  updateHeaderSettings: (settings: any) => void
+  save: () => Promise<void>
+  publish: () => Promise<void>
+  discardChanges: () => void
+  loadConfig: (pageType: PageType, productId?: string | null) => Promise<void>
+  openAddSectionModal: () => void
+  closeAddSectionModal: () => void
+  undo: () => void
+  redo: () => void
+  setSidebarMode: (mode: "sections" | "settings") => void
+  goBackToSections: () => void
+  setSelectedProductId: (id: string | null) => void
+  setProducts: (products: Array<{ id: string; title: string; thumbnail_url?: string }>) => void
+
+  // Template actions
+  saveAsTemplate: (name: string) => Promise<void>
+  selectTemplate: (templateId: string | null) => void
+  assignTemplateToProducts: (templateId: string, productIds: string[]) => Promise<void>
+  setIsEditingProductTemplate: (editing: boolean) => void
+  setShowProductModeSelector: (show: boolean) => void
+}
+
+const StoreBuilderContext = createContext<StoreBuilderContextType | null>(null)
+
+export function useStoreBuilder() {
+  const context = useContext(StoreBuilderContext)
+  if (!context) {
+    throw new Error("useStoreBuilder must be used within StoreBuilderProvider")
+  }
+  return context
+}
+
+interface StoreBuilderProviderProps {
+  children: React.ReactNode
+  creatorId: string
+  initialProducts?: Array<{ id: string; title: string; thumbnail_url?: string }>
+  initialPageType?: PageType
+  initialProductId?: string | null
+}
+
+const MAX_HISTORY_SIZE = 50
+
+function isLockedSection(section: Section | undefined | null) {
+  return !!section?.locked
+}
+
+/**
+ * Ensures Reviews section exists on product pages and is locked (non-deletable)
+ */
+function ensureReviewsSection(sections: Section[]): Section[] {
+  const hasReviews = sections.some((s) => s.type === "reviews")
+  if (!hasReviews) {
+    const reviewsSection: Section = {
+      id: generateSectionId(),
+      type: "reviews",
+      settings: defaultReviewsSettings,
+      order: sections.length,
+      locked: true, // Cannot be deleted
+    }
+    return [...sections, reviewsSection]
+  }
+  // Make sure existing reviews section is locked
+  return sections.map((s) => (s.type === "reviews" ? { ...s, locked: true } : s))
+}
+
+/**
+ * Ensures mandatory sections exist on product pages
+ */
+function ensureMandatoryProductSections(config: PageConfig): PageConfig {
+  let next = config
+
+  // Ensure Reviews section exists and is locked
+  next = {
+    ...next,
+    sections: ensureReviewsSection(next.sections),
+  }
+
+  // Ensure More from Seller section exists
+  const hasMoreFromSeller = next.sections.some((s) => s.type === "more-from-seller")
+  if (!hasMoreFromSeller) {
+    const moreFromSellerSection: Section = {
+      id: generateSectionId(),
+      type: "more-from-seller",
+      settings: defaultMoreFromSellerSettings,
+      order: next.sections.length,
+      locked: false,
+    }
+    next = {
+      ...next,
+      sections: [...next.sections, moreFromSellerSection],
+    }
+  }
+
+  // Normalize orders
+  next = {
+    ...next,
+    sections: next.sections.map((s, i) => ({ ...s, order: i })),
+  }
+
+  return next
+}
+
+export function StoreBuilderProvider({
+  children,
+  creatorId,
+  initialProducts = [],
+  initialPageType = "shop",
+  initialProductId = null,
+}: StoreBuilderProviderProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const [currentPageType, setCurrentPageType] = useState<PageType>(initialPageType)
+  const [draftConfig, setDraftConfig] = useState<PageConfig>(defaultShopPageConfig)
+  const [publishedConfig, setPublishedConfig] = useState<PageConfig>(defaultShopPageConfig)
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
+  const [selectedElement, setSelectedElement] = useState<SelectedElement | null>(null)
+  const [previewDevice, setPreviewDevice] = useState<DeviceType>("desktop")
+  const [isLoading, setIsLoading] = useState(true)
+  const [addSectionModalOpen, setAddSectionModalOpen] = useState(false)
+  const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
+  const [selectedProductId, setSelectedProductIdState] = useState<string | null>(initialProductId)
+  const [products, setProducts] =
+    useState<Array<{ id: string; title: string; thumbnail_url?: string }>>(initialProducts)
+
+  const [saveState, setSaveState] = useState<SaveState>("published")
+  const [hasEverBeenPublished, setHasEverBeenPublished] = useState(false)
+
+  const [templates, setTemplates] = useState<ProductTemplate[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [isEditingProductTemplate, setIsEditingProductTemplate] = useState(false)
+  const [showProductModeSelector, setShowProductModeSelector] = useState(false)
+
+  const [history, setHistory] = useState<HistoryState[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  const isUndoRedoAction = useRef(false)
+
+  const canUndo = historyIndex > 0
+  const canRedo = historyIndex < history.length - 1
+
+  const updateURL = useCallback(
+    (pageType: PageType, productId: string | null) => {
+      const params = new URLSearchParams()
+      params.set("pageType", pageType)
+      if (productId && pageType === "product") {
+        params.set("productId", productId)
+      }
+      router.replace(`/store-builder?${params.toString()}`, { scroll: false })
+    },
+    [router],
+  )
+
+  const addToHistory = useCallback(
+    (config: PageConfig) => {
+      if (isUndoRedoAction.current) {
+        isUndoRedoAction.current = false
+        return
+      }
+
+      setHistory((prev) => {
+        const newHistory = prev.slice(0, historyIndex + 1)
+        newHistory.push({ config: JSON.parse(JSON.stringify(config)), timestamp: Date.now() })
+        if (newHistory.length > MAX_HISTORY_SIZE) {
+          newHistory.shift()
+        }
+        return newHistory
+      })
+      setHistoryIndex((prev) => Math.min(prev + 1, MAX_HISTORY_SIZE - 1))
+    },
+    [historyIndex],
+  )
+
+  const undo = useCallback(() => {
+    if (!canUndo) return
+    isUndoRedoAction.current = true
+    const newIndex = historyIndex - 1
+    setHistoryIndex(newIndex)
+    setDraftConfig(JSON.parse(JSON.stringify(history[newIndex].config)))
+    setSaveState("unsaved")
+  }, [canUndo, historyIndex, history])
+
+  const redo = useCallback(() => {
+    if (!canRedo) return
+    isUndoRedoAction.current = true
+    const newIndex = historyIndex + 1
+    setHistoryIndex(newIndex)
+    setDraftConfig(JSON.parse(JSON.stringify(history[newIndex].config)))
+    setSaveState("unsaved")
+  }, [canRedo, historyIndex, history])
+
+  const loadConfig = useCallback(async (pageType: PageType, productId?: string | null) => {
+    setIsLoading(true)
+    try {
+      let url = `/api/store-builder?pageType=${pageType}`
+      if (productId && pageType === "product") {
+        url += `&productId=${productId}`
+      }
+
+      const response = await fetch(url)
+      if (response.ok) {
+        const data = await response.json()
+        const defaultConfig = pageType === "shop" ? defaultShopPageConfig : defaultProductPageConfig
+
+        let loadedDraft = (data.draft_config || defaultConfig) as PageConfig
+        let loadedPublished = (data.published_config || defaultConfig) as PageConfig
+
+        if (pageType === "shop") {
+          loadedDraft = {
+            ...loadedDraft,
+            sections: loadedDraft.sections.filter((s: Section) => s.type !== "products"),
+          }
+
+          const hasFeaturedProducts = loadedDraft.sections.some((s) => s.type === "featured-products")
+          if (!hasFeaturedProducts) {
+            const featuredProductsLibraryItem = sectionLibrary.find((item) => item.type === "featured-products")
+            if (featuredProductsLibraryItem) {
+              const featuredProductsSection = createSectionFromLibrary(
+                featuredProductsLibraryItem,
+                loadedDraft.sections.length,
+              )
+              featuredProductsSection.locked = true
+              loadedDraft = {
+                ...loadedDraft,
+                sections: [...loadedDraft.sections, featuredProductsSection],
+              }
+            }
+          } else {
+            loadedDraft = {
+              ...loadedDraft,
+              sections: loadedDraft.sections.map((s) => (s.type === "featured-products" ? { ...s, locked: true } : s)),
+            }
+          }
+        }
+
+        if (pageType === "product") {
+          loadedDraft = ensureMandatoryProductSections(loadedDraft)
+          loadedPublished = ensureMandatoryProductSections(loadedPublished)
+        }
+
+        setDraftConfig(loadedDraft)
+        setPublishedConfig(loadedPublished)
+
+        const wasPublished = !!data.published_at || (data.is_default && !productId)
+        setHasEverBeenPublished(wasPublished)
+        setSaveState(wasPublished ? "published" : "saved")
+
+        setHistory([{ config: JSON.parse(JSON.stringify(loadedDraft)), timestamp: Date.now() }])
+        setHistoryIndex(0)
+      } else {
+        throw new Error("Failed to load config")
+      }
+    } catch (error) {
+      console.error("Failed to load config:", error)
+      const defaultConfig = pageType === "shop" ? defaultShopPageConfig : defaultProductPageConfig
+
+      let configWithDefaults: PageConfig = defaultConfig
+
+      if (pageType === "shop") {
+        const featuredProductsLibraryItem = sectionLibrary.find((item) => item.type === "featured-products")
+        if (featuredProductsLibraryItem) {
+          const featuredProductsSection = createSectionFromLibrary(featuredProductsLibraryItem, 0)
+          featuredProductsSection.locked = true
+          configWithDefaults = {
+            ...defaultConfig,
+            headerSettings: {
+              ...defaultConfig.headerSettings,
+              subscribeBar: defaultSubscribeBarSettings,
+            },
+            sections: [featuredProductsSection],
+          }
+        }
+      }
+
+      if (pageType === "product") {
+        // Default product config must include Reviews (locked) + More from seller
+        const reviewsSection: Section = {
+          id: generateSectionId(),
+          type: "reviews",
+          settings: defaultReviewsSettings,
+          order: 0,
+          locked: true,
+        }
+        const moreFromSellerSection: Section = {
+          id: generateSectionId(),
+          type: "more-from-seller",
+          settings: defaultMoreFromSellerSettings,
+          order: 1,
+          locked: false,
+        }
+        configWithDefaults = {
+          ...defaultConfig,
+          sections: [reviewsSection, moreFromSellerSection],
+        }
+      }
+
+      setDraftConfig(configWithDefaults)
+      setPublishedConfig(configWithDefaults)
+      setSaveState("unsaved")
+      setHasEverBeenPublished(false)
+      setHistory([{ config: JSON.parse(JSON.stringify(configWithDefaults)), timestamp: Date.now() }])
+      setHistoryIndex(0)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadConfig(currentPageType, selectedProductId)
+  }, [currentPageType, selectedProductId, loadConfig])
+
+  const markUnsaved = useCallback(() => {
+    setSaveState("unsaved")
+  }, [])
+
+  const updateDraftConfig = useCallback(
+    (config: PageConfig) => {
+      // Safety: if product page, keep mandatory sections intact
+      const next = currentPageType === "product" ? ensureMandatoryProductSections(config) : config
+      setDraftConfig(next)
+      markUnsaved()
+      addToHistory(next)
+    },
+    [addToHistory, markUnsaved, currentPageType],
+  )
+
+  const updateSection = useCallback(
+    (sectionId: string, updates: Partial<Section>) => {
+      setDraftConfig((prev) => {
+        const target = prev.sections.find((s) => s.id === sectionId)
+        if (isLockedSection(target)) return prev
+
+        const newConfig: PageConfig = {
+          ...prev,
+          sections: prev.sections.map((s) => (s.id === sectionId ? { ...s, ...updates } : s)),
+        }
+
+        const next = currentPageType === "product" ? ensureMandatoryProductSections(newConfig) : newConfig
+        addToHistory(next)
+        return next
+      })
+      markUnsaved()
+    },
+    [addToHistory, markUnsaved, currentPageType],
+  )
+
+  const updateSectionSettings = useCallback(
+    (sectionId: string, settings: any) => {
+      setDraftConfig((prev) => {
+        // Allow settings updates for all sections including locked ones
+        const newConfig: PageConfig = {
+          ...prev,
+          sections: prev.sections.map((s) =>
+            s.id === sectionId ? { ...s, settings: { ...s.settings, ...settings } } : s,
+          ),
+        }
+
+        const next = currentPageType === "product" ? ensureMandatoryProductSections(newConfig) : newConfig
+        addToHistory(next)
+        return next
+      })
+      markUnsaved()
+    },
+    [addToHistory, markUnsaved, currentPageType],
+  )
+
+  const addSection = useCallback(
+    (section: Section) => {
+      setDraftConfig((prev) => {
+        const newConfig: PageConfig = {
+          ...prev,
+          sections: [...prev.sections, section],
+        }
+        const next = currentPageType === "product" ? ensureMandatoryProductSections(newConfig) : newConfig
+        addToHistory(next)
+        return next
+      })
+      markUnsaved()
+      setSelectedSectionId(section.id)
+      setSidebarMode("settings")
+    },
+    [addToHistory, markUnsaved, currentPageType],
+  )
+
+  const removeSection = useCallback(
+    (sectionId: string) => {
+      setDraftConfig((prev) => {
+        const target = prev.sections.find((s) => s.id === sectionId)
+        if (isLockedSection(target)) return prev
+
+        const newConfig: PageConfig = {
+          ...prev,
+          sections: prev.sections.filter((s) => s.id !== sectionId),
+        }
+
+        const next = currentPageType === "product" ? ensureMandatoryProductSections(newConfig) : newConfig
+        addToHistory(next)
+        return next
+      })
+      markUnsaved()
+      setSelectedSectionId(null)
+      setSidebarMode("sections")
+    },
+    [addToHistory, markUnsaved, currentPageType],
+  )
+
+  const reorderSections = useCallback(
+    (sections: Section[]) => {
+      setDraftConfig((prev) => {
+        const newConfig: PageConfig = {
+          ...prev,
+          sections: sections.map((s, i) => ({ ...s, order: i })),
+        }
+        const next = currentPageType === "product" ? ensureMandatoryProductSections(newConfig) : newConfig
+        addToHistory(next)
+        return next
+      })
+      markUnsaved()
+    },
+    [addToHistory, markUnsaved, currentPageType],
+  )
+
+  const updateHeaderSettings = useCallback(
+    (settings: any) => {
+      setDraftConfig((prev) => {
+        const newConfig: PageConfig = {
+          ...prev,
+          headerSettings: { ...prev.headerSettings, ...settings },
+        }
+        addToHistory(newConfig)
+        return newConfig
+      })
+      markUnsaved()
+    },
+    [addToHistory, markUnsaved],
+  )
+
+  const save = useCallback(async () => {
+    console.log("[v0] Save initiated", { currentPageType, selectedProductId })
+    setSaveState("saving")
+    try {
+      const body: any = { pageType: currentPageType, config: draftConfig }
+
+      if (selectedProductId && currentPageType === "product") {
+        body.productId = selectedProductId
+        console.log("[v0] Saving product-specific config", {
+          productId: selectedProductId,
+          sections: draftConfig.sections.length,
+        })
+      } else {
+        console.log("[v0] Saving default template", { sections: draftConfig.sections.length })
+      }
+
+      console.log("[v0] Sending save request to API", body)
+
+      const response = await fetch("/api/store-builder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("[v0] Save failed", errorData)
+        throw new Error(errorData.error || "Failed to save")
+      }
+
+      const result = await response.json()
+      console.log("[v0] Save successful", result)
+
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      setSaveState("saved")
+    } catch (error) {
+      console.error("[v0] Save error", error)
+      setSaveState("unsaved")
+      throw error
+    }
+  }, [currentPageType, draftConfig, selectedProductId])
+
+  const publish = useCallback(async () => {
+    console.log("[v0] Publish initiated", { currentPageType, selectedProductId })
+    setSaveState("publishing")
+    try {
+      const saveBody: any = { pageType: currentPageType, config: draftConfig }
+      if (selectedProductId && currentPageType === "product") {
+        saveBody.productId = selectedProductId
+        console.log("[v0] Publishing product-specific config", {
+          productId: selectedProductId,
+          sections: draftConfig.sections.length,
+        })
+      } else {
+        console.log("[v0] Publishing default template", { sections: draftConfig.sections.length })
+      }
+
+      console.log("[v0] Saving draft before publish", saveBody)
+
+      const saveResponse = await fetch("/api/store-builder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(saveBody),
+      })
+
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json()
+        console.error("[v0] Save before publish failed", errorData)
+        throw new Error(errorData.error || "Failed to save before publishing")
+      }
+
+      const saveResult = await saveResponse.json()
+      console.log("[v0] Draft saved before publish", saveResult)
+
+      const publishBody: any = { pageType: currentPageType }
+      if (selectedProductId && currentPageType === "product") {
+        publishBody.productId = selectedProductId
+      }
+
+      console.log("[v0] Sending publish request", publishBody)
+
+      const response = await fetch("/api/store-builder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(publishBody),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("[v0] Publish failed", errorData)
+        throw new Error(errorData.error || "Failed to publish")
+      }
+
+      const publishResult = await response.json()
+      console.log("[v0] Publish successful", publishResult)
+
+      setPublishedConfig(draftConfig)
+      setHasEverBeenPublished(true)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      setSaveState("published")
+    } catch (error) {
+      console.error("[v0] Publish error", error)
+      setSaveState("saved")
+      throw error
+    }
+  }, [currentPageType, draftConfig, selectedProductId])
+
+  const discardChanges = useCallback(() => {
+    setDraftConfig(publishedConfig)
+    setSaveState(hasEverBeenPublished ? "published" : "saved")
+    setSelectedSectionId(null)
+    setSidebarMode("sections")
+  }, [publishedConfig, hasEverBeenPublished])
+
+  const handleSetCurrentPageType = useCallback(
+    (pageType: PageType) => {
+      setCurrentPageType(pageType)
+      if (pageType === "shop") {
+        setSelectedProductIdState(null)
+        updateURL(pageType, null)
+      } else {
+        updateURL(pageType, selectedProductId)
+      }
+      setSelectedSectionId(null)
+      setSidebarMode("sections")
+    },
+    [selectedProductId, updateURL],
+  )
+
+  const setSelectedProductId = useCallback(
+    (id: string | null) => {
+      setSelectedProductIdState(id)
+      updateURL(currentPageType, id)
+      setSelectedSectionId(null)
+      setSidebarMode("sections")
+    },
+    [currentPageType, updateURL],
+  )
+
+  const handleSetSelectedSectionId = useCallback((id: string | null) => {
+    setSelectedSectionId(id)
+    if (id) {
+      setSidebarMode("settings")
+    }
+  }, [])
+
+  const goBackToSections = useCallback(() => {
+    setSelectedSectionId(null)
+    setSelectedElement(null)
+    setSidebarMode("sections")
+  }, [])
+
+  const openAddSectionModal = useCallback(() => {
+    setAddSectionModalOpen(true)
+  }, [])
+
+  const closeAddSectionModal = useCallback(() => {
+    setAddSectionModalOpen(false)
+  }, [])
+
+  const saveAsTemplate = useCallback(
+    async (name: string) => {
+      const newTemplate: ProductTemplate = {
+        id: `template_${Date.now()}`,
+        name,
+        config: JSON.parse(JSON.stringify(draftConfig)),
+        isDefault: false,
+        productIds: selectedProductId ? [selectedProductId] : [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setTemplates((prev) => [...prev, newTemplate])
+    },
+    [draftConfig, selectedProductId],
+  )
+
+  const selectTemplate = useCallback(
+    (templateId: string | null) => {
+      setSelectedTemplateId(templateId)
+      if (templateId) {
+        const template = templates.find((t) => t.id === templateId)
+        if (template) {
+          const next = currentPageType === "product" ? ensureMandatoryProductSections(template.config) : template.config
+          setDraftConfig(JSON.parse(JSON.stringify(next)))
+          markUnsaved()
+        }
+      }
+    },
+    [templates, markUnsaved, currentPageType],
+  )
+
+  const assignTemplateToProducts = useCallback(async (templateId: string, productIds: string[]) => {
+    setTemplates((prev) =>
+      prev.map((t) =>
+        t.id === templateId
+          ? { ...t, productIds: [...new Set([...t.productIds, ...productIds])], updatedAt: new Date().toISOString() }
+          : t,
+      ),
+    )
+  }, [])
+
+  return (
+    <StoreBuilderContext.Provider
+      value={{
+        currentPageType,
+        draftConfig,
+        publishedConfig,
+        selectedSectionId,
+        selectedElement,
+        previewDevice,
+        isLoading,
+        addSectionModalOpen,
+        canUndo,
+        canRedo,
+        sidebarMode,
+        selectedProductId,
+        products,
+        saveState,
+        hasEverBeenPublished,
+        templates,
+        selectedTemplateId,
+        isEditingProductTemplate,
+        showProductModeSelector,
+        setCurrentPageType: handleSetCurrentPageType,
+        setSelectedSectionId: handleSetSelectedSectionId,
+        setSelectedElement,
+        setPreviewDevice,
+        updateDraftConfig,
+        updateSection,
+        updateSectionSettings,
+        addSection,
+        removeSection,
+        reorderSections,
+        updateHeaderSettings,
+        save,
+        publish,
+        discardChanges,
+        loadConfig,
+        openAddSectionModal,
+        closeAddSectionModal,
+        undo,
+        redo,
+        setSidebarMode,
+        goBackToSections,
+        setSelectedProductId,
+        setProducts,
+        saveAsTemplate,
+        selectTemplate,
+        assignTemplateToProducts,
+        setIsEditingProductTemplate,
+        setShowProductModeSelector,
+      }}
+    >
+      {children}
+    </StoreBuilderContext.Provider>
+  )
+}

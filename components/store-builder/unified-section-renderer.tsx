@@ -1,0 +1,2075 @@
+"use client"
+
+import type React from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+
+import type {
+  Section,
+  ImageTextSettings,
+  BenefitsSettings,
+  TextBlockSettings,
+  AnnouncementBarSettings,
+  FeaturedProductsSettings,
+  ShopHeaderSettings,
+  ProductHeaderSettings,
+  MoreFromSellerSettings,
+  ReviewsSettings, // Added ReviewsSettings import
+} from "@/lib/store-builder/types"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Package,
+  ShoppingBag,
+  CheckCircle,
+  Check,
+  ChevronDown,
+  Download,
+  Files,
+  Infinity,
+  Share2,
+  X,
+  Link2,
+  Facebook,
+  Star,
+  Heart,
+} from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
+import { cn } from "@/lib/utils"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { ProductGallery } from "@/components/product/product-gallery"
+import { SocialMediaIcons } from "./social-media-icons"
+import { avatarSizeMap } from "@/lib/store-builder/defaults"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ReviewsList } from "@/components/reviews/reviews-list"
+
+// Shared product type for consistency
+export interface ProductData {
+  id: string
+  slug?: string
+  title: string
+  thumbnail_url?: string | null
+  price_cents: number
+  compare_at_cents?: number
+  sales_count?: number
+  description?: string | null
+  whats_included?: string[]
+  gallery_urls?: string[]
+  video_url?: string
+  faqs?: Array<{ question: string; answer: string }>
+  type?: string
+  show_sales_badge?: boolean
+  categories?: Array<{ id: string; name: string; slug: string; type: string | null }>
+}
+
+// Creator data type
+export interface CreatorData {
+  headline?: string | null
+  bio?: string | null
+  niche_tags?: string[] | null
+  cover_url?: string | null
+  avatar_url?: string | null
+  show_total_sales_badge?: boolean
+  slug?: string | null
+}
+
+// Profile data type
+export interface ProfileData {
+  display_name?: string | null
+  avatar_url?: string | null
+  username?: string | null
+}
+
+// Unified props for all section rendering
+export interface UnifiedSectionProps {
+  section: Section
+  products?: ProductData[]
+  isMobile?: boolean
+  isPreviewMode?: boolean
+  isSelected?: boolean
+  onSelect?: () => void
+  moreFromSellerProducts?: ProductData[]
+  creatorName?: string
+  productId?: string
+  reviews?: any[]
+  reviewsCount?: number
+  reviewsAverage?: number
+}
+
+// Helper function to get product href
+const getProductHref = (product: ProductData): string => {
+  return `/p/${product.slug || product.id}`
+}
+
+// Icon mapping for what's included items
+function getIncludedItemIcon(item: string): React.ReactNode {
+  const lowerItem = item.toLowerCase()
+  if (lowerItem.includes("instant") || lowerItem.includes("download")) {
+    return <Download className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+  }
+  if (lowerItem.includes("files") || lowerItem.includes("included")) {
+    return <Files className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+  }
+  if (lowerItem.includes("lifetime") || lowerItem.includes("access")) {
+    return <Infinity className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+  }
+  return <Check className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
+}
+
+// Share Modal Component - Fixed position to overlay everything
+function ShareModal({
+  isOpen,
+  onClose,
+  productTitle,
+  productSlug,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  productTitle: string
+  productSlug?: string
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${productSlug}` : `/p/${productSlug}`
+
+  const shareText = `Check out ${productTitle}`
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error("Failed to copy:", err)
+    }
+  }
+
+  const handleShareTwitter = () => {
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`
+    window.open(twitterUrl, "_blank", "noopener,noreferrer")
+  }
+
+  const handleShareFacebook = () => {
+    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
+    window.open(facebookUrl, "_blank", "noopener,noreferrer")
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center" onClick={onClose}>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" />
+      {/* Modal */}
+      <div
+        className="relative bg-background max-w-[280px] w-full mx-4 p-4 rounded-2xl shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-col gap-3">
+          <Button
+            className="w-full justify-center gap-2 h-14 rounded-xl bg-black text-white hover:bg-black/90 text-base font-medium"
+            onClick={handleShareTwitter}
+          >
+            <X className="h-5 w-5" />
+            Share on X
+          </Button>
+          <Button
+            className="w-full justify-center gap-2 h-14 rounded-xl bg-[#4267B2] text-white hover:bg-[#4267B2]/90 text-base font-medium"
+            onClick={handleShareFacebook}
+          >
+            <Facebook className="h-5 w-5" />
+            Share on Facebook
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-center gap-2 h-14 rounded-xl text-base font-medium border-2 bg-transparent"
+            onClick={handleCopyLink}
+          >
+            <Link2 className="h-5 w-5" />
+            {copied ? "Copied!" : "Copy link"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function SectionContainer({
+  children,
+  className,
+  noPadding,
+  isMobile,
+  style,
+}: {
+  children: React.ReactNode
+  className?: string
+  noPadding?: boolean
+  isMobile?: boolean
+  style?: React.CSSProperties
+}) {
+  return (
+    <div className={cn("mx-auto w-full max-w-[1100px]", !noPadding && "px-3 sm:px-4 lg:px-6", className)} style={style}>
+      {children}
+    </div>
+  )
+}
+
+// ====== REVIEWS SECTION - UNIFIED ======
+function UnifiedReviewsSection({
+  settings,
+  isMobile,
+  isPreviewMode,
+  productId,
+  reviews = [],
+  reviewsCount = 0,
+  reviewsAverage = 0,
+}: {
+  settings: ReviewsSettings
+  isMobile?: boolean
+  isPreviewMode?: boolean
+  productId?: string
+  reviews?: any[]
+  reviewsCount?: number
+  reviewsAverage?: number
+}) {
+  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+
+  if (!isPreviewMode && reviewsCount === 0 && reviews.length === 0) {
+    return null
+  }
+
+  return (
+    <div
+      className={cn(
+        "mx-auto w-full",
+        // Mobile: tighter padding (px-2)
+        isMobile && "px-2",
+        // Desktop: max width 1150px with standard padding
+        !isMobile && "max-w-[1150px] px-4 sm:px-6",
+      )}
+      style={{
+        paddingTop: spacing?.paddingTop,
+        paddingBottom: spacing?.paddingBottom,
+        backgroundColor: settings.colors?.backgroundColor || "transparent",
+      }}
+    >
+      <div className="space-y-6">
+        <ReviewsList
+          productId={productId || ""}
+          initialReviews={reviews}
+          initialTotal={reviewsCount}
+          reviewsCount={reviewsCount}
+          reviewsAverage={reviewsAverage}
+          showHeader={true}
+          isPreview={isPreviewMode}
+          isMobile={isMobile}
+        />
+      </div>
+    </div>
+  )
+}
+
+// Unified Section Renderer - used by BOTH editor preview and live pages
+export function UnifiedSectionRenderer({
+  section,
+  products = [],
+  isMobile = false,
+  isPreviewMode = false,
+  isSelected = false,
+  onSelect,
+  moreFromSellerProducts = [],
+  creatorName = "this creator",
+  productId,
+  reviews = [],
+  reviewsCount = 0,
+  reviewsAverage = 0,
+}: UnifiedSectionProps) {
+  if (!section.settings.visible) return null
+
+  // For more-from-seller, don't apply wrapper padding as it handles its own layout
+  const isMoreFromSeller = section.type === "more-from-seller"
+
+  const style = {
+    paddingTop: isMoreFromSeller ? undefined : section.settings.spacing.paddingTop,
+    paddingBottom: isMoreFromSeller ? undefined : section.settings.spacing.paddingBottom,
+    paddingLeft: isMoreFromSeller ? undefined : section.settings.spacing.paddingLeft,
+    paddingRight: isMoreFromSeller ? undefined : section.settings.spacing.paddingRight,
+    backgroundColor: section.settings.colors.backgroundColor || "transparent",
+    color: section.settings.colors.textColor || "inherit",
+  }
+
+  return (
+    <div
+      onClick={isPreviewMode ? undefined : onSelect}
+      className={cn(
+        "transition-all relative",
+        !isPreviewMode && onSelect && "cursor-pointer",
+        !isPreviewMode && isSelected && "ring-2 ring-sky-500 ring-inset",
+      )}
+      style={style}
+    >
+      {section.type === "image-text" && (
+        <UnifiedImageTextSection
+          settings={section.settings as ImageTextSettings}
+          isMobile={isMobile}
+          isPreviewMode={isPreviewMode}
+        />
+      )}
+      {section.type === "benefits" && (
+        <UnifiedBenefitsSection
+          settings={section.settings as BenefitsSettings}
+          isMobile={isMobile}
+          isPreviewMode={isPreviewMode}
+        />
+      )}
+      {section.type === "text-block" && (
+        <UnifiedTextBlockSection
+          settings={section.settings as TextBlockSettings}
+          isMobile={isMobile}
+          isPreviewMode={isPreviewMode}
+        />
+      )}
+      {section.type === "announcement-bar" && (
+        <UnifiedAnnouncementBarSection
+          settings={section.settings as AnnouncementBarSettings}
+          isPreviewMode={isPreviewMode}
+        />
+      )}
+      {section.type === "featured-products" && (
+        <UnifiedFeaturedProductsSection
+          settings={section.settings as FeaturedProductsSettings}
+          products={products}
+          isMobile={isMobile}
+          isPreviewMode={isPreviewMode}
+          isEditorCanvas={!!onSelect}
+        />
+      )}
+      {section.type === "more-from-seller" && (
+        <UnifiedMoreFromSellerSection
+          settings={section.settings as MoreFromSellerSettings}
+          products={moreFromSellerProducts || products}
+          creatorName={creatorName || "this creator"}
+          isMobile={isMobile}
+          isPreviewMode={isPreviewMode}
+        />
+      )}
+      {section.type === "reviews" && (
+        <UnifiedReviewsSection
+          settings={section.settings as ReviewsSettings}
+          isMobile={isMobile}
+          isPreviewMode={isPreviewMode}
+          productId={productId}
+          reviews={reviews}
+          reviewsCount={reviewsCount}
+          reviewsAverage={reviewsAverage}
+        />
+      )}
+    </div>
+  )
+}
+
+// Image + Text Section - UNIFIED
+function UnifiedImageTextSection({
+  settings,
+  isMobile,
+  isPreviewMode,
+}: { settings: ImageTextSettings; isMobile?: boolean; isPreviewMode?: boolean }) {
+  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+
+  return (
+    <SectionContainer isMobile={isMobile}>
+      <div
+        className={cn(
+          isMobile ? "flex flex-col gap-4" : "flex flex-col gap-8 items-center md:flex-row",
+          !isMobile && (settings.imagePosition === "left" ? "md:flex-row" : "md:flex-row-reverse"),
+        )}
+        style={{
+          paddingTop: spacing.paddingTop,
+          paddingBottom: spacing.paddingBottom,
+          paddingLeft: spacing.paddingLeft,
+          paddingRight: spacing.paddingRight,
+        }}
+      >
+        <div className="w-full">
+          {settings.imageUrl ? (
+            <div className={cn("relative rounded-lg overflow-hidden", "aspect-video")}>
+              <Image
+                src={settings.imageUrl || "/placeholder.svg"}
+                alt=""
+                fill
+                className="object-cover"
+                style={
+                  settings.imageFocalPoint
+                    ? { objectPosition: `${settings.imageFocalPoint.x}% ${settings.imageFocalPoint.y}%` }
+                    : undefined
+                }
+              />
+            </div>
+          ) : (
+            <div className={cn("rounded-lg bg-muted flex items-center justify-center", "aspect-video")}>
+              <Package className="h-12 w-12 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+
+        <div className="w-full">
+          <h2
+            className={cn("font-semibold text-foreground", isMobile ? "text-lg" : "text-2xl sm:text-3xl")}
+            style={{ textAlign: settings.typography.textAlign }}
+          >
+            {settings.headline}
+          </h2>
+          <p
+            className={cn("mt-3 text-muted-foreground leading-relaxed", isMobile ? "text-sm" : "text-base")}
+            style={{ textAlign: settings.typography.textAlign }}
+          >
+            {settings.body}
+          </p>
+          {settings.showButton && settings.buttonText && (
+            <div className="mt-4" style={{ textAlign: settings.typography.textAlign }}>
+              {isPreviewMode ? (
+                <Button size={isMobile ? "sm" : "default"}>{settings.buttonText}</Button>
+              ) : (
+                <Button asChild size={isMobile ? "sm" : "default"}>
+                  <Link href={settings.buttonUrl || "#"}>{settings.buttonText}</Link>
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </SectionContainer>
+  )
+}
+
+// Benefits Section - UNIFIED
+function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSettings; isMobile?: boolean }) {
+  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+
+  return (
+    <SectionContainer
+      isMobile={isMobile}
+      style={{
+        paddingTop: spacing.paddingTop,
+        paddingBottom: spacing.paddingBottom,
+        paddingLeft: spacing.paddingLeft,
+        paddingRight: spacing.paddingRight,
+      }}
+    >
+      <h2
+        className={cn(
+          "font-semibold text-foreground",
+          isMobile ? "text-xl mb-6" : "text-2xl sm:text-3xl mb-8 sm:mb-12",
+        )}
+        style={{ textAlign: settings.typography.textAlign }}
+      >
+        {settings.headline}
+      </h2>
+
+      <div
+        className={cn(
+          "grid gap-6",
+          isMobile
+            ? "grid-cols-1"
+            : cn(
+                settings.columns === 2 && "grid-cols-1 sm:grid-cols-2",
+                settings.columns === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+                settings.columns === 4 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+              ),
+        )}
+      >
+        {settings.benefits.map((benefit) => (
+          <div key={benefit.id} className="text-center">
+            <div
+              className={cn(
+                "mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-3",
+                isMobile ? "h-12 w-12" : "h-14 w-14",
+              )}
+            >
+              <CheckCircle className={cn("text-primary", isMobile ? "h-6 w-6" : "h-7 w-7")} />
+            </div>
+            <h3 className={cn("font-semibold text-foreground", isMobile ? "text-base" : "text-lg")}>{benefit.title}</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{benefit.description}</p>
+          </div>
+        ))}
+      </div>
+    </SectionContainer>
+  )
+}
+
+// Text Block Section - UNIFIED
+function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSettings; isMobile?: boolean }) {
+  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+
+  const maxWidthClass = {
+    sm: "max-w-sm",
+    md: "max-w-md",
+    lg: "max-w-lg",
+    full: "max-w-4xl",
+  }[settings.maxWidth]
+
+  return (
+    <div
+      className={cn("mx-auto", isMobile ? "px-3 max-w-full" : cn("px-4", maxWidthClass))}
+      style={{
+        paddingTop: spacing.paddingTop,
+        paddingBottom: spacing.paddingBottom,
+        paddingLeft: spacing.paddingLeft,
+        paddingRight: spacing.paddingRight,
+      }}
+    >
+      {settings.headline && (
+        <h2
+          className={cn("font-semibold text-foreground mb-3", isMobile ? "text-lg" : "text-2xl sm:text-3xl mb-4")}
+          style={{ textAlign: settings.typography.textAlign }}
+        >
+          {settings.headline}
+        </h2>
+      )}
+      <p
+        className={cn("text-muted-foreground leading-relaxed whitespace-pre-wrap", isMobile ? "text-sm" : "text-base")}
+        style={{
+          textAlign: settings.typography.textAlign,
+          lineHeight: settings.typography.lineHeight || 1.6,
+        }}
+      >
+        {settings.body}
+      </p>
+    </div>
+  )
+}
+
+// Announcement Bar Section - UNIFIED
+function UnifiedAnnouncementBarSection({
+  settings,
+  isPreviewMode,
+}: {
+  settings: AnnouncementBarSettings
+  isPreviewMode?: boolean
+}) {
+  if (!settings?.visible) return null
+
+  const hasLink = settings.linkProductSlug || settings.linkUrl
+  const cursorClass = hasLink ? "cursor-pointer" : "cursor-default"
+
+  const handleTextClick = () => {
+    if (settings.linkProductSlug) {
+      window.location.href = `/p/${settings.linkProductSlug}`
+    } else if (settings.linkUrl) {
+      window.location.href = settings.linkUrl
+    }
+  }
+
+  return (
+    <SectionContainer className="py-3" noPadding={false}>
+      <div
+        className="w-full"
+        style={{
+          backgroundColor: settings.colors.backgroundColor || "#000000",
+          color: settings.colors.textColor || "#ffffff",
+        }}
+      >
+        <div
+          className={`flex items-center justify-center gap-2 px-4 py-3 text-sm transition-opacity whitespace-nowrap overflow-hidden text-ellipsis ${cursorClass} ${
+            hasLink ? "hover:opacity-90" : ""
+          }`}
+          onClick={hasLink && !isPreviewMode ? handleTextClick : undefined}
+          role={hasLink ? "button" : undefined}
+          tabIndex={hasLink ? 0 : undefined}
+          onKeyDown={(e) => {
+            if (hasLink && !isPreviewMode && (e.key === "Enter" || e.key === " ")) {
+              handleTextClick()
+            }
+          }}
+          style={{
+            fontSize: `${settings.textSize || 14}px`,
+          }}
+        >
+          <span className={cn("text-center leading-snug", settings.enableUnderline && hasLink && "underline")}>
+            {settings.text || "New products available! Check them out."}
+          </span>
+        </div>
+      </div>
+    </SectionContainer>
+  )
+}
+
+// Featured Products Section - UNIFIED
+function UnifiedFeaturedProductsSection({
+  settings,
+  products,
+  isMobile,
+  isPreviewMode,
+  isEditorCanvas = false,
+}: {
+  settings: FeaturedProductsSettings
+  products?: ProductData[]
+  isMobile?: boolean
+  isPreviewMode?: boolean
+  isEditorCanvas?: boolean
+}) {
+  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<"recent" | "oldest" | "price-low" | "price-high" | "popular">("recent")
+  const [runtimeIsMobile, setRuntimeIsMobile] = useState(false)
+  const sortTouch = useRef({
+    startX: 0,
+    startY: 0,
+    moved: false,
+    timer: null as null | ReturnType<typeof setTimeout>,
+    allowOpen: false,
+  })
+
+  // this opens the dropdown trigger programmatically
+  const openSortDropdown = () => {
+    const el = document.getElementById("sb-sort-trigger") as HTMLButtonElement | null
+    el?.click()
+  }
+
+  const onSortPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return
+    sortTouch.current.startX = e.clientX
+    sortTouch.current.startY = e.clientY
+    sortTouch.current.moved = false
+    sortTouch.current.allowOpen = false
+
+    // ✅ must “hold” briefly to open (prevents accidental opens while scrolling)
+    sortTouch.current.timer = setTimeout(() => {
+      if (!sortTouch.current.moved) {
+        sortTouch.current.allowOpen = true
+        openSortDropdown()
+      }
+    }, 140)
+  }
+
+  const onSortPointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return
+    const dx = Math.abs(e.clientX - sortTouch.current.startX)
+    const dy = Math.abs(e.clientY - sortTouch.current.startY)
+    if (dx > 6 || dy > 6) sortTouch.current.moved = true
+  }
+
+  const onSortPointerUp = () => {
+    if (sortTouch.current.timer) clearTimeout(sortTouch.current.timer)
+    sortTouch.current.timer = null
+  }
+
+  const onSortPointerCancel = () => {
+    if (sortTouch.current.timer) clearTimeout(sortTouch.current.timer)
+    sortTouch.current.timer = null
+  }
+
+  const onSortClickCapture = (e: React.MouseEvent) => {
+    if (sortTouch.current.moved) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+
+  useEffect(() => {
+    // If parent already forces mobile (Store Builder preview), trust it.
+    if (isMobile) {
+      setRuntimeIsMobile(true)
+      return
+    }
+
+    // Otherwise detect real viewport (published site on phone)
+    const mq = window.matchMedia("(max-width: 768px)")
+    const update = () => setRuntimeIsMobile(mq.matches)
+
+    update()
+    mq.addEventListener?.("change", update)
+
+    return () => mq.removeEventListener?.("change", update)
+  }, [isMobile])
+
+  const uiIsMobile = isMobile || runtimeIsMobile
+
+  const formatPrice = (cents: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(cents / 100)
+  }
+
+  // ✅ Build categories from ALL product categories (not only first one)
+  const categoriesWithCounts = useMemo(() => {
+    if (!products || products.length === 0) return []
+    const map = new Map<string, { name: string; count: number }>()
+
+    for (const p of products) {
+      const cats = p.categories || []
+      for (const c of cats) {
+        if (!c?.id) continue
+        const existing = map.get(c.id)
+        if (existing) existing.count++
+        else map.set(c.id, { name: c.name, count: 1 })
+      }
+    }
+
+    return Array.from(map.entries()).map(([id, v]) => ({ id, name: v.name, count: v.count }))
+  }, [products])
+
+  const filteredProducts = useMemo(() => {
+    // ✅ show ALL products by default (no maxProducts)
+    let result =
+      settings.productIds && settings.productIds.length > 0
+        ? products?.filter((p) => settings.productIds.includes(p.id))
+        : products
+
+    if (selectedCategory && result) {
+      result = result.filter((p) => (p.categories || []).some((c) => c.id === selectedCategory))
+    }
+
+    return result || []
+  }, [products, settings.productIds, selectedCategory])
+
+  const sortedProducts = useMemo(() => {
+    const sorted = [...filteredProducts]
+
+    switch (sortBy) {
+      case "oldest":
+        sorted.reverse()
+        break
+      case "price-low":
+        sorted.sort((a, b) => a.price_cents - b.price_cents)
+        break
+      case "price-high":
+        sorted.sort((a, b) => b.price_cents - a.price_cents)
+        break
+      case "popular":
+        sorted.sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
+        break
+      case "recent":
+      default:
+        break
+    }
+
+    return sorted
+  }, [filteredProducts, sortBy])
+
+  const totalProducts = products?.length || 0
+
+  const sortLabels: Record<typeof sortBy, string> = {
+    recent: "Most Recent",
+    oldest: "Oldest",
+    "price-low": "Price: Low → High",
+    "price-high": "Price: High → Low",
+    popular: "Most Popular",
+  }
+
+  // ✅ Placeholder ONLY inside Store Builder canvas
+  if (!products || products.length === 0) {
+    if (isEditorCanvas) {
+      return (
+        <SectionContainer
+          isMobile={isMobile}
+          style={{
+            paddingTop: spacing.paddingTop,
+            paddingBottom: spacing.paddingBottom,
+            paddingLeft: spacing.paddingLeft,
+            paddingRight: spacing.paddingRight,
+          }}
+        >
+          <h2
+            className={cn("font-semibold text-foreground mb-6", "text-lg sm:text-xl")}
+            style={{ textAlign: settings.typography.textAlign }}
+          >
+            {settings.headline}
+          </h2>
+
+          <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
+            <Package className="h-12 w-12 text-muted-foreground mx-auto 4" />
+            <p className="text-muted-foreground">No products available</p>
+
+            <Link
+              href="/app/products/new"
+              className="mt-3 inline-flex text-sm font-medium underline underline-offset-4 text-foreground hover:opacity-80"
+            >
+              Add Products
+            </Link>
+          </div>
+        </SectionContainer>
+      )
+    }
+    return null
+  }
+
+  return (
+    <SectionContainer
+      isMobile={isMobile}
+      style={{
+        paddingTop: spacing.paddingTop,
+        paddingBottom: spacing.paddingBottom,
+        paddingLeft: spacing.paddingLeft,
+        paddingRight: spacing.paddingRight,
+      }}
+    >
+      <div className={cn("flex", uiIsMobile ? "flex-col" : "flex-col md:flex-row md:gap-8")}>
+        {/* Desktop sidebar - only show when NOT mobile AND category filter is not hidden */}
+        {!uiIsMobile && !settings.hideCategoryFilter && (
+          <div className="hidden md:block w-48 flex-shrink-0">
+            <nav className="space-y-1">
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={cn(
+                  "w-full flex items-center justify-between py-2 pr-3 text-sm transition-colors border-r-2",
+                  selectedCategory === null
+                    ? "text-foreground font-medium border-foreground"
+                    : "text-muted-foreground hover:text-foreground border-transparent",
+                )}
+              >
+                <span>All</span>
+                <span className="text-muted-foreground">{totalProducts}</span>
+              </button>
+
+              {categoriesWithCounts.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={cn(
+                    "w-full flex items-center justify-between py-2 pr-3 text-sm transition-colors border-r-2",
+                    selectedCategory === category.id
+                      ? "text-foreground font-medium border-foreground"
+                      : "text-muted-foreground hover:text-foreground border-transparent",
+                  )}
+                >
+                  <span>{category.name}</span>
+                  <span className="text-muted-foreground">{category.count}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
+
+        {/* Main */}
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div
+            className={cn(
+              "flex gap-3",
+              uiIsMobile ? "flex-col" : "flex-col sm:flex-row sm:items-center sm:justify-between",
+            )}
+          >
+            <h2
+              className={cn("font-semibold text-foreground", uiIsMobile ? "text-lg" : "text-xl sm:text-2xl")}
+              style={{ textAlign: settings.typography.textAlign }}
+            >
+              {settings.headline}
+            </h2>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  id="sb-sort-trigger"
+                  onPointerDown={runtimeIsMobile ? onSortPointerDown : undefined}
+                  onPointerMove={runtimeIsMobile ? onSortPointerMove : undefined}
+                  onPointerUp={runtimeIsMobile ? onSortPointerUp : undefined}
+                  onPointerCancel={runtimeIsMobile ? onSortPointerCancel : undefined}
+                  onClick={runtimeIsMobile ? (e) => e.preventDefault() : undefined}
+                  className={cn(
+                    // ✅ Mobile: small chip (harder to accidentally tap)
+                    runtimeIsMobile
+                      ? "inline-flex w-fit items-center gap-2 rounded-md px-3 py-2 text-sm bg-muted/40 hover:bg-muted/60 transition-colors touch-pan-y select-none"
+                      : // ✅ Desktop: back to clean “text control on the right” (like your old screenshot)
+                        "inline-flex w-auto items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground bg-transparent",
+                  )}
+                >
+                  <span>Sort: {sortLabels[sortBy]}</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setSortBy("recent")}>Most Recent</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("oldest")}>Oldest</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("price-low")}>Price: Low → High</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("price-high")}>Price: High → Low</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("popular")}>Most Popular</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Mobile pills - only show when mobile AND category filter is not hidden */}
+          {uiIsMobile && !settings.hideCategoryFilter && (
+            <div className="mt-3">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  className={cn(
+                    "flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm",
+                    selectedCategory === null
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-background text-foreground border-border",
+                  )}
+                >
+                  All <span className="opacity-70">{totalProducts}</span>
+                </button>
+
+                {categoriesWithCounts.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={cn(
+                      "flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm",
+                      selectedCategory === category.id
+                        ? "bg-foreground text-background border-foreground"
+                        : "bg-background text-foreground border-border",
+                    )}
+                  >
+                    {category.name} <span className="opacity-70">{category.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Grid - use uiIsMobile to determine layout */}
+          <div
+            className={cn(
+              "grid gap-4 mt-4",
+              uiIsMobile
+                ? (settings.mobileListing ?? 1) === 1
+                  ? "grid-cols-1"
+                  : "grid-cols-2"
+                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+            )}
+          >
+            {sortedProducts.map((product) => {
+              const content = (
+                <>
+                  <div className="aspect-video bg-muted relative overflow-hidden rounded-t-lg">
+                    {product.thumbnail_url ? (
+                      <Image
+                        src={product.thumbnail_url || "/placeholder.svg"}
+                        alt={product.title}
+                        fill
+                        className="object-cover transition-transform group-hover:scale-105"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Package className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-4">
+                    <div className="font-medium text-foreground truncate">{product.title}</div>
+
+                    {settings.showPrice && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                        </span>
+                        {settings.showCompareAtPrice &&
+                          product.compare_at_cents &&
+                          product.compare_at_cents > product.price_cents && (
+                            <span className="text-sm text-muted-foreground/60 line-through">
+                              {formatPrice(product.compare_at_cents)}
+                            </span>
+                          )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )
+
+              if (isPreviewMode) {
+                return (
+                  <div
+                    key={product.id}
+                    className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md cursor-pointer"
+                  >
+                    {content}
+                  </div>
+                )
+              }
+
+              return (
+                <Link
+                  key={product.id}
+                  href={getProductHref(product)}
+                  className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
+                >
+                  {content}
+                </Link>
+              )
+            })}
+          </div>
+
+          {sortedProducts.length === 0 && (
+            <div className="rounded-lg border border-dashed border-border p-8 text-center mt-6">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No products in this category</p>
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className="mt-3 text-sm font-medium underline underline-offset-4 text-foreground hover:opacity-80"
+              >
+                View all products
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </SectionContainer>
+  )
+}
+
+// ====== SHOP HEADER - UNIFIED ======
+export interface UnifiedShopHeaderProps {
+  settings: ShopHeaderSettings
+  creator?: CreatorData
+  profile?: ProfileData
+  products?: ProductData[]
+  productCount?: number
+  isMobile?: boolean
+  isPreviewMode?: boolean
+  isSelected?: boolean
+  onSelect?: () => void
+  onAvatarEdit?: () => void
+}
+
+export function UnifiedShopHeader({
+  settings,
+  creator,
+  profile,
+  products,
+  productCount = 0,
+  isMobile = false,
+  isPreviewMode = false,
+  isSelected = false,
+  onSelect,
+  onAvatarEdit,
+}: UnifiedShopHeaderProps) {
+  const avatarSizeChoice = isMobile
+    ? settings.mobileAvatarSizeChoice || "medium"
+    : settings.avatarSizeChoice || "medium"
+  const avatarSize = avatarSizeMap[avatarSizeChoice]
+
+  const coverImageUrl = settings.coverImageUrl || creator?.cover_url
+
+  const avatarImageUrl =
+    settings.avatarUrl === "" ? undefined : settings.avatarUrl !== undefined ? settings.avatarUrl : profile?.avatar_url
+
+  const avatarKey = `avatar-${settings.avatarUrl ?? "default"}-${avatarImageUrl ?? "none"}`
+
+  const initials = profile?.display_name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+
+  const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
+
+  const showPlaceholder = !coverImageUrl && !isPreviewMode
+
+  return (
+    <div
+      onClick={isPreviewMode ? undefined : onSelect}
+      className={cn(
+        "transition-all",
+        !isPreviewMode && onSelect && "cursor-pointer",
+        !isPreviewMode && isSelected && "ring-2 ring-sky-500 ring-inset",
+      )}
+      style={{ backgroundColor: settings.colors.backgroundColor || "transparent" }}
+    >
+      {showPlaceholder ? (
+        <div
+          className={cn(
+            "relative w-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors",
+            isMobile ? "h-32" : "h-48 sm:h-64",
+          )}
+          onClick={onSelect}
+        >
+          <div className="flex items-center gap-3 text-gray-500">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="text-sm font-medium">Add banner to showcase your brand</span>
+          </div>
+        </div>
+      ) : coverImageUrl ? (
+        <div
+          className={cn("relative w-full overflow-hidden bg-gray-200 group", isMobile ? "h-32" : "h-48 sm:h-64")}
+          onClick={!isPreviewMode ? onSelect : undefined}
+        >
+          <Image
+            src={coverImageUrl || "/placeholder.svg"}
+            alt={`${profile?.display_name || "Creator"} cover`}
+            fill
+            sizes="100vw"
+            className="object-cover"
+            style={{
+              objectPosition: settings.coverFocalPoint
+                ? `${settings.coverFocalPoint.x}% ${settings.coverFocalPoint.y}%`
+                : undefined,
+              filter: `brightness(${settings.coverBrightness ?? 1.0})`,
+            }}
+            priority
+          />
+
+          {settings.showSocialMedia && settings.socialLinks && (!isMobile || settings.showSocialIconsOnMobile) && (
+            <div className={cn(
+              "absolute z-[5]",
+              isMobile 
+                ? "top-2 right-2" 
+                : "top-[18px] right-[12px]"  // Desktop: 3px more down (15->18), 3px more left (15->12)
+            )}>
+              <SocialMediaIcons
+                socialLinks={settings.socialLinks}
+                iconColor={settings.socialMediaIconColor || "#ffffff"}
+                isPreviewMode={isPreviewMode}
+                isMobile={isMobile}
+              />
+            </div>
+          )}
+
+          {!isPreviewMode && onSelect && (
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center cursor-pointer">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-2 shadow-lg">
+                <svg className="h-5 w-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                  />
+                </svg>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      <SectionContainer className={cn(isMobile ? "py-6" : "py-8 sm:py-12")} isMobile={isMobile}>
+        <div className="flex flex-col items-center text-center">
+          <div
+            className="relative group"
+            style={{
+              marginTop: coverImageUrl ? (isMobile ? "-2.875rem" : "-3.75rem") : "0",
+            }}
+          >
+            <Avatar
+              key={avatarKey}
+              className="border-4 border-background shadow-lg shrink-0"
+              style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
+            >
+              {avatarImageUrl ? (
+                <AvatarImage src={avatarImageUrl || "/placeholder.svg"} alt={profile?.display_name || ""} />
+              ) : null}
+              <AvatarFallback
+                delayMs={0}
+                className={cn("bg-gray-300 text-gray-700 font-semibold", isMobile ? "text-lg" : "text-xl sm:text-2xl")}
+              >
+                {initials || "?"}
+              </AvatarFallback>
+            </Avatar>
+
+            {!isPreviewMode && onAvatarEdit && (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAvatarEdit()
+                }}
+                className="absolute inset-0 rounded-full flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-all duration-200 cursor-pointer"
+              >
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white rounded-full p-2 shadow-lg">
+                  <svg className="h-4 w-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
+                  </svg>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <h1
+            className={cn(
+              "mt-3 font-semibold text-foreground break-words max-w-full px-4",
+              isMobile ? "text-lg" : "text-xl sm:text-2xl mt-4",
+            )}
+          >
+            {profile?.display_name || "Creator"}
+          </h1>
+
+          {settings.showHeadline && creator?.headline && (
+            <p
+              className={cn(
+                "mt-1 text-muted-foreground break-words max-w-full px-4",
+                isMobile ? "text-xs" : "text-sm sm:text-base",
+              )}
+            >
+              {creator.headline}
+            </p>
+          )}
+
+          {settings.showNicheTags && creator?.niche_tags && creator.niche_tags.length > 0 && (
+            <div className={cn("flex flex-wrap justify-center gap-2", isMobile ? "mt-3" : "mt-4")}>
+              {creator.niche_tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className={isMobile ? "text-xs" : ""}>
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {settings.showBio && creator?.bio && (
+            <p
+              className={cn(
+                "max-w-xl text-muted-foreground break-words px-4",
+                isMobile ? "mt-4 text-xs" : "mt-6 text-sm",
+              )}
+            >
+              {creator.bio}
+            </p>
+          )}
+
+          {settings.showStats && (
+            <div className={cn("flex flex-wrap gap-4 justify-center", isMobile ? "mt-4 gap-3" : "mt-6 sm:gap-8")}>
+              <div
+                className={cn(
+                  "flex items-center gap-2 text-muted-foreground",
+                  isMobile ? "text-xs" : "text-sm sm:text-base",
+                )}
+              >
+                <Package className={cn(isMobile ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5")} />
+                <span>{productCount} products</span>
+              </div>
+
+              {creator?.show_total_sales_badge && settings.showTotalSalesBadge && (
+                <div
+                  className={cn(
+                    "flex items-center gap-2 text-muted-foreground",
+                    isMobile ? "text-xs" : "text-sm sm:text-base",
+                  )}
+                >
+                  <ShoppingBag className={cn(isMobile ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5")} />
+                  <span>{totalSales} sales</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </SectionContainer>
+    </div>
+  )
+}
+
+// ====== PRODUCT PAGE CONTENT - UNIFIED ======
+// (kept exactly as your original continuation below — no changes here)
+export interface UnifiedProductPageProps {
+  settings: ProductHeaderSettings
+  product: ProductData
+  creator?: CreatorData
+  profile?: ProfileData
+  isMobile?: boolean
+  isPreviewMode?: boolean
+  isSelected?: boolean
+  onSelect?: () => void
+  reviewsCount?: number
+  reviewsAverage?: number
+  reviews?: any[]
+}
+
+export function UnifiedProductPage({
+  settings,
+  product,
+  creator,
+  profile,
+  isMobile = false,
+  isPreviewMode = false,
+  isSelected = false,
+  onSelect,
+  reviewsCount = 0,
+  reviewsAverage = 0,
+  reviews = [],
+}: UnifiedProductPageProps) {
+  const [showShareModal, setShowShareModal] = useState(false)
+
+  const formatPrice = (cents: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(cents / 100)
+  }
+
+  const initials = profile?.display_name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+
+  const productTitle = product?.title || "Product Title"
+  const productPrice = product?.price_cents ?? 0
+  const compareAtPrice = product?.compare_at_cents
+  const productDescription = product?.description
+  const productType = product?.type || "digital"
+  const salesCount = product?.sales_count || 0
+  const showSalesBadge = !isPreviewMode && product?.show_sales_badge !== false
+
+  // Get category badge text (use first category name, fallback to type)
+  const categoryBadgeText = product?.categories?.[0]?.name || productType
+
+  // Determine button text: "Add to cart" if price > 0, else "Get for Free"
+  const buttonText = productPrice === 0 ? "Get for Free" : "Add to cart"
+
+  const galleryImages = product?.gallery_urls?.length
+    ? ([product.thumbnail_url, ...product.gallery_urls].filter(Boolean) as string[])
+    : product?.thumbnail_url
+      ? [product.thumbnail_url]
+      : []
+
+  const whatsIncluded =
+    product?.whats_included && product.whats_included.length > 0
+      ? product.whats_included.map((item) => item.replace(/\*\*/g, ""))
+      : ["Instant download access", "All included files", "Lifetime access"]
+
+  const faqs = product?.faqs || []
+  const defaultFaqs = [
+    {
+      question: "How do I access my purchase?",
+      answer:
+        "After completing your purchase, you'll have instant access to your content through your library. You can access it anytime by logging in to your Materia account.",
+    },
+    {
+      question: "Is there a refund policy?",
+      answer:
+        "Refund policies are set by individual creators. Please contact the creator directly if you have questions about refunds.",
+    },
+    {
+      question: "How long do I have access?",
+      answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.",
+    },
+  ]
+  const displayFaqs = faqs.length > 0 ? faqs : defaultFaqs
+
+  return (
+    <div
+      onClick={isPreviewMode ? undefined : onSelect}
+      className={cn(
+        "transition-all",
+        !isPreviewMode && onSelect && "cursor-pointer",
+        !isPreviewMode && isSelected && "ring-2 ring-sky-500 ring-inset",
+      )}
+      style={{
+        paddingTop: settings.spacing.paddingTop,
+        paddingBottom: settings.spacing.paddingBottom,
+        backgroundColor: settings.colors.backgroundColor || "transparent",
+      }}
+    >
+      <SectionContainer className={cn(isMobile ? "py-4" : "py-6 sm:py-12", "pb-24 lg:pb-12")} isMobile={isMobile}>
+        <div className={cn("grid gap-8", !isMobile && "lg:grid-cols-5 lg:gap-12 lg:items-start")}>
+          <div className={cn(!isMobile && "lg:col-span-3", "min-w-0 w-full")}>
+            {settings.showGallery && (
+              <>
+                {galleryImages.length > 0 ? (
+                  <ProductGallery
+                    images={galleryImages}
+                    title={productTitle}
+                    mobileDotsMode={settings.mobileGalleryDots ?? false}
+                    desktopDotsMode={settings.desktopGalleryDots ?? false}
+                    forceDotsMode={isMobile && (settings.mobileGalleryDots ?? false)}
+                    forceDesktopDotsMode={!isMobile && (settings.desktopGalleryDots ?? false)}
+                    isEditorMobilePreview={isMobile}
+                  />
+                ) : (
+                  <div className="relative aspect-square sm:aspect-video overflow-hidden rounded-xl bg-muted">
+                    <div className="flex h-full items-center justify-center text-muted-foreground">
+                      <span className="text-6xl">{productType === "digital" ? "📦" : "📚"}</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className={cn("mt-6", !isMobile && "sm:mt-8")}>
+              <div className={cn("flex items-start justify-between gap-3", !isMobile && "sm:flex-row sm:gap-4")}>
+                <h1
+                  className={cn(
+                    "font-semibold text-foreground break-words flex-1 min-w-0",
+                    isMobile ? "text-xl" : "text-2xl sm:text-3xl",
+                  )}
+                >
+                  {productTitle}
+                </h1>
+                {settings.showBadges && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge variant="secondary" className="shrink-0 capitalize">
+                      {categoryBadgeText}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop: Show creator info here (before description) with share button */}
+              {!isMobile && settings.showCreatorInfo && creator && (
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3 p-2 -ml-2">
+                    <Avatar className="shrink-0 h-10 w-10">
+                      <AvatarImage src={profile?.avatar_url || undefined} />
+                      <AvatarFallback>{initials || "?"}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex items-center gap-3">
+                      <p className="font-medium text-foreground truncate text-base">
+                        {profile?.display_name || "Creator"}
+                      </p>
+                      {(settings.showRatingNextToSeller ?? true) && reviewsCount > 0 && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={cn(
+                                "h-4 w-4",
+                                star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300",
+                              )}
+                            />
+                          ))}
+                          <span className="text-sm text-muted-foreground ml-1">({reviewsCount})</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowShareModal(true)
+                    }}
+                  >
+                    <Share2 className="h-5 w-5" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Mobile: Price card and Creator info ABOVE description */}
+              {isMobile && (
+                <div className="mt-6">
+                  <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                    <div className="mb-4">
+                      <div className="text-xl font-bold text-foreground">
+                        {productPrice === 0 ? "Free" : formatPrice(productPrice)}
+                      </div>
+                      {compareAtPrice && compareAtPrice > productPrice && (
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-base text-muted-foreground line-through">
+                            {formatPrice(compareAtPrice)}
+                          </span>
+                          <Badge variant="destructive">
+                            {Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+
+                    {isPreviewMode ? (
+                      <div className="space-y-3">
+                        <Button
+                          className="w-full min-h-[44px]"
+                          style={{
+                            backgroundColor: settings.buyButtonColor || undefined,
+                            color: settings.buyButtonTextColor || undefined,
+                          }}
+                        >
+                          {buttonText}
+                        </Button>
+                        {/* Wishlist button placeholder in preview */}
+                        <Button
+                          variant="outline"
+                          className="w-full bg-white border-gray-200 min-h-[44px]"
+                        >
+                          <Heart className="h-4 w-4 mr-2" />
+                          Add to wishlist
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <Button
+                          className="w-full min-h-[44px]"
+                          disabled
+                          style={{
+                            backgroundColor: settings.buyButtonColor || undefined,
+                            color: settings.buyButtonTextColor || undefined,
+                          }}
+                        >
+                          {buttonText}
+                        </Button>
+                        {/* Wishlist button placeholder */}
+                        <Button
+                          variant="outline"
+                          className="w-full bg-white border-gray-200 min-h-[44px]"
+                          disabled
+                        >
+                          <Heart className="h-4 w-4 mr-2" />
+                          Add to wishlist
+                        </Button>
+                      </div>
+                    )}
+
+                    {settings.showWhatsIncluded && (
+                      <div className="mt-4 border-t border-border pt-4">
+                        <h3 className="font-semibold text-foreground text-sm">What&apos;s included</h3>
+                        <ul className="mt-3 space-y-2">
+                          {whatsIncluded.map((item, idx) => (
+                            <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                              {getIncludedItemIcon(item)}
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {settings.showSalesAnnouncement && salesCount > 0 && (
+                      <div className="mt-4 pt-4 border-t border-border">
+                        <p className="text-sm text-muted-foreground text-center">
+                          {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mobile: Creator info OUTSIDE the price card */}
+                  {settings.showCreatorInfo && creator && (
+                    <div className="mt-4 flex items-center justify-between p-3 rounded-lg border border-border bg-card">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar className="shrink-0 h-8 w-8">
+                          <AvatarImage src={profile?.avatar_url || undefined} />
+                          <AvatarFallback>{initials || "?"}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex items-center gap-2">
+                          <p className="font-medium text-foreground truncate text-sm">
+                            {profile?.display_name || "Creator"}
+                          </p>
+                          {(settings.showRatingNextToSeller ?? true) && reviewsCount > 0 && (
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={cn(
+                                    "h-3 w-3",
+                                    star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300",
+                                  )}
+                                />
+                              ))}
+                              <span className="text-xs text-muted-foreground ml-1">({reviewsCount})</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowShareModal(true)
+                        }}
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {settings.showDescription !== false && productDescription && (
+                <div className="mt-6">
+                  <h2 className={cn("mb-3 font-semibold text-foreground", isMobile ? "text-base" : "text-lg")}>
+                    Description
+                  </h2>
+                  <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed break-words text-sm">
+                    {productDescription.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Tablet/Small desktop price card (lg:hidden but not mobile) */}
+            {!isMobile && (
+              <div className="mt-6 lg:hidden">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
+                  <div className="mb-4">
+                    <div className="text-2xl sm:text-3xl font-bold text-foreground">
+                      {productPrice === 0 ? "Free" : formatPrice(productPrice)}
+                    </div>
+                    {compareAtPrice && compareAtPrice > productPrice && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-base text-muted-foreground line-through">
+                          {formatPrice(compareAtPrice)}
+                        </span>
+                        <Badge variant="destructive">
+                          {Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+
+                  {isPreviewMode ? (
+                    <div className="space-y-3">
+                      <Button
+                        className="w-full min-h-[44px]"
+                        style={{
+                          backgroundColor: settings.buyButtonColor || undefined,
+                          color: settings.buyButtonTextColor || undefined,
+                        }}
+                      >
+                        {buttonText}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full bg-white border-gray-200 min-h-[44px]"
+                      >
+                        <Heart className="h-4 w-4 mr-2" />
+                        Add to wishlist
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Button
+                        className="w-full min-h-[44px]"
+                        disabled
+                        style={{
+                          backgroundColor: settings.buyButtonColor || undefined,
+                          color: settings.buyButtonTextColor || undefined,
+                        }}
+                      >
+                        {buttonText}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full bg-white border-gray-200 min-h-[44px]"
+                        disabled
+                      >
+                        <Heart className="h-4 w-4 mr-2" />
+                        Add to wishlist
+                      </Button>
+                    </div>
+                  )}
+
+                  {settings.showWhatsIncluded && (
+                    <div className="mt-4 border-t border-border pt-4">
+                      <h3 className="font-semibold text-foreground text-sm">What&apos;s included</h3>
+                      <ul className="mt-3 space-y-2">
+                        {whatsIncluded.map((item, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            {getIncludedItemIcon(item)}
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {settings.showSalesAnnouncement && salesCount > 0 && (
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <p className="text-sm text-muted-foreground text-center">
+                        {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* FAQs */}
+            {settings.showFaqs !== false && (
+              <div className={cn("mt-8", !isMobile && "sm:mt-10")}>
+                <h2 className={cn("mb-4 font-semibold text-foreground", isMobile ? "text-base" : "text-lg")}>
+                  Frequently Asked Questions
+                </h2>
+                <div className="px-2 sm:px-0">
+                  <Accordion type="single" collapsible className="w-full">
+                    {displayFaqs.map((faq, idx) => (
+                      <AccordionItem key={idx} value={`item-${idx}`}>
+                        <AccordionTrigger className="min-h-[44px] text-left text-sm">{faq.question}</AccordionTrigger>
+                        <AccordionContent className="text-sm text-muted-foreground">{faq.answer}</AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop sidebar with sticky behavior */}
+          {!isMobile && (
+            <div className="hidden lg:block lg:col-span-2">
+              <div className="sticky top-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+                <div className="mb-4">
+                  <div className="text-3xl font-bold text-foreground">
+                    {productPrice === 0 ? "Free" : formatPrice(productPrice)}
+                  </div>
+                  {compareAtPrice && compareAtPrice > productPrice && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-lg text-muted-foreground line-through">{formatPrice(compareAtPrice)}</span>
+                      <Badge variant="destructive">{Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF</Badge>
+                    </div>
+                  )}
+                </div>
+
+                {isPreviewMode ? (
+                  <div className="space-y-3">
+                    <Button
+                      className="w-full min-h-[44px]"
+                      style={{
+                        backgroundColor: settings.buyButtonColor || undefined,
+                        color: settings.buyButtonTextColor || undefined,
+                      }}
+                    >
+                      {buttonText}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full bg-white border-gray-200 min-h-[44px]"
+                    >
+                      <Heart className="h-4 w-4 mr-2" />
+                      Add to wishlist
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Button
+                      className="w-full min-h-[44px]"
+                      disabled
+                      style={{
+                        backgroundColor: settings.buyButtonColor || undefined,
+                        color: settings.buyButtonTextColor || undefined,
+                      }}
+                    >
+                      {buttonText}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full bg-white border-gray-200 min-h-[44px]"
+                      disabled
+                    >
+                      <Heart className="h-4 w-4 mr-2" />
+                      Add to wishlist
+                    </Button>
+                  </div>
+                )}
+
+                {settings.showWhatsIncluded && (
+                  <div className="mt-4 border-t border-border pt-4">
+                    <h3 className="font-semibold text-foreground">What&apos;s included</h3>
+                    <ul className="mt-3 space-y-2">
+                      {whatsIncluded.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          {getIncludedItemIcon(item)}
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {settings.showSalesAnnouncement && salesCount > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <p className="text-sm text-muted-foreground text-center">
+                      {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </SectionContainer>
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        productTitle={productTitle}
+        productSlug={product?.slug || product?.id}
+      />
+    </div>
+  )
+}
+
+// ====== MORE FROM SELLER - UNIFIED ======
+export interface UnifiedProductsGridProps {
+  settings: any
+  products: ProductData[]
+  isMobile?: boolean
+  isPreviewMode?: boolean
+}
+
+export function UnifiedProductsGrid({
+  settings,
+  products,
+  isMobile = false,
+  isPreviewMode = false,
+}: UnifiedProductsGridProps) {
+  const formatPrice = (cents: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(cents / 100)
+  }
+
+  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+  const displayProducts = products?.slice(0, settings.maxProducts || 4) || []
+
+  if (displayProducts.length === 0) return null
+
+  const columns = Math.min(Number(settings.columns ?? 3), 3)
+
+  return (
+    <SectionContainer
+      isMobile={isMobile}
+      className={cn(
+        // wider section on desktop / large screens
+        !isMobile && "max-w-[1200px] lg:px-8 xl:max-w-[1500px]",
+        // tighter left/right padding on mobile (max 5px)
+        isMobile && "!px-[5px]",
+      )}
+      style={{
+        paddingTop: spacing?.paddingTop,
+        paddingBottom: spacing?.paddingBottom,
+        // Only apply left/right padding on desktop
+        paddingLeft: isMobile ? undefined : spacing?.paddingLeft,
+        paddingRight: isMobile ? undefined : spacing?.paddingRight,
+      }}
+    >
+      <div
+        className={cn(
+          "grid gap-4",
+          isMobile
+            ? "grid-cols-1"
+            : cn(
+                columns === 2 && "grid-cols-1 sm:grid-cols-2",
+                columns === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+              ),
+        )}
+      >
+        {displayProducts.map((product) => {
+          const content = (
+            <>
+              <div className="aspect-video bg-muted relative overflow-hidden">
+                {product.thumbnail_url ? (
+                  <Image
+                    src={product.thumbnail_url || "/placeholder.svg"}
+                    alt={product.title}
+                    fill
+                    className="object-cover transition-transform group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <Package className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              <div className={cn("p-3", !isMobile && "sm:p-4")}>
+                <h3 className={cn("font-medium text-foreground truncate", isMobile ? "text-sm" : "text-base")}>
+                  {product.title}
+                </h3>
+                {settings.showDescription && product.description && (
+                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{product.description}</p>
+                )}
+                {settings.showPrice && (
+                  <div className={cn("mt-2 flex items-center gap-2", isMobile ? "text-sm" : "text-base")}>
+                    <span className="font-semibold text-foreground">
+                      {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                    </span>
+                    {settings.showCompareAtPrice &&
+                      product.compare_at_cents &&
+                      product.compare_at_cents > product.price_cents && (
+                        <span className="text-muted-foreground line-through text-sm">
+                          {formatPrice(product.compare_at_cents)}
+                        </span>
+                      )}
+                  </div>
+                )}
+              </div>
+            </>
+          )
+
+          if (isPreviewMode) {
+            return (
+              <div
+                key={product.id}
+                className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md cursor-pointer"
+              >
+                {content}
+              </div>
+            )
+          }
+
+          return (
+            <Link
+              key={product.id}
+              href={`/p/${product.slug || product.id}`}
+              className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
+            >
+              {content}
+            </Link>
+          )
+        })}
+      </div>
+    </SectionContainer>
+  )
+}
+
+function UnifiedMoreFromSellerSection({
+  settings,
+  products,
+  creatorName,
+  isMobile = false,
+  isPreviewMode = false,
+}: {
+  settings: MoreFromSellerSettings
+  products: ProductData[]
+  creatorName: string
+  isMobile?: boolean
+  isPreviewMode?: boolean
+}) {
+  // Always use settings.spacing for top/bottom padding (this is what the sliders control)
+  const spacing = settings.spacing
+  const displayProducts = products?.slice(0, settings.maxProducts || 4) || []
+
+  const formatPrice = (cents: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(cents / 100)
+  }
+
+  const columns = Math.min(Number(settings.columns ?? 3), 3)
+  const mobileProductsPerRow = settings.mobileProductsPerRow ?? 1
+
+  // Build grid classes based on mobileProductsPerRow setting
+  const getGridClasses = () => {
+    const mobileGridClass = mobileProductsPerRow === 2 ? "grid-cols-2" : "grid-cols-1"
+
+    // If isMobile is true (store builder mobile preview), just return mobile class
+    if (isMobile) {
+      return mobileGridClass
+    }
+
+    // For desktop preview in store builder OR live pages, use responsive classes
+    if (columns === 2) {
+      return `${mobileGridClass} sm:grid-cols-2`
+    }
+    // columns === 3 (default)
+    return `${mobileGridClass} sm:grid-cols-2 lg:grid-cols-3`
+  }
+
+  if (displayProducts.length === 0) {
+    if (isPreviewMode) {
+      return (
+        <div
+          className={cn("mx-auto w-full", isMobile ? "px-[10px]" : "max-w-[1400px] px-3 sm:px-4 lg:px-6")}
+          style={{
+            paddingTop: spacing?.paddingTop,
+            paddingBottom: spacing?.paddingBottom,
+          }}
+        >
+          <h2 className={cn("font-semibold text-foreground mb-4", isMobile ? "text-lg" : "text-xl sm:text-2xl")}>
+            {settings.headline} {creatorName}
+          </h2>
+          <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
+            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No other products from this seller</p>
+          </div>
+        </div>
+      )
+    }
+    return null
+  }
+
+  return (
+    <div
+      className={cn(
+        "mx-auto w-full max-w-[1150px]",
+        // ✅ LIVE PRODUCT PAGE – mobile device - 18px padding
+        !isPreviewMode && "px-[18px] sm:px-4 lg:px-6",
+        // ✅ STORE BUILDER mobile preview - 18px padding for better spacing
+        isPreviewMode && isMobile && "px-[18px]",
+        // ✅ desktop safety
+        !isMobile && "px-4 sm:px-4 lg:px-6",
+      )}
+      style={{
+        paddingTop: spacing?.paddingTop,
+        paddingBottom: spacing?.paddingBottom,
+      }}
+    >
+      <h2 className={cn("font-semibold text-foreground mb-9", isMobile ? "text-lg" : "text-xl sm:text-2xl")}>
+        {settings.headline} {creatorName}
+      </h2>
+      <div className={cn("grid gap-4", getGridClasses())}>
+        {displayProducts.map((product) => {
+          const content = (
+            <>
+              <div className="aspect-video bg-muted relative overflow-hidden">
+                {product.thumbnail_url ? (
+                  <Image
+                    src={product.thumbnail_url || "/placeholder.svg"}
+                    alt={product.title}
+                    fill
+                    className="object-cover transition-transform group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <Package className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              <div className={cn("p-3", !isMobile && "sm:p-4")}>
+                <h3 className={cn("font-medium text-foreground truncate", isMobile ? "text-sm" : "text-base")}>
+                  {product.title}
+                </h3>
+                {settings.showDescription && product.description && (
+                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{product.description}</p>
+                )}
+                {settings.showPrice && (
+                  <div className={cn("mt-2 flex items-center gap-2", isMobile ? "text-sm" : "text-base")}>
+                    <span className="font-semibold text-foreground">
+                      {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                    </span>
+                    {settings.showCompareAtPrice &&
+                      product.compare_at_cents &&
+                      product.compare_at_cents > product.price_cents && (
+                        <span className="text-muted-foreground line-through text-sm">
+                          {formatPrice(product.compare_at_cents)}
+                        </span>
+                      )}
+                  </div>
+                )}
+              </div>
+            </>
+          )
+
+          if (isPreviewMode) {
+            return (
+              <div
+                key={product.id}
+                className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md cursor-pointer"
+              >
+                {content}
+              </div>
+            )
+          }
+
+          return (
+            <Link
+              key={product.id}
+              href={`/p/${product.slug || product.id}`}
+              className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
+            >
+              {content}
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
