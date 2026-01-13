@@ -819,45 +819,97 @@ export function PhonePreview({ className }: PhonePreviewProps) {
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
   const [pdfTotalPages, setPdfTotalPages] = useState(1)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfPages, setPdfPages] = useState<string[]>([])
+  const pdfScrollRef = useRef<HTMLDivElement>(null)
 
-  // Fetch PDF and count pages when modal opens
+  // Load PDF.js and render pages when modal opens
   useEffect(() => {
     if (pdfModalOpen && pdfModalData?.pdfUrl) {
       setPdfLoading(true)
       setPdfTotalPages(1)
       setPdfCurrentPage(1)
+      setPdfPages([])
 
-      fetch(pdfModalData.pdfUrl)
-        .then(response => response.arrayBuffer())
-        .then(buffer => {
-          const bytes = new Uint8Array(buffer)
-          const text = new TextDecoder('latin1').decode(bytes)
+      const loadPdfJs = async () => {
+        try {
+          if (!(window as any).pdfjsLib) {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+            script.async = true
+            await new Promise((resolve, reject) => {
+              script.onload = resolve
+              script.onerror = reject
+              document.head.appendChild(script)
+            })
+          }
 
-          // Method 1: Look for /Count in Pages dictionary
-          const countMatch = text.match(/\/Count\s+(\d+)/g)
-          if (countMatch) {
-            const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
-            const maxCount = Math.max(...counts)
-            if (maxCount > 0) {
-              setPdfTotalPages(maxCount)
-              setPdfLoading(false)
-              return
+          const pdfjsLib = (window as any).pdfjsLib
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+
+          const loadingTask = pdfjsLib.getDocument(pdfModalData.pdfUrl)
+          const pdf = await loadingTask.promise
+          setPdfTotalPages(pdf.numPages)
+
+          const pageImages: string[] = []
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i)
+            const scale = 2
+            const viewport = page.getViewport({ scale })
+
+            const canvas = document.createElement('canvas')
+            const context = canvas.getContext('2d')
+            canvas.height = viewport.height
+            canvas.width = viewport.width
+
+            await page.render({
+              canvasContext: context,
+              viewport: viewport
+            }).promise
+
+            pageImages.push(canvas.toDataURL('image/jpeg', 0.9))
+          }
+
+          setPdfPages(pageImages)
+          setPdfLoading(false)
+        } catch (error) {
+          console.error('PDF loading error:', error)
+          setPdfLoading(false)
+          try {
+            const response = await fetch(pdfModalData.pdfUrl)
+            const buffer = await response.arrayBuffer()
+            const bytes = new Uint8Array(buffer)
+            const text = new TextDecoder('latin1').decode(bytes)
+            const countMatch = text.match(/\/Count\s+(\d+)/g)
+            if (countMatch) {
+              const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
+              setPdfTotalPages(Math.max(...counts))
             }
+          } catch {
+            setPdfTotalPages(1)
           }
+        }
+      }
 
-          // Method 2: Count /Type /Page occurrences
-          const pageMatches = text.match(/\/Type\s*\/Page[^s]/g)
-          if (pageMatches && pageMatches.length > 0) {
-            setPdfTotalPages(pageMatches.length)
-          }
-          setPdfLoading(false)
-        })
-        .catch(() => {
-          setPdfLoading(false)
-          setPdfTotalPages(1)
-        })
+      loadPdfJs()
     }
   }, [pdfModalOpen, pdfModalData?.pdfUrl])
+
+  // Handle scroll to update current page
+  const handlePdfScroll = useCallback(() => {
+    const container = pdfScrollRef.current
+    if (!container || pdfTotalPages <= 1 || pdfPages.length === 0) return
+
+    const scrollTop = container.scrollTop
+    const containerHeight = container.clientHeight
+    const pageHeight = container.scrollHeight / pdfTotalPages
+
+    const currentPageIndex = Math.floor((scrollTop + containerHeight / 2) / pageHeight)
+    const newPage = Math.min(pdfTotalPages, Math.max(1, currentPageIndex + 1))
+
+    if (newPage !== pdfCurrentPage) {
+      setPdfCurrentPage(newPage)
+    }
+  }, [pdfTotalPages, pdfPages.length, pdfCurrentPage])
 
   const openPDFModal = useCallback((data: {
     title: string
@@ -1447,19 +1499,40 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             </div>
 
             {/* Preview Area */}
-            <div className="flex-1 flex flex-col items-center justify-center p-2 overflow-auto min-h-0">
+            <div className="flex-1 flex flex-col items-center justify-center p-2 overflow-hidden min-h-0">
               {/* PDF Preview Frame */}
               <div className="relative w-full max-w-[160px] bg-gray-50 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
                 {/* Page Counter */}
                 <div className="absolute top-1 left-1 z-10 px-1.5 py-0.5 bg-white/95 backdrop-blur-sm rounded text-[8px] font-medium text-gray-600 shadow-sm">
                   {pdfLoading ? "..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
                 </div>
-                <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
-                  <iframe
-                    src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                    className="w-full h-full border-0"
-                    title={pdfModalData.title || "PDF Document"}
-                  />
+                <div
+                  ref={pdfScrollRef}
+                  className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
+                  onScroll={handlePdfScroll}
+                >
+                  {pdfLoading ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="animate-spin w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+                    </div>
+                  ) : pdfPages.length > 0 ? (
+                    <div className="flex flex-col">
+                      {pdfPages.map((pageImg, index) => (
+                        <img
+                          key={index}
+                          src={pageImg}
+                          alt={`Page ${index + 1}`}
+                          className="w-full h-auto"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <iframe
+                      src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                      className="w-full h-full border-0"
+                      title={pdfModalData.title || "PDF Document"}
+                    />
+                  )}
                 </div>
               </div>
               {pdfModalData.description && (
@@ -1546,45 +1619,97 @@ export function MobilePreviewContent() {
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
   const [pdfTotalPages, setPdfTotalPages] = useState(1)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfPages, setPdfPages] = useState<string[]>([])
+  const pdfScrollRef = useRef<HTMLDivElement>(null)
 
-  // Fetch PDF and count pages when modal opens
+  // Load PDF.js and render pages when modal opens
   useEffect(() => {
     if (pdfModalOpen && pdfModalData?.pdfUrl) {
       setPdfLoading(true)
       setPdfTotalPages(1)
       setPdfCurrentPage(1)
+      setPdfPages([])
 
-      fetch(pdfModalData.pdfUrl)
-        .then(response => response.arrayBuffer())
-        .then(buffer => {
-          const bytes = new Uint8Array(buffer)
-          const text = new TextDecoder('latin1').decode(bytes)
+      const loadPdfJs = async () => {
+        try {
+          if (!(window as any).pdfjsLib) {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+            script.async = true
+            await new Promise((resolve, reject) => {
+              script.onload = resolve
+              script.onerror = reject
+              document.head.appendChild(script)
+            })
+          }
 
-          // Method 1: Look for /Count in Pages dictionary
-          const countMatch = text.match(/\/Count\s+(\d+)/g)
-          if (countMatch) {
-            const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
-            const maxCount = Math.max(...counts)
-            if (maxCount > 0) {
-              setPdfTotalPages(maxCount)
-              setPdfLoading(false)
-              return
+          const pdfjsLib = (window as any).pdfjsLib
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+
+          const loadingTask = pdfjsLib.getDocument(pdfModalData.pdfUrl)
+          const pdf = await loadingTask.promise
+          setPdfTotalPages(pdf.numPages)
+
+          const pageImages: string[] = []
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i)
+            const scale = 2
+            const viewport = page.getViewport({ scale })
+
+            const canvas = document.createElement('canvas')
+            const context = canvas.getContext('2d')
+            canvas.height = viewport.height
+            canvas.width = viewport.width
+
+            await page.render({
+              canvasContext: context,
+              viewport: viewport
+            }).promise
+
+            pageImages.push(canvas.toDataURL('image/jpeg', 0.9))
+          }
+
+          setPdfPages(pageImages)
+          setPdfLoading(false)
+        } catch (error) {
+          console.error('PDF loading error:', error)
+          setPdfLoading(false)
+          try {
+            const response = await fetch(pdfModalData.pdfUrl)
+            const buffer = await response.arrayBuffer()
+            const bytes = new Uint8Array(buffer)
+            const text = new TextDecoder('latin1').decode(bytes)
+            const countMatch = text.match(/\/Count\s+(\d+)/g)
+            if (countMatch) {
+              const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
+              setPdfTotalPages(Math.max(...counts))
             }
+          } catch {
+            setPdfTotalPages(1)
           }
+        }
+      }
 
-          // Method 2: Count /Type /Page occurrences
-          const pageMatches = text.match(/\/Type\s*\/Page[^s]/g)
-          if (pageMatches && pageMatches.length > 0) {
-            setPdfTotalPages(pageMatches.length)
-          }
-          setPdfLoading(false)
-        })
-        .catch(() => {
-          setPdfLoading(false)
-          setPdfTotalPages(1)
-        })
+      loadPdfJs()
     }
   }, [pdfModalOpen, pdfModalData?.pdfUrl])
+
+  // Handle scroll to update current page
+  const handlePdfScroll = useCallback(() => {
+    const container = pdfScrollRef.current
+    if (!container || pdfTotalPages <= 1 || pdfPages.length === 0) return
+
+    const scrollTop = container.scrollTop
+    const containerHeight = container.clientHeight
+    const pageHeight = container.scrollHeight / pdfTotalPages
+
+    const currentPageIndex = Math.floor((scrollTop + containerHeight / 2) / pageHeight)
+    const newPage = Math.min(pdfTotalPages, Math.max(1, currentPageIndex + 1))
+
+    if (newPage !== pdfCurrentPage) {
+      setPdfCurrentPage(newPage)
+    }
+  }, [pdfTotalPages, pdfPages.length, pdfCurrentPage])
 
   const openPDFModal = useCallback((data: {
     title: string
@@ -2015,19 +2140,40 @@ export function MobilePreviewContent() {
             </div>
 
             {/* Preview Area */}
-            <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-auto min-h-0">
+            <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
               {/* PDF Preview Frame */}
               <div className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
                 {/* Page Counter */}
                 <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
                   {pdfLoading ? "Loading..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
                 </div>
-                <div className="aspect-[3/4] w-full bg-white flex items-center justify-center overflow-hidden">
-                  <iframe
-                    src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                    className="w-full h-full border-0"
-                    title={pdfModalData.title || "PDF Document"}
-                  />
+                <div
+                  ref={pdfScrollRef}
+                  className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
+                  onScroll={handlePdfScroll}
+                >
+                  {pdfLoading ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+                    </div>
+                  ) : pdfPages.length > 0 ? (
+                    <div className="flex flex-col">
+                      {pdfPages.map((pageImg, index) => (
+                        <img
+                          key={index}
+                          src={pageImg}
+                          alt={`Page ${index + 1}`}
+                          className="w-full h-auto"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <iframe
+                      src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                      className="w-full h-full border-0"
+                      title={pdfModalData.title || "PDF Document"}
+                    />
+                  )}
                 </div>
               </div>
               {pdfModalData.description && (
