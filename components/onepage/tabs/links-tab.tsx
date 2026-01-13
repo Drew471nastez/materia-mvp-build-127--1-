@@ -3533,17 +3533,42 @@ export function LinksTab() {
               const block = sortedBlocks.find(b => b.id === emailEditorBlockId)
               if (!block || block.type !== 'email_capture') return null
               const data = block.data as EmailCaptureBlockData
+              
+              // Default template values
+              const hasDownload = data.enable_digital_product && data.digital_product_file_url
+              const defaultSubject = hasDownload 
+                ? `Your download is ready: ${data.digital_product_title || 'Free Download'}`
+                : "Thanks for subscribing!"
+              const defaultHeading = hasDownload 
+                ? "Your download is ready!" 
+                : "Welcome!"
+              const defaultBody = hasDownload
+                ? `Thanks for subscribing! As promised, here's your free download.`
+                : "Thanks for joining our newsletter. We're excited to have you!"
 
               return (
                 <>
+                  {/* Email Preview Card */}
+                  <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl p-4 text-white">
+                    <div className="text-center space-y-1">
+                      <p className="text-xs opacity-80">Preview</p>
+                      <p className="font-semibold text-sm">{data.email_heading || defaultHeading}</p>
+                      {hasDownload && (
+                        <div className="mt-2 bg-white/20 rounded-lg px-3 py-2">
+                          <p className="text-xs opacity-90">📦 {data.digital_product_title || 'Download'}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Email Subject</Label>
                     <Input
-                      value={data.email_subject || ''}
+                      value={data.email_subject ?? defaultSubject}
                       onChange={(e) => updateBlock(block.id, {
                         data: { ...data, email_subject: e.target.value }
                       })}
-                      placeholder="Thanks for subscribing!"
+                      placeholder={defaultSubject}
                       className="h-10"
                     />
                     <p className="text-xs text-muted-foreground">Subject line your subscribers will see</p>
@@ -3552,11 +3577,11 @@ export function LinksTab() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Email Heading</Label>
                     <Input
-                      value={data.email_heading || ''}
+                      value={data.email_heading ?? defaultHeading}
                       onChange={(e) => updateBlock(block.id, {
                         data: { ...data, email_heading: e.target.value }
                       })}
-                      placeholder="Welcome!"
+                      placeholder={defaultHeading}
                       className="h-10"
                     />
                     <p className="text-xs text-muted-foreground">Main heading inside the email</p>
@@ -3565,20 +3590,28 @@ export function LinksTab() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Email Body</Label>
                     <Textarea
-                      value={data.email_body || ''}
+                      value={data.email_body ?? defaultBody}
                       onChange={(e) => updateBlock(block.id, {
                         data: { ...data, email_body: e.target.value }
                       })}
-                      placeholder="Thanks for joining our newsletter. We're excited to have you!"
+                      placeholder={defaultBody}
                       className="min-h-[100px] resize-none"
                     />
                     <p className="text-xs text-muted-foreground">The main message content</p>
                   </div>
 
-                  {data.enable_digital_product && data.digital_product_file_url && (
-                    <div className="bg-violet-50 p-3 rounded-xl">
+                  {hasDownload && (
+                    <div className="bg-violet-50 p-3 rounded-xl border border-violet-100">
                       <p className="text-xs text-violet-700">
-                        <strong>Note:</strong> A download link for "{data.digital_product_title || 'your file'}" will automatically be included in the email.
+                        <strong>✓ Download included:</strong> A download button for "{data.digital_product_title || 'your file'}" will automatically be added to the email.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {!hasDownload && !data.send_welcome_email && (
+                    <div className="bg-amber-50 p-3 rounded-xl border border-amber-100">
+                      <p className="text-xs text-amber-700">
+                        <strong>Note:</strong> Enable "Send Welcome Email" in the block settings to send this email when someone subscribes.
                       </p>
                     </div>
                   )}
@@ -3591,7 +3624,7 @@ export function LinksTab() {
               onClick={() => setShowEmailEditor(false)}
               className="w-full bg-black hover:bg-gray-800 text-white h-11 rounded-xl"
             >
-              Done
+              Save
             </Button>
           </div>
         </DialogContent>
@@ -4850,87 +4883,89 @@ function BlockEditor({
 
     // Default layout content for link_button and image blocks
     return (
-      <div className="space-y-4">
-        <p className="text-xs text-muted-foreground">Choose how this block displays on your page</p>
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
 
-        {/* Default Layout Option */}
-        <button
-          type="button"
-          onClick={() => updateData({ layout_type: 'default' })}
-          className={cn(
-            "w-full p-3 rounded-xl border-2 text-left transition-all",
-            currentLayoutType === 'default'
-              ? "border-violet-500 bg-violet-50"
-              : "border-gray-200 hover:border-gray-300 bg-white"
-          )}
-        >
-          <div className="flex items-start gap-3">
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-              currentLayoutType === 'default' ? "border-violet-500" : "border-gray-300"
-            )}>
-              {currentLayoutType === 'default' && (
-                <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm">Default</div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Standard display for your link
-              </p>
-            </div>
-          </div>
-        </button>
-
-        {/* Pro Layout Option */}
-        <button
-          type="button"
-          onClick={() => updateData({ layout_type: 'pro' })}
-          className={cn(
-            "w-full p-3 rounded-xl border-2 text-left transition-all",
-            currentLayoutType === 'pro'
-              ? "border-violet-500 bg-violet-50"
-              : "border-gray-200 hover:border-gray-300 bg-white"
-          )}
-        >
-          <div className="flex items-start gap-3">
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-              currentLayoutType === 'pro' ? "border-violet-500" : "border-gray-300"
-            )}>
-              {currentLayoutType === 'pro' && (
-                <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-sm">Pro Layout</span>
-                <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+        {/* Layout Options Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Default Layout Option */}
+          <button
+            type="button"
+            onClick={() => updateData({ layout_type: 'default' })}
+            className={cn(
+              "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+              currentLayoutType === 'default'
+                ? "border-violet-500 bg-violet-50/50"
+                : "border-gray-200 hover:border-gray-300 bg-white"
+            )}
+          >
+            {/* Visual Preview */}
+            <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+              <div className="w-full h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center gap-2 px-3">
+                <div className="w-5 h-5 rounded bg-gray-200" />
+                <div className="flex-1 h-2.5 bg-gray-200 rounded" />
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {block.type === "link_button"
-                  ? "Make your link stand out with a larger, more attractive display featuring your thumbnail prominently"
-                  : "Make your content stand out with enhanced display and interactions"}
-              </p>
-              {/* Preview mockup */}
-              <div className="mt-2.5 p-2 bg-gray-100 rounded-lg">
+            </div>
+            
+            {/* Label */}
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                currentLayoutType === 'default' ? "border-violet-500" : "border-gray-300"
+              )}>
+                {currentLayoutType === 'default' && (
+                  <div className="w-2 h-2 rounded-full bg-violet-500" />
+                )}
+              </div>
+              <span className="font-medium text-sm">Default</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1 ml-6">Standard button</p>
+          </button>
+
+          {/* Pro Layout Option */}
+          <button
+            type="button"
+            onClick={() => updateData({ layout_type: 'pro' })}
+            className={cn(
+              "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+              currentLayoutType === 'pro'
+                ? "border-violet-500 bg-violet-50/50"
+                : "border-gray-200 hover:border-gray-300 bg-white"
+            )}
+          >
+            {/* Visual Preview */}
+            <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+              <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
-                    <ImageIcon className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="h-2 w-16 bg-gray-300 rounded" />
-                    <div className="h-1.5 w-10 bg-gray-200 rounded mt-1.5" />
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-200 to-violet-300 shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-2.5 w-full bg-gray-200 rounded" />
+                    <div className="h-2 w-2/3 bg-gray-100 rounded" />
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </button>
+            
+            {/* Label */}
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                currentLayoutType === 'pro' ? "border-violet-500" : "border-gray-300"
+              )}>
+                {currentLayoutType === 'pro' && (
+                  <div className="w-2 h-2 rounded-full bg-violet-500" />
+                )}
+              </div>
+              <span className="font-medium text-sm">Featured</span>
+              <Sparkles className="w-3 h-3 text-violet-500" />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1 ml-6">With thumbnail</p>
+          </button>
+        </div>
 
         {/* Display Mode Options - Only shown when Pro Layout is selected and NOT YouTube */}
         {currentLayoutType === 'pro' && block.type === 'link_button' && !isYouTubeUrl((block.data as LinkButtonBlockData).url) && (
-          <div className="pt-3 mt-3 border-t space-y-2">
+          <div className="pt-3 mt-1 border-t space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Display Mode</Label>
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -5825,76 +5860,92 @@ function BlockEditor({
             </TabsContent>
 
             <TabsContent value="layout" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground">Choose how this block displays on your page</p>
+              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
 
-              {/* Default Layout Option */}
-              <button
-                type="button"
-                onClick={() => updateData({ layout_type: 'default' as EmailCaptureLayoutType })}
-                className={cn(
-                  "w-full p-4 rounded-xl border-2 text-left transition-all",
-                  (data.layout_type || 'default') === 'default'
-                    ? "border-violet-500 bg-violet-50"
-                    : "border-gray-200 hover:border-gray-300 bg-white"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
-                    (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
-                  )}>
-                    {(data.layout_type || 'default') === 'default' && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-                    )}
+              {/* Layout Options Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Default Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'default' as EmailCaptureLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    (data.layout_type || 'default') === 'default'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden p-2">
+                    <div className="w-full space-y-1.5">
+                      <div className="h-2.5 w-3/4 bg-gray-300 rounded mx-auto" />
+                      <div className="h-1.5 w-1/2 bg-gray-200 rounded mx-auto" />
+                      <div className="flex gap-1.5 mt-2">
+                        <div className="flex-1 h-7 bg-white rounded border border-gray-200" />
+                        <div className="w-14 h-7 bg-gray-800 rounded" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">Default</div>
-                    <p className="text-xs text-muted-foreground">Standard display for your link</p>
+                  
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {(data.layout_type || 'default') === 'default' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Default</span>
                   </div>
-                </div>
-              </button>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Classic centered form</p>
+                </button>
 
-              {/* Pro Layout Option */}
-              <button
-                type="button"
-                onClick={() => updateData({ layout_type: 'pro' as EmailCaptureLayoutType })}
-                className={cn(
-                  "w-full p-4 rounded-xl border-2 text-left transition-all",
-                  data.layout_type === 'pro'
-                    ? "border-violet-500 bg-violet-50"
-                    : "border-gray-200 hover:border-gray-300 bg-white"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
-                    data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
-                  )}>
-                    {data.layout_type === 'pro' && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm flex items-center gap-1.5">
-                      Pro Layout
-                      <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Make your link stand out with a larger, more attractive display featuring your thumbnail prominently</p>
-                  </div>
-                </div>
-                {/* Pro Layout Preview */}
-                <div className="mt-3 p-3 rounded-lg bg-gray-100">
-                  <div className="flex gap-2 items-center">
-                    <div className="w-10 h-10 rounded-lg bg-gray-300 flex items-center justify-center shrink-0">
-                      <ImageIcon className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="w-3/4 h-2 bg-gray-300 rounded" />
-                      <div className="w-1/2 h-1.5 bg-gray-200 rounded" />
+                {/* Pro Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'pro' as EmailCaptureLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    data.layout_type === 'pro'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-200 to-violet-300 shrink-0" />
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-full bg-gray-200 rounded" />
+                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                      <div className="flex gap-1 mt-2">
+                        <div className="flex-1 h-5 bg-gray-50 rounded border border-gray-100" />
+                        <div className="w-10 h-5 bg-gray-800 rounded" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </button>
+                  
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {data.layout_type === 'pro' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Featured</span>
+                    <Sparkles className="w-3 h-3 text-violet-500" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Compact with image</p>
+                </button>
+              </div>
             </TabsContent>
           </Tabs>
         )
@@ -6623,53 +6674,81 @@ function BlockEditor({
 
         </TabsContent>
 
-        <TabsContent value="layout" className="mt-0 space-y-4">
-          <p className="text-xs text-muted-foreground">Choose how blocks are arranged in this group</p>
+        <TabsContent value="layout" className="mt-0 space-y-3">
+          <p className="text-xs text-muted-foreground mb-2">Choose how blocks are arranged in this group</p>
 
-          {/* Layout Options */}
-          <div className="space-y-2">
-            {([
-              { id: "stack" as const, label: "Stack", desc: "Vertical list of blocks", icon: "↓" },
-              { id: "carousel" as const, label: "Carousel", desc: "Horizontal scrollable", icon: "↔" },
-            ]).map((layout) => (
-              <button
-                key={layout.id}
-                type="button"
-                onClick={() => updateData({ layout: layout.id })}
-                className={cn(
-                  "w-full p-3 rounded-xl border-2 text-left transition-all",
-                  groupData.layout === layout.id
-                    ? "border-violet-500 bg-violet-50"
-                    : "border-gray-200 hover:border-gray-300 bg-white"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
-                    groupData.layout === layout.id ? "bg-violet-100 text-violet-600" : "bg-gray-100 text-gray-500"
-                  )}>
-                    {layout.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{layout.label}</div>
-                    <p className="text-xs text-muted-foreground">{layout.desc}</p>
-                  </div>
-                  <div className={cn(
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center",
-                    groupData.layout === layout.id ? "border-violet-500" : "border-gray-300"
-                  )}>
-                    {groupData.layout === layout.id && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-                    )}
-                  </div>
+          {/* Layout Options Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Stack Layout */}
+            <button
+              type="button"
+              onClick={() => updateData({ layout: "stack" as const })}
+              className={cn(
+                "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                groupData.layout === "stack"
+                  ? "border-violet-500 bg-violet-50/50"
+                  : "border-gray-200 hover:border-gray-300 bg-white"
+              )}
+            >
+              {/* Visual Preview */}
+              <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden p-2 gap-1.5">
+                <div className="w-full h-6 bg-white rounded border border-gray-200" />
+                <div className="w-full h-6 bg-white rounded border border-gray-200" />
+                <div className="w-full h-6 bg-white rounded border border-gray-200" />
+              </div>
+              
+              {/* Label */}
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                  groupData.layout === "stack" ? "border-violet-500" : "border-gray-300"
+                )}>
+                  {groupData.layout === "stack" && (
+                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                  )}
                 </div>
-              </button>
-            ))}
+                <span className="font-medium text-sm">Stack</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-6">Vertical list</p>
+            </button>
+
+            {/* Carousel Layout */}
+            <button
+              type="button"
+              onClick={() => updateData({ layout: "carousel" as const })}
+              className={cn(
+                "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                groupData.layout === "carousel"
+                  ? "border-violet-500 bg-violet-50/50"
+                  : "border-gray-200 hover:border-gray-300 bg-white"
+              )}
+            >
+              {/* Visual Preview */}
+              <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2 gap-1.5">
+                <div className="w-[40%] h-full bg-white rounded border border-gray-200 shrink-0" />
+                <div className="w-[40%] h-full bg-white rounded border border-gray-200 shrink-0" />
+                <div className="w-[20%] h-full bg-white/50 rounded border border-gray-100 shrink-0" />
+              </div>
+              
+              {/* Label */}
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                  groupData.layout === "carousel" ? "border-violet-500" : "border-gray-300"
+                )}>
+                  {groupData.layout === "carousel" && (
+                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                  )}
+                </div>
+                <span className="font-medium text-sm">Carousel</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-6">Swipe horizontal</p>
+            </button>
           </div>
 
           {/* Carousel Options - shown when carousel layout is selected */}
           {groupData.layout === "carousel" && (
-            <div className="space-y-4 pt-2 border-t">
+            <div className="space-y-4 pt-3 border-t">
               <div className="space-y-2">
                 <Label className="text-xs">Carousel View</Label>
                 <div className="flex gap-2">
