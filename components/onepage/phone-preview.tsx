@@ -15,6 +15,7 @@ import type {
   SocialRowBlockData,
   GroupBlockData,
   ProductBlockData,
+  PDFDocumentBlockData,
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -3804,6 +3805,120 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           settings={settings}
           BlockRenderer={BlockRenderer}
         />
+      )
+    }
+
+    case "pdf_document": {
+      const data = block.data as PDFDocumentBlockData
+      const isPro = data.layout_type === "pro"
+      const thumbnailUrl = data.thumbnail_url
+
+      // Get animation class
+      const getAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
+      // Pro layout with thumbnail
+      if (isPro && (thumbnailUrl || data.pdf_file_url)) {
+        return (
+          <button
+            className={cn(
+              "w-full overflow-hidden font-medium transition-all cursor-pointer",
+              getAnimationClass(data.animation_type)
+            )}
+            style={{
+              ...buttonStyles,
+              padding: 0,
+            }}
+          >
+            <div className="flex items-center gap-2 p-2">
+              {/* Thumbnail/Preview */}
+              <div
+                className="shrink-0 flex items-center justify-center bg-gray-100"
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: Math.max(0, theme.button_border_radius - 4),
+                }}
+              >
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
+                  />
+                ) : (
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-red-500"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14,2 14,8 20,8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <line x1="10" y1="9" x2="8" y2="9" />
+                  </svg>
+                )}
+              </div>
+              {/* Content */}
+              <div className="flex-1 min-w-0 text-left">
+                <div className={cn(s.button, "font-semibold truncate")} style={{ color: theme.button_text_color }}>
+                  {data.title || "PDF Document"}
+                </div>
+                {data.description && (
+                  <p className="text-[9px] line-clamp-1 opacity-70" style={{ color: theme.button_text_color }}>
+                    {data.description}
+                  </p>
+                )}
+              </div>
+              {/* Arrow icon */}
+              <ExternalLink className="w-4 h-4 opacity-50 shrink-0" style={{ color: theme.button_text_color }} />
+            </div>
+          </button>
+        )
+      }
+
+      // Default layout - button with document icon
+      return (
+        <button
+          className={cn(
+            "w-full flex items-center justify-center gap-2 font-medium transition-all cursor-pointer",
+            s.button,
+            getAnimationClass(data.animation_type)
+          )}
+          style={buttonStyles}
+        >
+          {/* PDF icon */}
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="shrink-0"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14,2 14,8 20,8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <line x1="10" y1="9" x2="8" y2="9" />
+          </svg>
+          <span className="truncate">{data.button_text || "View PDF"}</span>
+        </button>
       )
     }
 

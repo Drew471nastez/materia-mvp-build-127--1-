@@ -11,6 +11,7 @@ export type OnePageBlockType =
   | "email_capture"
   | "header"
   | "group"
+  | "pdf_document"
 
 export interface OnePageTheme {
   template_id: string
@@ -242,6 +243,23 @@ export interface EmailCaptureBlockData {
   email_body?: string  // Custom email body text
 }
 
+// PDF document layout types
+export type PDFDocumentLayoutType = 'default' | 'pro'
+
+export interface PDFDocumentBlockData {
+  title: string
+  description?: string
+  pdf_file_url?: string | null
+  // Layout type (default with button, pro with image/title/description)
+  layout_type?: PDFDocumentLayoutType
+  // Custom thumbnail for Pro layout (defaults to PDF preview if not set)
+  thumbnail_url?: string | null
+  // Button text customization
+  button_text?: string
+  // Animation option
+  animation_type?: BlockAnimationType
+}
+
 export interface HeaderBlockData {
   show_avatar: boolean
   show_name: boolean
@@ -270,6 +288,7 @@ export type OnePageBlockData =
   | EmailCaptureBlockData
   | HeaderBlockData
   | GroupBlockData
+  | PDFDocumentBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -545,6 +564,19 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           layout: "stack",
           children: [],
         } as GroupBlockData,
+      }
+    case "pdf_document":
+      return {
+        ...baseBlock,
+        data: {
+          title: "My PDF Document",
+          description: "",
+          pdf_file_url: null,
+          layout_type: "default",
+          thumbnail_url: null,
+          button_text: "View PDF",
+          animation_type: "none",
+        } as PDFDocumentBlockData,
       }
     default:
       return baseBlock as OnePageBlock

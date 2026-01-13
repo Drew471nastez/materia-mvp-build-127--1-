@@ -16,6 +16,7 @@ import type {
   StreamingService,
   GroupBlockData,
   ProductBlockData,
+  PDFDocumentBlockData,
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -3760,6 +3761,42 @@ function PublicBlockRenderer({
       const layoutImage = data.product_image || data.digital_product_thumbnail
       const showThumbnail = isPro && layoutImage
 
+      // Button styles with shadows and borders (matching link_button and product blocks)
+      const buttonShadow = (theme as any).button_shadow || "none"
+      const shadowColor = (theme as any).button_shadow_color || "#000000"
+      const hexToRgba = (hex: string, alpha: number) => {
+        const r = Number.parseInt(hex.slice(1, 3), 16) || 0
+        const g = Number.parseInt(hex.slice(3, 5), 16) || 0
+        const b = Number.parseInt(hex.slice(5, 7), 16) || 0
+        return `rgba(${r},${g},${b},${alpha})`
+      }
+      const shadowStyles: Record<string, string> = {
+        none: "none",
+        subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
+        strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
+        hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
+      }
+      const emailButtonStyles: React.CSSProperties = {
+        backgroundColor:
+          theme.button_style === "filled"
+            ? theme.button_color
+            : theme.button_style === "glass"
+              ? `${theme.button_color}`
+              : "transparent",
+        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        borderRadius: `${theme.button_border_radius}px`,
+        borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
+        borderColor:
+          theme.button_style === "outline"
+            ? theme.text_color
+            : theme.button_style === "glass"
+              ? `${theme.button_text_color}30`
+              : theme.button_border_color || "transparent",
+        borderStyle: "solid",
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        boxShadow: shadowStyles[buttonShadow] || "none",
+      }
+
       // Get button text from custom or preset
       const getButtonText = () => {
         // If submitted and we have a download link, always show "Download"
@@ -3955,10 +3992,10 @@ function PublicBlockRenderer({
                           type="button"
                           onClick={handleDownloadClick}
                           className={cn(
-                            "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
+                            "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
                             !isInsideCarousel && "hover:opacity-90"
                           )}
-                          style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                          style={emailButtonStyles}
                         >
                           Download
                         </button>
@@ -3967,10 +4004,10 @@ function PublicBlockRenderer({
                           type="submit"
                           disabled={isSubmitting || emailSubmitted}
                           className={cn(
-                            "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
+                            "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
                             !isInsideCarousel && "hover:opacity-90"
                           )}
-                          style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                          style={emailButtonStyles}
                         >
                           {isSubmitting ? "..." : buttonText}
                         </button>
@@ -3996,10 +4033,10 @@ function PublicBlockRenderer({
                         type="button"
                         onClick={handleDownloadClick}
                         className={cn(
-                          "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity whitespace-nowrap w-full",
+                          "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity whitespace-nowrap w-full",
                           !isInsideCarousel && "hover:opacity-90"
                         )}
-                        style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                        style={emailButtonStyles}
                       >
                         Download
                       </button>
@@ -4008,10 +4045,10 @@ function PublicBlockRenderer({
                         type="submit"
                         disabled={isSubmitting || emailSubmitted}
                         className={cn(
-                          "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
+                          "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
                           !isInsideCarousel && "hover:opacity-90"
                         )}
-                        style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                        style={emailButtonStyles}
                       >
                         {isSubmitting ? "..." : buttonText}
                       </button>
@@ -4069,10 +4106,10 @@ function PublicBlockRenderer({
                   type="button"
                   onClick={handleDownloadClick}
                   className={cn(
-                    "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
+                    "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
                     !isInsideCarousel && "hover:opacity-90"
                   )}
-                  style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                  style={emailButtonStyles}
                 >
                   Download
                 </button>
@@ -4081,10 +4118,10 @@ function PublicBlockRenderer({
                   type="submit"
                   disabled={isSubmitting || emailSubmitted}
                   className={cn(
-                    "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
+                    "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
                     !isInsideCarousel && "hover:opacity-90"
                   )}
-                  style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                  style={emailButtonStyles}
                 >
                   {isSubmitting ? "..." : buttonText}
                 </button>
@@ -4107,10 +4144,10 @@ function PublicBlockRenderer({
                   type="button"
                   onClick={handleDownloadClick}
                   className={cn(
-                    "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity whitespace-nowrap w-full",
+                    "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity whitespace-nowrap w-full",
                     !isInsideCarousel && "hover:opacity-90"
                   )}
-                  style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                  style={emailButtonStyles}
                 >
                   Download
                 </button>
@@ -4119,10 +4156,10 @@ function PublicBlockRenderer({
                   type="submit"
                   disabled={isSubmitting || emailSubmitted}
                   className={cn(
-                    "px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
+                    "px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
                     !isInsideCarousel && "hover:opacity-90"
                   )}
-                  style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                  style={emailButtonStyles}
                 >
                   {isSubmitting ? "..." : buttonText}
                 </button>
@@ -4567,6 +4604,283 @@ function PublicBlockRenderer({
         >
           {calloutContent}
         </a>
+      )
+    }
+
+    case "pdf_document": {
+      const data = block.data as PDFDocumentBlockData
+      const isPro = data.layout_type === "pro"
+      const thumbnailUrl = data.thumbnail_url
+      const pdfUrl = data.pdf_file_url
+
+      // Button styles for PDF block (matching other blocks)
+      const buttonShadow = (theme as any).button_shadow || "none"
+      const shadowColor = (theme as any).button_shadow_color || "#000000"
+      const hexToRgba = (hex: string, alpha: number) => {
+        const r = Number.parseInt(hex.slice(1, 3), 16) || 0
+        const g = Number.parseInt(hex.slice(3, 5), 16) || 0
+        const b = Number.parseInt(hex.slice(5, 7), 16) || 0
+        return `rgba(${r},${g},${b},${alpha})`
+      }
+      const shadowStyles: Record<string, string> = {
+        none: "none",
+        subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
+        strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
+        hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
+      }
+      const pdfButtonStyles: React.CSSProperties = {
+        backgroundColor:
+          theme.button_style === "filled"
+            ? theme.button_color
+            : theme.button_style === "glass"
+              ? `${theme.button_color}`
+              : "transparent",
+        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        borderRadius: `${theme.button_border_radius}px`,
+        borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
+        borderColor:
+          theme.button_style === "outline"
+            ? theme.text_color
+            : theme.button_style === "glass"
+              ? `${theme.button_text_color}30`
+              : theme.button_border_color || "transparent",
+        borderStyle: "solid",
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        boxShadow: shadowStyles[buttonShadow] || "none",
+      }
+
+      // Get animation class
+      const getAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
+      // State for PDF preview modal
+      const [showPdfModal, setShowPdfModal] = useState(false)
+
+      const handleOpenPdf = () => {
+        if (pdfUrl) {
+          setShowPdfModal(true)
+        }
+      }
+
+      const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
+
+      // Pro layout with thumbnail, title, description
+      if (isPro) {
+        return (
+          <>
+            <button
+              onClick={handleOpenPdf}
+              className={cn(
+                "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
+                hoverEffect,
+                getAnimationClass(data.animation_type)
+              )}
+              style={{
+                ...pdfButtonStyles,
+                padding: 0,
+              }}
+            >
+              <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+                {/* Thumbnail/Preview */}
+                <div
+                  className="shrink-0 flex items-center justify-center bg-gray-100"
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: Math.max(0, theme.button_border_radius - 4),
+                  }}
+                >
+                  {thumbnailUrl ? (
+                    <img
+                      src={thumbnailUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
+                    />
+                  ) : (
+                    <svg
+                      width="28"
+                      height="28"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      className="text-red-500"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14,2 14,8 20,8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                      <line x1="10" y1="9" x2="8" y2="9" />
+                    </svg>
+                  )}
+                </div>
+                {/* Content */}
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="font-semibold truncate" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                    {data.title || "PDF Document"}
+                  </div>
+                  {data.description && (
+                    <p className="text-xs sm:text-sm line-clamp-1 opacity-70" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                      {data.description}
+                    </p>
+                  )}
+                </div>
+                {/* Arrow icon */}
+                <ExternalLink className="w-5 h-5 opacity-50 shrink-0" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }} />
+              </div>
+            </button>
+
+            {/* PDF Preview Modal */}
+            {showPdfModal && pdfUrl && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 animate-in fade-in duration-200">
+                <div className="relative w-full h-full max-w-5xl max-h-[90vh] mx-4 my-4 bg-white rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b bg-gray-50">
+                    <div className="flex-1 min-w-0 mr-4">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{data.title || "PDF Document"}</h3>
+                      {data.description && (
+                        <p className="text-xs sm:text-sm text-gray-500 truncate">{data.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hidden sm:flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Open
+                      </a>
+                      <button
+                        onClick={() => setShowPdfModal(false)}
+                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  {/* PDF Viewer */}
+                  <div className="flex-1 overflow-hidden bg-gray-100">
+                    <iframe
+                      src={`${pdfUrl}#view=FitH`}
+                      className="w-full h-full"
+                      title={data.title || "PDF Document"}
+                    />
+                  </div>
+                  {/* Mobile Footer */}
+                  <div className="sm:hidden px-4 py-3 border-t bg-gray-50">
+                    <a
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open PDF
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )
+      }
+
+      // Default layout - button with document icon
+      return (
+        <>
+          <button
+            onClick={handleOpenPdf}
+            className={cn(
+              "w-full flex items-center justify-center gap-2 sm:gap-3 py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all cursor-pointer",
+              hoverEffect,
+              getAnimationClass(data.animation_type)
+            )}
+            style={pdfButtonStyles}
+          >
+            {/* PDF icon */}
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="shrink-0"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14,2 14,8 20,8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <line x1="10" y1="9" x2="8" y2="9" />
+            </svg>
+            <span className="truncate">{data.button_text || "View PDF"}</span>
+          </button>
+
+          {/* PDF Preview Modal */}
+          {showPdfModal && pdfUrl && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 animate-in fade-in duration-200">
+              <div className="relative w-full h-full max-w-5xl max-h-[90vh] mx-4 my-4 bg-white rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b bg-gray-50">
+                  <div className="flex-1 min-w-0 mr-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{data.title || "PDF Document"}</h3>
+                    {data.description && (
+                      <p className="text-xs sm:text-sm text-gray-500 truncate">{data.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hidden sm:flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open
+                    </a>
+                    <button
+                      onClick={() => setShowPdfModal(false)}
+                      className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                {/* PDF Viewer */}
+                <div className="flex-1 overflow-hidden bg-gray-100">
+                  <iframe
+                    src={`${pdfUrl}#view=FitH`}
+                    className="w-full h-full"
+                    title={data.title || "PDF Document"}
+                  />
+                </div>
+                {/* Mobile Footer */}
+                <div className="sm:hidden px-4 py-3 border-t bg-gray-50">
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Open PDF
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )
     }
 
