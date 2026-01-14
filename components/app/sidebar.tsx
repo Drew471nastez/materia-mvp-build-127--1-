@@ -375,17 +375,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         }
       `}</style>
 
-      {/* Mobile Header - Dark bar with inward curved corners at bottom */}
+      {/* Mobile Header - Dark floating panel with large rounded bottom corners */}
       <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden">
-        <div className="relative flex h-[51px] items-center justify-between px-3 bg-gradient-to-b from-[#1a1a1a] to-[#111111] shadow-lg shadow-black/25">
-          {/* Bottom left inward curve */}
-          <div className="absolute -bottom-3 left-0 w-3 h-3 bg-[#FAFAFA]">
-            <div className="w-full h-full bg-[#111111] rounded-br-xl" />
-          </div>
-          {/* Bottom right inward curve */}
-          <div className="absolute -bottom-3 right-0 w-3 h-3 bg-[#FAFAFA]">
-            <div className="w-full h-full bg-[#111111] rounded-bl-xl" />
-          </div>
+        <div className="flex h-[55px] items-center justify-between px-3 bg-gradient-to-b from-[#1a1a1a] to-[#111111] rounded-b-[28px] shadow-lg shadow-black/25">
           {/* Left side: Hamburger */}
           <div className="flex items-center gap-1">
             <Button
