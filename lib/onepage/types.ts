@@ -13,6 +13,7 @@ export type OnePageBlockType =
   | "group"
   | "pdf_document"
   | "food_menu"
+  | "calendly"
 
 export interface OnePageTheme {
   template_id: string
@@ -283,6 +284,24 @@ export interface FoodMenuBlockData {
   animation_type?: BlockAnimationType
 }
 
+// Calendly embed mode types
+export type CalendlyEmbedMode = 'direct_link' | 'embedded'
+export type CalendlyEmbedType = 'inline' | 'modal'
+
+export interface CalendlyBlockData {
+  title: string
+  description?: string
+  calendly_url?: string | null
+  layout_type?: PDFDocumentLayoutType
+  thumbnail_url?: string | null
+  button_text?: string
+  // Embed mode: go directly to link or embed
+  embed_mode?: CalendlyEmbedMode
+  // Embed type: inline (default) or modal popup
+  embed_type?: CalendlyEmbedType
+  animation_type?: BlockAnimationType
+}
+
 export interface HeaderBlockData {
   show_avatar: boolean
   show_name: boolean
@@ -313,6 +332,7 @@ export type OnePageBlockData =
   | GroupBlockData
   | PDFDocumentBlockData
   | FoodMenuBlockData
+  | CalendlyBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -621,6 +641,21 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           open_directly: false,
           animation_type: "none",
         } as FoodMenuBlockData,
+      }
+    case "calendly":
+      return {
+        ...baseBlock,
+        data: {
+          title: "Book a Meeting",
+          description: "",
+          calendly_url: null,
+          layout_type: "default",
+          thumbnail_url: null,
+          button_text: "Schedule Now",
+          embed_mode: "embedded",
+          embed_type: "modal",
+          animation_type: "none",
+        } as CalendlyBlockData,
       }
     default:
       return baseBlock as OnePageBlock

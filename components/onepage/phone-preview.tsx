@@ -17,10 +17,11 @@ import type {
   ProductBlockData,
   PDFDocumentBlockData,
   FoodMenuBlockData,
+  CalendlyBlockData,
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Globe, Bell, X, Send, Check, Link2, ExternalLink } from "lucide-react"
+import { Globe, Bell, X, Send, Check, Link2, ExternalLink, Calendar } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
 
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
@@ -55,6 +56,15 @@ interface PDFModalContextType {
   }) => void
 }
 const PDFModalContext = createContext<PDFModalContextType | null>(null)
+
+// Calendly Modal Context - allows Calendly embed modals to render at root level
+interface CalendlyModalContextType {
+  openCalendlyModal: (data: {
+    title: string
+    calendlyUrl: string
+  }) => void
+}
+const CalendlyModalContext = createContext<CalendlyModalContextType | null>(null)
 
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
@@ -928,6 +938,23 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
   const pdfModalContextValue = { openPDFModal }
 
+  // Calendly modal state
+  const [calendlyModalOpen, setCalendlyModalOpen] = useState(false)
+  const [calendlyModalData, setCalendlyModalData] = useState<{
+    title: string
+    calendlyUrl: string
+  } | null>(null)
+
+  const openCalendlyModal = useCallback((data: {
+    title: string
+    calendlyUrl: string
+  }) => {
+    setCalendlyModalData(data)
+    setCalendlyModalOpen(true)
+  }, [])
+
+  const calendlyModalContextValue = { openCalendlyModal }
+
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current
@@ -986,6 +1013,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
     <PDFModalContext.Provider value={pdfModalContextValue}>
+    <CalendlyModalContext.Provider value={calendlyModalContextValue}>
       <div
         className={cn("relative flex-shrink-0", className)}
         style={{
@@ -1558,7 +1586,53 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           </div>
         </div>
       )}
+
+      {/* Calendly Modal */}
+      {calendlyModalOpen && calendlyModalData && (
+        <div
+          className="absolute inset-0 z-[100] flex items-center justify-center bg-black/50 animate-in fade-in duration-200"
+          onClick={() => setCalendlyModalOpen(false)}
+        >
+          <div
+            className="relative w-full h-full max-w-[260px] max-h-[520px] bg-white rounded-2xl flex flex-col shadow-xl animate-in slide-in-from-bottom-2 duration-200 mx-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-2 py-2 border-b shrink-0">
+              <button
+                onClick={() => setCalendlyModalOpen(false)}
+                className="p-1 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-[11px] font-semibold text-gray-900 truncate flex-1 text-center px-1">
+                {calendlyModalData.title || "Book a Meeting"}
+              </h3>
+              <button
+                onClick={() => setCalendlyModalOpen(false)}
+                className="p-1 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Calendly Embed Area */}
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={calendlyModalData.calendlyUrl}
+                className="w-full h-full border-0"
+                title={calendlyModalData.title || "Calendly"}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    </CalendlyModalContext.Provider>
     </PDFModalContext.Provider>
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
@@ -1730,6 +1804,23 @@ export function MobilePreviewContent() {
 
   const pdfModalContextValue = { openPDFModal }
 
+  // Calendly modal state
+  const [calendlyModalOpen, setCalendlyModalOpen] = useState(false)
+  const [calendlyModalData, setCalendlyModalData] = useState<{
+    title: string
+    calendlyUrl: string
+  } | null>(null)
+
+  const openCalendlyModal = useCallback((data: {
+    title: string
+    calendlyUrl: string
+  }) => {
+    setCalendlyModalData(data)
+    setCalendlyModalOpen(true)
+  }, [])
+
+  const calendlyModalContextValue = { openCalendlyModal }
+
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current
@@ -1788,6 +1879,7 @@ export function MobilePreviewContent() {
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
     <PDFModalContext.Provider value={pdfModalContextValue}>
+    <CalendlyModalContext.Provider value={calendlyModalContextValue}>
       {/* Animation keyframes */}
       <style
         dangerouslySetInnerHTML={{
@@ -2201,6 +2293,53 @@ export function MobilePreviewContent() {
           </div>
         </div>
       )}
+
+      {/* Calendly Modal */}
+      {calendlyModalOpen && calendlyModalData && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
+          onClick={() => setCalendlyModalOpen(false)}
+        >
+          <div
+            className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
+              <button
+                onClick={() => setCalendlyModalOpen(false)}
+                className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
+                {calendlyModalData.title || "Book a Meeting"}
+              </h3>
+              <button
+                onClick={() => setCalendlyModalOpen(false)}
+                className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Calendly Embed Area */}
+            <div className="flex-1 overflow-hidden min-h-[400px]">
+              <iframe
+                src={calendlyModalData.calendlyUrl}
+                className="w-full h-full border-0"
+                style={{ minHeight: 500 }}
+                title={calendlyModalData.title || "Calendly"}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </CalendlyModalContext.Provider>
     </PDFModalContext.Provider>
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
@@ -4592,6 +4731,159 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               style={{ color: theme.button_text_color }}
             >
               {data.button_text || "View Menu"}
+            </span>
+          </div>
+        </button>
+      )
+    }
+
+    case "calendly": {
+      const data = block.data as CalendlyBlockData
+      const isPro = data.layout_type === "pro"
+      const thumbnailUrl = data.thumbnail_url
+      const calendlyUrl = data.calendly_url
+      const calendlyModalContext = useContext(CalendlyModalContext)
+
+      // Get animation class
+      const getAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
+      // Handle click based on settings
+      const handleCalendlyClick = () => {
+        if (!calendlyUrl) return
+
+        // If direct_link mode, open in new tab
+        if (data.embed_mode === 'direct_link') {
+          window.open(calendlyUrl, '_blank')
+          return
+        }
+
+        // If embedded mode with modal, open modal
+        if (data.embed_mode === 'embedded' && (data.embed_type === 'modal' || !data.embed_type)) {
+          if (calendlyModalContext) {
+            calendlyModalContext.openCalendlyModal({
+              title: data.title || "Book a Meeting",
+              calendlyUrl: calendlyUrl,
+            })
+          }
+          return
+        }
+
+        // If embedded mode with inline, the embed is shown directly (no click action needed)
+        // But for preview, we can open in new tab
+        window.open(calendlyUrl, '_blank')
+      }
+
+      // For inline embed mode, show the embed directly
+      if (data.embed_mode === 'embedded' && data.embed_type === 'inline' && calendlyUrl) {
+        return (
+          <div className="w-full rounded-lg overflow-hidden" style={{ minHeight: 300 }}>
+            <iframe
+              src={calendlyUrl}
+              className="w-full h-full border-0"
+              style={{ minHeight: 300 }}
+              title={data.title || "Calendly"}
+            />
+          </div>
+        )
+      }
+
+      // Featured (Pro) layout with thumbnail
+      if (isPro) {
+        return (
+          <button
+            onClick={handleCalendlyClick}
+            className={cn(
+              "w-full overflow-hidden font-medium transition-all cursor-pointer",
+              hoverEffect,
+              getAnimationClass(data.animation_type)
+            )}
+            style={{
+              ...buttonStyles,
+              padding: 0,
+            }}
+          >
+            <div className="flex items-center gap-3 p-2.5">
+              {/* Thumbnail/Preview */}
+              <div
+                className="shrink-0 flex items-center justify-center bg-gray-100"
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: Math.max(0, theme.button_border_radius - 4),
+                }}
+              >
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
+                  />
+                ) : (
+                  <Calendar className="w-5 h-5 text-blue-500" />
+                )}
+              </div>
+              {/* Content - Title and Description vertically aligned */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <span
+                  className="text-[11px] font-semibold leading-tight truncate block"
+                  style={{ color: theme.button_text_color }}
+                >
+                  {data.title || "Book a Meeting"}
+                </span>
+                {data.description && (
+                  <span
+                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate block"
+                    style={{ color: theme.button_text_color }}
+                  >
+                    {data.description}
+                  </span>
+                )}
+              </div>
+              {/* Arrow icon - properly aligned */}
+              <div className="shrink-0 flex items-center justify-center pr-1">
+                <ExternalLink className="w-4 h-4 opacity-50" style={{ color: theme.button_text_color }} />
+              </div>
+            </div>
+          </button>
+        )
+      }
+
+      // Default layout - Title on top, button text below with icon
+      return (
+        <button
+          onClick={handleCalendlyClick}
+          className={cn(
+            "w-full flex flex-col items-center justify-center font-medium transition-all cursor-pointer py-2.5 px-3",
+            hoverEffect,
+            getAnimationClass(data.animation_type)
+          )}
+          style={buttonStyles}
+        >
+          {/* Title */}
+          <span
+            className="text-[11px] font-semibold truncate w-full text-center"
+            style={{ color: theme.button_text_color }}
+          >
+            {data.title || "Book a Meeting"}
+          </span>
+          {/* Button text with calendar icon */}
+          <div className="flex items-center justify-center gap-1 opacity-70">
+            <Calendar className="w-3 h-3 shrink-0" style={{ color: theme.button_text_color }} />
+            <span
+              className="text-[10px] truncate"
+              style={{ color: theme.button_text_color }}
+            >
+              {data.button_text || "Schedule Now"}
             </span>
           </div>
         </button>

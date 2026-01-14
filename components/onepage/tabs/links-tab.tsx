@@ -28,6 +28,9 @@ import {
   type PDFDocumentBlockData,
   type PDFDocumentLayoutType,
   type FoodMenuBlockData,
+  type CalendlyBlockData,
+  type CalendlyEmbedMode,
+  type CalendlyEmbedType,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -95,6 +98,7 @@ import {
   ArrowUpRight,
   Palette,
   Check,
+  Calendar,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -432,6 +436,7 @@ const blockCategories = [
     icon: MessageSquare,
     blocks: [
       { type: "email_capture" as const, label: "Email Signup", description: "Collect emails", icon: Mail },
+      { type: "calendly" as const, label: "Calendly", description: "Book meetings with Calendly", icon: Calendar },
       { type: "link_button" as const, label: "Contact Form", description: "Link to form", icon: FileText, comingSoon: true, preset: { label: "Contact Me", url: "" } },
       { type: "link_button" as const, label: "WhatsApp", description: "Link to WhatsApp", icon: MessageSquare, preset: { label: "Message on WhatsApp", url: "https://wa.me/" } },
       { type: "link_button" as const, label: "Telegram", description: "Link to Telegram", icon: MessageSquare, preset: { label: "Message on Telegram", url: "https://t.me/" } },
@@ -500,6 +505,10 @@ function getBlockPreviewData(block: OnePageBlock) {
     case "food_menu": {
       const data = block.data as FoodMenuBlockData
       return { title: data.title || "Menu", subtitle: data.pdf_file_url ? "Menu uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+    }
+    case "calendly": {
+      const data = block.data as CalendlyBlockData
+      return { title: data.title || "Book a Meeting", subtitle: data.calendly_url ? "Calendly connected" : "Add Calendly URL", icon: Calendar, thumbnail_url: data.thumbnail_url }
     }
     default:
       return { title: block.type, subtitle: "", icon: Link }
@@ -3796,6 +3805,10 @@ function BlockItem({
         const data = block.data as FoodMenuBlockData
         return { title: data.title || "Menu", subtitle: data.pdf_file_url ? "Menu uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
       }
+      case "calendly": {
+        const data = block.data as CalendlyBlockData
+        return { title: data.title || "Book a Meeting", subtitle: data.calendly_url ? "Calendly connected" : "Add Calendly URL", icon: Calendar, thumbnail_url: data.thumbnail_url }
+      }
       default:
         return { title: block.type, subtitle: "", icon: Link }
     }
@@ -3811,8 +3824,9 @@ function BlockItem({
   const isProduct = block.type === "product"
   const isPDFDocument = block.type === "pdf_document"
   const isFoodMenu = block.type === "food_menu"
-  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument || isFoodMenu
-  const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument || isFoodMenu
+  const isCalendly = block.type === "calendly"
+  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument || isFoodMenu || isCalendly
+  const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument || isFoodMenu || isCalendly
   const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
   // Check if this group block can accept the dragged block
@@ -6599,6 +6613,261 @@ function BlockEditor({
                   <Label className="text-xs">Thumbnail Image</Label>
                   <p className="text-[10px] text-muted-foreground">
                     Display an image with your menu (used in Featured layout)
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    {data.thumbnail_url ? (
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                        <img src={data.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => updateData({ thumbnail_url: null })}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                      >
+                        <Upload className="w-5 h-5 text-gray-400" />
+                      </button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                      className="h-8 text-xs"
+                    >
+                      <Upload className="w-3 h-3 mr-1.5" />
+                      {data.thumbnail_url ? 'Change' : 'Upload'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        )
+      }
+
+      case "calendly": {
+        const data = block.data as CalendlyBlockData
+
+        // Layout options for Calendly
+        const layoutOptions = [
+          { id: 'default', label: 'Default', description: 'Button with calendar icon' },
+          { id: 'pro', label: 'Pro', description: 'Image, title, description & button' },
+        ] as const
+
+        return (
+          <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
+              <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+                <Settings className="w-3.5 h-3.5" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Layout
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="mt-0 space-y-4">
+              {/* Title */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Title</Label>
+                <Input
+                  value={data.title || ""}
+                  onChange={(e) => updateData({ title: e.target.value })}
+                  className="h-9"
+                  placeholder="Book a Meeting"
+                />
+              </div>
+
+              {/* Calendly URL */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Calendly URL</Label>
+                <Input
+                  value={data.calendly_url || ""}
+                  onChange={(e) => updateData({ calendly_url: e.target.value })}
+                  className="h-9"
+                  placeholder="https://calendly.com/your-username/30min"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Paste your Calendly event link here
+                </p>
+              </div>
+
+              {/* Button Text */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <Input
+                  value={data.button_text || "Schedule Now"}
+                  onChange={(e) => updateData({ button_text: e.target.value })}
+                  className="h-9"
+                  placeholder="Schedule Now"
+                />
+              </div>
+
+              {/* Embed Mode Options */}
+              <div className="space-y-3 pt-3 border-t">
+                <Label className="text-xs font-medium">Behavior</Label>
+
+                {/* Go Directly To Link */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-medium">Go Directly To Link</Label>
+                    <p className="text-[10px] text-muted-foreground">Open Calendly page in new tab</p>
+                  </div>
+                  <Toggle
+                    checked={data.embed_mode === 'direct_link'}
+                    onCheckedChange={(checked) => {
+                      updateData({ embed_mode: checked ? 'direct_link' : 'embedded' })
+                    }}
+                  />
+                </div>
+
+                {/* Embedded Calendar */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-medium">Embedded Calendar</Label>
+                    <p className="text-[10px] text-muted-foreground">Show calendar within your page</p>
+                  </div>
+                  <Toggle
+                    checked={data.embed_mode === 'embedded'}
+                    onCheckedChange={(checked) => {
+                      updateData({ embed_mode: checked ? 'embedded' : 'direct_link' })
+                    }}
+                  />
+                </div>
+
+                {/* Embed Type Options - Only show when embedded mode */}
+                {data.embed_mode === 'embedded' && (
+                  <div className="pl-4 space-y-2 border-l-2 border-violet-200">
+                    <Label className="text-xs text-muted-foreground">Embed Style</Label>
+
+                    {/* Default Embed (Inline) */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        id="embed-inline"
+                        name="embed-type"
+                        checked={data.embed_type === 'inline'}
+                        onChange={() => updateData({ embed_type: 'inline' })}
+                        className="w-3.5 h-3.5 text-violet-600 border-gray-300 focus:ring-violet-500"
+                      />
+                      <label htmlFor="embed-inline" className="text-xs cursor-pointer">
+                        Default Embed (Inline)
+                      </label>
+                    </div>
+
+                    {/* Modal Embed */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        id="embed-modal"
+                        name="embed-type"
+                        checked={data.embed_type === 'modal' || !data.embed_type}
+                        onChange={() => updateData({ embed_type: 'modal' })}
+                        className="w-3.5 h-3.5 text-violet-600 border-gray-300 focus:ring-violet-500"
+                      />
+                      <label htmlFor="embed-modal" className="text-xs cursor-pointer">
+                        Modal Embed (Popup)
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="layout" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+
+              {/* Layout Options Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Default Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    (data.layout_type || 'default') === 'default'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
+                      <Calendar className="w-5 h-5 text-blue-500" />
+                      <div className="h-2.5 w-16 bg-gray-300 rounded" />
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {(data.layout_type || 'default') === 'default' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Default</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Button with icon</p>
+                </button>
+
+                {/* Pro Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    data.layout_type === 'pro'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 shrink-0 flex items-center justify-center">
+                          <Calendar className="w-4 h-4 text-blue-500" />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-full bg-gray-200 rounded" />
+                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {data.layout_type === 'pro' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Featured</span>
+                    <Sparkles className="w-3 h-3 text-violet-500" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
+                </button>
+              </div>
+
+              {/* Custom Thumbnail - Only show for Pro layout */}
+              {data.layout_type === 'pro' && (
+                <div className="space-y-2 pt-3 border-t">
+                  <Label className="text-xs">Thumbnail Image</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Display an image with your Calendly block (used in Featured layout)
                   </p>
                   <div className="flex gap-2 items-center">
                     {data.thumbnail_url ? (
