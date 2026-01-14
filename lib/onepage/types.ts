@@ -12,6 +12,7 @@ export type OnePageBlockType =
   | "header"
   | "group"
   | "pdf_document"
+  | "food_menu"
 
 export interface OnePageTheme {
   template_id: string
@@ -258,7 +259,27 @@ export interface PDFDocumentBlockData {
   thumbnail_url?: string | null
   // Button text customization
   button_text?: string
+  // Preview modal button text (e.g., "View full PDF" or "View Menu")
+  preview_button_text?: string
+  // Enable preview modal when button is clicked
+  enable_preview?: boolean
+  // Open PDF directly instead of showing preview modal
+  open_directly?: boolean
   // Animation option
+  animation_type?: BlockAnimationType
+}
+
+// Food Menu block data (same structure as PDF Document)
+export interface FoodMenuBlockData {
+  title: string
+  description?: string
+  pdf_file_url?: string | null
+  layout_type?: PDFDocumentLayoutType
+  thumbnail_url?: string | null
+  button_text?: string
+  preview_button_text?: string
+  enable_preview?: boolean
+  open_directly?: boolean
   animation_type?: BlockAnimationType
 }
 
@@ -291,6 +312,7 @@ export type OnePageBlockData =
   | HeaderBlockData
   | GroupBlockData
   | PDFDocumentBlockData
+  | FoodMenuBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -578,8 +600,27 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           layout_type: "default",
           thumbnail_url: null,
           button_text: "View PDF",
+          preview_button_text: "View full PDF",
+          enable_preview: true,
+          open_directly: false,
           animation_type: "none",
         } as PDFDocumentBlockData,
+      }
+    case "food_menu":
+      return {
+        ...baseBlock,
+        data: {
+          title: "Menu",
+          description: "",
+          pdf_file_url: null,
+          layout_type: "default",
+          thumbnail_url: null,
+          button_text: "View Menu",
+          preview_button_text: "View Menu",
+          enable_preview: true,
+          open_directly: false,
+          animation_type: "none",
+        } as FoodMenuBlockData,
       }
     default:
       return baseBlock as OnePageBlock

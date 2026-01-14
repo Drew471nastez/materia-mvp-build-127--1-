@@ -27,6 +27,7 @@ import {
   type EmailCaptureLayoutType,
   type PDFDocumentBlockData,
   type PDFDocumentLayoutType,
+  type FoodMenuBlockData,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -409,6 +410,7 @@ const blockCategories = [
     icon: FileText,
     blocks: [
       { type: "pdf_document" as const, label: "PDF Document", description: "Share a PDF with preview", icon: FileText },
+      { type: "food_menu" as const, label: "Food & Drinks Menu", description: "Share your restaurant menu", icon: FileText },
       { type: "link_button" as const, label: "Google Docs", description: "Link to Google Docs", icon: FileText, preset: { label: "View Document", url: "https://docs.google.com/" } },
       { type: "link_button" as const, label: "Notion", description: "Link to Notion page", icon: FileText, preset: { label: "View Page", url: "https://notion.so/" } },
     ],
@@ -494,6 +496,10 @@ function getBlockPreviewData(block: OnePageBlock) {
     case "pdf_document": {
       const data = block.data as PDFDocumentBlockData
       return { title: data.title || "PDF Document", subtitle: data.pdf_file_url ? "PDF uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+    }
+    case "food_menu": {
+      const data = block.data as FoodMenuBlockData
+      return { title: data.title || "Menu", subtitle: data.pdf_file_url ? "Menu uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
     }
     default:
       return { title: block.type, subtitle: "", icon: Link }
@@ -3786,6 +3792,10 @@ function BlockItem({
         const data = block.data as PDFDocumentBlockData
         return { title: data.title || "PDF Document", subtitle: data.pdf_file_url ? "PDF uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
       }
+      case "food_menu": {
+        const data = block.data as FoodMenuBlockData
+        return { title: data.title || "Menu", subtitle: data.pdf_file_url ? "Menu uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+      }
       default:
         return { title: block.type, subtitle: "", icon: Link }
     }
@@ -3800,8 +3810,9 @@ function BlockItem({
   const isGroup = block.type === "group"
   const isProduct = block.type === "product"
   const isPDFDocument = block.type === "pdf_document"
-  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument
-  const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument
+  const isFoodMenu = block.type === "food_menu"
+  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument || isFoodMenu
+  const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument || isFoodMenu
   const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
   // Check if this group block can accept the dragged block
@@ -6194,6 +6205,45 @@ function BlockEditor({
                   placeholder="View PDF"
                 />
               </div>
+
+              {/* Preview Button Text */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Preview Modal Button Text</Label>
+                <Input
+                  value={data.preview_button_text || "View full PDF"}
+                  onChange={(e) => updateData({ preview_button_text: e.target.value })}
+                  className="h-9"
+                  placeholder="View full PDF"
+                />
+              </div>
+
+              {/* Enable Preview Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">Enable Preview</Label>
+                  <p className="text-[10px] text-muted-foreground">Show PDF preview modal when clicked</p>
+                </div>
+                <Toggle
+                  checked={data.enable_preview !== false}
+                  onCheckedChange={(checked) => {
+                    updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
+                  }}
+                />
+              </div>
+
+              {/* Open Directly Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">Open Directly</Label>
+                  <p className="text-[10px] text-muted-foreground">Open PDF file directly in new tab</p>
+                </div>
+                <Toggle
+                  checked={data.open_directly === true}
+                  onCheckedChange={(checked) => {
+                    updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
+                  }}
+                />
+              </div>
             </TabsContent>
 
             <TabsContent value="layout" className="mt-0 space-y-3">
@@ -6284,6 +6334,271 @@ function BlockEditor({
                   <Label className="text-xs">Thumbnail Image</Label>
                   <p className="text-[10px] text-muted-foreground">
                     Display an image with your PDF (used in Featured layout)
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    {data.thumbnail_url ? (
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                        <img src={data.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => updateData({ thumbnail_url: null })}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                      >
+                        <Upload className="w-5 h-5 text-gray-400" />
+                      </button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                      className="h-8 text-xs"
+                    >
+                      <Upload className="w-3 h-3 mr-1.5" />
+                      {data.thumbnail_url ? 'Change' : 'Upload'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        )
+      }
+
+      case "food_menu": {
+        const data = block.data as FoodMenuBlockData
+
+        // Layout options for food menu
+        const layoutOptions = [
+          { id: 'default', label: 'Default', description: 'Button with menu icon' },
+          { id: 'pro', label: 'Pro', description: 'Image, title, description & button' },
+        ] as const
+
+        return (
+          <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
+              <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+                <Settings className="w-3.5 h-3.5" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Layout
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="mt-0 space-y-4">
+              {/* Title */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Title</Label>
+                <Input
+                  value={data.title || ""}
+                  onChange={(e) => updateData({ title: e.target.value })}
+                  className="h-9"
+                  placeholder="Menu"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Description</Label>
+                <Textarea
+                  value={data.description || ""}
+                  onChange={(e) => updateData({ description: e.target.value })}
+                  className="min-h-[60px] resize-none"
+                  placeholder="A brief description of your menu..."
+                />
+              </div>
+
+              {/* PDF File Upload */}
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-xs">Menu PDF File</Label>
+                <button
+                  type="button"
+                  onClick={() => onOpenImageLibrary(block.id, 'pdf_file')}
+                  className="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  {data.pdf_file_url ? (
+                    <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-red-600" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {data.pdf_file_url ? data.title || "Menu PDF" : "Upload Menu PDF"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {data.pdf_file_url
+                        ? "Click to change file"
+                        : "Select a PDF from your device"}
+                    </p>
+                  </div>
+                  {data.pdf_file_url ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        updateData({ pdf_file_url: null })
+                      }}
+                      className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                    </button>
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                  )}
+                </button>
+              </div>
+
+              {/* Button Text */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <Input
+                  value={data.button_text || "View Menu"}
+                  onChange={(e) => updateData({ button_text: e.target.value })}
+                  className="h-9"
+                  placeholder="View Menu"
+                />
+              </div>
+
+              {/* Preview Button Text */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Preview Modal Button Text</Label>
+                <Input
+                  value={data.preview_button_text || "View Menu"}
+                  onChange={(e) => updateData({ preview_button_text: e.target.value })}
+                  className="h-9"
+                  placeholder="View Menu"
+                />
+              </div>
+
+              {/* Enable Preview Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">Enable Preview</Label>
+                  <p className="text-[10px] text-muted-foreground">Show menu preview modal when clicked</p>
+                </div>
+                <Toggle
+                  checked={data.enable_preview !== false}
+                  onCheckedChange={(checked) => {
+                    updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
+                  }}
+                />
+              </div>
+
+              {/* Open Directly Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">Open Directly</Label>
+                  <p className="text-[10px] text-muted-foreground">Open menu PDF directly in new tab</p>
+                </div>
+                <Toggle
+                  checked={data.open_directly === true}
+                  onCheckedChange={(checked) => {
+                    updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
+                  }}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="layout" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+
+              {/* Layout Options Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Default Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    (data.layout_type || 'default') === 'default'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
+                      <FileText className="w-5 h-5 text-red-500" />
+                      <div className="h-2.5 w-16 bg-gray-300 rounded" />
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {(data.layout_type || 'default') === 'default' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Default</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Button with icon</p>
+                </button>
+
+                {/* Pro Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    data.layout_type === 'pro'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-100 to-red-200 shrink-0 flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-red-500" />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-full bg-gray-200 rounded" />
+                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {data.layout_type === 'pro' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Featured</span>
+                    <Sparkles className="w-3 h-3 text-violet-500" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
+                </button>
+              </div>
+
+              {/* Custom Thumbnail - Only show for Pro layout */}
+              {data.layout_type === 'pro' && (
+                <div className="space-y-2 pt-3 border-t">
+                  <Label className="text-xs">Thumbnail Image</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Display an image with your menu (used in Featured layout)
                   </p>
                   <div className="flex gap-2 items-center">
                     {data.thumbnail_url ? (

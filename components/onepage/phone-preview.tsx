@@ -16,6 +16,7 @@ import type {
   GroupBlockData,
   ProductBlockData,
   PDFDocumentBlockData,
+  FoodMenuBlockData,
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -50,6 +51,7 @@ interface PDFModalContextType {
     title: string
     description?: string
     pdfUrl: string
+    buttonText?: string
   }) => void
 }
 const PDFModalContext = createContext<PDFModalContextType | null>(null)
@@ -815,6 +817,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
     title: string
     description?: string
     pdfUrl: string
+    buttonText?: string
   } | null>(null)
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
   const [pdfTotalPages, setPdfTotalPages] = useState(1)
@@ -915,6 +918,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
     title: string
     description?: string
     pdfUrl: string
+    buttonText?: string
   }) => {
     setPdfModalData(data)
     setPdfCurrentPage(1)
@@ -1548,7 +1552,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 rel="noopener noreferrer"
                 className="flex items-center justify-center w-full py-1.5 bg-gray-900 hover:bg-gray-800 text-white text-[10px] font-semibold rounded-lg transition-colors"
               >
-                View Full PDF
+                {pdfModalData.buttonText || "View full PDF"}
               </a>
             </div>
           </div>
@@ -1615,6 +1619,7 @@ export function MobilePreviewContent() {
     title: string
     description?: string
     pdfUrl: string
+    buttonText?: string
   } | null>(null)
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
   const [pdfTotalPages, setPdfTotalPages] = useState(1)
@@ -1715,6 +1720,7 @@ export function MobilePreviewContent() {
     title: string
     description?: string
     pdfUrl: string
+    buttonText?: string
   }) => {
     setPdfModalData(data)
     setPdfCurrentPage(1)
@@ -2189,7 +2195,7 @@ export function MobilePreviewContent() {
                 rel="noopener noreferrer"
                 className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
               >
-                View Full PDF
+                {pdfModalData.buttonText || "View full PDF"}
               </a>
             </div>
           </div>
@@ -4292,13 +4298,23 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         }
       }
 
-      // Handle click to open PDF modal
+      // Handle click based on settings
       const handlePDFClick = () => {
-        if (pdfUrl && pdfModalContext) {
+        if (!pdfUrl) return
+
+        // If open_directly is enabled, open PDF in new tab
+        if (data.open_directly) {
+          window.open(pdfUrl, '_blank')
+          return
+        }
+
+        // If enable_preview is enabled (or default), show modal
+        if (data.enable_preview !== false && pdfModalContext) {
           pdfModalContext.openPDFModal({
             title: data.title || "PDF Document",
             description: data.description,
             pdfUrl: pdfUrl,
+            buttonText: data.preview_button_text || "View full PDF",
           })
         }
       }
@@ -4417,6 +4433,165 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               style={{ color: theme.button_text_color }}
             >
               {data.button_text || "View PDF"}
+            </span>
+          </div>
+        </button>
+      )
+    }
+
+    case "food_menu": {
+      const data = block.data as FoodMenuBlockData
+      const isPro = data.layout_type === "pro"
+      const thumbnailUrl = data.thumbnail_url
+      const pdfUrl = data.pdf_file_url
+
+      // Get animation class
+      const getAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
+      // Handle click based on settings
+      const handleMenuClick = () => {
+        if (!pdfUrl) return
+
+        // If open_directly is enabled, open PDF in new tab
+        if (data.open_directly) {
+          window.open(pdfUrl, '_blank')
+          return
+        }
+
+        // If enable_preview is enabled (or default), show modal
+        if (data.enable_preview !== false && pdfModalContext) {
+          pdfModalContext.openPDFModal({
+            title: data.title || "Menu",
+            description: data.description,
+            pdfUrl: pdfUrl,
+            buttonText: data.preview_button_text || "View Menu",
+          })
+        }
+      }
+
+      // Featured (Pro) layout with thumbnail
+      if (isPro) {
+        return (
+          <button
+            onClick={handleMenuClick}
+            className={cn(
+              "w-full overflow-hidden font-medium transition-all cursor-pointer",
+              hoverEffect,
+              getAnimationClass(data.animation_type)
+            )}
+            style={{
+              ...buttonStyles,
+              padding: 0,
+            }}
+          >
+            <div className="flex items-center gap-3 p-2.5">
+              {/* Thumbnail/Preview */}
+              <div
+                className="shrink-0 flex items-center justify-center bg-gray-100"
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: Math.max(0, theme.button_border_radius - 4),
+                }}
+              >
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
+                  />
+                ) : (
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-orange-500"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14,2 14,8 20,8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <line x1="10" y1="9" x2="8" y2="9" />
+                  </svg>
+                )}
+              </div>
+              {/* Content - Title and Description vertically aligned */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <span
+                  className="text-[11px] font-semibold leading-tight truncate block"
+                  style={{ color: theme.button_text_color }}
+                >
+                  {data.title || "Menu"}
+                </span>
+                {data.description && (
+                  <span
+                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate block"
+                    style={{ color: theme.button_text_color }}
+                  >
+                    {data.description}
+                  </span>
+                )}
+              </div>
+              {/* Arrow icon - properly aligned */}
+              <div className="shrink-0 flex items-center justify-center pr-1">
+                <ExternalLink className="w-4 h-4 opacity-50" style={{ color: theme.button_text_color }} />
+              </div>
+            </div>
+          </button>
+        )
+      }
+
+      // Default layout - Title on top, button text below with icon
+      return (
+        <button
+          onClick={handleMenuClick}
+          className={cn(
+            "w-full flex flex-col items-center justify-center font-medium transition-all cursor-pointer py-2.5 px-3",
+            hoverEffect,
+            getAnimationClass(data.animation_type)
+          )}
+          style={buttonStyles}
+        >
+          {/* Title */}
+          <span
+            className="text-[11px] font-semibold truncate w-full text-center"
+            style={{ color: theme.button_text_color }}
+          >
+            {data.title || "Menu"}
+          </span>
+          {/* Button text with menu icon */}
+          <div className="flex items-center justify-center gap-1 opacity-70">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="shrink-0"
+              style={{ color: theme.button_text_color }}
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14,2 14,8 20,8" />
+            </svg>
+            <span
+              className="text-[10px] truncate"
+              style={{ color: theme.button_text_color }}
+            >
+              {data.button_text || "View Menu"}
             </span>
           </div>
         </button>
