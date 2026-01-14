@@ -25,6 +25,31 @@ interface NotificationsModalProps {
   onePagePublished?: boolean
 }
 
+const DISMISSED_NOTIFICATIONS_KEY = "storelib_dismissed_notifications"
+
+function getDismissedNotifications(): string[] {
+  if (typeof window === "undefined") return []
+  try {
+    const dismissed = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY)
+    return dismissed ? JSON.parse(dismissed) : []
+  } catch {
+    return []
+  }
+}
+
+function dismissNotification(notificationId: string): void {
+  if (typeof window === "undefined") return
+  try {
+    const dismissed = getDismissedNotifications()
+    if (!dismissed.includes(notificationId)) {
+      dismissed.push(notificationId)
+      localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify(dismissed))
+    }
+  } catch {
+    // Silently fail if localStorage is not available
+  }
+}
+
 export function NotificationsModal({
   open,
   onOpenChange,
@@ -35,6 +60,7 @@ export function NotificationsModal({
   const [activeTab, setActiveTab] = useState<"all" | "updates" | "messages" | "opportunities">("all")
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isMobile, setIsMobile] = useState(false)
+  const [dismissedIds, setDismissedIds] = useState<string[]>([])
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -43,12 +69,17 @@ export function NotificationsModal({
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
+  // Load dismissed notifications from localStorage
+  useEffect(() => {
+    setDismissedIds(getDismissedNotifications())
+  }, [])
+
   // Generate notifications based on user state
   useEffect(() => {
     const generatedNotifications: Notification[] = []
 
-    // OnePage setup notification
-    if (!onePagePublished) {
+    // OnePage setup notification - only show if not published AND not dismissed
+    if (!onePagePublished && !dismissedIds.includes("onepage-setup")) {
       generatedNotifications.push({
         id: "onepage-setup",
         type: "opportunity",
@@ -60,8 +91,8 @@ export function NotificationsModal({
       })
     }
 
-    // Payment setup notification
-    if (!stripeConnected || stripeStatus !== "enabled") {
+    // Payment setup notification - only show if not connected AND not dismissed
+    if ((!stripeConnected || stripeStatus !== "enabled") && !dismissedIds.includes("payment-setup")) {
       generatedNotifications.push({
         id: "payment-setup",
         type: "action",
@@ -74,7 +105,7 @@ export function NotificationsModal({
     }
 
     setNotifications(generatedNotifications)
-  }, [stripeConnected, stripeStatus, onePagePublished])
+  }, [stripeConnected, stripeStatus, onePagePublished, dismissedIds])
 
   const filteredNotifications = notifications.filter((n) => {
     if (activeTab === "all") return true
@@ -92,10 +123,13 @@ export function NotificationsModal({
   ]
 
   const handleNotificationClick = (notification: Notification) => {
-    // Mark as read
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
-    )
+    // Dismiss the notification permanently
+    dismissNotification(notification.id)
+    setDismissedIds((prev) => [...prev, notification.id])
+
+    // Remove from current notifications list
+    setNotifications((prev) => prev.filter((n) => n.id !== notification.id))
+
     if (notification.href) {
       onOpenChange(false)
     }

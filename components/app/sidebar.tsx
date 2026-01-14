@@ -15,7 +15,6 @@ import {
   Menu,
   Palette,
   Link2,
-  Users,
   HelpCircle,
   Zap,
   ChevronDown,
@@ -23,6 +22,8 @@ import {
   Library,
   Bell,
   Home,
+  Wallet,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -43,6 +44,18 @@ interface SidebarProps {
   onePagePublished?: boolean
 }
 
+const DISMISSED_NOTIFICATIONS_KEY = "storelib_dismissed_notifications"
+
+function getDismissedNotifications(): string[] {
+  if (typeof window === "undefined") return []
+  try {
+    const dismissed = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY)
+    return dismissed ? JSON.parse(dismissed) : []
+  } catch {
+    return []
+  }
+}
+
 export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -50,6 +63,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [dismissedNotifications, setDismissedNotifications] = useState<string[]>([])
   const dropdownRef = useRef<HTMLDivElement>(null)
   const mobileDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -58,6 +72,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setProfileDropdownOpen(false)
     setMobileProfileDropdownOpen(false)
   }, [pathname])
+
+  // Load dismissed notifications from localStorage
+  useEffect(() => {
+    setDismissedNotifications(getDismissedNotifications())
+  }, [])
+
+  // Re-check dismissed notifications when notifications modal closes
+  useEffect(() => {
+    if (!notificationsOpen) {
+      setDismissedNotifications(getDismissedNotifications())
+    }
+  }, [notificationsOpen])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -72,10 +98,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Calculate notification count
+  // Calculate notification count (respecting dismissed notifications)
   let notificationCount = 0
-  if (!stripeConnected || stripeStatus !== "enabled") notificationCount++
-  if (!onePagePublished) notificationCount++
+  if ((!stripeConnected || stripeStatus !== "enabled") && !dismissedNotifications.includes("payment-setup")) notificationCount++
+  if (!onePagePublished && !dismissedNotifications.includes("onepage-setup")) notificationCount++
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -86,14 +112,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   }
 
   const mainNavItems = [
-    { href: "/app", label: "Home", icon: LayoutDashboard },
-    { href: "/app/products", label: "Products", icon: Package },
+    { href: "/app", label: "Dashboard", icon: LayoutDashboard },
     { href: "/app/orders", label: "Sales", icon: ShoppingCart },
-    { href: "/app/customers", label: "Customers", icon: Users },
+    { href: "/app/products", label: "Products", icon: Package },
     { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/app/onepage", label: "OnePage", icon: Link2 },
     { href: "/store-builder", label: "Store Builder", icon: Palette },
     { href: "/app/emails", label: "Emails", icon: Mail },
+    { href: "/app/payouts", label: "Payouts", icon: Wallet },
   ]
 
   const profileDropdownItems = [
@@ -237,9 +263,21 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           >
             storelib
           </Link>
-          <button className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500 transition-colors">
-            <HelpCircle className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setNotificationsOpen(true)}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500 transition-colors relative"
+            >
+              <Bell className="h-4 w-4" strokeWidth={1.5} />
+              <NotificationBadge count={notificationCount} />
+            </button>
+            <Link
+              href="/help"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500 transition-colors"
+            >
+              <HelpCircle className="h-4 w-4" strokeWidth={1.5} />
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -290,11 +328,22 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       </div>
 
       <div className="border-t border-neutral-200/50 px-4 py-3.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[13px] text-neutral-500">Powered by storelib</span>
-          <button className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500 transition-colors">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/explore"
+            onClick={onItemClick}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors"
+          >
+            <Compass className="h-4 w-4" strokeWidth={1.5} />
+            <span className="text-[13px] font-medium">Explore</span>
+          </Link>
+          <Link
+            href="/help"
+            onClick={onItemClick}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500 transition-colors"
+          >
             <HelpCircle className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          </Link>
         </div>
       </div>
     </div>
@@ -336,10 +385,29 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             variant="ghost"
             size="icon"
             className="h-9 w-9 shrink-0 rounded-lg transition-all duration-200 ease-out active:scale-95"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open menu"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
           >
-            <Menu className="h-5 w-5 transition-transform duration-200" />
+            <div className="relative w-5 h-5 flex items-center justify-center">
+              <span
+                className={cn(
+                  "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
+                  mobileMenuOpen ? "rotate-45 top-[9px]" : "rotate-0 top-[4px]"
+                )}
+              />
+              <span
+                className={cn(
+                  "absolute h-[2px] w-5 bg-current rounded-full top-[9px] transition-all duration-300 ease-out",
+                  mobileMenuOpen ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100"
+                )}
+              />
+              <span
+                className={cn(
+                  "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
+                  mobileMenuOpen ? "-rotate-45 top-[9px]" : "rotate-0 top-[14px]"
+                )}
+              />
+            </div>
           </Button>
 
           {/* Mobile Profile Dropdown */}
