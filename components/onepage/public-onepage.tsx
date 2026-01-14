@@ -2514,6 +2514,153 @@ function GroupBlockRenderer({
   )
 }
 
+// Public Image Carousel Component with navigation dots and smooth scroll
+function PublicImageCarousel({
+  images,
+  renderImage,
+  autoplay,
+  theme,
+  isDesktop,
+}: {
+  images: { id: string; image_url: string; alt_text?: string; title?: string; link_url?: string | null }[]
+  renderImage: (img: typeof images[0], index: number) => React.ReactNode
+  autoplay?: boolean
+  theme: OnePageTheme
+  isDesktop?: boolean
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [isHovered, setIsHovered] = useState(false)
+
+  // Auto-advance slides if autoplay is enabled
+  useEffect(() => {
+    if (!autoplay || isHovered || images.length <= 1) return
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % images.length)
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [autoplay, isHovered, images.length])
+
+  // Scroll to current index when it changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      const container = scrollRef.current
+      const itemWidth = container.scrollWidth / images.length
+      container.scrollTo({
+        left: itemWidth * currentIndex,
+        behavior: 'smooth'
+      })
+    }
+  }, [currentIndex, images.length])
+
+  // Handle scroll events to update currentIndex
+  const handleScroll = useCallback(() => {
+    if (scrollRef.current) {
+      const container = scrollRef.current
+      const itemWidth = container.scrollWidth / images.length
+      const newIndex = Math.round(container.scrollLeft / itemWidth)
+      if (newIndex !== currentIndex && newIndex >= 0 && newIndex < images.length) {
+        setCurrentIndex(newIndex)
+      }
+    }
+  }, [currentIndex, images.length])
+
+  const goToSlide = (index: number) => {
+    setCurrentIndex(index)
+  }
+
+  const goToPrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length)
+  }
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % images.length)
+  }
+
+  if (images.length === 0) return null
+
+  return (
+    <div
+      className="relative w-full group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Carousel Container */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory touch-pan-x"
+        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="flex" style={{ width: `${images.length * 100}%` }}>
+          {images.map((img, idx) => (
+            <div
+              key={img.id || idx}
+              className="w-full shrink-0 snap-center px-1"
+              style={{ width: `${100 / images.length}%` }}
+            >
+              {renderImage(img, idx)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Navigation Arrows - visible on hover (especially for desktop) */}
+      {images.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={goToPrev}
+            className={cn(
+              "absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60",
+              isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
+            )}
+            aria-label="Previous image"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={goToNext}
+            className={cn(
+              "absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60",
+              isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
+            )}
+            aria-label="Next image"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
+      )}
+
+      {/* Navigation Dots */}
+      {images.length > 1 && (
+        <div className="flex justify-center gap-2 mt-3">
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => goToSlide(idx)}
+              className={cn(
+                "h-2 rounded-full transition-all duration-200",
+                idx === currentIndex
+                  ? "w-6 bg-current"
+                  : "w-2 bg-current opacity-40 hover:opacity-60"
+              )}
+              style={{ color: theme.text_color }}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PublicBlockRenderer({
   block,
   theme,
@@ -3046,8 +3193,8 @@ function PublicBlockRenderer({
         data.platforms = defaultLinks
       }
 
-      // Hero layout: move icons up more, Classic: add 2px padding top/bottom
-      const layoutStyles = isHeroLayout ? "mt-[-18px] md:mt-[-22px] mb-4 md:mb-6" : "mt-[2px] mb-[2px]"
+      // Hero layout: move icons up more, Classic: add 4px top and 3px bottom padding
+      const layoutStyles = isHeroLayout ? "mt-[-16px] md:mt-[-20px] mb-5 md:mb-7" : "mt-[4px] mb-[3px]"
 
       return (
         <div className={cn("flex items-center justify-center gap-2.5 flex-wrap", layoutStyles)}>
@@ -3938,18 +4085,16 @@ function PublicBlockRenderer({
         )
       }
 
-      // Carousel display
+      // Carousel display with navigation dots and smooth scroll
       if (data.display_style === 'carousel') {
         return (
-          <div className="w-full overflow-x-auto scrollbar-hide -mx-4 px-4">
-            <div className="flex gap-3" style={{ width: 'max-content' }}>
-              {images.map((img, idx) => (
-                <div key={img.id || idx} className="w-[280px] sm:w-[320px] shrink-0">
-                  {renderImage(img, idx)}
-                </div>
-              ))}
-            </div>
-          </div>
+          <PublicImageCarousel
+            images={images}
+            renderImage={renderImage}
+            autoplay={data.carousel_autoplay}
+            theme={theme}
+            isDesktop={isDesktop}
+          />
         )
       }
 

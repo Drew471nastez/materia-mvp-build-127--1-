@@ -2702,6 +2702,147 @@ function GroupBlockPreview({
   )
 }
 
+// Image Carousel Component with navigation dots and smooth scroll
+function ImageCarousel({
+  images,
+  renderImage,
+  borderRadius,
+  autoplay,
+  theme,
+}: {
+  images: { id: string; image_url: string; alt_text?: string; title?: string; link_url?: string | null }[]
+  renderImage: (img: typeof images[0], index: number) => React.ReactNode
+  borderRadius: string
+  autoplay?: boolean
+  theme: OnePageTheme
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [isHovered, setIsHovered] = useState(false)
+
+  // Auto-advance slides if autoplay is enabled
+  useEffect(() => {
+    if (!autoplay || isHovered || images.length <= 1) return
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % images.length)
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [autoplay, isHovered, images.length])
+
+  // Scroll to current index when it changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      const container = scrollRef.current
+      const itemWidth = container.scrollWidth / images.length
+      container.scrollTo({
+        left: itemWidth * currentIndex,
+        behavior: 'smooth'
+      })
+    }
+  }, [currentIndex, images.length])
+
+  // Handle scroll events to update currentIndex
+  const handleScroll = useCallback(() => {
+    if (scrollRef.current) {
+      const container = scrollRef.current
+      const itemWidth = container.scrollWidth / images.length
+      const newIndex = Math.round(container.scrollLeft / itemWidth)
+      if (newIndex !== currentIndex && newIndex >= 0 && newIndex < images.length) {
+        setCurrentIndex(newIndex)
+      }
+    }
+  }, [currentIndex, images.length])
+
+  const goToSlide = (index: number) => {
+    setCurrentIndex(index)
+  }
+
+  const goToPrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length)
+  }
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % images.length)
+  }
+
+  if (images.length === 0) return null
+
+  return (
+    <div
+      className="relative w-full group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Carousel Container */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory touch-pan-x"
+        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="flex" style={{ width: `${images.length * 100}%` }}>
+          {images.map((img, idx) => (
+            <div
+              key={img.id || idx}
+              className="w-full shrink-0 snap-center px-1"
+              style={{ width: `${100 / images.length}%` }}
+            >
+              {renderImage(img, idx)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Navigation Arrows - visible on hover */}
+      {images.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={goToPrev}
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm hover:bg-black/60"
+            aria-label="Previous image"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={goToNext}
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm hover:bg-black/60"
+            aria-label="Next image"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
+      )}
+
+      {/* Navigation Dots */}
+      {images.length > 1 && (
+        <div className="flex justify-center gap-1.5 mt-2">
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => goToSlide(idx)}
+              className={cn(
+                "w-1.5 h-1.5 rounded-full transition-all duration-200",
+                idx === currentIndex
+                  ? "w-4 bg-current"
+                  : "bg-current opacity-40 hover:opacity-60"
+              )}
+              style={{ color: theme.text_color }}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function BlockRenderer({ block, theme, profile, scale = "small", settings, isInsideCarousel = false }: BlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
 
@@ -3969,18 +4110,16 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         )
       }
 
-      // Carousel display
+      // Carousel display with navigation dots and smooth scroll
       if (data.display_style === 'carousel') {
         return (
-          <div className="w-full overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2" style={{ width: 'max-content' }}>
-              {images.map((img, idx) => (
-                <div key={img.id || idx} className="w-[85%] shrink-0 first:ml-0">
-                  {renderImage(img, idx)}
-                </div>
-              ))}
-            </div>
-          </div>
+          <ImageCarousel
+            images={images}
+            renderImage={renderImage}
+            borderRadius={borderRadius}
+            autoplay={data.carousel_autoplay}
+            theme={theme}
+          />
         )
       }
 
@@ -4522,8 +4661,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
       const headerLayout = (theme as any).header_layout || "classic"
       const isHeroLayout = headerLayout === "hero"
-      // Hero layout: move icons up, Classic: add 2px padding top/bottom
-      const layoutStyles = isHeroLayout ? "mt-[-6px] mb-[2px]" : "mt-[2px] mb-[2px]"
+      // Hero layout: move icons up, Classic: add 4px top and 3px bottom padding
+      const layoutStyles = isHeroLayout ? "mt-[-4px] mb-[3px]" : "mt-[4px] mb-[3px]"
 
       return (
         <div

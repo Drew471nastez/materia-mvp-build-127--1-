@@ -3863,7 +3863,8 @@ function BlockItem({
   const isPDFDocument = block.type === "pdf_document"
   const isFoodMenu = block.type === "food_menu"
   const isCalendly = block.type === "calendly"
-  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument || isFoodMenu || isCalendly
+  const isImage = block.type === "image"
+  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument || isFoodMenu || isCalendly || isImage
   const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument || isFoodMenu || isCalendly
   const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
@@ -4071,7 +4072,7 @@ function BlockItem({
             <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
               <DialogContent className="w-[calc(100%-32px)] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
                 <DialogHeader className="p-4 border-b">
-                  <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : "Link Stats"}</DialogTitle>
+                  <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}</DialogTitle>
                 </DialogHeader>
 
                 <div className="p-4">
@@ -4194,7 +4195,7 @@ function BlockItem({
                     <div className="text-center py-8 text-sm text-muted-foreground">
                       <BarChart2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
                       <p>No data yet</p>
-                      <p className="text-xs mt-1">Stats will appear once visitors interact with your link</p>
+                      <p className="text-xs mt-1">Stats will appear once visitors interact with this block</p>
                     </div>
                   )}
                 </div>
@@ -6225,38 +6226,33 @@ function BlockEditor({
                     </div>
 
                     {/* Image Preview or Upload */}
-                    <div className="flex items-start gap-3">
+                    <div className="space-y-2">
                       <button
                         type="button"
                         onClick={() => {
                           onOpenImageLibrary(block.id, `image_item_${img.id}`)
                         }}
-                        className="group relative w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-white shrink-0"
+                        className="group relative w-full aspect-video rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-white"
                       >
                         {img.image_url ? (
                           <img src={img.image_url} alt={img.alt_text || ''} className="w-full h-full object-cover rounded-lg" />
                         ) : (
-                          <ImageIcon className="w-5 h-5 text-gray-400" />
+                          <div className="flex flex-col items-center gap-2 text-gray-400">
+                            <ImageIcon className="w-8 h-8" />
+                            <span className="text-xs font-medium">Click to upload</span>
+                          </div>
                         )}
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                          <Upload className="w-4 h-4 text-white" />
+                          <Upload className="w-6 h-6 text-white" />
                         </div>
                       </button>
 
-                      <div className="flex-1 space-y-2">
-                        <Input
-                          value={img.image_url}
-                          onChange={(e) => updateImage(img.id, { image_url: e.target.value })}
-                          placeholder="Image URL"
-                          className="h-8 text-xs"
-                        />
-                        <Input
-                          value={img.title || ''}
-                          onChange={(e) => updateImage(img.id, { title: e.target.value })}
-                          placeholder="Caption (optional)"
-                          className="h-8 text-xs"
-                        />
-                      </div>
+                      <Input
+                        value={img.title || ''}
+                        onChange={(e) => updateImage(img.id, { title: e.target.value })}
+                        placeholder="Caption (optional)"
+                        className="h-8 text-xs"
+                      />
                     </div>
 
                     {/* Link URL for this image */}
