@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useState, useEffect, useRef } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Bell, CreditCard, ChevronRight, X, Link2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -61,6 +60,7 @@ export function NotificationsModal({
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isMobile, setIsMobile] = useState(false)
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -73,6 +73,27 @@ export function NotificationsModal({
   useEffect(() => {
     setDismissedIds(getDismissedNotifications())
   }, [])
+
+  // Handle click outside for desktop panel
+  useEffect(() => {
+    if (!open || isMobile) return
+
+    function handleClickOutside(event: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        onOpenChange(false)
+      }
+    }
+
+    // Add slight delay to prevent immediate close on click
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside)
+    }, 100)
+
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [open, isMobile, onOpenChange])
 
   // Generate notifications based on user state
   useEffect(() => {
@@ -202,18 +223,27 @@ export function NotificationsModal({
     )
   }
 
-  // Desktop: Modal dialog
+  // Desktop: Inline dropdown panel (not overlay)
+  if (!open) return null
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-4 py-3 border-b flex flex-row items-center justify-between">
-          <DialogTitle className="text-base font-semibold">Notifications</DialogTitle>
-        </DialogHeader>
-        <div className="max-h-[60vh]">
-          <NotificationsContent />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <div
+      ref={panelRef}
+      className="fixed left-[220px] bottom-[60px] z-50 w-[360px] max-h-[480px] rounded-xl border border-neutral-200/70 bg-white shadow-lg shadow-black/8 overflow-hidden animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
+    >
+      <div className="px-4 py-3 border-b flex items-center justify-between bg-neutral-50/50">
+        <h3 className="text-base font-semibold text-neutral-900">Notifications</h3>
+        <button
+          onClick={() => onOpenChange(false)}
+          className="w-7 h-7 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"
+        >
+          <X className="w-4 h-4 text-neutral-500" />
+        </button>
+      </div>
+      <div className="max-h-[400px] overflow-hidden">
+        <NotificationsContent />
+      </div>
+    </div>
   )
 }
 
@@ -262,12 +292,12 @@ function NotificationItem({
   return content
 }
 
-// Badge component for notification count
+// Badge component for notification count - subtle, small indicator
 export function NotificationBadge({ count }: { count: number }) {
   if (count === 0) return null
 
   return (
-    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold text-white bg-red-500 rounded-full">
+    <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 text-[9px] font-medium text-white bg-violet-500/80 rounded-full shadow-sm">
       {count > 9 ? "9+" : count}
     </span>
   )

@@ -286,14 +286,21 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   // Mobile sidebar content without profile avatar - only shows logo
   const MobileSidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
     <div className="flex h-full flex-col bg-[#FAFAFA]">
-      {/* Logo header instead of profile */}
-      <div className="px-4 pt-4 pb-2 border-b border-neutral-200/50">
+      {/* Logo header with Help icon right-aligned */}
+      <div className="px-4 pt-4 pb-2 border-b border-neutral-200/50 flex items-center justify-between">
         <Link
           href="/"
           onClick={onItemClick}
           className="text-[20px] font-semibold tracking-tight text-violet-600 hover:text-violet-700 transition-colors"
         >
           storelib
+        </Link>
+        <Link
+          href="/help"
+          onClick={onItemClick}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500 transition-colors"
+        >
+          <HelpCircle className="h-4 w-4" strokeWidth={1.5} />
         </Link>
       </div>
 
@@ -328,23 +335,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       </div>
 
       <div className="border-t border-neutral-200/50 px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/explore"
-            onClick={onItemClick}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors"
-          >
-            <Compass className="h-4 w-4" strokeWidth={1.5} />
-            <span className="text-[13px] font-medium">Explore</span>
-          </Link>
-          <Link
-            href="/help"
-            onClick={onItemClick}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500 transition-colors"
-          >
-            <HelpCircle className="h-4 w-4" strokeWidth={1.5} />
-          </Link>
-        </div>
+        <Link
+          href="/explore"
+          onClick={onItemClick}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors"
+        >
+          <Compass className="h-4 w-4" strokeWidth={1.5} />
+          <span className="text-[13px] font-medium">Explore</span>
+        </Link>
       </div>
     </div>
   )
