@@ -149,7 +149,7 @@ function ProUpgradeDialog({
         <div className="px-6 pb-6 space-y-3">
           <button
             onClick={onUpgrade}
-            className="w-full py-3 px-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all shadow-md"
+            className="w-full py-3 px-4 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-all shadow-md"
           >
             Upgrade To Pro
           </button>
@@ -532,13 +532,13 @@ function EditorLayout() {
             </button>
           </div>
 
-          {/* Mobile Preview Toggle - Blue button */}
+          {/* Mobile Preview Toggle - Black button */}
           <Button
             variant={showMobilePreview ? "outline" : "default"}
             size="sm"
             className={cn(
               "md:hidden h-8 px-3 rounded-lg",
-              !showMobilePreview && "bg-blue-500 hover:bg-blue-600 text-white"
+              !showMobilePreview && "bg-gray-900 hover:bg-gray-800 text-white"
             )}
             onClick={() => setShowMobilePreview(!showMobilePreview)}
           >

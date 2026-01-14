@@ -3671,24 +3671,24 @@ function TextSection() {
         </button>
       </div>
       <Dialog open={showFontModal} onOpenChange={setShowFontModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-4 border-b">
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
+          <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle className="text-lg font-semibold">Choose Font</DialogTitle>
             <div className="relative mt-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input value={fontSearch} onChange={(e) => setFontSearch(e.target.value)} placeholder="Search fonts..." className="pl-9 h-10" />
             </div>
-            <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+            <div className="flex gap-2 mt-3 overflow-x-auto pb-1 no-scrollbar">
               {FONT_CATEGORIES.map((cat) => (
                 <button key={cat.id} onClick={() => setFontFilter(cat.id as any)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors", fontFilter === cat.id ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>{cat.label}</button>
               ))}
             </div>
           </DialogHeader>
-          <div className="overflow-y-auto max-h-[400px] p-2">
+          <div className="overflow-y-auto flex-1 p-2 pb-[max(8px,env(safe-area-inset-bottom))]">
             {filteredFonts.map((font) => (
-              <button key={font.name} onClick={() => { updateTheme({ font_family: font.value }); setShowFontModal(false) }} className={cn("w-full p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", theme.font_family === font.value && "bg-violet-50")}>
-                <div><p style={{ fontFamily: font.value }} className="text-base">{font.name}</p><p className="text-xs text-muted-foreground">{font.style}</p></div>
-                {theme.font_family === font.value && <Check className="h-5 w-5 text-violet-500" />}
+              <button key={font.name} onClick={() => { updateTheme({ font_family: font.value }); setShowFontModal(false) }} className={cn("w-full p-4 sm:p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", theme.font_family === font.value && "bg-violet-50")}>
+                <div className="flex-1 min-w-0"><p style={{ fontFamily: font.value }} className="text-base truncate">{font.name}</p><p className="text-xs text-muted-foreground">{font.style}</p></div>
+                {theme.font_family === font.value && <Check className="h-5 w-5 text-violet-500 shrink-0 ml-2" />}
               </button>
             ))}
           </div>

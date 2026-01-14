@@ -1378,7 +1378,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               <div style={{ marginTop: "auto", paddingTop: "20px" }}>
                 {settings.show_branding && (
                   <div className="text-center mb-2">
-                    <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[9px] font-medium bg-white text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
+                    <span className="inline-flex items-center justify-center px-3 pt-1.5 pb-[8px] rounded-full text-[9px] font-medium bg-white text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
                       {sellerName} on Storelib
                     </span>
                   </div>
