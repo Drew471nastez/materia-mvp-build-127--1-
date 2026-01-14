@@ -399,8 +399,8 @@ function EditorLayout() {
   const isSaveDisabled = saveState === "saving" || (saveState === "saved" && !isDirty) || !isDirty
 
   return (
-    <div 
-      className="flex flex-col bg-gray-50/50 fixed inset-0 md:left-64 top-14 md:top-0"
+    <div
+      className="flex flex-col bg-gray-50/50 fixed inset-0 md:left-64 top-[68px] md:top-0"
       style={{ zIndex: 10 }}
     >
       {/* Header - ALWAYS visible with solid background */}
