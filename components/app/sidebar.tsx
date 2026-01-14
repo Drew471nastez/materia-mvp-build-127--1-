@@ -373,11 +373,39 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         .sidebar-nav::-webkit-scrollbar-thumb:hover {
           background-color: rgba(0, 0, 0, 0.25);
         }
+
+        /* Mobile header with inward carved corners */
+        .mobile-header-curved {
+          position: relative;
+          border-radius: 0;
+        }
+
+        .mobile-header-curved::before,
+        .mobile-header-curved::after {
+          content: '';
+          position: absolute;
+          bottom: -28px;
+          width: 28px;
+          height: 28px;
+          background: transparent;
+        }
+
+        .mobile-header-curved::before {
+          left: 0;
+          border-top-right-radius: 28px;
+          box-shadow: 14px -14px 0 0 #111111;
+        }
+
+        .mobile-header-curved::after {
+          right: 0;
+          border-top-left-radius: 28px;
+          box-shadow: -14px -14px 0 0 #111111;
+        }
       `}</style>
 
-      {/* Mobile Header - Dark floating panel with large rounded bottom corners */}
+      {/* Mobile Header - Dark floating panel with inward carved corners at bottom */}
       <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden">
-        <div className="flex h-[55px] items-center justify-between px-3 bg-gradient-to-b from-[#1a1a1a] to-[#111111] rounded-b-[28px] shadow-lg shadow-black/25">
+        <div className="mobile-header-curved flex h-[59px] items-center justify-between px-3 py-[2px] bg-gradient-to-b from-[#1a1a1a] to-[#111111] shadow-lg shadow-black/25">
           {/* Left side: Hamburger */}
           <div className="flex items-center gap-1">
             <Button
