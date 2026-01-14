@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { Bell, CreditCard, ChevronRight, X } from "lucide-react"
+import { Bell, CreditCard, ChevronRight, X, Link2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
@@ -22,13 +22,15 @@ interface NotificationsModalProps {
   onOpenChange: (open: boolean) => void
   stripeConnected?: boolean
   stripeStatus?: string
+  onePagePublished?: boolean
 }
 
 export function NotificationsModal({
   open,
   onOpenChange,
   stripeConnected = false,
-  stripeStatus = "not_connected"
+  stripeStatus = "not_connected",
+  onePagePublished = false
 }: NotificationsModalProps) {
   const [activeTab, setActiveTab] = useState<"all" | "updates" | "messages" | "opportunities">("all")
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -45,6 +47,19 @@ export function NotificationsModal({
   useEffect(() => {
     const generatedNotifications: Notification[] = []
 
+    // OnePage setup notification
+    if (!onePagePublished) {
+      generatedNotifications.push({
+        id: "onepage-setup",
+        type: "opportunity",
+        title: "Have you tried out OnePage?",
+        description: "Create your personalized link-in-bio page to showcase your products and connect with your audience.",
+        href: "/app/onepage",
+        read: false,
+        createdAt: new Date(),
+      })
+    }
+
     // Payment setup notification
     if (!stripeConnected || stripeStatus !== "enabled") {
       generatedNotifications.push({
@@ -59,7 +74,7 @@ export function NotificationsModal({
     }
 
     setNotifications(generatedNotifications)
-  }, [stripeConnected, stripeStatus])
+  }, [stripeConnected, stripeStatus, onePagePublished])
 
   const filteredNotifications = notifications.filter((n) => {
     if (activeTab === "all") return true
@@ -137,7 +152,7 @@ export function NotificationsModal({
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
+        <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl" hideCloseButton>
           <SheetHeader className="px-4 py-3 border-b flex flex-row items-center justify-between">
             <SheetTitle className="text-base font-semibold">Notifications</SheetTitle>
             <button
@@ -187,7 +202,7 @@ function NotificationItem({
         {notification.type === "action" && <CreditCard className="w-5 h-5 text-violet-600" />}
         {notification.type === "update" && <Bell className="w-5 h-5 text-violet-600" />}
         {notification.type === "message" && <Bell className="w-5 h-5 text-violet-600" />}
-        {notification.type === "opportunity" && <Bell className="w-5 h-5 text-violet-600" />}
+        {notification.type === "opportunity" && <Link2 className="w-5 h-5 text-violet-600" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className={cn(

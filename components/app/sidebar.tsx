@@ -40,9 +40,10 @@ interface SidebarProps {
   displayName?: string
   stripeConnected?: boolean
   stripeStatus?: string
+  onePagePublished?: boolean
 }
 
-export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected" }: SidebarProps) {
+export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -72,7 +73,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   }, [])
 
   // Calculate notification count
-  const notificationCount = (!stripeConnected || stripeStatus !== "enabled") ? 1 : 0
+  let notificationCount = 0
+  if (!stripeConnected || stripeStatus !== "enabled") notificationCount++
+  if (!onePagePublished) notificationCount++
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -242,6 +245,61 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     </div>
   )
 
+  // Mobile sidebar content without profile avatar - only shows logo
+  const MobileSidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
+    <div className="flex h-full flex-col bg-[#FAFAFA]">
+      {/* Logo header instead of profile */}
+      <div className="px-4 pt-4 pb-2 border-b border-neutral-200/50">
+        <Link
+          href="/"
+          onClick={onItemClick}
+          className="text-[20px] font-semibold tracking-tight text-violet-600 hover:text-violet-700 transition-colors"
+        >
+          storelib
+        </Link>
+      </div>
+
+      <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-3">
+        <div className="space-y-0.5">
+          {mainNavItems.map((item) => (
+            <NavItem key={item.href} item={item} onClick={onItemClick} />
+          ))}
+        </div>
+
+        {storeUrl && !storePublished && (
+          <div className="mt-4 rounded-[10px] bg-amber-50/80 border border-amber-100/80 px-3 py-2.5">
+            <p className="text-[12px] text-amber-700">Store is unpublished. Go to Settings to publish.</p>
+          </div>
+        )}
+      </nav>
+
+      <div className="px-3 pb-3">
+        <Link
+          href="/upgrade"
+          onClick={onItemClick}
+          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
+        >
+          <div>
+            <p className="text-[13px] font-semibold text-neutral-900">Upgrade to Pro</p>
+            <p className="text-[11px] text-neutral-600">Unlock more benefits</p>
+          </div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100/80 group-hover:bg-violet-200/80 transition-colors">
+            <Zap className="h-3.5 w-3.5 text-violet-600" strokeWidth={2} />
+          </div>
+        </Link>
+      </div>
+
+      <div className="border-t border-neutral-200/50 px-4 py-3.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[13px] text-neutral-500">Powered by storelib</span>
+          <button className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500 transition-colors">
+            <HelpCircle className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <>
       <style jsx global>{`
@@ -277,11 +335,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 shrink-0 rounded-lg"
+            className="h-9 w-9 shrink-0 rounded-lg transition-all duration-200 ease-out active:scale-95"
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Open menu"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-5 w-5 transition-transform duration-200" />
           </Button>
 
           {/* Mobile Profile Dropdown */}
@@ -378,19 +436,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onOpenChange={setNotificationsOpen}
         stripeConnected={stripeConnected}
         stripeStatus={stripeStatus}
+        onePagePublished={onePagePublished}
       />
 
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent
           side="left"
-          className="w-[260px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)] border-neutral-200/50"
+          className="w-[260px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)] border-neutral-200/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:duration-200 data-[state=open]:duration-300 ease-out"
           hideCloseButton
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
           </SheetHeader>
           <div className="flex h-full flex-col">
-            <SidebarContent onItemClick={() => setMobileMenuOpen(false)} />
+            <MobileSidebarContent onItemClick={() => setMobileMenuOpen(false)} />
           </div>
         </SheetContent>
       </Sheet>
