@@ -375,62 +375,64 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         }
       `}</style>
 
-      {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-neutral-200/50 bg-white/90 backdrop-blur-xl px-3 pt-[env(safe-area-inset-top)] md:hidden">
-        {/* Left side: Hamburger + Profile */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 shrink-0 rounded-lg transition-all duration-200 ease-out active:scale-95"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-          >
-            <div className="relative w-5 h-5 flex items-center justify-center">
-              <span
-                className={cn(
-                  "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
-                  mobileMenuOpen ? "rotate-45 top-[9px]" : "rotate-0 top-[4px]"
-                )}
-              />
-              <span
-                className={cn(
-                  "absolute h-[2px] w-5 bg-current rounded-full top-[9px] transition-all duration-300 ease-out",
-                  mobileMenuOpen ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100"
-                )}
-              />
-              <span
-                className={cn(
-                  "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
-                  mobileMenuOpen ? "-rotate-45 top-[9px]" : "rotate-0 top-[14px]"
-                )}
-              />
-            </div>
-          </Button>
+      {/* Mobile Header - Dark floating bar with curved edges */}
+      <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden">
+        <div className="mx-2 mt-2 flex h-12 items-center justify-between px-2 rounded-2xl bg-gradient-to-b from-neutral-800 to-neutral-900 shadow-lg shadow-black/20">
+          {/* Left side: Hamburger */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out active:scale-95"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            >
+              <div className="relative w-5 h-5 flex items-center justify-center">
+                <span
+                  className={cn(
+                    "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
+                    mobileMenuOpen ? "rotate-45 top-[9px]" : "rotate-0 top-[4px]"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "absolute h-[2px] w-5 bg-current rounded-full top-[9px] transition-all duration-300 ease-out",
+                    mobileMenuOpen ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
+                    mobileMenuOpen ? "-rotate-45 top-[9px]" : "rotate-0 top-[14px]"
+                  )}
+                />
+              </div>
+            </Button>
+          </div>
 
-          {/* Mobile Profile Dropdown */}
-          <div ref={mobileDropdownRef} className="relative">
+          {/* Center: Search placeholder or profile */}
+          <div ref={mobileDropdownRef} className="relative flex-1 mx-2">
             <button
               onClick={() => setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-2 py-1.5 transition-all duration-150",
-                mobileProfileDropdownOpen ? "bg-neutral-100" : "hover:bg-neutral-50"
+                "flex items-center gap-2 w-full justify-center rounded-xl px-3 py-1.5 transition-all duration-150",
+                mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
               )}
             >
-              <Avatar className="h-7 w-7 shrink-0">
+              <Avatar className="h-6 w-6 shrink-0 ring-1 ring-white/20">
                 {avatarUrl ? (
                   <AvatarImage src={avatarUrl} alt={userDisplayName} className="object-cover" />
                 ) : null}
-                <AvatarFallback className="bg-neutral-200 text-neutral-600 text-xs font-medium">
+                <AvatarFallback className="bg-neutral-700 text-white text-[10px] font-medium">
                   {userInitials}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-[13px] font-medium text-neutral-900 max-w-[100px] truncate">
+              <span className="text-[13px] font-medium text-white/90 max-w-[120px] truncate">
                 {userDisplayName}
               </span>
               <ChevronDown
                 className={cn(
-                  "h-3.5 w-3.5 text-neutral-400 transition-transform duration-150",
+                  "h-3.5 w-3.5 text-white/50 transition-transform duration-150",
                   mobileProfileDropdownOpen && "rotate-180"
                 )}
               />
@@ -438,8 +440,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
             {/* Mobile Profile Dropdown Menu */}
             {mobileProfileDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100 min-w-[180px]">
-                <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-lg shadow-black/5">
+              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 animate-in fade-in-0 zoom-in-95 duration-100 min-w-[200px]">
+                <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
                   {profileDropdownItems.map((item) => {
                     const Icon = item.icon
                     return (
@@ -469,30 +471,30 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               </div>
             )}
           </div>
-        </div>
 
-        {/* Right side: Notifications + Home */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 shrink-0 rounded-lg relative"
-            onClick={() => setNotificationsOpen(true)}
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5" />
-            <NotificationBadge count={notificationCount} />
-          </Button>
-          <Link href="/app">
+          {/* Right side: Notifications + Home */}
+          <div className="flex items-center gap-0.5">
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 shrink-0 rounded-lg"
-              aria-label="Home"
+              className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 relative"
+              onClick={() => setNotificationsOpen(true)}
+              aria-label="Notifications"
             >
-              <Home className="h-5 w-5" />
+              <Bell className="h-5 w-5" />
+              <NotificationBadge count={notificationCount} />
             </Button>
-          </Link>
+            <Link href="/app">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
+                aria-label="Home"
+              >
+                <Home className="h-5 w-5" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 

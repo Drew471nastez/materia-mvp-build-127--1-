@@ -229,18 +229,18 @@ export function NotificationsModal({
   return (
     <div
       ref={panelRef}
-      className="fixed left-[220px] bottom-[60px] z-50 w-[360px] max-h-[480px] rounded-xl border border-neutral-200/70 bg-white shadow-lg shadow-black/8 overflow-hidden animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
+      className="fixed left-[232px] bottom-[64px] z-50 w-[380px] max-h-[500px] rounded-2xl border border-neutral-200/60 bg-white/95 backdrop-blur-xl shadow-xl shadow-black/10 overflow-hidden animate-in fade-in-0 slide-in-from-bottom-3 duration-200"
     >
-      <div className="px-4 py-3 border-b flex items-center justify-between bg-neutral-50/50">
-        <h3 className="text-base font-semibold text-neutral-900">Notifications</h3>
+      <div className="px-5 py-4 border-b border-neutral-200/60 flex items-center justify-between bg-gradient-to-r from-neutral-50/80 to-white">
+        <h3 className="text-[15px] font-semibold text-neutral-900">Notifications</h3>
         <button
           onClick={() => onOpenChange(false)}
-          className="w-7 h-7 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"
+          className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"
         >
           <X className="w-4 h-4 text-neutral-500" />
         </button>
       </div>
-      <div className="max-h-[400px] overflow-hidden">
+      <div className="max-h-[420px] overflow-y-auto">
         <NotificationsContent />
       </div>
     </div>
@@ -292,12 +292,12 @@ function NotificationItem({
   return content
 }
 
-// Badge component for notification count - subtle, small indicator
+// Badge component for notification count - red gradient with glassmorphism effect
 export function NotificationBadge({ count }: { count: number }) {
   if (count === 0) return null
 
   return (
-    <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 text-[9px] font-medium text-white bg-violet-500/80 rounded-full shadow-sm">
+    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-semibold text-white rounded-full shadow-lg backdrop-blur-sm bg-gradient-to-br from-red-500 via-red-500 to-red-600 ring-2 ring-white/30">
       {count > 9 ? "9+" : count}
     </span>
   )
