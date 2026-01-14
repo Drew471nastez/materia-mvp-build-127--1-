@@ -1344,20 +1344,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           <rect width="100%" height="100%" fill={`url(#${idPrefix}-zigzag)`} />
         </svg>
       ),
-      cross: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-cross`} width="16" height="16" patternUnits="userSpaceOnUse">
-              <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={patternColor} strokeWidth="1" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-cross)`} />
-        </svg>
-      ),
       diagonal: (
         <svg
           className="absolute inset-0 w-full h-full pointer-events-none"
@@ -1451,6 +1437,59 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill={`url(#${idPrefix}-organic)`} />
+        </svg>
+      ),
+      flowmaze: (
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ zIndex: 1, opacity: patternOpacityValue }}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 400 400"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <defs>
+            <pattern id={`${idPrefix}-flowmaze`} width="400" height="400" patternUnits="userSpaceOnUse">
+              <path d="M20 50 Q60 20, 100 50 Q140 80, 120 130 Q100 180, 60 170 Q20 160, 30 120 Q40 80, 80 90 Q120 100, 140 140 Q160 180, 130 220 Q100 260, 60 240 Q20 220, 40 180" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.5" />
+              <path d="M180 30 Q220 10, 260 40 Q300 70, 280 120 Q260 170, 220 150 Q180 130, 200 90 Q220 50, 260 70 Q300 90, 320 140 Q340 190, 300 230 Q260 270, 220 250 Q180 230, 200 190 Q220 150, 270 170 Q320 190, 340 240" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.45" />
+              <path d="M350 50 Q390 30, 400 80 Q395 130, 360 120 Q320 110, 340 70 Q360 30, 400 50" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
+              <path d="M30 280 Q70 250, 110 280 Q150 310, 130 360 Q110 400, 70 380 Q30 360, 50 320 Q70 280, 110 300 Q150 320, 160 370" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.48" />
+              <path d="M200 290 Q240 260, 280 290 Q320 320, 300 370 Q280 400, 240 385 Q200 370, 220 330 Q240 290, 290 310 Q340 330, 360 380 Q380 400, 370 400" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.42" />
+              <path d="M60 350 Q100 370, 90 400 M160 260 Q200 240, 180 200 Q160 160, 120 180 Q80 200, 100 240" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.38" />
+              <path d="M320 10 Q360 30, 350 70 Q340 110, 300 100 Q260 90, 280 50 Q300 10, 340 20" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.35" />
+              <path d="M380 280 Q400 320, 380 360 Q360 400, 320 380 Q280 360, 310 320 Q340 280, 380 300" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-flowmaze)`} />
+        </svg>
+      ),
+      topographic: (
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ zIndex: 1, opacity: patternOpacityValue }}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 300 300"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <defs>
+            <pattern id={`${idPrefix}-topographic`} width="300" height="300" patternUnits="userSpaceOnUse">
+              <ellipse cx="100" cy="100" rx="90" ry="80" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.3" />
+              <ellipse cx="100" cy="100" rx="70" ry="62" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.35" />
+              <ellipse cx="100" cy="100" rx="50" ry="44" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.4" />
+              <ellipse cx="100" cy="100" rx="30" ry="26" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.45" />
+              <ellipse cx="100" cy="100" rx="12" ry="10" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.5" />
+              <ellipse cx="220" cy="200" rx="75" ry="90" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.28" />
+              <ellipse cx="220" cy="200" rx="55" ry="70" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.33" />
+              <ellipse cx="220" cy="200" rx="35" ry="50" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.38" />
+              <ellipse cx="220" cy="200" rx="18" ry="30" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.43" />
+              <ellipse cx="50" cy="250" rx="45" ry="40" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.3" />
+              <ellipse cx="50" cy="250" rx="28" ry="25" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.38" />
+              <ellipse cx="50" cy="250" rx="12" ry="10" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.45" />
+              <ellipse cx="250" cy="50" rx="40" ry="45" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.32" />
+              <ellipse cx="250" cy="50" rx="22" ry="28" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.4" />
+              <ellipse cx="250" cy="50" rx="8" ry="12" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.48" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill={`url(#${idPrefix}-topographic)`} />
         </svg>
       ),
     }

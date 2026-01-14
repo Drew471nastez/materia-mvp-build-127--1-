@@ -207,10 +207,11 @@ const BACKGROUND_PATTERNS = [
   { id: "dots", name: "Dots", preview: "dots" },
   { id: "waves", name: "Waves", preview: "waves" },
   { id: "zigzag", name: "Zigzag", preview: "zigzag" },
-  { id: "cross", name: "Cross", preview: "cross" },
   { id: "diagonal", name: "Diagonal", preview: "diagonal" },
   { id: "morph", name: "Morph", preview: "morph" },
   { id: "organic", name: "Organic", preview: "organic" },
+  { id: "flowmaze", name: "Flow Maze", preview: "flowmaze" },
+  { id: "topographic", name: "Topographic", preview: "topographic" },
 ]
 
 const THEME_TEMPLATES = [
@@ -2426,16 +2427,6 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
         <rect width="100%" height="100%" fill={`url(#zigzag-${color})`} />
       </svg>
     ),
-    cross: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id={`cross-${color}`} width="16" height="16" patternUnits="userSpaceOnUse">
-            <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={color} strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#cross-${color})`} />
-      </svg>
-    ),
     diagonal: (
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -2477,6 +2468,49 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={`url(#organic-${color})`} />
+      </svg>
+    ),
+    flowmaze: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`flowmaze-${color}`} width="400" height="400" patternUnits="userSpaceOnUse">
+            {/* Flow Maze - organic flowing continuous maze-like lines */}
+            <path d="M20 50 Q60 20, 100 50 Q140 80, 120 130 Q100 180, 60 170 Q20 160, 30 120 Q40 80, 80 90 Q120 100, 140 140 Q160 180, 130 220 Q100 260, 60 240 Q20 220, 40 180" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.5" />
+            <path d="M180 30 Q220 10, 260 40 Q300 70, 280 120 Q260 170, 220 150 Q180 130, 200 90 Q220 50, 260 70 Q300 90, 320 140 Q340 190, 300 230 Q260 270, 220 250 Q180 230, 200 190 Q220 150, 270 170 Q320 190, 340 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.45" />
+            <path d="M350 50 Q390 30, 400 80 Q395 130, 360 120 Q320 110, 340 70 Q360 30, 400 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
+            <path d="M30 280 Q70 250, 110 280 Q150 310, 130 360 Q110 400, 70 380 Q30 360, 50 320 Q70 280, 110 300 Q150 320, 160 370" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.48" />
+            <path d="M200 290 Q240 260, 280 290 Q320 320, 300 370 Q280 400, 240 385 Q200 370, 220 330 Q240 290, 290 310 Q340 330, 360 380 Q380 400, 370 400" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.42" />
+            <path d="M60 350 Q100 370, 90 400 M160 260 Q200 240, 180 200 Q160 160, 120 180 Q80 200, 100 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.38" />
+            <path d="M320 10 Q360 30, 350 70 Q340 110, 300 100 Q260 90, 280 50 Q300 10, 340 20" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.35" />
+            <path d="M380 280 Q400 320, 380 360 Q360 400, 320 380 Q280 360, 310 320 Q340 280, 380 300" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#flowmaze-${color})`} />
+      </svg>
+    ),
+    topographic: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`topographic-${color}`} width="300" height="300" patternUnits="userSpaceOnUse">
+            {/* Topographic - contour lines like elevation maps */}
+            <ellipse cx="100" cy="100" rx="90" ry="80" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
+            <ellipse cx="100" cy="100" rx="70" ry="62" fill="none" stroke={color} strokeWidth="1.5" opacity="0.35" />
+            <ellipse cx="100" cy="100" rx="50" ry="44" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
+            <ellipse cx="100" cy="100" rx="30" ry="26" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
+            <ellipse cx="100" cy="100" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.5" />
+            <ellipse cx="220" cy="200" rx="75" ry="90" fill="none" stroke={color} strokeWidth="1.5" opacity="0.28" />
+            <ellipse cx="220" cy="200" rx="55" ry="70" fill="none" stroke={color} strokeWidth="1.5" opacity="0.33" />
+            <ellipse cx="220" cy="200" rx="35" ry="50" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
+            <ellipse cx="220" cy="200" rx="18" ry="30" fill="none" stroke={color} strokeWidth="1.5" opacity="0.43" />
+            <ellipse cx="50" cy="250" rx="45" ry="40" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
+            <ellipse cx="50" cy="250" rx="28" ry="25" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
+            <ellipse cx="50" cy="250" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
+            <ellipse cx="250" cy="50" rx="40" ry="45" fill="none" stroke={color} strokeWidth="1.5" opacity="0.32" />
+            <ellipse cx="250" cy="50" rx="22" ry="28" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
+            <ellipse cx="250" cy="50" rx="8" ry="12" fill="none" stroke={color} strokeWidth="1.5" opacity="0.48" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#topographic-${color})`} />
       </svg>
     ),
   }
@@ -2780,42 +2814,34 @@ function WallpaperSection() {
     } as any)
   }
 
-  // Gradient direction component - improved with better UX
+  // Gradient direction component - Modern interactive slider design
   const DirectionDial = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
-    const dialRef = useRef<HTMLDivElement>(null)
+    const sliderRef = useRef<HTMLDivElement>(null)
     const [isDragging, setIsDragging] = useState(false)
 
-    const updateAngle = useCallback((clientX: number, clientY: number) => {
-      if (!dialRef.current) return
-      const rect = dialRef.current.getBoundingClientRect()
-      const centerX = rect.left + rect.width / 2
-      const centerY = rect.top + rect.height / 2
-      const angle = Math.atan2(clientY - centerY, clientX - centerX)
-      let degrees = Math.round((angle * 180) / Math.PI + 90)
-      if (degrees < 0) degrees += 360
-      // Snap to 15 degree increments for easier control
-      degrees = Math.round(degrees / 15) * 15
-      if (degrees === 360) degrees = 0
-      onChange(degrees)
+    const updateAngle = useCallback((clientX: number) => {
+      if (!sliderRef.current) return
+      const rect = sliderRef.current.getBoundingClientRect()
+      const percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+      const degrees = Math.round(percentage * 360)
+      onChange(degrees === 360 ? 0 : degrees)
     }, [onChange])
 
     const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
       e.preventDefault()
       setIsDragging(true)
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-      updateAngle(clientX, clientY)
+      updateAngle(clientX)
     }
 
     useEffect(() => {
       const handleMove = (e: MouseEvent | TouchEvent) => {
         if (!isDragging) return
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-        updateAngle(clientX, clientY)
+        updateAngle(clientX)
       }
       const handleEnd = () => setIsDragging(false)
-      
+
       if (isDragging) {
         window.addEventListener('mousemove', handleMove)
         window.addEventListener('mouseup', handleEnd)
@@ -2830,48 +2856,94 @@ function WallpaperSection() {
       }
     }, [isDragging, updateAngle])
 
-    // Quick preset angles
-    const presetAngles = [0, 45, 90, 135, 180, 225, 270, 315]
+    // Quick preset angles for buttons
+    const presetAngles = [
+      { deg: 0, label: '→' },
+      { deg: 45, label: '↘' },
+      { deg: 90, label: '↓' },
+      { deg: 135, label: '↙' },
+      { deg: 180, label: '←' },
+      { deg: 225, label: '↖' },
+      { deg: 270, label: '↑' },
+      { deg: 315, label: '↗' },
+    ]
+
+    const percentage = value / 360
 
     return (
-      <div className="flex flex-col items-center gap-2">
-        <div 
-          ref={dialRef}
-          className={cn(
-            "w-20 h-20 rounded-full border-2 bg-gradient-to-br from-gray-50 to-gray-100 relative cursor-pointer select-none shadow-inner transition-all",
-            isDragging ? "border-violet-500 shadow-lg scale-105" : "border-gray-200 hover:border-gray-300"
-          )}
-          onMouseDown={handleStart}
-          onTouchStart={handleStart}
-        >
-          {/* Tick marks around the dial */}
-          {presetAngles.map((angle) => (
-            <div 
-              key={angle}
-              className="absolute w-0.5 h-2 bg-gray-300 rounded-full"
-              style={{ 
-                top: '4px',
-                left: '50%',
-                transformOrigin: '50% 36px',
-                transform: `translateX(-50%) rotate(${angle}deg)`
-              }}
-            />
-          ))}
-          
-          {/* Rotating indicator */}
-          <div 
-            className="absolute inset-3 rounded-full flex items-start justify-center transition-transform"
-            style={{ transform: `rotate(${value}deg)` }}
-          >
-            <div className="w-2 h-8 bg-gradient-to-b from-violet-500 to-violet-600 rounded-full shadow-md" />
-          </div>
-          
-          {/* Center dot */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-3 h-3 bg-white rounded-full shadow-sm border border-gray-200" />
+      <div className="flex flex-col gap-3 w-full">
+        {/* Visual gradient preview with direction indicator */}
+        <div className="relative h-16 rounded-xl overflow-hidden shadow-inner border border-gray-200">
+          <div
+            className="absolute inset-0 transition-all duration-200"
+            style={{
+              background: `linear-gradient(${value}deg, #667eea 0%, #764ba2 100%)`
+            }}
+          />
+          {/* Direction arrow overlay */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div
+              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center transition-transform duration-200"
+              style={{ transform: `rotate(${value}deg)` }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667eea" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </div>
           </div>
         </div>
-        <span className="text-sm font-medium text-gray-700">{value}°</span>
+
+        {/* Modern slider track */}
+        <div className="relative">
+          <div
+            ref={sliderRef}
+            className={cn(
+              "relative h-8 rounded-full cursor-pointer select-none transition-all overflow-hidden",
+              isDragging ? "ring-2 ring-violet-500 ring-offset-2" : ""
+            )}
+            style={{
+              background: `linear-gradient(90deg,
+                hsl(0, 70%, 60%) 0%,
+                hsl(60, 70%, 60%) 16.67%,
+                hsl(120, 70%, 60%) 33.33%,
+                hsl(180, 70%, 60%) 50%,
+                hsl(240, 70%, 60%) 66.67%,
+                hsl(300, 70%, 60%) 83.33%,
+                hsl(360, 70%, 60%) 100%)`
+            }}
+            onMouseDown={handleStart}
+            onTouchStart={handleStart}
+          >
+            {/* Slider thumb */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-7 h-7 bg-white rounded-full shadow-lg border-2 border-white transition-all duration-75 flex items-center justify-center"
+              style={{
+                left: `calc(${percentage * 100}% - 14px)`,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.1)'
+              }}
+            >
+              <span className="text-[10px] font-bold text-gray-600">{value}°</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Preset angle buttons */}
+        <div className="flex justify-between gap-1">
+          {presetAngles.map(({ deg, label }) => (
+            <button
+              key={deg}
+              onClick={() => onChange(deg)}
+              className={cn(
+                "flex-1 h-8 rounded-lg text-sm font-medium transition-all",
+                value === deg
+                  ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
     )
   }
