@@ -20,7 +20,7 @@ export default async function AppLayout({
 
   const { data: creator } = await supabase
     .from("creators")
-    .select("slug, store_published")
+    .select("slug, store_published, stripe_account_id, stripe_onboarding_status")
     .eq("user_id", user.id)
     .single()
 
@@ -65,6 +65,8 @@ export default async function AppLayout({
         storePublished={creator.store_published}
         avatarUrl={avatarUrl}
         displayName={displayName}
+        stripeConnected={!!creator.stripe_account_id}
+        stripeStatus={creator.stripe_onboarding_status || "not_connected"}
       />
       <main className="min-h-svh pt-14 md:pl-[220px] md:pt-0">
         <div className="min-h-[calc(100svh-3.5rem)] md:min-h-svh px-4 py-6 sm:px-6 md:px-8">{children}</div>

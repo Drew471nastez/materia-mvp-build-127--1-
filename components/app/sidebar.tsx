@@ -21,6 +21,8 @@ import {
   ChevronDown,
   Compass,
   Library,
+  Bell,
+  Home,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -28,6 +30,7 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect, useRef } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 
 interface SidebarProps {
   creatorSlug?: string
@@ -35,18 +38,24 @@ interface SidebarProps {
   storePublished?: boolean
   avatarUrl?: string
   displayName?: string
+  stripeConnected?: boolean
+  stripeStatus?: string
 }
 
-export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName }: SidebarProps) {
+export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected" }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
+  const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const mobileDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
+    setMobileProfileDropdownOpen(false)
   }, [pathname])
 
   useEffect(() => {
@@ -54,10 +63,16 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false)
       }
+      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(event.target as Node)) {
+        setMobileProfileDropdownOpen(false)
+      }
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  // Calculate notification count
+  const notificationCount = (!stripeConnected || stripeStatus !== "enabled") ? 1 : 0
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -255,20 +270,115 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         }
       `}</style>
 
-      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-neutral-200/50 bg-white/90 backdrop-blur-xl px-4 pt-[env(safe-area-inset-top)] md:hidden">
-        <Link href="/app" className="flex items-center gap-2">
-          <span className="text-[17px] font-semibold tracking-tight text-violet-600">storelib</span>
-        </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 shrink-0 rounded-lg"
-          onClick={() => setMobileMenuOpen(true)}
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+      {/* Mobile Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-neutral-200/50 bg-white/90 backdrop-blur-xl px-3 pt-[env(safe-area-inset-top)] md:hidden">
+        {/* Left side: Hamburger + Profile */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 rounded-lg"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          {/* Mobile Profile Dropdown */}
+          <div ref={mobileDropdownRef} className="relative">
+            <button
+              onClick={() => setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-2 py-1.5 transition-all duration-150",
+                mobileProfileDropdownOpen ? "bg-neutral-100" : "hover:bg-neutral-50"
+              )}
+            >
+              <Avatar className="h-7 w-7 shrink-0">
+                {avatarUrl ? (
+                  <AvatarImage src={avatarUrl} alt={userDisplayName} className="object-cover" />
+                ) : null}
+                <AvatarFallback className="bg-neutral-200 text-neutral-600 text-xs font-medium">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-[13px] font-medium text-neutral-900 max-w-[100px] truncate">
+                {userDisplayName}
+              </span>
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 text-neutral-400 transition-transform duration-150",
+                  mobileProfileDropdownOpen && "rotate-180"
+                )}
+              />
+            </button>
+
+            {/* Mobile Profile Dropdown Menu */}
+            {mobileProfileDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100 min-w-[180px]">
+                <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-lg shadow-black/5">
+                  {profileDropdownItems.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileProfileDropdownOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                      >
+                        <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                        <span>{item.label}</span>
+                      </Link>
+                    )
+                  })}
+                  <div className="my-1 h-px bg-neutral-100" />
+                  <button
+                    onClick={() => {
+                      setMobileProfileDropdownOpen(false)
+                      handleSignOut()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                  >
+                    <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right side: Notifications + Home */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 rounded-lg relative"
+            onClick={() => setNotificationsOpen(true)}
+            aria-label="Notifications"
+          >
+            <Bell className="h-5 w-5" />
+            <NotificationBadge count={notificationCount} />
+          </Button>
+          <Link href="/app">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-lg"
+              aria-label="Home"
+            >
+              <Home className="h-5 w-5" />
+            </Button>
+          </Link>
+        </div>
       </header>
+
+      {/* Notifications Modal */}
+      <NotificationsModal
+        open={notificationsOpen}
+        onOpenChange={setNotificationsOpen}
+        stripeConnected={stripeConnected}
+        stripeStatus={stripeStatus}
+      />
 
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent

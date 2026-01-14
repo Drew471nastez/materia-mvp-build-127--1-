@@ -16,17 +16,14 @@ import {
   Palette,
   Link2,
   ShoppingBag,
-  Menu,
   Undo2,
   Redo2,
   Save,
   Eye,
   Edit3,
-  Settings,
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import {
   Dialog,
   DialogContent,
@@ -188,7 +185,6 @@ function EditorLayout() {
 
   const [activeTab, setActiveTab] = useState<TabType>("links")
   const [copied, setCopied] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showMobilePreview, setShowMobilePreview] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
@@ -410,16 +406,6 @@ function EditorLayout() {
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          {/* Mobile menu button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden h-9 w-9"
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-
           {/* Undo/Redo Buttons */}
           <div className="flex items-center gap-1">
             <Button
@@ -735,45 +721,6 @@ function EditorLayout() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Mobile Navigation Sheet */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-72 p-0">
-          <SheetHeader className="p-4 border-b">
-            <SheetTitle>Menu</SheetTitle>
-          </SheetHeader>
-          <div className="p-3 space-y-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setMobileMenuOpen(false); setShowMobilePreview(false); }}
-                  className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    activeTab === tab.id
-                      ? "bg-gray-100 text-foreground"
-                      : "text-muted-foreground hover:bg-gray-50"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {tab.label}
-                </button>
-              )
-            })}
-          </div>
-          <div className="border-t p-3 space-y-1">
-            <Button variant="ghost" size="sm" onClick={copyLink} className="w-full justify-start h-10 rounded-lg">
-              <Copy className="h-4 w-4 mr-3" />
-              Copy Link
-            </Button>
-            <Button variant="ghost" size="sm" onClick={viewLive} className="w-full justify-start h-10 rounded-lg">
-              <ExternalLink className="h-4 w-4 mr-3" />
-              View Live
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* Unsaved Changes Dialog */}
       <UnsavedChangesDialog
