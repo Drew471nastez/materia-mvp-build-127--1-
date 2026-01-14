@@ -512,7 +512,7 @@ function EditorLayout() {
               saveState === "saved" && !isDirty
                 ? "bg-gray-900 hover:bg-gray-900 text-white cursor-default"
                 : isDirty
-                  ? "bg-blue-500 hover:bg-blue-600 text-white"
+                  ? "bg-violet-500 hover:bg-violet-600 text-white"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"
             )}
           >
@@ -657,8 +657,15 @@ function EditorLayout() {
           </DialogHeader>
 
           <div className="p-4 sm:p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-            {/* Preview card */}
-            <div className="bg-gray-900 rounded-xl p-4 sm:p-5 text-center">
+            {/* Preview card - adapts to theme background */}
+            <div
+              className="rounded-xl p-4 sm:p-5 text-center"
+              style={{
+                background: onepage.theme.background_type === "gradient" && onepage.theme.background_gradient
+                  ? onepage.theme.background_gradient
+                  : onepage.theme.background_color || "#1f2937",
+              }}
+            >
               {onepage.avatar_url ? (
                 <img
                   src={onepage.avatar_url}
@@ -666,14 +673,30 @@ function EditorLayout() {
                   className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 object-cover"
                 />
               ) : (
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 bg-gray-700 flex items-center justify-center">
-                  <span className="text-lg sm:text-xl text-white font-semibold">
+                <div
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 flex items-center justify-center"
+                  style={{ backgroundColor: `${onepage.theme.text_color}20` }}
+                >
+                  <span
+                    className="text-lg sm:text-xl font-semibold"
+                    style={{ color: onepage.theme.text_color }}
+                  >
                     {onepage.title?.charAt(0)?.toUpperCase() || "?"}
                   </span>
                 </div>
               )}
-              <h3 className="text-white font-semibold text-sm">{onepage.title || "Your Name"}</h3>
-              <p className="text-gray-400 text-xs mt-1">✦ /{onepage.slug}</p>
+              <h3
+                className="font-semibold text-sm"
+                style={{ color: onepage.theme.text_color }}
+              >
+                {onepage.title || "Your Name"}
+              </h3>
+              <p
+                className="text-xs mt-1"
+                style={{ color: `${onepage.theme.text_color}80` }}
+              >
+                ✦ /{onepage.slug}
+              </p>
             </div>
 
             {/* URL copy section */}

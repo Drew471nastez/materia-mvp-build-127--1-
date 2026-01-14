@@ -2005,6 +2005,11 @@ function HeaderSection() {
         <Input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder="Your name" className="h-10 rounded-lg" />
       </div>
 
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Bio</Label>
+        <Input value={onepage.bio || ""} onChange={(e) => updateProfile({ bio: e.target.value })} placeholder="A short bio..." className="h-10 rounded-lg" />
+      </div>
+
       {/* Title Style Selector */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title Style</Label>
@@ -2237,11 +2242,6 @@ function HeaderSection() {
           ))}
         </div>
       </div>
-
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Bio</Label>
-        <Input value={onepage.bio || ""} onChange={(e) => updateProfile({ bio: e.target.value })} placeholder="A short bio..." className="h-10 rounded-lg" />
-      </div>
     </div>
   )
 }
@@ -2321,11 +2321,7 @@ function ThemeSection() {
               <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group border-2", isSelected ? "ring-2 ring-violet-500 ring-offset-2 border-gray-200" : "border-gray-200 hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
                 <div className="absolute inset-0 bg-white" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-[11px] font-medium text-gray-400">Default</span>
-                </div>
-                {/* Font preview in corner */}
-                <div className="absolute top-2 left-2 text-[10px] font-semibold text-gray-300" style={{ fontFamily: config.font_family }}>
-                  Ab
+                  <span className="text-[11px] font-medium text-gray-400" style={{ fontFamily: config.font_family }}>Default</span>
                 </div>
                 {isSelected && <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center"><Check className="h-3 w-3 text-white" /></div>}
               </button>
@@ -2341,13 +2337,10 @@ function ThemeSection() {
                 <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
                 <div className="w-full max-w-[60px] md:max-w-[80px] h-5 md:h-6 rounded-md mt-2" style={{ backgroundColor: config.button_color, borderWidth: config.button_border_width, borderColor: config.button_border_color, borderRadius: `${config.button_border_radius}px` }} />
               </div>
-              {/* Font preview in corner */}
-              <div className="absolute top-2 left-2 text-[11px] font-semibold opacity-70" style={{ fontFamily: config.font_family, color: config.text_color }}>
-                Ab
-              </div>
               {isSelected && <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center bg-ring"><Check className="h-3 w-3 text-white" /></div>}
+              {/* Theme name with font preview */}
               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/50 to-transparent">
-                <p className="text-[10px] md:text-xs font-medium text-white text-center">{template.name}</p>
+                <p className="text-[10px] md:text-xs font-medium text-white text-center" style={{ fontFamily: config.font_family }}>{template.name}</p>
               </div>
             </button>
           )
@@ -3835,6 +3828,7 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-2">
         <Label className="text-sm font-medium">Button color</Label>
         <div className="flex items-center gap-3">
@@ -3850,6 +3844,7 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-2">
         <Label className="text-sm font-medium">Button text color</Label>
         <div className="flex items-center gap-3">
@@ -3865,6 +3860,7 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-3">
         <Label className="text-sm font-medium">Shadows</Label>
         <div className="grid grid-cols-4 gap-2">
@@ -3902,15 +3898,18 @@ function ButtonsSection() {
           </div>
         </div>
       )}
+      <div className="border-t border-gray-100" />
       <div className="space-y-3">
         <div className="flex justify-between items-center"><Label className="text-sm font-medium">Corners</Label><span className="text-sm text-muted-foreground">{theme.button_border_radius}px</span></div>
         <Slider value={[theme.button_border_radius]} onValueChange={([value]) => updateTheme({ button_border_radius: value })} min={0} max={24} step={2} />
         <div className="flex justify-between text-xs text-muted-foreground"><span>Square</span><span>Round</span></div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-3">
         <div className="flex justify-between items-center"><Label className="text-sm font-medium">Border width</Label><span className="text-sm text-muted-foreground">{theme.button_border_width}px</span></div>
         <Slider value={[theme.button_border_width]} onValueChange={([value]) => updateTheme({ button_border_width: value })} min={0} max={4} step={1} />
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-2">
         <Label className="text-sm font-medium">Border color</Label>
         <div className="flex items-center gap-3">
@@ -3926,6 +3925,7 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
+      <div className="border-t border-gray-100" />
       {/* Button Animations Section */}
       <div className="space-y-3">
         <Label className="text-sm font-medium">Button Animations</Label>
