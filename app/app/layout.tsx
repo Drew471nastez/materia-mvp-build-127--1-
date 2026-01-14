@@ -69,8 +69,8 @@ export default async function AppLayout({
         stripeStatus={creator.stripe_onboarding_status || "not_connected"}
         onePagePublished={onepage?.published || false}
       />
-      <main className="min-h-svh pt-[72px] md:pl-[220px] md:pt-0">
-        <div className="min-h-[calc(100svh-4.5rem)] md:min-h-svh px-4 py-6 sm:px-6 md:px-8">{children}</div>
+      <main className="min-h-svh pt-[60px] md:pl-[220px] md:pt-0">
+        <div className="min-h-[calc(100svh-3.75rem)] md:min-h-svh px-4 py-6 sm:px-6 md:px-8">{children}</div>
       </main>
     </div>
   )
