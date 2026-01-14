@@ -374,159 +374,155 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           background-color: rgba(0, 0, 0, 0.25);
         }
 
-        /* Mobile header with inward carved corners at bottom */
-        @media (max-width: 767px) {
-          .mobile-header-wrapper {
-            position: relative;
-            background: #111111;
-          }
+        /* Mobile header with subtle inward curved corners */
+        .mobile-header-curved {
+          position: relative;
+          border-radius: 0;
+        }
 
-          .mobile-header-wrapper::before,
-          .mobile-header-wrapper::after {
-            content: '';
-            position: absolute;
-            bottom: -16px;
-            width: 16px;
-            height: 16px;
-            background: transparent;
-            pointer-events: none;
-          }
+        .mobile-header-curved::before,
+        .mobile-header-curved::after {
+          content: '';
+          position: absolute;
+          bottom: -12px;
+          width: 12px;
+          height: 12px;
+          background: transparent;
+          pointer-events: none;
+        }
 
-          .mobile-header-wrapper::before {
-            left: 0;
-            border-top-right-radius: 16px;
-            box-shadow: 0 -8px 0 0 #111111;
-          }
+        .mobile-header-curved::before {
+          left: 0;
+          border-top-right-radius: 12px;
+          box-shadow: 6px -6px 0 0 #111111;
+        }
 
-          .mobile-header-wrapper::after {
-            right: 0;
-            border-top-left-radius: 16px;
-            box-shadow: 0 -8px 0 0 #111111;
-          }
+        .mobile-header-curved::after {
+          right: 0;
+          border-top-left-radius: 12px;
+          box-shadow: -6px -6px 0 0 #111111;
         }
       `}</style>
 
-      {/* Mobile Header - Dark with inward carved corners at bottom edges */}
+      {/* Mobile Header - Dark floating panel with inward carved corners at bottom */}
       <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden">
-        <div className="mobile-header-wrapper">
-          <div className="flex h-[61px] items-center justify-between px-3 py-[4px] bg-gradient-to-b from-[#1a1a1a] to-[#111111] shadow-lg shadow-black/25">
-            {/* Left side: Hamburger */}
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out active:scale-95"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-              >
-                <div className="relative w-5 h-5 flex items-center justify-center">
-                  <span
-                    className={cn(
-                      "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
-                      mobileMenuOpen ? "rotate-45 top-[9px]" : "rotate-0 top-[4px]"
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      "absolute h-[2px] w-5 bg-current rounded-full top-[9px] transition-all duration-300 ease-out",
-                      mobileMenuOpen ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100"
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
-                      mobileMenuOpen ? "-rotate-45 top-[9px]" : "rotate-0 top-[14px]"
-                    )}
-                  />
-                </div>
-              </Button>
-            </div>
-
-            {/* Profile - positioned left near hamburger */}
-            <div ref={mobileDropdownRef} className="relative flex-1 ml-1">
-              <button
-                onClick={() => setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)}
-                className={cn(
-                  "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-all duration-150",
-                  mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
-                )}
-              >
-                <Avatar className="h-6 w-6 shrink-0 ring-1 ring-white/20">
-                  {avatarUrl ? (
-                    <AvatarImage src={avatarUrl} alt={userDisplayName} className="object-cover" />
-                  ) : null}
-                  <AvatarFallback className="bg-neutral-700 text-white text-[10px] font-medium">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-[13px] font-medium text-white/90 max-w-[120px] truncate">
-                  {userDisplayName}
-                </span>
-                <ChevronDown
+        <div className="mobile-header-curved flex h-[59px] items-center justify-between px-3 py-[2px] bg-gradient-to-b from-[#1a1a1a] to-[#111111] shadow-lg shadow-black/25">
+          {/* Left side: Hamburger */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out active:scale-95"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            >
+              <div className="relative w-5 h-5 flex items-center justify-center">
+                <span
                   className={cn(
-                    "h-3.5 w-3.5 text-white/50 transition-transform duration-150",
-                    mobileProfileDropdownOpen && "rotate-180"
+                    "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
+                    mobileMenuOpen ? "rotate-45 top-[9px]" : "rotate-0 top-[4px]"
                   )}
                 />
-              </button>
+                <span
+                  className={cn(
+                    "absolute h-[2px] w-5 bg-current rounded-full top-[9px] transition-all duration-300 ease-out",
+                    mobileMenuOpen ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out",
+                    mobileMenuOpen ? "-rotate-45 top-[9px]" : "rotate-0 top-[14px]"
+                  )}
+                />
+              </div>
+            </Button>
+          </div>
 
-              {/* Mobile Profile Dropdown Menu */}
-              {mobileProfileDropdownOpen && (
-                <div className="absolute left-0 top-full mt-2 z-50 animate-in fade-in-0 zoom-in-95 duration-100 min-w-[200px]">
-                  <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
-                    {profileDropdownItems.map((item) => {
-                      const Icon = item.icon
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setMobileProfileDropdownOpen(false)}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
-                        >
-                          <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                          <span>{item.label}</span>
-                        </Link>
-                      )
-                    })}
-                    <div className="my-1 h-px bg-neutral-100" />
-                    <button
-                      onClick={() => {
-                        setMobileProfileDropdownOpen(false)
-                        handleSignOut()
-                      }}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
-                    >
-                      <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                      <span>Logout</span>
-                    </button>
-                  </div>
-                </div>
+          {/* Profile - positioned left near hamburger */}
+          <div ref={mobileDropdownRef} className="relative flex-1 ml-1">
+            <button
+              onClick={() => setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)}
+              className={cn(
+                "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-all duration-150",
+                mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
               )}
-            </div>
+            >
+              <Avatar className="h-6 w-6 shrink-0 ring-1 ring-white/20">
+                {avatarUrl ? (
+                  <AvatarImage src={avatarUrl} alt={userDisplayName} className="object-cover" />
+                ) : null}
+                <AvatarFallback className="bg-neutral-700 text-white text-[10px] font-medium">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-[13px] font-medium text-white/90 max-w-[120px] truncate">
+                {userDisplayName}
+              </span>
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 text-white/50 transition-transform duration-150",
+                  mobileProfileDropdownOpen && "rotate-180"
+                )}
+              />
+            </button>
 
-            {/* Right side: Notifications + Home */}
-            <div className="flex items-center gap-0.5">
+            {/* Mobile Profile Dropdown Menu */}
+            {mobileProfileDropdownOpen && (
+              <div className="absolute left-0 top-full mt-2 z-50 animate-in fade-in-0 zoom-in-95 duration-100 min-w-[200px]">
+                <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
+                  {profileDropdownItems.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileProfileDropdownOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                      >
+                        <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                        <span>{item.label}</span>
+                      </Link>
+                    )
+                  })}
+                  <div className="my-1 h-px bg-neutral-100" />
+                  <button
+                    onClick={() => {
+                      setMobileProfileDropdownOpen(false)
+                      handleSignOut()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                  >
+                    <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right side: Notifications + Home */}
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 relative"
+              onClick={() => setNotificationsOpen(true)}
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5" />
+              <NotificationBadge count={notificationCount} />
+            </Button>
+            <Link href="/app">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 relative"
-                onClick={() => setNotificationsOpen(true)}
-                aria-label="Notifications"
+                className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
+                aria-label="Home"
               >
-                <Bell className="h-5 w-5" />
-                <NotificationBadge count={notificationCount} />
+                <Home className="h-5 w-5" />
               </Button>
-              <Link href="/app">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
-                  aria-label="Home"
-                >
-                  <Home className="h-5 w-5" />
-                </Button>
-              </Link>
-            </div>
+            </Link>
           </div>
         </div>
       </header>
