@@ -262,6 +262,14 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
       <path d="M113,145c-141.4,0-256,114.6-256,256s114.6,256,256,256s256-114.6,256-256S254.4,145,113,145z M-11.1,432.9 c-0.1,0.6-0.5,1-1,1s-1-0.4-1-1l-1.9-14l1.9-14.2c0.1-0.6,0.5-1,1-1s0.9,0.4,1,1l2.2,14.2L-11.1,432.9z M-1.6,441.4 c-0.1,0.6-0.5,1-1.1,1c-0.5,0-1-0.4-1.1-1l-2.5-22.5l2.5-23c0.1-0.6,0.5-1,1.1-1c0.5,0,1,0.4,1.1,1l2.9,23L-1.6,441.4z M8.7,445.3 c-0.1,0.7-0.6,1.2-1.3,1.2c-0.7,0-1.2-0.5-1.3-1.3l-2.4-26.3l2.4-27.3c0.1-0.7,0.6-1.3,1.3-1.3c0.7,0,1.2,0.5,1.3,1.3l2.7,27.3 L8.7,445.3z M19.1,446.1c-0.1,0.8-0.7,1.5-1.5,1.5c-0.8,0-1.4-0.6-1.5-1.5L13.8,419l2.3-28c0.1-0.9,0.7-1.5,1.5-1.5 c0.8,0,1.4,0.6,1.5,1.5l2.6,28L19.1,446.1z M29.5,446.3c-0.1,1-0.8,1.7-1.7,1.7c-0.9,0-1.7-0.7-1.7-1.7L24,419l2.1-26 c0.1-1,0.8-1.7,1.7-1.7c0.9,0,1.6,0.7,1.7,1.7l2.4,26L29.5,446.3z M40,446.3c-0.1,1.1-0.9,1.9-1.9,1.9s-1.9-0.8-1.9-1.9l-2-27.3 l2-42.3c0.1-1.1,0.9-1.9,1.9-1.9s1.9,0.8,1.9,1.9l2.3,42.3L40,446.3z M50.6,446.2c-0.1,1.2-1,2.1-2.2,2.1s-2.1-0.9-2.2-2.1L44.3,419 l1.9-52c0.1-1.2,1-2.1,2.2-2.1s2.1,0.9,2.2,2.1l2.1,52L50.6,446.2z M61.3,445.9c-0.1,1.3-1.1,2.3-2.4,2.3s-2.3-1-2.4-2.3L54.7,419 l1.8-56.3c0-1.3,1.1-2.4,2.4-2.4s2.3,1,2.4,2.4l2,56.3L61.3,445.9z M72.1,445.7c-0.1,1.4-1.2,2.6-2.6,2.6c-1.4,0-2.5-1.1-2.6-2.6 L65.3,419l1.6-58.2c0-1.4,1.2-2.6,2.6-2.6s2.5,1.1,2.6,2.6l1.8,58.2L72.1,445.7z M82.9,445.5c0,1.5-1.3,2.8-2.8,2.8 s-2.8-1.2-2.8-2.8L75.8,419l1.5-56.7c0-1.6,1.3-2.8,2.8-2.8s2.8,1.2,2.8,2.8l1.7,56.7L82.9,445.5z M93.9,445.3c0,1.7-1.4,3-3,3 c-1.7,0-3-1.3-3-3L86.5,419l1.4-54.7c0-1.7,1.4-3,3-3c1.7,0,3,1.3,3,3l1.5,54.7L93.9,445.3z M104.9,445.1c0,1.8-1.5,3.2-3.2,3.2 c-1.8,0-3.2-1.5-3.2-3.2L97.3,419l1.2-65c0-1.8,1.5-3.2,3.2-3.2c1.8,0,3.2,1.4,3.2,3.2l1.4,65L104.9,445.1z M115.9,444.8 c0,1.9-1.6,3.4-3.5,3.4c-1.9,0-3.4-1.6-3.5-3.4l-1.4-25.7l1.4-70.9c0-1.9,1.6-3.5,3.5-3.5c1.9,0,3.4,1.6,3.5,3.5l1.5,70.9 L115.9,444.8z M209.5,448.4c-0.6,0-87.2,0-87.3,0c-1.9-0.2-3.4-1.8-3.4-3.7v-99.9c0-1.8,0.7-2.8,3-3.7c6.1-2.4,13-3.8,20.1-3.8 c29,0,52.8,22.3,55.3,50.6c3.7-1.6,7.9-2.4,12.2-2.4c17.4,0,31.5,14.1,31.5,31.5C241,434.3,226.9,448.4,209.5,448.4z"/>
     </svg>
   ),
+  calendly: ({ size = 20, className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 525.8 535.73" fill="none">
+      <path fill="#006bff" d="M360.4,347.4c-17,15.09-38.21,33.87-76.78,33.87h-23c-27.88,0-53.23-10.12-71.37-28.49-17.72-17.94-27.48-42.5-27.48-69.16V252.11c0-26.66,9.76-51.22,27.48-69.16,18.14-18.37,43.49-28.49,71.37-28.49h23c38.57,0,59.76,18.78,76.78,33.87,17.65,15.65,32.9,29.16,73.52,29.16a116.05,116.05,0,0,0,18.5-1.48c0-.12-.08-.23-.13-.35a139.23,139.23,0,0,0-8.55-17.55l-27.16-47.05A139.53,139.53,0,0,0,295.76,81.3H241.43a139.53,139.53,0,0,0-120.82,69.76L93.45,198.11a139.52,139.52,0,0,0,0,139.51l27.16,47.05a139.52,139.52,0,0,0,120.82,69.75h54.33a139.52,139.52,0,0,0,120.82-69.75l27.16-47.05a139.23,139.23,0,0,0,8.55-17.55c0-.12.09-.23.13-.35a116.05,116.05,0,0,0-18.5-1.48C393.3,318.24,378.05,331.75,360.4,347.4Z"/>
+      <path fill="#006bff" d="M283.62,183h-23c-42.42,0-70.3,30.3-70.3,69.09v31.51c0,38.79,27.88,69.09,70.3,69.09h23c61.82,0,57-63,150.3-63a144.19,144.19,0,0,1,26.37,2.41,139.36,139.36,0,0,0,0-48.46,143.32,143.32,0,0,1-26.37,2.42C340.59,246.05,345.44,183,283.62,183Z"/>
+      <path fill="#006bff" d="M513.91,315.13a130.21,130.21,0,0,0-53.62-23c0,.16-.05.32-.08.47a138.46,138.46,0,0,1-7.79,27.16A102.15,102.15,0,0,1,496.75,338c0,.14-.08.28-.13.43A237.8,237.8,0,0,1,463.33,406a240.67,240.67,0,0,1-52,53.48A239.3,239.3,0,0,1,98.65,98.65a239.43,239.43,0,0,1,398,98.69c.05.15.09.29.13.43A102.15,102.15,0,0,1,452.42,216a139.36,139.36,0,0,1,7.8,27.18c0,.15,0,.3.07.44a129.94,129.94,0,0,0,53.62-23c15.29-11.31,12.33-24.09,10-31.65C490.22,79.52,388.33,0,267.86,0,119.93,0,0,119.93,0,267.86S119.93,535.73,267.86,535.73c120.47,0,222.36-79.52,256-188.94C526.24,339.23,529.2,326.45,513.91,315.13Z"/>
+      <path fill="#0ae9ef" d="M452.42,216a116.05,116.05,0,0,1-18.5,1.48c-40.62,0-55.87-13.51-73.52-29.16-17-15.09-38.21-33.87-76.78-33.87h-23c-27.88,0-53.23,10.12-71.37,28.49-17.72,17.94-27.48,42.5-27.48,69.16v31.51c0,26.66,9.76,51.22,27.48,69.16,18.14,18.37,43.49,28.49,71.37,28.49h23c38.57,0,59.76-18.78,76.78-33.87,17.65-15.65,32.9-29.16,73.52-29.16a116.05,116.05,0,0,1,18.5,1.48,138.46,138.46,0,0,0,7.79-27.16c0-.15.06-.31.08-.47a144.19,144.19,0,0,0-26.37-2.41c-93.33,0-88.48,63-150.3,63h-23c-42.42,0-70.3-30.3-70.3-69.09V252.11c0-38.79,27.88-69.09,70.3-69.09h23c61.82,0,57,63,150.3,63a143.32,143.32,0,0,0,26.37-2.42c0-.14,0-.29-.07-.44A139.36,139.36,0,0,0,452.42,216Z"/>
+    </svg>
+  ),
   applemusic: ({ size = 20, color = "currentColor", className }) => (
     <svg className={className} width={size} height={size} viewBox="0 0 512 512" fill="none">
       <defs>
@@ -337,6 +345,7 @@ const SOCIAL_PLATFORMS = [
   { id: "telegram", label: "Telegram", placeholder: "https://t.me/username", color: "#0088CC" },
   { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF" },
   { id: "website", label: "Website", placeholder: "https://yourwebsite.com", color: "#6366F1" },
+  { id: "calendly", label: "Calendly", placeholder: "https://calendly.com/username", color: "#006BFF" },
 ]
 
 // Default background images library
@@ -1918,7 +1927,7 @@ export function LinksTab() {
                           {blocksToShow.map((block, idx) => {
                             const Icon = block.icon
                             const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("xtwitter", "twitter")
-                            const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram", "discord"].includes(socialId)
+                            const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram", "discord", "calendly"].includes(socialId)
                             const atLimit = isBlockTypeAtLimit(block.type)
                             const currentCount = getBlockTypeCount(block.type)
                             const isComingSoon = (block as any).comingSoon === true
@@ -1981,7 +1990,7 @@ export function LinksTab() {
                   activeCategoryBlocks.map((block, idx) => {
                     const Icon = block.icon
                     const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("xtwitter", "twitter")
-                    const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram", "discord"].includes(socialId)
+                    const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram", "discord", "calendly"].includes(socialId)
                     const atLimit = isBlockTypeAtLimit(block.type)
                     const currentCount = getBlockTypeCount(block.type)
                     const isComingSoon = (block as any).comingSoon === true
@@ -3867,8 +3876,8 @@ function BlockItem({
           </div>
         )}
 
-        {/* Clickable thumbnail for link buttons and product blocks */}
-        {(isLinkButton || isProduct) && onOpenThumbnailModal ? (
+        {/* Clickable thumbnail for link buttons, product blocks, and calendly */}
+        {(isLinkButton || isProduct || isCalendly) && onOpenThumbnailModal ? (
           <button
             type="button"
             onClick={(e) => {
@@ -6727,56 +6736,19 @@ function BlockEditor({
                   />
                 </div>
 
-                {/* Embedded Calendar */}
+                {/* Embedded Calendar (Modal) */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-medium">Embedded Calendar</Label>
-                    <p className="text-[10px] text-muted-foreground">Show calendar within your page</p>
+                    <p className="text-[10px] text-muted-foreground">Show calendar in popup modal</p>
                   </div>
                   <Toggle
                     checked={data.embed_mode === 'embedded'}
                     onCheckedChange={(checked) => {
-                      updateData({ embed_mode: checked ? 'embedded' : 'direct_link' })
+                      updateData({ embed_mode: checked ? 'embedded' : 'direct_link', embed_type: 'modal' })
                     }}
                   />
                 </div>
-
-                {/* Embed Type Options - Only show when embedded mode */}
-                {data.embed_mode === 'embedded' && (
-                  <div className="pl-4 space-y-2 border-l-2 border-violet-200">
-                    <Label className="text-xs text-muted-foreground">Embed Style</Label>
-
-                    {/* Default Embed (Inline) */}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="embed-inline"
-                        name="embed-type"
-                        checked={data.embed_type === 'inline'}
-                        onChange={() => updateData({ embed_type: 'inline' })}
-                        className="w-3.5 h-3.5 text-violet-600 border-gray-300 focus:ring-violet-500"
-                      />
-                      <label htmlFor="embed-inline" className="text-xs cursor-pointer">
-                        Default Embed (Inline)
-                      </label>
-                    </div>
-
-                    {/* Modal Embed */}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="embed-modal"
-                        name="embed-type"
-                        checked={data.embed_type === 'modal' || !data.embed_type}
-                        onChange={() => updateData({ embed_type: 'modal' })}
-                        className="w-3.5 h-3.5 text-violet-600 border-gray-300 focus:ring-violet-500"
-                      />
-                      <label htmlFor="embed-modal" className="text-xs cursor-pointer">
-                        Modal Embed (Popup)
-                      </label>
-                    </div>
-                  </div>
-                )}
               </div>
             </TabsContent>
 

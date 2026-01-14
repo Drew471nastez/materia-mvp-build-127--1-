@@ -5876,15 +5876,15 @@ function PublicBlockRenderer({
             {/* Calendly Modal - Clean light UI */}
             {showCalendlyModal && calendlyUrl && (
               <div
-                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
+                className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 bg-black/60 sm:bg-black/50 animate-in fade-in duration-300 ease-out"
                 onClick={handleCloseCalendly}
               >
                 <div
-                  className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-lg sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+                  className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Top Bar */}
-                  <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
+                  <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b shrink-0">
                     <button
                       onClick={handleCloseCalendly}
                       className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
@@ -5909,7 +5909,7 @@ function PublicBlockRenderer({
                     <iframe
                       src={calendlyUrl}
                       className="w-full h-full border-0"
-                      style={{ minHeight: '600px' }}
+                      style={{ minHeight: '500px' }}
                       title={data.title || "Book a Meeting"}
                     />
                   </div>
@@ -5948,15 +5948,15 @@ function PublicBlockRenderer({
           {/* Calendly Modal - Clean light UI */}
           {showCalendlyModal && calendlyUrl && (
             <div
-              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 bg-black/60 sm:bg-black/50 animate-in fade-in duration-300 ease-out"
               onClick={handleCloseCalendly}
             >
               <div
-                className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-lg sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+                className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Top Bar */}
-                <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
+                <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b shrink-0">
                   <button
                     onClick={handleCloseCalendly}
                     className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
@@ -5981,7 +5981,7 @@ function PublicBlockRenderer({
                   <iframe
                     src={calendlyUrl}
                     className="w-full h-full border-0"
-                    style={{ minHeight: '600px' }}
+                    style={{ minHeight: '500px' }}
                     title={data.title || "Book a Meeting"}
                   />
                 </div>
