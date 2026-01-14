@@ -442,6 +442,9 @@ function ShareButton({
   style = "white",
   showSubscribe = true,
   accentColor,
+  themeBackgroundType,
+  themeBackgroundColor,
+  themeBackgroundGradient,
 }: {
   pageUrl: string
   pageTitle: string
@@ -449,6 +452,9 @@ function ShareButton({
   style?: "glass" | "white" | "black"
   showSubscribe?: boolean
   accentColor?: string
+  themeBackgroundType?: "solid" | "gradient" | "image" | "video"
+  themeBackgroundColor?: string
+  themeBackgroundGradient?: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -474,24 +480,19 @@ function ShareButton({
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  // Generate gradient colors based on accent color or use default
-  const getGradientColors = () => {
-    if (accentColor) {
-      // Create a gradient based on the accent color
-      return {
-        from: accentColor,
-        via: accentColor,
-        to: accentColor,
-      }
+  // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
+  const getPopupHeaderBackground = () => {
+    if (themeBackgroundType === "gradient" && themeBackgroundGradient) {
+      return themeBackgroundGradient
     }
-    return {
-      from: "#8B5CF6",
-      via: "#A855F7",
-      to: "#EC4899",
+    if (themeBackgroundType === "solid" && themeBackgroundColor && themeBackgroundColor !== "#ffffff") {
+      return themeBackgroundColor
     }
+    // For image/video or white backgrounds, use accent color or default
+    return accentColor || "#8B5CF6"
   }
 
-  const gradientColors = getGradientColors()
+  const popupHeaderBackground = getPopupHeaderBackground()
 
   const styles = {
     glass: {
@@ -673,11 +674,13 @@ function ShareButton({
               boxShadow: "0 25px 80px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)",
             }}
           >
-            {/* Profile preview card with gradient background based on OnePage accent color */}
+            {/* Profile preview card with background adapted to OnePage theme */}
             <div
               className="relative px-6 pt-8 pb-10"
               style={{
-                background: `linear-gradient(135deg, ${gradientColors.from} 0%, ${gradientColors.via} 50%, ${gradientColors.to} 100%)`,
+                background: popupHeaderBackground.includes('gradient') || popupHeaderBackground.includes('linear')
+                  ? popupHeaderBackground
+                  : `linear-gradient(135deg, ${popupHeaderBackground} 0%, ${popupHeaderBackground} 100%)`,
               }}
             >
               {/* Close button */}
@@ -1525,17 +1528,22 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeBlocks
           .filter((b) => b?.enabled)
           .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0))
-          .map((block) => (
-            <PublicBlockRenderer
+          .map((block, index) => (
+            <div
               key={block.id}
-              block={block}
-              theme={safeTheme}
-              profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
-              onepageId={onepage.id}
-              sellerId={seller_id}
-              isDesktop={isDesktop}
-              settings={safeSettings}
-            />
+              className="w-full animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <PublicBlockRenderer
+                block={block}
+                theme={safeTheme}
+                profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
+                onepageId={onepage.id}
+                sellerId={seller_id}
+                isDesktop={isDesktop}
+                settings={safeSettings}
+              />
+            </div>
           ))}
       </div>
       {/* Footer - pushed to bottom */}
@@ -1546,7 +1554,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               href="https://materia.so"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900 hover:bg-gray-100 transition-colors shadow-sm"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900 hover:bg-gray-100 transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
             >
               {sellerName} on Storelib
             </a>
@@ -1626,6 +1634,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           style={safeSettings.share_style || "white"}
           showSubscribe={safeSettings.subscribe_enabled !== false}
           accentColor={safeTheme.button_color}
+          themeBackgroundType={safeTheme.background_type}
+          themeBackgroundColor={safeTheme.background_color}
+          themeBackgroundGradient={safeTheme.background_gradient}
         />
       )}
 
@@ -1704,10 +1715,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               <div
                 style={{
                   position: "absolute",
-                  top: "-30px",
-                  left: "-30px",
-                  right: "-30px",
-                  bottom: "-30px",
+                  top: "-50px",
+                  left: "-50px",
+                  right: "-50px",
+                  bottom: "-50px",
                   backgroundImage: `url(${safeTheme.background_image_url})`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
@@ -1722,13 +1733,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 src={(safeTheme as any).background_video_url}
                 style={{
                   position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  minWidth: "100%",
-                  minHeight: "100%",
-                  width: "auto",
-                  height: "auto",
+                  top: "-50px",
+                  left: "-50px",
+                  right: "-50px",
+                  bottom: "-50px",
+                  width: "calc(100% + 100px)",
+                  height: "calc(100% + 100px)",
                   objectFit: "cover",
                   zIndex: 0,
                   filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
@@ -1813,12 +1823,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             src={(safeTheme as any).background_video_url}
             style={{
               position: "fixed",
-              top: "0",
-              left: "0",
-              right: "0",
-              bottom: "0",
-              width: "100%",
-              height: "100%",
+              top: "-50px",
+              left: "-50px",
+              right: "-50px",
+              bottom: "-50px",
+              width: "calc(100% + 100px)",
+              height: "calc(100% + 100px)",
               objectFit: "cover",
               zIndex: 0,
               filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,

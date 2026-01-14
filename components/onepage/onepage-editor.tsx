@@ -116,6 +116,63 @@ function UnsavedChangesDialog({
   )
 }
 
+// Pro Upgrade Dialog Component - shown when trying to save with Pro features without Pro plan
+function ProUpgradeDialog({
+  open,
+  onClose,
+  onUpgrade,
+  onDiscard,
+  onKeepEditing,
+}: {
+  open: boolean
+  onClose: () => void
+  onUpgrade: () => void
+  onDiscard: () => void
+  onKeepEditing: () => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="w-[calc(100%-32px)] max-w-sm p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+        <div className="p-6 text-center">
+          {/* Pro Badge */}
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
+            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold mb-2">Upgrade to Pro?</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Some of the customizations you're previewing are exclusive to Storelib Pro. Let's get you upgraded so you can save them!
+          </p>
+        </div>
+
+        <div className="px-6 pb-6 space-y-3">
+          <button
+            onClick={onUpgrade}
+            className="w-full py-3 px-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all shadow-md"
+          >
+            Upgrade To Pro
+          </button>
+
+          <button
+            onClick={onDiscard}
+            className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            Discard changes
+          </button>
+
+          <button
+            onClick={onKeepEditing}
+            className="w-full py-3 px-4 bg-white text-gray-500 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            Keep editing
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function EditorLayout() {
   const {
     onepage,
@@ -126,6 +183,7 @@ function EditorLayout() {
     undo,
     redo,
     save,
+    updateSettings,
   } = useOnePage()
 
   const [activeTab, setActiveTab] = useState<TabType>("links")
@@ -136,7 +194,51 @@ function EditorLayout() {
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isSavingForNav, setIsSavingForNav] = useState(false)
-  
+  const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
+
+  // Check if user has Pro features enabled that require Pro plan
+  const hasProFeaturesEnabled = useCallback(() => {
+    if (!onepage) return false
+    // Hide branding is a Pro feature - check if show_branding is false (meaning branding is hidden)
+    return onepage.settings.show_branding === false
+  }, [onepage])
+
+  // Handle save with Pro plan check
+  const handleSaveWithProCheck = useCallback(async () => {
+    // TODO: Replace this with actual Pro plan check from user's subscription
+    const userHasPro = false // For now, assume user doesn't have Pro
+
+    if (hasProFeaturesEnabled() && !userHasPro) {
+      setShowProUpgradeDialog(true)
+      return
+    }
+
+    // No Pro features or user has Pro, proceed with save
+    await save()
+  }, [hasProFeaturesEnabled, save])
+
+  // Handle upgrading to Pro
+  const handleUpgradeToPro = useCallback(() => {
+    setShowProUpgradeDialog(false)
+    // Redirect to upgrade page
+    window.open('/pricing', '_blank')
+  }, [])
+
+  // Handle discarding Pro changes
+  const handleDiscardProChanges = useCallback(() => {
+    // Reset Pro-only settings to defaults
+    updateSettings({
+      show_branding: true, // Re-enable branding
+      hide_branding_pro_enabled: false,
+    })
+    setShowProUpgradeDialog(false)
+  }, [updateSettings])
+
+  // Handle keep editing
+  const handleKeepEditing = useCallback(() => {
+    setShowProUpgradeDialog(false)
+  }, [])
+
   // Ref to track if we pushed state for back button interception
   const hasSetupBackInterceptionRef = useRef(false)
   const isDirtyRef = useRef(isDirty)
@@ -213,6 +315,15 @@ function EditorLayout() {
   }, [isDirty])
 
   const handleSaveAndNavigate = useCallback(async () => {
+    // TODO: Replace this with actual Pro plan check from user's subscription
+    const userHasPro = false
+
+    if (hasProFeaturesEnabled() && !userHasPro) {
+      setShowUnsavedDialog(false)
+      setShowProUpgradeDialog(true)
+      return
+    }
+
     setIsSavingForNav(true)
     await save()
     setIsSavingForNav(false)
@@ -224,7 +335,7 @@ function EditorLayout() {
       window.history.go(-2) // Go back 2 because we pushed a state
     }
     setPendingNavigation(null)
-  }, [save, pendingNavigation])
+  }, [save, pendingNavigation, hasProFeaturesEnabled])
 
   const handleDiscardAndNavigate = useCallback(() => {
     setShowUnsavedDialog(false)
@@ -394,7 +505,7 @@ function EditorLayout() {
 
           {/* Save Button */}
           <Button
-            onClick={save}
+            onClick={handleSaveWithProCheck}
             disabled={isSaveDisabled}
             className={cn(
               "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-all duration-200",
@@ -638,6 +749,15 @@ function EditorLayout() {
         onSave={handleSaveAndNavigate}
         onDiscard={handleDiscardAndNavigate}
         isSaving={isSavingForNav}
+      />
+
+      {/* Pro Upgrade Dialog - shown when trying to save with Pro features */}
+      <ProUpgradeDialog
+        open={showProUpgradeDialog}
+        onClose={() => setShowProUpgradeDialog(false)}
+        onUpgrade={handleUpgradeToPro}
+        onDiscard={handleDiscardProChanges}
+        onKeepEditing={handleKeepEditing}
       />
     </div>
   )

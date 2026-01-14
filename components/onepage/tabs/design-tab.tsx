@@ -241,9 +241,13 @@ const THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
+      background_pattern: "none",
     },
     profile_layout: "classic" as const,
     skipLayoutDialog: true,
+    // Default theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "air",
@@ -2243,7 +2247,7 @@ function HeaderSection() {
 }
 
 function ThemeSection() {
-  const { onepage, updateTheme } = useOnePage()
+  const { onepage, updateTheme, updateSettings } = useOnePage()
   const [filter, setFilter] = useState<"all" | "light" | "dark" | "gradient" | "image">("all")
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useState<typeof THEME_TEMPLATES[0] | null>(null)
@@ -2271,6 +2275,15 @@ function ThemeSection() {
       (updatedConfig as any).header_layout = "classic"
     }
     updateTheme(updatedConfig)
+
+    // Apply button styles from template if specified (for Default theme white buttons)
+    const templateWithStyles = template as any
+    if (templateWithStyles.share_style || templateWithStyles.subscribe_style) {
+      const settingsUpdate: any = {}
+      if (templateWithStyles.share_style) settingsUpdate.share_style = templateWithStyles.share_style
+      if (templateWithStyles.subscribe_style) settingsUpdate.subscribe_style = templateWithStyles.subscribe_style
+      updateSettings(settingsUpdate)
+    }
   }
 
   const handleConfirmLayoutChange = () => {
@@ -2310,6 +2323,10 @@ function ThemeSection() {
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-[11px] font-medium text-gray-400">Default</span>
                 </div>
+                {/* Font preview in corner */}
+                <div className="absolute top-2 left-2 text-[10px] font-semibold text-gray-300" style={{ fontFamily: config.font_family }}>
+                  Ab
+                </div>
                 {isSelected && <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center"><Check className="h-3 w-3 text-white" /></div>}
               </button>
             )
@@ -2323,6 +2340,10 @@ function ThemeSection() {
                 <div className="w-12 md:w-16 h-1.5 md:h-2 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
                 <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
                 <div className="w-full max-w-[60px] md:max-w-[80px] h-5 md:h-6 rounded-md mt-2" style={{ backgroundColor: config.button_color, borderWidth: config.button_border_width, borderColor: config.button_border_color, borderRadius: `${config.button_border_radius}px` }} />
+              </div>
+              {/* Font preview in corner */}
+              <div className="absolute top-2 left-2 text-[11px] font-semibold opacity-70" style={{ fontFamily: config.font_family, color: config.text_color }}>
+                Ab
               </div>
               {isSelected && <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center bg-ring"><Check className="h-3 w-3 text-white" /></div>}
               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/50 to-transparent">
@@ -2814,31 +2835,39 @@ function WallpaperSection() {
     } as any)
   }
 
-  // Gradient direction component - Modern interactive slider design
+  // Gradient direction component - improved with better UX
   const DirectionDial = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
-    const sliderRef = useRef<HTMLDivElement>(null)
+    const dialRef = useRef<HTMLDivElement>(null)
     const [isDragging, setIsDragging] = useState(false)
 
-    const updateAngle = useCallback((clientX: number) => {
-      if (!sliderRef.current) return
-      const rect = sliderRef.current.getBoundingClientRect()
-      const percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-      const degrees = Math.round(percentage * 360)
-      onChange(degrees === 360 ? 0 : degrees)
+    const updateAngle = useCallback((clientX: number, clientY: number) => {
+      if (!dialRef.current) return
+      const rect = dialRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+      const angle = Math.atan2(clientY - centerY, clientX - centerX)
+      let degrees = Math.round((angle * 180) / Math.PI + 90)
+      if (degrees < 0) degrees += 360
+      // Snap to 15 degree increments for easier control
+      degrees = Math.round(degrees / 15) * 15
+      if (degrees === 360) degrees = 0
+      onChange(degrees)
     }, [onChange])
 
     const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
       e.preventDefault()
       setIsDragging(true)
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-      updateAngle(clientX)
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+      updateAngle(clientX, clientY)
     }
 
     useEffect(() => {
       const handleMove = (e: MouseEvent | TouchEvent) => {
         if (!isDragging) return
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-        updateAngle(clientX)
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+        updateAngle(clientX, clientY)
       }
       const handleEnd = () => setIsDragging(false)
 
@@ -2856,94 +2885,48 @@ function WallpaperSection() {
       }
     }, [isDragging, updateAngle])
 
-    // Quick preset angles for buttons
-    const presetAngles = [
-      { deg: 0, label: '→' },
-      { deg: 45, label: '↘' },
-      { deg: 90, label: '↓' },
-      { deg: 135, label: '↙' },
-      { deg: 180, label: '←' },
-      { deg: 225, label: '↖' },
-      { deg: 270, label: '↑' },
-      { deg: 315, label: '↗' },
-    ]
-
-    const percentage = value / 360
+    // Quick preset angles
+    const presetAngles = [0, 45, 90, 135, 180, 225, 270, 315]
 
     return (
-      <div className="flex flex-col gap-3 w-full">
-        {/* Visual gradient preview with direction indicator */}
-        <div className="relative h-16 rounded-xl overflow-hidden shadow-inner border border-gray-200">
-          <div
-            className="absolute inset-0 transition-all duration-200"
-            style={{
-              background: `linear-gradient(${value}deg, #667eea 0%, #764ba2 100%)`
-            }}
-          />
-          {/* Direction arrow overlay */}
-          <div className="absolute inset-0 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-2">
+        <div
+          ref={dialRef}
+          className={cn(
+            "w-20 h-20 rounded-full border-2 bg-gradient-to-br from-gray-50 to-gray-100 relative cursor-pointer select-none shadow-inner transition-all",
+            isDragging ? "border-violet-500 shadow-lg scale-105" : "border-gray-200 hover:border-gray-300"
+          )}
+          onMouseDown={handleStart}
+          onTouchStart={handleStart}
+        >
+          {/* Tick marks around the dial */}
+          {presetAngles.map((angle) => (
             <div
-              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center transition-transform duration-200"
-              style={{ transform: `rotate(${value}deg)` }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667eea" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Modern slider track */}
-        <div className="relative">
-          <div
-            ref={sliderRef}
-            className={cn(
-              "relative h-8 rounded-full cursor-pointer select-none transition-all overflow-hidden",
-              isDragging ? "ring-2 ring-violet-500 ring-offset-2" : ""
-            )}
-            style={{
-              background: `linear-gradient(90deg,
-                hsl(0, 70%, 60%) 0%,
-                hsl(60, 70%, 60%) 16.67%,
-                hsl(120, 70%, 60%) 33.33%,
-                hsl(180, 70%, 60%) 50%,
-                hsl(240, 70%, 60%) 66.67%,
-                hsl(300, 70%, 60%) 83.33%,
-                hsl(360, 70%, 60%) 100%)`
-            }}
-            onMouseDown={handleStart}
-            onTouchStart={handleStart}
-          >
-            {/* Slider thumb */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-7 h-7 bg-white rounded-full shadow-lg border-2 border-white transition-all duration-75 flex items-center justify-center"
+              key={angle}
+              className="absolute w-0.5 h-2 bg-gray-300 rounded-full"
               style={{
-                left: `calc(${percentage * 100}% - 14px)`,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.1)'
+                top: '4px',
+                left: '50%',
+                transformOrigin: '50% 36px',
+                transform: `translateX(-50%) rotate(${angle}deg)`
               }}
-            >
-              <span className="text-[10px] font-bold text-gray-600">{value}°</span>
-            </div>
+            />
+          ))}
+
+          {/* Rotating indicator */}
+          <div
+            className="absolute inset-3 rounded-full flex items-start justify-center transition-transform"
+            style={{ transform: `rotate(${value}deg)` }}
+          >
+            <div className="w-2 h-8 bg-gradient-to-b from-violet-500 to-violet-600 rounded-full shadow-md" />
+          </div>
+
+          {/* Center dot */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-3 h-3 bg-white rounded-full shadow-sm border border-gray-200" />
           </div>
         </div>
-
-        {/* Preset angle buttons */}
-        <div className="flex justify-between gap-1">
-          {presetAngles.map(({ deg, label }) => (
-            <button
-              key={deg}
-              onClick={() => onChange(deg)}
-              className={cn(
-                "flex-1 h-8 rounded-lg text-sm font-medium transition-all",
-                value === deg
-                  ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <span className="text-sm font-medium text-gray-700">{value}°</span>
       </div>
     )
   }
@@ -4048,13 +4031,37 @@ function FooterSection() {
   if (!onepage) return null
   const { settings } = onepage
 
+  // Hide Storelib Branding is the inverse of show_branding
+  // When toggle is ON (hide branding) → show_branding: false
+  // When toggle is OFF (show branding - default) → show_branding: true
+  const hideBrandingEnabled = !settings.show_branding
+
+  const handleHideBrandingChange = (hide: boolean) => {
+    // When user wants to hide branding, set show_branding to false
+    // This will be checked against Pro plan at save time
+    updateSettings({ show_branding: !hide, hide_branding_pro_enabled: hide })
+  }
+
   return (
     <div className="space-y-6 md:space-y-8">
       <h2 className="text-lg md:text-xl font-semibold">Footer</h2>
       <div className="space-y-3 md:space-y-4">
         <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
-          <div><p className="font-medium text-sm">Show Materia branding</p><p className="text-xs text-muted-foreground mt-0.5">Display "Powered by Materia"</p></div>
-          <Toggle checked={settings.show_branding} onCheckedChange={(checked) => updateSettings({ show_branding: checked })} />
+          <div className="flex items-center gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm">Hide Storelib Branding</p>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-gradient-to-r from-violet-500 to-purple-600 text-white">
+                  PRO
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">Remove the "on Storelib" badge from your page</p>
+            </div>
+          </div>
+          <Toggle
+            checked={hideBrandingEnabled}
+            onCheckedChange={handleHideBrandingChange}
+          />
         </div>
         <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
           <div><p className="font-medium text-sm">Analytics</p><p className="text-xs text-muted-foreground mt-0.5">Track page views</p></div>

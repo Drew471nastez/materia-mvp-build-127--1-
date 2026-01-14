@@ -264,6 +264,9 @@ function ShareButtonPreview({
   showSubscribe = true,
   accentColor,
   isVisible = true,
+  themeBackgroundType,
+  themeBackgroundColor,
+  themeBackgroundGradient,
 }: {
   sellerName: string
   avatarUrl?: string | null
@@ -273,6 +276,9 @@ function ShareButtonPreview({
   showSubscribe?: boolean
   accentColor?: string
   isVisible?: boolean
+  themeBackgroundType?: "solid" | "gradient" | "image" | "video"
+  themeBackgroundColor?: string
+  themeBackgroundGradient?: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -282,8 +288,19 @@ function ShareButtonPreview({
 
   const size = scale === "small" ? { btn: 28, icon: 10, panel: 180 } : { btn: 36, icon: 14, panel: 220 }
 
-  // Generate gradient colors based on accent color or use default
-  const gradientColor = accentColor || "#8B5CF6"
+  // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
+  const getPopupHeaderBackground = () => {
+    if (themeBackgroundType === "gradient" && themeBackgroundGradient) {
+      return themeBackgroundGradient
+    }
+    if (themeBackgroundType === "solid" && themeBackgroundColor && themeBackgroundColor !== "#ffffff") {
+      return themeBackgroundColor
+    }
+    // For image/video or white backgrounds, use accent color
+    return accentColor || "#8B5CF6"
+  }
+
+  const popupHeaderBackground = getPopupHeaderBackground()
 
   const styles = {
     glass: {
@@ -366,11 +383,13 @@ function ShareButtonPreview({
               boxShadow: "0 20px 60px rgba(0, 0, 0, 0.2)",
             }}
           >
-            {/* Profile preview card with gradient background based on OnePage accent color */}
+            {/* Profile preview card with background adapted to OnePage theme */}
             <div
               className="relative px-3 pt-4 pb-5"
               style={{
-                background: `linear-gradient(135deg, ${gradientColor} 0%, ${gradientColor} 100%)`,
+                background: popupHeaderBackground.includes('gradient') || popupHeaderBackground.includes('linear')
+                  ? popupHeaderBackground
+                  : `linear-gradient(135deg, ${popupHeaderBackground} 0%, ${popupHeaderBackground} 100%)`,
               }}
             >
               {/* Close button */}
@@ -1147,6 +1166,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             backgroundColor: "#000",
           }}
         >
+          {/* Dynamic Island */}
           <div
             style={{
               position: "absolute",
@@ -1157,10 +1177,115 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               height: "25px",
               backgroundColor: "#000",
               borderRadius: "9999px",
-              zIndex: 20,
+              zIndex: 50,
             }}
           />
 
+          {/* Background base layer - stays fixed while content scrolls */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                theme.background_type === "gradient" && theme.background_gradient
+                  ? theme.background_gradient
+                  : theme.background_color,
+              backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+              animation: isAnimatedGradient ? "gradientShiftPreview 10s ease-in-out infinite" : undefined,
+              zIndex: 0,
+            }}
+          />
+
+          {/* Background image - fixed position covering entire phone screen */}
+          {theme.background_type === "image" && theme.background_image_url && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-30px",
+                left: "-30px",
+                right: "-30px",
+                bottom: "-30px",
+                backgroundImage: `url(${theme.background_image_url})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundAttachment: "scroll",
+                zIndex: 1,
+                filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`,
+              }}
+            />
+          )}
+
+          {/* Video background - fixed position covering entire phone screen */}
+          {theme.background_type === "video" && (theme as any).background_video_url && (
+            <video
+              src={(theme as any).background_video_url}
+              style={{
+                position: "absolute",
+                top: "-30px",
+                left: "-30px",
+                right: "-30px",
+                bottom: "-30px",
+                width: "calc(100% + 60px)",
+                height: "calc(100% + 60px)",
+                objectFit: "cover",
+                zIndex: 1,
+                filter: `brightness(${(theme as any).video_brightness || 100}%)`,
+              }}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          )}
+
+          {/* Noise overlay for gradient backgrounds - fixed position */}
+          {theme.background_type === "gradient" && (theme as any).gradient_noise && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{
+                mixBlendMode: "overlay",
+                zIndex: 2,
+                opacity: (((theme as any).noise_strength || 15) / 100) * 2,
+              }}
+            >
+              <filter id="phone-noise-gradient">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#phone-noise-gradient)" />
+            </svg>
+          )}
+
+          {/* Noise overlay for image backgrounds - fixed position */}
+          {theme.background_type === "image" && (theme as any).image_noise && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{
+                mixBlendMode: "overlay",
+                zIndex: 2,
+                opacity: (((theme as any).noise_strength || 15) / 100) * 2,
+              }}
+            >
+              <filter id="phone-noise-image">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#phone-noise-image)" />
+            </svg>
+          )}
+
+          {/* Pattern overlay - fixed position */}
+          {(theme.background_type === "solid" || theme.background_type === "gradient") &&
+            (theme as any).background_pattern &&
+            (theme as any).background_pattern !== "none" && (
+              <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
+                <BackgroundPattern
+                  pattern={(theme as any).background_pattern}
+                  color={(theme as any).pattern_color || "#00000090"}
+                  opacity={(theme as any).pattern_opacity || "medium"}
+                />
+              </div>
+            )}
+
+          {/* Scrollable content container */}
           <div
             key={animationKey}
             className="phone-screen-scroll"
@@ -1172,104 +1297,13 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               bottom: "0",
               overflowY: "auto",
               overflowX: "hidden",
-              background:
-                theme.background_type === "gradient" && theme.background_gradient
-                  ? theme.background_gradient
-                  : theme.background_color,
               fontFamily: theme.font_family || "Inter",
               scrollbarWidth: "thin",
               scrollbarColor: `${theme.text_color}30 transparent`,
-              backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-              animation: isAnimatedGradient ? "gradientShiftPreview 10s ease-in-out infinite" : undefined,
+              zIndex: 10,
             }}
           >
             <style>{`.phone-screen-scroll::-webkit-scrollbar { width: 3px; } .phone-screen-scroll::-webkit-scrollbar-track { background: transparent; margin: 10px 0; } .phone-screen-scroll::-webkit-scrollbar-thumb { background: ${theme.text_color}30; border-radius: 3px; } .phone-screen-scroll::-webkit-scrollbar-thumb:hover { background: ${theme.text_color}50; }`}</style>
-
-            {theme.background_type === "image" && theme.background_image_url && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "-30px",
-                  left: "-30px",
-                  right: "-30px",
-                  bottom: "-30px",
-                  backgroundImage: `url(${theme.background_image_url})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  zIndex: 0,
-                  filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`,
-                }}
-              />
-            )}
-
-            {/* Video background */}
-            {theme.background_type === "video" && (theme as any).background_video_url && (
-              <video
-                src={(theme as any).background_video_url}
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  minWidth: "100%",
-                  minHeight: "100%",
-                  width: "auto",
-                  height: "auto",
-                  objectFit: "cover",
-                  zIndex: 0,
-                  filter: `brightness(${(theme as any).video_brightness || 100}%)`,
-                }}
-                autoPlay
-                loop
-                muted
-                playsInline
-              />
-            )}
-
-            {/* Noise overlay for gradient backgrounds */}
-            {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-              <svg
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{
-                  mixBlendMode: "overlay",
-                  zIndex: 1,
-                  opacity: (((theme as any).noise_strength || 15) / 100) * 2,
-                }}
-              >
-                <filter id="phone-noise-gradient">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-                </filter>
-                <rect width="100%" height="100%" filter="url(#phone-noise-gradient)" />
-              </svg>
-            )}
-
-            {/* Noise overlay for image backgrounds */}
-            {theme.background_type === "image" && (theme as any).image_noise && (
-              <svg
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{
-                  mixBlendMode: "overlay",
-                  zIndex: 1,
-                  opacity: (((theme as any).noise_strength || 15) / 100) * 2,
-                }}
-              >
-                <filter id="phone-noise-image">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-                </filter>
-                <rect width="100%" height="100%" filter="url(#phone-noise-image)" />
-              </svg>
-            )}
-
-            {/* Pattern overlay */}
-            {(theme.background_type === "solid" || theme.background_type === "gradient") &&
-              (theme as any).background_pattern &&
-              (theme as any).background_pattern !== "none" && (
-                <BackgroundPattern
-                  pattern={(theme as any).background_pattern}
-                  color={(theme as any).pattern_color || "#00000090"}
-                  opacity={(theme as any).pattern_opacity || "medium"}
-                />
-              )}
 
             {/* Share Button - conditionally rendered based on share settings */}
             {settings?.share_enabled !== false && (
@@ -1282,6 +1316,9 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 showSubscribe={settings?.subscribe_enabled !== false}
                 accentColor={theme.button_color}
                 isVisible={buttonsVisible}
+                themeBackgroundType={theme.background_type}
+                themeBackgroundColor={theme.background_color}
+                themeBackgroundGradient={theme.background_gradient}
               />
             )}
 
@@ -1321,22 +1358,27 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 {draft_blocks
                   .filter((b) => b.enabled)
                   .sort((a, b) => a.sort_order - b.sort_order)
-                  .map((block) => (
-                    <BlockRenderer
+                  .map((block, index) => (
+                    <div
                       key={block.id}
-                      block={block}
-                      theme={theme}
-                      profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
-                      scale="small"
-                      settings={settings}
-                    />
+                      className="w-full animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <BlockRenderer
+                        block={block}
+                        theme={theme}
+                        profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
+                        scale="small"
+                        settings={settings}
+                      />
+                    </div>
                   ))}
               </div>
               {/* Footer - pushed to bottom */}
               <div style={{ marginTop: "auto", paddingTop: "20px" }}>
                 {settings.show_branding && (
                   <div className="text-center mb-2">
-                    <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[9px] font-medium bg-white text-gray-900">
+                    <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[9px] font-medium bg-white text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
                       {sellerName} on Storelib
                     </span>
                   </div>
@@ -1970,13 +2012,12 @@ export function MobilePreviewContent() {
             src={(theme as any).background_video_url}
             style={{
               position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              minWidth: "100%",
-              minHeight: "100%",
-              width: "auto",
-              height: "auto",
+              top: "-50px",
+              left: "-50px",
+              right: "-50px",
+              bottom: "-50px",
+              width: "calc(100% + 100px)",
+              height: "calc(100% + 100px)",
               objectFit: "cover",
               zIndex: 0,
               pointerEvents: "none",
@@ -2041,22 +2082,27 @@ export function MobilePreviewContent() {
             {draft_blocks
               .filter((b) => b.enabled)
               .sort((a, b) => a.sort_order - b.sort_order)
-              .map((block) => (
-                <BlockRenderer
+              .map((block, index) => (
+                <div
                   key={block.id}
-                  block={block}
-                  theme={theme}
-                  profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
-                  scale="normal"
-                  settings={settings}
-                />
+                  className="w-full animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <BlockRenderer
+                    block={block}
+                    theme={theme}
+                    profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
+                    scale="normal"
+                    settings={settings}
+                  />
+                </div>
               ))}
           </div>
           {/* Footer - pushed to bottom */}
           <div className="mt-auto pt-8">
             {settings.show_branding && (
               <div className="text-center mb-4">
-                <span className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900">
+                <span className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
                   {sellerName} on Storelib
                 </span>
               </div>
