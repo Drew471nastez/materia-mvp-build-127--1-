@@ -374,7 +374,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           background-color: rgba(0, 0, 0, 0.25);
         }
 
-        /* Mobile header with inward carved corners */
+        /* Mobile header with subtle inward curved corners */
         .mobile-header-curved {
           position: relative;
           border-radius: 0;
@@ -384,22 +384,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         .mobile-header-curved::after {
           content: '';
           position: absolute;
-          bottom: -28px;
-          width: 28px;
-          height: 28px;
+          bottom: -12px;
+          width: 12px;
+          height: 12px;
           background: transparent;
+          pointer-events: none;
         }
 
         .mobile-header-curved::before {
           left: 0;
-          border-top-right-radius: 28px;
-          box-shadow: 14px -14px 0 0 #111111;
+          border-top-right-radius: 12px;
+          box-shadow: 6px -6px 0 0 #111111;
         }
 
         .mobile-header-curved::after {
           right: 0;
-          border-top-left-radius: 28px;
-          box-shadow: -14px -14px 0 0 #111111;
+          border-top-left-radius: 12px;
+          box-shadow: -6px -6px 0 0 #111111;
         }
       `}</style>
 
