@@ -314,12 +314,32 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
           }
         }
       } else {
-        // Default: insert AFTER the header block if it exists
+        // Smart positioning: check for social_row block
+        const socialRowIndex = blocks.findIndex((b) => b.type === "social_row")
         const headerIndex = blocks.findIndex((b) => b.type === "header")
-        if (headerIndex !== -1) {
-          blocks.splice(headerIndex + 1, 0, newBlock)
+
+        if (socialRowIndex !== -1) {
+          // Check if social_row is at the bottom (last block)
+          const isSocialRowAtBottom = socialRowIndex === blocks.length - 1
+
+          if (isSocialRowAtBottom) {
+            // Social row is at bottom, insert after header
+            if (headerIndex !== -1) {
+              blocks.splice(headerIndex + 1, 0, newBlock)
+            } else {
+              blocks.unshift(newBlock)
+            }
+          } else {
+            // Social row is NOT at bottom, insert after social_row
+            blocks.splice(socialRowIndex + 1, 0, newBlock)
+          }
         } else {
-          blocks.unshift(newBlock)
+          // No social_row exists, default: insert AFTER the header block if it exists
+          if (headerIndex !== -1) {
+            blocks.splice(headerIndex + 1, 0, newBlock)
+          } else {
+            blocks.unshift(newBlock)
+          }
         }
       }
 

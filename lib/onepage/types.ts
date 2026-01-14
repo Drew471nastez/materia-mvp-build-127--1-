@@ -199,6 +199,9 @@ export interface SocialRowBlockData {
     url: string
   }>
   style: "icons" | "buttons"
+  // Padding options
+  padding_top?: number
+  padding_bottom?: number
 }
 
 export interface TextBlockData {
@@ -583,7 +586,11 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           image_url: "",
           alt_text: "",
           link_url: null,
-          aspect_ratio: "auto",
+          aspect_ratio: "square",
+          display_style: "carousel",
+          carousel_autoplay: true,
+          border_radius: "md",
+          image_fit: "cover",
         } as ImageBlockData,
       }
     case "divider":

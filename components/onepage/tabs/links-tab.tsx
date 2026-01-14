@@ -112,6 +112,7 @@ import {
   Palette,
   Check,
   Calendar,
+  Info,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -1311,6 +1312,12 @@ export function LinksTab() {
         // Use createDefaultBlock to get proper default data for any block type
         const newBlock = createDefaultBlock(type)
         newBlock.sort_order = groupData.children?.length || 0
+
+        // Override Image block defaults when added to a Group (use single instead of carousel)
+        if (type === "image") {
+          (newBlock.data as ImageBlockData).display_style = "single"
+          ;(newBlock.data as ImageBlockData).carousel_autoplay = false
+        }
 
         // Apply preset if provided (for link_button presets)
         if (preset && type === "link_button") {
@@ -3987,6 +3994,30 @@ function BlockItem({
           </div>
         )}
 
+        {/* Info icon for social_row blocks not positioned correctly */}
+        {block.type === "social_row" && (() => {
+          const blocks = onepage?.draft_blocks || []
+          const headerIndex = blocks.findIndex(b => b.type === "header")
+          const socialRowIndex = blocks.findIndex(b => b.id === block.id)
+          const isAtBottom = socialRowIndex === blocks.length - 1
+          const isRightAfterHeader = headerIndex !== -1 && socialRowIndex === headerIndex + 1
+          const isPositionedCorrectly = isAtBottom || isRightAfterHeader
+
+          if (!isPositionedCorrectly) {
+            return (
+              <div className="relative group/info">
+                <div className="p-1 cursor-help">
+                  <Info className="h-4 w-4 text-blue-400" />
+                </div>
+                <div className="absolute right-0 top-full mt-1 w-64 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all z-50 shadow-lg">
+                  Position this block under the Header block or at the bottom for better look
+                </div>
+              </div>
+            )
+          }
+          return null
+        })()}
+
         {/* Animation control for link buttons and product blocks */}
         {hasAnimation && (
           <div className="relative" ref={animationMenuRef}>
@@ -6110,6 +6141,38 @@ function BlockEditor({
               <Plus className="h-4 w-4 mr-2" />
               Add Social Link
             </Button>
+
+            {/* Padding Controls */}
+            <div className="space-y-4 pt-4 border-t border-gray-100">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Top Padding</Label>
+                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_top ?? 0}px</span>
+                </div>
+                <Slider
+                  value={[(block.data as SocialRowBlockData).padding_top ?? 0]}
+                  onValueChange={([value]) => updateData({ padding_top: value })}
+                  min={0}
+                  max={48}
+                  step={4}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Bottom Padding</Label>
+                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_bottom ?? 0}px</span>
+                </div>
+                <Slider
+                  value={[(block.data as SocialRowBlockData).padding_bottom ?? 0]}
+                  onValueChange={([value]) => updateData({ padding_bottom: value })}
+                  min={0}
+                  max={48}
+                  step={4}
+                  className="w-full"
+                />
+              </div>
+            </div>
           </div>
         )
       }

@@ -4768,12 +4768,17 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const headerLayout = (theme as any).header_layout || "classic"
       const isHeroLayout = headerLayout === "hero"
       // Hero layout: move icons up, Classic: add 4px top and 3px bottom padding
-      const layoutStyles = isHeroLayout ? "mt-[-4px] mb-[3px]" : "mt-[4px] mb-[3px]"
+      // Apply custom padding if set, otherwise use default layout styles
+      const paddingTop = data.padding_top ?? (isHeroLayout ? -4 : 4)
+      const paddingBottom = data.padding_bottom ?? (isHeroLayout ? 2 : 3)
 
       return (
         <div
-          className={cn("w-full flex justify-center flex-wrap", s.socialGap, layoutStyles)}
-          style={{ marginBottom: isHeroLayout ? "2px" : undefined }}
+          className={cn("w-full flex justify-center flex-wrap", s.socialGap)}
+          style={{
+            marginTop: `${paddingTop}px`,
+            marginBottom: `${paddingBottom}px`
+          }}
         >
           {platforms.map((platform, idx) => {
             const IconComponent = SocialIconsSVG[platform.platform]

@@ -3292,10 +3292,22 @@ function PublicBlockRenderer({
       }
 
       // Hero layout: move icons up more, Classic: add 4px top and 3px bottom padding
-      const layoutStyles = isHeroLayout ? "mt-[-16px] md:mt-[-20px] mb-5 md:mb-7" : "mt-[4px] mb-[3px]"
+      // Apply custom padding if set, otherwise use default layout styles
+      const hasCustomPadding = data.padding_top !== undefined || data.padding_bottom !== undefined
+      const paddingTop = data.padding_top ?? (isHeroLayout ? -16 : 4)
+      const paddingBottom = data.padding_bottom ?? (isHeroLayout ? 20 : 3)
 
       return (
-        <div className={cn("flex items-center justify-center gap-2.5 flex-wrap", layoutStyles)}>
+        <div
+          className={cn(
+            "flex items-center justify-center gap-2.5 flex-wrap",
+            !hasCustomPadding && isHeroLayout && "md:mt-[-20px] md:mb-7"
+          )}
+          style={{
+            marginTop: `${paddingTop}px`,
+            marginBottom: `${paddingBottom}px`
+          }}
+        >
           {data.platforms.map(({ platform, url }) => {
             const Icon = SocialIconsSVG[platform]
             if (!Icon || !url) return null
