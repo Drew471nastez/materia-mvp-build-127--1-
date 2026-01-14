@@ -206,12 +206,36 @@ export interface TextBlockData {
   alignment: "left" | "center" | "right"
 }
 
+export interface ImageItem {
+  id: string
+  image_url: string
+  alt_text?: string
+  title?: string
+  link_url?: string | null
+}
+
 export interface ImageBlockData {
+  // Legacy single image support
   image_url: string
   alt_text?: string
   link_url?: string | null
-  aspect_ratio?: "auto" | "square" | "video" | "wide"
+  // New multi-image support
+  images?: ImageItem[]
+  // Display options
+  aspect_ratio?: "auto" | "original" | "square" | "portrait" | "landscape" | "video" | "wide"
   layout_type?: BlockLayoutType
+  // Style options
+  display_style?: "single" | "grid" | "carousel"
+  grid_columns?: 2 | 3 | 4
+  // Carousel options
+  carousel_autoplay?: boolean
+  carousel_interval?: number
+  // Image options
+  image_fit?: "cover" | "contain"
+  border_radius?: "none" | "sm" | "md" | "lg" | "full"
+  show_captions?: boolean
+  // Interaction
+  clickable?: boolean
 }
 
 export interface DividerBlockData {

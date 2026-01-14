@@ -9,6 +9,7 @@ import {
   type TextBlockData,
   type EmailCaptureBlockData,
   type ImageBlockData,
+  type ImageItem,
   type DividerBlockData,
   type HeaderBlockData,
   type SocialRowBlockData,
@@ -48,26 +49,15 @@ function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChang
   )
 }
 
-// Block enable toggle - purple when checked
+// Block enable toggle - purple when checked (same style as theme-checkbox but purple)
 function BlockToggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onCheckedChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
-        checked ? "bg-violet-500" : "bg-gray-200"
-      )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
-          checked ? "translate-x-5" : "translate-x-0"
-        )}
-      />
-    </button>
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox-purple"
+    />
   )
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -2957,7 +2947,7 @@ export function LinksTab() {
             )}
 
             {/* Show image library only for regular image blocks (not product_image or digital_product_file) */}
-            {!imageFieldType && (
+            {(!imageFieldType || imageFieldType.startsWith('image_item_')) && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {IMAGE_LIBRARY.map((img) => (
                   <button
@@ -2966,7 +2956,24 @@ export function LinksTab() {
                       if (imageBlockId) {
                         const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
                         if (block) {
-                          updateBlock(imageBlockId, { data: { ...block.data, image_url: img.url } })
+                          // Handle image_item_${id} field type for multi-image blocks
+                          if (imageFieldType && imageFieldType.startsWith('image_item_')) {
+                            const imageItemId = imageFieldType.replace('image_item_', '')
+                            const blockData = block.data as ImageBlockData
+                            const images = blockData.images || (blockData.image_url ? [{ id: '1', image_url: blockData.image_url }] : [])
+                            const newImages = images.map(image =>
+                              image.id === imageItemId ? { ...image, image_url: img.url } : image
+                            )
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                images: newImages,
+                                image_url: newImages[0]?.image_url || ''
+                              }
+                            })
+                          } else {
+                            updateBlock(imageBlockId, { data: { ...block.data, image_url: img.url } })
+                          }
                         }
                       }
                       setShowImageLibrary(false)
@@ -6130,25 +6137,332 @@ function BlockEditor({
 
       case "image": {
         const data = block.data as ImageBlockData
+        const images = data.images || (data.image_url ? [{ id: '1', image_url: data.image_url, alt_text: data.alt_text, link_url: data.link_url }] : [])
+
+        const addImage = () => {
+          const newImage: ImageItem = {
+            id: Date.now().toString(),
+            image_url: '',
+            alt_text: '',
+            title: '',
+            link_url: null
+          }
+          const newImages = [...images, newImage]
+          updateData({ images: newImages, image_url: newImages[0]?.image_url || '' })
+        }
+
+        const removeImage = (id: string) => {
+          const newImages = images.filter(img => img.id !== id)
+          updateData({
+            images: newImages,
+            image_url: newImages[0]?.image_url || ''
+          })
+        }
+
+        const updateImage = (id: string, updates: Partial<ImageItem>) => {
+          const newImages = images.map(img => img.id === id ? { ...img, ...updates } : img)
+          updateData({
+            images: newImages,
+            image_url: newImages[0]?.image_url || ''
+          })
+        }
+
+        const aspectRatios: { id: string; label: string }[] = [
+          { id: 'original', label: 'Original' },
+          { id: 'square', label: 'Square' },
+          { id: 'portrait', label: 'Portrait' },
+          { id: 'landscape', label: 'Landscape' },
+          { id: 'wide', label: 'Wide' },
+        ]
+
+        const displayStyles: { id: string; label: string; desc: string }[] = [
+          { id: 'single', label: 'Single', desc: 'One image at a time' },
+          { id: 'grid', label: 'Grid', desc: 'Multiple images in grid' },
+          { id: 'carousel', label: 'Carousel', desc: 'Swipeable slideshow' },
+        ]
+
+        const borderRadiusOptions: { id: string; label: string }[] = [
+          { id: 'none', label: 'None' },
+          { id: 'sm', label: 'Small' },
+          { id: 'md', label: 'Medium' },
+          { id: 'lg', label: 'Large' },
+          { id: 'full', label: 'Full' },
+        ]
+
         return (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Image URL</Label>
-              <Input value={data.image_url} onChange={(e) => updateData({ image_url: e.target.value })} className="h-9" />
-            </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => onOpenImageLibrary(block.id)}
-            >
-              <ImageIcon className="h-4 w-4 mr-2" />
-              Choose from Library
-            </Button>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Link URL (optional)</Label>
-              <Input value={data.link_url || ""} onChange={(e) => updateData({ link_url: e.target.value || null })} className="h-9" />
-            </div>
-          </div>
+          <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <Settings className="w-3.5 h-3.5" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Layout
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="mt-0 space-y-4">
+              {/* Images List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Images</Label>
+                  <span className="text-xs text-muted-foreground">{images.length} image{images.length !== 1 ? 's' : ''}</span>
+                </div>
+
+                {images.map((img, index) => (
+                  <div key={img.id} className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500">#{index + 1}</span>
+                      {images.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeImage(img.id)}
+                          className="ml-auto text-xs text-red-500 hover:text-red-600"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Image Preview or Upload */}
+                    <div className="flex items-start gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onOpenImageLibrary(block.id, `image_item_${img.id}`)
+                        }}
+                        className="group relative w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-white shrink-0"
+                      >
+                        {img.image_url ? (
+                          <img src={img.image_url} alt={img.alt_text || ''} className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <ImageIcon className="w-5 h-5 text-gray-400" />
+                        )}
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                          <Upload className="w-4 h-4 text-white" />
+                        </div>
+                      </button>
+
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          value={img.image_url}
+                          onChange={(e) => updateImage(img.id, { image_url: e.target.value })}
+                          placeholder="Image URL"
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          value={img.title || ''}
+                          onChange={(e) => updateImage(img.id, { title: e.target.value })}
+                          placeholder="Caption (optional)"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Link URL for this image */}
+                    {data.clickable && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Link URL</Label>
+                        <Input
+                          value={img.link_url || ''}
+                          onChange={(e) => updateImage(img.id, { link_url: e.target.value || null })}
+                          placeholder="https://..."
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Add Image Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-9 text-xs"
+                  onClick={addImage}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Add Image
+                </Button>
+              </div>
+
+              <div className="border-t border-gray-100" />
+
+              {/* Make Clickable Toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-medium">Make clickable</Label>
+                  <p className="text-[10px] text-muted-foreground">Add links to images</p>
+                </div>
+                <Toggle
+                  checked={data.clickable || false}
+                  onCheckedChange={(checked) => updateData({ clickable: checked })}
+                />
+              </div>
+
+              {/* Show Captions Toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-medium">Show captions</Label>
+                  <p className="text-[10px] text-muted-foreground">Display image titles</p>
+                </div>
+                <Toggle
+                  checked={data.show_captions || false}
+                  onCheckedChange={(checked) => updateData({ show_captions: checked })}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="layout" className="mt-0 space-y-4">
+              {/* Display Style */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Display Style</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {displayStyles.map((style) => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => updateData({ display_style: style.id as any })}
+                      className={cn(
+                        "p-2.5 rounded-xl border-2 text-center transition-all",
+                        (data.display_style || 'single') === style.id
+                          ? "border-gray-900 bg-white"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      )}
+                    >
+                      <div className="text-xs font-medium">{style.label}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Grid Columns - only show for grid style */}
+              {data.display_style === 'grid' && (
+                <>
+                  <div className="border-t border-gray-100" />
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Grid Columns</Label>
+                    <div className="flex gap-2">
+                      {[2, 3, 4].map((cols) => (
+                        <button
+                          key={cols}
+                          type="button"
+                          onClick={() => updateData({ grid_columns: cols as any })}
+                          className={cn(
+                            "flex-1 py-2.5 rounded-xl border-2 text-xs font-medium transition-all",
+                            (data.grid_columns || 2) === cols
+                              ? "border-gray-900 bg-white"
+                              : "border-gray-200 hover:border-gray-300 bg-white"
+                          )}
+                        >
+                          {cols}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Carousel Options - only show for carousel style */}
+              {data.display_style === 'carousel' && (
+                <>
+                  <div className="border-t border-gray-100" />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-medium">Autoplay</Label>
+                      <p className="text-[10px] text-muted-foreground">Auto-advance slides</p>
+                    </div>
+                    <Toggle
+                      checked={data.carousel_autoplay || false}
+                      onCheckedChange={(checked) => updateData({ carousel_autoplay: checked })}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="border-t border-gray-100" />
+
+              {/* Aspect Ratio */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Aspect Ratio</Label>
+                <div className="flex flex-wrap gap-2">
+                  {aspectRatios.map((ratio) => (
+                    <button
+                      key={ratio.id}
+                      type="button"
+                      onClick={() => updateData({ aspect_ratio: ratio.id as any })}
+                      className={cn(
+                        "px-3 py-2 rounded-xl border-2 text-xs font-medium transition-all",
+                        (data.aspect_ratio || 'original') === ratio.id
+                          ? "border-gray-900 bg-white"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      )}
+                    >
+                      {ratio.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100" />
+
+              {/* Border Radius */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Corner Radius</Label>
+                <div className="flex flex-wrap gap-2">
+                  {borderRadiusOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => updateData({ border_radius: option.id as any })}
+                      className={cn(
+                        "px-3 py-2 rounded-xl border-2 text-xs font-medium transition-all",
+                        (data.border_radius || 'md') === option.id
+                          ? "border-gray-900 bg-white"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100" />
+
+              {/* Image Fit */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Image Fit</Label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateData({ image_fit: 'cover' })}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl border-2 text-xs font-medium transition-all",
+                      (data.image_fit || 'cover') === 'cover'
+                        ? "border-gray-900 bg-white"
+                        : "border-gray-200 hover:border-gray-300 bg-white"
+                    )}
+                  >
+                    Cover
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateData({ image_fit: 'contain' })}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl border-2 text-xs font-medium transition-all",
+                      data.image_fit === 'contain'
+                        ? "border-gray-900 bg-white"
+                        : "border-gray-200 hover:border-gray-300 bg-white"
+                    )}
+                  >
+                    Contain
+                  </button>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         )
       }
 
@@ -7556,12 +7870,12 @@ function BlockEditor({
   if (supportsLayout) {
     return (
       <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
-          <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+        <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+          <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
             <Settings className="w-3.5 h-3.5" />
             Settings
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
             <LayoutGrid className="w-3.5 h-3.5" />
             Layout
           </TabsTrigger>

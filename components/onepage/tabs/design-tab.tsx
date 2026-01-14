@@ -2112,6 +2112,8 @@ function HeaderSection() {
         </div>
       )}
 
+      <div className="border-t border-gray-100" />
+
       {/* Title Font Selector */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title Font</Label>
@@ -2165,6 +2167,8 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
+      <div className="border-t border-gray-100" />
+
       {/* Title & Logo Size Selector */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title & Logo size</Label>
@@ -2193,6 +2197,8 @@ function HeaderSection() {
           </button>
         </div>
       </div>
+
+      <div className="border-t border-gray-100" />
 
       {/* Title Color Picker - Simple & Reliable */}
       <div className="space-y-2">
@@ -3689,6 +3695,8 @@ function TextSection() {
         </DialogContent>
       </Dialog>
 
+      <div className="border-t border-gray-100" />
+
       {/* Title Font Selector */}
       <div className="space-y-3">
         <Label className="text-sm font-medium">Title font</Label>
@@ -3731,6 +3739,8 @@ function TextSection() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <div className="border-t border-gray-100" />
 
       {/* Title & Logo Size Selector */}
       <div className="space-y-2">
@@ -3985,6 +3995,7 @@ function SocialsSection() {
           ))}
         </div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-2">
         <Label className="text-sm font-medium">Icon color</Label>
         <div className="flex items-center gap-3">

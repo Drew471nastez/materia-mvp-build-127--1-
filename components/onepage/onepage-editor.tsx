@@ -663,7 +663,17 @@ function EditorLayout() {
               style={{
                 background: onepage.theme.background_type === "gradient" && onepage.theme.background_gradient
                   ? onepage.theme.background_gradient
-                  : onepage.theme.background_color || "#1f2937",
+                  : (() => {
+                      // If background is white or very light, use light gray instead
+                      const bgColor = onepage.theme.background_color || "#1f2937"
+                      const isWhiteOrLight = bgColor.toLowerCase() === "#ffffff" ||
+                        bgColor.toLowerCase() === "#fff" ||
+                        bgColor.toLowerCase() === "white" ||
+                        bgColor.toLowerCase() === "#fafafa" ||
+                        bgColor.toLowerCase() === "#f9fafb" ||
+                        bgColor.toLowerCase() === "#f5f5f5"
+                      return isWhiteOrLight ? "#f3f4f6" : bgColor
+                    })(),
               }}
             >
               {onepage.avatar_url ? (
