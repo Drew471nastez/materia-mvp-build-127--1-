@@ -2445,6 +2445,7 @@ interface BlockRendererProps {
   scale?: "small" | "normal"
   settings?: any
   isInsideCarousel?: boolean
+  isInsideGroup?: boolean
 }
 
 // Verified Badge Component with tooltip
@@ -2637,7 +2638,7 @@ function GroupBlockPreview({
                 style={itemStyle}
               >
                 <div className="w-full">
-                  <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} isInsideCarousel={true} />
+                  <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} isInsideCarousel={true} isInsideGroup={true} />
                 </div>
               </div>
             ))}
@@ -2676,7 +2677,7 @@ function GroupBlockPreview({
     <div className="w-full flex flex-col gap-2 px-1">
       {enabledChildren.map((child) => (
         <div key={child.id} className="w-full py-0.5">
-          <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
+          <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} isInsideGroup={true} />
         </div>
       ))}
     </div>
@@ -2719,51 +2720,143 @@ function ImageCarousel({
   const [currentIndex, setCurrentIndex] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [isHovered, setIsHovered] = useState(false)
+  const isScrollingRef = useRef(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const autoplayPausedRef = useRef(false)
 
   // Auto-advance slides if autoplay is enabled
   useEffect(() => {
-    if (!autoplay || isHovered || images.length <= 1) return
+    if (!autoplay || isHovered || autoplayPausedRef.current || images.length <= 1) return
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % images.length)
+      if (!autoplayPausedRef.current) {
+        goToSlide((currentIndex + 1) % images.length)
+      }
     }, 4000)
     return () => clearInterval(interval)
-  }, [autoplay, isHovered, images.length])
+  }, [autoplay, isHovered, images.length, currentIndex])
 
-  // Scroll to current index when it changes
-  useEffect(() => {
-    if (scrollRef.current) {
-      const container = scrollRef.current
-      const itemWidth = container.scrollWidth / images.length
-      container.scrollTo({
-        left: itemWidth * currentIndex,
-        behavior: 'smooth'
-      })
+  // Scroll to specific index with smooth animation
+  const scrollToIndex = useCallback((index: number) => {
+    if (!scrollRef.current) return
+    const container = scrollRef.current
+    const itemWidth = container.scrollWidth / images.length
+    isScrollingRef.current = true
+
+    container.scrollTo({
+      left: itemWidth * index,
+      behavior: 'smooth'
+    })
+
+    // Clear any existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
     }
-  }, [currentIndex, images.length])
 
-  // Handle scroll events to update currentIndex
+    // Reset scrolling flag after animation completes
+    scrollTimeoutRef.current = setTimeout(() => {
+      isScrollingRef.current = false
+    }, 400)
+  }, [images.length])
+
+  // Handle scroll events to update currentIndex (only when user is manually scrolling)
   const handleScroll = useCallback(() => {
+    // Don't update index if we're doing a programmatic scroll
+    if (isScrollingRef.current) return
+
     if (scrollRef.current) {
       const container = scrollRef.current
       const itemWidth = container.scrollWidth / images.length
       const newIndex = Math.round(container.scrollLeft / itemWidth)
-      if (newIndex !== currentIndex && newIndex >= 0 && newIndex < images.length) {
+      if (newIndex >= 0 && newIndex < images.length && newIndex !== currentIndex) {
         setCurrentIndex(newIndex)
       }
     }
-  }, [currentIndex, images.length])
+  }, [images.length, currentIndex])
 
-  const goToSlide = (index: number) => {
-    setCurrentIndex(index)
-  }
+  // Touch event handlers for smooth swipe
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now()
+    }
+    autoplayPausedRef.current = true
+  }, [])
 
-  const goToPrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length)
-  }
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current || !scrollRef.current) {
+      autoplayPausedRef.current = false
+      return
+    }
 
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length)
-  }
+    const touchEnd = {
+      x: e.changedTouches[0].clientX,
+      y: e.changedTouches[0].clientY,
+      time: Date.now()
+    }
+
+    const deltaX = touchEnd.x - touchStartRef.current.x
+    const deltaY = touchEnd.y - touchStartRef.current.y
+    const deltaTime = touchEnd.time - touchStartRef.current.time
+
+    // Only handle horizontal swipes
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+      const velocity = Math.abs(deltaX) / deltaTime
+
+      // Fast swipe or significant distance
+      if (velocity > 0.3 || Math.abs(deltaX) > 80) {
+        if (deltaX > 0 && currentIndex > 0) {
+          // Swipe right - go to previous
+          goToSlide(currentIndex - 1)
+        } else if (deltaX < 0 && currentIndex < images.length - 1) {
+          // Swipe left - go to next
+          goToSlide(currentIndex + 1)
+        } else {
+          // Snap back to current
+          scrollToIndex(currentIndex)
+        }
+      } else {
+        // Snap back to current
+        scrollToIndex(currentIndex)
+      }
+    }
+
+    touchStartRef.current = null
+    // Resume autoplay after a short delay
+    setTimeout(() => {
+      autoplayPausedRef.current = false
+    }, 500)
+  }, [currentIndex, images.length, scrollToIndex])
+
+  const goToSlide = useCallback((index: number) => {
+    const clampedIndex = Math.max(0, Math.min(index, images.length - 1))
+    setCurrentIndex(clampedIndex)
+    scrollToIndex(clampedIndex)
+  }, [images.length, scrollToIndex])
+
+  const goToPrev = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newIndex = currentIndex === 0 ? images.length - 1 : currentIndex - 1
+    goToSlide(newIndex)
+  }, [currentIndex, images.length, goToSlide])
+
+  const goToNext = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newIndex = currentIndex === images.length - 1 ? 0 : currentIndex + 1
+    goToSlide(newIndex)
+  }, [currentIndex, images.length, goToSlide])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [])
 
   if (images.length === 0) return null
 
@@ -2777,8 +2870,14 @@ function ImageCarousel({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory touch-pan-x"
-        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+        style={{
+          scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'smooth'
+        }}
       >
         <div className="flex" style={{ width: `${images.length * 100}%` }}>
           {images.map((img, idx) => (
@@ -2799,7 +2898,7 @@ function ImageCarousel({
           <button
             type="button"
             onClick={goToPrev}
-            className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm hover:bg-black/60"
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm hover:bg-black/60 z-10"
             aria-label="Previous image"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2809,7 +2908,7 @@ function ImageCarousel({
           <button
             type="button"
             onClick={goToNext}
-            className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm hover:bg-black/60"
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm hover:bg-black/60 z-10"
             aria-label="Next image"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2826,7 +2925,7 @@ function ImageCarousel({
             <button
               key={idx}
               type="button"
-              onClick={() => goToSlide(idx)}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToSlide(idx) }}
               className={cn(
                 "w-1.5 h-1.5 rounded-full transition-all duration-200",
                 idx === currentIndex
@@ -2843,7 +2942,7 @@ function ImageCarousel({
   )
 }
 
-function BlockRenderer({ block, theme, profile, scale = "small", settings, isInsideCarousel = false }: BlockRendererProps) {
+function BlockRenderer({ block, theme, profile, scale = "small", settings, isInsideCarousel = false, isInsideGroup = false }: BlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
 
   // Use context for Spotify modal - renders at root level to prevent clipping
@@ -4110,8 +4209,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         )
       }
 
-      // Carousel display with navigation dots and smooth scroll
-      if (data.display_style === 'carousel') {
+      // Carousel display with navigation dots and smooth scroll (disabled inside group blocks)
+      if (data.display_style === 'carousel' && !isInsideGroup) {
         return (
           <div className="w-full py-px">
             <ImageCarousel
@@ -4123,6 +4222,11 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             />
           </div>
         )
+      }
+
+      // If carousel is requested but inside group, show single image instead
+      if (data.display_style === 'carousel' && isInsideGroup) {
+        return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
       }
 
       // Default: single image

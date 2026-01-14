@@ -2531,51 +2531,143 @@ function PublicImageCarousel({
   const [currentIndex, setCurrentIndex] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [isHovered, setIsHovered] = useState(false)
+  const isScrollingRef = useRef(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const autoplayPausedRef = useRef(false)
 
   // Auto-advance slides if autoplay is enabled
   useEffect(() => {
-    if (!autoplay || isHovered || images.length <= 1) return
+    if (!autoplay || isHovered || autoplayPausedRef.current || images.length <= 1) return
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % images.length)
+      if (!autoplayPausedRef.current) {
+        goToSlide((currentIndex + 1) % images.length)
+      }
     }, 4000)
     return () => clearInterval(interval)
-  }, [autoplay, isHovered, images.length])
+  }, [autoplay, isHovered, images.length, currentIndex])
 
-  // Scroll to current index when it changes
-  useEffect(() => {
-    if (scrollRef.current) {
-      const container = scrollRef.current
-      const itemWidth = container.scrollWidth / images.length
-      container.scrollTo({
-        left: itemWidth * currentIndex,
-        behavior: 'smooth'
-      })
+  // Scroll to specific index with smooth animation
+  const scrollToIndex = useCallback((index: number) => {
+    if (!scrollRef.current) return
+    const container = scrollRef.current
+    const itemWidth = container.scrollWidth / images.length
+    isScrollingRef.current = true
+
+    container.scrollTo({
+      left: itemWidth * index,
+      behavior: 'smooth'
+    })
+
+    // Clear any existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
     }
-  }, [currentIndex, images.length])
 
-  // Handle scroll events to update currentIndex
+    // Reset scrolling flag after animation completes
+    scrollTimeoutRef.current = setTimeout(() => {
+      isScrollingRef.current = false
+    }, 400)
+  }, [images.length])
+
+  // Handle scroll events to update currentIndex (only when user is manually scrolling)
   const handleScroll = useCallback(() => {
+    // Don't update index if we're doing a programmatic scroll
+    if (isScrollingRef.current) return
+
     if (scrollRef.current) {
       const container = scrollRef.current
       const itemWidth = container.scrollWidth / images.length
       const newIndex = Math.round(container.scrollLeft / itemWidth)
-      if (newIndex !== currentIndex && newIndex >= 0 && newIndex < images.length) {
+      if (newIndex >= 0 && newIndex < images.length && newIndex !== currentIndex) {
         setCurrentIndex(newIndex)
       }
     }
-  }, [currentIndex, images.length])
+  }, [images.length, currentIndex])
 
-  const goToSlide = (index: number) => {
-    setCurrentIndex(index)
-  }
+  // Touch event handlers for smooth swipe
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now()
+    }
+    autoplayPausedRef.current = true
+  }, [])
 
-  const goToPrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length)
-  }
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current || !scrollRef.current) {
+      autoplayPausedRef.current = false
+      return
+    }
 
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length)
-  }
+    const touchEnd = {
+      x: e.changedTouches[0].clientX,
+      y: e.changedTouches[0].clientY,
+      time: Date.now()
+    }
+
+    const deltaX = touchEnd.x - touchStartRef.current.x
+    const deltaY = touchEnd.y - touchStartRef.current.y
+    const deltaTime = touchEnd.time - touchStartRef.current.time
+
+    // Only handle horizontal swipes
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+      const velocity = Math.abs(deltaX) / deltaTime
+
+      // Fast swipe or significant distance
+      if (velocity > 0.3 || Math.abs(deltaX) > 80) {
+        if (deltaX > 0 && currentIndex > 0) {
+          // Swipe right - go to previous
+          goToSlide(currentIndex - 1)
+        } else if (deltaX < 0 && currentIndex < images.length - 1) {
+          // Swipe left - go to next
+          goToSlide(currentIndex + 1)
+        } else {
+          // Snap back to current
+          scrollToIndex(currentIndex)
+        }
+      } else {
+        // Snap back to current
+        scrollToIndex(currentIndex)
+      }
+    }
+
+    touchStartRef.current = null
+    // Resume autoplay after a short delay
+    setTimeout(() => {
+      autoplayPausedRef.current = false
+    }, 500)
+  }, [currentIndex, images.length, scrollToIndex])
+
+  const goToSlide = useCallback((index: number) => {
+    const clampedIndex = Math.max(0, Math.min(index, images.length - 1))
+    setCurrentIndex(clampedIndex)
+    scrollToIndex(clampedIndex)
+  }, [images.length, scrollToIndex])
+
+  const goToPrev = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newIndex = currentIndex === 0 ? images.length - 1 : currentIndex - 1
+    goToSlide(newIndex)
+  }, [currentIndex, images.length, goToSlide])
+
+  const goToNext = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newIndex = currentIndex === images.length - 1 ? 0 : currentIndex + 1
+    goToSlide(newIndex)
+  }, [currentIndex, images.length, goToSlide])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [])
 
   if (images.length === 0) return null
 
@@ -2589,8 +2681,14 @@ function PublicImageCarousel({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory touch-pan-x"
-        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+        style={{
+          scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'smooth'
+        }}
       >
         <div className="flex" style={{ width: `${images.length * 100}%` }}>
           {images.map((img, idx) => (
@@ -2612,7 +2710,7 @@ function PublicImageCarousel({
             type="button"
             onClick={goToPrev}
             className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60",
+              "absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
               isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
             )}
             aria-label="Previous image"
@@ -2625,7 +2723,7 @@ function PublicImageCarousel({
             type="button"
             onClick={goToNext}
             className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60",
+              "absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
               isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
             )}
             aria-label="Next image"
@@ -2644,7 +2742,7 @@ function PublicImageCarousel({
             <button
               key={idx}
               type="button"
-              onClick={() => goToSlide(idx)}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToSlide(idx) }}
               className={cn(
                 "h-2 rounded-full transition-all duration-200",
                 idx === currentIndex
@@ -4085,8 +4183,8 @@ function PublicBlockRenderer({
         )
       }
 
-      // Carousel display with navigation dots and smooth scroll
-      if (data.display_style === 'carousel') {
+      // Carousel display with navigation dots and smooth scroll (disabled inside group blocks)
+      if (data.display_style === 'carousel' && !isInsideGroup) {
         return (
           <div className="w-full py-px">
             <PublicImageCarousel
@@ -4098,6 +4196,11 @@ function PublicBlockRenderer({
             />
           </div>
         )
+      }
+
+      // If carousel is requested but inside group, show single image instead
+      if (data.display_style === 'carousel' && isInsideGroup) {
+        return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
       }
 
       // Default: single image
