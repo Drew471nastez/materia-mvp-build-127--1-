@@ -134,6 +134,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const userDisplayName = displayName || username || creatorSlug || "User"
   const userInitials = userDisplayName.slice(0, 2).toUpperCase()
 
+  // Light NavItem for desktop sidebar
   const NavItem = ({ item, onClick }: { item: (typeof mainNavItems)[0]; onClick?: () => void }) => {
     const Icon = item.icon
     const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
@@ -147,6 +148,28 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           isActive
             ? "bg-neutral-200 text-neutral-900"
             : "text-neutral-600 hover:bg-neutral-100/50 hover:text-neutral-900",
+        )}
+      >
+        <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+        <span>{item.label}</span>
+      </Link>
+    )
+  }
+
+  // Dark NavItem for mobile sidebar (matches dark header)
+  const MobileNavItem = ({ item, onClick }: { item: (typeof mainNavItems)[0]; onClick?: () => void }) => {
+    const Icon = item.icon
+    const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
+
+    return (
+      <Link
+        href={item.href}
+        onClick={onClick}
+        className={cn(
+          "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150",
+          isActive
+            ? "bg-white/15 text-white"
+            : "text-white/70 hover:bg-white/10 hover:text-white",
         )}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
@@ -283,37 +306,37 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     </div>
   )
 
-  // Mobile sidebar content without profile avatar - only shows logo
+  // Mobile sidebar content with dark theme (matches dark header)
   const MobileSidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <div className="flex h-full flex-col bg-[#FAFAFA]">
+    <div className="flex h-full flex-col bg-[#111111]">
       {/* Logo header with Help icon right-aligned */}
-      <div className="px-4 pt-4 pb-2 border-b border-neutral-200/50 flex items-center justify-between">
+      <div className="px-4 pt-4 pb-2 border-b border-white/10 flex items-center justify-between">
         <Link
           href="/"
           onClick={onItemClick}
-          className="text-[20px] font-semibold tracking-tight text-violet-600 hover:text-violet-700 transition-colors"
+          className="text-[20px] font-semibold tracking-tight text-white hover:text-white/80 transition-colors"
         >
           storelib
         </Link>
         <Link
           href="/help"
           onClick={onItemClick}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-500 transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-colors"
         >
           <HelpCircle className="h-4 w-4" strokeWidth={1.5} />
         </Link>
       </div>
 
-      <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-3">
+      <nav className="sidebar-nav sidebar-nav-dark flex-1 overflow-y-auto px-3 py-3">
         <div className="space-y-0.5">
           {mainNavItems.map((item) => (
-            <NavItem key={item.href} item={item} onClick={onItemClick} />
+            <MobileNavItem key={item.href} item={item} onClick={onItemClick} />
           ))}
         </div>
 
         {storeUrl && !storePublished && (
-          <div className="mt-4 rounded-[10px] bg-amber-50/80 border border-amber-100/80 px-3 py-2.5">
-            <p className="text-[12px] text-amber-700">Store is unpublished. Go to Settings to publish.</p>
+          <div className="mt-4 rounded-[10px] bg-amber-500/20 border border-amber-500/30 px-3 py-2.5">
+            <p className="text-[12px] text-amber-300">Store is unpublished. Go to Settings to publish.</p>
           </div>
         )}
       </nav>
@@ -322,23 +345,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <Link
           href="/upgrade"
           onClick={onItemClick}
-          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
+          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-500/20 to-purple-500/20 border border-violet-500/30 px-3.5 py-3 transition-all duration-150 hover:from-violet-500/30 hover:to-purple-500/30"
         >
           <div>
-            <p className="text-[13px] font-semibold text-neutral-900">Upgrade to Pro</p>
-            <p className="text-[11px] text-neutral-600">Unlock more benefits</p>
+            <p className="text-[13px] font-semibold text-white">Upgrade to Pro</p>
+            <p className="text-[11px] text-white/60">Unlock more benefits</p>
           </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100/80 group-hover:bg-violet-200/80 transition-colors">
-            <Zap className="h-3.5 w-3.5 text-violet-600" strokeWidth={2} />
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/30 group-hover:bg-violet-500/40 transition-colors">
+            <Zap className="h-3.5 w-3.5 text-violet-300" strokeWidth={2} />
           </div>
         </Link>
       </div>
 
-      <div className="border-t border-neutral-200/50 px-4 py-3.5">
+      <div className="border-t border-white/10 px-4 py-3.5">
         <Link
           href="/explore"
           onClick={onItemClick}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors"
         >
           <Compass className="h-4 w-4" strokeWidth={1.5} />
           <span className="text-[13px] font-medium">Explore</span>
@@ -373,7 +396,16 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         .sidebar-nav::-webkit-scrollbar-thumb:hover {
           background-color: rgba(0, 0, 0, 0.25);
         }
-
+        /* Dark scrollbar for mobile sidebar */
+        .sidebar-nav-dark:hover {
+          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+        .sidebar-nav-dark:hover::-webkit-scrollbar-thumb {
+          background-color: rgba(255, 255, 255, 0.2);
+        }
+        .sidebar-nav-dark::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(255, 255, 255, 0.3);
+        }
       `}</style>
 
       {/* Mobile Header - Dark background, content below has outward rounded top corners */}
@@ -511,7 +543,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent
           side="left"
-          className="w-[260px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)] border-neutral-200/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:duration-200 data-[state=open]:duration-300 ease-out"
+          className="w-[260px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)] bg-[#111111] border-white/10 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:duration-200 data-[state=open]:duration-300 ease-out"
           hideCloseButton
         >
           <SheetHeader className="sr-only">
