@@ -374,39 +374,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           background-color: rgba(0, 0, 0, 0.25);
         }
 
-        /* Mobile header with subtle inward curved corners */
-        .mobile-header-curved {
-          position: relative;
-          border-radius: 0;
-        }
-
-        .mobile-header-curved::before,
-        .mobile-header-curved::after {
-          content: '';
-          position: absolute;
-          bottom: -12px;
-          width: 12px;
-          height: 12px;
-          background: transparent;
-          pointer-events: none;
-        }
-
-        .mobile-header-curved::before {
-          left: 0;
-          border-top-right-radius: 12px;
-          box-shadow: 6px -6px 0 0 #111111;
-        }
-
-        .mobile-header-curved::after {
-          right: 0;
-          border-top-left-radius: 12px;
-          box-shadow: -6px -6px 0 0 #111111;
-        }
       `}</style>
 
-      {/* Mobile Header - Dark floating panel with inward carved corners at bottom */}
-      <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden">
-        <div className="mobile-header-curved flex h-[59px] items-center justify-between px-3 py-[2px] bg-gradient-to-b from-[#1a1a1a] to-[#111111] shadow-lg shadow-black/25">
+      {/* Mobile Header - Dark background, content below has outward rounded top corners */}
+      <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden bg-[#111111]">
+        <div className="flex h-[68px] items-center justify-between px-4 py-[10px]">
           {/* Left side: Hamburger */}
           <div className="flex items-center gap-1">
             <Button
