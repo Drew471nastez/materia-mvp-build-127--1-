@@ -3851,42 +3851,110 @@ function PublicBlockRenderer({
 
     case "image": {
       const data = (block.data || { image_url: "" }) as ImageBlockData
-      if (!data.image_url) return null
+      // Get images array (support both legacy single image and new multi-image)
+      const images = data.images || (data.image_url ? [{ id: '1', image_url: data.image_url, alt_text: data.alt_text, title: '', link_url: data.link_url }] : [])
+      if (images.length === 0 || !images[0]?.image_url) return null
 
+      // Get border radius value
+      const borderRadiusMap: Record<string, string> = {
+        'none': '0',
+        'sm': '8px',
+        'md': '12px',
+        'lg': '20px',
+        'full': '9999px',
+      }
+      const borderRadius = borderRadiusMap[data.border_radius || 'md'] || '12px'
+
+      // Get aspect ratio class
       const aspectRatioClass =
-        data.aspect_ratio === "square"
-          ? "aspect-square"
-          : data.aspect_ratio === "video"
-            ? "aspect-video"
-            : data.aspect_ratio === "wide"
-              ? "aspect-[2/1]"
-              : ""
+        data.aspect_ratio === "square" ? "aspect-square" :
+        data.aspect_ratio === "portrait" ? "aspect-[3/4]" :
+        data.aspect_ratio === "landscape" ? "aspect-[4/3]" :
+        data.aspect_ratio === "video" ? "aspect-video" :
+        data.aspect_ratio === "wide" ? "aspect-[2/1]" : ""
 
-      const imageContent = (
-        <div className={cn("w-full overflow-hidden rounded-xl sm:rounded-2xl", aspectRatioClass)}>
-          <img
-            src={data.image_url || "/placeholder.svg"}
-            alt={data.alt_text || ""}
-            className={cn("w-full", aspectRatioClass ? "h-full object-cover" : "h-auto")}
-            loading="lazy"
-          />
-        </div>
-      )
+      // Render single image
+      const renderImage = (img: typeof images[0], index: number) => {
+        const imageContent = (
+          <div className="w-full">
+            <div
+              className={cn("w-full overflow-hidden", aspectRatioClass)}
+              style={{ borderRadius }}
+            >
+              <img
+                src={img.image_url || "/placeholder.svg"}
+                alt={img.alt_text || ""}
+                className={cn(
+                  "w-full",
+                  aspectRatioClass ? "h-full" : "h-auto",
+                  data.image_fit === 'contain' ? 'object-contain' : 'object-cover'
+                )}
+                loading="lazy"
+              />
+            </div>
+            {data.show_captions && img.title && (
+              <p
+                className="text-center text-sm mt-2 opacity-70"
+                style={{ color: theme.text_color }}
+              >
+                {img.title}
+              </p>
+            )}
+          </div>
+        )
 
-      if (data.link_url) {
+        if (data.clickable && img.link_url) {
+          return (
+            <a
+              key={img.id || index}
+              href={img.link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackClick(block.id, img.link_url!)}
+              className={cn("w-full block transition-opacity", !isInsideCarousel && "hover:opacity-90")}
+            >
+              {imageContent}
+            </a>
+          )
+        }
+        return <div key={img.id || index} className="w-full">{imageContent}</div>
+      }
+
+      // Single display or only one image
+      if (data.display_style === 'single' || images.length === 1) {
+        return <div className="w-full">{renderImage(images[0], 0)}</div>
+      }
+
+      // Grid display
+      if (data.display_style === 'grid') {
+        const cols = data.grid_columns || 2
         return (
-          <a
-            href={data.link_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackClick(block.id, data.link_url!)}
-            className={cn("w-full block transition-opacity", !isInsideCarousel && "hover:opacity-90")}
+          <div
+            className="w-full grid gap-3"
+            style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
           >
-            {imageContent}
-          </a>
+            {images.map((img, idx) => renderImage(img, idx))}
+          </div>
         )
       }
-      return imageContent
+
+      // Carousel display
+      if (data.display_style === 'carousel') {
+        return (
+          <div className="w-full overflow-x-auto scrollbar-hide -mx-4 px-4">
+            <div className="flex gap-3" style={{ width: 'max-content' }}>
+              {images.map((img, idx) => (
+                <div key={img.id || idx} className="w-[280px] sm:w-[320px] shrink-0">
+                  {renderImage(img, idx)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      }
+
+      // Default: single image
+      return <div className="w-full">{renderImage(images[0], 0)}</div>
     }
 
     case "email_capture": {

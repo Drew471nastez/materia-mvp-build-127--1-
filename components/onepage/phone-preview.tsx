@@ -3894,19 +3894,98 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
     case "image": {
       const data = block.data as ImageBlockData
-      if (!data.image_url) return null
+      // Get images array (support both legacy single image and new multi-image)
+      const images = data.images || (data.image_url ? [{ id: '1', image_url: data.image_url, alt_text: data.alt_text, title: '', link_url: data.link_url }] : [])
+      if (images.length === 0 || !images[0]?.image_url) return null
+
+      // Get border radius value
+      const borderRadiusMap: Record<string, string> = {
+        'none': '0',
+        'sm': '4px',
+        'md': '8px',
+        'lg': '16px',
+        'full': '9999px',
+      }
+      const borderRadius = borderRadiusMap[data.border_radius || 'md'] || `${theme.button_border_radius}px`
+
+      // Get aspect ratio class
       const aspectClass =
-        data.aspect_ratio === "square" ? "aspect-square" : data.aspect_ratio === "video" ? "aspect-video" : ""
-      return (
-        <div className="w-full">
-          <img
-            src={data.image_url || "/placeholder.svg"}
-            alt={data.alt_text || ""}
-            className={cn("w-full object-cover", aspectClass)}
-            style={{ borderRadius: `${theme.button_border_radius}px`, imageRendering: "auto" }}
-          />
-        </div>
-      )
+        data.aspect_ratio === "square" ? "aspect-square" :
+        data.aspect_ratio === "portrait" ? "aspect-[3/4]" :
+        data.aspect_ratio === "landscape" ? "aspect-[4/3]" :
+        data.aspect_ratio === "video" ? "aspect-video" :
+        data.aspect_ratio === "wide" ? "aspect-[2/1]" : ""
+
+      // Render single image
+      const renderImage = (img: typeof images[0], index: number) => {
+        const imageContent = (
+          <div className="relative w-full">
+            <img
+              src={img.image_url || "/placeholder.svg"}
+              alt={img.alt_text || ""}
+              className={cn(
+                "w-full",
+                aspectClass,
+                data.image_fit === 'contain' ? 'object-contain' : 'object-cover'
+              )}
+              style={{ borderRadius, imageRendering: "auto" }}
+            />
+            {data.show_captions && img.title && (
+              <p
+                className="text-center text-xs mt-1.5 opacity-70"
+                style={{ color: theme.text_color }}
+              >
+                {img.title}
+              </p>
+            )}
+          </div>
+        )
+
+        if (data.clickable && img.link_url) {
+          return (
+            <a key={img.id || index} href={img.link_url} target="_blank" rel="noopener noreferrer" className="block w-full">
+              {imageContent}
+            </a>
+          )
+        }
+        return <div key={img.id || index} className="w-full">{imageContent}</div>
+      }
+
+      // Single display or only one image
+      if (data.display_style === 'single' || images.length === 1) {
+        return <div className="w-full">{renderImage(images[0], 0)}</div>
+      }
+
+      // Grid display
+      if (data.display_style === 'grid') {
+        const cols = data.grid_columns || 2
+        return (
+          <div
+            className="w-full grid gap-2"
+            style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+          >
+            {images.map((img, idx) => renderImage(img, idx))}
+          </div>
+        )
+      }
+
+      // Carousel display
+      if (data.display_style === 'carousel') {
+        return (
+          <div className="w-full overflow-x-auto scrollbar-hide">
+            <div className="flex gap-2" style={{ width: 'max-content' }}>
+              {images.map((img, idx) => (
+                <div key={img.id || idx} className="w-[85%] shrink-0 first:ml-0">
+                  {renderImage(img, idx)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      }
+
+      // Default: single image
+      return <div className="w-full">{renderImage(images[0], 0)}</div>
     }
 
     case "divider": {

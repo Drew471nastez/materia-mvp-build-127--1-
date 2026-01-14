@@ -1298,7 +1298,7 @@ export function LinksTab() {
     // If adding to a group, handle differently
     if (addToGroupId) {
       // Don't allow adding these types to a group
-      if (type === "header" || type === "group" || type === "social_row" || type === "product") {
+      if (type === "header" || type === "group" || type === "social_row" || type === "product" || type === "email_capture" || type === "text" || type === "divider") {
         setShowAddModal(false)
         setSearchQuery("")
         setAddToGroupId(null)
@@ -1524,7 +1524,7 @@ export function LinksTab() {
   const hasHeaderBlock = sortedBlocks.some(b => b.type === "header")
 
   // Block types that can't be added to a group
-  const blockedInGroup = ["header", "group", "social_row", "product"]
+  const blockedInGroup = ["header", "group", "social_row", "product", "email_capture", "text", "divider"]
 
   const activeCategoryBlocks = (searchQuery
     ? filteredCategories.flatMap(c => c.blocks)
@@ -1887,11 +1887,10 @@ export function LinksTab() {
 
             {/* Quick action buttons for group - simplified */}
             {!searchQuery && addToGroupId && (
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-5">
                 {[
                   { label: "Link", icon: Link, type: "link_button" as const },
-                  { label: "Text", icon: Type, type: "text" as const },
-                  { label: "Form", icon: Mail, type: "email_capture" as const },
+                  { label: "Image", icon: ImageIcon, type: "image" as const },
                 ].map((item) => {
                   const Icon = item.icon
                   return (
@@ -1915,7 +1914,7 @@ export function LinksTab() {
                   .filter(cat => {
                     // Filter out categories with no allowed blocks when adding to group
                     if (addToGroupId) {
-                      const allowedTypes = ["link_button", "text", "image", "divider", "email_capture"]
+                      const allowedTypes = ["link_button", "image"]
                       return cat.blocks.some(b => allowedTypes.includes(b.type))
                     }
                     return true
@@ -1923,7 +1922,7 @@ export function LinksTab() {
                   .map((category) => {
                     // Filter blocks for group if needed
                     const blocksToShow = addToGroupId
-                      ? category.blocks.filter(b => ["link_button", "text", "image", "divider", "email_capture"].includes(b.type))
+                      ? category.blocks.filter(b => ["link_button", "image"].includes(b.type))
                       : category.blocks
 
                     if (blocksToShow.length === 0) return null
@@ -3818,7 +3817,7 @@ function BlockItem({
         return { title: data.content?.slice(0, 30) || "Text block", subtitle: "Text", icon: Type }
       }
       case "image":
-        return { title: "Image", subtitle: "Image block", icon: Image }
+        return { title: "Image", subtitle: "Image block", icon: ImageIcon }
       case "divider":
         return { title: "Divider", subtitle: "Spacing", icon: Minus }
       case "email_capture": {
@@ -5663,12 +5662,12 @@ function BlockEditor({
 
         return (
           <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
-              <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -6477,12 +6476,12 @@ function BlockEditor({
 
         return (
           <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
-              <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -6742,12 +6741,12 @@ function BlockEditor({
 
         return (
           <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
-              <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -7007,12 +7006,12 @@ function BlockEditor({
 
         return (
           <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
-              <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -7582,12 +7581,12 @@ function BlockEditor({
 
     return (
       <Tabs defaultValue="links" className="w-full">
-        <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
-          <TabsTrigger value="links" className="flex-1 text-xs h-8 gap-1.5">
+        <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+          <TabsTrigger value="links" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
             <Link className="w-3.5 h-3.5" />
             Links
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
             <LayoutGrid className="w-3.5 h-3.5" />
             Layout
           </TabsTrigger>
@@ -7677,7 +7676,7 @@ function BlockEditor({
                           }}
                           className={cn(
                             "w-8 h-5 rounded-full transition-colors relative",
-                            child.enabled ? "bg-violet-500" : "bg-gray-300"
+                            child.enabled ? "bg-gray-900" : "bg-gray-300"
                           )}
                         >
                           <div className={cn(
