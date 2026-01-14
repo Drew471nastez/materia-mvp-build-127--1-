@@ -229,9 +229,9 @@ export function PlatformHeaderClient() {
   const showCategories = pathname === "/explore" || pathname === "/"
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white border-gray-200">
+    <header className="sticky top-0 z-50 w-full border-b bg-white border-gray-200 md:rounded-none rounded-b-[20px] md:border-b border-b-0 md:shadow-none shadow-sm">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4">
+        <div className="flex h-16 md:h-16 items-center justify-between gap-4 py-[18px] md:py-0">
           {/* Logo */}
           <Link href="/" className="shrink-0">
             <Image
