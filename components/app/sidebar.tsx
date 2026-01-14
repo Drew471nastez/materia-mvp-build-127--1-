@@ -375,16 +375,16 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         }
       `}</style>
 
-      {/* Mobile Header - Dark bar with outward curved corners at bottom */}
+      {/* Mobile Header - Dark bar with inward curved corners at bottom */}
       <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden">
-        <div className="relative flex h-12 items-center justify-between px-3 bg-gradient-to-b from-neutral-800 to-neutral-900 shadow-lg shadow-black/20">
-          {/* Bottom left outward curve */}
-          <div className="absolute -bottom-3 left-0 w-3 h-3 bg-gradient-to-b from-neutral-900 to-neutral-900">
-            <div className="w-full h-full bg-[#FAFAFA] rounded-tr-xl" />
+        <div className="relative flex h-[51px] items-center justify-between px-3 bg-gradient-to-b from-[#1a1a1a] to-[#111111] shadow-lg shadow-black/25">
+          {/* Bottom left inward curve */}
+          <div className="absolute -bottom-3 left-0 w-3 h-3 bg-[#FAFAFA]">
+            <div className="w-full h-full bg-[#111111] rounded-br-xl" />
           </div>
-          {/* Bottom right outward curve */}
-          <div className="absolute -bottom-3 right-0 w-3 h-3 bg-gradient-to-b from-neutral-900 to-neutral-900">
-            <div className="w-full h-full bg-[#FAFAFA] rounded-tl-xl" />
+          {/* Bottom right inward curve */}
+          <div className="absolute -bottom-3 right-0 w-3 h-3 bg-[#FAFAFA]">
+            <div className="w-full h-full bg-[#111111] rounded-bl-xl" />
           </div>
           {/* Left side: Hamburger */}
           <div className="flex items-center gap-1">
@@ -418,12 +418,12 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             </Button>
           </div>
 
-          {/* Center: Search placeholder or profile */}
-          <div ref={mobileDropdownRef} className="relative flex-1 mx-2">
+          {/* Profile - positioned left near hamburger */}
+          <div ref={mobileDropdownRef} className="relative flex-1 ml-1">
             <button
               onClick={() => setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)}
               className={cn(
-                "flex items-center gap-2 w-full justify-center rounded-xl px-3 py-1.5 transition-all duration-150",
+                "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-all duration-150",
                 mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
               )}
             >
@@ -448,7 +448,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
             {/* Mobile Profile Dropdown Menu */}
             {mobileProfileDropdownOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 animate-in fade-in-0 zoom-in-95 duration-100 min-w-[200px]">
+              <div className="absolute left-0 top-full mt-2 z-50 animate-in fade-in-0 zoom-in-95 duration-100 min-w-[200px]">
                 <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
                   {profileDropdownItems.map((item) => {
                     const Icon = item.icon
