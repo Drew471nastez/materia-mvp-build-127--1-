@@ -58,7 +58,7 @@ const productTypeOptions = [
     icon: Package,
     color: "bg-amber-500",
     badge: "Digital",
-    badgeColor: "bg-amber-100 text-amber-700",
+    badgeColor: "bg-gray-100 text-gray-600",
   },
   {
     id: "course",
@@ -68,7 +68,8 @@ const productTypeOptions = [
     icon: GraduationCap,
     color: "bg-emerald-500",
     badge: "eCourse",
-    badgeColor: "bg-emerald-100 text-emerald-700",
+    badgeColor: "bg-gray-100 text-gray-600",
+    comingSoon: true,
   },
   {
     id: "email_capture",
@@ -78,7 +79,7 @@ const productTypeOptions = [
     icon: Mail,
     color: "bg-rose-500",
     badge: "Email",
-    badgeColor: "bg-rose-100 text-rose-700",
+    badgeColor: "bg-gray-100 text-gray-600",
   },
 ]
 
@@ -90,7 +91,16 @@ export function ProductsTab() {
   const [searchQuery, setSearchQuery] = useState("")
   const [addingProductId, setAddingProductId] = useState<string | null>(null)
   const [addedProductIds, setAddedProductIds] = useState<Set<string>>(new Set())
+  const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
   const router = useRouter()
+
+  // Show notification and auto-hide after 3 seconds
+  const showNotification = (message: string) => {
+    setNotification({ message, visible: true })
+    setTimeout(() => {
+      setNotification({ message: "", visible: false })
+    }, 3000)
+  }
 
   // Check which products already have blocks on the page
   useEffect(() => {
@@ -137,13 +147,13 @@ export function ProductsTab() {
   const getProductBadge = (type?: string) => {
     switch (type) {
       case 'course':
-        return { label: 'eCourse', color: 'bg-emerald-100 text-emerald-700' }
+        return { label: 'eCourse', color: 'bg-gray-100 text-gray-600' }
       case 'lead_magnet':
       case 'email_capture':
-        return { label: 'Email', color: 'bg-rose-100 text-rose-700' }
+        return { label: 'Email', color: 'bg-gray-100 text-gray-600' }
       case 'digital':
       default:
-        return { label: 'Digital', color: 'bg-amber-100 text-amber-700' }
+        return { label: 'Digital', color: 'bg-gray-100 text-gray-600' }
     }
   }
 
@@ -223,13 +233,24 @@ export function ProductsTab() {
   }, [addBlock, updateBlock, setActiveSection, addedProductIds, onepage?.draft_blocks])
 
   // Handle modal option click
-  const handleModalOptionClick = (option: typeof productTypeOptions[0]) => {
+  const handleModalOptionClick = (option: typeof productTypeOptions[0] & { comingSoon?: boolean }) => {
+    // Don't do anything if coming soon
+    if (option.comingSoon) {
+      return
+    }
+
     if (option.type === "email_capture") {
       addBlock("email_capture")
+      showNotification("Email Capture Form added to your page")
+      setShowAddModal(false)
+      setActiveSection("links")
+    } else if (option.id === "digital") {
+      addBlock("product")
+      showNotification("Digital Product block added to your page")
       setShowAddModal(false)
       setActiveSection("links")
     } else {
-      // Redirect to product creation page
+      // Redirect to product creation page for other types
       window.location.href = `/app/products/new?type=${option.id}`
     }
   }
@@ -243,6 +264,16 @@ export function ProductsTab() {
 
   return (
     <div className="space-y-6">
+      {/* Notification Toast */}
+      {notification.visible && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg shadow-lg">
+            <Check className="h-4 w-4 text-green-400" />
+            <span className="text-sm font-medium">{notification.message}</span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -360,6 +391,7 @@ export function ProductsTab() {
           <button
             onClick={() => {
               addBlock("email_capture")
+              showNotification("Email Capture Form added to your page")
               setActiveSection("links")
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
@@ -379,7 +411,9 @@ export function ProductsTab() {
           {/* Digital Product */}
           <button
             onClick={() => {
-              window.location.href = '/app/products/new?type=digital'
+              addBlock("product")
+              showNotification("Digital Product block added to your page")
+              setActiveSection("links")
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
           >
@@ -395,10 +429,11 @@ export function ProductsTab() {
             <ChevronRight className="h-5 w-5 text-gray-400" />
           </button>
 
-          {/* PDF */}
+          {/* PDF Document */}
           <button
             onClick={() => {
-              addBlock("link_button")
+              addBlock("pdf_document")
+              showNotification("PDF Document block added to your page")
               setActiveSection("links")
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
@@ -409,7 +444,7 @@ export function ProductsTab() {
             <div className="flex-1">
               <p className="font-medium">PDF</p>
               <p className="text-sm text-muted-foreground">
-                Link to a PDF document
+                Upload or link to a PDF document
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -431,13 +466,20 @@ export function ProductsTab() {
             <div className="grid gap-3">
               {productTypeOptions.map((option) => {
                 const Icon = option.icon
+                const isComingSoon = (option as any).comingSoon === true
                 return (
                   <button
                     key={option.id}
-                    onClick={() => handleModalOptionClick(option)}
-                    className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left group"
+                    onClick={() => handleModalOptionClick(option as any)}
+                    disabled={isComingSoon}
+                    className={cn(
+                      "flex items-center gap-4 p-4 border rounded-xl transition-all text-left group",
+                      isComingSoon
+                        ? "opacity-60 cursor-not-allowed bg-gray-50"
+                        : "hover:border-violet-300 hover:bg-violet-50/50"
+                    )}
                   >
-                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", option.color)}>
+                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", option.color, isComingSoon && "opacity-60")}>
                       <Icon className="h-6 w-6 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -446,10 +488,15 @@ export function ProductsTab() {
                         <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", option.badgeColor)}>
                           {option.badge}
                         </span>
+                        {isComingSoon && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-200 text-gray-500">
+                            Coming Soon
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5">{option.description}</p>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-violet-500 transition-colors" />
+                    <ChevronRight className={cn("h-5 w-5 text-gray-400 transition-colors", !isComingSoon && "group-hover:text-violet-500")} />
                   </button>
                 )
               })}
