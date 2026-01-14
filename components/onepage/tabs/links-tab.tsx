@@ -4379,6 +4379,11 @@ function BlockEditor({
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
+  // Image block upload state
+  const [imageUploading, setImageUploading] = useState<string | null>(null) // stores image item id being uploaded
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [currentImageItemId, setCurrentImageItemId] = useState<string | null>(null)
+
   // Drag state for social icons reordering
   const [draggedSocialId, setDraggedSocialId] = useState<string | null>(null)
   const [dragOverSocialId, setDragOverSocialId] = useState<string | null>(null)
@@ -4474,6 +4479,50 @@ function BlockEditor({
       setThumbnailUploading(false)
       if (thumbnailInputRef.current) {
         thumbnailInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Handle image upload for Image block
+  const handleImageBlockUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !currentImageItemId) return
+
+    setImageUploading(currentImageItemId)
+    try {
+      const supabase = createClient()
+      const fileExt = file.name.split('.').pop()
+      const fileName = `image_${block.id}_${currentImageItemId}_${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('onepage-assets')
+        .upload(fileName, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('onepage-assets')
+        .getPublicUrl(fileName)
+
+      // Update the specific image in the images array
+      const data = block.data as ImageBlockData
+      const images = data.images || (data.image_url ? [{ id: '1', image_url: data.image_url, alt_text: data.alt_text, link_url: data.link_url }] : [])
+      const newImages = images.map(img =>
+        img.id === currentImageItemId
+          ? { ...img, image_url: publicUrl }
+          : img
+      )
+      updateData({
+        images: newImages,
+        image_url: newImages[0]?.image_url || ''
+      })
+    } catch (error) {
+      console.error('Error uploading image:', error)
+    } finally {
+      setImageUploading(null)
+      setCurrentImageItemId(null)
+      if (imageInputRef.current) {
+        imageInputRef.current.value = ''
       }
     }
   }
@@ -4584,7 +4633,7 @@ function BlockEditor({
   }
 
   // Determine if this block type supports layout options
-  const supportsLayout = ["link_button", "image", "product"].includes(block.type)
+  const supportsLayout = ["link_button", "product"].includes(block.type)
 
   // Get current layout type from block data
   const currentLayoutType = (block.data as any).layout_type || 'default'
@@ -6230,11 +6279,18 @@ function BlockEditor({
                       <button
                         type="button"
                         onClick={() => {
-                          onOpenImageLibrary(block.id, `image_item_${img.id}`)
+                          setCurrentImageItemId(img.id)
+                          imageInputRef.current?.click()
                         }}
-                        className="group relative w-full aspect-video rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-white"
+                        disabled={imageUploading === img.id}
+                        className="group relative w-full aspect-video rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-white disabled:opacity-60"
                       >
-                        {img.image_url ? (
+                        {imageUploading === img.id ? (
+                          <div className="flex flex-col items-center gap-2 text-gray-400">
+                            <div className="w-8 h-8 border-2 border-gray-300 border-t-violet-500 rounded-full animate-spin" />
+                            <span className="text-xs font-medium">Uploading...</span>
+                          </div>
+                        ) : img.image_url ? (
                           <img src={img.image_url} alt={img.alt_text || ''} className="w-full h-full object-cover rounded-lg" />
                         ) : (
                           <div className="flex flex-col items-center gap-2 text-gray-400">
@@ -6242,9 +6298,11 @@ function BlockEditor({
                             <span className="text-xs font-medium">Click to upload</span>
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                          <Upload className="w-6 h-6 text-white" />
-                        </div>
+                        {!imageUploading && (
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                            <Upload className="w-6 h-6 text-white" />
+                          </div>
+                        )}
                       </button>
 
                       <Input
@@ -6457,6 +6515,15 @@ function BlockEditor({
                 </div>
               </div>
             </TabsContent>
+
+            {/* Hidden file input for image upload */}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageBlockUpload}
+              className="hidden"
+            />
           </Tabs>
         )
       }

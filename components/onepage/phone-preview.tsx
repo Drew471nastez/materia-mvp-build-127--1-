@@ -4094,7 +4094,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
       // Single display or only one image
       if (data.display_style === 'single' || images.length === 1) {
-        return <div className="w-full">{renderImage(images[0], 0)}</div>
+        return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
       }
 
       // Grid display
@@ -4102,7 +4102,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         const cols = data.grid_columns || 2
         return (
           <div
-            className="w-full grid gap-2"
+            className="w-full grid gap-2 py-px"
             style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
           >
             {images.map((img, idx) => renderImage(img, idx))}
@@ -4113,18 +4113,20 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       // Carousel display with navigation dots and smooth scroll
       if (data.display_style === 'carousel') {
         return (
-          <ImageCarousel
-            images={images}
-            renderImage={renderImage}
-            borderRadius={borderRadius}
-            autoplay={data.carousel_autoplay}
-            theme={theme}
-          />
+          <div className="w-full py-px">
+            <ImageCarousel
+              images={images}
+              renderImage={renderImage}
+              borderRadius={borderRadius}
+              autoplay={data.carousel_autoplay}
+              theme={theme}
+            />
+          </div>
         )
       }
 
       // Default: single image
-      return <div className="w-full">{renderImage(images[0], 0)}</div>
+      return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
     }
 
     case "divider": {

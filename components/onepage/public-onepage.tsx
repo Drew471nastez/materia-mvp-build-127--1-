@@ -4069,7 +4069,7 @@ function PublicBlockRenderer({
 
       // Single display or only one image
       if (data.display_style === 'single' || images.length === 1) {
-        return <div className="w-full">{renderImage(images[0], 0)}</div>
+        return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
       }
 
       // Grid display
@@ -4077,7 +4077,7 @@ function PublicBlockRenderer({
         const cols = data.grid_columns || 2
         return (
           <div
-            className="w-full grid gap-3"
+            className="w-full grid gap-3 py-px"
             style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
           >
             {images.map((img, idx) => renderImage(img, idx))}
@@ -4088,18 +4088,20 @@ function PublicBlockRenderer({
       // Carousel display with navigation dots and smooth scroll
       if (data.display_style === 'carousel') {
         return (
-          <PublicImageCarousel
-            images={images}
-            renderImage={renderImage}
-            autoplay={data.carousel_autoplay}
-            theme={theme}
-            isDesktop={isDesktop}
-          />
+          <div className="w-full py-px">
+            <PublicImageCarousel
+              images={images}
+              renderImage={renderImage}
+              autoplay={data.carousel_autoplay}
+              theme={theme}
+              isDesktop={isDesktop}
+            />
+          </div>
         )
       }
 
       // Default: single image
-      return <div className="w-full">{renderImage(images[0], 0)}</div>
+      return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
     }
 
     case "email_capture": {
