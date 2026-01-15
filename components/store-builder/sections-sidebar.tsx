@@ -754,15 +754,18 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                         <Label className="text-sm font-medium">Icon Style</Label>
                         <div className="flex gap-2">
                           {[
-                            { id: "default", label: "Default", icon: Circle },
-                            { id: "filled", label: "Filled", icon: Circle },
-                            { id: "outlined", label: "Outlined", icon: Circle },
+                            { id: "default" as const, label: "Default" },
+                            { id: "filled" as const, label: "Filled" },
+                            { id: "outlined" as const, label: "Outlined" },
                           ].map((style) => (
                             <button
                               key={style.id}
+                              onClick={() => updateHeaderSettings({ socialMediaIconStyle: style.id })}
                               className={cn(
                                 "flex-1 py-2.5 px-2 text-xs font-medium rounded-xl border-2 transition-all",
-                                "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
+                                (headerSettings as ShopHeaderSettings).socialMediaIconStyle === style.id
+                                  ? "bg-white border-gray-900 text-gray-900 shadow-sm"
+                                  : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
                               )}
                             >
                               {style.label}

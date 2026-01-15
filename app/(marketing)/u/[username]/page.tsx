@@ -8,7 +8,7 @@ import Image from "next/image"
 import { TrackView } from "@/components/analytics/track-view"
 import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
-import type { ShopHeaderSettings } from "@/lib/store-builder/types"
+import type { ShopHeaderSettings, GlobalStoreSettings } from "@/lib/store-builder/types"
 import { defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
@@ -227,6 +227,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   // Use published config if it exists and has sections
   if (publishedConfig && publishedConfig.sections && publishedConfig.sections.length > 0) {
     const headerSettings = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
+    const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings)
 
     return (
@@ -242,6 +243,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           profile={profile}
           products={products || []}
           productCount={products?.length || 0}
+          globalSettings={globalSettings}
         />
 
         {publishedConfig.sections

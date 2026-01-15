@@ -620,6 +620,7 @@ export const defaultShopHeaderSettings: ShopHeaderSettings = {
   showSocialMedia: false,
   showSocialIconsOnMobile: true, // Added default for mobile social icons toggle
   socialMediaIconColor: "#ffffff",
+  socialMediaIconStyle: "default",
   socialLinks: {
     instagram: { enabled: true, url: "" },
     tiktok: { enabled: true, url: "" },
@@ -940,13 +941,8 @@ export const sectionLibrary: SectionLibraryItem[] = [
     icon: "grid",
     defaultSettings: defaultFeaturedProductsSettings,
   },
-  {
-    type: "more-from-seller",
-    name: "More from Seller",
-    description: "More products from the same seller",
-    icon: "storefront",
-    defaultSettings: defaultMoreFromSellerSettings,
-  },
+  // Note: "more-from-seller" is NOT in the section library - it's only added automatically to product pages
+  // and cannot be manually added via the Add Section popup
   {
     type: "reviews",
     name: "Reviews",
@@ -981,7 +977,7 @@ export const defaultProductPageConfig: PageConfig = {
       type: "more-from-seller",
       settings: defaultMoreFromSellerSettings,
       order: 1,
-      locked: false,
+      locked: true, // Locked so it can only be hidden, not deleted
     },
   ],
   version: 1,

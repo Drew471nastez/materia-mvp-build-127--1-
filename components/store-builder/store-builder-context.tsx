@@ -145,7 +145,7 @@ function ensureMandatoryProductSections(config: PageConfig): PageConfig {
     sections: ensureReviewsSection(next.sections),
   }
 
-  // Ensure More from Seller section exists
+  // Ensure More from Seller section exists and is locked
   const hasMoreFromSeller = next.sections.some((s) => s.type === "more-from-seller")
   if (!hasMoreFromSeller) {
     const moreFromSellerSection: Section = {
@@ -153,11 +153,17 @@ function ensureMandatoryProductSections(config: PageConfig): PageConfig {
       type: "more-from-seller",
       settings: defaultMoreFromSellerSettings,
       order: next.sections.length,
-      locked: false,
+      locked: true, // Locked so it can only be hidden, not deleted
     }
     next = {
       ...next,
       sections: [...next.sections, moreFromSellerSection],
+    }
+  } else {
+    // Make sure existing more-from-seller section is locked
+    next = {
+      ...next,
+      sections: next.sections.map((s) => (s.type === "more-from-seller" ? { ...s, locked: true } : s)),
     }
   }
 
@@ -572,12 +578,18 @@ export function StoreBuilderProvider({
               }
             }
             if (productHeader.stickyAddToCart) {
+              // Calculate border color based on background - dark backgrounds get lighter borders
+              const bgColor = theme.stickyAddToCart.backgroundColor
+              const isDarkBg = bgColor && (bgColor.startsWith("#0") || bgColor.startsWith("#1") || bgColor.startsWith("#2"))
+              const borderColor = isDarkBg ? `${theme.colors.foreground}20` : theme.colors.border || "#e5e7eb"
+
               productHeader.stickyAddToCart = {
                 ...productHeader.stickyAddToCart,
                 backgroundColor: theme.stickyAddToCart.backgroundColor,
                 buttonColor: theme.stickyAddToCart.buttonColor,
                 buttonTextColor: theme.stickyAddToCart.buttonTextColor,
                 borderRadius: theme.stickyAddToCart.borderRadius,
+                borderColor: borderColor,
               }
             }
             // Apply buy button colors

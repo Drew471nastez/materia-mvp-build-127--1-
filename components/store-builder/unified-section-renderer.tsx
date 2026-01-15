@@ -871,8 +871,15 @@ function UnifiedFeaturedProductsSection({
             )}
           >
             <h2
-              className={cn("font-semibold text-foreground", uiIsMobile ? "text-lg" : "text-xl sm:text-2xl")}
-              style={{ textAlign: settings.typography.textAlign }}
+              className={cn(
+                "font-semibold",
+                uiIsMobile ? "text-lg" : "text-xl sm:text-2xl",
+                !settings.colors?.textColor && "text-foreground",
+              )}
+              style={{
+                textAlign: settings.typography.textAlign,
+                color: settings.colors?.textColor || undefined,
+              }}
             >
               {settings.headline}
             </h2>
@@ -973,17 +980,37 @@ function UnifiedFeaturedProductsSection({
                   </div>
 
                   <div className="p-4">
-                    <div className="font-medium text-foreground truncate">{product.title}</div>
+                    <div
+                      className={cn(
+                        "font-medium truncate",
+                        !settings.colors?.textColor && "text-foreground",
+                      )}
+                      style={{ color: settings.colors?.textColor || undefined }}
+                    >
+                      {product.title}
+                    </div>
 
                     {settings.showPrice && (
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
+                        <span
+                          className={cn(
+                            "text-sm",
+                            !settings.colors?.textColor && "text-muted-foreground",
+                          )}
+                          style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
+                        >
                           {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                         </span>
                         {settings.showCompareAtPrice &&
                           product.compare_at_cents &&
                           product.compare_at_cents > product.price_cents && (
-                            <span className="text-sm text-muted-foreground/60 line-through">
+                            <span
+                              className={cn(
+                                "text-sm line-through",
+                                !settings.colors?.textColor && "text-muted-foreground/60",
+                              )}
+                              style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}60` : undefined }}
+                            >
                               {formatPrice(product.compare_at_cents)}
                             </span>
                           )}
@@ -993,11 +1020,23 @@ function UnifiedFeaturedProductsSection({
                 </>
               )
 
+              // Determine card background - use lighter version of section background or default to bg-card
+              const cardBgColor = settings.colors?.backgroundColor && settings.colors.backgroundColor !== "transparent"
+                ? (settings.colors.backgroundColor.includes("gradient") ? undefined : "#ffffff")
+                : undefined
+
               if (isPreviewMode) {
                 return (
                   <div
                     key={product.id}
-                    className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md cursor-pointer"
+                    className={cn(
+                      "group overflow-hidden rounded-lg border transition-all hover:shadow-md cursor-pointer",
+                      !cardBgColor && "bg-card border-border",
+                    )}
+                    style={{
+                      backgroundColor: cardBgColor || undefined,
+                      borderColor: settings.colors?.textColor ? `${settings.colors.textColor}20` : undefined,
+                    }}
                   >
                     {content}
                   </div>
@@ -1008,7 +1047,14 @@ function UnifiedFeaturedProductsSection({
                 <Link
                   key={product.id}
                   href={getProductHref(product)}
-                  className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
+                  className={cn(
+                    "group overflow-hidden rounded-lg border transition-all hover:shadow-md",
+                    !cardBgColor && "bg-card border-border",
+                  )}
+                  style={{
+                    backgroundColor: cardBgColor || undefined,
+                    borderColor: settings.colors?.textColor ? `${settings.colors.textColor}20` : undefined,
+                  }}
                 >
                   {content}
                 </Link>
@@ -1147,6 +1193,7 @@ export function UnifiedShopHeader({
               <SocialMediaIcons
                 socialLinks={settings.socialLinks}
                 iconColor={settings.socialMediaIconColor || "#ffffff"}
+                iconStyle={settings.socialMediaIconStyle || "default"}
                 isPreviewMode={isPreviewMode}
                 isMobile={isMobile}
               />
@@ -1218,9 +1265,11 @@ export function UnifiedShopHeader({
 
           <h1
             className={cn(
-              "mt-3 font-semibold text-foreground break-words max-w-full px-4 flex items-center justify-center gap-1.5",
+              "mt-3 font-semibold break-words max-w-full px-4 flex items-center justify-center gap-1.5",
               isMobile ? "text-lg" : "text-xl sm:text-2xl mt-4",
+              !settings.colors?.textColor && "text-foreground",
             )}
+            style={{ color: settings.colors?.textColor || undefined }}
           >
             {profile?.display_name || "Creator"}
             {globalSettings?.verifiedBadgeEnabled && (
@@ -1256,9 +1305,11 @@ export function UnifiedShopHeader({
           {settings.showHeadline && creator?.headline && (
             <p
               className={cn(
-                "mt-1 text-muted-foreground break-words max-w-full px-4",
+                "mt-1 break-words max-w-full px-4",
                 isMobile ? "text-xs" : "text-sm sm:text-base",
+                !settings.colors?.textColor && "text-muted-foreground",
               )}
+              style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
             >
               {creator.headline}
             </p>
@@ -1277,9 +1328,11 @@ export function UnifiedShopHeader({
           {settings.showBio && creator?.bio && (
             <p
               className={cn(
-                "max-w-xl text-muted-foreground break-words px-4",
+                "max-w-xl break-words px-4",
                 isMobile ? "mt-4 text-xs" : "mt-6 text-sm",
+                !settings.colors?.textColor && "text-muted-foreground",
               )}
+              style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
             >
               {creator.bio}
             </p>
@@ -1289,9 +1342,11 @@ export function UnifiedShopHeader({
             <div className={cn("flex flex-wrap gap-4 justify-center", isMobile ? "mt-4 gap-3" : "mt-6 sm:gap-8")}>
               <div
                 className={cn(
-                  "flex items-center gap-2 text-muted-foreground",
+                  "flex items-center gap-2",
                   isMobile ? "text-xs" : "text-sm sm:text-base",
+                  !settings.colors?.textColor && "text-muted-foreground",
                 )}
+                style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
               >
                 <Package className={cn(isMobile ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5")} />
                 <span>{productCount} products</span>
@@ -1300,9 +1355,11 @@ export function UnifiedShopHeader({
               {creator?.show_total_sales_badge && settings.showTotalSalesBadge && (
                 <div
                   className={cn(
-                    "flex items-center gap-2 text-muted-foreground",
+                    "flex items-center gap-2",
                     isMobile ? "text-xs" : "text-sm sm:text-base",
+                    !settings.colors?.textColor && "text-muted-foreground",
                   )}
+                  style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
                 >
                   <ShoppingBag className={cn(isMobile ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5")} />
                   <span>{totalSales} sales</span>
@@ -2034,7 +2091,14 @@ function UnifiedMoreFromSellerSection({
             paddingBottom: spacing?.paddingBottom,
           }}
         >
-          <h2 className={cn("font-semibold text-foreground mb-4", isMobile ? "text-lg" : "text-xl sm:text-2xl")}>
+          <h2
+            className={cn(
+              "font-semibold mb-4",
+              isMobile ? "text-lg" : "text-xl sm:text-2xl",
+              !settings.colors?.textColor && "text-foreground",
+            )}
+            style={{ color: settings.colors?.textColor || undefined }}
+          >
             {settings.headline} {creatorName}
           </h2>
           <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
@@ -2063,7 +2127,14 @@ function UnifiedMoreFromSellerSection({
         paddingBottom: spacing?.paddingBottom,
       }}
     >
-      <h2 className={cn("font-semibold text-foreground mb-9", isMobile ? "text-lg" : "text-xl sm:text-2xl")}>
+      <h2
+        className={cn(
+          "font-semibold mb-9",
+          isMobile ? "text-lg" : "text-xl sm:text-2xl",
+          !settings.colors?.textColor && "text-foreground",
+        )}
+        style={{ color: settings.colors?.textColor || undefined }}
+      >
         {settings.headline} {creatorName}
       </h2>
       <div className={cn("grid gap-4", getGridClasses())}>
@@ -2085,21 +2156,48 @@ function UnifiedMoreFromSellerSection({
                 )}
               </div>
               <div className={cn("p-3", !isMobile && "sm:p-4")}>
-                <h3 className={cn("font-medium text-foreground truncate", isMobile ? "text-sm" : "text-base")}>
+                <h3
+                  className={cn(
+                    "font-medium truncate",
+                    isMobile ? "text-sm" : "text-base",
+                    !settings.colors?.textColor && "text-foreground",
+                  )}
+                  style={{ color: settings.colors?.textColor || undefined }}
+                >
                   {product.title}
                 </h3>
                 {settings.showDescription && product.description && (
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{product.description}</p>
+                  <p
+                    className={cn(
+                      "mt-1 text-xs line-clamp-2",
+                      !settings.colors?.textColor && "text-muted-foreground",
+                    )}
+                    style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
+                  >
+                    {product.description}
+                  </p>
                 )}
                 {settings.showPrice && (
                   <div className={cn("mt-2 flex items-center gap-2", isMobile ? "text-sm" : "text-base")}>
-                    <span className="font-semibold text-foreground">
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        !settings.colors?.textColor && "text-foreground",
+                      )}
+                      style={{ color: settings.colors?.textColor || undefined }}
+                    >
                       {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                     </span>
                     {settings.showCompareAtPrice &&
                       product.compare_at_cents &&
                       product.compare_at_cents > product.price_cents && (
-                        <span className="text-muted-foreground line-through text-sm">
+                        <span
+                          className={cn(
+                            "line-through text-sm",
+                            !settings.colors?.textColor && "text-muted-foreground",
+                          )}
+                          style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}60` : undefined }}
+                        >
                           {formatPrice(product.compare_at_cents)}
                         </span>
                       )}
@@ -2109,11 +2207,23 @@ function UnifiedMoreFromSellerSection({
             </>
           )
 
+          // Determine card background
+          const cardBgColor = settings.colors?.backgroundColor && settings.colors.backgroundColor !== "transparent"
+            ? (settings.colors.backgroundColor.includes("gradient") ? undefined : "#ffffff")
+            : undefined
+
           if (isPreviewMode) {
             return (
               <div
                 key={product.id}
-                className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md cursor-pointer"
+                className={cn(
+                  "group overflow-hidden rounded-lg border transition-all hover:shadow-md cursor-pointer",
+                  !cardBgColor && "bg-card border-border",
+                )}
+                style={{
+                  backgroundColor: cardBgColor || undefined,
+                  borderColor: settings.colors?.textColor ? `${settings.colors.textColor}20` : undefined,
+                }}
               >
                 {content}
               </div>
@@ -2124,7 +2234,14 @@ function UnifiedMoreFromSellerSection({
             <Link
               key={product.id}
               href={`/p/${product.slug || product.id}`}
-              className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
+              className={cn(
+                "group overflow-hidden rounded-lg border transition-all hover:shadow-md",
+                !cardBgColor && "bg-card border-border",
+              )}
+              style={{
+                backgroundColor: cardBgColor || undefined,
+                borderColor: settings.colors?.textColor ? `${settings.colors.textColor}20` : undefined,
+              }}
             >
               {content}
             </Link>

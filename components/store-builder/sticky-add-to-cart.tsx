@@ -14,6 +14,7 @@ export interface StickyAddToCartSettings {
   buttonTextColor: string
   buttonStyle: "add_to_cart" | "grab_it" | "grab_me" | "download" | "get_it"
   borderRadius: number
+  borderColor?: string
 }
 
 interface ProductData {
@@ -114,14 +115,16 @@ export function EditorStickyAddToCart({
     <div
       onClick={handleWrapperClick}
       className={cn(
-        "sticky bottom-0 w-full z-30 border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
+        "sticky bottom-0 w-full z-30 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
         isMobile ? "py-3 px-[7px]" : "py-3.5 px-[15px]",
         onSelect && "cursor-pointer",
         isSelected && "ring-2 ring-sky-500 ring-inset",
+        !settings.borderColor && "border-gray-200",
       )}
       style={{
         backgroundColor: settings.backgroundColor || "#ffffff",
         backdropFilter: "none",
+        borderColor: settings.borderColor || undefined,
       }}
     >
       <div 
@@ -268,12 +271,14 @@ export function LiveStickyAddToCart({
     <div
       ref={barRef}
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
+        "fixed bottom-0 left-0 right-0 z-50 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none",
+        !settings.borderColor && "border-gray-200",
       )}
       style={{
         backgroundColor: settings.backgroundColor || "#ffffff",
         backdropFilter: "none",
+        borderColor: settings.borderColor || undefined,
       }}
     >
       {/* Mobile version - NO STARS */}

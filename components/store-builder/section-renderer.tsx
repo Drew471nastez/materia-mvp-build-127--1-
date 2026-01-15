@@ -63,7 +63,7 @@ export function SectionRenderer({
 
 // ====== SHOP HEADER RENDERER FOR LIVE PAGES ======
 export function ShopHeaderRenderer(props: Omit<UnifiedShopHeaderProps, "isPreviewMode" | "isSelected" | "onSelect">) {
-  return <UnifiedShopHeader {...props} isPreviewMode={true} />
+  return <UnifiedShopHeader {...props} isPreviewMode={false} />
 }
 
 // ====== PRODUCT PAGE RENDERER FOR LIVE PAGES ======

@@ -217,6 +217,7 @@ export interface ShopHeaderSettings {
   showSocialMedia?: boolean
   showSocialIconsOnMobile?: boolean // Added toggle for mobile social icons
   socialMediaIconColor?: string
+  socialMediaIconStyle?: "default" | "filled" | "outlined" // Icon style: default, filled circle, or outlined
   socialLinks?: SocialLinksConfig
   faviconUrl?: string
   colors: ColorConfig
@@ -269,6 +270,7 @@ export interface StickyAddToCartSettings {
   buttonTextColor: string
   buttonStyle: "add_to_cart" | "grab_it" | "grab_me" | "download" | "get_it"
   borderRadius: number
+  borderColor?: string // Border color for the sticky bar
 }
 
 // Full page configuration
