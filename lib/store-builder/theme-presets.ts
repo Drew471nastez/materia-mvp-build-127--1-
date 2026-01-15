@@ -26,6 +26,8 @@ export interface ThemeConfig {
     textColor: string
     buttonBorderRadius: number
     inputBorderColor: string
+    inputTextColor: string
+    inputPlaceholderColor: string
   }
   profileRingColor: string
   creatorBar: {
@@ -94,6 +96,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#374151",
       buttonBorderRadius: 8,
       inputBorderColor: "#e5e7eb",
+      inputTextColor: "#374151",
+      inputPlaceholderColor: "#9ca3af",
     },
     profileRingColor: "#ffffff",
     creatorBar: {
@@ -156,6 +160,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#0f172a",
       buttonBorderRadius: 12,
       inputBorderColor: "#cbd5e1",
+      inputTextColor: "#0f172a",
+      inputPlaceholderColor: "#64748b",
     },
     profileRingColor: "#ffffff",
     creatorBar: {
@@ -218,6 +224,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#fafafa",
       buttonBorderRadius: 6,
       inputBorderColor: "#333333",
+      inputTextColor: "#fafafa",
+      inputPlaceholderColor: "#737373",
     },
     profileRingColor: "#0f0f0f",
     creatorBar: {
@@ -280,6 +288,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#1e3a5f",
       buttonBorderRadius: 10,
       inputBorderColor: "#bae6fd",
+      inputTextColor: "#1e3a5f",
+      inputPlaceholderColor: "#60a5fa",
     },
     profileRingColor: "#f0f9ff",
     creatorBar: {
@@ -342,6 +352,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#14532d",
       buttonBorderRadius: 8,
       inputBorderColor: "#bbf7d0",
+      inputTextColor: "#14532d",
+      inputPlaceholderColor: "#4ade80",
     },
     profileRingColor: "#f0fdf4",
     creatorBar: {
@@ -404,6 +416,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#7c2d12",
       buttonBorderRadius: 12,
       inputBorderColor: "#fed7aa",
+      inputTextColor: "#7c2d12",
+      inputPlaceholderColor: "#fb923c",
     },
     profileRingColor: "#fff7ed",
     creatorBar: {
@@ -466,6 +480,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#581c87",
       buttonBorderRadius: 14,
       inputBorderColor: "#e9d5ff",
+      inputTextColor: "#581c87",
+      inputPlaceholderColor: "#c4b5fd",
     },
     profileRingColor: "#faf5ff",
     creatorBar: {
@@ -528,6 +544,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#881337",
       buttonBorderRadius: 16,
       inputBorderColor: "#fecdd3",
+      inputTextColor: "#881337",
+      inputPlaceholderColor: "#fb7185",
     },
     profileRingColor: "#fff1f2",
     creatorBar: {
@@ -590,6 +608,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#f1f5f9",
       buttonBorderRadius: 8,
       inputBorderColor: "#334155",
+      inputTextColor: "#f1f5f9",
+      inputPlaceholderColor: "#94a3b8",
     },
     profileRingColor: "#0f172a",
     creatorBar: {
@@ -652,6 +672,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#422006",
       buttonBorderRadius: 6,
       inputBorderColor: "#fde047",
+      inputTextColor: "#422006",
+      inputPlaceholderColor: "#ca8a04",
     },
     profileRingColor: "#fefce8",
     creatorBar: {
@@ -714,6 +736,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#1e293b",
       buttonBorderRadius: 8,
       inputBorderColor: "#e2e8f0",
+      inputTextColor: "#1e293b",
+      inputPlaceholderColor: "#94a3b8",
     },
     profileRingColor: "#f8fafc",
     creatorBar: {
@@ -776,6 +800,8 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#000000",
       buttonBorderRadius: 0,
       inputBorderColor: "#000000",
+      inputTextColor: "#000000",
+      inputPlaceholderColor: "#737373",
     },
     profileRingColor: "#ffffff",
     creatorBar: {

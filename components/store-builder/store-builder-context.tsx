@@ -603,6 +603,8 @@ export function StoreBuilderProvider({
               buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
               // Input styling
               inputBorderColor: theme.subscribeBar.inputBorderColor,
+              inputTextColor: theme.subscribeBar.inputTextColor,
+              inputPlaceholderColor: theme.subscribeBar.inputPlaceholderColor,
               // Background and text colors (both direct and nested for compatibility)
               backgroundColor: theme.subscribeBar.backgroundColor,
               textColor: theme.subscribeBar.textColor,
