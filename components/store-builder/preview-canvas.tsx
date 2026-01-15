@@ -144,7 +144,8 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     }
   }, [])
 
-  const [showSticky, setShowSticky] = useState(false)
+  // In editor mode, start with sticky visible so users can see and customize it
+  const [showSticky, setShowSticky] = useState(!isPreviewMode)
   const lastScrollTopRef = useRef(0)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollParentRef = useRef<HTMLElement | null>(null)
@@ -176,8 +177,12 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
       const nearFooter = isNearFooter()
 
-      // Show if scrolled past 200px and not near footer
-      if (y > 200 && !nearFooter) {
+      // In editor mode, show sticky after just 50px scroll for better visibility
+      // In live mode, use normal 200px threshold
+      const scrollThreshold = isEditorMode ? 50 : 200
+
+      // Show if scrolled past threshold and not near footer
+      if (y > scrollThreshold && !nearFooter) {
         setShowSticky(true)
       } else {
         setShowSticky(false)

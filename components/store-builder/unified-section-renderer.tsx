@@ -387,6 +387,9 @@ function UnifiedImageTextSection({
 }: { settings: ImageTextSettings; isMobile?: boolean; isPreviewMode?: boolean }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
 
+  // Get text color from settings (theme-applied)
+  const textColor = settings.colors?.textColor || undefined
+
   return (
     <SectionContainer isMobile={isMobile}>
       <div
@@ -425,14 +428,28 @@ function UnifiedImageTextSection({
 
         <div className="w-full">
           <h2
-            className={cn("font-semibold text-foreground", isMobile ? "text-lg" : "text-2xl sm:text-3xl")}
-            style={{ textAlign: settings.typography.textAlign }}
+            className={cn(
+              "font-semibold",
+              isMobile ? "text-lg" : "text-2xl sm:text-3xl",
+              !textColor && "text-foreground",
+            )}
+            style={{
+              textAlign: settings.typography.textAlign,
+              color: textColor || undefined,
+            }}
           >
             {settings.headline}
           </h2>
           <p
-            className={cn("mt-3 text-muted-foreground leading-relaxed", isMobile ? "text-sm" : "text-base")}
-            style={{ textAlign: settings.typography.textAlign }}
+            className={cn(
+              "mt-3 leading-relaxed",
+              isMobile ? "text-sm" : "text-base",
+              !textColor && "text-muted-foreground",
+            )}
+            style={{
+              textAlign: settings.typography.textAlign,
+              color: textColor ? `${textColor}99` : undefined,
+            }}
           >
             {settings.body}
           </p>
@@ -457,6 +474,9 @@ function UnifiedImageTextSection({
 function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSettings; isMobile?: boolean }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
 
+  // Get text color from settings (theme-applied)
+  const textColor = settings.colors?.textColor || undefined
+
   return (
     <SectionContainer
       isMobile={isMobile}
@@ -469,10 +489,14 @@ function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSett
     >
       <h2
         className={cn(
-          "font-semibold text-foreground",
+          "font-semibold",
           isMobile ? "text-xl mb-6" : "text-2xl sm:text-3xl mb-8 sm:mb-12",
+          !textColor && "text-foreground",
         )}
-        style={{ textAlign: settings.typography.textAlign }}
+        style={{
+          textAlign: settings.typography.textAlign,
+          color: textColor || undefined,
+        }}
       >
         {settings.headline}
       </h2>
@@ -499,8 +523,25 @@ function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSett
             >
               <CheckCircle className={cn("text-primary", isMobile ? "h-6 w-6" : "h-7 w-7")} />
             </div>
-            <h3 className={cn("font-semibold text-foreground", isMobile ? "text-base" : "text-lg")}>{benefit.title}</h3>
-            <p className="mt-2 text-sm text-muted-foreground">{benefit.description}</p>
+            <h3
+              className={cn(
+                "font-semibold",
+                isMobile ? "text-base" : "text-lg",
+                !textColor && "text-foreground",
+              )}
+              style={{ color: textColor || undefined }}
+            >
+              {benefit.title}
+            </h3>
+            <p
+              className={cn(
+                "mt-2 text-sm",
+                !textColor && "text-muted-foreground",
+              )}
+              style={{ color: textColor ? `${textColor}99` : undefined }}
+            >
+              {benefit.description}
+            </p>
           </div>
         ))}
       </div>
@@ -526,6 +567,9 @@ function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSe
     right: "ml-auto",
   }[settings.typography.textAlign || "left"]
 
+  // Get text color from settings (theme-applied)
+  const textColor = settings.colors?.textColor || undefined
+
   return (
     <div
       className={cn(alignmentClass, isMobile ? "px-3 max-w-full" : cn("px-4", maxWidthClass))}
@@ -538,17 +582,29 @@ function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSe
     >
       {settings.headline && (
         <h2
-          className={cn("font-semibold text-foreground mb-3", isMobile ? "text-lg" : "text-2xl sm:text-3xl mb-4")}
-          style={{ textAlign: settings.typography.textAlign }}
+          className={cn(
+            "font-semibold mb-3",
+            isMobile ? "text-lg" : "text-2xl sm:text-3xl mb-4",
+            !textColor && "text-foreground",
+          )}
+          style={{
+            textAlign: settings.typography.textAlign,
+            color: textColor || undefined,
+          }}
         >
           {settings.headline}
         </h2>
       )}
       <p
-        className={cn("text-muted-foreground leading-relaxed whitespace-pre-wrap", isMobile ? "text-sm" : "text-base")}
+        className={cn(
+          "leading-relaxed whitespace-pre-wrap",
+          isMobile ? "text-sm" : "text-base",
+          !textColor && "text-muted-foreground",
+        )}
         style={{
           textAlign: settings.typography.textAlign,
           lineHeight: settings.typography.lineHeight || 1.6,
+          color: textColor ? `${textColor}99` : undefined,
         }}
       >
         {settings.body}
@@ -630,6 +686,7 @@ function UnifiedFeaturedProductsSection({
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<"recent" | "oldest" | "price-low" | "price-high" | "popular">("recent")
+  const [isAnimating, setIsAnimating] = useState(false)
   const [runtimeIsMobile, setRuntimeIsMobile] = useState(false)
   const sortTouch = useRef({
     startX: 0,
@@ -703,6 +760,17 @@ function UnifiedFeaturedProductsSection({
   }, [isMobile])
 
   const uiIsMobile = isMobile || runtimeIsMobile
+
+  // Handler for category changes with subtle animation
+  const handleCategoryChange = (categoryId: string | null) => {
+    if (categoryId === selectedCategory) return
+    setIsAnimating(true)
+    // Small delay to trigger animation
+    setTimeout(() => {
+      setSelectedCategory(categoryId)
+      setTimeout(() => setIsAnimating(false), 150)
+    }, 50)
+  }
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -830,9 +898,9 @@ function UnifiedFeaturedProductsSection({
           <div className="hidden md:block w-48 flex-shrink-0">
             <nav className="space-y-1">
               <button
-                onClick={() => setSelectedCategory(null)}
+                onClick={() => handleCategoryChange(null)}
                 className={cn(
-                  "w-full flex items-center justify-between py-2 pr-3 text-sm transition-colors border-r-2",
+                  "w-full flex items-center justify-between py-2 pr-3 text-sm transition-all duration-200 border-r-2",
                   selectedCategory === null
                     ? "font-medium"
                     : "hover:opacity-80 border-transparent",
@@ -853,9 +921,9 @@ function UnifiedFeaturedProductsSection({
               {categoriesWithCounts.map((category) => (
                 <button
                   key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
+                  onClick={() => handleCategoryChange(category.id)}
                   className={cn(
-                    "w-full flex items-center justify-between py-2 pr-3 text-sm transition-colors border-r-2",
+                    "w-full flex items-center justify-between py-2 pr-3 text-sm transition-all duration-200 border-r-2",
                     selectedCategory === category.id
                       ? "font-medium"
                       : "hover:opacity-80 border-transparent",
@@ -913,9 +981,13 @@ function UnifiedFeaturedProductsSection({
                     // ✅ Mobile: small chip (harder to accidentally tap)
                     runtimeIsMobile
                       ? "inline-flex w-fit items-center gap-2 rounded-md px-3 py-2 text-sm bg-muted/40 hover:bg-muted/60 transition-colors touch-pan-y select-none"
-                      : // ✅ Desktop: back to clean “text control on the right” (like your old screenshot)
-                        "inline-flex w-auto items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground bg-transparent",
+                      : // ✅ Desktop: back to clean "text control on the right" (like your old screenshot)
+                        "inline-flex w-auto items-center gap-2 rounded-md px-2 py-1 text-sm hover:opacity-80 bg-transparent",
+                    !settings.categoryFilterColors?.textColor && "text-muted-foreground hover:text-foreground",
                   )}
+                  style={{
+                    color: settings.categoryFilterColors?.textColor || undefined,
+                  }}
                 >
                   <span>Sort: {sortLabels[sortBy]}</span>
                   <ChevronDown className="h-4 w-4" />
@@ -936,8 +1008,8 @@ function UnifiedFeaturedProductsSection({
             <div className="mt-3">
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 <button
-                  onClick={() => setSelectedCategory(null)}
-                  className="flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors"
+                  onClick={() => handleCategoryChange(null)}
+                  className="flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-all duration-200"
                   style={{
                     backgroundColor: selectedCategory === null
                       ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
@@ -954,8 +1026,8 @@ function UnifiedFeaturedProductsSection({
                 {categoriesWithCounts.map((category) => (
                   <button
                     key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className="flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors"
+                    onClick={() => handleCategoryChange(category.id)}
+                    className="flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-all duration-200"
                     style={{
                       backgroundColor: selectedCategory === category.id
                         ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
@@ -976,12 +1048,13 @@ function UnifiedFeaturedProductsSection({
           {/* Grid - use uiIsMobile to determine layout */}
           <div
             className={cn(
-              "grid gap-4 mt-4",
+              "grid gap-4 mt-4 transition-opacity duration-150",
               uiIsMobile
                 ? (settings.mobileListing ?? 1) === 1
                   ? "grid-cols-1"
                   : "grid-cols-2"
                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+              isAnimating && "opacity-50",
             )}
           >
             {sortedProducts.map((product) => {
@@ -1055,12 +1128,15 @@ function UnifiedFeaturedProductsSection({
                   <div
                     key={product.id}
                     className={cn(
-                      "group overflow-hidden rounded-lg border transition-all hover:shadow-md cursor-pointer",
+                      "group overflow-hidden rounded-lg border transition-all hover:shadow-lg cursor-pointer",
                       !cardBgColor && "bg-card border-border",
                     )}
                     style={{
                       backgroundColor: cardBgColor || undefined,
                       borderColor: cardBorderColor || undefined,
+                      boxShadow: cardBgColor && cardBgColor.includes("rgba")
+                        ? "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
+                        : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                     }}
                   >
                     {content}
@@ -1073,12 +1149,15 @@ function UnifiedFeaturedProductsSection({
                   key={product.id}
                   href={getProductHref(product)}
                   className={cn(
-                    "group overflow-hidden rounded-lg border transition-all hover:shadow-md",
+                    "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
                     !cardBgColor && "bg-card border-border",
                   )}
                   style={{
                     backgroundColor: cardBgColor || undefined,
                     borderColor: cardBorderColor || undefined,
+                    boxShadow: cardBgColor && cardBgColor.includes("rgba")
+                      ? "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
+                      : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                   }}
                 >
                   {content}
@@ -1589,7 +1668,18 @@ export function UnifiedProductPage({
               {/* Mobile: Price card and Creator info ABOVE description */}
               {isMobile && (
                 <div className="mt-6">
-                  <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  <div
+                    className="rounded-xl border border-border bg-card p-4"
+                    style={{
+                      boxShadow: settings.colors?.backgroundColor && (
+                        settings.colors.backgroundColor.startsWith("#0") ||
+                        settings.colors.backgroundColor.startsWith("#1") ||
+                        settings.colors.backgroundColor.startsWith("#2")
+                      )
+                        ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
+                        : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
+                    }}
+                  >
                     <div className="mb-4">
                       <div className="text-xl font-bold text-foreground">
                         {productPrice === 0 ? "Free" : formatPrice(productPrice)}
@@ -1734,7 +1824,18 @@ export function UnifiedProductPage({
             {/* Tablet/Small desktop price card (lg:hidden but not mobile) */}
             {!isMobile && (
               <div className="mt-6 lg:hidden">
-                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
+                <div
+                  className="rounded-xl border border-border bg-card p-4 sm:p-6"
+                  style={{
+                    boxShadow: settings.colors?.backgroundColor && (
+                      settings.colors.backgroundColor.startsWith("#0") ||
+                      settings.colors.backgroundColor.startsWith("#1") ||
+                      settings.colors.backgroundColor.startsWith("#2")
+                    )
+                      ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
+                      : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
+                  }}
+                >
                   <div className="mb-4">
                     <div className="text-2xl sm:text-3xl font-bold text-foreground">
                       {productPrice === 0 ? "Free" : formatPrice(productPrice)}
@@ -1843,7 +1944,18 @@ export function UnifiedProductPage({
           {/* Desktop sidebar with sticky behavior */}
           {!isMobile && (
             <div className="hidden lg:block lg:col-span-2">
-              <div className="sticky top-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+              <div
+                className="sticky top-6 rounded-xl border border-border bg-card p-6"
+                style={{
+                  boxShadow: settings.colors?.backgroundColor && (
+                    settings.colors.backgroundColor.startsWith("#0") ||
+                    settings.colors.backgroundColor.startsWith("#1") ||
+                    settings.colors.backgroundColor.startsWith("#2")
+                  )
+                    ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
+                    : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
+                }}
+              >
                 <div className="mb-4">
                   <div className="text-3xl font-bold text-foreground">
                     {productPrice === 0 ? "Free" : formatPrice(productPrice)}
@@ -2243,12 +2355,15 @@ function UnifiedMoreFromSellerSection({
               <div
                 key={product.id}
                 className={cn(
-                  "group overflow-hidden rounded-lg border transition-all hover:shadow-md cursor-pointer",
+                  "group overflow-hidden rounded-lg border transition-all hover:shadow-lg cursor-pointer",
                   !cardBgColor && "bg-card border-border",
                 )}
                 style={{
                   backgroundColor: cardBgColor || undefined,
                   borderColor: cardBorderColor || undefined,
+                  boxShadow: cardBgColor && cardBgColor.includes("rgba")
+                    ? "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
+                    : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                 }}
               >
                 {content}
@@ -2261,12 +2376,15 @@ function UnifiedMoreFromSellerSection({
               key={product.id}
               href={`/p/${product.slug || product.id}`}
               className={cn(
-                "group overflow-hidden rounded-lg border transition-all hover:shadow-md",
+                "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
                 !cardBgColor && "bg-card border-border",
               )}
               style={{
                 backgroundColor: cardBgColor || undefined,
                 borderColor: cardBorderColor || undefined,
+                boxShadow: cardBgColor && cardBgColor.includes("rgba")
+                  ? "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
+                  : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
               }}
             >
               {content}

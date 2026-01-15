@@ -93,6 +93,12 @@ export function EditorStickyAddToCart({
     </span>
   )
 
+  const isDarkBg = settings.backgroundColor && (
+    settings.backgroundColor.startsWith("#0") ||
+    settings.backgroundColor.startsWith("#1") ||
+    settings.backgroundColor.startsWith("#2")
+  )
+
   const StarsDisplay = () => {
     if (!hasReviews) return null
     return (
@@ -102,11 +108,18 @@ export function EditorStickyAddToCart({
             key={star}
             className={cn(
               "h-4 w-4",
-              star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300",
+              star <= Math.round(reviewsAverage)
+                ? isDarkBg ? "fill-current text-white" : "fill-current text-black"
+                : isDarkBg ? "text-gray-500" : "text-gray-300",
             )}
           />
         ))}
-        <span className="text-sm text-muted-foreground ml-1">{reviewsCount}</span>
+        <span
+          className="text-sm ml-1"
+          style={{ color: isDarkBg ? "rgba(255,255,255,0.7)" : undefined }}
+        >
+          {reviewsCount}
+        </span>
       </div>
     )
   }
@@ -135,7 +148,18 @@ export function EditorStickyAddToCart({
       >
         <div className={cn("flex items-center min-w-0 flex-1", isMobile ? "gap-3" : "gap-4")}>
           <PriceBadge />
-          <p className={cn("font-medium truncate", isMobile ? "text-sm" : "text-[15px]")}>{product.title}</p>
+          <p
+            className={cn("font-medium truncate", isMobile ? "text-sm" : "text-[15px]")}
+            style={{
+              color: settings.backgroundColor && (
+                settings.backgroundColor.startsWith("#0") ||
+                settings.backgroundColor.startsWith("#1") ||
+                settings.backgroundColor.startsWith("#2")
+              ) ? "#ffffff" : undefined,
+            }}
+          >
+            {product.title}
+          </p>
         </div>
 
         <div className={cn("flex items-center shrink-0", isMobile ? "gap-4" : "gap-5")}>
@@ -249,6 +273,12 @@ export function LiveStickyAddToCart({
     </span>
   )
 
+  const isDarkBg = settings.backgroundColor && (
+    settings.backgroundColor.startsWith("#0") ||
+    settings.backgroundColor.startsWith("#1") ||
+    settings.backgroundColor.startsWith("#2")
+  )
+
   const StarsDisplay = () => {
     if (!hasReviews) return null
     return (
@@ -258,11 +288,18 @@ export function LiveStickyAddToCart({
             key={star}
             className={cn(
               "h-4 w-4",
-              star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300",
+              star <= Math.round(reviewsAverage)
+                ? isDarkBg ? "fill-current text-white" : "fill-current text-black"
+                : isDarkBg ? "text-gray-500" : "text-gray-300",
             )}
           />
         ))}
-        <span className="text-sm text-muted-foreground ml-1">{reviewsCount}</span>
+        <span
+          className="text-sm ml-1"
+          style={{ color: isDarkBg ? "rgba(255,255,255,0.7)" : undefined }}
+        >
+          {reviewsCount}
+        </span>
       </div>
     )
   }
@@ -286,7 +323,18 @@ export function LiveStickyAddToCart({
         <div className="mx-auto w-full max-w-[calc(100%-10px)] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <PriceBadge />
-            <p className="text-sm font-medium truncate">{product.title}</p>
+            <p
+              className="text-sm font-medium truncate"
+              style={{
+                color: settings.backgroundColor && (
+                  settings.backgroundColor.startsWith("#0") ||
+                  settings.backgroundColor.startsWith("#1") ||
+                  settings.backgroundColor.startsWith("#2")
+                ) ? "#ffffff" : undefined,
+              }}
+            >
+              {product.title}
+            </p>
           </div>
           <Button
             size="sm"
@@ -308,7 +356,18 @@ export function LiveStickyAddToCart({
         <div className="mx-auto w-full max-w-[1150px] flex items-center justify-between gap-5">
           <div className="flex items-center gap-4 min-w-0 flex-1">
             <PriceBadge isDesktop />
-            <p className="text-[15px] font-semibold truncate">{product.title}</p>
+            <p
+              className="text-[15px] font-semibold truncate"
+              style={{
+                color: settings.backgroundColor && (
+                  settings.backgroundColor.startsWith("#0") ||
+                  settings.backgroundColor.startsWith("#1") ||
+                  settings.backgroundColor.startsWith("#2")
+                ) ? "#ffffff" : undefined,
+              }}
+            >
+              {product.title}
+            </p>
           </div>
           <div className="flex items-center gap-5 shrink-0">
             <StarsDisplay />
