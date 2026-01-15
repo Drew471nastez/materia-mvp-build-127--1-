@@ -21,13 +21,6 @@ import type {
 } from "./types"
 
 // ============================================
-// MODULE INITIALIZATION GUARD
-// This ensures the module is fully initialized before any exports are accessed
-// ============================================
-const DEFAULTS_MODULE_INITIALIZED = true
-export { DEFAULTS_MODULE_INITIALIZED }
-
-// ============================================
 // UTILITY FUNCTIONS - Declared first to ensure proper initialization
 // ============================================
 
