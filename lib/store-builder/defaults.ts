@@ -1139,20 +1139,47 @@ export const defaultShopPageConfig: PageConfig = {
   version: 1,
 }
 
-// Default product page config
+// Helper function to create default product page config with fresh section IDs
+// This is the recommended way to get a default product page config
+export function createDefaultProductPageConfig(): PageConfig {
+  return {
+    pageType: "product",
+    headerSettings: defaultProductHeaderSettings,
+    sections: [
+      {
+        id: generateSectionId(),
+        type: "reviews",
+        settings: { ...defaultReviewsSettings },
+        order: 0,
+        locked: true, // Locked so it can't be deleted
+      },
+      {
+        id: generateSectionId(),
+        type: "more-from-seller",
+        settings: { ...defaultMoreFromSellerSettings },
+        order: 1,
+        locked: true, // Locked so it can only be hidden, not deleted
+      },
+    ],
+    version: 1,
+  }
+}
+
+// Default product page config with static IDs for backward compatibility
+// Use createDefaultProductPageConfig() when you need fresh unique IDs
 export const defaultProductPageConfig: PageConfig = {
   pageType: "product",
   headerSettings: defaultProductHeaderSettings,
   sections: [
     {
-      id: generateSectionId(),
+      id: "default_reviews_section",
       type: "reviews",
       settings: defaultReviewsSettings,
       order: 0,
       locked: true, // Locked so it can't be deleted
     },
     {
-      id: generateSectionId(),
+      id: "default_more_from_seller_section",
       type: "more-from-seller",
       settings: defaultMoreFromSellerSettings,
       order: 1,

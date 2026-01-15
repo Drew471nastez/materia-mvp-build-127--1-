@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { defaultShopPageConfig, defaultProductPageConfig } from "@/lib/store-builder/defaults"
+import { defaultShopPageConfig, createDefaultProductPageConfig } from "@/lib/store-builder/defaults"
 import type { PageType } from "@/lib/store-builder/types"
 
 // GET - Fetch store builder config for a page type or specific product
@@ -64,10 +64,11 @@ export async function GET(request: Request) {
       })
     }
 
-    // If no default exists either, return hardcoded default
+    // If no default exists either, return hardcoded default with fresh IDs
+    const freshConfig = createDefaultProductPageConfig()
     return NextResponse.json({
-      draft_config: defaultProductPageConfig,
-      published_config: defaultProductPageConfig,
+      draft_config: freshConfig,
+      published_config: freshConfig,
       is_default: true,
       product_id: productId,
     })
@@ -82,8 +83,8 @@ export async function GET(request: Request) {
     .single()
 
   if (!config) {
-    // Create default config
-    const defaultConfig = pageType === "shop" ? defaultShopPageConfig : defaultProductPageConfig
+    // Create default config with fresh IDs for product pages
+    const defaultConfig = pageType === "shop" ? defaultShopPageConfig : createDefaultProductPageConfig()
 
     const { data: newConfig, error } = await supabase
       .from("store_builder_configs")

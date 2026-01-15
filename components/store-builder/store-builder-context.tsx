@@ -15,6 +15,7 @@ import type {
 import {
   defaultShopPageConfig,
   defaultProductPageConfig,
+  createDefaultProductPageConfig,
   createSectionFromLibrary,
   sectionLibrary,
   defaultMoreFromSellerSettings,
@@ -277,7 +278,8 @@ export function StoreBuilderProvider({
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
-        const defaultConfig = pageType === "shop" ? defaultShopPageConfig : defaultProductPageConfig
+        // Use createDefaultProductPageConfig() to get fresh IDs for product pages
+        const defaultConfig = pageType === "shop" ? defaultShopPageConfig : createDefaultProductPageConfig()
 
         let loadedDraft = (data.draft_config || defaultConfig) as PageConfig
         let loadedPublished = (data.published_config || defaultConfig) as PageConfig
@@ -375,7 +377,8 @@ export function StoreBuilderProvider({
       }
     } catch (error) {
       console.error("Failed to load config:", error)
-      const defaultConfig = pageType === "shop" ? defaultShopPageConfig : defaultProductPageConfig
+      // Use createDefaultProductPageConfig() to get fresh IDs for product pages
+      const defaultConfig = pageType === "shop" ? defaultShopPageConfig : createDefaultProductPageConfig()
 
       let configWithDefaults: PageConfig = defaultConfig
 
@@ -780,12 +783,13 @@ export function StoreBuilderProvider({
         // ALSO save global settings (creator bar, sticky, buy button, spacing) to default product template
         // These settings should apply to ALL product pages
         const productHeader = draftConfig.headerSettings as any
+        const baseProductConfig = createDefaultProductPageConfig()
         const globalProductSettings = {
           pageType: "product",
           config: {
-            ...defaultProductPageConfig,
+            ...baseProductConfig,
             headerSettings: {
-              ...defaultProductPageConfig.headerSettings,
+              ...baseProductConfig.headerSettings,
               creatorBar: productHeader.creatorBar,
               stickyAddToCart: productHeader.stickyAddToCart,
               buyButtonColor: productHeader.buyButtonColor,
@@ -852,12 +856,13 @@ export function StoreBuilderProvider({
 
         // ALSO save and publish global settings (creator bar, sticky, buy button, spacing) to default product template
         const productHeader = draftConfig.headerSettings as any
+        const baseProductConfigForPublish = createDefaultProductPageConfig()
         const globalProductSettings = {
           pageType: "product",
           config: {
-            ...defaultProductPageConfig,
+            ...baseProductConfigForPublish,
             headerSettings: {
-              ...defaultProductPageConfig.headerSettings,
+              ...baseProductConfigForPublish.headerSettings,
               creatorBar: productHeader.creatorBar,
               stickyAddToCart: productHeader.stickyAddToCart,
               buyButtonColor: productHeader.buyButtonColor,

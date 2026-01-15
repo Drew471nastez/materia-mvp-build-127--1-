@@ -187,17 +187,53 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
   const scrollParentRef = useRef<HTMLElement | null>(null)
 
   // Initialize scrollParentRef for all page types (needed for sticky behavior)
+  // Also retry after a short delay to ensure DOM is fully rendered
   useEffect(() => {
-    const canvasEl = canvasRef.current
-    const scrollParent = getScrollParent(canvasEl)
-    scrollParentRef.current = scrollParent
+    const findScrollParent = () => {
+      const canvasEl = canvasRef.current
+      if (!canvasEl) return null
+
+      // First try to find with the standard getScrollParent
+      let scrollParent = getScrollParent(canvasEl)
+
+      // If not found, look for common scroll container patterns
+      if (!scrollParent) {
+        // Look for parent with overflow-auto or overflow-y-auto
+        let parent: HTMLElement | null = canvasEl.parentElement
+        while (parent) {
+          const style = window.getComputedStyle(parent)
+          const overflow = style.overflow || style.overflowY
+          if (overflow === 'auto' || overflow === 'scroll') {
+            scrollParent = parent
+            break
+          }
+          parent = parent.parentElement
+        }
+      }
+
+      return scrollParent
+    }
+
+    // Set immediately
+    scrollParentRef.current = findScrollParent()
+
+    // Also try again after a short delay in case DOM isn't ready
+    const timer = setTimeout(() => {
+      scrollParentRef.current = findScrollParent()
+    }, 100)
+
+    return () => clearTimeout(timer)
   }, [currentPageType, selectedProductId])
 
   useEffect(() => {
     if (currentPageType !== "product") return
 
     const getScrollTop = () => {
-      if (scrollParentRef.current) return scrollParentRef.current.scrollTop
+      // Check scroll parent first
+      if (scrollParentRef.current) {
+        return scrollParentRef.current.scrollTop
+      }
+      // Fallback to window scroll
       return window.scrollY || document.documentElement.scrollTop || 0
     }
 
@@ -205,6 +241,11 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       const sentinel = footerSentinelRef.current
       if (!sentinel) return false
       const rect = sentinel.getBoundingClientRect()
+      // Check relative to the scroll container viewport, not window
+      if (scrollParentRef.current) {
+        const containerRect = scrollParentRef.current.getBoundingClientRect()
+        return rect.top < containerRect.bottom + 120
+      }
       return rect.top < window.innerHeight + 120
     }
 
@@ -224,7 +265,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
         return
       }
 
-      // Live mode: show after 200px scroll and not near footer
+      // Preview/Live mode: show after 200px scroll and not near footer
       const scrollThreshold = 200
       if (y > scrollThreshold && !nearFooter) {
         setShowSticky(true)
@@ -233,17 +274,25 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       }
     }
 
+    // Build list of scroll targets
     const targets: (HTMLElement | Window)[] = []
-    if (scrollParentRef.current) targets.push(scrollParentRef.current)
+    if (scrollParentRef.current) {
+      targets.push(scrollParentRef.current)
+    }
+    // Always listen to window as fallback
     targets.push(window)
 
+    // Add scroll listeners
     targets.forEach((t) => t.addEventListener("scroll", handleScroll, { passive: true }))
     window.addEventListener("resize", handleScroll, { passive: true })
 
-    // Initial check
-    handleScroll()
+    // Initial check - run after a small delay to ensure DOM is ready
+    const initTimer = setTimeout(() => {
+      handleScroll()
+    }, 50)
 
     return () => {
+      clearTimeout(initTimer)
       targets.forEach((t) => t.removeEventListener("scroll", handleScroll))
       window.removeEventListener("resize", handleScroll)
       if (scrollTimeoutRef.current) {
