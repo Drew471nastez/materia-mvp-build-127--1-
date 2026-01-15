@@ -29,6 +29,8 @@ export interface SubscribeBarSettings {
   textColor?: string
   buttonColor?: string
   buttonTextColor?: string
+  buttonBorderRadius?: number
+  inputBorderColor?: string
   showAvatar?: boolean
   avatarUrl?: string
   creatorName?: string
@@ -344,6 +346,10 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             required
             disabled={loading}
             className={cn(adaptiveInputClass, "h-8 flex-1 text-xs")}
+            style={{
+              borderColor: settings.inputBorderColor || undefined,
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+            }}
           />
           <Button
             size="sm"
@@ -353,6 +359,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           >
             {buttonText}
@@ -389,6 +396,10 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             required
             disabled={loading}
             className={cn(adaptiveInputClass, "h-9 w-48 text-sm")}
+            style={{
+              borderColor: settings.inputBorderColor || undefined,
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+            }}
           />
           <Button
             size="sm"
@@ -398,6 +409,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           >
             {buttonText}
@@ -543,6 +555,10 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
           type="email"
           placeholder={settings.placeholder || "Enter your email"}
           className={cn(adaptiveInputClass, "h-8 flex-1 text-xs")}
+          style={{
+            borderColor: settings.inputBorderColor || undefined,
+            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+          }}
         />
         <Button
           size="sm"
@@ -551,6 +567,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
           style={{
             backgroundColor: settings.buttonColor || "#2563eb",
             color: settings.buttonTextColor || "#ffffff",
+            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
           }}
         >
           {buttonText}
@@ -580,6 +597,10 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
             type="email"
             placeholder={settings.placeholder || "Enter your email"}
             className={cn(adaptiveInputClass, "h-8 flex-1 text-xs")}
+            style={{
+              borderColor: settings.inputBorderColor || undefined,
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+            }}
           />
           <Button
             size="sm"
@@ -588,6 +609,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           >
             {buttonText}
@@ -613,6 +635,10 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
             type="email"
             placeholder={settings.placeholder || "Enter your email"}
             className={cn(adaptiveInputClass, "h-9 w-48 text-sm")}
+            style={{
+              borderColor: settings.inputBorderColor || undefined,
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+            }}
           />
           <Button
             size="sm"
@@ -621,6 +647,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           >
             {buttonText}

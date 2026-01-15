@@ -446,6 +446,38 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
         </div>
       )}
 
+      {/* Sticky Subscribe Bar for Shop Page - FIXED positioned at TOP, constrained to canvas width */}
+      {currentPageType === "shop" && subscribeBarSettings?.enableStickyBar && subscribeBarSettings?.visible && canvasRect && (
+        <div
+          style={{
+            position: "fixed",
+            left: canvasRect.left,
+            width: canvasRect.width,
+            top: 0,
+            zIndex: 9999,
+          }}
+          className="transition-all duration-300 ease-out"
+        >
+          <EditorSubscribeBar
+            settings={{
+              ...subscribeBarSettings,
+              backgroundColor: subscribeBarSettings?.backgroundColor || subscribeBarSettings?.colors?.backgroundColor || "#ffffff",
+              textColor: subscribeBarSettings?.textColor || subscribeBarSettings?.colors?.textColor || "#000000",
+              showAvatar: subscribeBarSettings?.showAvatar ?? true,
+              avatarUrl: avatarUrl,
+              creatorName: profile?.display_name || "Creator",
+              // Disable sticky inside the component since we're handling it here
+              enableStickyBar: false,
+            } || defaultSubscribeBarSettings}
+            creatorId={creatorId}
+            isEditorPreview={isEditorMode}
+            isMobile={isMobile}
+            isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
+            onSelect={() => handleSelectSection("subscribe-bar")}
+          />
+        </div>
+      )}
+
       {/* Cover Image Editor Popup */}
       <CoverImageEditor
         open={coverEditorOpen}
