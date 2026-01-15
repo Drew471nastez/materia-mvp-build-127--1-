@@ -276,10 +276,48 @@ export interface PageConfig {
   headerSettings: ShopHeaderSettings | ProductHeaderSettings
   sections: Section[]
   globalColors?: ColorConfig
+  globalSettings?: GlobalStoreSettings // Global store settings (Basic Info, SEO, Verified Badge, Theme)
   version: number // For tracking changes
 }
 
 export type SaveState = "unsaved" | "saving" | "saved" | "publishing" | "published"
+
+// Theme preset for global styling
+export type ThemePreset = "default" | "modern" | "elegant" | "bold" | "minimal"
+
+// Verified badge type options
+export type VerifiedBadgeType = "verified_creator" | "verified_brand" | "verified_business" | "official_page" | "verified_artist"
+
+// Global store settings
+export interface GlobalStoreSettings {
+  // Basic Info
+  storeName: string
+  storeTagline?: string
+
+  // SEO
+  seoTitle?: string
+  seoDescription?: string
+  socialImageUrl?: string
+
+  // Verified Badge
+  verifiedBadgeEnabled: boolean
+  verifiedBadgeType: VerifiedBadgeType
+
+  // Theme
+  themePreset: ThemePreset
+
+  // Theme overrides (when themePreset is applied, these are the computed values)
+  themeColors?: {
+    primary: string
+    secondary: string
+    accent: string
+    background: string
+    foreground: string
+    muted: string
+    border: string
+  }
+  themeBorderRadius?: number // Global border radius for buttons, cards, etc.
+}
 
 export interface ProductTemplate {
   id: string

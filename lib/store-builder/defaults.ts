@@ -15,7 +15,256 @@ import type {
   ProductCreatorBarSettings,
   StickyAddToCartSettings,
   ReviewsSettings,
+  GlobalStoreSettings,
+  ThemePreset,
+  VerifiedBadgeType,
 } from "./types"
+
+// ============================================
+// Theme Presets
+// ============================================
+
+export interface ThemeConfig {
+  name: string
+  description: string
+  colors: {
+    primary: string
+    secondary: string
+    accent: string
+    background: string
+    foreground: string
+    muted: string
+    border: string
+  }
+  borderRadius: number
+  // Component-specific overrides
+  subscribeBar: {
+    buttonColor: string
+    buttonTextColor: string
+    backgroundColor: string
+    textColor: string
+  }
+  creatorBar: {
+    backgroundColor: string
+    textColor: string
+    buttonColor: string
+    buttonTextColor: string
+  }
+  stickyAddToCart: {
+    backgroundColor: string
+    buttonColor: string
+    buttonTextColor: string
+    borderRadius: number
+  }
+  productHeader: {
+    buyButtonColor: string
+    buyButtonTextColor: string
+  }
+}
+
+export const themePresets: Record<ThemePreset, ThemeConfig> = {
+  default: {
+    name: "Default",
+    description: "Clean and professional with blue accents",
+    colors: {
+      primary: "#2563eb",
+      secondary: "#64748b",
+      accent: "#2563eb",
+      background: "#ffffff",
+      foreground: "#0f172a",
+      muted: "#f1f5f9",
+      border: "#e2e8f0",
+    },
+    borderRadius: 8,
+    subscribeBar: {
+      buttonColor: "#2563eb",
+      buttonTextColor: "#ffffff",
+      backgroundColor: "#ffffff",
+      textColor: "#000000",
+    },
+    creatorBar: {
+      backgroundColor: "#1a1a1a",
+      textColor: "#ffffff",
+      buttonColor: "#4b5563",
+      buttonTextColor: "#ffffff",
+    },
+    stickyAddToCart: {
+      backgroundColor: "#ffffff",
+      buttonColor: "#2563eb",
+      buttonTextColor: "#ffffff",
+      borderRadius: 8,
+    },
+    productHeader: {
+      buyButtonColor: "#2563eb",
+      buyButtonTextColor: "#ffffff",
+    },
+  },
+  modern: {
+    name: "Modern",
+    description: "Sleek dark theme with vibrant purple accents",
+    colors: {
+      primary: "#8b5cf6",
+      secondary: "#a78bfa",
+      accent: "#8b5cf6",
+      background: "#0f0f0f",
+      foreground: "#fafafa",
+      muted: "#1a1a1a",
+      border: "#262626",
+    },
+    borderRadius: 12,
+    subscribeBar: {
+      buttonColor: "#8b5cf6",
+      buttonTextColor: "#ffffff",
+      backgroundColor: "#1a1a1a",
+      textColor: "#ffffff",
+    },
+    creatorBar: {
+      backgroundColor: "#1a1a1a",
+      textColor: "#ffffff",
+      buttonColor: "#8b5cf6",
+      buttonTextColor: "#ffffff",
+    },
+    stickyAddToCart: {
+      backgroundColor: "#1a1a1a",
+      buttonColor: "#8b5cf6",
+      buttonTextColor: "#ffffff",
+      borderRadius: 12,
+    },
+    productHeader: {
+      buyButtonColor: "#8b5cf6",
+      buyButtonTextColor: "#ffffff",
+    },
+  },
+  elegant: {
+    name: "Elegant",
+    description: "Sophisticated with warm gold accents",
+    colors: {
+      primary: "#b8860b",
+      secondary: "#d4a84b",
+      accent: "#b8860b",
+      background: "#fffef5",
+      foreground: "#1a1a1a",
+      muted: "#f5f3e8",
+      border: "#e8e4d4",
+    },
+    borderRadius: 4,
+    subscribeBar: {
+      buttonColor: "#b8860b",
+      buttonTextColor: "#ffffff",
+      backgroundColor: "#fffef5",
+      textColor: "#1a1a1a",
+    },
+    creatorBar: {
+      backgroundColor: "#1a1a1a",
+      textColor: "#ffffff",
+      buttonColor: "#b8860b",
+      buttonTextColor: "#ffffff",
+    },
+    stickyAddToCart: {
+      backgroundColor: "#fffef5",
+      buttonColor: "#b8860b",
+      buttonTextColor: "#ffffff",
+      borderRadius: 4,
+    },
+    productHeader: {
+      buyButtonColor: "#b8860b",
+      buyButtonTextColor: "#ffffff",
+    },
+  },
+  bold: {
+    name: "Bold",
+    description: "High contrast with striking red accents",
+    colors: {
+      primary: "#dc2626",
+      secondary: "#ef4444",
+      accent: "#dc2626",
+      background: "#ffffff",
+      foreground: "#000000",
+      muted: "#f3f4f6",
+      border: "#d1d5db",
+    },
+    borderRadius: 0,
+    subscribeBar: {
+      buttonColor: "#dc2626",
+      buttonTextColor: "#ffffff",
+      backgroundColor: "#ffffff",
+      textColor: "#000000",
+    },
+    creatorBar: {
+      backgroundColor: "#000000",
+      textColor: "#ffffff",
+      buttonColor: "#dc2626",
+      buttonTextColor: "#ffffff",
+    },
+    stickyAddToCart: {
+      backgroundColor: "#ffffff",
+      buttonColor: "#dc2626",
+      buttonTextColor: "#ffffff",
+      borderRadius: 0,
+    },
+    productHeader: {
+      buyButtonColor: "#dc2626",
+      buyButtonTextColor: "#ffffff",
+    },
+  },
+  minimal: {
+    name: "Minimal",
+    description: "Ultra clean with subtle gray tones",
+    colors: {
+      primary: "#171717",
+      secondary: "#525252",
+      accent: "#171717",
+      background: "#fafafa",
+      foreground: "#171717",
+      muted: "#f5f5f5",
+      border: "#e5e5e5",
+    },
+    borderRadius: 6,
+    subscribeBar: {
+      buttonColor: "#171717",
+      buttonTextColor: "#ffffff",
+      backgroundColor: "#fafafa",
+      textColor: "#171717",
+    },
+    creatorBar: {
+      backgroundColor: "#171717",
+      textColor: "#ffffff",
+      buttonColor: "#404040",
+      buttonTextColor: "#ffffff",
+    },
+    stickyAddToCart: {
+      backgroundColor: "#fafafa",
+      buttonColor: "#171717",
+      buttonTextColor: "#ffffff",
+      borderRadius: 6,
+    },
+    productHeader: {
+      buyButtonColor: "#171717",
+      buyButtonTextColor: "#ffffff",
+    },
+  },
+}
+
+// Verified badge type labels
+export const verifiedBadgeLabels: Record<VerifiedBadgeType, string> = {
+  verified_creator: "Verified Creator",
+  verified_brand: "Verified Brand",
+  verified_business: "Verified Business",
+  official_page: "Official Page",
+  verified_artist: "Verified Artist",
+}
+
+// Default global store settings
+export const defaultGlobalStoreSettings: GlobalStoreSettings = {
+  storeName: "",
+  storeTagline: "",
+  seoTitle: "",
+  seoDescription: "",
+  socialImageUrl: "",
+  verifiedBadgeEnabled: false,
+  verifiedBadgeType: "verified_creator",
+  themePreset: "default",
+}
 
 // Button text presets for subscribe bar
 export const subscribeBarButtonPresets = {

@@ -38,6 +38,11 @@ import {
   AlertCircle,
   ShoppingCart,
   Star,
+  Settings,
+  Palette,
+  Globe,
+  BadgeCheck,
+  Info,
 } from "lucide-react"
 import type {
   Section,
@@ -58,6 +63,9 @@ import type {
   ProductCreatorBarSettings,
   StickyAddToCartSettings,
   ReviewsSettings,
+  GlobalStoreSettings,
+  ThemePreset,
+  VerifiedBadgeType,
 } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import {
@@ -83,7 +91,11 @@ import {
   avatarSizeMap,
   defaultProductCreatorBarSettings,
   defaultStickyAddToCartSettings,
+  defaultGlobalStoreSettings,
+  themePresets,
+  verifiedBadgeLabels,
 } from "@/lib/store-builder/defaults"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Check, ChevronDown } from "lucide-react"
@@ -235,6 +247,9 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
     setSelectedSectionId,
     updateSectionSettings,
     updateHeaderSettings,
+    updateGlobalSettings,
+    applyTheme,
+    openGlobalSettings,
     removeSection,
     reorderSections,
     openAddSectionModal,
@@ -333,6 +348,252 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
       : null
 
   const headerSettings = draftConfig.headerSettings
+  const globalSettings = draftConfig.globalSettings || defaultGlobalStoreSettings
+
+  // Global Settings Panel
+  if (sidebarMode === "global-settings") {
+    return (
+      <div className="w-80 border-r border-border bg-background overflow-hidden flex flex-col h-full">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3 shrink-0 bg-background">
+          <button onClick={goBackToSections} className="rounded p-1.5 hover:bg-muted transition-colors">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <h3 className="font-semibold">Settings</h3>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList className="w-full justify-start px-4 pt-4 pb-0 bg-transparent border-b rounded-none h-auto flex-wrap gap-1">
+              <TabsTrigger value="basic" className="text-xs px-3 py-1.5 data-[state=active]:bg-muted rounded-md">
+                Basic Info
+              </TabsTrigger>
+              <TabsTrigger value="seo" className="text-xs px-3 py-1.5 data-[state=active]:bg-muted rounded-md">
+                SEO
+              </TabsTrigger>
+              <TabsTrigger value="badge" className="text-xs px-3 py-1.5 data-[state=active]:bg-muted rounded-md">
+                Verified Badge
+              </TabsTrigger>
+              <TabsTrigger value="theme" className="text-xs px-3 py-1.5 data-[state=active]:bg-muted rounded-md">
+                Theme Color
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Basic Info Tab */}
+            <TabsContent value="basic" className="p-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="store-name">Store Name</Label>
+                <Input
+                  id="store-name"
+                  value={globalSettings.storeName || ""}
+                  onChange={(e) => updateGlobalSettings({ storeName: e.target.value })}
+                  placeholder="My Store"
+                />
+                <p className="text-xs text-muted-foreground">This appears as your store's title</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="store-tagline">Tagline</Label>
+                <Input
+                  id="store-tagline"
+                  value={globalSettings.storeTagline || ""}
+                  onChange={(e) => updateGlobalSettings({ storeTagline: e.target.value })}
+                  placeholder="Your store's tagline"
+                />
+                <p className="text-xs text-muted-foreground">A short description of your store</p>
+              </div>
+            </TabsContent>
+
+            {/* SEO Tab */}
+            <TabsContent value="seo" className="p-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="seo-title">Store Title</Label>
+                <Input
+                  id="seo-title"
+                  value={globalSettings.seoTitle || ""}
+                  onChange={(e) => updateGlobalSettings({ seoTitle: e.target.value })}
+                  placeholder="Store Title for Search Engines"
+                />
+                <p className="text-xs text-muted-foreground">Appears in search results and browser tabs</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="meta-description">Meta Description</Label>
+                <Textarea
+                  id="meta-description"
+                  value={globalSettings.seoDescription || ""}
+                  onChange={(e) => updateGlobalSettings({ seoDescription: e.target.value })}
+                  placeholder="Describe your store for search engines..."
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {(globalSettings.seoDescription || "").length}/160 characters recommended
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Social Image</Label>
+                <ImageUpload
+                  value={globalSettings.socialImageUrl || ""}
+                  onChange={(url) => updateGlobalSettings({ socialImageUrl: url })}
+                  folder={`store-builder/${creatorId}/social`}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used when your store is shared on social media (1200x630 recommended)
+                </p>
+              </div>
+
+              {globalSettings.socialImageUrl && (
+                <div className="space-y-2">
+                  <Label>Social Image Preview</Label>
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <img
+                      src={globalSettings.socialImageUrl}
+                      alt="Social preview"
+                      className="w-full h-auto object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Verified Badge Tab */}
+            <TabsContent value="badge" className="p-4 space-y-4">
+              <div className="rounded-lg border border-border p-4 space-y-4">
+                <div className="space-y-1">
+                  <h4 className="font-medium">Verified Badge</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Show a verification badge next to your name
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="badge-enabled" className="text-sm font-medium">Enable Verified Badge</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Display a blue checkmark next to your page name
+                    </p>
+                  </div>
+                  <Switch
+                    id="badge-enabled"
+                    checked={globalSettings.verifiedBadgeEnabled}
+                    onCheckedChange={(checked) => updateGlobalSettings({ verifiedBadgeEnabled: checked })}
+                  />
+                </div>
+              </div>
+
+              {globalSettings.verifiedBadgeEnabled && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Badge Type</Label>
+                    <Select
+                      value={globalSettings.verifiedBadgeType}
+                      onValueChange={(value) => updateGlobalSettings({ verifiedBadgeType: value as VerifiedBadgeType })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(verifiedBadgeLabels) as VerifiedBadgeType[]).map((type) => (
+                          <SelectItem key={type} value={type}>
+                            <div className="flex items-center gap-2">
+                              <BadgeCheck className={cn(
+                                "h-4 w-4",
+                                type === globalSettings.verifiedBadgeType ? "text-blue-500" : "text-muted-foreground"
+                              )} />
+                              {verifiedBadgeLabels[type]}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      This text appears when hovering over the badge
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-border p-4 space-y-2">
+                    <Label className="text-xs text-muted-foreground">Preview</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{globalSettings.storeName || "Your Store"}</span>
+                      <BadgeCheck className="h-5 w-5 text-blue-500" />
+                    </div>
+                  </div>
+                </>
+              )}
+            </TabsContent>
+
+            {/* Theme Color Tab */}
+            <TabsContent value="theme" className="p-4 space-y-4">
+              <div className="space-y-2">
+                <Label>Theme Preset</Label>
+                <p className="text-xs text-muted-foreground">
+                  Choose a theme to change colors across your entire store
+                </p>
+              </div>
+
+              <div className="grid gap-3">
+                {(Object.keys(themePresets) as ThemePreset[]).map((preset) => {
+                  const theme = themePresets[preset]
+                  const isSelected = globalSettings.themePreset === preset
+                  return (
+                    <button
+                      key={preset}
+                      onClick={() => applyTheme(preset)}
+                      className={cn(
+                        "flex items-start gap-3 p-3 rounded-lg border transition-all text-left",
+                        isSelected
+                          ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
+                          : "border-border hover:bg-muted/50"
+                      )}
+                    >
+                      {/* Color preview dots */}
+                      <div className="flex gap-1 mt-1 shrink-0">
+                        <div
+                          className="h-4 w-4 rounded-full border border-border"
+                          style={{ backgroundColor: theme.colors.primary }}
+                        />
+                        <div
+                          className="h-4 w-4 rounded-full border border-border"
+                          style={{ backgroundColor: theme.colors.background }}
+                        />
+                        <div
+                          className="h-4 w-4 rounded-full border border-border"
+                          style={{ backgroundColor: theme.colors.foreground }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{theme.name}</span>
+                          {isSelected && (
+                            <div className="h-4 w-4 rounded-full bg-sky-500 flex items-center justify-center">
+                              <Check className="h-2.5 w-2.5 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{theme.description}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mt-4">
+                <div className="flex gap-2">
+                  <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-800">
+                    <p className="font-medium">Note about custom colors</p>
+                    <p className="mt-1">
+                      Theme colors apply globally, but any custom colors you set on individual sections will override the theme.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    )
+  }
 
   if (sidebarMode === "settings" && selectedSectionId) {
     return (
@@ -723,13 +984,20 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
         </div>
       </div>
 
-      <div className="border-t border-border p-3 shrink-0 bg-background">
+      <div className="border-t border-border p-3 shrink-0 bg-background space-y-2">
         <button
           onClick={openAddSectionModal}
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/20 transition-colors"
         >
           <Plus className="h-4 w-4" />
           Add section
+        </button>
+        <button
+          onClick={openGlobalSettings}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          <Settings className="h-4 w-4" />
+          Settings
         </button>
       </div>
     </div>

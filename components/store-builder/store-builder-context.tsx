@@ -28,6 +28,8 @@ interface HistoryState {
   timestamp: number
 }
 
+import type { GlobalStoreSettings, ThemePreset } from "@/lib/store-builder/types"
+
 interface StoreBuilderContextType {
   // Current state
   currentPageType: PageType
@@ -40,7 +42,7 @@ interface StoreBuilderContextType {
   addSectionModalOpen: boolean
   canUndo: boolean
   canRedo: boolean
-  sidebarMode: "sections" | "settings"
+  sidebarMode: "sections" | "settings" | "global-settings"
   selectedProductId: string | null
   products: Array<{ id: string; title: string; thumbnail_url?: string }>
   saveState: SaveState
@@ -64,6 +66,8 @@ interface StoreBuilderContextType {
   removeSection: (sectionId: string) => void
   reorderSections: (sections: Section[]) => void
   updateHeaderSettings: (settings: any) => void
+  updateGlobalSettings: (settings: Partial<GlobalStoreSettings>) => void
+  applyTheme: (themePreset: ThemePreset) => void
   save: () => Promise<void>
   publish: () => Promise<void>
   discardChanges: () => void
@@ -72,10 +76,11 @@ interface StoreBuilderContextType {
   closeAddSectionModal: () => void
   undo: () => void
   redo: () => void
-  setSidebarMode: (mode: "sections" | "settings") => void
+  setSidebarMode: (mode: "sections" | "settings" | "global-settings") => void
   goBackToSections: () => void
   setSelectedProductId: (id: string | null) => void
   setProducts: (products: Array<{ id: string; title: string; thumbnail_url?: string }>) => void
+  openGlobalSettings: () => void
 
   // Template actions
   saveAsTemplate: (name: string) => Promise<void>
@@ -183,7 +188,7 @@ export function StoreBuilderProvider({
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("desktop")
   const [isLoading, setIsLoading] = useState(true)
   const [addSectionModalOpen, setAddSectionModalOpen] = useState(false)
-  const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
+  const [sidebarMode, setSidebarMode] = useState<"sections" | "settings" | "global-settings">("sections")
   const [selectedProductId, setSelectedProductIdState] = useState<string | null>(initialProductId)
   const [products, setProducts] =
     useState<Array<{ id: string; title: string; thumbnail_url?: string }>>(initialProducts)
@@ -499,6 +504,101 @@ export function StoreBuilderProvider({
     [addToHistory, markUnsaved],
   )
 
+  const updateGlobalSettings = useCallback(
+    (settings: Partial<GlobalStoreSettings>) => {
+      setDraftConfig((prev) => {
+        const newConfig: PageConfig = {
+          ...prev,
+          globalSettings: { ...prev.globalSettings, ...settings } as GlobalStoreSettings,
+        }
+        addToHistory(newConfig)
+        return newConfig
+      })
+      markUnsaved()
+    },
+    [addToHistory, markUnsaved],
+  )
+
+  const applyTheme = useCallback(
+    (themePreset: ThemePreset) => {
+      // Import theme presets dynamically to avoid circular dependencies
+      import("@/lib/store-builder/defaults").then(({ themePresets, defaultGlobalStoreSettings }) => {
+        const theme = themePresets[themePreset]
+        if (!theme) return
+
+        setDraftConfig((prev) => {
+          // Update global settings with theme preset
+          const newGlobalSettings: GlobalStoreSettings = {
+            ...(prev.globalSettings || defaultGlobalStoreSettings),
+            themePreset,
+            themeColors: theme.colors,
+            themeBorderRadius: theme.borderRadius,
+          }
+
+          // Apply theme to subscribe bar (shop pages)
+          let newHeaderSettings = { ...prev.headerSettings }
+          if (prev.pageType === "shop" && "subscribeBar" in newHeaderSettings) {
+            const shopHeader = newHeaderSettings as any
+            if (shopHeader.subscribeBar) {
+              shopHeader.subscribeBar = {
+                ...shopHeader.subscribeBar,
+                buttonColor: theme.subscribeBar.buttonColor,
+                buttonTextColor: theme.subscribeBar.buttonTextColor,
+                colors: {
+                  ...shopHeader.subscribeBar.colors,
+                  backgroundColor: theme.subscribeBar.backgroundColor,
+                  textColor: theme.subscribeBar.textColor,
+                },
+              }
+            }
+          }
+
+          // Apply theme to product page components
+          if (prev.pageType === "product") {
+            const productHeader = newHeaderSettings as any
+            if (productHeader.creatorBar) {
+              productHeader.creatorBar = {
+                ...productHeader.creatorBar,
+                backgroundColor: theme.creatorBar.backgroundColor,
+                textColor: theme.creatorBar.textColor,
+                buttonColor: theme.creatorBar.buttonColor,
+                buttonTextColor: theme.creatorBar.buttonTextColor,
+              }
+            }
+            if (productHeader.stickyAddToCart) {
+              productHeader.stickyAddToCart = {
+                ...productHeader.stickyAddToCart,
+                backgroundColor: theme.stickyAddToCart.backgroundColor,
+                buttonColor: theme.stickyAddToCart.buttonColor,
+                buttonTextColor: theme.stickyAddToCart.buttonTextColor,
+                borderRadius: theme.stickyAddToCart.borderRadius,
+              }
+            }
+            // Apply buy button colors
+            productHeader.buyButtonColor = theme.productHeader.buyButtonColor
+            productHeader.buyButtonTextColor = theme.productHeader.buyButtonTextColor
+          }
+
+          const newConfig: PageConfig = {
+            ...prev,
+            globalSettings: newGlobalSettings,
+            headerSettings: newHeaderSettings,
+          }
+
+          addToHistory(newConfig)
+          return newConfig
+        })
+        markUnsaved()
+      })
+    },
+    [addToHistory, markUnsaved],
+  )
+
+  const openGlobalSettings = useCallback(() => {
+    setSelectedSectionId(null)
+    setSidebarMode("global-settings")
+  }, [])
+
   const save = useCallback(async () => {
     console.log("[v0] Save initiated", { currentPageType, selectedProductId })
     setSaveState("saving")
@@ -733,6 +833,9 @@ export function StoreBuilderProvider({
         removeSection,
         reorderSections,
         updateHeaderSettings,
+        updateGlobalSettings,
+        applyTheme,
+        openGlobalSettings,
         save,
         publish,
         discardChanges,
