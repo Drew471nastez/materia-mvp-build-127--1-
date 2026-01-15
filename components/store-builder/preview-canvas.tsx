@@ -186,12 +186,15 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollParentRef = useRef<HTMLElement | null>(null)
 
+  // Initialize scrollParentRef for all page types (needed for sticky behavior)
   useEffect(() => {
-    if (currentPageType !== "product") return
-
     const canvasEl = canvasRef.current
     const scrollParent = getScrollParent(canvasEl)
     scrollParentRef.current = scrollParent
+  }, [currentPageType, selectedProductId])
+
+  useEffect(() => {
+    if (currentPageType !== "product") return
 
     const getScrollTop = () => {
       if (scrollParentRef.current) return scrollParentRef.current.scrollTop
@@ -231,7 +234,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     }
 
     const targets: (HTMLElement | Window)[] = []
-    if (scrollParent) targets.push(scrollParent)
+    if (scrollParentRef.current) targets.push(scrollParentRef.current)
     targets.push(window)
 
     targets.forEach((t) => t.addEventListener("scroll", handleScroll, { passive: true }))

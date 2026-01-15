@@ -1222,7 +1222,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     className={cn(
                       "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
                       selectedProductId === product.id
-                        ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
+                        ? "border-gray-900 bg-gray-50 dark:border-gray-100 dark:bg-gray-900/20"
                         : "border-border hover:bg-muted/50",
                     )}
                   >
@@ -1237,8 +1237,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                       <p className="text-xs text-muted-foreground">{formatPrice(product.price_cents || 0)}</p>
                     </div>
                     {selectedProductId === product.id && (
-                      <div className="h-5 w-5 rounded-full bg-sky-500 flex items-center justify-center shrink-0">
-                        <Check className="h-3 w-3 text-white" />
+                      <div className="h-5 w-5 rounded-full bg-gray-900 dark:bg-gray-100 flex items-center justify-center shrink-0">
+                        <Check className="h-3 w-3 text-white dark:text-gray-900" />
                       </div>
                     )}
                   </button>
@@ -1249,8 +1249,11 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
           {/* Footer */}
           <div className="px-4 sm:px-5 py-3 border-t border-border shrink-0 bg-background">
-            <Button variant="outline" onClick={() => setShowProductSelector(false)} className="w-full">
-              Cancel
+            <Button
+              onClick={() => setShowProductSelector(false)}
+              className="w-full bg-purple-600 text-white hover:bg-purple-700"
+            >
+              Done
             </Button>
           </div>
         </DialogContent>
@@ -2853,6 +2856,20 @@ function SubscribeBarSettingsForm({
         onChange={(value) => onChange({ buttonTextColor: value })}
       />
 
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-normal">Button Border Radius</Label>
+          <span className="text-xs text-muted-foreground">{safeSettings.buttonBorderRadius ?? 8}px</span>
+        </div>
+        <PremiumSlider
+          value={[safeSettings.buttonBorderRadius ?? 8]}
+          onValueChange={([value]) => onChange({ buttonBorderRadius: value })}
+          min={0}
+          max={24}
+          step={2}
+        />
+      </div>
+
       <ToggleField
         label="Show Avatar"
         checked={safeSettings.showAvatar ?? true}
@@ -2862,14 +2879,20 @@ function SubscribeBarSettingsForm({
 
       <ColorPicker
         label="Background Color"
-        value={safeSettings.colors?.backgroundColor || "#ffffff"}
-        onChange={(value) => onChange({ colors: { ...safeSettings.colors, backgroundColor: value } })}
+        value={safeSettings.backgroundColor || safeSettings.colors?.backgroundColor || "#ffffff"}
+        onChange={(value) => onChange({ backgroundColor: value, colors: { ...safeSettings.colors, backgroundColor: value } })}
       />
 
       <ColorPicker
         label="Text Color"
-        value={safeSettings.colors?.textColor || "#000000"}
-        onChange={(value) => onChange({ colors: { ...safeSettings.colors, textColor: value } })}
+        value={safeSettings.textColor || safeSettings.colors?.textColor || "#000000"}
+        onChange={(value) => onChange({ textColor: value, colors: { ...safeSettings.colors, textColor: value } })}
+      />
+
+      <ColorPicker
+        label="Email Input Border Color"
+        value={safeSettings.inputBorderColor || "#e5e7eb"}
+        onChange={(value) => onChange({ inputBorderColor: value })}
       />
     </div>
   )
