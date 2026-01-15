@@ -188,6 +188,9 @@ export interface SubscribeBarSettings extends BaseSectionSettings {
   buttonTextColor: string
   buttonBorderRadius?: number // Border radius for button and input
   inputBorderColor?: string // Border color for email input
+  inputTextColor?: string // Text color for email input
+  inputPlaceholderColor?: string // Placeholder text color for email input
+  inputBackgroundColor?: string // Background color for email input
   showAvatar: boolean
   position: "top" | "bottom"
   style: "style1" | "style2" | "style3"

@@ -46,6 +46,9 @@ export interface ThemeConfig {
     textColor: string
     buttonBorderRadius?: number
     inputBorderColor?: string
+    inputTextColor?: string
+    inputPlaceholderColor?: string
+    inputBackgroundColor?: string
   }
   creatorBar: {
     backgroundColor: string
@@ -113,6 +116,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#374151",
       buttonBorderRadius: 8,
       inputBorderColor: "#e5e7eb",
+      inputTextColor: "#374151",
+      inputPlaceholderColor: "#9ca3af",
+      inputBackgroundColor: "transparent",
     },
     creatorBar: {
       backgroundColor: "#f3f4f6",
@@ -174,6 +180,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#0f172a",
       buttonBorderRadius: 12,
       inputBorderColor: "#cbd5e1",
+      inputTextColor: "#0f172a",
+      inputPlaceholderColor: "#64748b",
+      inputBackgroundColor: "#ffffff",
     },
     creatorBar: {
       backgroundColor: "linear-gradient(180deg, #1e293b 0%, #334155 100%)",
@@ -236,6 +245,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#e5e5e5",
       buttonBorderRadius: 10,
       inputBorderColor: "#262626",
+      inputTextColor: "#e5e5e5",
+      inputPlaceholderColor: "#737373",
+      inputBackgroundColor: "transparent",
     },
     creatorBar: {
       backgroundColor: "#141414",
@@ -298,6 +310,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       buttonBorderRadius: 24,
       inputBorderColor: "rgba(255,255,255,0.3)",
+      inputTextColor: "#ffffff",
+      inputPlaceholderColor: "rgba(255,255,255,0.7)",
+      inputBackgroundColor: "transparent",
     },
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
@@ -360,6 +375,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       buttonBorderRadius: 20,
       inputBorderColor: "rgba(255,255,255,0.3)",
+      inputTextColor: "#ffffff",
+      inputPlaceholderColor: "rgba(255,255,255,0.7)",
+      inputBackgroundColor: "transparent",
     },
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #0369a1 0%, #0891b2 100%)",
@@ -422,6 +440,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       buttonBorderRadius: 20,
       inputBorderColor: "rgba(255,255,255,0.3)",
+      inputTextColor: "#ffffff",
+      inputPlaceholderColor: "rgba(255,255,255,0.7)",
+      inputBackgroundColor: "transparent",
     },
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #f97316 0%, #fb923c 100%)",
@@ -484,6 +505,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       buttonBorderRadius: 16,
       inputBorderColor: "rgba(255,255,255,0.3)",
+      inputTextColor: "#ffffff",
+      inputPlaceholderColor: "rgba(255,255,255,0.7)",
+      inputBackgroundColor: "transparent",
     },
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #166534 0%, #22c55e 100%)",
@@ -546,6 +570,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       buttonBorderRadius: 24,
       inputBorderColor: "rgba(255,255,255,0.3)",
+      inputTextColor: "#ffffff",
+      inputPlaceholderColor: "rgba(255,255,255,0.7)",
+      inputBackgroundColor: "transparent",
     },
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #be185d 0%, #ec4899 100%)",
@@ -608,6 +635,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#f8fafc",
       buttonBorderRadius: 12,
       inputBorderColor: "#334155",
+      inputTextColor: "#f8fafc",
+      inputPlaceholderColor: "#94a3b8",
+      inputBackgroundColor: "transparent",
     },
     creatorBar: {
       backgroundColor: "#1a2439",
@@ -724,6 +754,11 @@ export const defaultSubscribeBarSettings: SubscribeBarSettings = {
   customButtonText: "",
   buttonColor: "#2563eb", // Blue
   buttonTextColor: "#ffffff", // White
+  buttonBorderRadius: 8, // Default border radius
+  inputBorderColor: "#e5e7eb", // Default input border color
+  inputTextColor: "#374151", // Default input text color
+  inputPlaceholderColor: "#9ca3af", // Default placeholder color
+  inputBackgroundColor: "transparent", // Default input background
   showAvatar: true,
   position: "top",
   style: "style1",

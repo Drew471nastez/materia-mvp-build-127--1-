@@ -594,16 +594,21 @@ export function StoreBuilderProvider({
             if (shopHeader.subscribeBar) {
               shopHeader.subscribeBar = {
                 ...shopHeader.subscribeBar,
+                // Button styling
                 buttonColor: theme.subscribeBar.buttonColor,
                 buttonTextColor: theme.subscribeBar.buttonTextColor,
                 buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
+                // Input styling
                 inputBorderColor: theme.subscribeBar.inputBorderColor ?? theme.colors.border,
+                inputTextColor: theme.subscribeBar.inputTextColor ?? theme.colors.foreground,
+                inputPlaceholderColor: theme.subscribeBar.inputPlaceholderColor,
+                inputBackgroundColor: theme.subscribeBar.inputBackgroundColor,
+                // Background and text colors (both nested and top level for compatibility)
                 colors: {
                   ...shopHeader.subscribeBar.colors,
                   backgroundColor: theme.subscribeBar.backgroundColor,
                   textColor: theme.subscribeBar.textColor,
                 },
-                // Also set at top level for compatibility
                 backgroundColor: theme.subscribeBar.backgroundColor,
                 textColor: theme.subscribeBar.textColor,
               }

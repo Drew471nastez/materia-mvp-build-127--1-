@@ -126,7 +126,7 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
                     className={cn(
                       "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
                       selectedProduct === product.id
-                        ? "border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-900/20"
+                        ? "border-black dark:border-white bg-gray-50 dark:bg-gray-900/20"
                         : "border-border hover:bg-muted/50",
                     )}
                   >
@@ -141,8 +141,8 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
                       <p className="text-sm text-muted-foreground">{formatPrice(product.price_cents)}</p>
                     </div>
                     {selectedProduct === product.id && (
-                      <div className="h-5 w-5 rounded-full bg-gray-900 dark:bg-gray-100 flex items-center justify-center shrink-0">
-                        <Check className="h-3 w-3 text-white dark:text-gray-900" />
+                      <div className="h-5 w-5 rounded-full bg-black dark:bg-white flex items-center justify-center shrink-0">
+                        <Check className="h-3 w-3 text-white dark:text-black" />
                       </div>
                     )}
                   </button>

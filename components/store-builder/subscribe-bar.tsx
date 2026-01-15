@@ -31,6 +31,9 @@ export interface SubscribeBarSettings {
   buttonTextColor?: string
   buttonBorderRadius?: number
   inputBorderColor?: string
+  inputTextColor?: string
+  inputPlaceholderColor?: string
+  inputBackgroundColor?: string
   showAvatar?: boolean
   avatarUrl?: string
   creatorName?: string
@@ -138,8 +141,15 @@ function isVibrantColor(hex?: string): boolean {
 }
 
 /** Shared input classes - adaptive to background color */
-function getAdaptiveInputClass(isDarkBackground: boolean, backgroundColor?: string) {
+function getAdaptiveInputClass(isDarkBackground: boolean, backgroundColor?: string, hasCustomColors?: boolean) {
   const isVibrant = isVibrantColor(backgroundColor)
+
+  // If custom colors are provided via theme, use minimal styling and let inline styles take over
+  if (hasCustomColors) {
+    return cn(
+      "w-full rounded-md border outline-none transition-colors bg-transparent px-3",
+    )
+  }
 
   return cn(
     "w-full rounded-md border outline-none transition-colors bg-transparent px-3",
@@ -147,6 +157,46 @@ function getAdaptiveInputClass(isDarkBackground: boolean, backgroundColor?: stri
       ? "text-white placeholder:text-white/80 focus:placeholder:text-white/50 border-white/40 focus:border-white/70"
       : "text-gray-900 placeholder:text-gray-500 focus:placeholder:text-gray-400 border-gray-300 focus:border-gray-400",
   )
+}
+
+/** Generate input style object with theme colors */
+function getInputStyle(settings: SubscribeBarSettings) {
+  const style: React.CSSProperties = {}
+
+  if (settings.inputBorderColor) {
+    style.borderColor = settings.inputBorderColor
+  }
+  if (settings.inputTextColor) {
+    style.color = settings.inputTextColor
+  }
+  if (settings.inputBackgroundColor) {
+    style.backgroundColor = settings.inputBackgroundColor
+  }
+
+  return style
+}
+
+/** Check if custom input colors are provided by theme */
+function hasThemeInputColors(settings: SubscribeBarSettings): boolean {
+  return Boolean(
+    settings.inputTextColor ||
+    settings.inputPlaceholderColor ||
+    settings.inputBorderColor ||
+    settings.inputBackgroundColor
+  )
+}
+
+/** Generate placeholder CSS for themed inputs */
+function getPlaceholderStyle(placeholderColor?: string): string {
+  if (!placeholderColor) return ''
+  return `
+    .subscribe-input-themed::placeholder {
+      color: ${placeholderColor} !important;
+    }
+    .subscribe-input-themed:focus::placeholder {
+      opacity: 0.7;
+    }
+  `
 }
 
 /**
@@ -163,7 +213,10 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   const lastScrollY = useRef(0)
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
-  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
+  const hasCustomInputColors = useMemo(() => hasThemeInputColors(settings), [settings.inputTextColor, settings.inputPlaceholderColor, settings.inputBorderColor, settings.inputBackgroundColor])
+  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor, hasCustomInputColors), [isDarkBackground, settings.backgroundColor, hasCustomInputColors])
+  const inputStyle = useMemo(() => getInputStyle(settings), [settings.inputBorderColor, settings.inputTextColor, settings.inputBackgroundColor])
+  const placeholderStyleCSS = useMemo(() => getPlaceholderStyle(settings.inputPlaceholderColor), [settings.inputPlaceholderColor])
 
   // Sticky on scroll up behavior
   useEffect(() => {
@@ -318,6 +371,9 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   // Bar content component
   const BarContent = () => (
     <>
+      {/* Custom placeholder color styles */}
+      {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
+
       {/* MOBILE */}
       <div className="sm:hidden flex flex-col items-center gap-2">
         <div className="flex items-center gap-2 justify-center">
@@ -345,9 +401,9 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             onBlur={handleInputBlur}
             required
             disabled={loading}
-            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs")}
+            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs", hasCustomInputColors && "subscribe-input-themed")}
             style={{
-              borderColor: settings.inputBorderColor || undefined,
+              ...inputStyle,
               borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           />
@@ -395,9 +451,9 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             onBlur={handleInputBlur}
             required
             disabled={loading}
-            className={cn(adaptiveInputClass, "h-9 w-48 text-sm")}
+            className={cn(adaptiveInputClass, "h-9 w-48 text-sm", hasCustomInputColors && "subscribe-input-themed")}
             style={{
-              borderColor: settings.inputBorderColor || undefined,
+              ...inputStyle,
               borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           />
@@ -482,7 +538,10 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   const textColor = settings.textColor || settings.colors?.textColor || "#000000"
 
   const isDarkBackground = useMemo(() => isDarkHex(backgroundColor), [backgroundColor])
-  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, backgroundColor), [isDarkBackground, backgroundColor])
+  const hasCustomInputColors = useMemo(() => hasThemeInputColors(settings), [settings.inputTextColor, settings.inputPlaceholderColor, settings.inputBorderColor, settings.inputBackgroundColor])
+  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, backgroundColor, hasCustomInputColors), [isDarkBackground, backgroundColor, hasCustomInputColors])
+  const inputStyle = useMemo(() => getInputStyle(settings), [settings.inputBorderColor, settings.inputTextColor, settings.inputBackgroundColor])
+  const placeholderStyleCSS = useMemo(() => getPlaceholderStyle(settings.inputPlaceholderColor), [settings.inputPlaceholderColor])
 
   // Scroll up sticky behavior for editor preview
   useEffect(() => {
@@ -538,6 +597,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   // Mobile layout content
   const MobileContent = () => (
     <div className="flex flex-col items-center gap-2">
+      {/* Custom placeholder color styles */}
+      {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
+
       <div className="flex items-center gap-2 justify-center">
         {settings.showAvatar && (
           <Avatar className="h-6 w-6 shrink-0">
@@ -554,9 +616,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
         <Input
           type="email"
           placeholder={settings.placeholder || "Enter your email"}
-          className={cn(adaptiveInputClass, "h-8 flex-1 text-xs")}
+          className={cn(adaptiveInputClass, "h-8 flex-1 text-xs", hasCustomInputColors && "subscribe-input-themed")}
           style={{
-            borderColor: settings.inputBorderColor || undefined,
+            ...inputStyle,
             borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
           }}
         />
@@ -579,6 +641,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   // Desktop layout content
   const DesktopContent = () => (
     <>
+      {/* Custom placeholder color styles */}
+      {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
+
       <div className="flex sm:hidden flex-col items-center gap-2">
         <div className="flex items-center gap-2 justify-center">
           {settings.showAvatar && (
@@ -596,9 +661,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
           <Input
             type="email"
             placeholder={settings.placeholder || "Enter your email"}
-            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs")}
+            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs", hasCustomInputColors && "subscribe-input-themed")}
             style={{
-              borderColor: settings.inputBorderColor || undefined,
+              ...inputStyle,
               borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           />
@@ -634,9 +699,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
           <Input
             type="email"
             placeholder={settings.placeholder || "Enter your email"}
-            className={cn(adaptiveInputClass, "h-9 w-48 text-sm")}
+            className={cn(adaptiveInputClass, "h-9 w-48 text-sm", hasCustomInputColors && "subscribe-input-themed")}
             style={{
-              borderColor: settings.inputBorderColor || undefined,
+              ...inputStyle,
               borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           />
