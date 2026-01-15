@@ -355,6 +355,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               isSelected={isEditorMode && selectedSectionId === "header"}
               onSelect={() => handleSelectSection("header")}
               onAvatarEdit={handleAvatarEdit}
+              globalSettings={draftConfig.globalSettings}
             />
 
             {draftConfig.sections

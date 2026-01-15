@@ -246,7 +246,7 @@ function EditorLayout({
             )}
           >
             <div className="flex flex-col h-full">
-              <SectionsSidebar creatorId={creatorId} />
+              <SectionsSidebar creatorId={creatorId} profile={profile} creator={creator} />
             </div>
           </div>
 
@@ -286,7 +286,7 @@ function EditorLayout({
         >
           {/* Sidebar content - scrollable */}
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            <SectionsSidebar creatorId={creatorId} />
+            <SectionsSidebar creatorId={creatorId} profile={profile} creator={creator} />
           </div>
 
           {/* Resize Handle */}

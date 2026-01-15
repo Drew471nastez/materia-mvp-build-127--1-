@@ -13,7 +13,8 @@ import type {
   ShopHeaderSettings,
   ProductHeaderSettings,
   MoreFromSellerSettings,
-  ReviewsSettings, // Added ReviewsSettings import
+  ReviewsSettings,
+  GlobalStoreSettings,
 } from "@/lib/store-builder/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +34,7 @@ import {
   Facebook,
   Star,
   Heart,
+  BadgeCheck,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -1029,6 +1031,7 @@ export interface UnifiedShopHeaderProps {
   isSelected?: boolean
   onSelect?: () => void
   onAvatarEdit?: () => void
+  globalSettings?: GlobalStoreSettings
 }
 
 export function UnifiedShopHeader({
@@ -1042,6 +1045,7 @@ export function UnifiedShopHeader({
   isSelected = false,
   onSelect,
   onAvatarEdit,
+  globalSettings,
 }: UnifiedShopHeaderProps) {
   const avatarSizeChoice = isMobile
     ? settings.mobileAvatarSizeChoice || "medium"
@@ -1191,11 +1195,14 @@ export function UnifiedShopHeader({
 
           <h1
             className={cn(
-              "mt-3 font-semibold text-foreground break-words max-w-full px-4",
+              "mt-3 font-semibold text-foreground break-words max-w-full px-4 flex items-center justify-center gap-1.5",
               isMobile ? "text-lg" : "text-xl sm:text-2xl mt-4",
             )}
           >
             {profile?.display_name || "Creator"}
+            {globalSettings?.verifiedBadgeEnabled && (
+              <BadgeCheck className={cn("text-blue-500 shrink-0", isMobile ? "h-4 w-4" : "h-5 w-5")} />
+            )}
           </h1>
 
           {settings.showHeadline && creator?.headline && (

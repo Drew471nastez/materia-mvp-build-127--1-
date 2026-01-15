@@ -100,6 +100,166 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Check, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+
+// Custom Toggle Component with theme-style design (black when ON)
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox"
+    />
+  )
+}
+
+// Custom Slider Component with premium minimal styling (matches Onepage)
+function PremiumSlider({ value, onValueChange, min = 0, max = 100, step = 1, showValue = false, unit = "px" }: {
+  value: number[];
+  onValueChange: (value: number[]) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  showValue?: boolean;
+  unit?: string;
+}) {
+  const percentage = ((value[0] - min) / (max - min)) * 100
+  const numTicks = 5
+  const ticks = Array.from({ length: numTicks }, (_, i) => (i / (numTicks - 1)) * 100)
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative flex-1 h-6 flex items-center">
+        {/* Track */}
+        <div className="relative w-full h-[4px] bg-[#f0f0f0] rounded-full">
+          {/* Tick markers */}
+          {ticks.map((pos, i) => (
+            <div
+              key={i}
+              className="absolute w-[6px] h-[6px] bg-[#e0e0e0] rounded-full -translate-y-1/2 top-1/2"
+              style={{ left: `calc(${pos}% - 3px)` }}
+            />
+          ))}
+          {/* Hidden input for interaction */}
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={value[0]}
+            onChange={(e) => onValueChange([Number(e.target.value)])}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+          {/* Thumb */}
+          <div
+            className="absolute w-[21px] h-[21px] bg-white rounded-full -translate-y-1/2 top-1/2 pointer-events-none"
+            style={{
+              left: `calc(${percentage}% - 10.5px)`,
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)'
+            }}
+          />
+        </div>
+      </div>
+      {showValue && (
+        <span className="text-sm text-muted-foreground w-12 text-right">{value[0]}{unit}</span>
+      )}
+    </div>
+  )
+}
+
+// Onepage-style Color Picker with preset colors
+function ColorPicker({
+  label,
+  value,
+  onChange,
+  presetColors = ['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'],
+}: {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  presetColors?: string[];
+}) {
+  return (
+    <div className="space-y-2">
+      {label && <Label className="text-sm font-medium">{label}</Label>}
+      <div className="flex items-center gap-3">
+        <div className="relative">
+          <input
+            type="color"
+            value={value || "#ffffff"}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+          <div
+            className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
+            style={{ backgroundColor: value || "#ffffff" }}
+          />
+        </div>
+        <Input
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="#000000"
+          className="h-12 rounded-xl flex-1 font-mono text-sm"
+        />
+      </div>
+      {/* Suggested Colors */}
+      <div className="flex gap-2 pt-1">
+        {presetColors.map((color) => (
+          <button
+            key={color}
+            onClick={() => onChange(color)}
+            className={cn(
+              "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+              value === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+            )}
+            style={{ backgroundColor: color }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Segmented Button Selector (matches Onepage Design tab style)
+function SegmentedSelect<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  label?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      {label && <Label className="text-sm font-medium">{label}</Label>}
+      <div className="flex gap-2">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "flex-1 py-2.5 px-4 text-sm font-medium rounded-xl border-2 transition-all",
+              value === option.value
+                ? "bg-white border-gray-900 text-gray-900 shadow-sm"
+                : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const sectionIcons: Record<
   | SectionType
@@ -238,7 +398,20 @@ function SortableSectionItem({
   )
 }
 
-export function SectionsSidebar({ creatorId }: { creatorId: string }) {
+interface SectionsSidebarProps {
+  creatorId: string
+  profile?: {
+    display_name?: string | null
+    avatar_url?: string | null
+    username?: string | null
+  }
+  creator?: {
+    headline?: string | null
+    bio?: string | null
+  }
+}
+
+export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebarProps) {
   const router = useRouter()
   const {
     currentPageType,
@@ -265,6 +438,7 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
 
   const [showProductSelector, setShowProductSelector] = useState(false)
   const [productSearchQuery, setProductSearchQuery] = useState("")
+  const [settingsTab, setSettingsTab] = useState<"basic" | "seo" | "badge" | "theme">("basic")
 
   // ✅ Safety: if old configs ever saved Reviews as hidden, force it back on.
   useEffect(() => {
@@ -352,178 +526,231 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
 
   // Global Settings Panel
   if (sidebarMode === "global-settings") {
+    const settingsTabs = [
+      { id: "basic" as const, label: "Basic Info", icon: Info },
+      { id: "seo" as const, label: "SEO", icon: Globe },
+      { id: "badge" as const, label: "Verified Badge", icon: BadgeCheck },
+      { id: "theme" as const, label: "Theme", icon: Palette },
+    ]
+
     return (
       <div className="w-80 border-r border-border bg-background overflow-hidden flex flex-col h-full">
         <div className="flex items-center gap-2 border-b border-border px-4 py-3 shrink-0 bg-background">
           <button onClick={goBackToSections} className="rounded p-1.5 hover:bg-muted transition-colors">
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <h3 className="font-semibold">Settings</h3>
+          <h3 className="font-semibold">General Settings</h3>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="w-full justify-start px-4 pt-4 pb-0 bg-transparent border-b rounded-none h-auto flex-wrap gap-1">
-              <TabsTrigger value="basic" className="text-xs px-3 py-1.5 data-[state=active]:bg-muted rounded-md">
-                Basic Info
-              </TabsTrigger>
-              <TabsTrigger value="seo" className="text-xs px-3 py-1.5 data-[state=active]:bg-muted rounded-md">
-                SEO
-              </TabsTrigger>
-              <TabsTrigger value="badge" className="text-xs px-3 py-1.5 data-[state=active]:bg-muted rounded-md">
-                Verified Badge
-              </TabsTrigger>
-              <TabsTrigger value="theme" className="text-xs px-3 py-1.5 data-[state=active]:bg-muted rounded-md">
-                Theme Color
-              </TabsTrigger>
-            </TabsList>
+          {/* Vertical Tab Navigation - like sections list */}
+          <div className="p-3 space-y-1 border-b border-border">
+            {settingsTabs.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setSettingsTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-2 w-full rounded-lg px-3 py-2.5 transition-all text-left",
+                    settingsTab === tab.id
+                      ? "bg-sky-50 border border-sky-500 dark:bg-sky-950/20"
+                      : "hover:bg-muted/50 border border-transparent"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+                      settingsTab === tab.id
+                        ? "bg-sky-100 text-sky-600 dark:bg-sky-900 dark:text-sky-400"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className={cn(
+                    "text-sm font-medium",
+                    settingsTab === tab.id ? "text-foreground" : "text-muted-foreground"
+                  )}>
+                    {tab.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
 
-            {/* Basic Info Tab */}
-            <TabsContent value="basic" className="p-4 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="store-name">Store Name</Label>
-                <Input
-                  id="store-name"
-                  value={globalSettings.storeName || ""}
-                  onChange={(e) => updateGlobalSettings({ storeName: e.target.value })}
-                  placeholder="My Store"
-                />
-                <p className="text-xs text-muted-foreground">This appears as your store's title</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="store-tagline">Tagline</Label>
-                <Input
-                  id="store-tagline"
-                  value={globalSettings.storeTagline || ""}
-                  onChange={(e) => updateGlobalSettings({ storeTagline: e.target.value })}
-                  placeholder="Your store's tagline"
-                />
-                <p className="text-xs text-muted-foreground">A short description of your store</p>
-              </div>
-            </TabsContent>
-
-            {/* SEO Tab */}
-            <TabsContent value="seo" className="p-4 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="seo-title">Store Title</Label>
-                <Input
-                  id="seo-title"
-                  value={globalSettings.seoTitle || ""}
-                  onChange={(e) => updateGlobalSettings({ seoTitle: e.target.value })}
-                  placeholder="Store Title for Search Engines"
-                />
-                <p className="text-xs text-muted-foreground">Appears in search results and browser tabs</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="meta-description">Meta Description</Label>
-                <Textarea
-                  id="meta-description"
-                  value={globalSettings.seoDescription || ""}
-                  onChange={(e) => updateGlobalSettings({ seoDescription: e.target.value })}
-                  placeholder="Describe your store for search engines..."
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {(globalSettings.seoDescription || "").length}/160 characters recommended
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Social Image</Label>
-                <ImageUpload
-                  value={globalSettings.socialImageUrl || ""}
-                  onChange={(url) => updateGlobalSettings({ socialImageUrl: url })}
-                  folder={`store-builder/${creatorId}/social`}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Used when your store is shared on social media (1200x630 recommended)
-                </p>
-              </div>
-
-              {globalSettings.socialImageUrl && (
+          {/* Tab Content */}
+          <div className="p-4 space-y-4">
+            {/* Basic Info Content */}
+            {settingsTab === "basic" && (
+              <>
                 <div className="space-y-2">
-                  <Label>Social Image Preview</Label>
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <img
-                      src={globalSettings.socialImageUrl}
-                      alt="Social preview"
-                      className="w-full h-auto object-cover"
-                    />
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Verified Badge Tab */}
-            <TabsContent value="badge" className="p-4 space-y-4">
-              <div className="rounded-lg border border-border p-4 space-y-4">
-                <div className="space-y-1">
-                  <h4 className="font-medium">Verified Badge</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Show a verification badge next to your name
+                  <Label htmlFor="store-name">Store Name</Label>
+                  <Input
+                    id="store-name"
+                    value={globalSettings.storeName || ""}
+                    onChange={(e) => updateGlobalSettings({ storeName: e.target.value })}
+                    placeholder={profile?.display_name || "My Store"}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This appears as your store's title
+                    {profile?.display_name && !globalSettings.storeName && (
+                      <span className="block text-sky-600 mt-1">Uses "{profile.display_name}" if left empty</span>
+                    )}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="badge-enabled" className="text-sm font-medium">Enable Verified Badge</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Display a blue checkmark next to your page name
-                    </p>
-                  </div>
-                  <Switch
-                    id="badge-enabled"
-                    checked={globalSettings.verifiedBadgeEnabled}
-                    onCheckedChange={(checked) => updateGlobalSettings({ verifiedBadgeEnabled: checked })}
+                <div className="space-y-2">
+                  <Label htmlFor="store-tagline">Tagline</Label>
+                  <Input
+                    id="store-tagline"
+                    value={globalSettings.storeTagline || ""}
+                    onChange={(e) => updateGlobalSettings({ storeTagline: e.target.value })}
+                    placeholder={creator?.headline || "Your store's tagline"}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    A short description of your store
+                    {creator?.headline && !globalSettings.storeTagline && (
+                      <span className="block text-sky-600 mt-1">Uses "{creator.headline}" if left empty</span>
+                    )}
+                  </p>
                 </div>
-              </div>
+              </>
+            )}
 
-              {globalSettings.verifiedBadgeEnabled && (
-                <>
+            {/* SEO Content */}
+            {settingsTab === "seo" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="seo-title">Store Title</Label>
+                  <Input
+                    id="seo-title"
+                    value={globalSettings.seoTitle || ""}
+                    onChange={(e) => updateGlobalSettings({ seoTitle: e.target.value })}
+                    placeholder={profile?.display_name ? `${profile.display_name} - Store` : "Store Title for Search Engines"}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Appears in search results and browser tabs
+                    {profile?.display_name && !globalSettings.seoTitle && (
+                      <span className="block text-sky-600 mt-1">Uses "{profile.display_name} - Store" if left empty</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="meta-description">Meta Description</Label>
+                  <Textarea
+                    id="meta-description"
+                    value={globalSettings.seoDescription || ""}
+                    onChange={(e) => updateGlobalSettings({ seoDescription: e.target.value })}
+                    placeholder={creator?.headline || creator?.bio || "Describe your store for search engines..."}
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {(globalSettings.seoDescription || "").length}/160 characters recommended
+                    {(creator?.headline || creator?.bio) && !globalSettings.seoDescription && (
+                      <span className="block text-sky-600 mt-1">Uses your bio/headline if left empty</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Social Image</Label>
+                  <ImageUpload
+                    value={globalSettings.socialImageUrl || ""}
+                    onChange={(url) => updateGlobalSettings({ socialImageUrl: url })}
+                    folder={`store-builder/${creatorId}/social`}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used when your store is shared on social media (1200x630 recommended)
+                  </p>
+                </div>
+
+                {globalSettings.socialImageUrl && (
                   <div className="space-y-2">
-                    <Label>Badge Type</Label>
-                    <Select
-                      value={globalSettings.verifiedBadgeType}
-                      onValueChange={(value) => updateGlobalSettings({ verifiedBadgeType: value as VerifiedBadgeType })}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Object.keys(verifiedBadgeLabels) as VerifiedBadgeType[]).map((type) => (
-                          <SelectItem key={type} value={type}>
-                            <div className="flex items-center gap-2">
-                              <BadgeCheck className={cn(
-                                "h-4 w-4",
-                                type === globalSettings.verifiedBadgeType ? "text-blue-500" : "text-muted-foreground"
-                              )} />
-                              {verifiedBadgeLabels[type]}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      This text appears when hovering over the badge
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg border border-border p-4 space-y-2">
-                    <Label className="text-xs text-muted-foreground">Preview</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{globalSettings.storeName || "Your Store"}</span>
-                      <BadgeCheck className="h-5 w-5 text-blue-500" />
+                    <Label>Social Image Preview</Label>
+                    <div className="rounded-lg border border-border overflow-hidden">
+                      <img
+                        src={globalSettings.socialImageUrl}
+                        alt="Social preview"
+                        className="w-full h-auto object-cover"
+                      />
                     </div>
                   </div>
-                </>
-              )}
-            </TabsContent>
+                )}
+              </>
+            )}
 
-            {/* Theme Color Tab */}
-            <TabsContent value="theme" className="p-4 space-y-4">
+            {/* Verified Badge Content */}
+            {settingsTab === "badge" && (
+              <>
+                <div className="rounded-lg border border-border p-4 space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="font-medium">Verified Badge</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Show a verification badge next to your name
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5 flex-1 pr-4">
+                      <Label htmlFor="badge-enabled" className="text-sm font-medium">Enable Verified Badge</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Display a blue checkmark next to your page name
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={globalSettings.verifiedBadgeEnabled}
+                      onCheckedChange={(checked) => updateGlobalSettings({ verifiedBadgeEnabled: checked })}
+                    />
+                  </div>
+                </div>
+
+                {globalSettings.verifiedBadgeEnabled && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Badge Type</Label>
+                      <Select
+                        value={globalSettings.verifiedBadgeType}
+                        onValueChange={(value) => updateGlobalSettings({ verifiedBadgeType: value as VerifiedBadgeType })}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(verifiedBadgeLabels) as VerifiedBadgeType[]).map((type) => (
+                            <SelectItem key={type} value={type}>
+                              <div className="flex items-center gap-2">
+                                <BadgeCheck className={cn(
+                                  "h-4 w-4",
+                                  type === globalSettings.verifiedBadgeType ? "text-blue-500" : "text-muted-foreground"
+                                )} />
+                                {verifiedBadgeLabels[type]}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        This text appears when hovering over the badge
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border border-border p-4 space-y-2">
+                      <Label className="text-xs text-muted-foreground">Preview</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{globalSettings.storeName || "Your Store"}</span>
+                        <BadgeCheck className="h-5 w-5 text-blue-500" />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Theme Content */}
+            {settingsTab === "theme" && (
+              <>
               <div className="space-y-2">
                 <Label>Theme Preset</Label>
                 <p className="text-xs text-muted-foreground">
@@ -531,7 +758,7 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
                 </p>
               </div>
 
-              <div className="grid gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {(Object.keys(themePresets) as ThemePreset[]).map((preset) => {
                   const theme = themePresets[preset]
                   const isSelected = globalSettings.themePreset === preset
@@ -540,37 +767,51 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
                       key={preset}
                       onClick={() => applyTheme(preset)}
                       className={cn(
-                        "flex items-start gap-3 p-3 rounded-lg border transition-all text-left",
+                        "relative p-3 rounded-xl border-2 text-left transition-all hover:border-sky-300",
                         isSelected
                           ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
-                          : "border-border hover:bg-muted/50"
+                          : "border-border hover:bg-muted/30"
                       )}
                     >
-                      {/* Color preview dots */}
-                      <div className="flex gap-1 mt-1 shrink-0">
-                        <div
-                          className="h-4 w-4 rounded-full border border-border"
-                          style={{ backgroundColor: theme.colors.primary }}
-                        />
-                        <div
-                          className="h-4 w-4 rounded-full border border-border"
-                          style={{ backgroundColor: theme.colors.background }}
-                        />
-                        <div
-                          className="h-4 w-4 rounded-full border border-border"
-                          style={{ backgroundColor: theme.colors.foreground }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{theme.name}</span>
-                          {isSelected && (
-                            <div className="h-4 w-4 rounded-full bg-sky-500 flex items-center justify-center">
-                              <Check className="h-2.5 w-2.5 text-white" />
-                            </div>
-                          )}
+                      {/* Theme thumbnail preview */}
+                      <div
+                        className="h-20 rounded-lg mb-2 flex items-center justify-center relative overflow-hidden"
+                        style={{ backgroundColor: theme.colors.background }}
+                      >
+                        {/* Text preview */}
+                        <div className="text-center">
+                          <div
+                            className="font-semibold text-xs"
+                            style={{ color: theme.colors.foreground }}
+                          >
+                            Preview
+                          </div>
+                          <div
+                            className="text-[10px] mt-0.5"
+                            style={{ color: theme.colors.foreground, opacity: 0.7 }}
+                          >
+                            Store text
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{theme.description}</p>
+                        {/* Button preview */}
+                        <div
+                          className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded text-[9px] font-medium"
+                          style={{
+                            backgroundColor: theme.colors.primary,
+                            color: theme.subscribeBar.buttonTextColor,
+                            borderRadius: `${theme.borderRadius}px`
+                          }}
+                        >
+                          Button
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{theme.name}</span>
+                        {isSelected && (
+                          <div className="h-5 w-5 rounded-full bg-sky-500 flex items-center justify-center">
+                            <Check className="h-3 w-3 text-white" />
+                          </div>
+                        )}
                       </div>
                     </button>
                   )
@@ -588,8 +829,9 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
                   </div>
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
+              </>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -692,9 +934,27 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
   return (
     <div className="w-80 border-r border-border bg-background overflow-hidden flex flex-col h-full">
       <div className="border-b border-border px-4 py-3 shrink-0 bg-background">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Home className="h-3.5 w-3.5" />
-          <span className="uppercase tracking-wider">{pageTitle}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Home className="h-3.5 w-3.5" />
+            <span className="uppercase tracking-wider">{pageTitle}</span>
+          </div>
+          {/* Settings Button - icon only with tooltip */}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={openGlobalSettings}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>General Settings</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {/* Product page: show product name with switcher button */}
         {currentPageType === "product" ? (
@@ -984,20 +1244,13 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
         </div>
       </div>
 
-      <div className="border-t border-border p-3 shrink-0 bg-background space-y-2">
+      <div className="border-t border-border p-3 shrink-0 bg-background">
         <button
           onClick={openAddSectionModal}
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/20 transition-colors"
         >
           <Plus className="h-4 w-4" />
           Add section
-        </button>
-        <button
-          onClick={openGlobalSettings}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        >
-          <Settings className="h-4 w-4" />
-          Settings
         </button>
       </div>
     </div>
@@ -1177,18 +1430,17 @@ function ShopHeaderSettingsForm({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs">Brightness</Label>
+                <Label className="text-sm font-normal">Brightness</Label>
                 <span className="text-xs text-muted-foreground">
                   {Math.round((settings.coverBrightness ?? 1.0) * 100)}%
                 </span>
               </div>
-              <Slider
+              <PremiumSlider
                 value={[(settings.coverBrightness ?? 1.0) * 100]}
                 onValueChange={([value]) => onChange({ coverBrightness: value / 100 })}
                 min={70}
                 max={130}
                 step={5}
-                className="w-full"
               />
             </div>
 
@@ -1291,17 +1543,17 @@ function ShopHeaderSettingsForm({
 
         <div className="space-y-3">
           <div className="space-y-2">
-            <Label className="text-sm font-normal">Desktop Size</Label>
-            <div className="flex gap-1">
+            <Label className="text-sm font-medium">Desktop Size</Label>
+            <div className="flex gap-2">
               {(["small", "medium", "large"] as AvatarSizeChoice[]).map((size) => (
                 <button
                   key={size}
                   onClick={() => handleAvatarSizeChoice(size, false)}
                   className={cn(
-                    "flex-1 py-2 px-3 text-sm font-medium rounded-md border transition-colors capitalize",
+                    "flex-1 py-2.5 px-4 text-sm font-medium rounded-xl border-2 transition-all capitalize",
                     (settings.avatarSizeChoice || "medium") === size
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border hover:bg-muted",
+                      ? "bg-white border-gray-900 text-gray-900 shadow-sm"
+                      : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200",
                   )}
                 >
                   {size}
@@ -1311,17 +1563,17 @@ function ShopHeaderSettingsForm({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-normal">Mobile Size</Label>
-            <div className="flex gap-1">
+            <Label className="text-sm font-medium">Mobile Size</Label>
+            <div className="flex gap-2">
               {(["small", "medium", "large"] as AvatarSizeChoice[]).map((size) => (
                 <button
                   key={size}
                   onClick={() => handleAvatarSizeChoice(size, true)}
                   className={cn(
-                    "flex-1 py-2 px-3 text-sm font-medium rounded-md border transition-colors capitalize",
+                    "flex-1 py-2.5 px-4 text-sm font-medium rounded-xl border-2 transition-all capitalize",
                     (settings.mobileAvatarSizeChoice || "medium") === size
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border hover:bg-muted",
+                      ? "bg-white border-gray-900 text-gray-900 shadow-sm"
+                      : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200",
                   )}
                 >
                   {size}
@@ -1351,23 +1603,11 @@ function ShopHeaderSettingsForm({
               description="Show social media icons on mobile devices"
             />
 
-            <div className="space-y-2">
-              <Label className="text-sm font-normal">Icon Color</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={settings.socialMediaIconColor || "#ffffff"}
-                  onChange={(e) => onChange({ socialMediaIconColor: e.target.value })}
-                  className="w-12 h-8 p-1 cursor-pointer"
-                />
-                <Input
-                  value={settings.socialMediaIconColor || "#ffffff"}
-                  onChange={(e) => onChange({ socialMediaIconColor: e.target.value })}
-                  placeholder="#ffffff"
-                  className="flex-1 h-8 text-xs"
-                />
-              </div>
-            </div>
+            <ColorPicker
+              label="Icon Color"
+              value={settings.socialMediaIconColor || "#ffffff"}
+              onChange={(value) => onChange({ socialMediaIconColor: value })}
+            />
 
             <div className="space-y-3">
               {(["instagram", "tiktok", "youtube", "twitter", "spotify"] as const).map((platform) => {
@@ -1384,7 +1624,7 @@ function ShopHeaderSettingsForm({
                   <div key={platform} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-normal">{platformNames[platform]}</Label>
-                      <Switch
+                      <Toggle
                         checked={socialLinks[platform].enabled}
                         onCheckedChange={(checked) => handleSocialLinkChange(platform, "enabled", checked)}
                       />
@@ -1512,41 +1752,16 @@ function ProductHeaderSettingsForm({
 
       <div className="space-y-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Buy Button</h4>
-        <div className="space-y-3">
-          <Label>Button Background Color</Label>
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={settings.buyButtonColor || "#2563eb"}
-              onChange={(e) => onChange({ buyButtonColor: e.target.value })}
-              className="w-12 h-9 p-1 cursor-pointer"
-            />
-            <Input
-              value={settings.buyButtonColor || "#2563eb"}
-              onChange={(e) => onChange({ buyButtonColor: e.target.value })}
-              placeholder="#2563eb"
-              className="flex-1 h-9 text-xs"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <Label>Button Text Color</Label>
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={settings.buyButtonTextColor || "#ffffff"}
-              onChange={(e) => onChange({ buyButtonTextColor: e.target.value })}
-              className="w-12 h-9 p-1 cursor-pointer"
-            />
-            <Input
-              value={settings.buyButtonTextColor || "#ffffff"}
-              onChange={(e) => onChange({ buyButtonTextColor: e.target.value })}
-              placeholder="#ffffff"
-              className="flex-1 h-9 text-xs"
-            />
-          </div>
-        </div>
+        <ColorPicker
+          label="Button Background Color"
+          value={settings.buyButtonColor || "#2563eb"}
+          onChange={(value) => onChange({ buyButtonColor: value })}
+        />
+        <ColorPicker
+          label="Button Text Color"
+          value={settings.buyButtonTextColor || "#ffffff"}
+          onChange={(value) => onChange({ buyButtonTextColor: value })}
+        />
       </div>
 
       <div className="space-y-4">
@@ -1570,11 +1785,11 @@ function ToggleField({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <div>
+      <div className="flex-1 pr-4">
         <Label className="text-sm font-normal">{label}</Label>
         {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <Toggle checked={checked} onCheckedChange={onChange} />
     </div>
   )
 }
@@ -1586,26 +1801,37 @@ function ProductSpacingSettings({
   spacing: SpacingConfig
   onChange: (spacing: SpacingConfig) => void
 }) {
+  const paddingTop = spacing.paddingTop ?? 0
+  const paddingBottom = spacing.paddingBottom ?? 0
+
   return (
     <div className="space-y-4">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Spacing</h4>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-xs">Top</Label>
-          <Input
-            type="number"
-            value={spacing.paddingTop}
-            onChange={(e) => onChange({ ...spacing, paddingTop: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Top</Label>
+            <span className="text-xs text-muted-foreground">{paddingTop}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingTop]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingTop: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Bottom</Label>
-          <Input
-            type="number"
-            value={spacing.paddingBottom}
-            onChange={(e) => onChange({ ...spacing, paddingBottom: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Bottom</Label>
+            <span className="text-xs text-muted-foreground">{paddingBottom}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingBottom]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingBottom: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
       </div>
@@ -1620,44 +1846,65 @@ function SpacingSettings({
   spacing: SpacingConfig
   onChange: (spacing: SpacingConfig) => void
 }) {
+  const paddingTop = spacing.paddingTop ?? 0
+  const paddingBottom = spacing.paddingBottom ?? 0
+  const paddingLeft = spacing.paddingLeft ?? 0
+  const paddingRight = spacing.paddingRight ?? 0
+
   return (
     <div className="space-y-4">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Spacing</h4>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-xs">Top</Label>
-          <Input
-            type="number"
-            value={spacing.paddingTop}
-            onChange={(e) => onChange({ ...spacing, paddingTop: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Top</Label>
+            <span className="text-xs text-muted-foreground">{paddingTop}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingTop]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingTop: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Bottom</Label>
-          <Input
-            type="number"
-            value={spacing.paddingBottom}
-            onChange={(e) => onChange({ ...spacing, paddingBottom: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Bottom</Label>
+            <span className="text-xs text-muted-foreground">{paddingBottom}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingBottom]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingBottom: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Left</Label>
-          <Input
-            type="number"
-            value={spacing.paddingLeft}
-            onChange={(e) => onChange({ ...spacing, paddingLeft: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Left</Label>
+            <span className="text-xs text-muted-foreground">{paddingLeft}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingLeft]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingLeft: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Right</Label>
-          <Input
-            type="number"
-            value={spacing.paddingRight}
-            onChange={(e) => onChange({ ...spacing, paddingRight: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Right</Label>
+            <span className="text-xs text-muted-foreground">{paddingRight}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingRight]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingRight: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
       </div>
@@ -1675,41 +1922,17 @@ function ColorSettings({
   return (
     <div className="space-y-4">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colors</h4>
-      <div className="space-y-3">
-        <div className="space-y-2">
-          <Label className="text-xs">Background</Label>
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={colors.backgroundColor || "#ffffff"}
-              onChange={(e) => onChange({ ...colors, backgroundColor: e.target.value })}
-              className="w-12 h-8 p-1 cursor-pointer"
-            />
-            <Input
-              value={colors.backgroundColor || ""}
-              onChange={(e) => onChange({ ...colors, backgroundColor: e.target.value })}
-              placeholder="transparent"
-              className="flex-1 h-8 text-xs"
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs">Text</Label>
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={colors.textColor || "#000000"}
-              onChange={(e) => onChange({ ...colors, textColor: e.target.value })}
-              className="w-12 h-8 p-1 cursor-pointer"
-            />
-            <Input
-              value={colors.textColor || ""}
-              onChange={(e) => onChange({ ...colors, textColor: e.target.value })}
-              placeholder="inherit"
-              className="flex-1 h-8 text-xs"
-            />
-          </div>
-        </div>
+      <div className="space-y-4">
+        <ColorPicker
+          label="Background"
+          value={colors.backgroundColor || "#ffffff"}
+          onChange={(value) => onChange({ ...colors, backgroundColor: value })}
+        />
+        <ColorPicker
+          label="Text"
+          value={colors.textColor || "#000000"}
+          onChange={(value) => onChange({ ...colors, textColor: value })}
+        />
       </div>
     </div>
   )
@@ -2011,7 +2234,7 @@ function AnnouncementBarSettingsForm({
           <Label className="text-sm font-normal">Text Size</Label>
           <span className="text-xs text-muted-foreground">{settings.textSize || 14}px</span>
         </div>
-        <Slider
+        <PremiumSlider
           value={[settings.textSize || 14]}
           onValueChange={([value]) => onChange({ textSize: value })}
           min={12}
@@ -2225,33 +2448,31 @@ function MoreFromSellerSettingsForm({
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Top Padding</Label>
-        <div className="flex items-center gap-3">
-          <Slider
-            value={[spacing.paddingTop ?? 48]}
-            onValueChange={([value]) => onChange({ spacing: { ...spacing, paddingTop: value } })}
-            min={0}
-            max={96}
-            step={4}
-            className="flex-1"
-          />
-          <span className="text-sm text-muted-foreground w-12 text-right">{spacing.paddingTop ?? 48}px</span>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-normal">Top Padding</Label>
+          <span className="text-xs text-muted-foreground">{spacing.paddingTop ?? 48}px</span>
         </div>
+        <PremiumSlider
+          value={[spacing.paddingTop ?? 48]}
+          onValueChange={([value]) => onChange({ spacing: { ...spacing, paddingTop: value } })}
+          min={0}
+          max={96}
+          step={4}
+        />
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Bottom Padding</Label>
-        <div className="flex items-center gap-3">
-          <Slider
-            value={[spacing.paddingBottom ?? 48]}
-            onValueChange={([value]) => onChange({ spacing: { ...spacing, paddingBottom: value } })}
-            min={0}
-            max={96}
-            step={4}
-            className="flex-1"
-          />
-          <span className="text-sm text-muted-foreground w-12 text-right">{spacing.paddingBottom ?? 48}px</span>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-normal">Bottom Padding</Label>
+          <span className="text-xs text-muted-foreground">{spacing.paddingBottom ?? 48}px</span>
         </div>
+        <PremiumSlider
+          value={[spacing.paddingBottom ?? 48]}
+          onValueChange={([value]) => onChange({ spacing: { ...spacing, paddingBottom: value } })}
+          min={0}
+          max={96}
+          step={4}
+        />
       </div>
 
       <ToggleField label="Show Price" checked={settings.showPrice} onChange={(checked) => onChange({ showPrice: checked })} />
@@ -2376,41 +2597,17 @@ function SubscribeBarSettingsForm({
         <p className="text-xs text-muted-foreground">Changes button text before/after subscribe</p>
       </div>
 
-      <div className="space-y-3">
-        <Label>Button Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonColor || "#2563eb"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonColor || "#2563eb"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            placeholder="#2563eb"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Color"
+        value={safeSettings.buttonColor || "#2563eb"}
+        onChange={(value) => onChange({ buttonColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Text Color"
+        value={safeSettings.buttonTextColor || "#ffffff"}
+        onChange={(value) => onChange({ buttonTextColor: value })}
+      />
 
       <ToggleField
         label="Show Avatar"
@@ -2419,41 +2616,17 @@ function SubscribeBarSettingsForm({
         description="Display your profile picture in the bar"
       />
 
-      <div className="space-y-3">
-        <Label>Background Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.colors?.backgroundColor || "#ffffff"}
-            onChange={(e) => onChange({ colors: { ...safeSettings.colors, backgroundColor: e.target.value } })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.colors?.backgroundColor || "#ffffff"}
-            onChange={(e) => onChange({ colors: { ...safeSettings.colors, backgroundColor: e.target.value } })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Background Color"
+        value={safeSettings.colors?.backgroundColor || "#ffffff"}
+        onChange={(value) => onChange({ colors: { ...safeSettings.colors, backgroundColor: value } })}
+      />
 
-      <div className="space-y-3">
-        <Label>Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.colors?.textColor || "#000000"}
-            onChange={(e) => onChange({ colors: { ...safeSettings.colors, textColor: e.target.value } })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.colors?.textColor || "#000000"}
-            onChange={(e) => onChange({ colors: { ...safeSettings.colors, textColor: e.target.value } })}
-            placeholder="#000000"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Text Color"
+        value={safeSettings.colors?.textColor || "#000000"}
+        onChange={(value) => onChange({ colors: { ...safeSettings.colors, textColor: value } })}
+      />
     </div>
   )
 }
@@ -2495,77 +2668,29 @@ function ProductCreatorBarSettingsForm({
         </Select>
       </div>
 
-      <div className="space-y-3">
-        <Label>Background Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.backgroundColor || "#1a1a1a"}
-            onChange={(e) => onChange({ backgroundColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.backgroundColor || "#1a1a1a"}
-            onChange={(e) => onChange({ backgroundColor: e.target.value })}
-            placeholder="#1a1a1a"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Background Color"
+        value={safeSettings.backgroundColor || "#1a1a1a"}
+        onChange={(value) => onChange({ backgroundColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.textColor || "#ffffff"}
-            onChange={(e) => onChange({ textColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.textColor || "#ffffff"}
-            onChange={(e) => onChange({ textColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Text Color"
+        value={safeSettings.textColor || "#ffffff"}
+        onChange={(value) => onChange({ textColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Background Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonColor || "#4b5563"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonColor || "#4b5563"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            placeholder="#4b5563"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Background Color"
+        value={safeSettings.buttonColor || "#4b5563"}
+        onChange={(value) => onChange({ buttonColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Text Color"
+        value={safeSettings.buttonTextColor || "#ffffff"}
+        onChange={(value) => onChange({ buttonTextColor: value })}
+      />
     </div>
   )
 }
@@ -2621,74 +2746,37 @@ function StickyAddToCartSettingsForm({
         </Select>
       </div>
 
-      <div className="space-y-3">
-        <Label>Border Radius</Label>
-        <div className="flex items-center gap-3">
-          <Slider
-            value={[safeSettings.borderRadius ?? 8]}
-            onValueChange={([value]) => onChange({ borderRadius: value })}
-            min={0}
-            max={24}
-            step={2}
-            className="flex-1"
-          />
-          <span className="text-sm text-muted-foreground w-12 text-right">{safeSettings.borderRadius ?? 8}px</span>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-normal">Border Radius</Label>
+          <span className="text-xs text-muted-foreground">{safeSettings.borderRadius ?? 8}px</span>
         </div>
+        <PremiumSlider
+          value={[safeSettings.borderRadius ?? 8]}
+          onValueChange={([value]) => onChange({ borderRadius: value })}
+          min={0}
+          max={24}
+          step={2}
+        />
       </div>
 
-      <div className="space-y-3">
-        <Label>Background Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.backgroundColor || "#ffffff"}
-            onChange={(e) => onChange({ backgroundColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.backgroundColor || "#ffffff"}
-            onChange={(e) => onChange({ backgroundColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Background Color"
+        value={safeSettings.backgroundColor || "#ffffff"}
+        onChange={(value) => onChange({ backgroundColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonColor || "#2563eb"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonColor || "#2563eb"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            placeholder="#2563eb"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Color"
+        value={safeSettings.buttonColor || "#2563eb"}
+        onChange={(value) => onChange({ buttonColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Text Color"
+        value={safeSettings.buttonTextColor || "#ffffff"}
+        onChange={(value) => onChange({ buttonTextColor: value })}
+      />
     </div>
   )
 }
