@@ -596,11 +596,16 @@ export function StoreBuilderProvider({
                 ...shopHeader.subscribeBar,
                 buttonColor: theme.subscribeBar.buttonColor,
                 buttonTextColor: theme.subscribeBar.buttonTextColor,
+                buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
+                inputBorderColor: theme.subscribeBar.inputBorderColor ?? theme.colors.border,
                 colors: {
                   ...shopHeader.subscribeBar.colors,
                   backgroundColor: theme.subscribeBar.backgroundColor,
                   textColor: theme.subscribeBar.textColor,
                 },
+                // Also set at top level for compatibility
+                backgroundColor: theme.subscribeBar.backgroundColor,
+                textColor: theme.subscribeBar.textColor,
               }
             }
             // Apply header colors from theme sections config
@@ -640,9 +645,10 @@ export function StoreBuilderProvider({
                 textColor: theme.stickyAddToCart.textColor || theme.colors.foreground,
               }
             }
-            // Apply buy button colors
+            // Apply buy button colors and border radius
             productHeader.buyButtonColor = theme.productHeader.buyButtonColor
             productHeader.buyButtonTextColor = theme.productHeader.buyButtonTextColor
+            productHeader.buttonsBorderRadius = theme.productHeader.buttonsBorderRadius ?? theme.buttonBorderRadius
             // Apply page background and text colors for product page
             productHeader.colors = {
               ...productHeader.colors,
