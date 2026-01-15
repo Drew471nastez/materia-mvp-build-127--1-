@@ -47,6 +47,9 @@ import {
   Circle,
   Square,
   Hexagon,
+  Search,
+  Check,
+  ChevronDown,
 } from "lucide-react"
 import type {
   Section,
@@ -102,7 +105,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Check, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
   Tooltip,
