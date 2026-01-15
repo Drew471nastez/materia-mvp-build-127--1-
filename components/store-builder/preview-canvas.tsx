@@ -181,7 +181,8 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
   }, [])
 
   // In editor mode, start with sticky visible so users can see and customize it
-  const [showSticky, setShowSticky] = useState(!isPreviewMode)
+  // For preview mode, start hidden (will show on scroll)
+  const [showSticky, setShowSticky] = useState(true)
   const lastScrollTopRef = useRef(0)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollParentRef = useRef<HTMLElement | null>(null)
@@ -258,10 +259,10 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       const nearFooter = isNearFooter()
 
       // In editor mode, ALWAYS show sticky so users can see and customize it
-      // In preview/live mode, use scroll threshold
+      // Only hide when very close to footer
       if (isEditorMode) {
-        // Always visible in editor unless near footer
-        setShowSticky(!nearFooter)
+        // Always visible in editor - never hide
+        setShowSticky(true)
         return
       }
 
@@ -341,8 +342,9 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       ? (draftConfig.headerSettings as ProductHeaderSettings).stickyAddToCart || defaultStickyAddToCartSettings
       : null
 
+  // shouldRenderSticky should not block on canvasRect - we can render with default positioning
   const shouldRenderSticky =
-    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible && canvasRect
+    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible
 
   if (isLoading) {
     return (
@@ -501,12 +503,12 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       </div>
 
       {/* Sticky Add to Cart - FIXED positioned, constrained to canvas width */}
-      {shouldRenderSticky && selectedProduct && stickySettings && canvasRect && (
+      {shouldRenderSticky && selectedProduct && stickySettings && (
         <div
           style={{
             position: "fixed",
-            left: canvasRect.left,
-            width: canvasRect.width,
+            left: canvasRect?.left ?? canvasRef.current?.getBoundingClientRect().left ?? 0,
+            width: canvasRect?.width ?? canvasRef.current?.getBoundingClientRect().width ?? '100%',
             bottom: 0,
             zIndex: 9999,
           }}
