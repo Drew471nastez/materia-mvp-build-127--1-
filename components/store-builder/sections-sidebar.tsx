@@ -43,6 +43,10 @@ import {
   Globe,
   BadgeCheck,
   Info,
+  Share2,
+  Circle,
+  Square,
+  Hexagon,
 } from "lucide-react"
 import type {
   Section,
@@ -438,7 +442,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
   const [showProductSelector, setShowProductSelector] = useState(false)
   const [productSearchQuery, setProductSearchQuery] = useState("")
-  const [settingsTab, setSettingsTab] = useState<"basic" | "seo" | "badge" | "theme">("basic")
+  const [settingsTab, setSettingsTab] = useState<"basic" | "seo" | "badge" | "theme" | "social">("basic")
 
   // ✅ Safety: if old configs ever saved Reviews as hidden, force it back on.
   useEffect(() => {
@@ -529,6 +533,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
     const settingsTabs = [
       { id: "basic" as const, label: "Basic Info", icon: Info },
       { id: "theme" as const, label: "Theme Presets", icon: Palette },
+      { id: "social" as const, label: "Social Media", icon: Share2 },
       { id: "seo" as const, label: "SEO", icon: Globe },
       { id: "badge" as const, label: "Verified Badge", icon: BadgeCheck },
     ]
@@ -702,6 +707,133 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
               </>
             )}
 
+            {/* Social Media Content */}
+            {settingsTab === "social" && (
+              <>
+                <div className="space-y-2">
+                  <h4 className="font-medium">Social Media Links</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Configure your social media links. These will appear on your store header and can be shown across all pages.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5 flex-1 pr-4">
+                      <Label className="text-sm font-medium">Enable Social Media</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Show social icons on your cover image
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={(headerSettings as ShopHeaderSettings).showSocialMedia ?? false}
+                      onCheckedChange={(checked) => updateHeaderSettings({ showSocialMedia: checked })}
+                    />
+                  </div>
+
+                  {(headerSettings as ShopHeaderSettings).showSocialMedia && (
+                    <div className="space-y-4 pt-2 border-t border-border">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5 flex-1 pr-4">
+                          <Label className="text-sm font-medium text-muted-foreground">Show on Mobile</Label>
+                          <p className="text-xs text-muted-foreground">Display icons on mobile devices</p>
+                        </div>
+                        <Toggle
+                          checked={(headerSettings as ShopHeaderSettings).showSocialIconsOnMobile ?? true}
+                          onCheckedChange={(checked) => updateHeaderSettings({ showSocialIconsOnMobile: checked })}
+                        />
+                      </div>
+
+                      <ColorPicker
+                        label="Icon Color"
+                        value={(headerSettings as ShopHeaderSettings).socialMediaIconColor || "#ffffff"}
+                        onChange={(value) => updateHeaderSettings({ socialMediaIconColor: value })}
+                      />
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Icon Style</Label>
+                        <div className="flex gap-2">
+                          {[
+                            { id: "default", label: "Default", icon: Circle },
+                            { id: "filled", label: "Filled", icon: Circle },
+                            { id: "outlined", label: "Outlined", icon: Circle },
+                          ].map((style) => (
+                            <button
+                              key={style.id}
+                              className={cn(
+                                "flex-1 py-2.5 px-2 text-xs font-medium rounded-xl border-2 transition-all",
+                                "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
+                              )}
+                            >
+                              {style.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Choose how your social media icons appear
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {(headerSettings as ShopHeaderSettings).showSocialMedia && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Social Platforms</Label>
+                    {(["instagram", "tiktok", "youtube", "twitter", "spotify"] as const).map((platform) => {
+                      const platformNames: Record<typeof platform, string> = {
+                        instagram: "Instagram",
+                        tiktok: "TikTok",
+                        youtube: "YouTube",
+                        twitter: "X (Twitter)",
+                        spotify: "Spotify",
+                      }
+                      const shopHeader = headerSettings as ShopHeaderSettings
+                      const socialLinks = shopHeader.socialLinks || {
+                        instagram: { enabled: true, url: "" },
+                        tiktok: { enabled: true, url: "" },
+                        youtube: { enabled: true, url: "" },
+                        twitter: { enabled: true, url: "" },
+                        spotify: { enabled: false, url: "" },
+                      }
+
+                      return (
+                        <div key={platform} className="space-y-2 rounded-lg border border-border p-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-normal">{platformNames[platform]}</Label>
+                            <Toggle
+                              checked={socialLinks[platform].enabled}
+                              onCheckedChange={(checked) => {
+                                const newSocialLinks = {
+                                  ...socialLinks,
+                                  [platform]: { ...socialLinks[platform], enabled: checked },
+                                }
+                                updateHeaderSettings({ socialLinks: newSocialLinks })
+                              }}
+                            />
+                          </div>
+                          {socialLinks[platform].enabled && (
+                            <Input
+                              value={socialLinks[platform].url}
+                              onChange={(e) => {
+                                const newSocialLinks = {
+                                  ...socialLinks,
+                                  [platform]: { ...socialLinks[platform], url: e.target.value },
+                                }
+                                updateHeaderSettings({ socialLinks: newSocialLinks })
+                              }}
+                              placeholder={`https://${platform === "twitter" ? "x" : platform}.com/...`}
+                              className="h-8 text-sm"
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
             {/* Verified Badge Content */}
             {settingsTab === "badge" && (
               <>
@@ -765,7 +897,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="cursor-pointer">
-                                <svg viewBox="0 0 22 22" className="h-6 w-6">
+                                <svg viewBox="0 0 22 22" className="h-5 w-5">
                                   {/* Blue badge background */}
                                   <path
                                     fill="#3b82f6"
@@ -1619,13 +1751,13 @@ function ShopHeaderSettingsForm({
           <div className="space-y-2">
             <Label className="text-sm font-medium">Desktop Size</Label>
             <div className="flex gap-2">
-              {(["small", "medium", "large"] as AvatarSizeChoice[]).map((size) => (
+              {(["small", "large"] as AvatarSizeChoice[]).map((size) => (
                 <button
                   key={size}
                   onClick={() => handleAvatarSizeChoice(size, false)}
                   className={cn(
                     "flex-1 py-2.5 px-4 text-sm font-medium rounded-xl border-2 transition-all capitalize",
-                    (settings.avatarSizeChoice || "medium") === size
+                    (settings.avatarSizeChoice === size || (settings.avatarSizeChoice === "medium" && size === "large") || (!settings.avatarSizeChoice && size === "large"))
                       ? "bg-white border-gray-900 text-gray-900 shadow-sm"
                       : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200",
                   )}
@@ -1639,13 +1771,13 @@ function ShopHeaderSettingsForm({
           <div className="space-y-2">
             <Label className="text-sm font-medium">Mobile Size</Label>
             <div className="flex gap-2">
-              {(["small", "medium", "large"] as AvatarSizeChoice[]).map((size) => (
+              {(["small", "large"] as AvatarSizeChoice[]).map((size) => (
                 <button
                   key={size}
                   onClick={() => handleAvatarSizeChoice(size, true)}
                   className={cn(
                     "flex-1 py-2.5 px-4 text-sm font-medium rounded-xl border-2 transition-all capitalize",
-                    (settings.mobileAvatarSizeChoice || "medium") === size
+                    (settings.mobileAvatarSizeChoice === size || (settings.mobileAvatarSizeChoice === "medium" && size === "large") || (!settings.mobileAvatarSizeChoice && size === "large"))
                       ? "bg-white border-gray-900 text-gray-900 shadow-sm"
                       : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200",
                   )}

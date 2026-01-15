@@ -107,13 +107,42 @@ function isDarkHex(bg?: string): boolean {
   return luminance < 150
 }
 
-/** Shared input classes */
-function getAdaptiveInputClass(isDarkBackground: boolean) {
+/**
+ * Check if color is vibrant (saturated and not too dark/light)
+ */
+function isVibrantColor(hex?: string): boolean {
+  if (!hex) return false
+  const clean = hex.replace("#", "")
+  if (clean.length !== 6 && clean.length !== 3) return false
+
+  const full = clean.length === 3
+    ? clean.split("").map((c) => c + c).join("")
+    : clean
+
+  const r = parseInt(full.slice(0, 2), 16)
+  const g = parseInt(full.slice(2, 4), 16)
+  const b = parseInt(full.slice(4, 6), 16)
+
+  if ([r, g, b].some((n) => Number.isNaN(n))) return false
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const lightness = (max + min) / 2 / 255
+  const delta = max - min
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1)) / 255
+
+  return saturation > 0.4 && lightness > 0.2 && lightness < 0.8
+}
+
+/** Shared input classes - adaptive to background color */
+function getAdaptiveInputClass(isDarkBackground: boolean, backgroundColor?: string) {
+  const isVibrant = isVibrantColor(backgroundColor)
+
   return cn(
     "w-full rounded-md border outline-none transition-colors bg-transparent px-3",
-    isDarkBackground
-      ? "text-white placeholder:text-white/70 focus:placeholder:text-white/40 border-white/30 focus:border-white/60"
-      : "text-gray-900 placeholder:text-gray-500 focus:placeholder:text-gray-400 border-black/20 focus:border-black/40",
+    isDarkBackground || isVibrant
+      ? "text-white placeholder:text-white/80 focus:placeholder:text-white/50 border-white/40 focus:border-white/70"
+      : "text-gray-900 placeholder:text-gray-500 focus:placeholder:text-gray-400 border-gray-300 focus:border-gray-400",
   )
 }
 
@@ -129,7 +158,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   const [isHydrated, setIsHydrated] = useState(false)
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
-  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground), [isDarkBackground])
+  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
 
   /**
    * FIX: prevent “type 1 character then input blurs” on some pages where
@@ -408,7 +437,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   const textColor = settings.textColor || settings.colors?.textColor || "#000000"
 
   const isDarkBackground = useMemo(() => isDarkHex(backgroundColor), [backgroundColor])
-  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground), [isDarkBackground])
+  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, backgroundColor), [isDarkBackground, backgroundColor])
 
   const initials =
     settings.creatorName

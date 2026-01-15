@@ -357,6 +357,147 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       pageBackgroundColor: "linear-gradient(135deg, #f97316 0%, #fb923c 30%, #ec4899 100%)",
     },
   },
+  forest: {
+    name: "Forest",
+    description: "Fresh green nature theme",
+    colors: {
+      primary: "#ffffff",
+      secondary: "#bbf7d0",
+      accent: "#22c55e",
+      background: "linear-gradient(135deg, #166534 0%, #22c55e 50%, #4ade80 100%)",
+      foreground: "#ffffff",
+      muted: "rgba(255,255,255,0.15)",
+      border: "rgba(255,255,255,0.2)",
+    },
+    borderRadius: 16,
+    buttonBorderRadius: 16,
+    subscribeBar: {
+      buttonColor: "#ffffff",
+      buttonTextColor: "#166534",
+      backgroundColor: "rgba(22, 101, 52, 0.9)",
+      textColor: "#ffffff",
+    },
+    creatorBar: {
+      backgroundColor: "rgba(22, 101, 52, 0.95)",
+      textColor: "#ffffff",
+      buttonColor: "#ffffff",
+      buttonTextColor: "#166534",
+      buttonBorderRadius: 16,
+    },
+    stickyAddToCart: {
+      backgroundColor: "rgba(34, 197, 94, 0.95)",
+      buttonColor: "#ffffff",
+      buttonTextColor: "#166534",
+      borderRadius: 16,
+    },
+    productHeader: {
+      buyButtonColor: "#22c55e",
+      buyButtonTextColor: "#ffffff",
+    },
+    sections: {
+      headerBackgroundColor: "rgba(22, 101, 52, 0.8)",
+      headerTextColor: "#ffffff",
+      featuredProductsBackgroundColor: "rgba(34, 197, 94, 0.2)",
+      featuredProductsTextColor: "#ffffff",
+      footerBackgroundColor: "rgba(22, 101, 52, 0.95)",
+      footerTextColor: "#bbf7d0",
+      pageBackgroundColor: "linear-gradient(135deg, #166534 0%, #22c55e 50%, #4ade80 100%)",
+    },
+  },
+  rose: {
+    name: "Rose",
+    description: "Elegant pink and rose theme",
+    colors: {
+      primary: "#ffffff",
+      secondary: "#fce7f3",
+      accent: "#ec4899",
+      background: "linear-gradient(135deg, #be185d 0%, #ec4899 50%, #f472b6 100%)",
+      foreground: "#ffffff",
+      muted: "rgba(255,255,255,0.15)",
+      border: "rgba(255,255,255,0.2)",
+    },
+    borderRadius: 24,
+    buttonBorderRadius: 24,
+    subscribeBar: {
+      buttonColor: "#ffffff",
+      buttonTextColor: "#be185d",
+      backgroundColor: "rgba(190, 24, 93, 0.9)",
+      textColor: "#ffffff",
+    },
+    creatorBar: {
+      backgroundColor: "rgba(190, 24, 93, 0.95)",
+      textColor: "#ffffff",
+      buttonColor: "#ffffff",
+      buttonTextColor: "#be185d",
+      buttonBorderRadius: 24,
+    },
+    stickyAddToCart: {
+      backgroundColor: "rgba(236, 72, 153, 0.95)",
+      buttonColor: "#ffffff",
+      buttonTextColor: "#be185d",
+      borderRadius: 24,
+    },
+    productHeader: {
+      buyButtonColor: "#ec4899",
+      buyButtonTextColor: "#ffffff",
+    },
+    sections: {
+      headerBackgroundColor: "rgba(190, 24, 93, 0.8)",
+      headerTextColor: "#ffffff",
+      featuredProductsBackgroundColor: "rgba(236, 72, 153, 0.2)",
+      featuredProductsTextColor: "#ffffff",
+      footerBackgroundColor: "rgba(190, 24, 93, 0.95)",
+      footerTextColor: "#fce7f3",
+      pageBackgroundColor: "linear-gradient(135deg, #be185d 0%, #ec4899 50%, #f472b6 100%)",
+    },
+  },
+  midnight: {
+    name: "Midnight",
+    description: "Deep dark blue premium theme",
+    colors: {
+      primary: "#334155",
+      secondary: "#475569",
+      accent: "#3b82f6",
+      background: "#0f172a",
+      foreground: "#f8fafc",
+      muted: "#1e293b",
+      border: "#334155",
+    },
+    borderRadius: 12,
+    buttonBorderRadius: 12,
+    subscribeBar: {
+      buttonColor: "#3b82f6",
+      buttonTextColor: "#ffffff",
+      backgroundColor: "#1e293b",
+      textColor: "#f8fafc",
+    },
+    creatorBar: {
+      backgroundColor: "#1e293b",
+      textColor: "#f8fafc",
+      buttonColor: "#3b82f6",
+      buttonTextColor: "#ffffff",
+      buttonBorderRadius: 12,
+    },
+    stickyAddToCart: {
+      backgroundColor: "#1e293b",
+      buttonColor: "#3b82f6",
+      buttonTextColor: "#ffffff",
+      borderRadius: 12,
+    },
+    productHeader: {
+      buyButtonColor: "#3b82f6",
+      buyButtonTextColor: "#ffffff",
+    },
+    sections: {
+      headerBackgroundColor: "#0f172a",
+      headerTextColor: "#f8fafc",
+      featuredProductsBackgroundColor: "#1e293b",
+      featuredProductsTextColor: "#f8fafc",
+      footerBackgroundColor: "#0f172a",
+      footerTextColor: "#94a3b8",
+      pageBackgroundColor: "#0f172a",
+    },
+  },
 }
 
 // Verified badge type labels
@@ -863,7 +1004,7 @@ export function createSectionFromLibrary(libraryItem: SectionLibraryItem, order:
 }
 
 export const avatarSizeMap: Record<AvatarSizeChoice, number> = {
-  small: 120,
-  medium: 137,
-  large: 144,
+  small: 110,
+  medium: 137, // kept for backwards compatibility
+  large: 137, // same as medium
 }

@@ -519,9 +519,16 @@ function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSe
     full: "max-w-4xl",
   }[settings.maxWidth]
 
+  // Determine alignment class based on textAlign
+  const alignmentClass = {
+    left: "mr-auto",
+    center: "mx-auto",
+    right: "ml-auto",
+  }[settings.typography.textAlign || "left"]
+
   return (
     <div
-      className={cn("mx-auto", isMobile ? "px-3 max-w-full" : cn("px-4", maxWidthClass))}
+      className={cn(alignmentClass, isMobile ? "px-3 max-w-full" : cn("px-4", maxWidthClass))}
       style={{
         paddingTop: spacing.paddingTop,
         paddingBottom: spacing.paddingBottom,
@@ -1039,6 +1046,7 @@ export interface UnifiedShopHeaderProps {
   isSelected?: boolean
   onSelect?: () => void
   onAvatarEdit?: () => void
+  onCoverEdit?: () => void
   globalSettings?: GlobalStoreSettings
 }
 
@@ -1053,6 +1061,7 @@ export function UnifiedShopHeader({
   isSelected = false,
   onSelect,
   onAvatarEdit,
+  onCoverEdit,
   globalSettings,
 }: UnifiedShopHeaderProps) {
   const avatarSizeChoice = isMobile
@@ -1093,7 +1102,13 @@ export function UnifiedShopHeader({
             "relative w-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors",
             isMobile ? "h-32" : "h-48 sm:h-64",
           )}
-          onClick={onSelect}
+          onClick={() => {
+            if (onCoverEdit) {
+              onCoverEdit()
+            } else if (onSelect) {
+              onSelect()
+            }
+          }}
         >
           <div className="flex items-center gap-3 text-gray-500">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1215,7 +1230,7 @@ export function UnifiedShopHeader({
                     <span className="cursor-pointer shrink-0">
                       <svg
                         viewBox="0 0 22 22"
-                        className={cn(isMobile ? "h-5 w-5" : "h-6 w-6")}
+                        className={cn(isMobile ? "h-[17px] w-[17px]" : "h-5 w-5")}
                       >
                         {/* Blue badge background */}
                         <path

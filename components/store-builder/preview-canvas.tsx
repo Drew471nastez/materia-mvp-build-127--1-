@@ -22,6 +22,7 @@ import {
   defaultStickyAddToCartSettings,
 } from "@/lib/store-builder/defaults"
 import { SellerFooter } from "@/components/storefront/seller-footer"
+import { CoverImageEditor } from "./cover-image-editor"
 
 interface PreviewCanvasProps {
   creatorId: string
@@ -57,6 +58,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     isLoading,
     selectedProductId,
     setSidebarMode,
+    updateHeaderSettings,
   } = useStoreBuilder()
 
   const isMobile = previewDevice === "mobile"
@@ -70,9 +72,22 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     ? products?.filter((p) => p.id !== selectedProductId) || []
     : products || []
 
+  const [coverEditorOpen, setCoverEditorOpen] = useState(false)
+
   const handleAvatarEdit = () => {
     setSelectedSectionId("header")
     setSidebarMode("settings")
+  }
+
+  const handleCoverEdit = () => {
+    setCoverEditorOpen(true)
+  }
+
+  const handleCoverSave = (imageUrl: string, focalPoint: { x: number; y: number }) => {
+    updateHeaderSettings({
+      coverImageUrl: imageUrl,
+      coverFocalPoint: focalPoint,
+    })
   }
 
   const subscribeBarSettings =
@@ -261,9 +276,12 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       <div
         ref={canvasRef}
         className={cn(
-          "bg-background shadow-xl mx-auto relative flex flex-col rounded-[20px] ring-1 ring-border overflow-hidden",
+          "shadow-xl mx-auto relative flex flex-col rounded-[20px] ring-1 ring-border overflow-hidden",
           isMobile ? "w-[375px]" : "w-full max-w-5xl",
         )}
+        style={{
+          background: draftConfig.globalColors?.backgroundColor || "var(--background)",
+        }}
       >
         {currentPageType === "product" && selectedProduct ? (
           <>
@@ -356,6 +374,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               isSelected={isEditorMode && selectedSectionId === "header"}
               onSelect={() => handleSelectSection("header")}
               onAvatarEdit={handleAvatarEdit}
+              onCoverEdit={handleCoverEdit}
               globalSettings={draftConfig.globalSettings}
             />
 
@@ -415,6 +434,15 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
           />
         </div>
       )}
+
+      {/* Cover Image Editor Popup */}
+      <CoverImageEditor
+        open={coverEditorOpen}
+        onOpenChange={setCoverEditorOpen}
+        currentImageUrl={(draftConfig.headerSettings as ShopHeaderSettings).coverImageUrl}
+        currentFocalPoint={(draftConfig.headerSettings as ShopHeaderSettings).coverFocalPoint}
+        onSave={handleCoverSave}
+      />
     </div>
   )
 }

@@ -551,6 +551,12 @@ export function StoreBuilderProvider({
                 },
               }
             }
+            // Apply header colors from theme sections config
+            shopHeader.colors = {
+              ...shopHeader.colors,
+              backgroundColor: theme.sections.headerBackgroundColor,
+              textColor: theme.sections.headerTextColor || theme.colors.foreground,
+            }
           }
 
           // Apply theme to product page components
@@ -579,10 +585,61 @@ export function StoreBuilderProvider({
             productHeader.buyButtonTextColor = theme.productHeader.buyButtonTextColor
           }
 
+          // Apply theme to all sections
+          const newSections = prev.sections.map((section) => {
+            const newSection = { ...section, settings: { ...section.settings } }
+
+            // Apply featured products/more-from-seller section colors
+            if (section.type === "featured-products" || section.type === "more-from-seller") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  ...newSection.settings.colors,
+                  backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                  textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                },
+              }
+            }
+
+            // Apply text blocks and other sections - use page background
+            if (section.type === "text-block" || section.type === "image-text" || section.type === "benefits") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  ...newSection.settings.colors,
+                  backgroundColor: "transparent",
+                  textColor: theme.colors.foreground,
+                },
+              }
+            }
+
+            // Apply announcement bar colors
+            if (section.type === "announcement-bar") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  ...newSection.settings.colors,
+                  backgroundColor: theme.colors.primary,
+                  textColor: theme.colors.foreground === "#ffffff" ? "#ffffff" : theme.colors.foreground,
+                },
+              }
+            }
+
+            return newSection
+          })
+
+          // Update global colors for page background
+          const newGlobalColors = {
+            ...prev.globalColors,
+            backgroundColor: theme.sections.pageBackgroundColor,
+          }
+
           const newConfig: PageConfig = {
             ...prev,
             globalSettings: newGlobalSettings,
+            globalColors: newGlobalColors,
             headerSettings: newHeaderSettings,
+            sections: newSections,
           }
 
           addToHistory(newConfig)
