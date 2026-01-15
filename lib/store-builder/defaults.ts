@@ -37,6 +37,7 @@ export interface ThemeConfig {
     border: string
   }
   borderRadius: number
+  buttonBorderRadius: number
   // Component-specific overrides
   subscribeBar: {
     buttonColor: string
@@ -49,6 +50,7 @@ export interface ThemeConfig {
     textColor: string
     buttonColor: string
     buttonTextColor: string
+    buttonBorderRadius: number
   }
   stickyAddToCart: {
     backgroundColor: string
@@ -60,6 +62,16 @@ export interface ThemeConfig {
     buyButtonColor: string
     buyButtonTextColor: string
   }
+  // Section-specific styling
+  sections: {
+    headerBackgroundColor: string
+    headerTextColor: string
+    featuredProductsBackgroundColor: string
+    featuredProductsTextColor: string
+    footerBackgroundColor: string
+    footerTextColor: string
+    pageBackgroundColor: string
+  }
 }
 
 export const themePresets: Record<ThemePreset, ThemeConfig> = {
@@ -69,13 +81,14 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     colors: {
       primary: "#e5e5e5",
       secondary: "#f5f5f5",
-      accent: "#9ca3af",
+      accent: "#6b7280",
       background: "#ffffff",
       foreground: "#374151",
       muted: "#f9fafb",
       border: "#e5e7eb",
     },
     borderRadius: 8,
+    buttonBorderRadius: 8,
     subscribeBar: {
       buttonColor: "#6b7280",
       buttonTextColor: "#ffffff",
@@ -87,6 +100,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#374151",
       buttonColor: "#6b7280",
       buttonTextColor: "#ffffff",
+      buttonBorderRadius: 8,
     },
     stickyAddToCart: {
       backgroundColor: "#ffffff",
@@ -98,6 +112,15 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buyButtonColor: "#374151",
       buyButtonTextColor: "#ffffff",
     },
+    sections: {
+      headerBackgroundColor: "transparent",
+      headerTextColor: "#374151",
+      featuredProductsBackgroundColor: "#ffffff",
+      featuredProductsTextColor: "#374151",
+      footerBackgroundColor: "#f9fafb",
+      footerTextColor: "#6b7280",
+      pageBackgroundColor: "#ffffff",
+    },
   },
   air: {
     name: "Air",
@@ -105,13 +128,14 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     colors: {
       primary: "#1e293b",
       secondary: "#94a3b8",
-      accent: "#1e293b",
+      accent: "#3b82f6",
       background: "linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%)",
       foreground: "#0f172a",
       muted: "#f1f5f9",
       border: "#cbd5e1",
     },
     borderRadius: 12,
+    buttonBorderRadius: 12,
     subscribeBar: {
       buttonColor: "#1e293b",
       buttonTextColor: "#ffffff",
@@ -123,6 +147,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       buttonColor: "#475569",
       buttonTextColor: "#ffffff",
+      buttonBorderRadius: 12,
     },
     stickyAddToCart: {
       backgroundColor: "#f8fafc",
@@ -134,6 +159,15 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buyButtonColor: "#1e293b",
       buyButtonTextColor: "#ffffff",
     },
+    sections: {
+      headerBackgroundColor: "transparent",
+      headerTextColor: "#0f172a",
+      featuredProductsBackgroundColor: "#f1f5f9",
+      featuredProductsTextColor: "#0f172a",
+      footerBackgroundColor: "#1e293b",
+      footerTextColor: "#e2e8f0",
+      pageBackgroundColor: "#f8fafc",
+    },
   },
   astrid: {
     name: "Astrid",
@@ -141,13 +175,14 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     colors: {
       primary: "#404040",
       secondary: "#525252",
-      accent: "#6b7280",
+      accent: "#a855f7",
       background: "#0a0a0a",
       foreground: "#fafafa",
       muted: "#171717",
       border: "#262626",
     },
     borderRadius: 10,
+    buttonBorderRadius: 10,
     subscribeBar: {
       buttonColor: "#404040",
       buttonTextColor: "#ffffff",
@@ -159,6 +194,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#e5e5e5",
       buttonColor: "#404040",
       buttonTextColor: "#ffffff",
+      buttonBorderRadius: 10,
     },
     stickyAddToCart: {
       backgroundColor: "#0f0f0f",
@@ -169,6 +205,15 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#404040",
       buyButtonTextColor: "#ffffff",
+    },
+    sections: {
+      headerBackgroundColor: "#0a0a0a",
+      headerTextColor: "#fafafa",
+      featuredProductsBackgroundColor: "#171717",
+      featuredProductsTextColor: "#fafafa",
+      footerBackgroundColor: "#0a0a0a",
+      footerTextColor: "#a1a1aa",
+      pageBackgroundColor: "#0a0a0a",
     },
   },
   royal: {
@@ -184,6 +229,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       border: "rgba(255,255,255,0.2)",
     },
     borderRadius: 24,
+    buttonBorderRadius: 24,
     subscribeBar: {
       buttonColor: "#ffffff",
       buttonTextColor: "#7c3aed",
@@ -195,6 +241,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       buttonColor: "#ffffff",
       buttonTextColor: "#7c3aed",
+      buttonBorderRadius: 24,
     },
     stickyAddToCart: {
       backgroundColor: "rgba(139, 92, 246, 0.95)",
@@ -205,6 +252,15 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#ffffff",
       buyButtonTextColor: "#7c3aed",
+    },
+    sections: {
+      headerBackgroundColor: "rgba(124, 58, 237, 0.8)",
+      headerTextColor: "#ffffff",
+      featuredProductsBackgroundColor: "rgba(139, 92, 246, 0.3)",
+      featuredProductsTextColor: "#ffffff",
+      footerBackgroundColor: "rgba(124, 58, 237, 0.95)",
+      footerTextColor: "#e9d5ff",
+      pageBackgroundColor: "linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%)",
     },
   },
   ocean: {
@@ -220,6 +276,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       border: "rgba(255,255,255,0.2)",
     },
     borderRadius: 20,
+    buttonBorderRadius: 20,
     subscribeBar: {
       buttonColor: "#0ea5e9",
       buttonTextColor: "#ffffff",
@@ -231,6 +288,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       buttonColor: "#0ea5e9",
       buttonTextColor: "#ffffff",
+      buttonBorderRadius: 20,
     },
     stickyAddToCart: {
       backgroundColor: "rgba(8, 145, 178, 0.95)",
@@ -241,6 +299,15 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#0ea5e9",
       buyButtonTextColor: "#ffffff",
+    },
+    sections: {
+      headerBackgroundColor: "rgba(3, 105, 161, 0.8)",
+      headerTextColor: "#ffffff",
+      featuredProductsBackgroundColor: "rgba(8, 145, 178, 0.3)",
+      featuredProductsTextColor: "#ffffff",
+      footerBackgroundColor: "rgba(3, 105, 161, 0.95)",
+      footerTextColor: "#bae6fd",
+      pageBackgroundColor: "linear-gradient(135deg, #0369a1 0%, #0891b2 50%, #14b8a6 100%)",
     },
   },
   sunset: {
@@ -256,6 +323,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       border: "rgba(255,255,255,0.2)",
     },
     borderRadius: 20,
+    buttonBorderRadius: 20,
     subscribeBar: {
       buttonColor: "#ffffff",
       buttonTextColor: "#f97316",
@@ -267,6 +335,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       buttonColor: "#ffffff",
       buttonTextColor: "#f97316",
+      buttonBorderRadius: 20,
     },
     stickyAddToCart: {
       backgroundColor: "rgba(251, 146, 60, 0.95)",
@@ -277,6 +346,15 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#ffffff",
       buyButtonTextColor: "#f97316",
+    },
+    sections: {
+      headerBackgroundColor: "rgba(249, 115, 22, 0.8)",
+      headerTextColor: "#ffffff",
+      featuredProductsBackgroundColor: "rgba(251, 146, 60, 0.3)",
+      featuredProductsTextColor: "#ffffff",
+      footerBackgroundColor: "rgba(236, 72, 153, 0.95)",
+      footerTextColor: "#fecdd3",
+      pageBackgroundColor: "linear-gradient(135deg, #f97316 0%, #fb923c 30%, #ec4899 100%)",
     },
   },
 }
@@ -331,6 +409,7 @@ export const defaultProductCreatorBarSettings: ProductCreatorBarSettings = {
   buttonColor: "#4b5563",
   buttonTextColor: "#ffffff",
   buttonStyle: "style4", // Follow
+  buttonBorderRadius: 8,
 }
 
 // Default sticky add to cart settings

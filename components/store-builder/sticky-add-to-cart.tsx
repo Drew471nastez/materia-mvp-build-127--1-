@@ -114,12 +114,15 @@ export function EditorStickyAddToCart({
     <div
       onClick={handleWrapperClick}
       className={cn(
-        "sticky bottom-0 w-full z-30 border-t shadow-lg",
+        "sticky bottom-0 w-full z-30 border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
         isMobile ? "py-3 px-[7px]" : "py-3.5 px-[15px]",
         onSelect && "cursor-pointer",
         isSelected && "ring-2 ring-sky-500 ring-inset",
       )}
-      style={{ backgroundColor: settings.backgroundColor || "#ffffff" }}
+      style={{
+        backgroundColor: settings.backgroundColor || "#ffffff",
+        backdropFilter: "none",
+      }}
     >
       <div 
         className={cn(
@@ -265,10 +268,13 @@ export function LiveStickyAddToCart({
     <div
       ref={barRef}
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 border-t shadow-lg transition-all duration-300",
+        "fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none",
       )}
-      style={{ backgroundColor: settings.backgroundColor || "#ffffff" }}
+      style={{
+        backgroundColor: settings.backgroundColor || "#ffffff",
+        backdropFilter: "none",
+      }}
     >
       {/* Mobile version - NO STARS */}
       <div className="sm:hidden py-3 px-[7px]">

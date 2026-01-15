@@ -258,6 +258,7 @@ export interface ProductCreatorBarSettings {
   buttonColor: string
   buttonTextColor: string
   buttonStyle: "style1" | "style2" | "style3" | "style4"
+  buttonBorderRadius?: number
 }
 
 // Sticky Add to Cart settings

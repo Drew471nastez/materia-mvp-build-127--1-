@@ -312,6 +312,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   reviewsCount={productReviews.count}
                   reviewsAverage={productReviews.average}
                   reviews={productReviews.reviews}
+                  accentColor={draftConfig.globalSettings?.themeColors?.accent}
                 />
               ))}
 
@@ -372,6 +373,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   onSelect={() => handleSelectSection(section.id)}
                   moreFromSellerProducts={moreFromSellerProducts}
                   creatorName={profile?.display_name}
+                  accentColor={draftConfig.globalSettings?.themeColors?.accent}
                 />
               ))}
 

@@ -247,12 +247,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "published":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-green-600/80 text-white hover:bg-green-600/80 cursor-default",
+              "bg-purple-600 text-white hover:bg-purple-600 cursor-default pointer-events-none",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             disabled
           >
             {isMobile ? (

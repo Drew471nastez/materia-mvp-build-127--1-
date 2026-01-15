@@ -15,6 +15,7 @@ interface ReviewsRatingBreakdownProps {
   }
   className?: string
   isMobile?: boolean
+  accentColor?: string
 }
 
 export function ReviewsRatingBreakdown({
@@ -23,6 +24,7 @@ export function ReviewsRatingBreakdown({
   starBreakdown,
   className,
   isMobile = false,
+  accentColor,
 }: ReviewsRatingBreakdownProps) {
   if (reviewsCount === 0) return null
 
@@ -95,8 +97,14 @@ export function ReviewsRatingBreakdown({
                   isMobile ? "h-2" : "h-2.5"
                 )}>
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${percentage}%` }}
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500 ease-out",
+                      !accentColor && "bg-gradient-to-r from-blue-500 to-blue-600"
+                    )}
+                    style={{
+                      width: `${percentage}%`,
+                      ...(accentColor && { backgroundColor: accentColor }),
+                    }}
                   />
                 </div>
                 <div className={cn(

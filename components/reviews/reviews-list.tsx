@@ -28,6 +28,7 @@ interface ReviewsListProps {
   showHeader?: boolean
   isPreview?: boolean
   isMobile?: boolean
+  accentColor?: string
 }
 
 export function ReviewsList({
@@ -39,6 +40,7 @@ export function ReviewsList({
   showHeader = true,
   isPreview = false,
   isMobile = false,
+  accentColor,
 }: ReviewsListProps) {
   const [reviews, setReviews] = useState<Review[]>(initialReviews)
   const [total, setTotal] = useState(initialTotal)
@@ -115,6 +117,7 @@ export function ReviewsList({
             reviewsAverage={reviewsAverage || 5.0}
             starBreakdown={previewBreakdown}
             isMobile={isMobile}
+            accentColor={accentColor}
           />
           
           {showHeader && (
@@ -142,20 +145,21 @@ export function ReviewsList({
       )
     }
 
-    // No reviews in preview mode - show placeholder
+    // No reviews in preview mode - show placeholder with 0 reviews
     return (
       <div className={cn("space-y-4", isMobile ? "space-y-4" : "space-y-6")}>
         <ReviewsRatingBreakdown
-          reviewsCount={23}
-          reviewsAverage={5.0}
+          reviewsCount={0}
+          reviewsAverage={0}
           starBreakdown={{
-            5: 20,
-            4: 2,
-            3: 1,
+            5: 0,
+            4: 0,
+            3: 0,
             2: 0,
             1: 0,
           }}
           isMobile={isMobile}
+          accentColor={accentColor}
         />
         <div className={cn(
           "rounded-xl border border-dashed border-gray-300 bg-gray-50/50 text-center",
@@ -185,6 +189,7 @@ export function ReviewsList({
           reviewsAverage={reviewsAverage}
           starBreakdown={starBreakdown}
           isMobile={isMobile}
+          accentColor={accentColor}
         />
       )}
 

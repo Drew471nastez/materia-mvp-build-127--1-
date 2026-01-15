@@ -24,6 +24,7 @@ export interface ProductCreatorBarSettings {
   buttonColor: string
   buttonTextColor: string
   buttonStyle: "style1" | "style2" | "style3" | "style4"
+  buttonBorderRadius?: number
 }
 
 interface ProductCreatorBarProps {
@@ -310,6 +311,7 @@ export function ProductCreatorBar({
             style={{
               backgroundColor: settings.buttonColor || "#4b5563",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
             }}
           >
             {isCurrentEmailSubscribed ? <Check size={14} /> : <Mail size={14} />}
@@ -365,6 +367,7 @@ export function ProductCreatorBar({
           style={{
             backgroundColor: settings.buttonColor || "#4b5563",
             color: settings.buttonTextColor || "#ffffff",
+            borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
           }}
         >
           {isCurrentEmailSubscribed ? <Check size={16} /> : <Mail size={16} />}
@@ -417,6 +420,7 @@ export function ProductCreatorBar({
               style={{
                 backgroundColor: settings.buttonColor || "#4b5563",
                 color: settings.buttonTextColor || "#ffffff",
+                borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
               }}
             >
               {buttonText === "🔥" ? null : isCurrentEmailSubscribed ? (
@@ -648,6 +652,7 @@ export function LiveProductCreatorBar({
             style={{
               backgroundColor: settings.buttonColor || "#4b5563",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
             }}
           >
             {buttonText === "🔥" ? null : isCurrentEmailSubscribed ? (
@@ -708,6 +713,7 @@ export function LiveProductCreatorBar({
                 style={{
                   backgroundColor: settings.buttonColor || "#4b5563",
                   color: settings.buttonTextColor || "#ffffff",
+                  borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
                 }}
               >
                 {buttonText === "🔥" ? null : isCurrentEmailSubscribed ? (
