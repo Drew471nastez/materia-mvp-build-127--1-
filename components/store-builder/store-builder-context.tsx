@@ -11,6 +11,8 @@ import type {
   SelectedElement,
   SaveState,
   ProductTemplate,
+  GlobalStoreSettings,
+  ThemePreset,
 } from "@/lib/store-builder/types"
 import {
   defaultShopPageConfig,
@@ -30,8 +32,6 @@ interface HistoryState {
   config: PageConfig
   timestamp: number
 }
-
-import type { GlobalStoreSettings, ThemePreset } from "@/lib/store-builder/types"
 
 interface StoreBuilderContextType {
   // Current state
