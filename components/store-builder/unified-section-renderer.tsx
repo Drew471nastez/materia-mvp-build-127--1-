@@ -42,11 +42,10 @@ import { cn } from "@/lib/utils"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { SocialMediaIcons } from "./social-media-icons"
-import { avatarSizeMap } from "@/lib/store-builder/defaults"
+import { avatarSizeMap, verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ReviewsList } from "@/components/reviews/reviews-list"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 
 // Shared product type for consistency
 export interface ProductData {

@@ -21,6 +21,15 @@ import type {
 } from "./types"
 
 // ============================================
+// UTILITY FUNCTIONS - Declared first to ensure proper initialization
+// ============================================
+
+// Generate unique section ID - MUST be declared before any config that uses it
+export function generateSectionId(): string {
+  return `section_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+// ============================================
 // Theme Presets
 // ============================================
 
@@ -1065,11 +1074,6 @@ export const defaultReviewsSettings: ReviewsSettings = {
     fontWeight: "semibold",
     textAlign: "left",
   },
-}
-
-// Generate unique section ID
-export function generateSectionId(): string {
-  return `section_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
 // Create a new section from library item
