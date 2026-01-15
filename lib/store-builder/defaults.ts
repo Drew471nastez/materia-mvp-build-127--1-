@@ -72,6 +72,19 @@ export interface ThemeConfig {
     footerTextColor: string
     pageBackgroundColor: string
   }
+  // Product card styling (for Featured Products and More from Seller sections)
+  productCard: {
+    backgroundColor: string
+    textColor: string
+    priceColor: string
+    borderColor: string
+  }
+  // Category filter styling
+  categoryFilter: {
+    textColor: string
+    activeTextColor: string
+    borderColor: string
+  }
 }
 
 export const themePresets: Record<ThemePreset, ThemeConfig> = {
@@ -121,6 +134,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       footerTextColor: "#6b7280",
       pageBackgroundColor: "#ffffff",
     },
+    productCard: {
+      backgroundColor: "#ffffff",
+      textColor: "#374151",
+      priceColor: "#6b7280",
+      borderColor: "#e5e7eb",
+    },
+    categoryFilter: {
+      textColor: "#6b7280",
+      activeTextColor: "#374151",
+      borderColor: "#374151",
+    },
   },
   air: {
     name: "Air",
@@ -167,6 +191,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       footerBackgroundColor: "#1e293b",
       footerTextColor: "#e2e8f0",
       pageBackgroundColor: "#f8fafc",
+    },
+    productCard: {
+      backgroundColor: "#ffffff",
+      textColor: "#0f172a",
+      priceColor: "#475569",
+      borderColor: "#cbd5e1",
+    },
+    categoryFilter: {
+      textColor: "#64748b",
+      activeTextColor: "#0f172a",
+      borderColor: "#0f172a",
     },
   },
   astrid: {
@@ -215,6 +250,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       footerTextColor: "#a1a1aa",
       pageBackgroundColor: "#0a0a0a",
     },
+    productCard: {
+      backgroundColor: "#171717",
+      textColor: "#fafafa",
+      priceColor: "#a1a1aa",
+      borderColor: "#262626",
+    },
+    categoryFilter: {
+      textColor: "#a1a1aa",
+      activeTextColor: "#fafafa",
+      borderColor: "#fafafa",
+    },
   },
   royal: {
     name: "Royal",
@@ -261,6 +307,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       footerBackgroundColor: "rgba(124, 58, 237, 0.95)",
       footerTextColor: "#e9d5ff",
       pageBackgroundColor: "linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%)",
+    },
+    productCard: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      priceColor: "#e9d5ff",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    categoryFilter: {
+      textColor: "#e9d5ff",
+      activeTextColor: "#ffffff",
+      borderColor: "#ffffff",
     },
   },
   ocean: {
@@ -309,6 +366,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       footerTextColor: "#bae6fd",
       pageBackgroundColor: "linear-gradient(135deg, #0369a1 0%, #0891b2 50%, #14b8a6 100%)",
     },
+    productCard: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      priceColor: "#bae6fd",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    categoryFilter: {
+      textColor: "#bae6fd",
+      activeTextColor: "#ffffff",
+      borderColor: "#ffffff",
+    },
   },
   sunset: {
     name: "Sunset",
@@ -355,6 +423,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       footerBackgroundColor: "rgba(236, 72, 153, 0.95)",
       footerTextColor: "#fecdd3",
       pageBackgroundColor: "linear-gradient(135deg, #f97316 0%, #fb923c 30%, #ec4899 100%)",
+    },
+    productCard: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      priceColor: "#fecdd3",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    categoryFilter: {
+      textColor: "#fecdd3",
+      activeTextColor: "#ffffff",
+      borderColor: "#ffffff",
     },
   },
   forest: {
@@ -403,6 +482,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       footerTextColor: "#bbf7d0",
       pageBackgroundColor: "linear-gradient(135deg, #166534 0%, #22c55e 50%, #4ade80 100%)",
     },
+    productCard: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      priceColor: "#bbf7d0",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    categoryFilter: {
+      textColor: "#bbf7d0",
+      activeTextColor: "#ffffff",
+      borderColor: "#ffffff",
+    },
   },
   rose: {
     name: "Rose",
@@ -450,6 +540,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       footerTextColor: "#fce7f3",
       pageBackgroundColor: "linear-gradient(135deg, #be185d 0%, #ec4899 50%, #f472b6 100%)",
     },
+    productCard: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      priceColor: "#fce7f3",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    categoryFilter: {
+      textColor: "#fce7f3",
+      activeTextColor: "#ffffff",
+      borderColor: "#ffffff",
+    },
   },
   midnight: {
     name: "Midnight",
@@ -496,6 +597,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       footerBackgroundColor: "#0f172a",
       footerTextColor: "#94a3b8",
       pageBackgroundColor: "#0f172a",
+    },
+    productCard: {
+      backgroundColor: "#1e293b",
+      textColor: "#f8fafc",
+      priceColor: "#94a3b8",
+      borderColor: "#334155",
+    },
+    categoryFilter: {
+      textColor: "#94a3b8",
+      activeTextColor: "#f8fafc",
+      borderColor: "#f8fafc",
     },
   },
 }
@@ -577,6 +689,7 @@ export const defaultSubscribeBarSettings: SubscribeBarSettings = {
   position: "top",
   style: "style1",
   enableStickyBar: false, // Sticky disabled by default
+  enableStickyOnScrollUp: false, // Sticky on scroll up disabled by default
   buttonStyle: "style1", // Default button style
   spacing: {
     paddingTop: 12,

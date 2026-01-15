@@ -35,6 +35,7 @@ export interface SubscribeBarSettings {
   style?: "style1" | "style2" | "style3"
   customCtaText?: string
   enableStickyBar?: boolean
+  enableStickyOnScrollUp?: boolean
   buttonStyle?: ButtonStylePreset
   // Allow colors object for compatibility with store builder config
   colors?: {
@@ -156,9 +157,36 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   const [subscribed, setSubscribed] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string>("")
   const [isHydrated, setIsHydrated] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
+  const lastScrollY = useRef(0)
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
+
+  // Sticky on scroll up behavior
+  useEffect(() => {
+    if (!settings.enableStickyBar || !settings.enableStickyOnScrollUp) {
+      setIsVisible(true)
+      return
+    }
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+
+      // Show when scrolling up or at top
+      if (currentScrollY < lastScrollY.current || currentScrollY < 50) {
+        setIsVisible(true)
+      } else {
+        // Hide when scrolling down
+        setIsVisible(false)
+      }
+
+      lastScrollY.current = currentScrollY
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [settings.enableStickyBar, settings.enableStickyOnScrollUp])
 
   /**
    * FIX: prevent “type 1 character then input blurs” on some pages where
@@ -386,8 +414,9 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
         {/* Fixed bar at top of viewport */}
         <div
           className={cn(
-            "fixed top-0 left-0 right-0 z-50 w-full py-2.5 px-3 sm:py-3 sm:px-4",
-            isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border"
+            "fixed top-0 left-0 right-0 z-50 w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-transform duration-300 ease-out",
+            isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",
+            !isVisible && settings.enableStickyOnScrollUp && "-translate-y-full"
           )}
           style={{
             backgroundColor: settings.backgroundColor || "#ffffff",
@@ -427,9 +456,13 @@ interface EditorSubscribeBarProps {
   isMobile?: boolean
   isSelected?: boolean
   onSelect?: () => void
+  scrollContainerRef?: React.RefObject<HTMLElement | null>
 }
 
-export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMobile, isSelected, onSelect }: EditorSubscribeBarProps) {
+export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMobile, isSelected, onSelect, scrollContainerRef }: EditorSubscribeBarProps) {
+  const [isVisible, setIsVisible] = useState(true)
+  const lastScrollY = useRef(0)
+
   if (!settings.visible) return null
 
   // Extract colors from either top level or nested colors object
@@ -438,6 +471,34 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
 
   const isDarkBackground = useMemo(() => isDarkHex(backgroundColor), [backgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, backgroundColor), [isDarkBackground, backgroundColor])
+
+  // Scroll up sticky behavior for editor preview
+  useEffect(() => {
+    if (!settings.enableStickyBar || !settings.enableStickyOnScrollUp) {
+      setIsVisible(true)
+      return
+    }
+
+    const scrollContainer = scrollContainerRef?.current
+    if (!scrollContainer) return
+
+    const handleScroll = () => {
+      const currentScrollY = scrollContainer.scrollTop
+
+      // Show when scrolling up or at top
+      if (currentScrollY < lastScrollY.current || currentScrollY < 50) {
+        setIsVisible(true)
+      } else {
+        // Hide when scrolling down
+        setIsVisible(false)
+      }
+
+      lastScrollY.current = currentScrollY
+    }
+
+    scrollContainer.addEventListener("scroll", handleScroll, { passive: true })
+    return () => scrollContainer.removeEventListener("scroll", handleScroll)
+  }, [settings.enableStickyBar, settings.enableStickyOnScrollUp, scrollContainerRef])
 
   const initials =
     settings.creatorName
@@ -574,8 +635,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
     <div
       onClick={handleWrapperClick}
       className={cn(
-        "w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-all",
+        "w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-all duration-300 ease-out",
         settings.enableStickyBar && "sticky top-0 z-20",
+        settings.enableStickyBar && settings.enableStickyOnScrollUp && !isVisible && "-translate-y-full opacity-0",
         onSelect && "cursor-pointer",
         isSelected && "ring-2 ring-purple-500 ring-inset",
         isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",

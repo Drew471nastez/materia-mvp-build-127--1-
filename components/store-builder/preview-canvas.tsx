@@ -361,6 +361,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               isMobile={isMobile}
               isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
               onSelect={() => handleSelectSection("subscribe-bar")}
+              scrollContainerRef={scrollParentRef}
             />
 
             <UnifiedShopHeader

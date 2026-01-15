@@ -601,14 +601,43 @@ export function StoreBuilderProvider({
           const newSections = prev.sections.map((section) => {
             const newSection = { ...section, settings: { ...section.settings } }
 
-            // Apply featured products/more-from-seller section colors
-            if (section.type === "featured-products" || section.type === "more-from-seller") {
+            // Apply featured products section colors (including product card and category filter colors)
+            if (section.type === "featured-products") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
                   ...newSection.settings.colors,
                   backgroundColor: theme.sections.featuredProductsBackgroundColor,
                   textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                },
+                productCardColors: {
+                  backgroundColor: theme.productCard.backgroundColor,
+                  textColor: theme.productCard.textColor,
+                  priceColor: theme.productCard.priceColor,
+                  borderColor: theme.productCard.borderColor,
+                },
+                categoryFilterColors: {
+                  textColor: theme.categoryFilter.textColor,
+                  activeTextColor: theme.categoryFilter.activeTextColor,
+                  borderColor: theme.categoryFilter.borderColor,
+                },
+              }
+            }
+
+            // Apply more-from-seller section colors (including product card colors)
+            if (section.type === "more-from-seller") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  ...newSection.settings.colors,
+                  backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                  textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                },
+                productCardColors: {
+                  backgroundColor: theme.productCard.backgroundColor,
+                  textColor: theme.productCard.textColor,
+                  priceColor: theme.productCard.priceColor,
+                  borderColor: theme.productCard.borderColor,
                 },
               }
             }

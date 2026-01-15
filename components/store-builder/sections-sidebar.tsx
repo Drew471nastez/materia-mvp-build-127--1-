@@ -2756,8 +2756,17 @@ function SubscribeBarSettingsForm({
         label="Enable Sticky Bar"
         checked={safeSettings.enableStickyBar ?? false}
         onChange={(checked) => onChange({ enableStickyBar: checked })}
-        description="Bar sticks to top when scrolling. Preview available on live website. "
+        description="Bar sticks to top when scrolling"
       />
+
+      {safeSettings.enableStickyBar && (
+        <ToggleField
+          label="Enable Sticky on Scroll Up"
+          checked={safeSettings.enableStickyOnScrollUp ?? false}
+          onChange={(checked) => onChange({ enableStickyOnScrollUp: checked })}
+          description="Bar smoothly appears when scrolling up, hides when scrolling down"
+        />
+      )}
 
       <div className="space-y-3">
         <Label>Bar Style</Label>

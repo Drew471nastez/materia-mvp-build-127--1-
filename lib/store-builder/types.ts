@@ -127,13 +127,27 @@ export interface FeaturedProductsSettings extends BaseSectionSettings {
   // NEW: controls mobile grid layout
   mobileListing: 1 | 2
 
-  // Deprecated (keep so old saved configs don’t crash)
+  // Deprecated (keep so old saved configs don't crash)
   maxProducts?: number
   columns?: 2 | 3 | 4
 
   showPrice: boolean
   showCompareAtPrice?: boolean // Show compare at (strikethrough) price
   hideCategoryFilter?: boolean // Hide the category filter sidebar/pills
+
+  // Product card styling from theme
+  productCardColors?: {
+    backgroundColor?: string
+    textColor?: string
+    priceColor?: string
+    borderColor?: string
+  }
+  // Category filter styling from theme
+  categoryFilterColors?: {
+    textColor?: string
+    activeTextColor?: string
+    borderColor?: string
+  }
 
   // Deprecated - kept for backwards compatibility
   showDescription?: boolean
@@ -149,6 +163,14 @@ export interface MoreFromSellerSettings extends BaseSectionSettings {
 
   // Mobile products per row setting (1 or 2)
   mobileProductsPerRow?: 1 | 2
+
+  // Product card styling from theme
+  productCardColors?: {
+    backgroundColor?: string
+    textColor?: string
+    priceColor?: string
+    borderColor?: string
+  }
 
   // Deprecated - kept for backwards compatibility
   showDescription?: boolean
@@ -167,7 +189,8 @@ export interface SubscribeBarSettings extends BaseSectionSettings {
   showAvatar: boolean
   position: "top" | "bottom"
   style: "style1" | "style2" | "style3"
-  enableStickyBar?: boolean // When on, bar sticks to top when scrolling up
+  enableStickyBar?: boolean // When on, bar sticks to top when scrolling
+  enableStickyOnScrollUp?: boolean // When on, bar only shows when scrolling up (smooth behavior)
   buttonStyle?: "style1" | "style2" | "style3" | "style4" // Button text style preset
 }
 

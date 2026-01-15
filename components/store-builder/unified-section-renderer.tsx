@@ -834,12 +834,20 @@ function UnifiedFeaturedProductsSection({
                 className={cn(
                   "w-full flex items-center justify-between py-2 pr-3 text-sm transition-colors border-r-2",
                   selectedCategory === null
-                    ? "text-foreground font-medium border-foreground"
-                    : "text-muted-foreground hover:text-foreground border-transparent",
+                    ? "font-medium"
+                    : "hover:opacity-80 border-transparent",
                 )}
+                style={{
+                  color: selectedCategory === null
+                    ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
+                    : (settings.categoryFilterColors?.textColor || undefined),
+                  borderColor: selectedCategory === null
+                    ? (settings.categoryFilterColors?.borderColor || settings.colors?.textColor || undefined)
+                    : "transparent",
+                }}
               >
                 <span>All</span>
-                <span className="text-muted-foreground">{totalProducts}</span>
+                <span style={{ color: settings.categoryFilterColors?.textColor || undefined }}>{totalProducts}</span>
               </button>
 
               {categoriesWithCounts.map((category) => (
@@ -849,12 +857,20 @@ function UnifiedFeaturedProductsSection({
                   className={cn(
                     "w-full flex items-center justify-between py-2 pr-3 text-sm transition-colors border-r-2",
                     selectedCategory === category.id
-                      ? "text-foreground font-medium border-foreground"
-                      : "text-muted-foreground hover:text-foreground border-transparent",
+                      ? "font-medium"
+                      : "hover:opacity-80 border-transparent",
                   )}
+                  style={{
+                    color: selectedCategory === category.id
+                      ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
+                      : (settings.categoryFilterColors?.textColor || undefined),
+                    borderColor: selectedCategory === category.id
+                      ? (settings.categoryFilterColors?.borderColor || settings.colors?.textColor || undefined)
+                      : "transparent",
+                  }}
                 >
                   <span>{category.name}</span>
-                  <span className="text-muted-foreground">{category.count}</span>
+                  <span style={{ color: settings.categoryFilterColors?.textColor || undefined }}>{category.count}</span>
                 </button>
               ))}
             </nav>
@@ -921,12 +937,16 @@ function UnifiedFeaturedProductsSection({
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 <button
                   onClick={() => setSelectedCategory(null)}
-                  className={cn(
-                    "flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm",
-                    selectedCategory === null
-                      ? "bg-foreground text-background border-foreground"
-                      : "bg-background text-foreground border-border",
-                  )}
+                  className="flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors"
+                  style={{
+                    backgroundColor: selectedCategory === null
+                      ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
+                      : "transparent",
+                    color: selectedCategory === null
+                      ? (settings.productCardColors?.backgroundColor || "#ffffff")
+                      : (settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined),
+                    borderColor: settings.categoryFilterColors?.borderColor || settings.colors?.textColor || undefined,
+                  }}
                 >
                   All <span className="opacity-70">{totalProducts}</span>
                 </button>
@@ -935,12 +955,16 @@ function UnifiedFeaturedProductsSection({
                   <button
                     key={category.id}
                     onClick={() => setSelectedCategory(category.id)}
-                    className={cn(
-                      "flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm",
-                      selectedCategory === category.id
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-background text-foreground border-border",
-                    )}
+                    className="flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors"
+                    style={{
+                      backgroundColor: selectedCategory === category.id
+                        ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
+                        : "transparent",
+                      color: selectedCategory === category.id
+                        ? (settings.productCardColors?.backgroundColor || "#ffffff")
+                        : (settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined),
+                      borderColor: settings.categoryFilterColors?.borderColor || settings.colors?.textColor || undefined,
+                    }}
                   >
                     {category.name} <span className="opacity-70">{category.count}</span>
                   </button>
@@ -961,6 +985,12 @@ function UnifiedFeaturedProductsSection({
             )}
           >
             {sortedProducts.map((product) => {
+              // Get product card colors from theme settings
+              const cardBgColor = settings.productCardColors?.backgroundColor || undefined
+              const cardTextColor = settings.productCardColors?.textColor || settings.colors?.textColor || undefined
+              const cardPriceColor = settings.productCardColors?.priceColor || (cardTextColor ? `${cardTextColor}99` : undefined)
+              const cardBorderColor = settings.productCardColors?.borderColor || (cardTextColor ? `${cardTextColor}20` : undefined)
+
               const content = (
                 <>
                   <div className="aspect-video bg-muted relative overflow-hidden rounded-t-lg">
@@ -983,9 +1013,9 @@ function UnifiedFeaturedProductsSection({
                     <div
                       className={cn(
                         "font-medium truncate",
-                        !settings.colors?.textColor && "text-foreground",
+                        !cardTextColor && "text-foreground",
                       )}
-                      style={{ color: settings.colors?.textColor || undefined }}
+                      style={{ color: cardTextColor || undefined }}
                     >
                       {product.title}
                     </div>
@@ -995,9 +1025,9 @@ function UnifiedFeaturedProductsSection({
                         <span
                           className={cn(
                             "text-sm",
-                            !settings.colors?.textColor && "text-muted-foreground",
+                            !cardPriceColor && "text-muted-foreground",
                           )}
-                          style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
+                          style={{ color: cardPriceColor || undefined }}
                         >
                           {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                         </span>
@@ -1007,9 +1037,9 @@ function UnifiedFeaturedProductsSection({
                             <span
                               className={cn(
                                 "text-sm line-through",
-                                !settings.colors?.textColor && "text-muted-foreground/60",
+                                !cardPriceColor && "text-muted-foreground/60",
                               )}
-                              style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}60` : undefined }}
+                              style={{ color: cardPriceColor ? `${cardPriceColor}99` : undefined }}
                             >
                               {formatPrice(product.compare_at_cents)}
                             </span>
@@ -1019,11 +1049,6 @@ function UnifiedFeaturedProductsSection({
                   </div>
                 </>
               )
-
-              // Determine card background - use lighter version of section background or default to bg-card
-              const cardBgColor = settings.colors?.backgroundColor && settings.colors.backgroundColor !== "transparent"
-                ? (settings.colors.backgroundColor.includes("gradient") ? undefined : "#ffffff")
-                : undefined
 
               if (isPreviewMode) {
                 return (
@@ -1035,7 +1060,7 @@ function UnifiedFeaturedProductsSection({
                     )}
                     style={{
                       backgroundColor: cardBgColor || undefined,
-                      borderColor: settings.colors?.textColor ? `${settings.colors.textColor}20` : undefined,
+                      borderColor: cardBorderColor || undefined,
                     }}
                   >
                     {content}
@@ -1053,7 +1078,7 @@ function UnifiedFeaturedProductsSection({
                   )}
                   style={{
                     backgroundColor: cardBgColor || undefined,
-                    borderColor: settings.colors?.textColor ? `${settings.colors.textColor}20` : undefined,
+                    borderColor: cardBorderColor || undefined,
                   }}
                 >
                   {content}
@@ -2139,6 +2164,12 @@ function UnifiedMoreFromSellerSection({
       </h2>
       <div className={cn("grid gap-4", getGridClasses())}>
         {displayProducts.map((product) => {
+          // Get product card colors from theme settings
+          const cardBgColor = settings.productCardColors?.backgroundColor || undefined
+          const cardTextColor = settings.productCardColors?.textColor || settings.colors?.textColor || undefined
+          const cardPriceColor = settings.productCardColors?.priceColor || (cardTextColor ? `${cardTextColor}99` : undefined)
+          const cardBorderColor = settings.productCardColors?.borderColor || (cardTextColor ? `${cardTextColor}20` : undefined)
+
           const content = (
             <>
               <div className="aspect-video bg-muted relative overflow-hidden">
@@ -2160,9 +2191,9 @@ function UnifiedMoreFromSellerSection({
                   className={cn(
                     "font-medium truncate",
                     isMobile ? "text-sm" : "text-base",
-                    !settings.colors?.textColor && "text-foreground",
+                    !cardTextColor && "text-foreground",
                   )}
-                  style={{ color: settings.colors?.textColor || undefined }}
+                  style={{ color: cardTextColor || undefined }}
                 >
                   {product.title}
                 </h3>
@@ -2170,9 +2201,9 @@ function UnifiedMoreFromSellerSection({
                   <p
                     className={cn(
                       "mt-1 text-xs line-clamp-2",
-                      !settings.colors?.textColor && "text-muted-foreground",
+                      !cardPriceColor && "text-muted-foreground",
                     )}
-                    style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
+                    style={{ color: cardPriceColor || undefined }}
                   >
                     {product.description}
                   </p>
@@ -2182,9 +2213,9 @@ function UnifiedMoreFromSellerSection({
                     <span
                       className={cn(
                         "font-semibold",
-                        !settings.colors?.textColor && "text-foreground",
+                        !cardTextColor && "text-foreground",
                       )}
-                      style={{ color: settings.colors?.textColor || undefined }}
+                      style={{ color: cardTextColor || undefined }}
                     >
                       {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                     </span>
@@ -2194,9 +2225,9 @@ function UnifiedMoreFromSellerSection({
                         <span
                           className={cn(
                             "line-through text-sm",
-                            !settings.colors?.textColor && "text-muted-foreground",
+                            !cardPriceColor && "text-muted-foreground",
                           )}
-                          style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}60` : undefined }}
+                          style={{ color: cardPriceColor ? `${cardPriceColor}99` : undefined }}
                         >
                           {formatPrice(product.compare_at_cents)}
                         </span>
@@ -2206,11 +2237,6 @@ function UnifiedMoreFromSellerSection({
               </div>
             </>
           )
-
-          // Determine card background
-          const cardBgColor = settings.colors?.backgroundColor && settings.colors.backgroundColor !== "transparent"
-            ? (settings.colors.backgroundColor.includes("gradient") ? undefined : "#ffffff")
-            : undefined
 
           if (isPreviewMode) {
             return (
@@ -2222,7 +2248,7 @@ function UnifiedMoreFromSellerSection({
                 )}
                 style={{
                   backgroundColor: cardBgColor || undefined,
-                  borderColor: settings.colors?.textColor ? `${settings.colors.textColor}20` : undefined,
+                  borderColor: cardBorderColor || undefined,
                 }}
               >
                 {content}
@@ -2240,7 +2266,7 @@ function UnifiedMoreFromSellerSection({
               )}
               style={{
                 backgroundColor: cardBgColor || undefined,
-                borderColor: settings.colors?.textColor ? `${settings.colors.textColor}20` : undefined,
+                borderColor: cardBorderColor || undefined,
               }}
             >
               {content}

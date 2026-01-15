@@ -199,6 +199,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         buttonTextColor: savedSettings.buttonTextColor || "#ffffff",
         style: savedSettings.style || "style1",
         enableStickyBar: savedSettings.enableStickyBar ?? false,
+        enableStickyOnScrollUp: savedSettings.enableStickyOnScrollUp ?? false,
         buttonStyle: savedSettings.buttonStyle || "style1",
       }
     }
@@ -220,6 +221,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       buttonTextColor: "#ffffff",
       style: "style1" as const,
       enableStickyBar: false,
+      enableStickyOnScrollUp: false,
       buttonStyle: "style1" as const,
     }
   }
