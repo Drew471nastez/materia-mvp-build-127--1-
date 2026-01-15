@@ -15,6 +15,7 @@ export interface StickyAddToCartSettings {
   buttonStyle: "add_to_cart" | "grab_it" | "grab_me" | "download" | "get_it"
   borderRadius: number
   borderColor?: string
+  textColor?: string
 }
 
 interface ProductData {
@@ -99,6 +100,9 @@ export function EditorStickyAddToCart({
     settings.backgroundColor.startsWith("#2")
   )
 
+  // Use textColor from settings if available, otherwise derive from background
+  const contentTextColor = settings.textColor || (isDarkBg ? "#ffffff" : undefined)
+
   const StarsDisplay = () => {
     if (!hasReviews) return null
     return (
@@ -112,11 +116,12 @@ export function EditorStickyAddToCart({
                 ? isDarkBg ? "fill-current text-white" : "fill-current text-black"
                 : isDarkBg ? "text-gray-500" : "text-gray-300",
             )}
+            style={star <= Math.round(reviewsAverage) && contentTextColor ? { color: contentTextColor } : undefined}
           />
         ))}
         <span
           className="text-sm ml-1"
-          style={{ color: isDarkBg ? "rgba(255,255,255,0.7)" : undefined }}
+          style={{ color: contentTextColor ? `${contentTextColor}b3` : undefined }}
         >
           {reviewsCount}
         </span>
@@ -140,7 +145,7 @@ export function EditorStickyAddToCart({
         borderColor: settings.borderColor || undefined,
       }}
     >
-      <div 
+      <div
         className={cn(
           "mx-auto w-full flex items-center justify-between",
           isMobile ? "max-w-[calc(100%-10px)] gap-4" : "max-w-[1150px] gap-5"
@@ -150,13 +155,7 @@ export function EditorStickyAddToCart({
           <PriceBadge />
           <p
             className={cn("font-medium truncate", isMobile ? "text-sm" : "text-[15px]")}
-            style={{
-              color: settings.backgroundColor && (
-                settings.backgroundColor.startsWith("#0") ||
-                settings.backgroundColor.startsWith("#1") ||
-                settings.backgroundColor.startsWith("#2")
-              ) ? "#ffffff" : undefined,
-            }}
+            style={{ color: contentTextColor }}
           >
             {product.title}
           </p>
@@ -279,6 +278,9 @@ export function LiveStickyAddToCart({
     settings.backgroundColor.startsWith("#2")
   )
 
+  // Use textColor from settings if available, otherwise derive from background
+  const contentTextColor = settings.textColor || (isDarkBg ? "#ffffff" : undefined)
+
   const StarsDisplay = () => {
     if (!hasReviews) return null
     return (
@@ -292,11 +294,12 @@ export function LiveStickyAddToCart({
                 ? isDarkBg ? "fill-current text-white" : "fill-current text-black"
                 : isDarkBg ? "text-gray-500" : "text-gray-300",
             )}
+            style={star <= Math.round(reviewsAverage) && contentTextColor ? { color: contentTextColor } : undefined}
           />
         ))}
         <span
           className="text-sm ml-1"
-          style={{ color: isDarkBg ? "rgba(255,255,255,0.7)" : undefined }}
+          style={{ color: contentTextColor ? `${contentTextColor}b3` : undefined }}
         >
           {reviewsCount}
         </span>
@@ -325,13 +328,7 @@ export function LiveStickyAddToCart({
             <PriceBadge />
             <p
               className="text-sm font-medium truncate"
-              style={{
-                color: settings.backgroundColor && (
-                  settings.backgroundColor.startsWith("#0") ||
-                  settings.backgroundColor.startsWith("#1") ||
-                  settings.backgroundColor.startsWith("#2")
-                ) ? "#ffffff" : undefined,
-              }}
+              style={{ color: contentTextColor }}
             >
               {product.title}
             </p>
@@ -358,13 +355,7 @@ export function LiveStickyAddToCart({
             <PriceBadge isDesktop />
             <p
               className="text-[15px] font-semibold truncate"
-              style={{
-                color: settings.backgroundColor && (
-                  settings.backgroundColor.startsWith("#0") ||
-                  settings.backgroundColor.startsWith("#1") ||
-                  settings.backgroundColor.startsWith("#2")
-                ) ? "#ffffff" : undefined,
-              }}
+              style={{ color: contentTextColor }}
             >
               {product.title}
             </p>

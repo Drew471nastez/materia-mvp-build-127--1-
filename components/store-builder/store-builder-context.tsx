@@ -575,6 +575,7 @@ export function StoreBuilderProvider({
                 textColor: theme.creatorBar.textColor,
                 buttonColor: theme.creatorBar.buttonColor,
                 buttonTextColor: theme.creatorBar.buttonTextColor,
+                buttonBorderRadius: theme.creatorBar.buttonBorderRadius,
               }
             }
             if (productHeader.stickyAddToCart) {
@@ -590,11 +591,18 @@ export function StoreBuilderProvider({
                 buttonTextColor: theme.stickyAddToCart.buttonTextColor,
                 borderRadius: theme.stickyAddToCart.borderRadius,
                 borderColor: borderColor,
+                textColor: theme.stickyAddToCart.textColor || theme.colors.foreground,
               }
             }
             // Apply buy button colors
             productHeader.buyButtonColor = theme.productHeader.buyButtonColor
             productHeader.buyButtonTextColor = theme.productHeader.buyButtonTextColor
+            // Apply page background and text colors for product page
+            productHeader.colors = {
+              ...productHeader.colors,
+              backgroundColor: theme.sections.pageBackgroundColor,
+              textColor: theme.colors.foreground,
+            }
           }
 
           // Apply theme to all sections

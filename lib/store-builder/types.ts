@@ -294,6 +294,7 @@ export interface StickyAddToCartSettings {
   buttonStyle: "add_to_cart" | "grab_it" | "grab_me" | "download" | "get_it"
   borderRadius: number
   borderColor?: string // Border color for the sticky bar
+  textColor?: string // Text color for the sticky bar content
 }
 
 // Full page configuration

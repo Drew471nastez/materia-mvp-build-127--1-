@@ -1565,6 +1565,18 @@ export function UnifiedProductPage({
   ]
   const displayFaqs = faqs.length > 0 ? faqs : defaultFaqs
 
+  // Theme color helpers
+  const themeTextColor = settings.colors?.textColor || undefined
+  const themeMutedColor = themeTextColor ? `${themeTextColor}99` : undefined // 60% opacity for muted
+  const isDarkTheme = settings.colors?.backgroundColor && (
+    settings.colors.backgroundColor.startsWith("#0") ||
+    settings.colors.backgroundColor.startsWith("#1") ||
+    settings.colors.backgroundColor.startsWith("#2")
+  )
+  // Card background color - slightly lighter than page background for dark themes
+  const cardBgColor = isDarkTheme ? "#1a1a1a" : undefined
+  const cardBorderColor = isDarkTheme ? "#2a2a2a" : undefined
+
   return (
     <div
       onClick={isPreviewMode ? undefined : onSelect}
@@ -1608,9 +1620,11 @@ export function UnifiedProductPage({
               <div className={cn("flex items-start justify-between gap-3", !isMobile && "sm:flex-row sm:gap-4")}>
                 <h1
                   className={cn(
-                    "font-semibold text-foreground break-words flex-1 min-w-0",
+                    "font-semibold break-words flex-1 min-w-0",
                     isMobile ? "text-xl" : "text-2xl sm:text-3xl",
+                    !themeTextColor && "text-foreground",
                   )}
+                  style={{ color: themeTextColor }}
                 >
                   {productTitle}
                 </h1>
@@ -1632,7 +1646,13 @@ export function UnifiedProductPage({
                       <AvatarFallback>{initials || "?"}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex items-center gap-3">
-                      <p className="font-medium text-foreground truncate text-base">
+                      <p
+                        className={cn(
+                          "font-medium truncate text-base",
+                          !themeTextColor && "text-foreground",
+                        )}
+                        style={{ color: themeTextColor }}
+                      >
                         {profile?.display_name || "Creator"}
                       </p>
                       {(settings.showRatingNextToSeller ?? true) && reviewsCount > 0 && (
@@ -1642,11 +1662,19 @@ export function UnifiedProductPage({
                               key={star}
                               className={cn(
                                 "h-4 w-4",
-                                star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300",
+                                star <= Math.round(reviewsAverage)
+                                  ? themeTextColor ? "fill-current" : "fill-current text-black"
+                                  : isDarkTheme ? "text-gray-500" : "text-gray-300",
                               )}
+                              style={star <= Math.round(reviewsAverage) && themeTextColor ? { color: themeTextColor } : undefined}
                             />
                           ))}
-                          <span className="text-sm text-muted-foreground ml-1">({reviewsCount})</span>
+                          <span
+                            className={cn("text-sm ml-1", !themeMutedColor && "text-muted-foreground")}
+                            style={{ color: themeMutedColor }}
+                          >
+                            ({reviewsCount})
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1659,6 +1687,7 @@ export function UnifiedProductPage({
                       e.stopPropagation()
                       setShowShareModal(true)
                     }}
+                    style={{ color: themeTextColor }}
                   >
                     <Share2 className="h-5 w-5" />
                   </Button>
@@ -1669,24 +1698,28 @@ export function UnifiedProductPage({
               {isMobile && (
                 <div className="mt-6">
                   <div
-                    className="rounded-xl border border-border bg-card p-4"
+                    className={cn("rounded-xl border p-4", !cardBgColor && "border-border bg-card")}
                     style={{
-                      boxShadow: settings.colors?.backgroundColor && (
-                        settings.colors.backgroundColor.startsWith("#0") ||
-                        settings.colors.backgroundColor.startsWith("#1") ||
-                        settings.colors.backgroundColor.startsWith("#2")
-                      )
+                      backgroundColor: cardBgColor,
+                      borderColor: cardBorderColor,
+                      boxShadow: isDarkTheme
                         ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
                         : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                     }}
                   >
                     <div className="mb-4">
-                      <div className="text-xl font-bold text-foreground">
+                      <div
+                        className={cn("text-xl font-bold", !themeTextColor && "text-foreground")}
+                        style={{ color: themeTextColor }}
+                      >
                         {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                       </div>
                       {compareAtPrice && compareAtPrice > productPrice && (
                         <div className="mt-1 flex items-center gap-2">
-                          <span className="text-base text-muted-foreground line-through">
+                          <span
+                            className={cn("text-base line-through", !themeMutedColor && "text-muted-foreground")}
+                            style={{ color: themeMutedColor }}
+                          >
                             {formatPrice(compareAtPrice)}
                           </span>
                           <Badge variant="destructive">
@@ -1743,11 +1776,23 @@ export function UnifiedProductPage({
                     )}
 
                     {settings.showWhatsIncluded && (
-                      <div className="mt-4 border-t border-border pt-4">
-                        <h3 className="font-semibold text-foreground text-sm">What&apos;s included</h3>
+                      <div
+                        className={cn("mt-4 border-t pt-4", !cardBorderColor && "border-border")}
+                        style={{ borderColor: cardBorderColor }}
+                      >
+                        <h3
+                          className={cn("font-semibold text-sm", !themeTextColor && "text-foreground")}
+                          style={{ color: themeTextColor }}
+                        >
+                          What&apos;s included
+                        </h3>
                         <ul className="mt-3 space-y-2">
                           {whatsIncluded.map((item, idx) => (
-                            <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <li
+                              key={idx}
+                              className={cn("flex items-center gap-2 text-sm", !themeMutedColor && "text-muted-foreground")}
+                              style={{ color: themeMutedColor }}
+                            >
                               {getIncludedItemIcon(item)}
                               <span>{item}</span>
                             </li>
@@ -1757,8 +1802,14 @@ export function UnifiedProductPage({
                     )}
 
                     {settings.showSalesAnnouncement && salesCount > 0 && (
-                      <div className="mt-4 pt-4 border-t border-border">
-                        <p className="text-sm text-muted-foreground text-center">
+                      <div
+                        className={cn("mt-4 pt-4 border-t", !cardBorderColor && "border-border")}
+                        style={{ borderColor: cardBorderColor }}
+                      >
+                        <p
+                          className={cn("text-sm text-center", !themeMutedColor && "text-muted-foreground")}
+                          style={{ color: themeMutedColor }}
+                        >
                           {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
                         </p>
                       </div>
@@ -1767,14 +1818,20 @@ export function UnifiedProductPage({
 
                   {/* Mobile: Creator info OUTSIDE the price card */}
                   {settings.showCreatorInfo && creator && (
-                    <div className="mt-4 flex items-center justify-between p-3 rounded-lg border border-border bg-card">
+                    <div
+                      className={cn("mt-4 flex items-center justify-between p-3 rounded-lg border", !cardBgColor && "border-border bg-card")}
+                      style={{ backgroundColor: cardBgColor, borderColor: cardBorderColor }}
+                    >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <Avatar className="shrink-0 h-8 w-8">
                           <AvatarImage src={profile?.avatar_url || undefined} />
                           <AvatarFallback>{initials || "?"}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex items-center gap-2">
-                          <p className="font-medium text-foreground truncate text-sm">
+                          <p
+                            className={cn("font-medium truncate text-sm", !themeTextColor && "text-foreground")}
+                            style={{ color: themeTextColor }}
+                          >
                             {profile?.display_name || "Creator"}
                           </p>
                           {(settings.showRatingNextToSeller ?? true) && reviewsCount > 0 && (
@@ -1784,11 +1841,19 @@ export function UnifiedProductPage({
                                   key={star}
                                   className={cn(
                                     "h-3 w-3",
-                                    star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300",
+                                    star <= Math.round(reviewsAverage)
+                                      ? themeTextColor ? "fill-current" : "fill-current text-black"
+                                      : isDarkTheme ? "text-gray-500" : "text-gray-300",
                                   )}
+                                  style={star <= Math.round(reviewsAverage) && themeTextColor ? { color: themeTextColor } : undefined}
                                 />
                               ))}
-                              <span className="text-xs text-muted-foreground ml-1">({reviewsCount})</span>
+                              <span
+                                className={cn("text-xs ml-1", !themeMutedColor && "text-muted-foreground")}
+                                style={{ color: themeMutedColor }}
+                              >
+                                ({reviewsCount})
+                              </span>
                             </div>
                           )}
                         </div>
@@ -1801,6 +1866,7 @@ export function UnifiedProductPage({
                           e.stopPropagation()
                           setShowShareModal(true)
                         }}
+                        style={{ color: themeTextColor }}
                       >
                         <Share2 className="h-4 w-4" />
                       </Button>
@@ -1811,10 +1877,16 @@ export function UnifiedProductPage({
 
               {settings.showDescription !== false && productDescription && (
                 <div className="mt-6">
-                  <h2 className={cn("mb-3 font-semibold text-foreground", isMobile ? "text-base" : "text-lg")}>
+                  <h2
+                    className={cn("mb-3 font-semibold", isMobile ? "text-base" : "text-lg", !themeTextColor && "text-foreground")}
+                    style={{ color: themeTextColor }}
+                  >
                     Description
                   </h2>
-                  <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed break-words text-sm">
+                  <p
+                    className={cn("whitespace-pre-wrap leading-relaxed break-words text-sm", !themeMutedColor && "text-muted-foreground")}
+                    style={{ color: themeMutedColor }}
+                  >
                     {productDescription.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
                   </p>
                 </div>
@@ -1825,24 +1897,28 @@ export function UnifiedProductPage({
             {!isMobile && (
               <div className="mt-6 lg:hidden">
                 <div
-                  className="rounded-xl border border-border bg-card p-4 sm:p-6"
+                  className={cn("rounded-xl border p-4 sm:p-6", !cardBgColor && "border-border bg-card")}
                   style={{
-                    boxShadow: settings.colors?.backgroundColor && (
-                      settings.colors.backgroundColor.startsWith("#0") ||
-                      settings.colors.backgroundColor.startsWith("#1") ||
-                      settings.colors.backgroundColor.startsWith("#2")
-                    )
+                    backgroundColor: cardBgColor,
+                    borderColor: cardBorderColor,
+                    boxShadow: isDarkTheme
                       ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
                       : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                   }}
                 >
                   <div className="mb-4">
-                    <div className="text-2xl sm:text-3xl font-bold text-foreground">
+                    <div
+                      className={cn("text-2xl sm:text-3xl font-bold", !themeTextColor && "text-foreground")}
+                      style={{ color: themeTextColor }}
+                    >
                       {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                     </div>
                     {compareAtPrice && compareAtPrice > productPrice && (
                       <div className="mt-1 flex items-center gap-2">
-                        <span className="text-base text-muted-foreground line-through">
+                        <span
+                          className={cn("text-base line-through", !themeMutedColor && "text-muted-foreground")}
+                          style={{ color: themeMutedColor }}
+                        >
                           {formatPrice(compareAtPrice)}
                         </span>
                         <Badge variant="destructive">
@@ -1897,11 +1973,23 @@ export function UnifiedProductPage({
                   )}
 
                   {settings.showWhatsIncluded && (
-                    <div className="mt-4 border-t border-border pt-4">
-                      <h3 className="font-semibold text-foreground text-sm">What&apos;s included</h3>
+                    <div
+                      className={cn("mt-4 border-t pt-4", !cardBorderColor && "border-border")}
+                      style={{ borderColor: cardBorderColor }}
+                    >
+                      <h3
+                        className={cn("font-semibold text-sm", !themeTextColor && "text-foreground")}
+                        style={{ color: themeTextColor }}
+                      >
+                        What&apos;s included
+                      </h3>
                       <ul className="mt-3 space-y-2">
                         {whatsIncluded.map((item, idx) => (
-                          <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <li
+                            key={idx}
+                            className={cn("flex items-center gap-2 text-sm", !themeMutedColor && "text-muted-foreground")}
+                            style={{ color: themeMutedColor }}
+                          >
                             {getIncludedItemIcon(item)}
                             <span>{item}</span>
                           </li>
@@ -1911,8 +1999,14 @@ export function UnifiedProductPage({
                   )}
 
                   {settings.showSalesAnnouncement && salesCount > 0 && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <p className="text-sm text-muted-foreground text-center">
+                    <div
+                      className={cn("mt-4 pt-4 border-t", !cardBorderColor && "border-border")}
+                      style={{ borderColor: cardBorderColor }}
+                    >
+                      <p
+                        className={cn("text-sm text-center", !themeMutedColor && "text-muted-foreground")}
+                        style={{ color: themeMutedColor }}
+                      >
                         {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
                       </p>
                     </div>
@@ -1924,15 +2018,33 @@ export function UnifiedProductPage({
             {/* FAQs */}
             {settings.showFaqs !== false && (
               <div className={cn("mt-8", !isMobile && "sm:mt-10")}>
-                <h2 className={cn("mb-4 font-semibold text-foreground", isMobile ? "text-base" : "text-lg")}>
+                <h2
+                  className={cn("mb-4 font-semibold", isMobile ? "text-base" : "text-lg", !themeTextColor && "text-foreground")}
+                  style={{ color: themeTextColor }}
+                >
                   Frequently Asked Questions
                 </h2>
                 <div className="px-2 sm:px-0">
                   <Accordion type="single" collapsible className="w-full">
                     {displayFaqs.map((faq, idx) => (
-                      <AccordionItem key={idx} value={`item-${idx}`}>
-                        <AccordionTrigger className="min-h-[44px] text-left text-sm">{faq.question}</AccordionTrigger>
-                        <AccordionContent className="text-sm text-muted-foreground">{faq.answer}</AccordionContent>
+                      <AccordionItem
+                        key={idx}
+                        value={`item-${idx}`}
+                        className={cn(!cardBorderColor && "border-border")}
+                        style={{ borderColor: cardBorderColor }}
+                      >
+                        <AccordionTrigger
+                          className={cn("min-h-[44px] text-left text-sm", !themeTextColor && "text-foreground")}
+                          style={{ color: themeTextColor }}
+                        >
+                          {faq.question}
+                        </AccordionTrigger>
+                        <AccordionContent
+                          className={cn("text-sm", !themeMutedColor && "text-muted-foreground")}
+                          style={{ color: themeMutedColor }}
+                        >
+                          {faq.answer}
+                        </AccordionContent>
                       </AccordionItem>
                     ))}
                   </Accordion>
@@ -1945,24 +2057,30 @@ export function UnifiedProductPage({
           {!isMobile && (
             <div className="hidden lg:block lg:col-span-2">
               <div
-                className="sticky top-6 rounded-xl border border-border bg-card p-6"
+                className={cn("sticky top-6 rounded-xl border p-6", !cardBgColor && "border-border bg-card")}
                 style={{
-                  boxShadow: settings.colors?.backgroundColor && (
-                    settings.colors.backgroundColor.startsWith("#0") ||
-                    settings.colors.backgroundColor.startsWith("#1") ||
-                    settings.colors.backgroundColor.startsWith("#2")
-                  )
+                  backgroundColor: cardBgColor,
+                  borderColor: cardBorderColor,
+                  boxShadow: isDarkTheme
                     ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
                     : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                 }}
               >
                 <div className="mb-4">
-                  <div className="text-3xl font-bold text-foreground">
+                  <div
+                    className={cn("text-3xl font-bold", !themeTextColor && "text-foreground")}
+                    style={{ color: themeTextColor }}
+                  >
                     {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                   </div>
                   {compareAtPrice && compareAtPrice > productPrice && (
                     <div className="mt-1 flex items-center gap-2">
-                      <span className="text-lg text-muted-foreground line-through">{formatPrice(compareAtPrice)}</span>
+                      <span
+                        className={cn("text-lg line-through", !themeMutedColor && "text-muted-foreground")}
+                        style={{ color: themeMutedColor }}
+                      >
+                        {formatPrice(compareAtPrice)}
+                      </span>
                       <Badge variant="destructive">{Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF</Badge>
                     </div>
                   )}
@@ -2013,11 +2131,23 @@ export function UnifiedProductPage({
                 )}
 
                 {settings.showWhatsIncluded && (
-                  <div className="mt-4 border-t border-border pt-4">
-                    <h3 className="font-semibold text-foreground">What&apos;s included</h3>
+                  <div
+                    className={cn("mt-4 border-t pt-4", !cardBorderColor && "border-border")}
+                    style={{ borderColor: cardBorderColor }}
+                  >
+                    <h3
+                      className={cn("font-semibold", !themeTextColor && "text-foreground")}
+                      style={{ color: themeTextColor }}
+                    >
+                      What&apos;s included
+                    </h3>
                     <ul className="mt-3 space-y-2">
                       {whatsIncluded.map((item, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <li
+                          key={idx}
+                          className={cn("flex items-start gap-2 text-sm", !themeMutedColor && "text-muted-foreground")}
+                          style={{ color: themeMutedColor }}
+                        >
                           {getIncludedItemIcon(item)}
                           <span>{item}</span>
                         </li>
@@ -2027,8 +2157,14 @@ export function UnifiedProductPage({
                 )}
 
                 {settings.showSalesAnnouncement && salesCount > 0 && (
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <p className="text-sm text-muted-foreground text-center">
+                  <div
+                    className={cn("mt-4 pt-4 border-t", !cardBorderColor && "border-border")}
+                    style={{ borderColor: cardBorderColor }}
+                  >
+                    <p
+                      className={cn("text-sm text-center", !themeMutedColor && "text-muted-foreground")}
+                      style={{ color: themeMutedColor }}
+                    >
                       {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
                     </p>
                   </div>

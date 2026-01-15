@@ -57,6 +57,7 @@ export interface ThemeConfig {
     buttonColor: string
     buttonTextColor: string
     borderRadius: number
+    textColor?: string
   }
   productHeader: {
     buyButtonColor: string
@@ -178,6 +179,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonColor: "#1e293b",
       buttonTextColor: "#ffffff",
       borderRadius: 12,
+      textColor: "#0f172a",
     },
     productHeader: {
       buyButtonColor: "#1e293b",
@@ -225,7 +227,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#e5e5e5",
     },
     creatorBar: {
-      backgroundColor: "#171717",
+      backgroundColor: "#141414",
       textColor: "#e5e5e5",
       buttonColor: "#404040",
       buttonTextColor: "#ffffff",
@@ -236,6 +238,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonColor: "#404040",
       buttonTextColor: "#ffffff",
       borderRadius: 10,
+      textColor: "#e5e5e5",
     },
     productHeader: {
       buyButtonColor: "#404040",
@@ -244,17 +247,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     sections: {
       headerBackgroundColor: "#0a0a0a",
       headerTextColor: "#fafafa",
-      featuredProductsBackgroundColor: "#171717",
+      featuredProductsBackgroundColor: "#0f0f0f",
       featuredProductsTextColor: "#fafafa",
       footerBackgroundColor: "#0a0a0a",
       footerTextColor: "#a1a1aa",
       pageBackgroundColor: "#0a0a0a",
     },
     productCard: {
-      backgroundColor: "#171717",
+      backgroundColor: "#1a1a1a",
       textColor: "#fafafa",
       priceColor: "#a1a1aa",
-      borderColor: "#262626",
+      borderColor: "#2a2a2a",
     },
     categoryFilter: {
       textColor: "#a1a1aa",
@@ -294,6 +297,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonColor: "#ffffff",
       buttonTextColor: "#7c3aed",
       borderRadius: 24,
+      textColor: "#ffffff",
     },
     productHeader: {
       buyButtonColor: "#ffffff",
@@ -309,10 +313,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       pageBackgroundColor: "#7c3aed",
     },
     productCard: {
-      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
       textColor: "#ffffff",
       priceColor: "#e9d5ff",
-      borderColor: "rgba(255, 255, 255, 0.15)",
+      borderColor: "rgba(255, 255, 255, 0.2)",
     },
     categoryFilter: {
       textColor: "#e9d5ff",
@@ -352,6 +356,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonColor: "#ffffff",
       buttonTextColor: "#0891b2",
       borderRadius: 20,
+      textColor: "#ffffff",
     },
     productHeader: {
       buyButtonColor: "#0ea5e9",
@@ -367,10 +372,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       pageBackgroundColor: "#0369a1",
     },
     productCard: {
-      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
       textColor: "#ffffff",
       priceColor: "#bae6fd",
-      borderColor: "rgba(255, 255, 255, 0.15)",
+      borderColor: "rgba(255, 255, 255, 0.2)",
     },
     categoryFilter: {
       textColor: "#bae6fd",
@@ -410,6 +415,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonColor: "#ffffff",
       buttonTextColor: "#f97316",
       borderRadius: 20,
+      textColor: "#ffffff",
     },
     productHeader: {
       buyButtonColor: "#ffffff",
@@ -425,10 +431,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       pageBackgroundColor: "#f97316",
     },
     productCard: {
-      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
       textColor: "#ffffff",
       priceColor: "#fecdd3",
-      borderColor: "rgba(255, 255, 255, 0.15)",
+      borderColor: "rgba(255, 255, 255, 0.2)",
     },
     categoryFilter: {
       textColor: "#fecdd3",
@@ -468,6 +474,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonColor: "#ffffff",
       buttonTextColor: "#166534",
       borderRadius: 16,
+      textColor: "#ffffff",
     },
     productHeader: {
       buyButtonColor: "#22c55e",
@@ -483,10 +490,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       pageBackgroundColor: "#166534",
     },
     productCard: {
-      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
       textColor: "#ffffff",
       priceColor: "#bbf7d0",
-      borderColor: "rgba(255, 255, 255, 0.15)",
+      borderColor: "rgba(255, 255, 255, 0.2)",
     },
     categoryFilter: {
       textColor: "#bbf7d0",
@@ -526,6 +533,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonColor: "#ffffff",
       buttonTextColor: "#be185d",
       borderRadius: 24,
+      textColor: "#ffffff",
     },
     productHeader: {
       buyButtonColor: "#ec4899",
@@ -541,10 +549,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       pageBackgroundColor: "#be185d",
     },
     productCard: {
-      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
       textColor: "#ffffff",
       priceColor: "#fce7f3",
-      borderColor: "rgba(255, 255, 255, 0.15)",
+      borderColor: "rgba(255, 255, 255, 0.2)",
     },
     categoryFilter: {
       textColor: "#fce7f3",
@@ -573,7 +581,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#f8fafc",
     },
     creatorBar: {
-      backgroundColor: "#1e293b",
+      backgroundColor: "#1a2439",
       textColor: "#f8fafc",
       buttonColor: "#3b82f6",
       buttonTextColor: "#ffffff",
@@ -584,6 +592,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonColor: "#3b82f6",
       buttonTextColor: "#ffffff",
       borderRadius: 12,
+      textColor: "#f8fafc",
     },
     productHeader: {
       buyButtonColor: "#3b82f6",
@@ -592,17 +601,17 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     sections: {
       headerBackgroundColor: "#0f172a",
       headerTextColor: "#f8fafc",
-      featuredProductsBackgroundColor: "#1e293b",
+      featuredProductsBackgroundColor: "#182033",
       featuredProductsTextColor: "#f8fafc",
       footerBackgroundColor: "#0f172a",
       footerTextColor: "#94a3b8",
       pageBackgroundColor: "#0f172a",
     },
     productCard: {
-      backgroundColor: "#1e293b",
+      backgroundColor: "#253349",
       textColor: "#f8fafc",
       priceColor: "#94a3b8",
-      borderColor: "#334155",
+      borderColor: "#3d4f6a",
     },
     categoryFilter: {
       textColor: "#94a3b8",
