@@ -113,7 +113,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   const mainNavItems = [
     { href: "/app", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/app/orders", label: "Sales", icon: ShoppingCart },
+    { href: "/app/sales", label: "Sales", icon: ShoppingCart },
     { href: "/app/products", label: "Products", icon: Package },
     { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/app/onepage", label: "OnePage", icon: Link2 },
