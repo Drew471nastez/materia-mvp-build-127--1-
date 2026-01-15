@@ -21,6 +21,8 @@ import {
   defaultReviewsSettings,
   defaultSubscribeBarSettings,
   generateSectionId,
+  themePresets,
+  defaultGlobalStoreSettings,
 } from "@/lib/store-builder/defaults"
 
 interface HistoryState {
@@ -573,189 +575,186 @@ export function StoreBuilderProvider({
 
   const applyTheme = useCallback(
     (themePreset: ThemePreset) => {
-      // Import theme presets dynamically to avoid circular dependencies
-      import("@/lib/store-builder/defaults").then(({ themePresets, defaultGlobalStoreSettings }) => {
-        const theme = themePresets[themePreset]
-        if (!theme) return
+      const theme = themePresets[themePreset]
+      if (!theme) return
 
-        setDraftConfig((prev) => {
-          // Update global settings with theme preset
-          const newGlobalSettings: GlobalStoreSettings = {
-            ...(prev.globalSettings || defaultGlobalStoreSettings),
-            themePreset,
-            themeColors: theme.colors,
-            themeBorderRadius: theme.borderRadius,
-          }
+      setDraftConfig((prev) => {
+        // Update global settings with theme preset
+        const newGlobalSettings: GlobalStoreSettings = {
+          ...(prev.globalSettings || defaultGlobalStoreSettings),
+          themePreset,
+          themeColors: theme.colors,
+          themeBorderRadius: theme.borderRadius,
+        }
 
-          // Apply theme to subscribe bar (shop pages)
-          let newHeaderSettings = { ...prev.headerSettings }
-          if (prev.pageType === "shop" && "subscribeBar" in newHeaderSettings) {
-            const shopHeader = newHeaderSettings as any
-            if (shopHeader.subscribeBar) {
-              shopHeader.subscribeBar = {
-                ...shopHeader.subscribeBar,
-                // Button styling
-                buttonColor: theme.subscribeBar.buttonColor,
-                buttonTextColor: theme.subscribeBar.buttonTextColor,
-                buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
-                // Input styling
-                inputBorderColor: theme.subscribeBar.inputBorderColor,
-                // Background and text colors (both direct and nested for compatibility)
+        // Apply theme to subscribe bar (shop pages)
+        let newHeaderSettings = { ...prev.headerSettings }
+        if (prev.pageType === "shop" && "subscribeBar" in newHeaderSettings) {
+          const shopHeader = newHeaderSettings as any
+          if (shopHeader.subscribeBar) {
+            shopHeader.subscribeBar = {
+              ...shopHeader.subscribeBar,
+              // Button styling
+              buttonColor: theme.subscribeBar.buttonColor,
+              buttonTextColor: theme.subscribeBar.buttonTextColor,
+              buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
+              // Input styling
+              inputBorderColor: theme.subscribeBar.inputBorderColor,
+              // Background and text colors (both direct and nested for compatibility)
+              backgroundColor: theme.subscribeBar.backgroundColor,
+              textColor: theme.subscribeBar.textColor,
+              colors: {
+                ...shopHeader.subscribeBar.colors,
                 backgroundColor: theme.subscribeBar.backgroundColor,
                 textColor: theme.subscribeBar.textColor,
-                colors: {
-                  ...shopHeader.subscribeBar.colors,
-                  backgroundColor: theme.subscribeBar.backgroundColor,
-                  textColor: theme.subscribeBar.textColor,
-                },
-              }
-            }
-            // Apply profile ring color from theme
-            if (theme.profileRingColor) {
-              shopHeader.profileRingColor = theme.profileRingColor
-            }
-            // Apply header colors from theme sections config
-            shopHeader.colors = {
-              ...shopHeader.colors,
-              backgroundColor: theme.sections.headerBackgroundColor,
-              textColor: theme.sections.headerTextColor || theme.colors.foreground,
+              },
             }
           }
+          // Apply profile ring color from theme
+          if (theme.profileRingColor) {
+            shopHeader.profileRingColor = theme.profileRingColor
+          }
+          // Apply header colors from theme sections config
+          shopHeader.colors = {
+            ...shopHeader.colors,
+            backgroundColor: theme.sections.headerBackgroundColor,
+            textColor: theme.sections.headerTextColor || theme.colors.foreground,
+          }
+        }
 
-          // Apply theme to product page components
-          if (prev.pageType === "product") {
-            const productHeader = newHeaderSettings as any
-            if (productHeader.creatorBar) {
-              productHeader.creatorBar = {
-                ...productHeader.creatorBar,
-                backgroundColor: theme.creatorBar.backgroundColor,
-                textColor: theme.creatorBar.textColor,
-                buttonColor: theme.creatorBar.buttonColor,
-                buttonTextColor: theme.creatorBar.buttonTextColor,
-                buttonBorderRadius: theme.creatorBar.buttonBorderRadius,
-              }
-            }
-            if (productHeader.stickyAddToCart) {
-              // Calculate border color based on background - dark backgrounds get lighter borders
-              const bgColor = theme.stickyAddToCart.backgroundColor
-              const isDarkBg = bgColor && (bgColor.startsWith("#0") || bgColor.startsWith("#1") || bgColor.startsWith("#2"))
-              const borderColor = isDarkBg ? `${theme.colors.foreground}20` : theme.colors.border || "#e5e7eb"
-
-              productHeader.stickyAddToCart = {
-                ...productHeader.stickyAddToCart,
-                backgroundColor: theme.stickyAddToCart.backgroundColor,
-                buttonColor: theme.stickyAddToCart.buttonColor,
-                buttonTextColor: theme.stickyAddToCart.buttonTextColor,
-                borderRadius: theme.stickyAddToCart.borderRadius,
-                borderColor: borderColor,
-                textColor: theme.stickyAddToCart.textColor || theme.colors.foreground,
-              }
-            }
-            // Apply buy button colors and buttons border radius
-            productHeader.buyButtonColor = theme.productHeader.buyButtonColor
-            productHeader.buyButtonTextColor = theme.productHeader.buyButtonTextColor
-            if (theme.productHeader.buttonsBorderRadius !== undefined) {
-              productHeader.buttonsBorderRadius = theme.productHeader.buttonsBorderRadius
-            }
-            // Apply page background and text colors for product page
-            productHeader.colors = {
-              ...productHeader.colors,
-              backgroundColor: theme.sections.pageBackgroundColor,
-              textColor: theme.colors.foreground,
+        // Apply theme to product page components
+        if (prev.pageType === "product") {
+          const productHeader = newHeaderSettings as any
+          if (productHeader.creatorBar) {
+            productHeader.creatorBar = {
+              ...productHeader.creatorBar,
+              backgroundColor: theme.creatorBar.backgroundColor,
+              textColor: theme.creatorBar.textColor,
+              buttonColor: theme.creatorBar.buttonColor,
+              buttonTextColor: theme.creatorBar.buttonTextColor,
+              buttonBorderRadius: theme.creatorBar.buttonBorderRadius,
             }
           }
+          if (productHeader.stickyAddToCart) {
+            // Calculate border color based on background - dark backgrounds get lighter borders
+            const bgColor = theme.stickyAddToCart.backgroundColor
+            const isDarkBg = bgColor && (bgColor.startsWith("#0") || bgColor.startsWith("#1") || bgColor.startsWith("#2"))
+            const borderColor = isDarkBg ? `${theme.colors.foreground}20` : theme.colors.border || "#e5e7eb"
 
-          // Apply theme to all sections
-          const newSections = prev.sections.map((section) => {
-            const newSection = { ...section, settings: { ...section.settings } }
-
-            // Apply featured products section colors (including product card and category filter colors)
-            if (section.type === "featured-products") {
-              newSection.settings = {
-                ...newSection.settings,
-                colors: {
-                  ...newSection.settings.colors,
-                  backgroundColor: theme.sections.featuredProductsBackgroundColor,
-                  textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
-                },
-                productCardColors: {
-                  backgroundColor: theme.productCard.backgroundColor,
-                  textColor: theme.productCard.textColor,
-                  priceColor: theme.productCard.priceColor,
-                  borderColor: theme.productCard.borderColor,
-                },
-                categoryFilterColors: {
-                  textColor: theme.categoryFilter.textColor,
-                  activeTextColor: theme.categoryFilter.activeTextColor,
-                  borderColor: theme.categoryFilter.borderColor,
-                },
-              }
+            productHeader.stickyAddToCart = {
+              ...productHeader.stickyAddToCart,
+              backgroundColor: theme.stickyAddToCart.backgroundColor,
+              buttonColor: theme.stickyAddToCart.buttonColor,
+              buttonTextColor: theme.stickyAddToCart.buttonTextColor,
+              borderRadius: theme.stickyAddToCart.borderRadius,
+              borderColor: borderColor,
+              textColor: theme.stickyAddToCart.textColor || theme.colors.foreground,
             }
-
-            // Apply more-from-seller section colors (including product card colors)
-            if (section.type === "more-from-seller") {
-              newSection.settings = {
-                ...newSection.settings,
-                colors: {
-                  ...newSection.settings.colors,
-                  backgroundColor: theme.sections.featuredProductsBackgroundColor,
-                  textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
-                },
-                productCardColors: {
-                  backgroundColor: theme.productCard.backgroundColor,
-                  textColor: theme.productCard.textColor,
-                  priceColor: theme.productCard.priceColor,
-                  borderColor: theme.productCard.borderColor,
-                },
-              }
-            }
-
-            // Apply text blocks and other sections - use page background
-            if (section.type === "text-block" || section.type === "image-text" || section.type === "benefits") {
-              newSection.settings = {
-                ...newSection.settings,
-                colors: {
-                  ...newSection.settings.colors,
-                  backgroundColor: "transparent",
-                  textColor: theme.colors.foreground,
-                },
-              }
-            }
-
-            // Apply announcement bar colors
-            if (section.type === "announcement-bar") {
-              newSection.settings = {
-                ...newSection.settings,
-                colors: {
-                  ...newSection.settings.colors,
-                  backgroundColor: theme.colors.primary,
-                  textColor: theme.colors.foreground === "#ffffff" ? "#ffffff" : theme.colors.foreground,
-                },
-              }
-            }
-
-            return newSection
-          })
-
-          // Update global colors for page background
-          const newGlobalColors = {
-            ...prev.globalColors,
+          }
+          // Apply buy button colors and buttons border radius
+          productHeader.buyButtonColor = theme.productHeader.buyButtonColor
+          productHeader.buyButtonTextColor = theme.productHeader.buyButtonTextColor
+          if (theme.productHeader.buttonsBorderRadius !== undefined) {
+            productHeader.buttonsBorderRadius = theme.productHeader.buttonsBorderRadius
+          }
+          // Apply page background and text colors for product page
+          productHeader.colors = {
+            ...productHeader.colors,
             backgroundColor: theme.sections.pageBackgroundColor,
+            textColor: theme.colors.foreground,
+          }
+        }
+
+        // Apply theme to all sections
+        const newSections = prev.sections.map((section) => {
+          const newSection = { ...section, settings: { ...section.settings } }
+
+          // Apply featured products section colors (including product card and category filter colors)
+          if (section.type === "featured-products") {
+            newSection.settings = {
+              ...newSection.settings,
+              colors: {
+                ...newSection.settings.colors,
+                backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+              },
+              productCardColors: {
+                backgroundColor: theme.productCard.backgroundColor,
+                textColor: theme.productCard.textColor,
+                priceColor: theme.productCard.priceColor,
+                borderColor: theme.productCard.borderColor,
+              },
+              categoryFilterColors: {
+                textColor: theme.categoryFilter.textColor,
+                activeTextColor: theme.categoryFilter.activeTextColor,
+                borderColor: theme.categoryFilter.borderColor,
+              },
+            }
           }
 
-          const newConfig: PageConfig = {
-            ...prev,
-            globalSettings: newGlobalSettings,
-            globalColors: newGlobalColors,
-            headerSettings: newHeaderSettings,
-            sections: newSections,
+          // Apply more-from-seller section colors (including product card colors)
+          if (section.type === "more-from-seller") {
+            newSection.settings = {
+              ...newSection.settings,
+              colors: {
+                ...newSection.settings.colors,
+                backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+              },
+              productCardColors: {
+                backgroundColor: theme.productCard.backgroundColor,
+                textColor: theme.productCard.textColor,
+                priceColor: theme.productCard.priceColor,
+                borderColor: theme.productCard.borderColor,
+              },
+            }
           }
 
-          addToHistory(newConfig)
-          return newConfig
+          // Apply text blocks and other sections - use page background
+          if (section.type === "text-block" || section.type === "image-text" || section.type === "benefits") {
+            newSection.settings = {
+              ...newSection.settings,
+              colors: {
+                ...newSection.settings.colors,
+                backgroundColor: "transparent",
+                textColor: theme.colors.foreground,
+              },
+            }
+          }
+
+          // Apply announcement bar colors
+          if (section.type === "announcement-bar") {
+            newSection.settings = {
+              ...newSection.settings,
+              colors: {
+                ...newSection.settings.colors,
+                backgroundColor: theme.colors.primary,
+                textColor: theme.colors.foreground === "#ffffff" ? "#ffffff" : theme.colors.foreground,
+              },
+            }
+          }
+
+          return newSection
         })
-        markUnsaved()
+
+        // Update global colors for page background
+        const newGlobalColors = {
+          ...prev.globalColors,
+          backgroundColor: theme.sections.pageBackgroundColor,
+        }
+
+        const newConfig: PageConfig = {
+          ...prev,
+          globalSettings: newGlobalSettings,
+          globalColors: newGlobalColors,
+          headerSettings: newHeaderSettings,
+          sections: newSections,
+        }
+
+        addToHistory(newConfig)
+        return newConfig
       })
+      markUnsaved()
     },
     [addToHistory, markUnsaved],
   )
