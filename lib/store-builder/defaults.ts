@@ -1067,6 +1067,22 @@ export const defaultReviewsSettings: ReviewsSettings = {
   },
 }
 
+// Generate unique section ID
+export function generateSectionId(): string {
+  return `section_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+// Create a new section from library item
+export function createSectionFromLibrary(libraryItem: SectionLibraryItem, order: number): Section {
+  return {
+    id: generateSectionId(),
+    type: libraryItem.type,
+    settings: { ...libraryItem.defaultSettings },
+    order,
+    locked: false,
+  }
+}
+
 // Section library for adding new sections
 export const sectionLibrary: SectionLibraryItem[] = [
   {
@@ -1144,22 +1160,6 @@ export const defaultProductPageConfig: PageConfig = {
     },
   ],
   version: 1,
-}
-
-// Generate unique section ID
-export function generateSectionId(): string {
-  return `section_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-}
-
-// Create a new section from library item
-export function createSectionFromLibrary(libraryItem: SectionLibraryItem, order: number): Section {
-  return {
-    id: generateSectionId(),
-    type: libraryItem.type,
-    settings: { ...libraryItem.defaultSettings },
-    order,
-    locked: false,
-  }
 }
 
 export const avatarSizeMap: Record<AvatarSizeChoice, number> = {
