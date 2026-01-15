@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { defaultShopPageConfig, createDefaultProductPageConfig } from "./defaults"
+import { defaultShopPageConfig, defaultProductPageConfig } from "./defaults"
 import type { PageConfig, PageType } from "./types"
 
 export async function getPublishedConfig(creatorId: string, pageType: PageType): Promise<PageConfig | null> {
@@ -20,5 +20,5 @@ export async function getPublishedConfig(creatorId: string, pageType: PageType):
 }
 
 export function getDefaultConfig(pageType: PageType): PageConfig {
-  return pageType === "shop" ? defaultShopPageConfig : createDefaultProductPageConfig()
+  return pageType === "shop" ? defaultShopPageConfig : defaultProductPageConfig
 }

@@ -59,7 +59,7 @@ export function UnsavedChangesDialog({
           <Button
             onClick={handleSave}
             disabled={isSaving}
-            className="bg-purple-600 text-white hover:bg-purple-700"
+            className="bg-black text-white hover:bg-gray-800"
           >
             {isSaving ? (
               <>

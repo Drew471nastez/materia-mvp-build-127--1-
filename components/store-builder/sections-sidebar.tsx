@@ -47,9 +47,6 @@ import {
   Circle,
   Square,
   Hexagon,
-  Search,
-  Check,
-  ChevronDown,
 } from "lucide-react"
 import type {
   Section,
@@ -105,6 +102,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Search, Check, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
   Tooltip,
@@ -1224,7 +1222,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     className={cn(
                       "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
                       selectedProductId === product.id
-                        ? "border-gray-900 bg-gray-50 dark:border-gray-100 dark:bg-gray-900/20"
+                        ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
                         : "border-border hover:bg-muted/50",
                     )}
                   >
@@ -1239,8 +1237,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                       <p className="text-xs text-muted-foreground">{formatPrice(product.price_cents || 0)}</p>
                     </div>
                     {selectedProductId === product.id && (
-                      <div className="h-5 w-5 rounded-full bg-gray-900 dark:bg-gray-100 flex items-center justify-center shrink-0">
-                        <Check className="h-3 w-3 text-white dark:text-gray-900" />
+                      <div className="h-5 w-5 rounded-full bg-sky-500 flex items-center justify-center shrink-0">
+                        <Check className="h-3 w-3 text-white" />
                       </div>
                     )}
                   </button>
@@ -1251,11 +1249,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
           {/* Footer */}
           <div className="px-4 sm:px-5 py-3 border-t border-border shrink-0 bg-background">
-            <Button
-              onClick={() => setShowProductSelector(false)}
-              className="w-full bg-purple-600 text-white hover:bg-purple-700"
-            >
-              Done
+            <Button variant="outline" onClick={() => setShowProductSelector(false)} className="w-full">
+              Cancel
             </Button>
           </div>
         </DialogContent>
@@ -1801,12 +1796,6 @@ function ShopHeaderSettingsForm({
               ))}
             </div>
           </div>
-
-          <ColorPicker
-            label="Ring Border Color"
-            value={settings.profileRingColor || "#ffffff"}
-            onChange={(value) => onChange({ profileRingColor: value })}
-          />
         </div>
       </div>
 
@@ -1988,20 +1977,6 @@ function ProductHeaderSettingsForm({
           value={settings.buyButtonTextColor || "#ffffff"}
           onChange={(value) => onChange({ buyButtonTextColor: value })}
         />
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Buttons Border Radius</Label>
-            <span className="text-xs text-muted-foreground">{settings.buttonsBorderRadius ?? 8}px</span>
-          </div>
-          <PremiumSlider
-            value={[settings.buttonsBorderRadius ?? 8]}
-            onValueChange={([value]) => onChange({ buttonsBorderRadius: value })}
-            min={0}
-            max={32}
-            step={2}
-          />
-          <p className="text-xs text-muted-foreground">Controls Add to Cart, Buy, and Wishlist buttons</p>
-        </div>
       </div>
 
       <div className="space-y-4">
@@ -2858,20 +2833,6 @@ function SubscribeBarSettingsForm({
         onChange={(value) => onChange({ buttonTextColor: value })}
       />
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-normal">Button Border Radius</Label>
-          <span className="text-xs text-muted-foreground">{safeSettings.buttonBorderRadius ?? 8}px</span>
-        </div>
-        <PremiumSlider
-          value={[safeSettings.buttonBorderRadius ?? 8]}
-          onValueChange={([value]) => onChange({ buttonBorderRadius: value })}
-          min={0}
-          max={24}
-          step={2}
-        />
-      </div>
-
       <ToggleField
         label="Show Avatar"
         checked={safeSettings.showAvatar ?? true}
@@ -2881,20 +2842,14 @@ function SubscribeBarSettingsForm({
 
       <ColorPicker
         label="Background Color"
-        value={safeSettings.backgroundColor || safeSettings.colors?.backgroundColor || "#ffffff"}
-        onChange={(value) => onChange({ backgroundColor: value, colors: { ...safeSettings.colors, backgroundColor: value } })}
+        value={safeSettings.colors?.backgroundColor || "#ffffff"}
+        onChange={(value) => onChange({ colors: { ...safeSettings.colors, backgroundColor: value } })}
       />
 
       <ColorPicker
         label="Text Color"
-        value={safeSettings.textColor || safeSettings.colors?.textColor || "#000000"}
-        onChange={(value) => onChange({ textColor: value, colors: { ...safeSettings.colors, textColor: value } })}
-      />
-
-      <ColorPicker
-        label="Email Input Border Color"
-        value={safeSettings.inputBorderColor || "#e5e7eb"}
-        onChange={(value) => onChange({ inputBorderColor: value })}
+        value={safeSettings.colors?.textColor || "#000000"}
+        onChange={(value) => onChange({ colors: { ...safeSettings.colors, textColor: value } })}
       />
     </div>
   )

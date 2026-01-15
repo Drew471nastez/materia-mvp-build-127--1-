@@ -186,13 +186,8 @@ export interface SubscribeBarSettings extends BaseSectionSettings {
   customButtonText?: string
   buttonColor: string
   buttonTextColor: string
-  buttonBorderRadius?: number // Border radius for the subscribe button
-  inputBorderColor?: string // Border color for the email input
-  inputTextColor?: string // Text color for the email input
-  inputPlaceholderColor?: string // Placeholder text color for the email input
-  // Direct background/text colors (in addition to colors object for compatibility)
-  backgroundColor?: string
-  textColor?: string
+  buttonBorderRadius?: number // Border radius for button and input
+  inputBorderColor?: string // Border color for email input
   showAvatar: boolean
   position: "top" | "bottom"
   style: "style1" | "style2" | "style3"
@@ -239,7 +234,6 @@ export interface ShopHeaderSettings {
   mobileAvatarSize: number // mobile size in px (legacy, kept for backwards compat)
   avatarSizeChoice?: AvatarSizeChoice // 'small' | 'medium' | 'large'
   mobileAvatarSizeChoice?: AvatarSizeChoice // 'small' | 'medium' | 'large'
-  profileRingColor?: string // Profile picture ring/border color
   showHeadline: boolean
   showBio: boolean
   showNicheTags: boolean
@@ -272,7 +266,7 @@ export interface ProductHeaderSettings {
   // Buy button customization
   buyButtonColor?: string
   buyButtonTextColor?: string
-  // Buttons border radius (Add to Cart, Buy Button, Add to Wishlist)
+  // Buttons border radius (Add to Cart, Buy, Wishlist)
   buttonsBorderRadius?: number
   // New toggles
   showSalesAnnouncement?: boolean // Show "X purchased this item" text

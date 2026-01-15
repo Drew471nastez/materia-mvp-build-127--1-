@@ -95,42 +95,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       ? (draftConfig.headerSettings as ShopHeaderSettings).subscribeBar || defaultSubscribeBarSettings
       : null
 
-  // Sticky subscribe bar state for editor
-  const [showStickySubscribeBar, setShowStickySubscribeBar] = useState(true)
-  const lastScrollYSubscribeRef = useRef(0)
-
-  // Handle sticky subscribe bar visibility in editor
-  useEffect(() => {
-    if (currentPageType !== "shop" || !subscribeBarSettings?.enableStickyBar) return
-
-    const scrollParent = scrollParentRef.current
-    if (!scrollParent) return
-
-    const handleScroll = () => {
-      const currentScrollY = scrollParent.scrollTop
-
-      // If enableStickyOnScrollUp is true, show when scrolling up or at top
-      if (subscribeBarSettings.enableStickyOnScrollUp) {
-        if (currentScrollY < lastScrollYSubscribeRef.current || currentScrollY < 50) {
-          setShowStickySubscribeBar(true)
-        } else {
-          setShowStickySubscribeBar(false)
-        }
-      } else {
-        // Just show always if sticky is enabled but not scroll-up-only
-        setShowStickySubscribeBar(true)
-      }
-
-      lastScrollYSubscribeRef.current = currentScrollY
-    }
-
-    scrollParent.addEventListener("scroll", handleScroll, { passive: true })
-    return () => scrollParent.removeEventListener("scroll", handleScroll)
-  }, [currentPageType, subscribeBarSettings?.enableStickyBar, subscribeBarSettings?.enableStickyOnScrollUp])
-
-  const shouldRenderStickySubscribeBar =
-    currentPageType === "shop" && subscribeBarSettings?.visible && subscribeBarSettings?.enableStickyBar && canvasRect && isEditorMode
-
   const headerSettings = draftConfig.headerSettings as ShopHeaderSettings
   const avatarUrl =
     headerSettings?.avatarUrl === ""
@@ -181,60 +145,20 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
   }, [])
 
   // In editor mode, start with sticky visible so users can see and customize it
-  // For preview mode, start hidden (will show on scroll)
-  const [showSticky, setShowSticky] = useState(true)
+  const [showSticky, setShowSticky] = useState(!isPreviewMode)
   const lastScrollTopRef = useRef(0)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollParentRef = useRef<HTMLElement | null>(null)
 
-  // Initialize scrollParentRef for all page types (needed for sticky behavior)
-  // Also retry after a short delay to ensure DOM is fully rendered
-  useEffect(() => {
-    const findScrollParent = () => {
-      const canvasEl = canvasRef.current
-      if (!canvasEl) return null
-
-      // First try to find with the standard getScrollParent
-      let scrollParent = getScrollParent(canvasEl)
-
-      // If not found, look for common scroll container patterns
-      if (!scrollParent) {
-        // Look for parent with overflow-auto or overflow-y-auto
-        let parent: HTMLElement | null = canvasEl.parentElement
-        while (parent) {
-          const style = window.getComputedStyle(parent)
-          const overflow = style.overflow || style.overflowY
-          if (overflow === 'auto' || overflow === 'scroll') {
-            scrollParent = parent
-            break
-          }
-          parent = parent.parentElement
-        }
-      }
-
-      return scrollParent
-    }
-
-    // Set immediately
-    scrollParentRef.current = findScrollParent()
-
-    // Also try again after a short delay in case DOM isn't ready
-    const timer = setTimeout(() => {
-      scrollParentRef.current = findScrollParent()
-    }, 100)
-
-    return () => clearTimeout(timer)
-  }, [currentPageType, selectedProductId])
-
   useEffect(() => {
     if (currentPageType !== "product") return
 
+    const canvasEl = canvasRef.current
+    const scrollParent = getScrollParent(canvasEl)
+    scrollParentRef.current = scrollParent
+
     const getScrollTop = () => {
-      // Check scroll parent first
-      if (scrollParentRef.current) {
-        return scrollParentRef.current.scrollTop
-      }
-      // Fallback to window scroll
+      if (scrollParentRef.current) return scrollParentRef.current.scrollTop
       return window.scrollY || document.documentElement.scrollTop || 0
     }
 
@@ -242,11 +166,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       const sentinel = footerSentinelRef.current
       if (!sentinel) return false
       const rect = sentinel.getBoundingClientRect()
-      // Check relative to the scroll container viewport, not window
-      if (scrollParentRef.current) {
-        const containerRect = scrollParentRef.current.getBoundingClientRect()
-        return rect.top < containerRect.bottom + 120
-      }
       return rect.top < window.innerHeight + 120
     }
 
@@ -259,14 +178,14 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       const nearFooter = isNearFooter()
 
       // In editor mode, ALWAYS show sticky so users can see and customize it
-      // Only hide when very close to footer
+      // In preview/live mode, use scroll threshold
       if (isEditorMode) {
-        // Always visible in editor - never hide
-        setShowSticky(true)
+        // Always visible in editor unless near footer
+        setShowSticky(!nearFooter)
         return
       }
 
-      // Preview/Live mode: show after 200px scroll and not near footer
+      // Live mode: show after 200px scroll and not near footer
       const scrollThreshold = 200
       if (y > scrollThreshold && !nearFooter) {
         setShowSticky(true)
@@ -275,25 +194,17 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       }
     }
 
-    // Build list of scroll targets
     const targets: (HTMLElement | Window)[] = []
-    if (scrollParentRef.current) {
-      targets.push(scrollParentRef.current)
-    }
-    // Always listen to window as fallback
+    if (scrollParent) targets.push(scrollParent)
     targets.push(window)
 
-    // Add scroll listeners
     targets.forEach((t) => t.addEventListener("scroll", handleScroll, { passive: true }))
     window.addEventListener("resize", handleScroll, { passive: true })
 
-    // Initial check - run after a small delay to ensure DOM is ready
-    const initTimer = setTimeout(() => {
-      handleScroll()
-    }, 50)
+    // Initial check
+    handleScroll()
 
     return () => {
-      clearTimeout(initTimer)
       targets.forEach((t) => t.removeEventListener("scroll", handleScroll))
       window.removeEventListener("resize", handleScroll)
       if (scrollTimeoutRef.current) {
@@ -342,9 +253,8 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       ? (draftConfig.headerSettings as ProductHeaderSettings).stickyAddToCart || defaultStickyAddToCartSettings
       : null
 
-  // shouldRenderSticky should not block on canvasRect - we can render with default positioning
   const shouldRenderSticky =
-    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible
+    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible && canvasRect
 
   if (isLoading) {
     return (
@@ -503,12 +413,12 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       </div>
 
       {/* Sticky Add to Cart - FIXED positioned, constrained to canvas width */}
-      {shouldRenderSticky && selectedProduct && stickySettings && (
+      {shouldRenderSticky && selectedProduct && stickySettings && canvasRect && (
         <div
           style={{
             position: "fixed",
-            left: canvasRect?.left ?? canvasRef.current?.getBoundingClientRect().left ?? 0,
-            width: canvasRect?.width ?? canvasRef.current?.getBoundingClientRect().width ?? '100%',
+            left: canvasRect.left,
+            width: canvasRect.width,
             bottom: 0,
             zIndex: 9999,
           }}
@@ -532,44 +442,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
             isMobile={isMobile}
             isSelected={isEditorMode && selectedSectionId === "sticky-add-to-cart"}
             onSelect={() => handleSelectSection("sticky-add-to-cart")}
-          />
-        </div>
-      )}
-
-      {/* Sticky Subscribe Bar - FIXED positioned at top, constrained to canvas width */}
-      {shouldRenderStickySubscribeBar && subscribeBarSettings && canvasRect && (
-        <div
-          style={{
-            position: "fixed",
-            left: canvasRect.left,
-            width: canvasRect.width,
-            top: canvasRef.current?.getBoundingClientRect().top ?? 0,
-            zIndex: 9999,
-            borderTopLeftRadius: "20px",
-            borderTopRightRadius: "20px",
-            overflow: "hidden",
-          }}
-          className={cn(
-            "transition-all duration-300 ease-out",
-            showStickySubscribeBar ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-full pointer-events-none",
-          )}
-        >
-          <EditorSubscribeBar
-            settings={{
-              ...subscribeBarSettings,
-              backgroundColor: subscribeBarSettings.backgroundColor || subscribeBarSettings.colors?.backgroundColor || "#ffffff",
-              textColor: subscribeBarSettings.textColor || subscribeBarSettings.colors?.textColor || "#000000",
-              showAvatar: subscribeBarSettings.showAvatar ?? true,
-              avatarUrl: avatarUrl,
-              creatorName: profile?.display_name || "Creator",
-              enableStickyBar: false, // Disable internal sticky since we're handling it externally
-            }}
-            creatorId={creatorId}
-            isEditorPreview={isEditorMode}
-            isMobile={isMobile}
-            isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
-            onSelect={() => handleSelectSection("subscribe-bar")}
-            scrollContainerRef={scrollParentRef}
           />
         </div>
       )}

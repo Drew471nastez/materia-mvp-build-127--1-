@@ -111,7 +111,7 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
                 <p className="text-sm text-muted-foreground mb-3">No products found</p>
                 <button
                   onClick={handleAddNewProduct}
-                  className="inline-flex items-center gap-1.5 text-sm text-purple-600 hover:text-purple-700 hover:underline font-medium"
+                  className="inline-flex items-center gap-1.5 text-sm text-sky-500 hover:text-sky-600 hover:underline font-medium"
                 >
                   <Plus className="h-4 w-4" />
                   Add New Product
@@ -126,7 +126,7 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
                     className={cn(
                       "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
                       selectedProduct === product.id
-                        ? "border-gray-900 bg-gray-50 dark:border-gray-100 dark:bg-gray-900/20"
+                        ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
                         : "border-border hover:bg-muted/50",
                     )}
                   >
@@ -141,8 +141,8 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
                       <p className="text-sm text-muted-foreground">{formatPrice(product.price_cents)}</p>
                     </div>
                     {selectedProduct === product.id && (
-                      <div className="h-5 w-5 rounded-full bg-gray-900 dark:bg-gray-100 flex items-center justify-center shrink-0">
-                        <Check className="h-3 w-3 text-white dark:text-gray-900" />
+                      <div className="h-5 w-5 rounded-full bg-sky-500 flex items-center justify-center shrink-0">
+                        <Check className="h-3 w-3 text-white" />
                       </div>
                     )}
                   </button>
@@ -150,13 +150,13 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
                 {/* Add new product option at the bottom */}
                 <button
                   onClick={handleAddNewProduct}
-                  className="flex items-center gap-3 w-full rounded-lg border border-dashed border-border p-3 text-left transition-all hover:bg-muted/50 hover:border-purple-500"
+                  className="flex items-center gap-3 w-full rounded-lg border border-dashed border-border p-3 text-left transition-all hover:bg-muted/50 hover:border-sky-500"
                 >
                   <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
                     <Plus className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-purple-600 dark:text-purple-400">Add New Product</p>
+                    <p className="font-medium text-sm text-sky-600 dark:text-sky-400">Add New Product</p>
                     <p className="text-sm text-muted-foreground">Create a new product to edit</p>
                   </div>
                 </button>
@@ -170,11 +170,7 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button
-            onClick={handleConfirmProduct}
-            disabled={!selectedProduct}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
+          <Button onClick={handleConfirmProduct} disabled={!selectedProduct}>
             Edit This Product
           </Button>
         </div>
