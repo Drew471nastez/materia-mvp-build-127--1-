@@ -1977,6 +1977,20 @@ function ProductHeaderSettingsForm({
           value={settings.buyButtonTextColor || "#ffffff"}
           onChange={(value) => onChange({ buyButtonTextColor: value })}
         />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Buttons Border Radius</Label>
+            <span className="text-xs text-muted-foreground">{settings.buttonsBorderRadius ?? 8}px</span>
+          </div>
+          <Slider
+            min={0}
+            max={32}
+            step={1}
+            value={[settings.buttonsBorderRadius ?? 8]}
+            onValueChange={([value]) => onChange({ buttonsBorderRadius: value })}
+          />
+          <p className="text-xs text-muted-foreground">Affects Add to Cart, Buy, and Wishlist buttons</p>
+        </div>
       </div>
 
       <div className="space-y-4">
