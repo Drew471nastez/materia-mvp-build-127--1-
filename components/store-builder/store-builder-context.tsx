@@ -309,6 +309,52 @@ export function StoreBuilderProvider({
         }
 
         if (pageType === "product") {
+          // Load global settings from default template and merge into product config
+          // Global settings: creator bar, sticky add to cart, buy button colors, spacing
+          if (productId) {
+            try {
+              const globalResponse = await fetch(`/api/store-builder?pageType=product`)
+              if (globalResponse.ok) {
+                const globalData = await globalResponse.json()
+                const globalHeader = globalData.draft_config?.headerSettings || {}
+
+                // Merge global settings into loaded config
+                const productHeader = loadedDraft.headerSettings as any
+                loadedDraft = {
+                  ...loadedDraft,
+                  headerSettings: {
+                    ...loadedDraft.headerSettings,
+                    // Use global settings for these fields (fallback to loaded values if global not set)
+                    creatorBar: globalHeader.creatorBar || productHeader.creatorBar,
+                    stickyAddToCart: globalHeader.stickyAddToCart || productHeader.stickyAddToCart,
+                    buyButtonColor: globalHeader.buyButtonColor || productHeader.buyButtonColor,
+                    buyButtonTextColor: globalHeader.buyButtonTextColor || productHeader.buyButtonTextColor,
+                    spacing: globalHeader.spacing || productHeader.spacing,
+                  },
+                }
+
+                // Also merge for published config
+                const globalPublishedHeader = globalData.published_config?.headerSettings || {}
+                const publishedProductHeader = loadedPublished.headerSettings as any
+                loadedPublished = {
+                  ...loadedPublished,
+                  headerSettings: {
+                    ...loadedPublished.headerSettings,
+                    creatorBar: globalPublishedHeader.creatorBar || publishedProductHeader.creatorBar,
+                    stickyAddToCart: globalPublishedHeader.stickyAddToCart || publishedProductHeader.stickyAddToCart,
+                    buyButtonColor: globalPublishedHeader.buyButtonColor || publishedProductHeader.buyButtonColor,
+                    buyButtonTextColor: globalPublishedHeader.buyButtonTextColor || publishedProductHeader.buyButtonTextColor,
+                    spacing: globalPublishedHeader.spacing || publishedProductHeader.spacing,
+                  },
+                }
+
+                console.log("[v0] Merged global product settings into product config")
+              }
+            } catch (err) {
+              console.error("[v0] Failed to load global product settings:", err)
+            }
+          }
+
           loadedDraft = ensureMandatoryProductSections(loadedDraft)
           loadedPublished = ensureMandatoryProductSections(loadedPublished)
         }
@@ -717,6 +763,38 @@ export function StoreBuilderProvider({
           productId: selectedProductId,
           sections: draftConfig.sections.length,
         })
+
+        // ALSO save global settings (creator bar, sticky, buy button, spacing) to default product template
+        // These settings should apply to ALL product pages
+        const productHeader = draftConfig.headerSettings as any
+        const globalProductSettings = {
+          pageType: "product",
+          config: {
+            ...defaultProductPageConfig,
+            headerSettings: {
+              ...defaultProductPageConfig.headerSettings,
+              creatorBar: productHeader.creatorBar,
+              stickyAddToCart: productHeader.stickyAddToCart,
+              buyButtonColor: productHeader.buyButtonColor,
+              buyButtonTextColor: productHeader.buyButtonTextColor,
+              spacing: productHeader.spacing,
+            },
+          },
+        }
+
+        // Save global settings to default template (without productId)
+        console.log("[v0] Also saving global product settings to default template")
+        const globalResponse = await fetch("/api/store-builder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(globalProductSettings),
+        })
+
+        if (!globalResponse.ok) {
+          console.error("[v0] Failed to save global product settings, continuing...")
+        } else {
+          console.log("[v0] Global product settings saved successfully")
+        }
       } else {
         console.log("[v0] Saving default template", { sections: draftConfig.sections.length })
       }
@@ -758,6 +836,39 @@ export function StoreBuilderProvider({
           productId: selectedProductId,
           sections: draftConfig.sections.length,
         })
+
+        // ALSO save and publish global settings (creator bar, sticky, buy button, spacing) to default product template
+        const productHeader = draftConfig.headerSettings as any
+        const globalProductSettings = {
+          pageType: "product",
+          config: {
+            ...defaultProductPageConfig,
+            headerSettings: {
+              ...defaultProductPageConfig.headerSettings,
+              creatorBar: productHeader.creatorBar,
+              stickyAddToCart: productHeader.stickyAddToCart,
+              buyButtonColor: productHeader.buyButtonColor,
+              buyButtonTextColor: productHeader.buyButtonTextColor,
+              spacing: productHeader.spacing,
+            },
+          },
+        }
+
+        // Save global settings to default template (without productId)
+        console.log("[v0] Also saving global product settings to default template")
+        await fetch("/api/store-builder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(globalProductSettings),
+        })
+
+        // Also publish the default template
+        await fetch("/api/store-builder", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageType: "product" }),
+        })
+        console.log("[v0] Global product settings published")
       } else {
         console.log("[v0] Publishing default template", { sections: draftConfig.sections.length })
       }

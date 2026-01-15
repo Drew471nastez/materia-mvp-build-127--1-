@@ -530,13 +530,19 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
   // Global Settings Panel
   if (sidebarMode === "global-settings") {
-    const settingsTabs = [
+    // Theme tab is only shown for shop pages, not product pages
+    const allSettingsTabs = [
       { id: "basic" as const, label: "Basic Info", icon: Info },
       { id: "theme" as const, label: "Theme Presets", icon: Palette },
       { id: "social" as const, label: "Social Media", icon: Share2 },
       { id: "seo" as const, label: "SEO", icon: Globe },
       { id: "badge" as const, label: "Verified Badge", icon: BadgeCheck },
     ]
+
+    // Filter out theme tab for product pages
+    const settingsTabs = currentPageType === "product"
+      ? allSettingsTabs.filter(tab => tab.id !== "theme")
+      : allSettingsTabs
 
     return (
       <div className="w-80 border-r border-border bg-background overflow-hidden flex flex-col h-full">

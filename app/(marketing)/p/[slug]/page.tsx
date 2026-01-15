@@ -124,8 +124,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // ---------------------------------------------------------------------------
   // Product page config (specific > creator default)
+  // Global settings (creator bar, sticky, buy button, spacing) always come from default template
   // ---------------------------------------------------------------------------
   let productPageConfig: any = null
+
+  // Always fetch the default template for global settings
+  const { data: defaultTemplate } = await supabase
+    .from("store_builder_configs")
+    .select("published_config")
+    .eq("creator_id", product.creator_id)
+    .eq("page_type", "product")
+    .maybeSingle()
+
+  const globalHeaderSettings = defaultTemplate?.published_config?.headerSettings || {}
 
   const { data: specificConfig } = await supabase
     .from("product_page_configs")
@@ -135,18 +146,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     .maybeSingle()
 
   if (specificConfig?.published_config) {
-    productPageConfig = specificConfig.published_config
-  } else {
-    const { data: defaultConfig } = await supabase
-      .from("store_builder_configs")
-      .select("published_config")
-      .eq("creator_id", product.creator_id)
-      .eq("page_type", "product")
-      .maybeSingle()
-
-    if (defaultConfig?.published_config) {
-      productPageConfig = defaultConfig.published_config
+    // Merge global settings into product-specific config
+    productPageConfig = {
+      ...specificConfig.published_config,
+      headerSettings: {
+        ...specificConfig.published_config.headerSettings,
+        // Use global settings for these fields (from default template)
+        creatorBar: globalHeaderSettings.creatorBar || specificConfig.published_config.headerSettings?.creatorBar,
+        stickyAddToCart: globalHeaderSettings.stickyAddToCart || specificConfig.published_config.headerSettings?.stickyAddToCart,
+        buyButtonColor: globalHeaderSettings.buyButtonColor || specificConfig.published_config.headerSettings?.buyButtonColor,
+        buyButtonTextColor: globalHeaderSettings.buyButtonTextColor || specificConfig.published_config.headerSettings?.buyButtonTextColor,
+        spacing: globalHeaderSettings.spacing || specificConfig.published_config.headerSettings?.spacing,
+      },
     }
+  } else if (defaultTemplate?.published_config) {
+    productPageConfig = defaultTemplate.published_config
   }
 
   // Extract buy button colors from config

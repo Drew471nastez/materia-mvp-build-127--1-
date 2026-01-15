@@ -177,11 +177,16 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
       const nearFooter = isNearFooter()
 
-      // In editor mode, show sticky after just 50px scroll for better visibility
-      // In live mode, use normal 200px threshold
-      const scrollThreshold = isEditorMode ? 50 : 200
+      // In editor mode, ALWAYS show sticky so users can see and customize it
+      // In preview/live mode, use scroll threshold
+      if (isEditorMode) {
+        // Always visible in editor unless near footer
+        setShowSticky(!nearFooter)
+        return
+      }
 
-      // Show if scrolled past threshold and not near footer
+      // Live mode: show after 200px scroll and not near footer
+      const scrollThreshold = 200
       if (y > scrollThreshold && !nearFooter) {
         setShowSticky(true)
       } else {
