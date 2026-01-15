@@ -596,12 +596,18 @@ export function StoreBuilderProvider({
                 ...shopHeader.subscribeBar,
                 buttonColor: theme.subscribeBar.buttonColor,
                 buttonTextColor: theme.subscribeBar.buttonTextColor,
+                buttonBorderRadius: theme.subscribeBar.buttonBorderRadius,
+                inputBorderColor: theme.subscribeBar.inputBorderColor,
                 colors: {
                   ...shopHeader.subscribeBar.colors,
                   backgroundColor: theme.subscribeBar.backgroundColor,
                   textColor: theme.subscribeBar.textColor,
                 },
               }
+            }
+            // Apply profile ring color from theme
+            if (theme.profileRingColor) {
+              shopHeader.profileRingColor = theme.profileRingColor
             }
             // Apply header colors from theme sections config
             shopHeader.colors = {
@@ -640,9 +646,12 @@ export function StoreBuilderProvider({
                 textColor: theme.stickyAddToCart.textColor || theme.colors.foreground,
               }
             }
-            // Apply buy button colors
+            // Apply buy button colors and buttons border radius
             productHeader.buyButtonColor = theme.productHeader.buyButtonColor
             productHeader.buyButtonTextColor = theme.productHeader.buyButtonTextColor
+            if (theme.productHeader.buttonsBorderRadius !== undefined) {
+              productHeader.buttonsBorderRadius = theme.productHeader.buttonsBorderRadius
+            }
             // Apply page background and text colors for product page
             productHeader.colors = {
               ...productHeader.colors,

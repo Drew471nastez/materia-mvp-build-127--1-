@@ -1331,8 +1331,12 @@ export function UnifiedShopHeader({
           >
             <Avatar
               key={avatarKey}
-              className="border-4 border-background shadow-lg shrink-0"
-              style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
+              className="border-4 shadow-lg shrink-0"
+              style={{
+                width: `${avatarSize}px`,
+                height: `${avatarSize}px`,
+                borderColor: settings.profileRingColor || "var(--background)",
+              }}
             >
               {avatarImageUrl ? (
                 <AvatarImage src={avatarImageUrl || "/placeholder.svg"} alt={profile?.display_name || ""} />
@@ -1737,6 +1741,7 @@ export function UnifiedProductPage({
                             backgroundColor: settings.buyButtonColor || undefined,
                             color: settings.buyButtonTextColor || undefined,
                             border: "1px solid rgba(0, 0, 0, 0.08)",
+                            borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
                           }}
                         >
                           {buttonText}
@@ -1745,6 +1750,9 @@ export function UnifiedProductPage({
                         <Button
                           variant="outline"
                           className="w-full bg-white border-gray-200 min-h-[44px]"
+                          style={{
+                            borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
+                          }}
                         >
                           <Heart className="h-4 w-4 mr-2" />
                           Add to wishlist
@@ -1759,6 +1767,7 @@ export function UnifiedProductPage({
                             backgroundColor: settings.buyButtonColor || undefined,
                             color: settings.buyButtonTextColor || undefined,
                             border: "1px solid rgba(0, 0, 0, 0.08)",
+                            borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
                           }}
                         >
                           {buttonText}
@@ -1768,6 +1777,9 @@ export function UnifiedProductPage({
                           variant="outline"
                           className="w-full bg-white border-gray-200 min-h-[44px]"
                           disabled
+                          style={{
+                            borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
+                          }}
                         >
                           <Heart className="h-4 w-4 mr-2" />
                           Add to wishlist
@@ -1936,6 +1948,7 @@ export function UnifiedProductPage({
                           backgroundColor: settings.buyButtonColor || undefined,
                           color: settings.buyButtonTextColor || undefined,
                           border: "1px solid rgba(0, 0, 0, 0.08)",
+                          borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
                         }}
                       >
                         {buttonText}
@@ -1943,6 +1956,9 @@ export function UnifiedProductPage({
                       <Button
                         variant="outline"
                         className="w-full bg-white border-gray-200 min-h-[44px]"
+                        style={{
+                          borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
+                        }}
                       >
                         <Heart className="h-4 w-4 mr-2" />
                         Add to wishlist
@@ -1957,6 +1973,7 @@ export function UnifiedProductPage({
                           backgroundColor: settings.buyButtonColor || undefined,
                           color: settings.buyButtonTextColor || undefined,
                           border: "1px solid rgba(0, 0, 0, 0.08)",
+                          borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
                         }}
                       >
                         {buttonText}
@@ -1965,6 +1982,9 @@ export function UnifiedProductPage({
                         variant="outline"
                         className="w-full bg-white border-gray-200 min-h-[44px]"
                         disabled
+                        style={{
+                          borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
+                        }}
                       >
                         <Heart className="h-4 w-4 mr-2" />
                         Add to wishlist
@@ -2094,6 +2114,7 @@ export function UnifiedProductPage({
                         backgroundColor: settings.buyButtonColor || undefined,
                         color: settings.buyButtonTextColor || undefined,
                         border: "1px solid rgba(0, 0, 0, 0.08)",
+                        borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
                       }}
                     >
                       {buttonText}
@@ -2101,6 +2122,9 @@ export function UnifiedProductPage({
                     <Button
                       variant="outline"
                       className="w-full bg-white border-gray-200 min-h-[44px]"
+                      style={{
+                        borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
+                      }}
                     >
                       <Heart className="h-4 w-4 mr-2" />
                       Add to wishlist
@@ -2115,6 +2139,7 @@ export function UnifiedProductPage({
                         backgroundColor: settings.buyButtonColor || undefined,
                         color: settings.buyButtonTextColor || undefined,
                         border: "1px solid rgba(0, 0, 0, 0.08)",
+                        borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
                       }}
                     >
                       {buttonText}
@@ -2123,6 +2148,9 @@ export function UnifiedProductPage({
                       variant="outline"
                       className="w-full bg-white border-gray-200 min-h-[44px]"
                       disabled
+                      style={{
+                        borderRadius: settings.buttonsBorderRadius !== undefined ? `${settings.buttonsBorderRadius}px` : undefined,
+                      }}
                     >
                       <Heart className="h-4 w-4 mr-2" />
                       Add to wishlist

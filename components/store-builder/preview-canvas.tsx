@@ -95,6 +95,42 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       ? (draftConfig.headerSettings as ShopHeaderSettings).subscribeBar || defaultSubscribeBarSettings
       : null
 
+  // Sticky subscribe bar state for editor
+  const [showStickySubscribeBar, setShowStickySubscribeBar] = useState(true)
+  const lastScrollYSubscribeRef = useRef(0)
+
+  // Handle sticky subscribe bar visibility in editor
+  useEffect(() => {
+    if (currentPageType !== "shop" || !subscribeBarSettings?.enableStickyBar) return
+
+    const scrollParent = scrollParentRef.current
+    if (!scrollParent) return
+
+    const handleScroll = () => {
+      const currentScrollY = scrollParent.scrollTop
+
+      // If enableStickyOnScrollUp is true, show when scrolling up or at top
+      if (subscribeBarSettings.enableStickyOnScrollUp) {
+        if (currentScrollY < lastScrollYSubscribeRef.current || currentScrollY < 50) {
+          setShowStickySubscribeBar(true)
+        } else {
+          setShowStickySubscribeBar(false)
+        }
+      } else {
+        // Just show always if sticky is enabled but not scroll-up-only
+        setShowStickySubscribeBar(true)
+      }
+
+      lastScrollYSubscribeRef.current = currentScrollY
+    }
+
+    scrollParent.addEventListener("scroll", handleScroll, { passive: true })
+    return () => scrollParent.removeEventListener("scroll", handleScroll)
+  }, [currentPageType, subscribeBarSettings?.enableStickyBar, subscribeBarSettings?.enableStickyOnScrollUp])
+
+  const shouldRenderStickySubscribeBar =
+    currentPageType === "shop" && subscribeBarSettings?.visible && subscribeBarSettings?.enableStickyBar && canvasRect && isEditorMode
+
   const headerSettings = draftConfig.headerSettings as ShopHeaderSettings
   const avatarUrl =
     headerSettings?.avatarUrl === ""
@@ -442,6 +478,44 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
             isMobile={isMobile}
             isSelected={isEditorMode && selectedSectionId === "sticky-add-to-cart"}
             onSelect={() => handleSelectSection("sticky-add-to-cart")}
+          />
+        </div>
+      )}
+
+      {/* Sticky Subscribe Bar - FIXED positioned at top, constrained to canvas width */}
+      {shouldRenderStickySubscribeBar && subscribeBarSettings && canvasRect && (
+        <div
+          style={{
+            position: "fixed",
+            left: canvasRect.left,
+            width: canvasRect.width,
+            top: canvasRef.current?.getBoundingClientRect().top ?? 0,
+            zIndex: 9999,
+            borderTopLeftRadius: "20px",
+            borderTopRightRadius: "20px",
+            overflow: "hidden",
+          }}
+          className={cn(
+            "transition-all duration-300 ease-out",
+            showStickySubscribeBar ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-full pointer-events-none",
+          )}
+        >
+          <EditorSubscribeBar
+            settings={{
+              ...subscribeBarSettings,
+              backgroundColor: subscribeBarSettings.backgroundColor || subscribeBarSettings.colors?.backgroundColor || "#ffffff",
+              textColor: subscribeBarSettings.textColor || subscribeBarSettings.colors?.textColor || "#000000",
+              showAvatar: subscribeBarSettings.showAvatar ?? true,
+              avatarUrl: avatarUrl,
+              creatorName: profile?.display_name || "Creator",
+              enableStickyBar: false, // Disable internal sticky since we're handling it externally
+            }}
+            creatorId={creatorId}
+            isEditorPreview={isEditorMode}
+            isMobile={isMobile}
+            isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
+            onSelect={() => handleSelectSection("subscribe-bar")}
+            scrollContainerRef={scrollParentRef}
           />
         </div>
       )}

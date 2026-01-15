@@ -44,7 +44,11 @@ export interface ThemeConfig {
     buttonTextColor: string
     backgroundColor: string
     textColor: string
+    buttonBorderRadius?: number
+    inputBorderColor?: string
   }
+  // Profile ring/border color for shop header avatar
+  profileRingColor?: string
   creatorBar: {
     backgroundColor: string
     textColor: string
@@ -62,6 +66,7 @@ export interface ThemeConfig {
   productHeader: {
     buyButtonColor: string
     buyButtonTextColor: string
+    buttonsBorderRadius?: number
   }
   // Section-specific styling
   sections: {
@@ -108,7 +113,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonTextColor: "#ffffff",
       backgroundColor: "#ffffff",
       textColor: "#374151",
+      buttonBorderRadius: 8,
+      inputBorderColor: "#e5e7eb",
     },
+    profileRingColor: "#ffffff",
     creatorBar: {
       backgroundColor: "#f3f4f6",
       textColor: "#374151",
@@ -125,6 +133,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#374151",
       buyButtonTextColor: "#ffffff",
+      buttonsBorderRadius: 8,
     },
     sections: {
       headerBackgroundColor: "transparent",
@@ -166,7 +175,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonTextColor: "#ffffff",
       backgroundColor: "linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%)",
       textColor: "#0f172a",
+      buttonBorderRadius: 12,
+      inputBorderColor: "#cbd5e1",
     },
+    profileRingColor: "#ffffff",
     creatorBar: {
       backgroundColor: "linear-gradient(180deg, #1e293b 0%, #334155 100%)",
       textColor: "#ffffff",
@@ -184,6 +196,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#1e293b",
       buyButtonTextColor: "#ffffff",
+      buttonsBorderRadius: 12,
     },
     sections: {
       headerBackgroundColor: "transparent",
@@ -225,7 +238,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonTextColor: "#ffffff",
       backgroundColor: "#0f0f0f",
       textColor: "#e5e5e5",
+      buttonBorderRadius: 10,
+      inputBorderColor: "#404040",
     },
+    profileRingColor: "#262626",
     creatorBar: {
       backgroundColor: "#141414",
       textColor: "#e5e5e5",
@@ -243,6 +259,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#404040",
       buyButtonTextColor: "#ffffff",
+      buttonsBorderRadius: 10,
     },
     sections: {
       headerBackgroundColor: "#0a0a0a",
@@ -284,7 +301,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonTextColor: "#7c3aed",
       backgroundColor: "linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%)",
       textColor: "#ffffff",
+      buttonBorderRadius: 24,
+      inputBorderColor: "rgba(255,255,255,0.4)",
     },
+    profileRingColor: "#7c3aed",
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
       textColor: "#ffffff",
@@ -302,6 +322,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#ffffff",
       buyButtonTextColor: "#7c3aed",
+      buttonsBorderRadius: 24,
     },
     sections: {
       headerBackgroundColor: "transparent",
@@ -343,7 +364,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonTextColor: "#ffffff",
       backgroundColor: "linear-gradient(135deg, #0369a1 0%, #0891b2 50%, #14b8a6 100%)",
       textColor: "#ffffff",
+      buttonBorderRadius: 20,
+      inputBorderColor: "rgba(255,255,255,0.4)",
     },
+    profileRingColor: "#0369a1",
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #0369a1 0%, #0891b2 100%)",
       textColor: "#ffffff",
@@ -361,6 +385,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#0ea5e9",
       buyButtonTextColor: "#ffffff",
+      buttonsBorderRadius: 20,
     },
     sections: {
       headerBackgroundColor: "transparent",
@@ -402,7 +427,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonTextColor: "#f97316",
       backgroundColor: "linear-gradient(135deg, #f97316 0%, #fb923c 30%, #ec4899 100%)",
       textColor: "#ffffff",
+      buttonBorderRadius: 20,
+      inputBorderColor: "rgba(255,255,255,0.4)",
     },
+    profileRingColor: "#f97316",
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #f97316 0%, #fb923c 100%)",
       textColor: "#ffffff",
@@ -420,6 +448,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#ffffff",
       buyButtonTextColor: "#f97316",
+      buttonsBorderRadius: 20,
     },
     sections: {
       headerBackgroundColor: "transparent",
@@ -461,7 +490,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonTextColor: "#166534",
       backgroundColor: "linear-gradient(135deg, #166534 0%, #22c55e 50%, #4ade80 100%)",
       textColor: "#ffffff",
+      buttonBorderRadius: 16,
+      inputBorderColor: "rgba(255,255,255,0.4)",
     },
+    profileRingColor: "#166534",
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #166534 0%, #22c55e 100%)",
       textColor: "#ffffff",
@@ -479,6 +511,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#22c55e",
       buyButtonTextColor: "#ffffff",
+      buttonsBorderRadius: 16,
     },
     sections: {
       headerBackgroundColor: "transparent",
@@ -520,7 +553,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonTextColor: "#be185d",
       backgroundColor: "linear-gradient(135deg, #be185d 0%, #ec4899 50%, #f472b6 100%)",
       textColor: "#ffffff",
+      buttonBorderRadius: 24,
+      inputBorderColor: "rgba(255,255,255,0.4)",
     },
+    profileRingColor: "#be185d",
     creatorBar: {
       backgroundColor: "linear-gradient(135deg, #be185d 0%, #ec4899 100%)",
       textColor: "#ffffff",
@@ -538,6 +574,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#ec4899",
       buyButtonTextColor: "#ffffff",
+      buttonsBorderRadius: 24,
     },
     sections: {
       headerBackgroundColor: "transparent",
@@ -579,7 +616,10 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       buttonTextColor: "#ffffff",
       backgroundColor: "#1e293b",
       textColor: "#f8fafc",
+      buttonBorderRadius: 12,
+      inputBorderColor: "#475569",
     },
+    profileRingColor: "#1e293b",
     creatorBar: {
       backgroundColor: "#1a2439",
       textColor: "#f8fafc",
@@ -597,6 +637,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     productHeader: {
       buyButtonColor: "#3b82f6",
       buyButtonTextColor: "#ffffff",
+      buttonsBorderRadius: 12,
     },
     sections: {
       headerBackgroundColor: "#0f172a",

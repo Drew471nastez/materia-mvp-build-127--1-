@@ -1796,6 +1796,12 @@ function ShopHeaderSettingsForm({
               ))}
             </div>
           </div>
+
+          <ColorPicker
+            label="Ring Border Color"
+            value={settings.profileRingColor || "#ffffff"}
+            onChange={(value) => onChange({ profileRingColor: value })}
+          />
         </div>
       </div>
 
@@ -1977,6 +1983,20 @@ function ProductHeaderSettingsForm({
           value={settings.buyButtonTextColor || "#ffffff"}
           onChange={(value) => onChange({ buyButtonTextColor: value })}
         />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Buttons Border Radius</Label>
+            <span className="text-xs text-muted-foreground">{settings.buttonsBorderRadius ?? 8}px</span>
+          </div>
+          <PremiumSlider
+            value={[settings.buttonsBorderRadius ?? 8]}
+            onValueChange={([value]) => onChange({ buttonsBorderRadius: value })}
+            min={0}
+            max={32}
+            step={2}
+          />
+          <p className="text-xs text-muted-foreground">Controls Add to Cart, Buy, and Wishlist buttons</p>
+        </div>
       </div>
 
       <div className="space-y-4">
