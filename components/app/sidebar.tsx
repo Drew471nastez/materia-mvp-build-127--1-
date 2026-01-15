@@ -542,7 +542,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent
           side="left"
-          className="w-[260px] max-w-[85vw] p-0 bg-white border-neutral-200/50 rounded-tr-[36px] rounded-br-[36px] top-[calc(68px+env(safe-area-inset-top))] bottom-0 h-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:duration-200 data-[state=open]:duration-300 ease-out shadow-xl"
+          className="w-[260px] max-w-[85vw] p-0 bg-white border-neutral-200/50 rounded-tr-[-5px] rounded-br-[-5px] top-[calc(68px+env(safe-area-inset-top))] bottom-0 h-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:duration-200 data-[state=open]:duration-300 ease-out shadow-xl"
           overlayClassName="top-[calc(68px+env(safe-area-inset-top))]"
           hideCloseButton
         >
