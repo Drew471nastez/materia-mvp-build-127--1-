@@ -356,7 +356,10 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
       <>
         {/* Fixed bar at top of viewport */}
         <div
-          className="fixed top-0 left-0 right-0 z-50 w-full py-2.5 px-3 sm:py-3 sm:px-4"
+          className={cn(
+            "fixed top-0 left-0 right-0 z-50 w-full py-2.5 px-3 sm:py-3 sm:px-4",
+            isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border"
+          )}
           style={{
             backgroundColor: settings.backgroundColor || "#ffffff",
             color: settings.textColor || "#000000",
@@ -373,7 +376,10 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   // NON-STICKY: Normal document flow
   return (
     <div
-      className="w-full py-2.5 px-3 sm:py-3 sm:px-4"
+      className={cn(
+        "w-full py-2.5 px-3 sm:py-3 sm:px-4",
+        isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border"
+      )}
       style={{
         backgroundColor: settings.backgroundColor || "#ffffff",
         color: settings.textColor || "#000000",
@@ -542,7 +548,8 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
         "w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-all",
         settings.enableStickyBar && "sticky top-0 z-20",
         onSelect && "cursor-pointer",
-        isSelected && "ring-2 ring-sky-500 ring-inset",
+        isSelected && "ring-2 ring-purple-500 ring-inset",
+        isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",
       )}
       style={{
         backgroundColor: backgroundColor,

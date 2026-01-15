@@ -393,6 +393,39 @@
   background-position: 100%;
 }
 
+/* Settings Gear Icon Animation - subtle rotation */
+@keyframes settingsGearRotate {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(45deg);
+  }
+  50% {
+    transform: rotate(45deg);
+  }
+  75% {
+    transform: rotate(0deg);
+  }
+}
+
+.settings-gear-animated {
+  animation: settingsGearRotate 4s ease-in-out infinite;
+}
+
+.settings-gear-animated:hover {
+  animation-play-state: paused;
+}
+
+/* Subscribe Bar Bottom Border */
+.subscribe-bar-border {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.subscribe-bar-border-dark {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 /* OnePage Button Animations */
 
 /* Pulse - subtle scale effect (20% more subtle) */

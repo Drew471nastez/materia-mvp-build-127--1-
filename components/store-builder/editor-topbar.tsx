@@ -174,12 +174,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     switch (saveState) {
       case "unsaved":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-purple-600 text-white hover:bg-purple-700",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             onClick={handleSave}
           >
             {isMobile ? (
@@ -194,12 +194,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "saving":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-purple-600 text-white hover:bg-purple-700",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             disabled
           >
             {isMobile ? (
@@ -214,10 +214,10 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "saved":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-purple-600 text-white hover:bg-purple-700",
               isMobile ? "h-9 px-3" : "h-9"
             )}
             onClick={handlePublish}
@@ -227,12 +227,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "publishing":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-purple-600 text-white hover:bg-purple-700",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             disabled
           >
             {isMobile ? (
@@ -337,7 +337,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             disabled={!canUndo}
             title="Undo (Ctrl+Z)"
           >
-            <Undo2 className={cn("h-4 w-4", !canUndo && "opacity-40")} />
+            <Undo2 className={cn("h-4 w-4", canUndo ? "text-purple-600" : "opacity-40")} />
           </Button>
           <Button
             variant="ghost"
@@ -347,7 +347,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             disabled={!canRedo}
             title="Redo (Ctrl+Shift+Z)"
           >
-            <Redo2 className={cn("h-4 w-4", !canRedo && "opacity-40")} />
+            <Redo2 className={cn("h-4 w-4", canRedo ? "text-purple-600" : "opacity-40")} />
           </Button>
         </div>
       </div>
@@ -391,7 +391,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         </DropdownMenu>
 
         {/* Preview Button - icon only on mobile */}
-        <Button variant="outline" size="sm" className="h-9 bg-transparent" onClick={onPreview}>
+        <Button size="sm" className="h-9 bg-gray-900 text-white hover:bg-gray-800" onClick={onPreview}>
           <span className="hidden sm:inline">Preview</span>
           <Monitor className="h-4 w-4 sm:hidden" />
         </Button>

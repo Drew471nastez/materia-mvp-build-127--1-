@@ -45,6 +45,8 @@ import { SocialMediaIcons } from "./social-media-icons"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ReviewsList } from "@/components/reviews/reviews-list"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 
 // Shared product type for consistency
 export interface ProductData {
@@ -1201,7 +1203,32 @@ export function UnifiedShopHeader({
           >
             {profile?.display_name || "Creator"}
             {globalSettings?.verifiedBadgeEnabled && (
-              <BadgeCheck className={cn("text-blue-500 shrink-0", isMobile ? "h-4 w-4" : "h-5 w-5")} />
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-pointer shrink-0">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className={cn(isMobile ? "h-5 w-5" : "h-6 w-6")}
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <circle cx="12" cy="12" r="10" fill="#3B82F6"/>
+                        <path
+                          d="M8 12.5L10.5 15L16 9"
+                          stroke="white"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="bg-gray-900 text-white px-3 py-2">
+                    <p className="font-medium">{verifiedBadgeLabels[globalSettings.verifiedBadgeType]}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </h1>
 

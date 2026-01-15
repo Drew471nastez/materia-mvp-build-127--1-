@@ -283,7 +283,7 @@ export interface PageConfig {
 export type SaveState = "unsaved" | "saving" | "saved" | "publishing" | "published"
 
 // Theme preset for global styling
-export type ThemePreset = "default" | "modern" | "elegant" | "bold" | "minimal"
+export type ThemePreset = "default" | "air" | "astrid" | "royal" | "ocean" | "sunset"
 
 // Verified badge type options
 export type VerifiedBadgeType = "verified_creator" | "verified_brand" | "verified_business" | "official_page" | "verified_artist"

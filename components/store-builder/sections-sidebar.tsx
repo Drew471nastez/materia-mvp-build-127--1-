@@ -107,14 +107,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-// Custom Toggle Component with theme-style design (black when ON)
+// Custom Toggle Component with theme-style design (purple when ON)
 function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
   return (
     <input
       type="checkbox"
       checked={checked}
       onChange={(e) => onCheckedChange(e.target.checked)}
-      className="theme-checkbox"
+      className="theme-checkbox-purple"
     />
   )
 }
@@ -528,9 +528,9 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
   if (sidebarMode === "global-settings") {
     const settingsTabs = [
       { id: "basic" as const, label: "Basic Info", icon: Info },
+      { id: "theme" as const, label: "Theme Presets", icon: Palette },
       { id: "seo" as const, label: "SEO", icon: Globe },
       { id: "badge" as const, label: "Verified Badge", icon: BadgeCheck },
-      { id: "theme" as const, label: "Theme", icon: Palette },
     ]
 
     return (
@@ -554,7 +554,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   className={cn(
                     "flex items-center gap-2 w-full rounded-lg px-3 py-2.5 transition-all text-left",
                     settingsTab === tab.id
-                      ? "bg-sky-50 border border-sky-500 dark:bg-sky-950/20"
+                      ? "bg-purple-50 border border-purple-500 dark:bg-purple-950/20"
                       : "hover:bg-muted/50 border border-transparent"
                   )}
                 >
@@ -562,7 +562,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
                       settingsTab === tab.id
-                        ? "bg-sky-100 text-sky-600 dark:bg-sky-900 dark:text-sky-400"
+                        ? "bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400"
                         : "bg-muted text-muted-foreground"
                     )}
                   >
@@ -588,14 +588,14 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   <Label htmlFor="store-name">Store Name</Label>
                   <Input
                     id="store-name"
-                    value={globalSettings.storeName || ""}
+                    value={globalSettings.storeName || (profile?.display_name || "")}
                     onChange={(e) => updateGlobalSettings({ storeName: e.target.value })}
                     placeholder={profile?.display_name || "My Store"}
                   />
                   <p className="text-xs text-muted-foreground">
                     This appears as your store's title
                     {profile?.display_name && !globalSettings.storeName && (
-                      <span className="block text-sky-600 mt-1">Uses "{profile.display_name}" if left empty</span>
+                      <span className="block text-purple-600 mt-1">Uses "{profile.display_name}" if left empty</span>
                     )}
                   </p>
                 </div>
@@ -604,14 +604,14 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   <Label htmlFor="store-tagline">Tagline</Label>
                   <Input
                     id="store-tagline"
-                    value={globalSettings.storeTagline || ""}
+                    value={globalSettings.storeTagline || (creator?.headline || "")}
                     onChange={(e) => updateGlobalSettings({ storeTagline: e.target.value })}
                     placeholder={creator?.headline || "Your store's tagline"}
                   />
                   <p className="text-xs text-muted-foreground">
                     A short description of your store
                     {creator?.headline && !globalSettings.storeTagline && (
-                      <span className="block text-sky-600 mt-1">Uses "{creator.headline}" if left empty</span>
+                      <span className="block text-purple-600 mt-1">Uses "{creator.headline}" if left empty</span>
                     )}
                   </p>
                 </div>
@@ -625,14 +625,14 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   <Label htmlFor="seo-title">Store Title</Label>
                   <Input
                     id="seo-title"
-                    value={globalSettings.seoTitle || ""}
+                    value={globalSettings.seoTitle || (profile?.display_name ? `${profile.display_name} | Storelib` : "")}
                     onChange={(e) => updateGlobalSettings({ seoTitle: e.target.value })}
-                    placeholder={profile?.display_name ? `${profile.display_name} - Store` : "Store Title for Search Engines"}
+                    placeholder={profile?.display_name ? `${profile.display_name} | Storelib` : "Store Title for Search Engines"}
                   />
                   <p className="text-xs text-muted-foreground">
                     Appears in search results and browser tabs
                     {profile?.display_name && !globalSettings.seoTitle && (
-                      <span className="block text-sky-600 mt-1">Uses "{profile.display_name} - Store" if left empty</span>
+                      <span className="block text-purple-600 mt-1">Uses "{profile.display_name} | Storelib" if left empty</span>
                     )}
                   </p>
                 </div>
@@ -641,15 +641,15 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   <Label htmlFor="meta-description">Meta Description</Label>
                   <Textarea
                     id="meta-description"
-                    value={globalSettings.seoDescription || ""}
+                    value={globalSettings.seoDescription || (creator?.headline || creator?.bio || "")}
                     onChange={(e) => updateGlobalSettings({ seoDescription: e.target.value })}
                     placeholder={creator?.headline || creator?.bio || "Describe your store for search engines..."}
                     rows={3}
                   />
                   <p className="text-xs text-muted-foreground">
-                    {(globalSettings.seoDescription || "").length}/160 characters recommended
+                    {(globalSettings.seoDescription || creator?.headline || creator?.bio || "").length}/160 characters recommended
                     {(creator?.headline || creator?.bio) && !globalSettings.seoDescription && (
-                      <span className="block text-sky-600 mt-1">Uses your bio/headline if left empty</span>
+                      <span className="block text-purple-600 mt-1">Uses your bio/headline if left empty</span>
                     )}
                   </p>
                 </div>
@@ -657,27 +657,48 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 <div className="space-y-2">
                   <Label>Social Image</Label>
                   <ImageUpload
+                    bucket="store-builder-images"
                     value={globalSettings.socialImageUrl || ""}
-                    onChange={(url) => updateGlobalSettings({ socialImageUrl: url })}
-                    folder={`store-builder/${creatorId}/social`}
+                    onChange={(url) => updateGlobalSettings({ socialImageUrl: url || "" })}
+                    folder={`social`}
+                    aspectRatio="video"
                   />
                   <p className="text-xs text-muted-foreground">
                     Used when your store is shared on social media (1200x630 recommended)
+                    {profile?.avatar_url && !globalSettings.socialImageUrl && (
+                      <span className="block text-purple-600 mt-1">Uses your profile avatar by default</span>
+                    )}
                   </p>
                 </div>
 
-                {globalSettings.socialImageUrl && (
-                  <div className="space-y-2">
-                    <Label>Social Image Preview</Label>
-                    <div className="rounded-lg border border-border overflow-hidden">
+                {/* Social Image Preview - show avatar as default if no custom image */}
+                <div className="space-y-2">
+                  <Label>Social Image Preview</Label>
+                  <div className="rounded-lg border border-border overflow-hidden aspect-[1200/630] bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center">
+                    {globalSettings.socialImageUrl ? (
                       <img
                         src={globalSettings.socialImageUrl}
                         alt="Social preview"
-                        className="w-full h-auto object-cover"
+                        className="w-full h-full object-cover"
                       />
-                    </div>
+                    ) : profile?.avatar_url ? (
+                      <div className="text-center">
+                        <img
+                          src={profile.avatar_url}
+                          alt="Default social preview"
+                          className="w-20 h-20 rounded-full mx-auto mb-2 border-2 border-white shadow-lg object-cover"
+                        />
+                        <p className="text-sm font-medium text-gray-700">{profile?.display_name || "Your Store"}</p>
+                        <p className="text-xs text-gray-500 mt-1">Default preview using profile avatar</p>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-400">
+                        <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No image set</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </>
             )}
 
@@ -736,12 +757,38 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                       </p>
                     </div>
 
-                    <div className="rounded-lg border border-border p-4 space-y-2">
+                    <div className="rounded-xl bg-gray-50 p-4 space-y-2">
                       <Label className="text-xs text-muted-foreground">Preview</Label>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">{globalSettings.storeName || "Your Store"}</span>
-                        <BadgeCheck className="h-5 w-5 text-blue-500" />
+                        <span className="font-bold text-lg text-gray-900">{globalSettings.storeName || profile?.display_name || "Your Store"}</span>
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-pointer">
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  className="h-6 w-6"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <circle cx="12" cy="12" r="10" fill="#3B82F6"/>
+                                  <path
+                                    d="M8 12.5L10.5 15L16 9"
+                                    stroke="white"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="bg-gray-900 text-white px-3 py-2">
+                              <p className="font-medium">{verifiedBadgeLabels[globalSettings.verifiedBadgeType]}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
+                      <p className="text-xs text-muted-foreground mt-2">Hover over the badge to see the tooltip</p>
                     </div>
                   </>
                 )}
@@ -758,70 +805,108 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {(Object.keys(themePresets) as ThemePreset[]).map((preset) => {
                   const theme = themePresets[preset]
                   const isSelected = globalSettings.themePreset === preset
+
+                  // Determine if this is a dark/gradient theme based on background or foreground color
+                  const isDarkOrGradientTheme =
+                    preset === "astrid" ||
+                    preset === "royal" ||
+                    preset === "ocean" ||
+                    preset === "sunset" ||
+                    theme.colors.foreground === "#ffffff" ||
+                    theme.colors.foreground === "#fafafa"
+
+                  // Check if background is a gradient
+                  const isGradient = theme.colors.background.includes("gradient")
+
                   return (
                     <button
                       key={preset}
                       onClick={() => applyTheme(preset)}
                       className={cn(
-                        "relative p-3 rounded-xl border-2 text-left transition-all hover:border-sky-300",
+                        "relative rounded-xl border-2 text-left transition-all overflow-hidden",
                         isSelected
-                          ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
-                          : "border-border hover:bg-muted/30"
+                          ? "border-purple-500 ring-2 ring-purple-200"
+                          : "border-border hover:border-purple-300"
                       )}
                     >
-                      {/* Theme thumbnail preview */}
-                      <div
-                        className="h-20 rounded-lg mb-2 flex items-center justify-center relative overflow-hidden"
-                        style={{ backgroundColor: theme.colors.background }}
-                      >
-                        {/* Text preview */}
-                        <div className="text-center">
-                          <div
-                            className="font-semibold text-xs"
-                            style={{ color: theme.colors.foreground }}
-                          >
-                            Preview
-                          </div>
-                          <div
-                            className="text-[10px] mt-0.5"
-                            style={{ color: theme.colors.foreground, opacity: 0.7 }}
-                          >
-                            Store text
-                          </div>
+                      {/* Selected checkmark badge */}
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 z-10 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center shadow-md">
+                          <Check className="h-3 w-3 text-white" />
                         </div>
+                      )}
+
+                      {/* Theme thumbnail preview - Onepage style */}
+                      <div
+                        className="aspect-[4/5] flex flex-col items-center justify-center p-3 relative"
+                        style={{
+                          background: isGradient ? theme.colors.background : undefined,
+                          backgroundColor: !isGradient ? theme.colors.background : undefined,
+                        }}
+                      >
+                        {/* Avatar circle */}
+                        <div
+                          className="w-8 h-8 rounded-full mb-2"
+                          style={{
+                            backgroundColor: isDarkOrGradientTheme
+                              ? "rgba(255,255,255,0.2)"
+                              : "rgba(0,0,0,0.1)"
+                          }}
+                        />
+
+                        {/* Text lines */}
+                        <div
+                          className="w-12 h-1.5 rounded-full mb-1"
+                          style={{
+                            backgroundColor: isDarkOrGradientTheme
+                              ? "rgba(255,255,255,0.4)"
+                              : "rgba(0,0,0,0.2)"
+                          }}
+                        />
+                        <div
+                          className="w-8 h-1 rounded-full mb-3"
+                          style={{
+                            backgroundColor: isDarkOrGradientTheme
+                              ? "rgba(255,255,255,0.25)"
+                              : "rgba(0,0,0,0.1)"
+                          }}
+                        />
+
                         {/* Button preview */}
                         <div
-                          className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded text-[9px] font-medium"
+                          className="w-14 h-4 rounded flex items-center justify-center"
                           style={{
-                            backgroundColor: theme.colors.primary,
-                            color: theme.subscribeBar.buttonTextColor,
-                            borderRadius: `${theme.borderRadius}px`
+                            backgroundColor: theme.subscribeBar.buttonColor,
+                            borderRadius: `${Math.min(theme.borderRadius, 12)}px`
+                          }}
+                        />
+
+                        {/* Theme name overlay at bottom */}
+                        <div
+                          className="absolute bottom-0 left-0 right-0 py-1.5 text-center text-[10px] font-medium"
+                          style={{
+                            color: isDarkOrGradientTheme ? "#ffffff" : theme.colors.foreground,
+                            backgroundColor: isDarkOrGradientTheme
+                              ? "rgba(0,0,0,0.3)"
+                              : "rgba(255,255,255,0.7)"
                           }}
                         >
-                          Button
+                          {theme.name}
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{theme.name}</span>
-                        {isSelected && (
-                          <div className="h-5 w-5 rounded-full bg-sky-500 flex items-center justify-center">
-                            <Check className="h-3 w-3 text-white" />
-                          </div>
-                        )}
                       </div>
                     </button>
                   )
                 })}
               </div>
 
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mt-4">
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 mt-4">
                 <div className="flex gap-2">
-                  <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-xs text-amber-800">
+                  <Info className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-purple-800">
                     <p className="font-medium">Note about custom colors</p>
                     <p className="mt-1">
                       Theme colors apply globally, but any custom colors you set on individual sections will override the theme.
@@ -939,7 +1024,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
             <Home className="h-3.5 w-3.5" />
             <span className="uppercase tracking-wider">{pageTitle}</span>
           </div>
-          {/* Settings Button - icon only with tooltip */}
+          {/* Settings Button - icon only with tooltip and animation */}
           <TooltipProvider delayDuration={300}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -947,7 +1032,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   onClick={openGlobalSettings}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 >
-                  <Settings className="h-4 w-4" />
+                  <Settings className="h-4 w-4 settings-gear-animated" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
