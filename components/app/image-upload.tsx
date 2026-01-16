@@ -13,7 +13,7 @@ interface ImageUploadProps {
   folder?: string
   value?: string
   onChange: (url: string | null) => void
-  aspectRatio?: "square" | "video" | "cover"
+  aspectRatio?: "square" | "video" | "cover" | "compact"
   maxSizeMB?: number
 }
 
@@ -35,6 +35,7 @@ export function ImageUpload({
     square: "aspect-square",
     video: "aspect-video",
     cover: "aspect-[3/1]",
+    compact: "min-h-[120px]",
   }
 
   const handleUpload = useCallback(

@@ -810,9 +810,13 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
       <div key={benefit.id} className="text-center flex-shrink-0" style={{ width: enableCarousel ? "100%" : undefined }}>
         <div
           className={cn(
-            "mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-3 overflow-hidden",
+            "mx-auto rounded-full flex items-center justify-center mb-3 overflow-hidden",
             isMobile ? "h-12 w-12" : "h-14 w-14",
+            !textColor && "bg-primary/10",
           )}
+          style={{
+            backgroundColor: textColor ? `${textColor}15` : undefined,
+          }}
         >
           {useCustomImage ? (
             <Image
@@ -823,9 +827,15 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
               className="w-full h-full object-cover"
             />
           ) : IconComponent ? (
-            <IconComponent className={cn("text-primary", isMobile ? "h-6 w-6" : "h-7 w-7")} />
+            <IconComponent
+              className={cn(isMobile ? "h-6 w-6" : "h-7 w-7", !textColor && "text-primary")}
+              style={{ color: textColor || undefined }}
+            />
           ) : (
-            <CheckCircle className={cn("text-primary", isMobile ? "h-6 w-6" : "h-7 w-7")} />
+            <CheckCircle
+              className={cn(isMobile ? "h-6 w-6" : "h-7 w-7", !textColor && "text-primary")}
+              style={{ color: textColor || undefined }}
+            />
           )}
         </div>
         <h3

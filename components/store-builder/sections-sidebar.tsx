@@ -2680,11 +2680,11 @@ function BenefitIconPicker({
           type="button"
           className="flex items-center gap-2 p-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors"
         >
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+          <div className="w-8 h-8 rounded-full bg-violet-500/10 flex items-center justify-center overflow-hidden">
             {iconType === "custom" && customImageUrl ? (
               <img src={customImageUrl} alt="Custom icon" className="w-full h-full object-cover" />
             ) : (
-              <IconComponent className="w-4 h-4 text-primary" />
+              <IconComponent className="w-4 h-4 text-violet-500" />
             )}
           </div>
           <span className="text-xs text-muted-foreground">Change icon</span>
@@ -2712,11 +2712,11 @@ function BenefitIconPicker({
                   className={cn(
                     "flex items-center justify-center gap-2 p-2.5 sm:p-3 rounded-lg border-2 transition-all",
                     activeTab === "icons"
-                      ? "border-primary bg-primary/5"
+                      ? "border-violet-500 bg-violet-500/5"
                       : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
                   )}
                 >
-                  <Sparkles className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "icons" ? "text-primary" : "text-muted-foreground")} />
+                  <Sparkles className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "icons" ? "text-violet-500" : "text-muted-foreground")} />
                   <span className={cn("text-sm font-medium", activeTab === "icons" ? "text-foreground" : "text-muted-foreground")}>
                     Icons
                   </span>
@@ -2727,11 +2727,11 @@ function BenefitIconPicker({
                   className={cn(
                     "flex items-center justify-center gap-2 p-2.5 sm:p-3 rounded-lg border-2 transition-all",
                     activeTab === "upload"
-                      ? "border-primary bg-primary/5"
+                      ? "border-violet-500 bg-violet-500/5"
                       : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
                   )}
                 >
-                  <ImageLucide className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "upload" ? "text-primary" : "text-muted-foreground")} />
+                  <ImageLucide className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "upload" ? "text-violet-500" : "text-muted-foreground")} />
                   <span className={cn("text-sm font-medium", activeTab === "upload" ? "text-foreground" : "text-muted-foreground")}>
                     Upload
                   </span>
@@ -2746,7 +2746,7 @@ function BenefitIconPicker({
                     placeholder="Search icons..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9 text-sm rounded-lg bg-muted/50 border-0 focus-visible:ring-1"
+                    className="pl-9 h-9 text-sm rounded-lg bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-violet-500"
                   />
                 </div>
 
@@ -2768,7 +2768,7 @@ function BenefitIconPicker({
                             "aspect-square w-full flex items-center justify-center rounded-md transition-all touch-manipulation",
                             "min-h-[36px] sm:min-h-[40px]",
                             isSelected
-                              ? "bg-primary text-primary-foreground shadow-md"
+                              ? "bg-violet-500 text-white shadow-md"
                               : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95"
                           )}
                           title={iconName.replace(/-/g, ' ')}
@@ -2795,7 +2795,7 @@ function BenefitIconPicker({
                 {/* Current custom icon with remove button */}
                 {customImageUrl ? (
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                    <div className="w-14 h-14 rounded-full bg-primary/10 overflow-hidden ring-2 ring-primary/20 flex-shrink-0">
+                    <div className="w-14 h-14 rounded-full bg-violet-500/10 overflow-hidden ring-2 ring-violet-500/20 flex-shrink-0">
                       <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -2829,7 +2829,7 @@ function BenefitIconPicker({
                         setIsOpen(false)
                       }
                     }}
-                    aspectRatio="square"
+                    aspectRatio="compact"
                   />
                 </div>
               </TabsContent>
