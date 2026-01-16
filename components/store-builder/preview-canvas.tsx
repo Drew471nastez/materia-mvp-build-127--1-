@@ -341,6 +341,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   reviewsAverage={productReviews.average}
                   reviews={productReviews.reviews}
                   accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                  globalSettings={draftConfig.globalSettings}
                 />
               ))}
 
@@ -372,6 +373,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   moreFromSellerProducts={moreFromSellerProducts}
                   creatorName={profile?.display_name}
                   accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                  globalSettings={draftConfig.globalSettings}
                 />
               ) : null
             })()}
@@ -441,6 +443,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                     moreFromSellerProducts={moreFromSellerProducts}
                     creatorName={profile?.display_name}
                     accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                    globalSettings={draftConfig.globalSettings}
                   />
                 ))
             })()}

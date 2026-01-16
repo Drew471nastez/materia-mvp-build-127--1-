@@ -2690,10 +2690,10 @@ function BenefitIconPicker({
           <span className="text-xs text-muted-foreground">Change icon</span>
         </button>
       </DialogTrigger>
-      <DialogContent className="w-[calc(100vw-24px)] max-w-[420px] sm:max-w-lg max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0 rounded-xl sm:rounded-2xl mx-auto">
+      <DialogContent className="w-[calc(100vw-24px)] max-w-[420px] sm:max-w-lg overflow-hidden flex flex-col p-0 gap-0 rounded-xl sm:rounded-2xl mx-auto">
         {/* Header */}
-        <div className="px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4 border-b border-border/50 flex-shrink-0">
-          <DialogHeader className="space-y-1">
+        <div className="px-4 pt-4 pb-2 sm:px-5 sm:pt-5 sm:pb-3 border-b border-border/50 flex-shrink-0">
+          <DialogHeader className="space-y-0.5">
             <DialogTitle className="text-base sm:text-lg font-semibold">Choose Icon</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Select an icon or upload your own
@@ -2701,22 +2701,22 @@ function BenefitIconPicker({
           </DialogHeader>
         </div>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="flex-shrink-0 overflow-x-hidden">
           <div className="px-4 py-3 sm:px-5 sm:py-4">
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "icons" | "upload")} className="space-y-4">
-              {/* Tab buttons - compact on mobile */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "icons" | "upload")} className="space-y-3">
+              {/* Tab buttons - compact */}
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveTab("icons")}
                   className={cn(
-                    "flex items-center justify-center gap-2 p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all",
+                    "flex items-center justify-center gap-2 p-2.5 sm:p-3 rounded-lg border-2 transition-all",
                     activeTab === "icons"
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
                   )}
                 >
-                  <Sparkles className={cn("w-5 h-5 sm:w-6 sm:h-6", activeTab === "icons" ? "text-primary" : "text-muted-foreground")} />
+                  <Sparkles className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "icons" ? "text-primary" : "text-muted-foreground")} />
                   <span className={cn("text-sm font-medium", activeTab === "icons" ? "text-foreground" : "text-muted-foreground")}>
                     Icons
                   </span>
@@ -2725,20 +2725,20 @@ function BenefitIconPicker({
                   type="button"
                   onClick={() => setActiveTab("upload")}
                   className={cn(
-                    "flex items-center justify-center gap-2 p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all",
+                    "flex items-center justify-center gap-2 p-2.5 sm:p-3 rounded-lg border-2 transition-all",
                     activeTab === "upload"
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
                   )}
                 >
-                  <ImageLucide className={cn("w-5 h-5 sm:w-6 sm:h-6", activeTab === "upload" ? "text-primary" : "text-muted-foreground")} />
+                  <ImageLucide className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "upload" ? "text-primary" : "text-muted-foreground")} />
                   <span className={cn("text-sm font-medium", activeTab === "upload" ? "text-foreground" : "text-muted-foreground")}>
                     Upload
                   </span>
                 </button>
               </div>
 
-              <TabsContent value="icons" className="mt-0 space-y-3 data-[state=inactive]:hidden">
+              <TabsContent value="icons" className="mt-0 space-y-2 data-[state=inactive]:hidden">
                 {/* Search input */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -2746,13 +2746,13 @@ function BenefitIconPicker({
                     placeholder="Search icons..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9 sm:h-10 text-sm rounded-lg bg-muted/50 border-0 focus-visible:ring-1"
+                    className="pl-9 h-9 text-sm rounded-lg bg-muted/50 border-0 focus-visible:ring-1"
                   />
                 </div>
 
-                {/* Icons grid - fixed height with scroll */}
-                <div className="max-h-[280px] sm:max-h-[320px] overflow-y-auto rounded-lg">
-                  <div className="grid grid-cols-5 sm:grid-cols-6 gap-1.5 sm:gap-2 p-1">
+                {/* Icons grid - compact height */}
+                <div className="max-h-[240px] sm:max-h-[280px] overflow-y-auto rounded-lg">
+                  <div className="grid grid-cols-6 sm:grid-cols-7 gap-1 p-0.5">
                     {filteredIcons.map((iconName) => {
                       const Icon = getIconComponent(iconName)
                       const isSelected = selectedIcon === iconName && iconType !== "custom"
@@ -2765,39 +2765,63 @@ function BenefitIconPicker({
                             setIsOpen(false)
                           }}
                           className={cn(
-                            "aspect-square w-full flex items-center justify-center rounded-lg transition-all touch-manipulation",
-                            "min-h-[40px] sm:min-h-[44px]",
+                            "aspect-square w-full flex items-center justify-center rounded-md transition-all touch-manipulation",
+                            "min-h-[36px] sm:min-h-[40px]",
                             isSelected
                               ? "bg-primary text-primary-foreground shadow-md"
                               : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95"
                           )}
                           title={iconName.replace(/-/g, ' ')}
                         >
-                          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <Icon className="w-4 h-4" />
                         </button>
                       )
                     })}
                   </div>
                   {filteredIcons.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                      <Search className="w-8 h-8 mb-2 opacity-40" />
+                    <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                      <Search className="w-6 h-6 mb-2 opacity-40" />
                       <p className="text-xs">No icons found for "{searchQuery}"</p>
                     </div>
                   )}
                 </div>
               </TabsContent>
 
-              <TabsContent value="upload" className="mt-0 space-y-4 data-[state=inactive]:hidden">
-                <p className="text-xs sm:text-sm text-muted-foreground">
+              <TabsContent value="upload" className="mt-0 space-y-3 data-[state=inactive]:hidden">
+                <p className="text-xs text-muted-foreground">
                   Upload a custom image to use as the icon.
                 </p>
 
-                {/* Image upload area - ensure it's fully visible */}
-                <div className="rounded-lg sm:rounded-xl border-2 border-dashed border-border p-3 sm:p-4 bg-muted/20">
+                {/* Current custom icon with remove button */}
+                {customImageUrl ? (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 overflow-hidden ring-2 ring-primary/20 flex-shrink-0">
+                      <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-foreground block">Current icon</span>
+                      <span className="text-xs text-muted-foreground">Custom image uploaded</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectIcon("check-circle", "preset")
+                        onUploadImage("")
+                      }}
+                      className="flex-shrink-0 p-2 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+                      title="Remove custom image"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : null}
+
+                {/* Image upload area */}
+                <div className="rounded-lg border-2 border-dashed border-border p-3 bg-muted/20">
                   <ImageUpload
                     bucket="store-builder-images"
                     folder="benefit-icons"
-                    value={customImageUrl || ""}
+                    value=""
                     onChange={(url) => {
                       if (url) {
                         onUploadImage(url)
@@ -2808,19 +2832,6 @@ function BenefitIconPicker({
                     aspectRatio="square"
                   />
                 </div>
-
-                {/* Current custom icon preview */}
-                {customImageUrl && (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 overflow-hidden ring-2 ring-primary/20 flex-shrink-0">
-                      <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-foreground block">Current icon</span>
-                      <span className="text-xs text-muted-foreground">Upload new to change</span>
-                    </div>
-                  </div>
-                )}
               </TabsContent>
             </Tabs>
           </div>
@@ -2906,22 +2917,20 @@ function BenefitsSettingsForm({
         </div>
       )}
 
-      {/* Columns - only show when carousel is disabled */}
-      {!settings.enableCarousel && (
-        <div className="space-y-2">
-          <Label className="text-sm font-normal">Columns</Label>
-          <Select value={String(settings.columns)} onValueChange={(value) => onChange({ columns: Number(value) as 2 | 3 | 4 })}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="2">2 Columns</SelectItem>
-              <SelectItem value="3">3 Columns</SelectItem>
-              <SelectItem value="4">4 Columns</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {/* Columns - always show since it's for desktop layout */}
+      <div className="space-y-2">
+        <Label className="text-sm font-normal">Columns (Desktop)</Label>
+        <Select value={String(settings.columns)} onValueChange={(value) => onChange({ columns: Number(value) as 2 | 3 | 4 })}>
+          <SelectTrigger className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="2">2 Columns</SelectItem>
+            <SelectItem value="3">3 Columns</SelectItem>
+            <SelectItem value="4">4 Columns</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Gap Settings */}
       <div className="space-y-4 pt-2">

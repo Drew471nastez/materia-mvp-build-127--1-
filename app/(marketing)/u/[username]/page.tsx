@@ -256,7 +256,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         {publishedConfig.sections
           .sort((a, b) => a.order - b.order)
           .map((section) => (
-            <SectionRenderer key={section.id} section={section} products={productsData} />
+            <SectionRenderer key={section.id} section={section} products={productsData} globalSettings={globalSettings} />
           ))}
 
         <SellerFooter />

@@ -32,6 +32,7 @@ export function SectionRenderer({
   reviews,
   reviewsCount,
   reviewsAverage,
+  globalSettings,
 }: {
   section: Section
   products?: ProductData[]
@@ -42,6 +43,7 @@ export function SectionRenderer({
   reviews?: any[]
   reviewsCount?: number
   reviewsAverage?: number
+  globalSettings?: any
 }) {
   return (
     <UnifiedSectionRenderer
@@ -57,6 +59,7 @@ export function SectionRenderer({
       reviews={reviews}
       reviewsCount={reviewsCount}
       reviewsAverage={reviewsAverage}
+      globalSettings={globalSettings}
     />
   )
 }

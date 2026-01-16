@@ -760,6 +760,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             reviews={reviews || []}
             reviewsCount={reviewsCount}
             reviewsAverage={reviewsAverage}
+            globalSettings={productPageConfig?.globalSettings}
           />
         ))}
 
