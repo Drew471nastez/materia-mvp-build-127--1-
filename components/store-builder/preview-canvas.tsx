@@ -344,7 +344,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                 />
               ))}
 
-            <SellerFooter />
+            <SellerFooter isMobile={isMobile} />
 
             {/* Footer sentinel for detecting when to hide sticky */}
             <div ref={footerSentinelRef} className="h-px w-full" />
@@ -445,7 +445,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                 ))
             })()}
 
-            <SellerFooter />
+            <SellerFooter isMobile={isMobile} />
           </>
         ) : null}
       </div>

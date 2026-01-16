@@ -1441,7 +1441,8 @@ export function UnifiedShopHeader({
 
   const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
 
-  const showPlaceholder = !coverImageUrl && !isPreviewMode
+  // Show placeholder only in editor mode (when we have edit callbacks), never on live published pages
+  const showPlaceholder = !coverImageUrl && !isPreviewMode && (!!onCoverEdit || !!onSelect)
 
   return (
     <div

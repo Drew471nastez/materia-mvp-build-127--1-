@@ -231,9 +231,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const headerSettings = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
     const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings)
+    // Get theme background color from published config
+    const pageBackgroundColor = publishedConfig.globalColors?.backgroundColor
 
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
+      <div
+        className="min-h-screen overflow-x-hidden"
+        style={{ background: pageBackgroundColor || "var(--background)" }}
+      >
         <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
         <TrackView type="store" creatorId={creator.id} />
 

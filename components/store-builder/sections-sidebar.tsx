@@ -2417,6 +2417,8 @@ function BenefitIconPicker({
   const Lightbulb = require("lucide-react").Lightbulb
   const Puzzle = require("lucide-react").Puzzle
   const Gem = require("lucide-react").Gem
+  const Bell = require("lucide-react").Bell
+  const Lock = require("lucide-react").Lock
 
   const IconComponent = getIconComponent(selectedIcon)
 
