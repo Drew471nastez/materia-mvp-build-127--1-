@@ -92,6 +92,9 @@ export interface ImageTextSettings extends BaseSectionSettings {
   buttonProductId?: string
   // Product slug for routing when buttonLinkType is 'product'
   buttonProductSlug?: string
+  // Button customization colors
+  buttonColor?: string
+  buttonTextColor?: string
 }
 
 // Benefits section (icon list)

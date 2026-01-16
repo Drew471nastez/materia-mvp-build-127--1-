@@ -2484,6 +2484,26 @@ function ImageTextSettingsForm({
               <p className="text-xs text-muted-foreground">Opens in a new tab when clicked</p>
             </div>
           )}
+
+          {/* Button Color Customizer */}
+          <div className="space-y-2">
+            <Label className="text-sm font-normal">Button Color</Label>
+            <ColorPicker
+              value={settings.buttonColor || "#374151"}
+              onChange={(value) => onChange({ buttonColor: value })}
+              presetColors={["#374151", "#000000", "#1a1a1a", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#f59e0b"]}
+            />
+          </div>
+
+          {/* Button Text Color Customizer */}
+          <div className="space-y-2">
+            <Label className="text-sm font-normal">Button Text Color</Label>
+            <ColorPicker
+              value={settings.buttonTextColor || "#ffffff"}
+              onChange={(value) => onChange({ buttonTextColor: value })}
+              presetColors={["#ffffff", "#000000", "#1a1a1a", "#374151", "#3b82f6", "#ef4444", "#10b981", "#f59e0b"]}
+            />
+          </div>
         </>
       )}
     </div>

@@ -408,8 +408,11 @@ function UnifiedImageTextSection({
   // Get theme button styles from globalSettings
   const themePreset = globalSettings?.themePreset || "default"
   const themeConfig = require("@/lib/store-builder/defaults").themePresets[themePreset]
-  const buttonBgColor = themeConfig?.subscribeBar?.buttonColor || themeConfig?.colors?.primary || "#374151"
-  const buttonTextColor = themeConfig?.subscribeBar?.buttonTextColor || "#ffffff"
+  // Use custom button colors if set, otherwise fall back to theme defaults
+  const themeButtonBgColor = themeConfig?.subscribeBar?.buttonColor || themeConfig?.colors?.primary || "#374151"
+  const themeButtonTextColor = themeConfig?.subscribeBar?.buttonTextColor || "#ffffff"
+  const buttonBgColor = settings.buttonColor || themeButtonBgColor
+  const buttonTextColor = settings.buttonTextColor || themeButtonTextColor
   const buttonBorderRadius = themeConfig?.buttonBorderRadius || 8
 
   // Determine button URL based on link type
