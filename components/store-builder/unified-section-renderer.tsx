@@ -773,58 +773,81 @@ function UnifiedAboutSection({
 
         {/* Accepted Payment Methods Section */}
         {showPaymentMethods && paymentMethods.length > 0 && (
-          <div className={cn("max-w-5xl mx-auto", isMobile ? "flex flex-col" : "flex flex-row gap-12")}>
-            <div className={cn("flex-shrink-0", isMobile ? "w-full mb-4" : "w-64")}>
+          <div className={cn(
+            "max-w-5xl mx-auto w-full",
+            // Mobile: stack vertically, Desktop: side by side
+            "flex flex-col gap-3 md:flex-row md:gap-12",
+            // Override for editor preview mode
+            isMobile && "!flex-col !gap-3"
+          )}>
+            <div className={cn(
+              "flex-shrink-0 w-full md:w-64",
+              isMobile && "!w-full"
+            )}>
               <h4
-                className={cn("font-semibold", isMobile ? "text-base" : "text-lg")}
+                className={cn(
+                  "font-semibold text-base md:text-lg",
+                  isMobile && "!text-base"
+                )}
                 style={{ color: textColor || undefined }}
               >
                 Accepted payment methods
               </h4>
             </div>
-            <div className="flex-1">
-              <div className={cn("flex flex-wrap", isMobile ? "gap-1.5" : "gap-2")}>
+            <div className="flex-1 w-full">
+              <div className="flex flex-wrap items-center gap-2">
                 {paymentMethods.map((method) => {
                   const IconComponent = paymentMethodIcons[method]
                   if (!IconComponent) return null
                   return (
                     <IconComponent
                       key={method}
-                      className={cn(isMobile ? "w-[38px] h-[23px]" : "w-[45px] h-[30px]")}
+                      className={cn(
+                        "flex-shrink-0 w-[42px] h-[26px] md:w-[45px] md:h-[30px]",
+                        isMobile && "!w-[42px] !h-[26px]"
+                      )}
                     />
                   )
                 })}
               </div>
-              {/* Gift Cards & Credits text */}
-              <p
-                className={cn("mt-2", isMobile ? "text-xs" : "text-sm")}
-                style={{ color: textColor ? `${textColor}90` : "#6b7280" }}
-              >
-                Accepts Etsy Gift Cards and Etsy Credits
-              </p>
             </div>
           </div>
         )}
 
         {/* Divider between payment methods and returns */}
         <div
-          className="w-full h-px my-8 max-w-5xl mx-auto"
+          className="w-full h-px my-6 max-w-5xl mx-auto"
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
 
         {/* Returns & Exchanges Section */}
-        <div className={cn("max-w-5xl mx-auto", isMobile ? "flex flex-col" : "flex flex-row gap-12")}>
-          <div className={cn("flex-shrink-0", isMobile ? "w-full mb-2" : "w-64")}>
+        <div className={cn(
+          "max-w-5xl mx-auto w-full",
+          // Mobile: stack vertically, Desktop: side by side
+          "flex flex-col gap-2 md:flex-row md:gap-12",
+          // Override for editor preview mode
+          isMobile && "!flex-col !gap-2"
+        )}>
+          <div className={cn(
+            "flex-shrink-0 w-full md:w-64",
+            isMobile && "!w-full"
+          )}>
             <h4
-              className={cn("font-semibold", isMobile ? "text-base" : "text-lg")}
+              className={cn(
+                "font-semibold text-base md:text-lg",
+                isMobile && "!text-base"
+              )}
               style={{ color: textColor || undefined }}
             >
-              Returns &{"\n"}exchanges
+              Returns & exchanges
             </h4>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 w-full">
             <p
-              className={cn(isMobile ? "text-sm" : "text-base")}
+              className={cn(
+                "text-sm md:text-base",
+                isMobile && "!text-sm"
+              )}
               style={{ color: textColor ? `${textColor}cc` : "#374151" }}
             >
               See item details for return and exchange eligibility.
