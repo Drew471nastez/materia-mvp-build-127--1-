@@ -376,36 +376,30 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               ) : null
             })()}
 
-            {/* Subscribe Bar - Only render when visible
-                When sticky is enabled, render a placeholder spacer inside canvas and actual bar is rendered outside in fixed position
-                When sticky is disabled, render the actual bar here */}
+            {/* Subscribe Bar - Always render inside canvas when visible
+                Uses CSS sticky positioning which works within the scrollable canvas */}
             {subscribeBarSettings?.visible && (
-              subscribeBarSettings?.enableStickyBar ? (
-                // Spacer for sticky bar - matches the height of the subscribe bar
-                <div className={isMobile ? "h-[76px]" : "h-[52px]"} />
-              ) : (
-                <EditorSubscribeBar
-                  settings={
-                    {
-                      ...subscribeBarSettings,
-                      // Normalize colors: extract from colors object if not at top level
-                      backgroundColor:
-                        subscribeBarSettings?.backgroundColor || subscribeBarSettings?.colors?.backgroundColor || "#ffffff",
-                      textColor: subscribeBarSettings?.textColor || subscribeBarSettings?.colors?.textColor || "#000000",
-                      // Pass avatar and creator info
-                      showAvatar: subscribeBarSettings?.showAvatar ?? true,
-                      avatarUrl: avatarUrl,
-                      creatorName: profile?.display_name || "Creator",
-                    } || defaultSubscribeBarSettings
-                  }
-                  creatorId={creatorId}
-                  isEditorPreview={isEditorMode}
-                  isMobile={isMobile}
-                  isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
-                  onSelect={() => handleSelectSection("subscribe-bar")}
-                  scrollContainerRef={scrollParentRef}
-                />
-              )
+              <EditorSubscribeBar
+                settings={
+                  {
+                    ...subscribeBarSettings,
+                    // Normalize colors: extract from colors object if not at top level
+                    backgroundColor:
+                      subscribeBarSettings?.backgroundColor || subscribeBarSettings?.colors?.backgroundColor || "#ffffff",
+                    textColor: subscribeBarSettings?.textColor || subscribeBarSettings?.colors?.textColor || "#000000",
+                    // Pass avatar and creator info
+                    showAvatar: subscribeBarSettings?.showAvatar ?? true,
+                    avatarUrl: avatarUrl,
+                    creatorName: profile?.display_name || "Creator",
+                  } || defaultSubscribeBarSettings
+                }
+                creatorId={creatorId}
+                isEditorPreview={isEditorMode}
+                isMobile={isMobile}
+                isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
+                onSelect={() => handleSelectSection("subscribe-bar")}
+                scrollContainerRef={scrollParentRef}
+              />
             )}
 
             <UnifiedShopHeader
@@ -486,38 +480,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
             isMobile={isMobile}
             isSelected={isEditorMode && selectedSectionId === "sticky-add-to-cart"}
             onSelect={() => handleSelectSection("sticky-add-to-cart")}
-          />
-        </div>
-      )}
-
-      {/* Sticky Subscribe Bar for Shop Page - FIXED positioned at TOP, constrained to canvas width */}
-      {currentPageType === "shop" && subscribeBarSettings?.enableStickyBar && subscribeBarSettings?.visible && canvasRect && (
-        <div
-          style={{
-            position: "fixed",
-            left: canvasRect.left,
-            width: canvasRect.width,
-            top: 0,
-            zIndex: 9999,
-          }}
-          className="transition-all duration-300 ease-out"
-        >
-          <EditorSubscribeBar
-            settings={{
-              ...subscribeBarSettings,
-              backgroundColor: subscribeBarSettings?.backgroundColor || subscribeBarSettings?.colors?.backgroundColor || "#ffffff",
-              textColor: subscribeBarSettings?.textColor || subscribeBarSettings?.colors?.textColor || "#000000",
-              showAvatar: subscribeBarSettings?.showAvatar ?? true,
-              avatarUrl: avatarUrl,
-              creatorName: profile?.display_name || "Creator",
-              // Disable sticky inside the component since we're handling it here
-              enableStickyBar: false,
-            } || defaultSubscribeBarSettings}
-            creatorId={creatorId}
-            isEditorPreview={isEditorMode}
-            isMobile={isMobile}
-            isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
-            onSelect={() => handleSelectSection("subscribe-bar")}
           />
         </div>
       )}

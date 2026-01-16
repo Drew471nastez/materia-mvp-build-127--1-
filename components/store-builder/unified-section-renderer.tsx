@@ -386,7 +386,15 @@ function UnifiedImageTextSection({
   isMobile,
   isPreviewMode,
 }: { settings: ImageTextSettings; isMobile?: boolean; isPreviewMode?: boolean }) {
-  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+  // Safely get spacing with fallback defaults
+  const defaultSpacing = { paddingTop: 48, paddingBottom: 48, paddingLeft: 16, paddingRight: 16 }
+  const defaultMobileSpacing = { paddingTop: 24, paddingBottom: 24, paddingLeft: 12, paddingRight: 12 }
+  const spacing = isMobile
+    ? (settings.mobileSpacing || defaultMobileSpacing)
+    : (settings.spacing || defaultSpacing)
+
+  // Safely get typography with fallback
+  const textAlign = settings.typography?.textAlign || "left"
 
   // Get text color from settings (theme-applied)
   const textColor = settings.colors?.textColor || undefined
@@ -435,7 +443,7 @@ function UnifiedImageTextSection({
               !textColor && "text-foreground",
             )}
             style={{
-              textAlign: settings.typography.textAlign,
+              textAlign: textAlign,
               color: textColor || undefined,
             }}
           >
@@ -448,14 +456,14 @@ function UnifiedImageTextSection({
               !textColor && "text-muted-foreground",
             )}
             style={{
-              textAlign: settings.typography.textAlign,
+              textAlign: textAlign,
               color: textColor ? `${textColor}99` : undefined,
             }}
           >
             {settings.body}
           </p>
           {settings.showButton && settings.buttonText && (
-            <div className="mt-4" style={{ textAlign: settings.typography.textAlign }}>
+            <div className="mt-4" style={{ textAlign: textAlign }}>
               {isPreviewMode ? (
                 <Button size={isMobile ? "sm" : "default"}>{settings.buttonText}</Button>
               ) : (
@@ -636,10 +644,18 @@ function getBenefitIcon(iconName: string): React.ComponentType<{ className?: str
 
 // Benefits Section - UNIFIED
 function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSettings; isMobile?: boolean }) {
-  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+  // Safely get spacing with fallback defaults
+  const defaultSpacing = { paddingTop: 48, paddingBottom: 48, paddingLeft: 16, paddingRight: 16 }
+  const defaultMobileSpacing = { paddingTop: 24, paddingBottom: 24, paddingLeft: 12, paddingRight: 12 }
+  const spacing = isMobile
+    ? (settings.mobileSpacing || defaultMobileSpacing)
+    : (settings.spacing || defaultSpacing)
 
   // Get text color from settings (theme-applied)
   const textColor = settings.colors?.textColor || undefined
+
+  // Safely get typography with fallback
+  const textAlign = settings.typography?.textAlign || "center"
 
   return (
     <SectionContainer
@@ -658,7 +674,7 @@ function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSett
           !textColor && "text-foreground",
         )}
         style={{
-          textAlign: settings.typography.textAlign,
+          textAlign: textAlign,
           color: textColor || undefined,
         }}
       >
@@ -733,21 +749,30 @@ function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSett
 
 // Text Block Section - UNIFIED
 function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSettings; isMobile?: boolean }) {
-  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+  // Safely get spacing with fallback defaults
+  const defaultSpacing = { paddingTop: 32, paddingBottom: 32, paddingLeft: 16, paddingRight: 16 }
+  const defaultMobileSpacing = { paddingTop: 16, paddingBottom: 16, paddingLeft: 12, paddingRight: 12 }
+  const spacing = isMobile
+    ? (settings.mobileSpacing || defaultMobileSpacing)
+    : (settings.spacing || defaultSpacing)
 
   const maxWidthClass = {
     sm: "max-w-sm",
     md: "max-w-md",
     lg: "max-w-lg",
     full: "max-w-4xl",
-  }[settings.maxWidth]
+  }[settings.maxWidth || "md"]
+
+  // Safely get typography with fallback
+  const textAlign = settings.typography?.textAlign || "left"
+  const lineHeight = settings.typography?.lineHeight || 1.6
 
   // Determine alignment class based on textAlign
   const alignmentClass = {
     left: "mr-auto",
     center: "mx-auto",
     right: "ml-auto",
-  }[settings.typography.textAlign || "left"]
+  }[textAlign]
 
   // Get text color from settings (theme-applied)
   const textColor = settings.colors?.textColor || undefined
@@ -770,7 +795,7 @@ function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSe
             !textColor && "text-foreground",
           )}
           style={{
-            textAlign: settings.typography.textAlign,
+            textAlign: textAlign,
             color: textColor || undefined,
           }}
         >
@@ -784,8 +809,8 @@ function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSe
           !textColor && "text-muted-foreground",
         )}
         style={{
-          textAlign: settings.typography.textAlign,
-          lineHeight: settings.typography.lineHeight || 1.6,
+          textAlign: textAlign,
+          lineHeight: lineHeight,
           color: textColor ? `${textColor}99` : undefined,
         }}
       >
