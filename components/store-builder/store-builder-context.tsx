@@ -589,29 +589,31 @@ export function StoreBuilderProvider({
 
           // Apply theme to subscribe bar (shop pages)
           let newHeaderSettings = { ...prev.headerSettings }
-          if (prev.pageType === "shop" && "subscribeBar" in newHeaderSettings) {
+          if (prev.pageType === "shop") {
             const shopHeader = newHeaderSettings as any
-            if (shopHeader.subscribeBar) {
-              shopHeader.subscribeBar = {
-                ...shopHeader.subscribeBar,
-                // Button styling
-                buttonColor: theme.subscribeBar.buttonColor,
-                buttonTextColor: theme.subscribeBar.buttonTextColor,
-                buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
-                // Input styling
-                inputBorderColor: theme.subscribeBar.inputBorderColor ?? theme.colors.border,
-                inputTextColor: theme.subscribeBar.inputTextColor ?? theme.colors.foreground,
-                inputPlaceholderColor: theme.subscribeBar.inputPlaceholderColor,
-                inputBackgroundColor: theme.subscribeBar.inputBackgroundColor,
-                // Background and text colors (both nested and top level for compatibility)
-                colors: {
-                  ...shopHeader.subscribeBar.colors,
-                  backgroundColor: theme.subscribeBar.backgroundColor,
-                  textColor: theme.subscribeBar.textColor,
-                },
+            // Always initialize subscribeBar if it doesn't exist, then apply theme
+            const existingSubscribeBar = shopHeader.subscribeBar || {}
+            shopHeader.subscribeBar = {
+              ...existingSubscribeBar,
+              // Ensure visibility defaults
+              visible: existingSubscribeBar.visible ?? true,
+              // Button styling from theme
+              buttonColor: theme.subscribeBar.buttonColor,
+              buttonTextColor: theme.subscribeBar.buttonTextColor,
+              buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
+              // Input styling from theme
+              inputBorderColor: theme.subscribeBar.inputBorderColor ?? theme.colors.border,
+              inputTextColor: theme.subscribeBar.inputTextColor ?? theme.colors.foreground,
+              inputPlaceholderColor: theme.subscribeBar.inputPlaceholderColor ?? theme.colors.muted,
+              inputBackgroundColor: theme.subscribeBar.inputBackgroundColor ?? "transparent",
+              // Background and text colors (both nested and top level for compatibility)
+              colors: {
+                ...(existingSubscribeBar.colors || {}),
                 backgroundColor: theme.subscribeBar.backgroundColor,
                 textColor: theme.subscribeBar.textColor,
-              }
+              },
+              backgroundColor: theme.subscribeBar.backgroundColor,
+              textColor: theme.subscribeBar.textColor,
             }
             // Apply header colors from theme sections config
             shopHeader.colors = {

@@ -475,6 +475,9 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
     </>
   )
 
+  // Check if background is a gradient
+  const isGradientBackground = (settings.backgroundColor || "").includes("gradient")
+
   // STICKY MODE: Use fixed positioning for live pages
   if (isSticky) {
     return (
@@ -487,7 +490,8 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             !isVisible && settings.enableStickyOnScrollUp && "-translate-y-full"
           )}
           style={{
-            backgroundColor: settings.backgroundColor || "#ffffff",
+            background: isGradientBackground ? (settings.backgroundColor || "#ffffff") : undefined,
+            backgroundColor: !isGradientBackground ? (settings.backgroundColor || "#ffffff") : undefined,
             color: settings.textColor || "#000000",
           }}
         >
@@ -507,7 +511,8 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
         isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border"
       )}
       style={{
-        backgroundColor: settings.backgroundColor || "#ffffff",
+        background: isGradientBackground ? (settings.backgroundColor || "#ffffff") : undefined,
+        backgroundColor: !isGradientBackground ? (settings.backgroundColor || "#ffffff") : undefined,
         color: settings.textColor || "#000000",
       }}
     >
@@ -536,6 +541,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   // Extract colors from either top level or nested colors object
   const backgroundColor = settings.backgroundColor || settings.colors?.backgroundColor || "#ffffff"
   const textColor = settings.textColor || settings.colors?.textColor || "#000000"
+
+  // Check if background is a gradient
+  const isGradientBackground = (backgroundColor || "").includes("gradient")
 
   const isDarkBackground = useMemo(() => isDarkHex(backgroundColor), [backgroundColor])
   const hasCustomInputColors = useMemo(() => hasThemeInputColors(settings), [settings.inputTextColor, settings.inputPlaceholderColor, settings.inputBorderColor, settings.inputBackgroundColor])
@@ -735,7 +743,8 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
         isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",
       )}
       style={{
-        backgroundColor: backgroundColor,
+        background: isGradientBackground ? backgroundColor : undefined,
+        backgroundColor: !isGradientBackground ? backgroundColor : undefined,
         color: textColor,
       }}
     >
