@@ -476,6 +476,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                       sellerMemberSince={memberSince}
                       sellerTotalSales={totalSales}
                       onUpdateAboutSettings={(settings) => updateSectionSettings(aboutSection.id, settings)}
+                      onOpenAboutSidebar={() => handleSelectSection(aboutSection.id)}
                     />
                   )}
                 </>

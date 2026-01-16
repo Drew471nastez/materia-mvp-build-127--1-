@@ -238,6 +238,9 @@ export interface AboutMediaItem {
   thumbnailUrl?: string // For videos, optional thumbnail
 }
 
+// Payment method types
+export type PaymentMethodType = "paypal" | "visa" | "mastercard" | "amex" | "applepay" | "googlepay"
+
 // About section for seller/shop information
 export interface AboutSettings extends BaseSectionSettings {
   // Seller display name (used when no headline)
@@ -256,6 +259,9 @@ export interface AboutSettings extends BaseSectionSettings {
   totalSales?: number
   // Max content height before "Read more" (in pixels)
   maxContentHeight?: number
+  // Payment methods to display
+  showPaymentMethods?: boolean
+  paymentMethods?: PaymentMethodType[]
 }
 
 // Union of all section settings

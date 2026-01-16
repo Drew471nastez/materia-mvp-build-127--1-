@@ -112,6 +112,8 @@ export interface UnifiedSectionProps {
   sellerTotalSales?: number
   // For inline editing in About section
   onUpdateAboutSettings?: (settings: Partial<AboutSettings>) => void
+  // For opening About section in sidebar
+  onOpenAboutSidebar?: () => void
 }
 
 // Helper function to get product href
@@ -290,6 +292,82 @@ function UnifiedReviewsSection({
   )
 }
 
+// Payment method icon components
+function PayPalIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
+      <path d="M11.5 7.5h3.2c1.7 0 2.9.9 2.7 2.6-.3 2.3-1.8 3.4-3.8 3.4h-.9c-.3 0-.5.2-.6.5l-.4 2.5c0 .2-.2.3-.4.3H10l1.1-8.9c0-.2.2-.4.4-.4z" fill="#003087"/>
+      <path d="M21.5 7.5h3.2c1.7 0 2.9.9 2.7 2.6-.3 2.3-1.8 3.4-3.8 3.4h-.9c-.3 0-.5.2-.6.5l-.4 2.5c0 .2-.2.3-.4.3H20l1.1-8.9c0-.2.2-.4.4-.4z" fill="#0070E0"/>
+    </svg>
+  )
+}
+
+function VisaIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
+      <path d="M15.3 15.5h-2l1.3-7.9h2l-1.3 7.9zm7.2-7.7c-.4-.2-1-.3-1.7-.3-1.9 0-3.2 1-3.2 2.4 0 1 1 1.6 1.7 2 .7.4 1 .6 1 1 0 .5-.6.8-1.1.8-.8 0-1.2-.1-1.8-.4l-.3-.1-.3 1.7c.5.2 1.3.4 2.2.4 2 0 3.3-1 3.3-2.5 0-.8-.5-1.5-1.6-2-.7-.4-1.1-.6-1.1-.9 0-.3.4-.6 1.1-.6.6 0 1.1.1 1.5.3l.2.1.3-1.9zm5.1-.2h-1.5c-.5 0-.8.1-1 .6l-2.9 6.8h2l.4-1.1h2.5l.2 1.1h1.8l-1.5-7.4zm-2.4 4.8l.8-2.1.2-.7.1.6.5 2.2h-1.6zm-12.6-4.8l-1.8 5.4-.2-1c-.3-1.1-1.4-2.3-2.6-2.9l1.7 6.4h2l3.1-7.9h-2.2z" fill="#1A1F71"/>
+      <path d="M9.3 7.6H6.1l0 .2c2.4.6 4 2.1 4.6 3.9l-.7-3.4c-.1-.5-.4-.7-.7-.7z" fill="#F9A533"/>
+    </svg>
+  )
+}
+
+function MastercardIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
+      <circle cx="15" cy="12" r="6" fill="#EB001B"/>
+      <circle cx="23" cy="12" r="6" fill="#F79E1B"/>
+      <path d="M19 7.5a6 6 0 000 9 6 6 0 000-9z" fill="#FF5F00"/>
+    </svg>
+  )
+}
+
+function AmexIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="38" height="24" rx="4" fill="#006FCF"/>
+      <path d="M7 12l1.5-3.5h2L12 12l1.5-3.5h2L17 12h-1.5l-1-2.3-1 2.3h-2l-1-2.3-1 2.3H7zm17.5-3.5h2.5l1.5 1.5 1.5-1.5h2.5l-2.5 2.5 2.5 2.5h-2.5l-1.5-1.5-1.5 1.5h-2.5l2.5-2.5-2.5-2.5zm-7 0h5v1.2h-3.5v.6h3.5v1.2h-3.5v.6h3.5v1.2h-5V8.5z" fill="white"/>
+    </svg>
+  )
+}
+
+function ApplePayIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
+      <path d="M10.8 8.3c.4-.5.7-1.2.6-1.9-.6 0-1.3.4-1.7.9-.4.4-.7 1.1-.6 1.8.6 0 1.3-.4 1.7-.8zm.6 1c-.9-.1-1.7.5-2.2.5-.4 0-1.1-.5-1.8-.5-1 0-1.8.5-2.3 1.4-1 1.7-.3 4.2.7 5.6.5.7 1 1.4 1.8 1.4.7 0 1-.5 1.8-.5s1.1.5 1.8.5c.8 0 1.2-.7 1.7-1.4.5-.8.7-1.5.7-1.6-1-.4-1.2-1.8-.2-2.8-.4-.6-1.1-1-1.7-1.1h-.3z" fill="black"/>
+      <path d="M17.3 16.5v-6.9h2.3c1.3 0 2.2.9 2.2 2.1 0 1.2-.9 2.1-2.2 2.1h-1.5v2.7h-.8zm.8-3.4h1.3c.9 0 1.4-.5 1.4-1.4 0-.9-.5-1.4-1.4-1.4h-1.3v2.8zm4.3 1.3c0-1.3 1-2.1 2.7-2.2l2-.1v-.5c0-.8-.5-1.3-1.4-1.3-.7 0-1.2.4-1.3.9h-.8c.1-1 1-1.6 2.2-1.6 1.3 0 2.1.7 2.1 1.9v4h-.8v-1h0c-.3.7-1 1.1-1.8 1.1-1.1 0-1.9-.7-1.9-1.7v-.5zm4.7-.5v-.6l-1.8.1c-.9.1-1.4.4-1.4 1 0 .6.5 1 1.2 1 1 0 2-.7 2-1.5zm1.5 3.8v-.7c.1 0 .3.1.5.1.5 0 .8-.2 1-.8l.1-.4-2.1-5.8h.9l1.6 5h0l1.6-5h.9l-2.2 6.1c-.5 1.3-1 1.7-2 1.7-.2-.1-.3-.1-.3-.2z" fill="black"/>
+    </svg>
+  )
+}
+
+function GooglePayIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
+      <path d="M17.7 12.3v2.9h-.9V8.5h2.5c.6 0 1.1.2 1.5.6.4.4.6.9.6 1.5s-.2 1.1-.6 1.5c-.4.4-.9.6-1.5.6h-1.6v-.4zm0-3v2.5h1.6c.4 0 .7-.1 1-.4.3-.3.4-.6.4-1s-.1-.7-.4-1c-.3-.3-.6-.4-1-.4h-1.6v.3z" fill="#5F6368"/>
+      <path d="M23.6 10c.7 0 1.2.2 1.6.5.4.4.6.9.6 1.5v3.2h-.9v-.7h0c-.3.6-.8.9-1.5.9-.6 0-1.1-.2-1.4-.5-.4-.3-.5-.7-.5-1.2 0-.5.2-.9.5-1.2.4-.3.9-.5 1.5-.5.5 0 1 .1 1.3.4v-.3c0-.4-.1-.7-.4-.9-.3-.3-.6-.4-1-.4-.6 0-1 .2-1.3.7l-.8-.5c.4-.6 1.1-.9 2-1h.3v.1zm-1.2 3.6c0 .3.1.5.3.7.2.2.5.3.8.3.4 0 .8-.2 1.1-.5.3-.3.5-.7.5-1.1-.3-.3-.7-.4-1.2-.4-.4 0-.7.1-1 .3-.3.2-.5.5-.5.7z" fill="#5F6368"/>
+      <path d="M30.3 10.1l-3.2 7.4h-1l1.2-2.6-2.1-4.8h1l1.5 3.7h0l1.5-3.7h1.1z" fill="#5F6368"/>
+      <path d="M12.7 11.7c0-.3 0-.6-.1-.9h-4v1.7h2.3c-.1.5-.4 1-.8 1.3v1h1.3c.8-.7 1.3-1.8 1.3-3.1z" fill="#4285F4"/>
+      <path d="M8.6 15c1.1 0 2-.4 2.7-1l-1.3-1c-.4.3-.8.4-1.4.4-.1 0-.3 0-.4 0-1-.1-1.8-.8-2.1-1.7H5.3v1.1c.7 1.3 2 2.2 3.3 2.2z" fill="#34A853"/>
+      <path d="M6.1 11.6c-.1-.3-.2-.6-.2-1s.1-.7.2-1V8.5H5.3c-.3.6-.4 1.3-.4 2s.2 1.4.4 2l.8-1v.1z" fill="#FBBC04"/>
+      <path d="M8.6 8.4c.6 0 1.1.2 1.5.6l1.1-1.1c-.7-.6-1.6-1-2.6-1-1.3 0-2.6.9-3.3 2.2l.8 1.1c.3-.9 1.1-1.6 2.1-1.7.1 0 .3-.1.4-.1z" fill="#EA4335"/>
+    </svg>
+  )
+}
+
+// Payment method icon mapping
+const paymentMethodIcons: Record<string, React.FC<{ className?: string }>> = {
+  paypal: PayPalIcon,
+  visa: VisaIcon,
+  mastercard: MastercardIcon,
+  amex: AmexIcon,
+  applepay: ApplePayIcon,
+  googlepay: GooglePayIcon,
+}
+
 // ====== ABOUT SECTION - UNIFIED ======
 function UnifiedAboutSection({
   settings,
@@ -300,6 +378,7 @@ function UnifiedAboutSection({
   memberSince,
   totalSales,
   onUpdateSettings,
+  onOpenSidebar,
 }: {
   settings: AboutSettings
   isMobile?: boolean
@@ -309,14 +388,11 @@ function UnifiedAboutSection({
   memberSince?: string
   totalSales?: number
   onUpdateSettings?: (settings: Partial<AboutSettings>) => void
+  onOpenSidebar?: () => void
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [needsTruncation, setNeedsTruncation] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
-
-  // Inline edit modal state
-  const [editModalOpen, setEditModalOpen] = useState<"headline" | "content" | null>(null)
-  const [editValue, setEditValue] = useState("")
   const [hoveredField, setHoveredField] = useState<"headline" | "content" | null>(null)
 
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
@@ -333,10 +409,10 @@ function UnifiedAboutSection({
   const displayMemberSince = memberSince
   const maxContentHeight = settings.maxContentHeight ?? 150
 
-  // Format member since date to year
+  // Format member since date to year - show current year as fallback in editor
   const memberSinceYear = displayMemberSince
     ? new Date(displayMemberSince).getFullYear()
-    : undefined
+    : isEditorMode ? new Date().getFullYear() : undefined
 
   // Check if content needs truncation
   useEffect(() => {
@@ -350,30 +426,15 @@ function UnifiedAboutSection({
   const hasHeadline = !!settings.headline
   const hasContent = !!settings.aboutContent
 
-  // Handle opening edit modal
-  const handleOpenEditModal = (field: "headline" | "content") => {
-    if (!isEditorMode) return
-    setEditValue(field === "headline" ? (settings.headline || "") : (settings.aboutContent || ""))
-    setEditModalOpen(field)
+  // Handle click to open sidebar settings
+  const handleEditClick = () => {
+    if (!isEditorMode || !onOpenSidebar) return
+    onOpenSidebar()
   }
 
-  // Handle saving edit
-  const handleSaveEdit = () => {
-    if (!onUpdateSettings || !editModalOpen) return
-    if (editModalOpen === "headline") {
-      onUpdateSettings({ headline: editValue })
-    } else {
-      onUpdateSettings({ aboutContent: editValue })
-    }
-    setEditModalOpen(null)
-    setEditValue("")
-  }
-
-  // Handle discard edit
-  const handleDiscardEdit = () => {
-    setEditModalOpen(null)
-    setEditValue("")
-  }
+  // Get payment methods to display
+  const paymentMethods = settings.paymentMethods ?? ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"]
+  const showPaymentMethods = settings.showPaymentMethods ?? true
 
   return (
     <SectionContainer isMobile={isMobile}>
@@ -423,7 +484,7 @@ function UnifiedAboutSection({
                   </p>
                 </div>
 
-                {/* Member Since / Year Joined */}
+                {/* Member Since / Year Joined - always show in editor mode */}
                 {memberSinceYear && (
                   <div>
                     <p
@@ -465,7 +526,7 @@ function UnifiedAboutSection({
                 {/* Edit icon on hover - only in editor mode */}
                 {isEditorMode && hoveredField === "headline" && (
                   <button
-                    onClick={() => handleOpenEditModal("headline")}
+                    onClick={handleEditClick}
                     className="absolute -right-8 top-0 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-opacity"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -479,7 +540,7 @@ function UnifiedAboutSection({
               // Placeholder for headline in editor mode
               isEditorMode && (
                 <button
-                  onClick={() => handleOpenEditModal("headline")}
+                  onClick={handleEditClick}
                   className={cn(
                     "flex items-center gap-2 mb-4 text-left transition-colors hover:opacity-80",
                     isMobile ? "text-base" : "text-lg"
@@ -516,7 +577,7 @@ function UnifiedAboutSection({
                 {/* Edit icon on hover - only in editor mode */}
                 {isEditorMode && hoveredField === "content" && (
                   <button
-                    onClick={() => handleOpenEditModal("content")}
+                    onClick={handleEditClick}
                     className="absolute -right-8 top-0 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-opacity"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -555,7 +616,7 @@ function UnifiedAboutSection({
               // Placeholder for content in editor mode
               isEditorMode && (
                 <button
-                  onClick={() => handleOpenEditModal("content")}
+                  onClick={handleEditClick}
                   className="flex items-center gap-2 text-left transition-colors hover:opacity-80"
                   style={{ color: textColor ? `${textColor}60` : "#9ca3af" }}
                 >
@@ -599,54 +660,46 @@ function UnifiedAboutSection({
           </div>
         </div>
 
+        {/* Middle divider */}
+        <div
+          className="w-full h-px my-8"
+          style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
+        />
+
+        {/* Accepted Payment Methods Section */}
+        {showPaymentMethods && paymentMethods.length > 0 && (
+          <div className={cn("max-w-5xl mx-auto", isMobile ? "flex-col" : "flex flex-row gap-12")}>
+            <div className={cn("flex-shrink-0", isMobile ? "w-full mb-4" : "w-64")}>
+              <h4
+                className={cn("font-semibold", isMobile ? "text-base" : "text-lg")}
+                style={{ color: textColor || undefined }}
+              >
+                Accepted payment methods
+              </h4>
+            </div>
+            <div className="flex-1">
+              <div className={cn("flex flex-wrap gap-2", isMobile ? "gap-1" : "gap-2")}>
+                {paymentMethods.map((method) => {
+                  const IconComponent = paymentMethodIcons[method]
+                  if (!IconComponent) return null
+                  return (
+                    <IconComponent
+                      key={method}
+                      className={cn(isMobile ? "w-10 h-6" : "w-12 h-8")}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Bottom divider */}
         <div
           className="w-full h-px mt-8"
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
       </div>
-
-      {/* Inline Edit Modal */}
-      {editModalOpen && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center" onClick={handleDiscardEdit}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div
-            className="relative bg-background max-w-md w-full mx-4 p-6 rounded-2xl shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-4">
-              {editModalOpen === "headline" ? "Edit Headline" : "Edit About Content"}
-            </h3>
-            {editModalOpen === "headline" ? (
-              <input
-                type="text"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                placeholder="Enter headline..."
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
-                autoFocus
-              />
-            ) : (
-              <textarea
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                placeholder="Tell visitors about your shop, your story, what makes you unique..."
-                rows={6}
-                className="w-full px-3 py-2 border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-sky-500"
-                autoFocus
-              />
-            )}
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={handleDiscardEdit}>
-                Discard
-              </Button>
-              <Button onClick={handleSaveEdit}>
-                Save
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </SectionContainer>
   )
 }
@@ -683,6 +736,7 @@ export function UnifiedSectionRenderer({
   sellerMemberSince,
   sellerTotalSales,
   onUpdateAboutSettings,
+  onOpenAboutSidebar,
 }: UnifiedSectionProps) {
   if (!section.settings.visible) return null
 
@@ -776,6 +830,7 @@ export function UnifiedSectionRenderer({
           memberSince={sellerMemberSince}
           totalSales={sellerTotalSales}
           onUpdateSettings={onUpdateAboutSettings}
+          onOpenSidebar={onOpenAboutSidebar}
         />
       )}
     </div>

@@ -3884,6 +3884,56 @@ function AboutSettingsForm({
       {/* Colors */}
       <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
 
+      {/* Payment Methods Section */}
+      <div className="space-y-4 pt-2">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payment Methods</h4>
+
+        <ToggleField
+          label="Show Accepted Payment Methods"
+          description="Display payment method icons below your about section"
+          checked={settings.showPaymentMethods ?? true}
+          onChange={(checked) => onChange({ showPaymentMethods: checked })}
+        />
+
+        {(settings.showPaymentMethods ?? true) && (
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Select Payment Methods</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: "paypal", label: "PayPal" },
+                { id: "visa", label: "Visa" },
+                { id: "mastercard", label: "Mastercard" },
+                { id: "amex", label: "Amex" },
+                { id: "applepay", label: "Apple Pay" },
+                { id: "googlepay", label: "Google Pay" },
+              ].map((method) => {
+                const currentMethods = settings.paymentMethods ?? ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"]
+                const isChecked = currentMethods.includes(method.id as any)
+                return (
+                  <label
+                    key={method.id}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        const newMethods = e.target.checked
+                          ? [...currentMethods, method.id]
+                          : currentMethods.filter((m) => m !== method.id)
+                        onChange({ paymentMethods: newMethods as any })
+                      }}
+                      className="h-4 w-4 rounded border-border"
+                    />
+                    <span className="text-sm">{method.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Media Section */}
       <div className="space-y-3 pt-2">
         <Label className="text-sm font-normal">Media</Label>

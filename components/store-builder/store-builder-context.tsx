@@ -804,6 +804,18 @@ export function StoreBuilderProvider({
               }
             }
 
+            // Apply about section colors - use foreground color for text
+            if (section.type === "about") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  ...newSection.settings.colors,
+                  backgroundColor: "transparent",
+                  textColor: theme.colors.foreground,
+                },
+              }
+            }
+
             return newSection
           })
 

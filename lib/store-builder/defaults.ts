@@ -1122,6 +1122,8 @@ export const defaultAboutSettings: AboutSettings = {
   memberSince: undefined,
   totalSales: undefined,
   maxContentHeight: 150,
+  showPaymentMethods: true,
+  paymentMethods: ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"],
   spacing: {
     paddingTop: 48,
     paddingBottom: 48,
