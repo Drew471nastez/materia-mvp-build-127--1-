@@ -212,7 +212,9 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   const [isVisible, setIsVisible] = useState(true)
   const lastScrollY = useRef(0)
 
-  const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
+  // Extract solid color first, then check if dark
+  const computedSolidBgColor = useMemo(() => extractSolidColor(settings.backgroundColor), [settings.backgroundColor])
+  const isDarkBackground = useMemo(() => isDarkHex(computedSolidBgColor), [computedSolidBgColor])
   const hasCustomInputColors = useMemo(() => hasThemeInputColors(settings), [settings.inputTextColor, settings.inputPlaceholderColor, settings.inputBorderColor, settings.inputBackgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor, hasCustomInputColors), [isDarkBackground, settings.backgroundColor, hasCustomInputColors])
   const inputStyle = useMemo(() => getInputStyle(settings), [settings.inputBorderColor, settings.inputTextColor, settings.inputBackgroundColor])
@@ -369,6 +371,9 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   const isSticky = settings.enableStickyBar
 
   // Bar content component
+  // Always use solid color for live subscriber bar (no gradients)
+  const solidBackgroundColor = extractSolidColor(settings.backgroundColor)
+
   const BarContent = () => (
     <>
       {/* Custom placeholder color styles */}
@@ -475,9 +480,6 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
     </>
   )
 
-  // Check if background is a gradient
-  const isGradientBackground = (settings.backgroundColor || "").includes("gradient")
-
   // STICKY MODE: Use fixed positioning for live pages
   if (isSticky) {
     return (
@@ -490,8 +492,8 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             !isVisible && settings.enableStickyOnScrollUp && "-translate-y-full"
           )}
           style={{
-            background: isGradientBackground ? (settings.backgroundColor || "#ffffff") : undefined,
-            backgroundColor: !isGradientBackground ? (settings.backgroundColor || "#ffffff") : undefined,
+            // Always use solid background color (no gradients) on live published pages
+            backgroundColor: solidBackgroundColor,
             color: settings.textColor || "#000000",
           }}
         >
@@ -511,8 +513,8 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
         isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border"
       )}
       style={{
-        background: isGradientBackground ? (settings.backgroundColor || "#ffffff") : undefined,
-        backgroundColor: !isGradientBackground ? (settings.backgroundColor || "#ffffff") : undefined,
+        // Always use solid background color (no gradients) on live published pages
+        backgroundColor: solidBackgroundColor,
         color: settings.textColor || "#000000",
       }}
     >

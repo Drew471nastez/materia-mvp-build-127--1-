@@ -398,6 +398,23 @@ function UnifiedAboutSection({
   const [needsTruncation, setNeedsTruncation] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const [hoveredField, setHoveredField] = useState<"headline" | "content" | null>(null)
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
+
+  // Media carousel navigation handlers
+  const mediaItems = settings.mediaItems || []
+  const hasMultipleMedia = mediaItems.length > 1
+
+  const goToPrevMedia = () => {
+    setCurrentMediaIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))
+  }
+
+  const goToNextMedia = () => {
+    setCurrentMediaIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))
+  }
+
+  const goToMediaIndex = (index: number) => {
+    setCurrentMediaIndex(index)
+  }
 
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
 
@@ -470,10 +487,10 @@ function UnifiedAboutSection({
               About {displayName}
             </h3>
 
-            {/* Stats */}
-            {settings.showSalesStats && (
-              <div className="flex gap-8">
-                {/* Sales */}
+            {/* Stats - Sales is controlled by showSalesStats, Joined is always shown */}
+            <div className="flex gap-8">
+              {/* Sales - only shown when showSalesStats is true */}
+              {settings.showSalesStats && (
                 <div>
                   <p
                     className="text-xs uppercase tracking-wide mb-1"
@@ -488,30 +505,134 @@ function UnifiedAboutSection({
                     {displayTotalSales}
                   </p>
                 </div>
+              )}
 
-                {/* Member Since / Year Joined - always show in editor mode */}
-                {memberSinceYear && (
-                  <div>
-                    <p
-                      className="text-xs uppercase tracking-wide mb-1"
-                      style={{ color: textColor ? `${textColor}80` : "#6b7280" }}
-                    >
-                      Joined
-                    </p>
-                    <p
-                      className={cn("font-semibold", isMobile ? "text-xl" : "text-2xl")}
-                      style={{ color: textColor || undefined }}
-                    >
-                      {memberSinceYear}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+              {/* Member Since / Year Joined - always shown */}
+              {memberSinceYear && (
+                <div>
+                  <p
+                    className="text-xs uppercase tracking-wide mb-1"
+                    style={{ color: textColor ? `${textColor}80` : "#6b7280" }}
+                  >
+                    Joined
+                  </p>
+                  <p
+                    className={cn("font-semibold", isMobile ? "text-xl" : "text-2xl")}
+                    style={{ color: textColor || undefined }}
+                  >
+                    {memberSinceYear}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right Column - About Content */}
           <div className="flex-1 min-w-0">
+            {/* Media Carousel - displayed above headline and content */}
+            {mediaItems.length > 0 && (
+              <div className="mb-6">
+                {/* Carousel Container */}
+                <div className="relative group">
+                  {/* Current Media Item */}
+                  <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+                    {(() => {
+                      const item = mediaItems[currentMediaIndex]
+                      if (!item) return null
+                      return (
+                        <>
+                          {item.type === "image" ? (
+                            <Image
+                              src={item.url}
+                              alt={item.caption || ""}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : item.type === "youtube" ? (
+                            <iframe
+                              src={`https://www.youtube.com/embed/${extractYouTubeId(item.url)}`}
+                              className="w-full h-full"
+                              allowFullScreen
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            />
+                          ) : (
+                            <video
+                              src={item.url}
+                              className="w-full h-full object-cover"
+                              controls
+                              playsInline
+                            />
+                          )}
+                        </>
+                      )
+                    })()}
+
+                    {/* Navigation Arrows - always visible on mobile, hover on desktop */}
+                    {hasMultipleMedia && (
+                      <>
+                        {/* Left Arrow */}
+                        <button
+                          onClick={goToPrevMedia}
+                          className={cn(
+                            "absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-opacity z-10",
+                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                          )}
+                          aria-label="Previous media"
+                        >
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        {/* Right Arrow */}
+                        <button
+                          onClick={goToNextMedia}
+                          className={cn(
+                            "absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-opacity z-10",
+                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                          )}
+                          aria-label="Next media"
+                        >
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Navigation Dots */}
+                  {hasMultipleMedia && (
+                    <div className="flex justify-center gap-1.5 mt-3">
+                      {mediaItems.map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={() => goToMediaIndex(index)}
+                          className={cn(
+                            "w-2 h-2 rounded-full transition-all",
+                            index === currentMediaIndex
+                              ? "bg-current w-4"
+                              : "bg-current opacity-40 hover:opacity-60"
+                          )}
+                          style={{ color: textColor || "#374151" }}
+                          aria-label={`Go to media ${index + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Caption for current media */}
+                {mediaItems[currentMediaIndex]?.caption && (
+                  <p
+                    className={cn("mt-2 text-center", isMobile ? "text-xs" : "text-sm")}
+                    style={{ color: textColor ? `${textColor}90` : "#6b7280" }}
+                  >
+                    {mediaItems[currentMediaIndex].caption}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Headline - with inline edit placeholder in editor mode */}
             {hasHeadline ? (
               <div
@@ -523,7 +644,7 @@ function UnifiedAboutSection({
                   <h4
                     className={cn(
                       "font-semibold",
-                      isMobile ? "text-xl" : "text-2xl"
+                      isMobile ? "text-lg" : "text-2xl"
                     )}
                     style={{ color: textColor || undefined }}
                   >
@@ -550,7 +671,7 @@ function UnifiedAboutSection({
                   onClick={handleEditClick}
                   className={cn(
                     "flex items-center gap-2 mb-4 text-left transition-colors hover:opacity-80",
-                    isMobile ? "text-base" : "text-lg"
+                    isMobile ? "text-sm" : "text-lg"
                   )}
                   style={{ color: textColor ? `${textColor}60` : "#9ca3af" }}
                 >
@@ -582,7 +703,8 @@ function UnifiedAboutSection({
                 <div
                   ref={contentRef}
                   className={cn(
-                    "text-base leading-relaxed overflow-hidden transition-all duration-300",
+                    "leading-relaxed overflow-hidden transition-all duration-300",
+                    isMobile ? "text-sm" : "text-base",
                     !isExpanded && needsTruncation && "relative"
                   )}
                   style={{
@@ -632,45 +754,13 @@ function UnifiedAboutSection({
               isEditorMode && (
                 <button
                   onClick={handleEditClick}
-                  className="flex items-center gap-2 text-left transition-colors hover:opacity-80"
+                  className={cn("flex items-center gap-2 text-left transition-colors hover:opacity-80", isMobile ? "text-sm" : "text-base")}
                   style={{ color: textColor ? `${textColor}60` : "#9ca3af" }}
                 >
                   <span className="text-lg font-bold">+</span>
                   <span>Add your story. Tell shoppers a little about your business.</span>
                 </button>
               )
-            )}
-
-            {/* Media Items */}
-            {settings.mediaItems && settings.mediaItems.length > 0 && (
-              <div className={cn("mt-6 grid gap-4", isMobile ? "grid-cols-2" : "grid-cols-3")}>
-                {settings.mediaItems.map((item) => (
-                  <div key={item.id} className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                    {item.type === "image" ? (
-                      <Image
-                        src={item.url}
-                        alt=""
-                        fill
-                        className="object-cover"
-                      />
-                    ) : item.type === "youtube" ? (
-                      <iframe
-                        src={`https://www.youtube.com/embed/${extractYouTubeId(item.url)}`}
-                        className="w-full h-full"
-                        allowFullScreen
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      />
-                    ) : (
-                      <video
-                        src={item.url}
-                        className="w-full h-full object-cover"
-                        controls
-                        playsInline
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
             )}
           </div>
         </div>
@@ -683,7 +773,7 @@ function UnifiedAboutSection({
 
         {/* Accepted Payment Methods Section */}
         {showPaymentMethods && paymentMethods.length > 0 && (
-          <div className={cn("max-w-5xl mx-auto", isMobile ? "flex-col" : "flex flex-row gap-12")}>
+          <div className={cn("max-w-5xl mx-auto", isMobile ? "flex flex-col" : "flex flex-row gap-12")}>
             <div className={cn("flex-shrink-0", isMobile ? "w-full mb-4" : "w-64")}>
               <h4
                 className={cn("font-semibold", isMobile ? "text-base" : "text-lg")}
@@ -693,7 +783,7 @@ function UnifiedAboutSection({
               </h4>
             </div>
             <div className="flex-1">
-              <div className={cn("flex flex-wrap gap-2", isMobile ? "gap-1" : "gap-2")}>
+              <div className={cn("flex flex-wrap", isMobile ? "gap-1.5" : "gap-2")}>
                 {paymentMethods.map((method) => {
                   const IconComponent = paymentMethodIcons[method]
                   if (!IconComponent) return null
@@ -705,9 +795,42 @@ function UnifiedAboutSection({
                   )
                 })}
               </div>
+              {/* Gift Cards & Credits text */}
+              <p
+                className={cn("mt-2", isMobile ? "text-xs" : "text-sm")}
+                style={{ color: textColor ? `${textColor}90` : "#6b7280" }}
+              >
+                Accepts Etsy Gift Cards and Etsy Credits
+              </p>
             </div>
           </div>
         )}
+
+        {/* Divider between payment methods and returns */}
+        <div
+          className="w-full h-px my-8 max-w-5xl mx-auto"
+          style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
+        />
+
+        {/* Returns & Exchanges Section */}
+        <div className={cn("max-w-5xl mx-auto", isMobile ? "flex flex-col" : "flex flex-row gap-12")}>
+          <div className={cn("flex-shrink-0", isMobile ? "w-full mb-2" : "w-64")}>
+            <h4
+              className={cn("font-semibold", isMobile ? "text-base" : "text-lg")}
+              style={{ color: textColor || undefined }}
+            >
+              Returns &{"\n"}exchanges
+            </h4>
+          </div>
+          <div className="flex-1">
+            <p
+              className={cn(isMobile ? "text-sm" : "text-base")}
+              style={{ color: textColor ? `${textColor}cc` : "#374151" }}
+            >
+              See item details for return and exchange eligibility.
+            </p>
+          </div>
+        </div>
 
         {/* Bottom divider */}
         <div

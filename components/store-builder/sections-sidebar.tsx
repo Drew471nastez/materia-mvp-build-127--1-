@@ -394,10 +394,7 @@ function SortableSectionItem({
 
       <span className="flex-1 truncate text-sm font-medium">{sectionNames[section.type]}</span>
 
-      {/* Show "Fixed" label for About section */}
-      {isAboutSection && (
-        <span className="text-xs text-muted-foreground">Fixed</span>
-      )}
+      {/* About section - no "Fixed" label */}
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         {/* Reviews and About must always be present (cannot be hidden) */}
@@ -3797,7 +3794,7 @@ function AboutSettingsForm({
       {/* Show Sales Stats Toggle */}
       <ToggleField
         label="Show Sales Stats"
-        description="Display sales count and year joined"
+        description="Display sales count (joined year is always shown)"
         checked={settings.showSalesStats}
         onChange={(checked) => onChange({ showSalesStats: checked })}
       />
@@ -3867,159 +3864,155 @@ function AboutSettingsForm({
       {/* Colors */}
       <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
 
-      {/* Payment Methods Section */}
-      <div className="space-y-4 pt-2">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payment Methods</h4>
-
-        <ToggleField
-          label="Show Accepted Payment Methods"
-          description="Display payment method icons below your about section"
-          checked={settings.showPaymentMethods ?? true}
-          onChange={(checked) => onChange({ showPaymentMethods: checked })}
-        />
-
-        {(settings.showPaymentMethods ?? true) && (
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Select Payment Methods</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: "paypal", label: "PayPal" },
-                { id: "visa", label: "Visa" },
-                { id: "mastercard", label: "Mastercard" },
-                { id: "amex", label: "Amex" },
-                { id: "applepay", label: "Apple Pay" },
-                { id: "googlepay", label: "Google Pay" },
-              ].map((method) => {
-                const currentMethods = settings.paymentMethods ?? ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"]
-                const isChecked = currentMethods.includes(method.id as any)
-                return (
-                  <label
-                    key={method.id}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={(e) => {
-                        const newMethods = e.target.checked
-                          ? [...currentMethods, method.id]
-                          : currentMethods.filter((m) => m !== method.id)
-                        onChange({ paymentMethods: newMethods as any })
-                      }}
-                      className="h-4 w-4 rounded border-border"
-                    />
-                    <span className="text-sm">{method.label}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Payment Methods - hidden from settings, always displayed in section */}
 
       {/* Media Section */}
       <div className="space-y-3 pt-2">
         <Label className="text-sm font-normal">Media</Label>
         <p className="text-xs text-muted-foreground">
-          Add images and videos to showcase your shop
+          Add up to 5 images and 1 video to showcase your shop
         </p>
 
-        {/* Image Upload */}
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Add Image</Label>
-          <ImageUpload
-            bucket="store-builder-images"
-            folder="about-media"
-            value=""
-            onChange={(url) => {
-              if (url) addMediaItem("image", url)
-            }}
-            aspectRatio="video"
-            maxSizeMB={10}
-          />
-        </div>
+        {/* Count current media */}
+        {(() => {
+          const imageCount = (settings.mediaItems || []).filter(m => m.type === "image").length
+          const videoCount = (settings.mediaItems || []).filter(m => m.type === "video" || m.type === "youtube").length
+          const hasVideo = videoCount > 0
+          const hasMaxImages = imageCount >= 5
 
-        {/* YouTube URL Input */}
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Add YouTube Video</Label>
-          <div className="flex gap-2">
-            <Input
-              value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
-              placeholder="https://youtube.com/watch?v=..."
-              className="h-9 flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddYoutubeVideo}
-              disabled={!youtubeUrl.trim()}
-              className="h-9"
-            >
-              Add
-            </Button>
-          </div>
-        </div>
+          return (
+            <>
+              {/* Image Upload - only if less than 5 images */}
+              {!hasMaxImages && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Add Image ({imageCount}/5)</Label>
+                  <ImageUpload
+                    bucket="store-builder-images"
+                    folder="about-media"
+                    value=""
+                    onChange={(url) => {
+                      if (url) addMediaItem("image", url)
+                    }}
+                    aspectRatio="video"
+                    maxSizeMB={10}
+                  />
+                </div>
+              )}
 
-        {/* Video Upload */}
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Upload Video</Label>
-          <ImageUpload
-            bucket="store-builder-images"
-            folder="about-media"
-            value=""
-            onChange={(url) => {
-              if (url) addMediaItem("video", url)
-            }}
-            aspectRatio="video"
-            maxSizeMB={50}
-            accept="video/*"
-          />
-        </div>
+              {/* Video Upload - only if no video yet */}
+              {!hasVideo && (
+                <>
+                  {/* YouTube URL Input */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Add YouTube Video (0/1)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={youtubeUrl}
+                        onChange={(e) => setYoutubeUrl(e.target.value)}
+                        placeholder="https://youtube.com/watch?v=..."
+                        className="h-9 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAddYoutubeVideo}
+                        disabled={!youtubeUrl.trim()}
+                        className="h-9"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </div>
 
-        {/* Media Items List */}
+                  {/* Video Upload */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Or Upload Video (max 500MB)</Label>
+                    <ImageUpload
+                      bucket="store-builder-images"
+                      folder="about-media"
+                      value=""
+                      onChange={(url) => {
+                        if (url) addMediaItem("video", url)
+                      }}
+                      aspectRatio="video"
+                      maxSizeMB={500}
+                      accept="video/*"
+                    />
+                  </div>
+                </>
+              )}
+
+              {hasVideo && (
+                <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                  Video limit reached (1/1). Remove existing video to add a new one.
+                </p>
+              )}
+
+              {hasMaxImages && (
+                <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                  Image limit reached (5/5). Remove an image to add a new one.
+                </p>
+              )}
+            </>
+          )
+        })()}
+
+        {/* Media Items List with Captions */}
         {settings.mediaItems && settings.mediaItems.length > 0 && (
-          <div className="space-y-2 pt-2">
+          <div className="space-y-3 pt-2">
             <Label className="text-xs text-muted-foreground">Added Media</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {settings.mediaItems.map((item) => (
+            <div className="space-y-3">
+              {settings.mediaItems.map((item, index) => (
                 <div
                   key={item.id}
-                  className="relative aspect-video rounded-lg overflow-hidden bg-muted group"
+                  className="border rounded-lg p-2 space-y-2"
                 >
-                  {item.type === "image" ? (
-                    <img
-                      src={item.url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : item.type === "youtube" ? (
-                    <div className="w-full h-full flex items-center justify-center bg-red-100">
-                      <div className="text-center">
-                        <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-1">
-                          <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                  <div className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
+                    {item.type === "image" ? (
+                      <img
+                        src={item.url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : item.type === "youtube" ? (
+                      <div className="w-full h-full flex items-center justify-center bg-red-100">
+                        <div className="text-center">
+                          <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-1">
+                            <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                          </div>
+                          <p className="text-[10px] text-red-600">YouTube</p>
                         </div>
-                        <p className="text-[10px] text-red-600">YouTube</p>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-blue-100">
-                      <div className="text-center">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-1">
-                          <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-blue-100">
+                        <div className="text-center">
+                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-1">
+                            <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                          </div>
+                          <p className="text-[10px] text-blue-600">Video</p>
                         </div>
-                        <p className="text-[10px] text-blue-600">Video</p>
                       </div>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeMediaItem(item.id)}
-                    className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3 h-3 text-white" />
-                  </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeMediaItem(item.id)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                  {/* Caption Input */}
+                  <Input
+                    value={item.caption || ""}
+                    onChange={(e) => {
+                      const updatedItems = [...(settings.mediaItems || [])]
+                      updatedItems[index] = { ...item, caption: e.target.value }
+                      onChange({ mediaItems: updatedItems })
+                    }}
+                    placeholder="Add caption (optional)"
+                    className="h-8 text-xs"
+                  />
                 </div>
               ))}
             </div>

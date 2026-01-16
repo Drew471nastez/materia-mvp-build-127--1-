@@ -236,6 +236,7 @@ export interface AboutMediaItem {
   type: "image" | "youtube" | "video"
   url: string
   thumbnailUrl?: string // For videos, optional thumbnail
+  caption?: string // Optional caption text for the media item
 }
 
 // Payment method types
