@@ -461,7 +461,10 @@ function UnifiedAboutSection({
   return (
     <SectionContainer isMobile={isMobile}>
       <div
-        className={cn("w-full", isMobile ? "py-6 px-4" : "py-12 px-4")}
+        className={cn(
+          "w-full py-6 px-4 md:py-12",
+          isMobile && "!py-6 !px-4"
+        )}
         style={{
           paddingTop: spacing?.paddingTop,
           paddingBottom: spacing?.paddingBottom,
@@ -474,13 +477,19 @@ function UnifiedAboutSection({
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
 
-        <div className={cn("flex max-w-5xl mx-auto", isMobile ? "flex-col gap-6" : "flex-row gap-12")}>
+        <div className={cn(
+          "flex max-w-5xl mx-auto flex-col gap-6 md:flex-row md:gap-12",
+          isMobile && "!flex-col !gap-6"
+        )}>
           {/* Left Column - Seller Info */}
-          <div className={cn("flex-shrink-0", isMobile ? "w-full" : "w-64")}>
+          <div className={cn(
+            "flex-shrink-0 w-full md:w-64",
+            isMobile && "!w-full"
+          )}>
             <h3
               className={cn(
-                "font-semibold mb-6",
-                isMobile ? "text-lg" : "text-xl"
+                "font-semibold mb-6 text-lg md:text-xl",
+                isMobile && "!text-lg"
               )}
               style={{ color: textColor || undefined }}
             >
@@ -499,7 +508,10 @@ function UnifiedAboutSection({
                     Sales
                   </p>
                   <p
-                    className={cn("font-semibold", isMobile ? "text-xl" : "text-2xl")}
+                    className={cn(
+                      "font-semibold text-xl md:text-2xl",
+                      isMobile && "!text-xl"
+                    )}
                     style={{ color: textColor || undefined }}
                   >
                     {displayTotalSales}
@@ -517,7 +529,10 @@ function UnifiedAboutSection({
                     Joined
                   </p>
                   <p
-                    className={cn("font-semibold", isMobile ? "text-xl" : "text-2xl")}
+                    className={cn(
+                      "font-semibold text-xl md:text-2xl",
+                      isMobile && "!text-xl"
+                    )}
                     style={{ color: textColor || undefined }}
                   >
                     {memberSinceYear}
@@ -624,7 +639,10 @@ function UnifiedAboutSection({
                 {/* Caption for current media */}
                 {mediaItems[currentMediaIndex]?.caption && (
                   <p
-                    className={cn("mt-2 text-center", isMobile ? "text-xs" : "text-sm")}
+                    className={cn(
+                      "mt-2 text-center text-xs md:text-sm",
+                      isMobile && "!text-xs"
+                    )}
                     style={{ color: textColor ? `${textColor}90` : "#6b7280" }}
                   >
                     {mediaItems[currentMediaIndex].caption}
@@ -643,8 +661,8 @@ function UnifiedAboutSection({
                 <span className="inline-flex items-center gap-2">
                   <h4
                     className={cn(
-                      "font-semibold",
-                      isMobile ? "text-lg" : "text-2xl"
+                      "font-semibold text-lg md:text-2xl",
+                      isMobile && "!text-lg"
                     )}
                     style={{ color: textColor || undefined }}
                   >
@@ -670,8 +688,8 @@ function UnifiedAboutSection({
                 <button
                   onClick={handleEditClick}
                   className={cn(
-                    "flex items-center gap-2 mb-4 text-left transition-colors hover:opacity-80",
-                    isMobile ? "text-sm" : "text-lg"
+                    "flex items-center gap-2 mb-4 text-left transition-colors hover:opacity-80 text-sm md:text-lg",
+                    isMobile && "!text-sm"
                   )}
                   style={{ color: textColor ? `${textColor}60` : "#9ca3af" }}
                 >
@@ -703,8 +721,8 @@ function UnifiedAboutSection({
                 <div
                   ref={contentRef}
                   className={cn(
-                    "leading-relaxed overflow-hidden transition-all duration-300",
-                    isMobile ? "text-sm" : "text-base",
+                    "leading-relaxed overflow-hidden transition-all duration-300 text-sm md:text-base",
+                    isMobile && "!text-sm",
                     !isExpanded && needsTruncation && "relative"
                   )}
                   style={{
@@ -754,7 +772,10 @@ function UnifiedAboutSection({
               isEditorMode && (
                 <button
                   onClick={handleEditClick}
-                  className={cn("flex items-center gap-2 text-left transition-colors hover:opacity-80", isMobile ? "text-sm" : "text-base")}
+                  className={cn(
+                    "flex items-center gap-2 text-left transition-colors hover:opacity-80 text-sm md:text-base",
+                    isMobile && "!text-sm"
+                  )}
                   style={{ color: textColor ? `${textColor}60` : "#9ca3af" }}
                 >
                   <span className="text-lg font-bold">+</span>
@@ -810,49 +831,45 @@ function UnifiedAboutSection({
                   )
                 })}
               </div>
+              {/* Returns & Exchanges - desktop: below payment icons, smaller text */}
+              <div className={cn(
+                "hidden md:block mt-4",
+                isMobile && "!hidden"
+              )}>
+                <p
+                  className="text-xs"
+                  style={{ color: textColor ? `${textColor}99` : "#6b7280" }}
+                >
+                  <span className="font-medium">Returns & exchanges</span>
+                  {" · "}
+                  See item details for return and exchange eligibility.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Divider between payment methods and returns */}
-        <div
-          className="w-full h-px my-6 max-w-5xl mx-auto"
-          style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
-        />
-
-        {/* Returns & Exchanges Section */}
+        {/* Returns & Exchanges Section - Mobile only (stacked layout) */}
         <div className={cn(
-          "max-w-5xl mx-auto w-full",
-          // Mobile: stack vertically, Desktop: side by side
-          "flex flex-col gap-2 md:flex-row md:gap-12",
-          // Override for editor preview mode
-          isMobile && "!flex-col !gap-2"
+          "max-w-5xl mx-auto w-full mt-6 md:hidden",
+          isMobile && "!block !mt-6"
         )}>
-          <div className={cn(
-            "flex-shrink-0 w-full md:w-64",
-            isMobile && "!w-full"
-          )}>
-            <h4
-              className={cn(
-                "font-semibold text-base md:text-lg",
-                isMobile && "!text-base"
-              )}
-              style={{ color: textColor || undefined }}
-            >
-              Returns & exchanges
-            </h4>
-          </div>
-          <div className="flex-1 w-full">
-            <p
-              className={cn(
-                "text-sm md:text-base",
-                isMobile && "!text-sm"
-              )}
-              style={{ color: textColor ? `${textColor}cc` : "#374151" }}
-            >
-              See item details for return and exchange eligibility.
-            </p>
-          </div>
+          <div
+            className="w-full h-px mb-6"
+            style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
+          />
+          <h4
+            className="font-semibold text-base mb-2"
+            style={{ color: textColor || undefined }}
+          >
+            Returns & exchanges
+          </h4>
+          <p
+            className="text-sm"
+            style={{ color: textColor ? `${textColor}cc` : "#374151" }}
+          >
+            See item details for return and exchange eligibility.
+          </p>
         </div>
 
         {/* Bottom divider */}
