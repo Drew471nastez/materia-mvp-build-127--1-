@@ -38,6 +38,8 @@ export interface ThemeConfig {
   }
   borderRadius: number
   buttonBorderRadius: number
+  // Profile image border color
+  profileImageBorderColor: string
   // Component-specific overrides
   subscribeBar: {
     buttonColor: string
@@ -109,6 +111,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     borderRadius: 8,
     buttonBorderRadius: 8,
+    profileImageBorderColor: "#e5e7eb",
     subscribeBar: {
       buttonColor: "#6b7280",
       buttonTextColor: "#ffffff",
@@ -173,6 +176,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     borderRadius: 12,
     buttonBorderRadius: 12,
+    profileImageBorderColor: "#cbd5e1",
     subscribeBar: {
       buttonColor: "#1e293b",
       buttonTextColor: "#ffffff",
@@ -238,6 +242,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     borderRadius: 10,
     buttonBorderRadius: 10,
+    profileImageBorderColor: "#404040",
     subscribeBar: {
       buttonColor: "#404040",
       buttonTextColor: "#ffffff",
@@ -303,6 +308,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     borderRadius: 24,
     buttonBorderRadius: 24,
+    profileImageBorderColor: "rgba(255,255,255,0.4)",
     subscribeBar: {
       buttonColor: "#ffffff",
       buttonTextColor: "#7c3aed",
@@ -368,6 +374,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     borderRadius: 20,
     buttonBorderRadius: 20,
+    profileImageBorderColor: "rgba(255,255,255,0.4)",
     subscribeBar: {
       buttonColor: "#0ea5e9",
       buttonTextColor: "#ffffff",
@@ -433,6 +440,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     borderRadius: 20,
     buttonBorderRadius: 20,
+    profileImageBorderColor: "rgba(255,255,255,0.4)",
     subscribeBar: {
       buttonColor: "#ffffff",
       buttonTextColor: "#f97316",
@@ -498,6 +506,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     borderRadius: 16,
     buttonBorderRadius: 16,
+    profileImageBorderColor: "rgba(255,255,255,0.4)",
     subscribeBar: {
       buttonColor: "#ffffff",
       buttonTextColor: "#166534",
@@ -563,6 +572,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     borderRadius: 24,
     buttonBorderRadius: 24,
+    profileImageBorderColor: "rgba(255,255,255,0.4)",
     subscribeBar: {
       buttonColor: "#ffffff",
       buttonTextColor: "#be185d",
@@ -628,6 +638,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     borderRadius: 12,
     buttonBorderRadius: 12,
+    profileImageBorderColor: "#475569",
     subscribeBar: {
       buttonColor: "#3b82f6",
       buttonTextColor: "#ffffff",
@@ -799,6 +810,7 @@ export const defaultShopHeaderSettings: ShopHeaderSettings = {
   mobileAvatarSize: 137, // mobile px (legacy default)
   avatarSizeChoice: "medium",
   mobileAvatarSizeChoice: "medium",
+  profileImageBorderColor: undefined, // Controlled by theme preset by default
   showHeadline: true,
   showBio: true,
   showNicheTags: true,

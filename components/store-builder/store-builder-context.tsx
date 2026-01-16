@@ -621,6 +621,8 @@ export function StoreBuilderProvider({
               backgroundColor: theme.sections.headerBackgroundColor,
               textColor: theme.sections.headerTextColor || theme.colors.foreground,
             }
+            // Apply profile image border color from theme
+            shopHeader.profileImageBorderColor = theme.profileImageBorderColor
           }
 
           // Apply theme to product page components

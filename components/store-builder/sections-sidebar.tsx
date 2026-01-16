@@ -1801,6 +1801,15 @@ function ShopHeaderSettingsForm({
               ))}
             </div>
           </div>
+
+          <div className="space-y-2 pt-2">
+            <ColorPicker
+              label="Profile Image Border"
+              value={settings.profileImageBorderColor || "#e5e7eb"}
+              onChange={(value) => onChange({ profileImageBorderColor: value })}
+              description="Border color for the profile image circle"
+            />
+          </div>
         </div>
       </div>
 
@@ -2294,20 +2303,83 @@ function ImageTextSettingsForm({
   )
 }
 
-// Available icons for benefits section
+// Available icons for benefits section - comprehensive library with diverse icons
 const BENEFIT_ICONS = [
-  "check-circle", "check", "star", "heart", "shield", "shield-check", "zap", "award",
-  "trophy", "target", "gift", "crown", "sparkles", "rocket", "flame", "thumbs-up",
-  "smile", "users", "user-check", "clock", "timer", "calendar", "mail", "phone",
-  "globe", "map-pin", "lock", "key", "credit-card", "wallet", "dollar-sign", "percent",
-  "tag", "bookmark", "flag", "bell", "megaphone", "headphones", "mic", "video",
-  "camera", "image", "download", "upload", "cloud", "server", "cpu", "monitor",
-  "smartphone", "laptop", "wifi", "power", "settings", "wrench", "hammer", "brush",
-  "pen", "pencil", "scissors", "copy", "clipboard", "file", "folder", "archive",
-  "box", "package", "shopping-cart", "shopping-bag", "store", "truck", "plane",
-  "home", "building", "tree", "leaf", "sun", "moon", "droplet", "activity",
-  "heart-pulse", "dumbbell", "apple", "coffee", "book", "graduation-cap", "brain",
-  "lightbulb", "puzzle", "gamepad", "medal", "gem", "diamond", "infinity"
+  // Success & Verification
+  "check-circle", "check", "check-square", "verified", "badge-check", "circle-check",
+  // Rating & Recognition
+  "star", "star-half", "award", "trophy", "medal", "crown", "ribbon", "badge",
+  // Emotions & Social
+  "heart", "thumbs-up", "smile", "laugh", "party-popper", "hand-heart", "handshake",
+  // Security & Trust
+  "shield", "shield-check", "lock", "key", "fingerprint", "scan", "eye", "eye-off",
+  // Energy & Speed
+  "zap", "bolt", "rocket", "flame", "sparkles", "wand", "magic", "flash",
+  // Target & Goals
+  "target", "crosshair", "focus", "bullseye", "compass", "navigation",
+  // Gift & Rewards
+  "gift", "present", "box", "package", "shopping-bag", "shopping-cart",
+  // Time & Schedule
+  "clock", "timer", "calendar", "alarm", "hourglass", "watch", "history",
+  // Communication
+  "mail", "message-circle", "message-square", "phone", "video", "mic", "megaphone", "bell",
+  // Location & Travel
+  "globe", "map-pin", "map", "plane", "car", "truck", "ship", "train",
+  // Money & Business
+  "credit-card", "wallet", "dollar-sign", "percent", "tag", "receipt", "coins", "piggy-bank", "trending-up", "chart-bar", "bar-chart",
+  // Bookmarks & Notes
+  "bookmark", "flag", "pin", "paperclip", "link", "link-2",
+  // Media & Sound
+  "headphones", "speaker", "volume-2", "music", "radio", "podcast",
+  // Visual & Image
+  "camera", "image", "film", "palette", "brush", "pen-tool", "dropper",
+  // Files & Data
+  "download", "upload", "cloud", "cloud-download", "cloud-upload", "server", "database", "hard-drive",
+  // Devices
+  "cpu", "monitor", "smartphone", "laptop", "tablet", "tv", "printer",
+  // Network & Connectivity
+  "wifi", "bluetooth", "signal", "satellite", "rss", "share", "share-2",
+  // Power & Settings
+  "power", "settings", "sliders", "toggle-left", "toggle-right",
+  // Tools
+  "wrench", "hammer", "screwdriver", "tool", "scissors", "ruler",
+  // Writing & Edit
+  "pen", "pencil", "edit", "edit-2", "edit-3", "type", "text-cursor",
+  // Copy & Clipboard
+  "copy", "clipboard", "clipboard-check", "clipboard-list",
+  // Files & Folders
+  "file", "file-text", "file-plus", "folder", "folder-open", "archive", "inbox",
+  // Commerce & Store
+  "store", "storefront", "building", "building-2", "warehouse",
+  // Nature
+  "tree", "leaf", "flower", "sun", "moon", "cloud-sun", "rainbow", "umbrella",
+  // Health & Wellness
+  "droplet", "activity", "heart-pulse", "heartbeat", "thermometer", "stethoscope",
+  // Fitness
+  "dumbbell", "bicep", "running", "bike", "hiking",
+  // Food & Drink
+  "apple", "coffee", "cup", "utensils", "pizza", "cake",
+  // Education
+  "book", "book-open", "graduation-cap", "school", "library", "bookmark-check",
+  // Brain & Ideas
+  "brain", "lightbulb", "lamp", "idea", "bulb",
+  // Games & Fun
+  "puzzle", "gamepad", "dice", "joystick", "game-controller",
+  // Premium & Luxury
+  "gem", "diamond", "sparkle", "shine", "glow",
+  // Math & Symbols
+  "infinity", "plus", "minus", "x", "divide", "equal", "hash",
+  // People & Users
+  "users", "user", "user-check", "user-plus", "user-star", "people", "group", "team",
+  // Arrows & Direction
+  "arrow-right", "arrow-up", "arrow-down", "chevron-right", "trending-up", "move",
+  // Interface
+  "menu", "grid", "list", "layout", "columns", "rows", "table",
+  // Misc Useful
+  "refresh", "repeat", "sync", "rotate", "undo", "redo",
+  "help-circle", "info", "alert-circle", "alert-triangle", "x-circle", "x-octagon",
+  "thumbtack", "magnet", "layers", "stack", "component", "puzzle-piece",
+  "calendar-check", "calendar-star", "shield-star", "user-shield"
 ] as const
 
 // Icon Picker Component for Benefits
@@ -2332,93 +2404,85 @@ function BenefitIconPicker({
     icon.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Get icon component for preview
-  const getIconComponent = (iconName: string) => {
-    const iconMap: Record<string, any> = {
-      "check-circle": CheckCircle,
-      "check": Check,
-      "star": Star,
-      "heart": Heart,
-      "shield": Shield,
-      "zap": Zap,
-      "award": Award,
-      "trophy": Trophy,
-      "target": Target,
-      "gift": Gift,
-      "crown": Crown,
-      "sparkles": Sparkles,
-      "rocket": Rocket,
-      "flame": Flame,
-      "thumbs-up": ThumbsUp,
-      "smile": Smile,
-      "users": Users,
-      "clock": Clock,
-      "mail": Mail,
-      "globe": Globe,
-      "lock": Lock,
-      "credit-card": CreditCard,
-      "wallet": Wallet,
-      "bell": Bell,
-      "headphones": Headphones,
-      "camera": Camera,
-      "download": Download,
-      "upload": Upload,
-      "cloud": Cloud,
-      "monitor": Monitor,
-      "smartphone": Smartphone,
-      "laptop": Laptop,
-      "settings": Settings,
-      "file": FileText,
-      "folder": Folder,
-      "box": Box,
-      "package": Package,
-      "shopping-cart": ShoppingCart,
-      "shopping-bag": ShoppingBag,
-      "home": Home,
-      "sun": Sun,
-      "moon": Moon,
-      "book": Book,
-      "lightbulb": Lightbulb,
-      "puzzle": Puzzle,
-      "gem": Gem,
-    }
-    return iconMap[iconName] || CheckCircle
-  }
+  // Import all icons dynamically for the comprehensive icon library
+  const LucideIcons = require("lucide-react")
 
-  // Import additional icons for the picker
-  const Shield = require("lucide-react").Shield
-  const Zap = require("lucide-react").Zap
-  const Award = require("lucide-react").Award
-  const Trophy = require("lucide-react").Trophy
-  const Target = require("lucide-react").Target
-  const Gift = require("lucide-react").Gift
-  const Crown = require("lucide-react").Crown
-  const Sparkles = require("lucide-react").Sparkles
-  const Rocket = require("lucide-react").Rocket
-  const Flame = require("lucide-react").Flame
-  const ThumbsUp = require("lucide-react").ThumbsUp
-  const Smile = require("lucide-react").Smile
-  const Users = require("lucide-react").Users
-  const Clock = require("lucide-react").Clock
-  const CreditCard = require("lucide-react").CreditCard
-  const Wallet = require("lucide-react").Wallet
-  const Headphones = require("lucide-react").Headphones
-  const Camera = require("lucide-react").Camera
-  const Cloud = require("lucide-react").Cloud
-  const Monitor = require("lucide-react").Monitor
-  const Smartphone = require("lucide-react").Smartphone
-  const Laptop = require("lucide-react").Laptop
-  const Folder = require("lucide-react").Folder
-  const Box = require("lucide-react").Box
-  const ShoppingCart = require("lucide-react").ShoppingCart
-  const Sun = require("lucide-react").Sun
-  const Moon = require("lucide-react").Moon
-  const Book = require("lucide-react").Book
-  const Lightbulb = require("lucide-react").Lightbulb
-  const Puzzle = require("lucide-react").Puzzle
-  const Gem = require("lucide-react").Gem
-  const Bell = require("lucide-react").Bell
-  const Lock = require("lucide-react").Lock
+  // Get icon component for preview - comprehensive map for all icons
+  const getIconComponent = (iconName: string) => {
+    // Convert kebab-case to PascalCase for lucide-react
+    const toPascalCase = (str: string) => {
+      return str.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('')
+    }
+
+    // Manual mappings for icons that don't follow standard naming
+    const specialMappings: Record<string, string> = {
+      "check-circle": "CheckCircle",
+      "check-square": "CheckSquare",
+      "badge-check": "BadgeCheck",
+      "circle-check": "CircleCheck",
+      "star-half": "StarHalf",
+      "party-popper": "PartyPopper",
+      "hand-heart": "HeartHandshake",
+      "handshake": "Handshake",
+      "shield-check": "ShieldCheck",
+      "eye-off": "EyeOff",
+      "thumbs-up": "ThumbsUp",
+      "message-circle": "MessageCircle",
+      "message-square": "MessageSquare",
+      "map-pin": "MapPin",
+      "dollar-sign": "DollarSign",
+      "piggy-bank": "PiggyBank",
+      "trending-up": "TrendingUp",
+      "chart-bar": "BarChart",
+      "bar-chart": "BarChart",
+      "link-2": "Link2",
+      "volume-2": "Volume2",
+      "pen-tool": "PenTool",
+      "cloud-download": "CloudDownload",
+      "cloud-upload": "CloudUpload",
+      "hard-drive": "HardDrive",
+      "toggle-left": "ToggleLeft",
+      "toggle-right": "ToggleRight",
+      "edit-2": "Edit2",
+      "edit-3": "Edit3",
+      "text-cursor": "TextCursor",
+      "clipboard-check": "ClipboardCheck",
+      "clipboard-list": "ClipboardList",
+      "file-text": "FileText",
+      "file-plus": "FilePlus",
+      "folder-open": "FolderOpen",
+      "building-2": "Building2",
+      "cloud-sun": "CloudSun",
+      "heart-pulse": "HeartPulse",
+      "book-open": "BookOpen",
+      "graduation-cap": "GraduationCap",
+      "game-controller": "Gamepad2",
+      "user-check": "UserCheck",
+      "user-plus": "UserPlus",
+      "user-star": "UserCircle",
+      "user-shield": "ShieldCheck",
+      "arrow-right": "ArrowRight",
+      "arrow-up": "ArrowUp",
+      "arrow-down": "ArrowDown",
+      "chevron-right": "ChevronRight",
+      "help-circle": "HelpCircle",
+      "alert-circle": "AlertCircle",
+      "alert-triangle": "AlertTriangle",
+      "x-circle": "XCircle",
+      "x-octagon": "XOctagon",
+      "puzzle-piece": "Puzzle",
+      "calendar-check": "CalendarCheck",
+      "calendar-star": "CalendarDays",
+      "shield-star": "ShieldCheck",
+      "credit-card": "CreditCard",
+      "shopping-cart": "ShoppingCart",
+      "shopping-bag": "ShoppingBag",
+      "share-2": "Share2",
+    }
+
+    const iconKey = specialMappings[iconName] || toPascalCase(iconName)
+    return LucideIcons[iconKey] || LucideIcons.CheckCircle || CheckCircle
+  }
 
   const IconComponent = getIconComponent(selectedIcon)
 
@@ -2439,32 +2503,33 @@ function BenefitIconPicker({
           <span className="text-xs text-muted-foreground">Change icon</span>
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Choose Icon</DialogTitle>
-          <DialogDescription>Select an icon from the library or upload your own image</DialogDescription>
+      <DialogContent className="w-[95vw] max-w-lg sm:max-w-xl max-h-[85vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-4 sm:p-6">
+        <DialogHeader className="pb-2 sm:pb-4">
+          <DialogTitle className="text-lg sm:text-xl">Choose Icon</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">Select an icon from the library or upload your own image</DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "icons" | "upload")} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="icons">Icon Library</TabsTrigger>
-            <TabsTrigger value="upload">Custom Image</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-9 sm:h-10">
+            <TabsTrigger value="icons" className="text-xs sm:text-sm">Icon Library</TabsTrigger>
+            <TabsTrigger value="upload" className="text-xs sm:text-sm">Custom Image</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="icons" className="flex-1 min-h-0 flex flex-col">
-            <div className="mb-3">
+          <TabsContent value="icons" className="flex-1 min-h-0 flex flex-col mt-2 sm:mt-4">
+            <div className="mb-2 sm:mb-3">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search icons..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-9"
+                  className="pl-8 h-8 sm:h-9 text-sm"
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              <div className="grid grid-cols-6 gap-2 p-1">
+            <div className="flex-1 overflow-y-auto -mx-1 px-1">
+              {/* Responsive grid: 5 cols on mobile, 6 on tablet, 8 on desktop */}
+              <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1.5 sm:gap-2 p-0.5 sm:p-1">
                 {filteredIcons.map((iconName) => {
                   const Icon = getIconComponent(iconName)
                   const isSelected = selectedIcon === iconName && iconType !== "custom"
@@ -2477,41 +2542,55 @@ function BenefitIconPicker({
                         setIsOpen(false)
                       }}
                       className={cn(
-                        "w-10 h-10 flex items-center justify-center rounded-lg transition-all",
+                        "aspect-square w-full flex items-center justify-center rounded-lg transition-all touch-manipulation",
+                        "min-h-[40px] sm:min-h-[44px]",
                         isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
+                          ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1"
+                          : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95"
                       )}
-                      title={iconName}
+                      title={iconName.replace(/-/g, ' ')}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   )
                 })}
               </div>
+              {filteredIcons.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Search className="w-8 h-8 mb-2 opacity-50" />
+                  <p className="text-sm">No icons found for "{searchQuery}"</p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
-          <TabsContent value="upload" className="flex-1 min-h-0">
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+          <TabsContent value="upload" className="flex-1 min-h-0 mt-2 sm:mt-4">
+            <div className="space-y-3 sm:space-y-4">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Upload a custom image to use as the icon. It will be displayed as a circle.
               </p>
               <ImageUpload
+                bucket="store-builder-images"
+                folder="benefit-icons"
                 value={customImageUrl || ""}
                 onChange={(url) => {
-                  onUploadImage(url)
-                  onSelectIcon(selectedIcon, "custom", url)
-                  setIsOpen(false)
+                  if (url) {
+                    onUploadImage(url)
+                    onSelectIcon(selectedIcon, "custom", url)
+                    setIsOpen(false)
+                  }
                 }}
-                label="Upload Icon Image"
+                aspectRatio="square"
               />
               {customImageUrl && (
-                <div className="flex items-center gap-2">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 overflow-hidden">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 overflow-hidden ring-2 ring-primary/20 flex-shrink-0">
                     <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
                   </div>
-                  <span className="text-sm text-muted-foreground">Current custom icon</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-foreground block">Current custom icon</span>
+                    <span className="text-xs text-muted-foreground">Click above to change</span>
+                  </div>
                 </div>
               )}
             </div>

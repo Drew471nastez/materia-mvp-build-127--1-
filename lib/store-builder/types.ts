@@ -243,6 +243,7 @@ export interface ShopHeaderSettings {
   mobileAvatarSize: number // mobile size in px (legacy, kept for backwards compat)
   avatarSizeChoice?: AvatarSizeChoice // 'small' | 'medium' | 'large'
   mobileAvatarSizeChoice?: AvatarSizeChoice // 'small' | 'medium' | 'large'
+  profileImageBorderColor?: string // Border color for the profile image circle
   showHeadline: boolean
   showBio: boolean
   showNicheTags: boolean

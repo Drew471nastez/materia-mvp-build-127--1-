@@ -1185,19 +1185,29 @@ function UnifiedFeaturedProductsSection({
                   onPointerCancel={runtimeIsMobile ? onSortPointerCancel : undefined}
                   onClick={runtimeIsMobile ? (e) => e.preventDefault() : undefined}
                   className={cn(
-                    // ✅ Mobile: small chip (harder to accidentally tap)
+                    // ✅ Mobile: themed pill button with proper contrast
                     runtimeIsMobile
-                      ? "inline-flex w-fit items-center gap-2 rounded-md px-3 py-2 text-sm bg-muted/40 hover:bg-muted/60 transition-colors touch-pan-y select-none"
-                      : // ✅ Desktop: back to clean "text control on the right" (like your old screenshot)
+                      ? "inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-200 touch-pan-y select-none active:scale-[0.98]"
+                      : // ✅ Desktop: clean text control on the right
                         "inline-flex w-auto items-center gap-2 rounded-md px-2 py-1 text-sm hover:opacity-80 bg-transparent",
-                    !settings.categoryFilterColors?.textColor && "text-muted-foreground hover:text-foreground",
+                    // Only apply default classes when no theme colors are set
+                    !settings.categoryFilterColors?.textColor && !runtimeIsMobile && "text-muted-foreground hover:text-foreground",
                   )}
                   style={{
-                    color: settings.categoryFilterColors?.textColor || undefined,
+                    // Mobile: use theme-aware styling
+                    ...(runtimeIsMobile ? {
+                      backgroundColor: "transparent",
+                      color: settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined,
+                      borderColor: settings.categoryFilterColors?.borderColor ||
+                        (settings.categoryFilterColors?.textColor ? `${settings.categoryFilterColors.textColor}40` : undefined) ||
+                        (settings.colors?.textColor ? `${settings.colors.textColor}40` : undefined),
+                    } : {
+                      color: settings.categoryFilterColors?.textColor || undefined,
+                    }),
                   }}
                 >
                   <span>Sort: {sortLabels[sortBy]}</span>
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -1213,39 +1223,55 @@ function UnifiedFeaturedProductsSection({
           {/* Mobile pills - only show when mobile AND category filter is not hidden */}
           {uiIsMobile && !settings.hideCategoryFilter && (
             <div className="mt-3">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                 <button
                   onClick={() => handleCategoryChange(null)}
-                  className="flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-all duration-200"
+                  className="flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
                   style={{
                     backgroundColor: selectedCategory === null
-                      ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
+                      ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || "rgba(255,255,255,0.9)")
                       : "transparent",
                     color: selectedCategory === null
-                      ? (settings.productCardColors?.backgroundColor || "#ffffff")
+                      ? (settings.productCardColors?.backgroundColor ||
+                         (settings.colors?.textColor?.includes("fff") ? "#000000" : "#ffffff"))
                       : (settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined),
-                    borderColor: settings.categoryFilterColors?.borderColor || settings.colors?.textColor || undefined,
+                    borderColor: selectedCategory === null
+                      ? "transparent"
+                      : (settings.categoryFilterColors?.borderColor ||
+                         (settings.categoryFilterColors?.textColor ? `${settings.categoryFilterColors.textColor}50` : undefined) ||
+                         (settings.colors?.textColor ? `${settings.colors.textColor}50` : undefined)),
+                    boxShadow: selectedCategory === null
+                      ? "0 2px 8px rgba(0,0,0,0.15)"
+                      : undefined,
                   }}
                 >
-                  All <span className="opacity-70">{totalProducts}</span>
+                  All <span className={selectedCategory === null ? "opacity-60" : "opacity-50"}>{totalProducts}</span>
                 </button>
 
                 {categoriesWithCounts.map((category) => (
                   <button
                     key={category.id}
                     onClick={() => handleCategoryChange(category.id)}
-                    className="flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-all duration-200"
+                    className="flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
                     style={{
                       backgroundColor: selectedCategory === category.id
-                        ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || undefined)
+                        ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || "rgba(255,255,255,0.9)")
                         : "transparent",
                       color: selectedCategory === category.id
-                        ? (settings.productCardColors?.backgroundColor || "#ffffff")
+                        ? (settings.productCardColors?.backgroundColor ||
+                           (settings.colors?.textColor?.includes("fff") ? "#000000" : "#ffffff"))
                         : (settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined),
-                      borderColor: settings.categoryFilterColors?.borderColor || settings.colors?.textColor || undefined,
+                      borderColor: selectedCategory === category.id
+                        ? "transparent"
+                        : (settings.categoryFilterColors?.borderColor ||
+                           (settings.categoryFilterColors?.textColor ? `${settings.categoryFilterColors.textColor}50` : undefined) ||
+                           (settings.colors?.textColor ? `${settings.colors.textColor}50` : undefined)),
+                      boxShadow: selectedCategory === category.id
+                        ? "0 2px 8px rgba(0,0,0,0.15)"
+                        : undefined,
                     }}
                   >
-                    {category.name} <span className="opacity-70">{category.count}</span>
+                    {category.name} <span className={selectedCategory === category.id ? "opacity-60" : "opacity-50"}>{category.count}</span>
                   </button>
                 ))}
               </div>
@@ -1539,8 +1565,12 @@ export function UnifiedShopHeader({
           >
             <Avatar
               key={avatarKey}
-              className="border-4 border-background shadow-lg shrink-0"
-              style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
+              className="border-4 shadow-lg shrink-0"
+              style={{
+                width: `${avatarSize}px`,
+                height: `${avatarSize}px`,
+                borderColor: settings.profileImageBorderColor || "hsl(var(--background))",
+              }}
             >
               {avatarImageUrl ? (
                 <AvatarImage src={avatarImageUrl || "/placeholder.svg"} alt={profile?.display_name || ""} />
