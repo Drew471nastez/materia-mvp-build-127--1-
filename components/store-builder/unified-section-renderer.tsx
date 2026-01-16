@@ -719,10 +719,30 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
   const carouselRef = useRef<HTMLDivElement>(null)
   const autoplayRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Client-side mobile detection for live pages
+  const [clientIsMobile, setClientIsMobile] = useState(false)
+
+  useEffect(() => {
+    // Detect mobile on client side for live pages (when isMobile prop is not explicitly true)
+    const checkMobile = () => {
+      setClientIsMobile(window.innerWidth < 768)
+    }
+
+    // Initial check
+    checkMobile()
+
+    // Listen for resize
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Use prop if in preview mode (editor), otherwise use client detection for live pages
+  const effectiveMobile = isPreviewMode ? isMobile : (isMobile || clientIsMobile)
+
   // Safely get spacing with fallback defaults
   const defaultSpacing = { paddingTop: 48, paddingBottom: 48, paddingLeft: 16, paddingRight: 16 }
   const defaultMobileSpacing = { paddingTop: 24, paddingBottom: 24, paddingLeft: 12, paddingRight: 12 }
-  const spacing = isMobile
+  const spacing = effectiveMobile
     ? (settings.mobileSpacing || defaultMobileSpacing)
     : (settings.spacing || defaultSpacing)
 
@@ -740,7 +760,7 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
   // Carousel settings - ONLY enable on mobile devices
   // Carousel is mobile-only: only shows on mobile view (published or preview canvas in mobile mode)
   const carouselEnabled = settings.enableCarousel ?? false
-  const enableCarousel = carouselEnabled && isMobile
+  const enableCarousel = carouselEnabled && effectiveMobile
   const autoplay = settings.autoplay ?? false
   const autoplaySpeed = settings.autoplaySpeed ?? 4000
   const benefitsCount = settings.benefits.length
@@ -814,7 +834,7 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
         <div
           className={cn(
             "mx-auto rounded-full flex items-center justify-center mb-3 overflow-hidden",
-            isMobile ? "h-12 w-12" : "h-14 w-14",
+            effectiveMobile ? "h-12 w-12" : "h-14 w-14",
             !textColor && "bg-primary/10",
           )}
           style={{
@@ -825,18 +845,18 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
             <Image
               src={benefit.customImageUrl!}
               alt={benefit.title}
-              width={isMobile ? 48 : 56}
-              height={isMobile ? 48 : 56}
+              width={effectiveMobile ? 48 : 56}
+              height={effectiveMobile ? 48 : 56}
               className="w-full h-full object-cover"
             />
           ) : IconComponent ? (
             <IconComponent
-              className={cn(isMobile ? "h-6 w-6" : "h-7 w-7", !textColor && "text-primary")}
+              className={cn(effectiveMobile ? "h-6 w-6" : "h-7 w-7", !textColor && "text-primary")}
               style={{ color: textColor || undefined }}
             />
           ) : (
             <CheckCircle
-              className={cn(isMobile ? "h-6 w-6" : "h-7 w-7", !textColor && "text-primary")}
+              className={cn(effectiveMobile ? "h-6 w-6" : "h-7 w-7", !textColor && "text-primary")}
               style={{ color: textColor || undefined }}
             />
           )}
@@ -844,7 +864,7 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
         <h3
           className={cn(
             "font-semibold",
-            isMobile ? "text-base" : "text-lg",
+            effectiveMobile ? "text-base" : "text-lg",
             !textColor && "text-foreground",
           )}
           style={{ color: textColor || undefined }}
@@ -866,7 +886,7 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
 
   return (
     <SectionContainer
-      isMobile={isMobile}
+      isMobile={effectiveMobile}
       style={{
         paddingTop: spacing.paddingTop,
         paddingBottom: spacing.paddingBottom,
@@ -879,7 +899,7 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
         <h2
           className={cn(
             "font-semibold",
-            isMobile ? "text-xl mb-6" : "text-2xl sm:text-3xl mb-8 sm:mb-12",
+            effectiveMobile ? "text-xl mb-6" : "text-2xl sm:text-3xl mb-8 sm:mb-12",
             !textColor && "text-foreground",
           )}
           style={{
@@ -956,7 +976,7 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
         <div
           className={cn(
             "grid",
-            isMobile
+            effectiveMobile
               ? "grid-cols-1"
               : cn(
                   settings.columns === 2 && "grid-cols-1 sm:grid-cols-2",

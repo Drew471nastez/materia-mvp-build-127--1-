@@ -189,13 +189,16 @@ function ColorPicker({
   label,
   value,
   onChange,
-  presetColors = ['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'],
+  presetColors = ['#000000', '#374151', '#3b82f6', '#10b981', '#f59e0b'],
 }: {
   label?: string;
   value: string;
   onChange: (value: string) => void;
   presetColors?: string[];
 }) {
+  // Ensure only 5 preset colors are shown
+  const displayColors = presetColors.slice(0, 5)
+
   return (
     <div className="space-y-2">
       {label && <Label className="text-sm font-medium">{label}</Label>}
@@ -219,14 +222,14 @@ function ColorPicker({
           className="h-12 rounded-xl flex-1 font-mono text-sm"
         />
       </div>
-      {/* Suggested Colors */}
+      {/* Suggested Colors - 5 perfectly round circles */}
       <div className="flex gap-2 pt-1">
-        {presetColors.map((color) => (
+        {displayColors.map((color) => (
           <button
             key={color}
             onClick={() => onChange(color)}
             className={cn(
-              "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+              "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 flex-shrink-0 aspect-square",
               value === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
             )}
             style={{ backgroundColor: color }}
@@ -1816,6 +1819,18 @@ function ShopHeaderSettingsForm({
       </div>
 
       <div className="space-y-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stats & Badges</h4>
+        <div className="space-y-3">
+          <ToggleField label="Stats" checked={settings.showStats} onChange={(checked) => onChange({ showStats: checked })} />
+          <ToggleField
+            label="Sales Badge"
+            checked={settings.showTotalSalesBadge}
+            onChange={(checked) => onChange({ showTotalSalesBadge: checked })}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social Media</h4>
 
         <ToggleField
@@ -1882,18 +1897,6 @@ function ShopHeaderSettingsForm({
             </div>
           </div>
         )}
-      </div>
-
-      <div className="space-y-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stats & Badges</h4>
-        <div className="space-y-3">
-          <ToggleField label="Stats" checked={settings.showStats} onChange={(checked) => onChange({ showStats: checked })} />
-          <ToggleField
-            label="Sales Badge"
-            checked={settings.showTotalSalesBadge}
-            onChange={(checked) => onChange({ showTotalSalesBadge: checked })}
-          />
-        </div>
       </div>
 
       <CoverImageEditor
@@ -2491,7 +2494,7 @@ function ImageTextSettingsForm({
             <ColorPicker
               value={settings.buttonColor || "#374151"}
               onChange={(value) => onChange({ buttonColor: value })}
-              presetColors={["#374151", "#000000", "#1a1a1a", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#f59e0b"]}
+              presetColors={["#374151", "#000000", "#3b82f6", "#10b981", "#f59e0b"]}
             />
           </div>
 
@@ -2501,7 +2504,7 @@ function ImageTextSettingsForm({
             <ColorPicker
               value={settings.buttonTextColor || "#ffffff"}
               onChange={(value) => onChange({ buttonTextColor: value })}
-              presetColors={["#ffffff", "#000000", "#1a1a1a", "#374151", "#3b82f6", "#ef4444", "#10b981", "#f59e0b"]}
+              presetColors={["#ffffff", "#000000", "#374151", "#3b82f6", "#10b981"]}
             />
           </div>
         </>
