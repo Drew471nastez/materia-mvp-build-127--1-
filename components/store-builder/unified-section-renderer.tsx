@@ -292,13 +292,13 @@ function UnifiedReviewsSection({
   )
 }
 
-// Payment method icon components - using standard recognizable designs
+// Payment method icon components - using accurate brand designs
 function PayPalIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <path d="M14.5 6h3.8c2.5 0 3.5 1.3 3.3 3.3-.3 2.7-2.1 4.2-4.6 4.2h-1.2c-.3 0-.5.2-.5.5l-.6 3.5c0 .3-.3.5-.5.5h-2.3c-.2 0-.4-.2-.3-.4l1.6-11.2c0-.2.2-.4.3-.4z" fill="#003087"/>
-      <path d="M23.5 6h3.8c1.5 0 2.6.5 3 1.5.3.7.3 1.5.1 2.3-.4 2.5-2.1 4-4.5 4h-1.3c-.3 0-.5.2-.5.5l-.5 3.2c0 .3-.3.5-.5.5h-2c-.2 0-.4-.2-.3-.4l1.4-11.2c0-.2.2-.4.3-.4z" fill="#0070E0"/>
+      <path fillRule="evenodd" clipRule="evenodd" d="M13.976 6.5H18.3c2.186 0 3.27 1.075 3.27 2.715 0 2.334-1.608 3.754-4.066 3.754h-1.388c-.24 0-.41.194-.453.453l-.548 3.47c-.03.195-.166.358-.366.358h-2.168c-.2 0-.338-.195-.295-.44l1.4-9.91c.043-.26.204-.4.452-.4h-.162z" fill="#003087"/>
+      <path fillRule="evenodd" clipRule="evenodd" d="M23.176 6.5H27.5c1.285 0 2.297.455 2.654 1.525.227.68.2 1.393-.012 2.165-.404 2.25-1.925 3.704-4.088 3.704h-1.175c-.24 0-.41.194-.453.453l-.498 3.21c-.03.195-.166.357-.366.357h-1.9c-.2 0-.337-.194-.294-.44l1.28-9.9c.043-.26.203-.39.452-.39l.076-.684z" fill="#0070E0"/>
     </svg>
   )
 }
@@ -307,8 +307,11 @@ function VisaIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <path d="M16.2 16h-2.5l1.6-9.5h2.5L16.2 16zm5.5-9.3c-.5-.2-1.3-.4-2.2-.4-2.5 0-4.2 1.3-4.2 3.1 0 1.4 1.2 2.1 2.2 2.6 1 .5 1.3.8 1.3 1.2 0 .7-.8 1-1.5 1-1 0-1.5-.2-2.4-.5l-.3-.2-.4 2.1c.6.3 1.7.5 2.8.5 2.6 0 4.3-1.3 4.3-3.2 0-1.1-.7-1.9-2.1-2.5-.9-.4-1.4-.7-1.4-1.2 0-.4.5-.8 1.4-.8.8 0 1.4.2 1.9.4l.2.1.4-2.2zm6.7 0h-2c-.6 0-1.1.2-1.3.8l-3.8 8.7h2.7l.5-1.5h3.2l.3 1.5h2.3l-2-9.5zm-3.1 6.1l1-2.7.3-1 .2.9.6 2.8h-2.1zm-11.8-6.1l-2.4 6.5-.3-1.3c-.5-1.6-1.9-3.2-3.5-4.1l2.3 8.2h2.7l4-9.3h-2.8z" fill="#1A1F71"/>
-      <path d="M9 6.7H5l-.1.2c3.2.8 5.3 2.6 6.2 4.9l-.9-4.3c-.2-.6-.6-.8-1-.8H9z" fill="#F9A533"/>
+      <path d="M15.836 16.186h-2.344l1.465-8.966h2.344l-1.465 8.966z" fill="#00579F"/>
+      <path d="M25.78 7.416c-.465-.18-1.191-.375-2.098-.375-2.316 0-3.946 1.221-3.957 2.97-.012 1.293 1.163 2.015 2.051 2.446.91.44 1.215.72 1.21 1.113-.005.602-.726.877-1.396.877-.934 0-1.43-.136-2.197-.472l-.3-.143-.327 2.011c.546.25 1.556.468 2.604.479 2.463 0 4.064-1.209 4.082-3.075.01-.873-.523-1.538-1.672-2.085-.696-.356-1.122-.593-1.117-.953 0-.32.36-.662 1.14-.662.65-.01 1.121.138 1.487.293l.179.088.27-1.65.041.138z" fill="#00579F"/>
+      <path d="M29.095 7.22h-1.81c-.562 0-.982.161-1.228.748l-3.485 8.218h2.463s.403-1.109.494-1.352h3.008c.07.315.285 1.352.285 1.352h2.178l-1.905-8.966zm-2.894 5.79c.194-.52.937-2.521.937-2.521-.014.024.193-.523.312-.862l.16.778s.45 2.151.544 2.605h-1.953z" fill="#00579F"/>
+      <path d="M11.77 7.22l-2.293 6.113-.245-1.244c-.426-1.437-1.754-2.996-3.24-3.775l2.099 7.87h2.48l3.688-8.964h-2.49z" fill="#00579F"/>
+      <path d="M7.472 7.22H3.715l-.035.211c2.938.745 4.883 2.545 5.689 4.708l-.82-4.13c-.14-.578-.559-.77-1.077-.79z" fill="#FAA61A"/>
     </svg>
   )
 }
@@ -317,9 +320,9 @@ function MastercardIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <circle cx="15" cy="12" r="6.5" fill="#EB001B"/>
-      <circle cx="23" cy="12" r="6.5" fill="#F79E1B"/>
-      <path d="M19 7a6.5 6.5 0 000 10 6.5 6.5 0 000-10z" fill="#FF5F00"/>
+      <circle cx="15" cy="12" r="7" fill="#EB001B"/>
+      <circle cx="23" cy="12" r="7" fill="#F79E1B"/>
+      <path fillRule="evenodd" clipRule="evenodd" d="M19 17.64a6.97 6.97 0 002.5-5.36c0-2.17-.99-4.11-2.5-5.4A6.971 6.971 0 0016.5 12a6.97 6.97 0 002.5 5.64z" fill="#FF5F00"/>
     </svg>
   )
 }
@@ -328,7 +331,7 @@ function AmexIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="#006FCF"/>
-      <path d="M5 12.5l.8-2h1.5l.8 2h1.3l-.8-2h.8l-.8-2h-1.5l-.8 2H5l.8-2H4.5l-1.5 4h2zm4.5-4h2v4h-2v-4zm3 0l1.5 2.5V8.5h1.5l1.5 2.5V8.5h1.5v4h-2l-1.3-2v2h-2.7v-4zm7.5 0h4v1h-2.5v.5h2.5v1h-2.5v.5h2.5v1h-4v-4zm5 0h2c1.2 0 1.8.6 1.8 1.3 0 .5-.3.9-.8 1.1l1 1.6h-1.7l-.8-1.3h-.5v1.3h-1.5v-4h.5zm1.5 1.5h.5c.4 0 .5-.2.5-.4s-.2-.4-.5-.4H26v.8zm3 2.5v-4h1.5v4H29zm2-4h2.5c.8 0 1.4.3 1.7.8l-1 .8c-.2-.3-.4-.4-.8-.4h-.9v.4h1.5v.8h-1.5v.4h.9c.4 0 .6-.2.8-.4l1 .8c-.3.5-.9.8-1.7.8H31v-4z" fill="white"/>
+      <path fillRule="evenodd" clipRule="evenodd" d="M7.857 10.326l-.755 1.784h1.51l-.755-1.784zm15.714 2.388h-1.898v-.778h1.847v-1.162h-1.847v-.716h1.949l.898 1.325-.949 1.331zm-4.896-2.656h2.133l.632.87.663-.87h2.122v4.648l-1.724-2.412-.02.028 1.693 2.384h-1.254l-.652-.891-.663.891h-3.96l-.367-.865h-.806l-.366.865h-1.366l1.765-4.05-.02-.043-1.693 2.287h-1.377l-1.754-2.357v2.4h-2.23l-.366-.865H8.26l-.367.865H6.5l1.806-4.285h1.56l1.719 4.062V10.058h1.714l1.5 2.076 1.438-2.076h1.438v4.648z" fill="white"/>
     </svg>
   )
 }
@@ -337,10 +340,11 @@ function ApplePayIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <path d="M10.8 8c.4-.5.6-1.1.5-1.8-.5.1-1.2.4-1.6.9-.4.4-.7 1-.6 1.7.6 0 1.3-.3 1.7-.8zm.5 1c-.9 0-1.7.5-2.1.5-.5 0-1.1-.5-1.9-.5-1 0-1.9.6-2.4 1.5-1 1.8-.3 4.4.7 5.8.5.7 1.1 1.5 1.8 1.5.7 0 1-.5 1.9-.5s1.1.5 1.9.5c.8 0 1.3-.7 1.8-1.4.5-.8.8-1.6.8-1.6-1-.4-1.2-1.7-.2-2.7-.4-.6-1-1-1.6-1.1h-.7z" fill="#000"/>
-      <path d="M17.5 17.5v-8h2.7c1.4 0 2.4 1 2.4 2.3s-1 2.3-2.4 2.3H18.5v3.4h-1zm1-4.3h1.4c.9 0 1.5-.5 1.5-1.4s-.6-1.4-1.5-1.4h-1.4v2.8z" fill="#000"/>
-      <path d="M23.5 14.3c0-1.4 1-2.3 2.9-2.4l2.1-.1v-.5c0-.9-.5-1.3-1.5-1.3-.7 0-1.3.4-1.4 1h-1c.1-1.1 1-1.9 2.5-1.9s2.3.8 2.3 2.1v4.3h-.9v-1h0c-.3.7-1 1.1-1.9 1.1-1.2 0-2-.7-2-.9v-.4h-.1zm5-.5v-.7l-1.9.1c-.9.1-1.5.5-1.5 1.1s.5 1 1.3 1c1 0 2.1-.6 2.1-1.5z" fill="#000"/>
-      <path d="M31.5 18.8v-.8c.1 0 .2 0 .4.1.5 0 .9-.3 1.1-.9l.1-.3-2.3-6.4h1.1l1.7 5.4h0l1.7-5.4h1l-2.3 6.8c-.5 1.4-1.1 1.8-2.2 1.8-.1-.1-.2-.1-.3-.1v-.2z" fill="#000"/>
+      <path d="M11.195 8.414c.335-.42.561-.996.502-1.572-.486.05-1.076.324-1.424.733-.313.363-.585.942-.513 1.498.544.042 1.1-.276 1.435-.659z" fill="#000"/>
+      <path d="M11.69 9.115c-.79-.047-1.463.448-1.84.448-.376 0-.957-.425-1.578-.413-.813.012-1.562.473-1.98 1.2-.845 1.463-.216 3.63.605 4.818.405.585.887 1.244 1.52 1.22.61-.024.84-.394 1.577-.394.737 0 .944.394 1.59.382.656-.012 1.07-.597 1.475-1.182.461-.673.65-1.325.663-1.36-.013-.012-1.27-.49-1.283-1.94-.012-1.21.988-1.788 1.033-1.823-.563-.83-1.439-.922-1.749-.947l-.033-.009z" fill="#000"/>
+      <path d="M18.2 17.8V7.4h3.134c1.657 0 2.82 1.152 2.82 2.816 0 1.664-1.18 2.823-2.85 2.823h-2.043V17.8H18.2zm1.06-5.668h1.693c1.156 0 1.814-.619 1.814-1.716 0-1.097-.658-1.713-1.81-1.713h-1.698v3.43z" fill="#000"/>
+      <path d="M24.82 15.4c0-1.074.824-1.732 2.29-1.813l1.687-.094v-.486c0-.684-.46-1.094-1.231-1.094-.71 0-1.172.36-1.28.913h-.972c.066-1.058.939-1.833 2.3-1.833 1.346 0 2.211.744 2.211 1.905v3.998h-1.002v-.967h-.024c-.297.642-.946 1.055-1.695 1.055-1.054 0-1.784-.65-1.784-1.584zm3.977-.476v-.498l-1.518.09c-.757.049-1.186.394-1.186.934 0 .552.442.913 1.12.913.88 0 1.584-.607 1.584-1.44z" fill="#000"/>
+      <path d="M31.015 20v-.894c.075.012.243.018.33.018.474 0 .728-.199.886-.71l.095-.305-2.14-5.922h1.085l1.595 5.092h.024l1.594-5.092h1.056L33.307 18c-.49 1.366-1.054 1.806-2.236 1.806-.088 0-.264-.006-.356-.012z" fill="#000"/>
     </svg>
   )
 }
@@ -349,13 +353,13 @@ function GooglePayIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <path d="M17.1 12v3h-1V7.5h2.6c.6 0 1.2.2 1.6.6.4.4.6 1 .6 1.6s-.2 1.1-.6 1.6c-.4.4-1 .6-1.6.6h-1.6V12zm0-3.6v2.7h1.7c.4 0 .8-.2 1-.4.3-.3.4-.6.4-1s-.1-.7-.4-1c-.3-.3-.6-.4-1-.4h-1.7v.1z" fill="#5F6368"/>
-      <path d="M23.4 9.5c.7 0 1.3.2 1.7.6.4.4.6.9.6 1.6v3.3h-1v-.7c-.3.6-.9.9-1.6.9-.6 0-1.1-.2-1.5-.5-.4-.3-.5-.8-.5-1.2 0-.5.2-.9.5-1.2.4-.3.9-.5 1.6-.5.5 0 1 .1 1.3.4v-.3c0-.4-.2-.7-.4-1-.3-.2-.6-.4-1-.4-.6 0-1.1.3-1.4.8l-.9-.5c.5-.7 1.2-1.1 2.1-1.1l.1-.2zm-1.1 4.1c0 .3.1.5.4.7.2.2.5.3.8.3.4 0 .9-.2 1.2-.5.3-.3.5-.7.5-1.1-.3-.3-.7-.4-1.3-.4-.4 0-.8.1-1 .3-.3.2-.5.4-.5.7h-.1z" fill="#5F6368"/>
-      <path d="M30.7 9.6l-3.5 8h-1l1.3-2.8-2.3-5.2h1.1l1.7 3.9 1.6-3.9h1.1z" fill="#5F6368"/>
-      <path d="M13 11.6c0-.3 0-.6-.1-.9H9v1.7h2.3c-.1.5-.4 1-.9 1.3v1.1h1.4c.8-.8 1.3-1.9 1.3-3.2h-.1z" fill="#4285F4"/>
-      <path d="M9 15c1.2 0 2.2-.4 2.9-1.1l-1.4-1.1c-.4.3-.9.4-1.5.4-1.1 0-2.1-.8-2.4-1.8H5.2v1.1c.7 1.5 2.2 2.5 3.8 2.5z" fill="#34A853"/>
-      <path d="M6.6 11.4c-.1-.3-.2-.6-.2-.9s.1-.6.2-.9V8.5H5.2c-.2.5-.4 1-.4 1.6s.1 1.1.4 1.6l1.4-1v-.3z" fill="#FBBC04"/>
-      <path d="M9 8.2c.6 0 1.2.2 1.6.6l1.2-1.2c-.8-.7-1.7-1.1-2.8-1.1-1.6 0-3 1-3.8 2.5l1.4 1.1c.3-1 1.3-1.8 2.4-1.9z" fill="#EA4335"/>
+      <path d="M17.706 12.076v2.861h-.91V7.5h2.416c.58-.012 1.138.21 1.555.617.428.395.667.95.66 1.53a2.09 2.09 0 01-.66 1.556 2.148 2.148 0 01-1.555.605h-1.506v.268zm0-3.62v2.628h1.531c.355.011.698-.125.95-.378a1.27 1.27 0 00.389-.938 1.32 1.32 0 00-.39-.956 1.265 1.265 0 00-.949-.356h-1.531z" fill="#5F6368"/>
+      <path d="M23.876 9.754c.679 0 1.214.181 1.606.545.392.363.588.86.588 1.492v3.062h-.87v-.69h-.039c-.38.569-.886.853-1.52.853-.54 0-.995-.161-1.362-.482-.367-.321-.55-.73-.55-1.225 0-.518.186-.93.559-1.236.373-.306.87-.46 1.492-.46.531 0 .969.098 1.314.293v-.206c0-.347-.138-.644-.414-.89a1.41 1.41 0 00-.947-.369c-.547 0-.98.231-1.296.693l-.802-.505c.468-.682 1.148-1.022 2.04-1.022l.201-.153zm-1.16 3.935c0 .263.108.483.324.66.216.176.471.265.766.265.415 0 .797-.157 1.146-.47.349-.314.523-.68.523-1.1-.279-.222-.67-.334-1.171-.334-.365 0-.67.09-.912.27-.243.179-.364.412-.364.7l-.312.009z" fill="#5F6368"/>
+      <path d="M31.107 9.908l-3.012 6.927h-.94l1.118-2.408-1.982-4.519h.99l1.427 3.44h.02l1.39-3.44h.99z" fill="#5F6368"/>
+      <path d="M14.093 11.713c0-.266-.022-.532-.068-.794h-4.32v1.502h2.472a2.116 2.116 0 01-.917 1.39v1.152h1.483a4.476 4.476 0 001.35-3.25z" fill="#4285F4"/>
+      <path d="M9.706 15.992c1.24 0 2.281-.411 3.042-1.114l-1.483-1.152c-.41.276-.935.44-1.559.44-1.2 0-2.216-.81-2.58-1.9H5.6v1.189a4.6 4.6 0 004.106 2.537z" fill="#34A853"/>
+      <path d="M7.126 12.266a2.76 2.76 0 010-1.758V9.32H5.6a4.6 4.6 0 000 4.134l1.526-1.188z" fill="#FBBC04"/>
+      <path d="M9.706 8.608c.677-.011 1.329.246 1.822.72l1.36-1.36a4.426 4.426 0 00-3.182-1.24A4.6 4.6 0 005.6 9.265l1.526 1.189c.364-1.09 1.38-1.846 2.58-1.846z" fill="#EA4335"/>
     </svg>
   )
 }
@@ -368,6 +372,15 @@ const paymentMethodIcons: Record<string, React.FC<{ className?: string }>> = {
   amex: AmexIcon,
   applepay: ApplePayIcon,
   googlepay: GooglePayIcon,
+}
+
+// Skeleton loading component for media
+function MediaSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn("animate-pulse bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 bg-[length:200%_100%]", className)}
+      style={{ animation: "shimmer 1.5s ease-in-out infinite" }}
+    />
+  )
 }
 
 // ====== ABOUT SECTION - UNIFIED ======
@@ -399,21 +412,43 @@ function UnifiedAboutSection({
   const contentRef = useRef<HTMLDivElement>(null)
   const [hoveredField, setHoveredField] = useState<"headline" | "content" | null>(null)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [mediaLoading, setMediaLoading] = useState<Record<string, boolean>>({})
 
   // Media carousel navigation handlers
   const mediaItems = settings.mediaItems || []
   const hasMultipleMedia = mediaItems.length > 1
 
+  // Smooth transition handler
+  const handleMediaTransition = (newIndex: number) => {
+    if (isTransitioning || newIndex === currentMediaIndex) return
+    setIsTransitioning(true)
+    setCurrentMediaIndex(newIndex)
+    // Reset transition state after animation completes
+    setTimeout(() => setIsTransitioning(false), 400)
+  }
+
   const goToPrevMedia = () => {
-    setCurrentMediaIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))
+    const newIndex = currentMediaIndex === 0 ? mediaItems.length - 1 : currentMediaIndex - 1
+    handleMediaTransition(newIndex)
   }
 
   const goToNextMedia = () => {
-    setCurrentMediaIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))
+    const newIndex = currentMediaIndex === mediaItems.length - 1 ? 0 : currentMediaIndex + 1
+    handleMediaTransition(newIndex)
   }
 
   const goToMediaIndex = (index: number) => {
-    setCurrentMediaIndex(index)
+    handleMediaTransition(index)
+  }
+
+  // Track media loading state
+  const handleMediaLoad = (id: string) => {
+    setMediaLoading(prev => ({ ...prev, [id]: false }))
+  }
+
+  const handleMediaLoadStart = (id: string) => {
+    setMediaLoading(prev => ({ ...prev, [id]: true }))
   }
 
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
@@ -549,19 +584,40 @@ function UnifiedAboutSection({
               <div className="mb-6">
                 {/* Carousel Container */}
                 <div className="relative group">
-                  {/* Current Media Item */}
+                  {/* Carousel Track with smooth sliding animation */}
                   <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                    {(() => {
-                      const item = mediaItems[currentMediaIndex]
-                      if (!item) return null
-                      return (
-                        <>
+                    <div
+                      className="flex h-full transition-transform duration-400 ease-out"
+                      style={{
+                        transform: `translateX(-${currentMediaIndex * 100}%)`,
+                        transitionDuration: '400ms',
+                        transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
+                      }}
+                    >
+                      {mediaItems.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className="relative w-full h-full flex-shrink-0"
+                          style={{ minWidth: '100%' }}
+                        >
+                          {/* Skeleton loader shown while media loads */}
+                          {mediaLoading[item.id] !== false && item.type === "image" && (
+                            <div className="absolute inset-0 z-10">
+                              <MediaSkeleton className="w-full h-full rounded-lg" />
+                            </div>
+                          )}
+
                           {item.type === "image" ? (
                             <Image
                               src={item.url}
                               alt={item.caption || ""}
                               fill
-                              className="object-cover"
+                              className={cn(
+                                "object-cover transition-opacity duration-300",
+                                mediaLoading[item.id] !== false ? "opacity-0" : "opacity-100"
+                              )}
+                              onLoadStart={() => handleMediaLoadStart(item.id)}
+                              onLoad={() => handleMediaLoad(item.id)}
                             />
                           ) : item.type === "youtube" ? (
                             <iframe
@@ -576,11 +632,12 @@ function UnifiedAboutSection({
                               className="w-full h-full object-cover"
                               controls
                               playsInline
+                              poster={item.thumbnailUrl}
                             />
                           )}
-                        </>
-                      )
-                    })()}
+                        </div>
+                      ))}
+                    </div>
 
                     {/* Navigation Arrows - always visible on mobile, hover on desktop */}
                     {hasMultipleMedia && (
@@ -588,9 +645,11 @@ function UnifiedAboutSection({
                         {/* Left Arrow */}
                         <button
                           onClick={goToPrevMedia}
+                          disabled={isTransitioning}
                           className={cn(
-                            "absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-opacity z-10",
-                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                            "absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-all duration-200 z-20",
+                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                            isTransitioning && "cursor-not-allowed opacity-50"
                           )}
                           aria-label="Previous media"
                         >
@@ -601,9 +660,11 @@ function UnifiedAboutSection({
                         {/* Right Arrow */}
                         <button
                           onClick={goToNextMedia}
+                          disabled={isTransitioning}
                           className={cn(
-                            "absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-opacity z-10",
-                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                            "absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-all duration-200 z-20",
+                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                            isTransitioning && "cursor-not-allowed opacity-50"
                           )}
                           aria-label="Next media"
                         >
@@ -622,11 +683,13 @@ function UnifiedAboutSection({
                         <button
                           key={index}
                           onClick={() => goToMediaIndex(index)}
+                          disabled={isTransitioning}
                           className={cn(
-                            "w-2 h-2 rounded-full transition-all",
+                            "w-2 h-2 rounded-full transition-all duration-300",
                             index === currentMediaIndex
                               ? "bg-current w-4"
-                              : "bg-current opacity-40 hover:opacity-60"
+                              : "bg-current opacity-40 hover:opacity-60",
+                            isTransitioning && "cursor-not-allowed"
                           )}
                           style={{ color: textColor || "#374151" }}
                           aria-label={`Go to media ${index + 1}`}

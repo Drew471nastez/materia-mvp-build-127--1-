@@ -1490,16 +1490,29 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   </SortableContext>
                 </DndContext>
 
-                {/* About section - always at bottom, not draggable */}
+                {/* About section - always at bottom, dedicated bar like Header */}
                 {aboutSection && (
-                  <SortableSectionItem
-                    key={aboutSection.id}
-                    section={aboutSection}
-                    isSelected={selectedSectionId === aboutSection.id}
-                    onSelect={() => setSelectedSectionId(aboutSection.id)}
-                    onToggleVisibility={() => handleToggleVisibility(aboutSection)}
-                    onDelete={() => removeSection(aboutSection.id)}
-                  />
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 cursor-pointer transition-all",
+                      selectedSectionId === aboutSection.id
+                        ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
+                        : "border-transparent hover:bg-muted/50",
+                    )}
+                    onClick={() => setSelectedSectionId(aboutSection.id)}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+                        selectedSectionId === aboutSection.id
+                          ? "bg-sky-100 text-sky-600 dark:bg-sky-900 dark:text-sky-400"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      <Info className="h-5 w-5" />
+                    </span>
+                    <span className="flex-1 text-sm font-medium">About</span>
+                  </div>
                 )}
               </>
             )
@@ -3752,6 +3765,196 @@ function ReviewsSettingsForm({
   )
 }
 
+// Helper function to extract YouTube video ID
+function extractYouTubeIdForThumbnail(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /^([a-zA-Z0-9_-]{11})$/, // Direct video ID
+  ]
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match) return match[1]
+  }
+  return null
+}
+
+// Sortable Media Item Component
+function SortableMediaItem({
+  item,
+  onRemove,
+  onUpdateCaption,
+}: {
+  item: AboutMediaItem
+  onRemove: (id: string) => void
+  onUpdateCaption: (id: string, caption: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  // Get YouTube thumbnail URL
+  const getYouTubeThumbnail = (url: string) => {
+    const videoId = extractYouTubeIdForThumbnail(url)
+    return videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "border rounded-lg p-2 space-y-2 bg-background",
+        isDragging && "opacity-50 shadow-lg z-50"
+      )}
+    >
+      <div className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="absolute top-1 left-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center z-10 cursor-grab touch-none"
+          aria-label="Drag to reorder"
+        >
+          <GripVertical className="w-3 h-3 text-white" />
+        </button>
+
+        {item.type === "image" ? (
+          <img
+            src={item.url}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        ) : item.type === "youtube" ? (
+          // Show YouTube thumbnail preview
+          (() => {
+            const thumbnailUrl = getYouTubeThumbnail(item.url)
+            return thumbnailUrl ? (
+              <div className="relative w-full h-full">
+                <img
+                  src={thumbnailUrl}
+                  alt="YouTube video thumbnail"
+                  className="w-full h-full object-cover"
+                />
+                {/* YouTube play button overlay */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+                    <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1" />
+                  </div>
+                </div>
+                <div className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium">
+                  YouTube
+                </div>
+              </div>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-red-100">
+                <div className="text-center">
+                  <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-1">
+                    <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                  </div>
+                  <p className="text-[10px] text-red-600">YouTube</p>
+                </div>
+              </div>
+            )
+          })()
+        ) : (
+          // Show video preview for uploaded videos
+          <div className="relative w-full h-full">
+            <video
+              src={item.url}
+              className="w-full h-full object-cover"
+              muted
+              preload="metadata"
+              poster={item.thumbnailUrl}
+            />
+            {/* Video play button overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1" />
+              </div>
+            </div>
+            <div className="absolute bottom-1 left-1 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium">
+              Video
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => onRemove(item.id)}
+          className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        >
+          <X className="w-3 h-3 text-white" />
+        </button>
+      </div>
+      {/* Caption Input */}
+      <Input
+        value={item.caption || ""}
+        onChange={(e) => onUpdateCaption(item.id, e.target.value)}
+        placeholder="Add caption (optional)"
+        className="h-8 text-xs"
+      />
+    </div>
+  )
+}
+
+// Media Items List with Drag and Drop
+function MediaItemsList({
+  mediaItems,
+  onRemove,
+  onReorder,
+  onUpdateCaption,
+}: {
+  mediaItems: AboutMediaItem[]
+  onRemove: (id: string) => void
+  onReorder: (items: AboutMediaItem[]) => void
+  onUpdateCaption: (id: string, caption: string) => void
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const oldIndex = mediaItems.findIndex((item) => item.id === active.id)
+      const newIndex = mediaItems.findIndex((item) => item.id === over.id)
+      const newItems = arrayMove(mediaItems, oldIndex, newIndex)
+      onReorder(newItems)
+    }
+  }
+
+  return (
+    <div className="space-y-3 pt-2">
+      <Label className="text-xs text-muted-foreground">Added Media ({mediaItems.length})</Label>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={mediaItems.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-3">
+            {mediaItems.map((item) => (
+              <SortableMediaItem
+                key={item.id}
+                item={item}
+                onRemove={onRemove}
+                onUpdateCaption={onUpdateCaption}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
+  )
+}
+
 function AboutSettingsForm({
   settings,
   onChange,
@@ -3870,14 +4073,14 @@ function AboutSettingsForm({
       <div className="space-y-3 pt-2">
         <Label className="text-sm font-normal">Media</Label>
         <p className="text-xs text-muted-foreground">
-          Add up to 5 images and 1 video to showcase your shop
+          Add up to 5 images and 2 videos to showcase your shop. Drag to reorder.
         </p>
 
         {/* Count current media */}
         {(() => {
           const imageCount = (settings.mediaItems || []).filter(m => m.type === "image").length
           const videoCount = (settings.mediaItems || []).filter(m => m.type === "video" || m.type === "youtube").length
-          const hasVideo = videoCount > 0
+          const hasMaxVideos = videoCount >= 2
           const hasMaxImages = imageCount >= 5
 
           return (
@@ -3899,12 +4102,12 @@ function AboutSettingsForm({
                 </div>
               )}
 
-              {/* Video Upload - only if no video yet */}
-              {!hasVideo && (
+              {/* Video Upload - only if less than 2 videos */}
+              {!hasMaxVideos && (
                 <>
                   {/* YouTube URL Input */}
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Add YouTube Video (0/1)</Label>
+                    <Label className="text-xs text-muted-foreground">Add YouTube Video ({videoCount}/2)</Label>
                     <div className="flex gap-2">
                       <Input
                         value={youtubeUrl}
@@ -3943,9 +4146,9 @@ function AboutSettingsForm({
                 </>
               )}
 
-              {hasVideo && (
+              {hasMaxVideos && (
                 <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                  Video limit reached (1/1). Remove existing video to add a new one.
+                  Video limit reached (2/2). Remove a video to add a new one.
                 </p>
               )}
 
@@ -3958,65 +4161,19 @@ function AboutSettingsForm({
           )
         })()}
 
-        {/* Media Items List with Captions */}
+        {/* Media Items List with Captions - Drag and Drop Enabled */}
         {settings.mediaItems && settings.mediaItems.length > 0 && (
-          <div className="space-y-3 pt-2">
-            <Label className="text-xs text-muted-foreground">Added Media</Label>
-            <div className="space-y-3">
-              {settings.mediaItems.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="border rounded-lg p-2 space-y-2"
-                >
-                  <div className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
-                    {item.type === "image" ? (
-                      <img
-                        src={item.url}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : item.type === "youtube" ? (
-                      <div className="w-full h-full flex items-center justify-center bg-red-100">
-                        <div className="text-center">
-                          <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-1">
-                            <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
-                          </div>
-                          <p className="text-[10px] text-red-600">YouTube</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-blue-100">
-                        <div className="text-center">
-                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-1">
-                            <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
-                          </div>
-                          <p className="text-[10px] text-blue-600">Video</p>
-                        </div>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeMediaItem(item.id)}
-                      className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-3 h-3 text-white" />
-                    </button>
-                  </div>
-                  {/* Caption Input */}
-                  <Input
-                    value={item.caption || ""}
-                    onChange={(e) => {
-                      const updatedItems = [...(settings.mediaItems || [])]
-                      updatedItems[index] = { ...item, caption: e.target.value }
-                      onChange({ mediaItems: updatedItems })
-                    }}
-                    placeholder="Add caption (optional)"
-                    className="h-8 text-xs"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+          <MediaItemsList
+            mediaItems={settings.mediaItems}
+            onRemove={removeMediaItem}
+            onReorder={(newItems) => onChange({ mediaItems: newItems })}
+            onUpdateCaption={(id, caption) => {
+              const updatedItems = (settings.mediaItems || []).map(item =>
+                item.id === id ? { ...item, caption } : item
+              )
+              onChange({ mediaItems: updatedItems })
+            }}
+          />
         )}
       </div>
     </div>

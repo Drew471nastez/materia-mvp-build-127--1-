@@ -22,10 +22,25 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
             ? "flex-row justify-between py-4"
             : "flex-col gap-3 py-4 sm:flex-row sm:justify-between"
       )}>
-        {/* Mobile: Centered branding */}
+        {/* Mobile: Powered by above, links below centered */}
         {useMobileLayout ? (
           <>
-            {/* Links first on mobile - centered */}
+            {/* Powered by centered at top */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-400">Powered by</span>
+              <a
+                href="/"
+                className="inline-flex items-center"
+                aria-label="Go to Storelib homepage"
+              >
+                <img
+                  src="/images/design-mode/storelib.png"
+                  alt="Storelib"
+                  className="h-[24px] w-auto"
+                />
+              </a>
+            </div>
+            {/* Links centered below */}
             <div className="flex items-center gap-4">
               <a
                 href="/privacy"
@@ -39,21 +54,6 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
                 className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
               >
                 Terms
-              </a>
-            </div>
-            {/* Powered by centered below */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-400">Powered by</span>
-              <a
-                href="/"
-                className="inline-flex items-center"
-                aria-label="Go to Storelib homepage"
-              >
-                <img
-                  src="/images/design-mode/storelib.png"
-                  alt="Storelib"
-                  className="h-[24px] w-auto"
-                />
               </a>
             </div>
           </>
@@ -91,12 +91,30 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
             </div>
           </>
         ) : (
-          /* Responsive: Mobile-first that adapts to desktop */
+          /* Responsive: Mobile-first (Powered by above, links below on mobile) that adapts to desktop */
           <>
-            {/* Links - top on mobile, right on desktop */}
+            {/* Powered by - top on mobile, left on desktop */}
+            <div className={cn(
+              "flex items-center gap-1.5",
+              "order-1 sm:order-1"
+            )}>
+              <span className="text-xs sm:text-sm text-gray-400 sm:text-gray-500">Powered by</span>
+              <a
+                href="/"
+                className="inline-flex items-center"
+                aria-label="Go to Storelib homepage"
+              >
+                <img
+                  src="/images/design-mode/storelib.png"
+                  alt="Storelib"
+                  className="h-[24px] sm:h-[32px] w-auto sm:translate-y-[1px]"
+                />
+              </a>
+            </div>
+            {/* Links - bottom on mobile (centered), right on desktop */}
             <div className={cn(
               "flex items-center",
-              "gap-4 order-1 sm:order-2 sm:gap-6"
+              "gap-4 order-2 sm:order-2 sm:gap-6"
             )}>
               <a
                 href="/privacy"
@@ -111,24 +129,6 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
               >
                 <span className="sm:hidden">Terms</span>
                 <span className="hidden sm:inline">Terms & Conditions</span>
-              </a>
-            </div>
-            {/* Powered by - bottom on mobile, left on desktop */}
-            <div className={cn(
-              "flex items-center gap-1.5",
-              "order-2 sm:order-1"
-            )}>
-              <span className="text-xs sm:text-sm text-gray-400 sm:text-gray-500">Powered by</span>
-              <a
-                href="/"
-                className="inline-flex items-center"
-                aria-label="Go to Storelib homepage"
-              >
-                <img
-                  src="/images/design-mode/storelib.png"
-                  alt="Storelib"
-                  className="h-[24px] sm:h-[32px] w-auto sm:translate-y-[1px]"
-                />
               </a>
             </div>
           </>
