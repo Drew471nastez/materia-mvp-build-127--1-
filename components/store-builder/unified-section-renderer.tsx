@@ -80,6 +80,7 @@ export interface CreatorData {
   avatar_url?: string | null
   show_total_sales_badge?: boolean
   slug?: string | null
+  created_at?: string | null
 }
 
 // Profile data type
@@ -87,6 +88,7 @@ export interface ProfileData {
   display_name?: string | null
   avatar_url?: string | null
   username?: string | null
+  created_at?: string | null
 }
 
 // Unified props for all section rendering
@@ -108,6 +110,8 @@ export interface UnifiedSectionProps {
   // For About section
   sellerMemberSince?: string // ISO date string
   sellerTotalSales?: number
+  // For inline editing in About section
+  onUpdateAboutSettings?: (settings: Partial<AboutSettings>) => void
 }
 
 // Helper function to get product href
@@ -291,20 +295,29 @@ function UnifiedAboutSection({
   settings,
   isMobile,
   isPreviewMode,
+  isEditorMode,
   creatorName,
   memberSince,
   totalSales,
+  onUpdateSettings,
 }: {
   settings: AboutSettings
   isMobile?: boolean
   isPreviewMode?: boolean
+  isEditorMode?: boolean
   creatorName?: string
   memberSince?: string
   totalSales?: number
+  onUpdateSettings?: (settings: Partial<AboutSettings>) => void
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [needsTruncation, setNeedsTruncation] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+
+  // Inline edit modal state
+  const [editModalOpen, setEditModalOpen] = useState<"headline" | "content" | null>(null)
+  const [editValue, setEditValue] = useState("")
+  const [hoveredField, setHoveredField] = useState<"headline" | "content" | null>(null)
 
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
 
@@ -312,10 +325,12 @@ function UnifiedAboutSection({
   const textColor = settings.colors?.textColor || undefined
   const backgroundColor = settings.colors?.backgroundColor || "transparent"
 
-  // Use settings values or fall back to props
-  const displayName = settings.sellerName || creatorName || "Seller"
-  const displayMemberSince = settings.memberSince || memberSince
-  const displayTotalSales = settings.totalSales ?? totalSales ?? 0
+  // Always use creatorName from props for the "About [Name]" heading (non-editable)
+  const displayName = creatorName || "Seller"
+  // Use actual totalSales from props, not from settings (settings value is deprecated)
+  const displayTotalSales = totalSales ?? 0
+  // Use actual memberSince from props
+  const displayMemberSince = memberSince
   const maxContentHeight = settings.maxContentHeight ?? 150
 
   // Format member since date to year
@@ -332,26 +347,41 @@ function UnifiedAboutSection({
   }, [settings.aboutContent, maxContentHeight])
 
   // Determine if we have headline or content to show
-  const hasContent = settings.headline || settings.aboutContent
+  const hasHeadline = !!settings.headline
+  const hasContent = !!settings.aboutContent
 
-  // Compute gradient color for fade effect based on background
-  const getFadeGradient = () => {
-    if (!backgroundColor || backgroundColor === "transparent") {
-      return "from-transparent to-white"
+  // Handle opening edit modal
+  const handleOpenEditModal = (field: "headline" | "content") => {
+    if (!isEditorMode) return
+    setEditValue(field === "headline" ? (settings.headline || "") : (settings.aboutContent || ""))
+    setEditModalOpen(field)
+  }
+
+  // Handle saving edit
+  const handleSaveEdit = () => {
+    if (!onUpdateSettings || !editModalOpen) return
+    if (editModalOpen === "headline") {
+      onUpdateSettings({ headline: editValue })
+    } else {
+      onUpdateSettings({ aboutContent: editValue })
     }
-    // For solid colors, fade to that color
-    return `from-transparent`
+    setEditModalOpen(null)
+    setEditValue("")
+  }
+
+  // Handle discard edit
+  const handleDiscardEdit = () => {
+    setEditModalOpen(null)
+    setEditValue("")
   }
 
   return (
     <SectionContainer isMobile={isMobile}>
       <div
-        className={cn("w-full", isMobile ? "py-6" : "py-12")}
+        className={cn("w-full", isMobile ? "py-6 px-4" : "py-12 px-4")}
         style={{
           paddingTop: spacing?.paddingTop,
           paddingBottom: spacing?.paddingBottom,
-          paddingLeft: spacing?.paddingLeft,
-          paddingRight: spacing?.paddingRight,
           backgroundColor,
         }}
       >
@@ -361,7 +391,7 @@ function UnifiedAboutSection({
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
 
-        <div className={cn("flex", isMobile ? "flex-col gap-8" : "flex-row gap-12")}>
+        <div className={cn("flex max-w-5xl mx-auto", isMobile ? "flex-col gap-6" : "flex-row gap-12")}>
           {/* Left Column - Seller Info */}
           <div className={cn("flex-shrink-0", isMobile ? "w-full" : "w-64")}>
             <h3
@@ -393,14 +423,14 @@ function UnifiedAboutSection({
                   </p>
                 </div>
 
-                {/* Member Since */}
+                {/* Member Since / Year Joined */}
                 {memberSinceYear && (
                   <div>
                     <p
                       className="text-xs uppercase tracking-wide mb-1"
                       style={{ color: textColor ? `${textColor}80` : "#6b7280" }}
                     >
-                      On Etsy since
+                      Joined
                     </p>
                     <p
                       className={cn("font-semibold", isMobile ? "text-xl" : "text-2xl")}
@@ -416,107 +446,155 @@ function UnifiedAboutSection({
 
           {/* Right Column - About Content */}
           <div className="flex-1 min-w-0">
-            {hasContent ? (
-              <>
-                {settings.headline && (
-                  <h4
-                    className={cn(
-                      "font-semibold mb-4",
-                      isMobile ? "text-xl" : "text-2xl"
-                    )}
-                    style={{ color: textColor || undefined }}
+            {/* Headline - with inline edit placeholder in editor mode */}
+            {hasHeadline ? (
+              <div
+                className="relative group"
+                onMouseEnter={() => setHoveredField("headline")}
+                onMouseLeave={() => setHoveredField(null)}
+              >
+                <h4
+                  className={cn(
+                    "font-semibold mb-4",
+                    isMobile ? "text-xl" : "text-2xl"
+                  )}
+                  style={{ color: textColor || undefined }}
+                >
+                  {settings.headline}
+                </h4>
+                {/* Edit icon on hover - only in editor mode */}
+                {isEditorMode && hoveredField === "headline" && (
+                  <button
+                    onClick={() => handleOpenEditModal("headline")}
+                    className="absolute -right-8 top-0 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-opacity"
                   >
-                    {settings.headline}
-                  </h4>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
+              </div>
+            ) : (
+              // Placeholder for headline in editor mode
+              isEditorMode && (
+                <button
+                  onClick={() => handleOpenEditModal("headline")}
+                  className={cn(
+                    "flex items-center gap-2 mb-4 text-left transition-colors hover:opacity-80",
+                    isMobile ? "text-base" : "text-lg"
+                  )}
+                  style={{ color: textColor ? `${textColor}60` : "#9ca3af" }}
+                >
+                  <span className="text-lg font-bold">+</span>
+                  <span className="font-semibold">Add a story headline</span>
+                </button>
+              )
+            )}
+
+            {/* About Content - with inline edit placeholder in editor mode */}
+            {hasContent ? (
+              <div
+                className="relative group"
+                onMouseEnter={() => setHoveredField("content")}
+                onMouseLeave={() => setHoveredField(null)}
+              >
+                <div
+                  ref={contentRef}
+                  className={cn(
+                    "text-base leading-relaxed overflow-hidden transition-all duration-300",
+                    !isExpanded && needsTruncation && "relative"
+                  )}
+                  style={{
+                    maxHeight: !isExpanded && needsTruncation ? `${maxContentHeight}px` : undefined,
+                    color: textColor ? `${textColor}cc` : "#374151",
+                  }}
+                >
+                  <p className="whitespace-pre-wrap">{settings.aboutContent}</p>
+                </div>
+
+                {/* Edit icon on hover - only in editor mode */}
+                {isEditorMode && hoveredField === "content" && (
+                  <button
+                    onClick={() => handleOpenEditModal("content")}
+                    className="absolute -right-8 top-0 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-opacity"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Edit
+                  </button>
                 )}
 
-                {settings.aboutContent && (
-                  <div className="relative">
-                    <div
-                      ref={contentRef}
-                      className={cn(
-                        "text-base leading-relaxed overflow-hidden transition-all duration-300",
-                        !isExpanded && needsTruncation && "relative"
-                      )}
-                      style={{
-                        maxHeight: !isExpanded && needsTruncation ? `${maxContentHeight}px` : undefined,
-                        color: textColor ? `${textColor}cc` : "#374151",
-                      }}
-                    >
-                      <p className="whitespace-pre-wrap">{settings.aboutContent}</p>
-                    </div>
+                {/* Fade gradient and Read more button */}
+                {needsTruncation && !isExpanded && (
+                  <div
+                    className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
+                    style={{
+                      background: backgroundColor && backgroundColor !== "transparent"
+                        ? `linear-gradient(to bottom, transparent, ${backgroundColor})`
+                        : "linear-gradient(to bottom, transparent, white)"
+                    }}
+                  />
+                )}
 
-                    {/* Fade gradient and Read more button */}
-                    {needsTruncation && !isExpanded && (
-                      <div
-                        className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
-                        style={{
-                          background: backgroundColor && backgroundColor !== "transparent"
-                            ? `linear-gradient(to bottom, transparent, ${backgroundColor})`
-                            : "linear-gradient(to bottom, transparent, white)"
-                        }}
+                {needsTruncation && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className={cn(
+                      "mt-2 text-sm font-medium transition-colors hover:opacity-80",
+                      !isExpanded && "relative z-10"
+                    )}
+                    style={{ color: textColor || "#374151" }}
+                  >
+                    {isExpanded ? "Show less" : "Read more"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              // Placeholder for content in editor mode
+              isEditorMode && (
+                <button
+                  onClick={() => handleOpenEditModal("content")}
+                  className="flex items-center gap-2 text-left transition-colors hover:opacity-80"
+                  style={{ color: textColor ? `${textColor}60` : "#9ca3af" }}
+                >
+                  <span className="text-lg font-bold">+</span>
+                  <span>Add your story. Tell shoppers a little about your business.</span>
+                </button>
+              )
+            )}
+
+            {/* Media Items */}
+            {settings.mediaItems && settings.mediaItems.length > 0 && (
+              <div className={cn("mt-6 grid gap-4", isMobile ? "grid-cols-2" : "grid-cols-3")}>
+                {settings.mediaItems.map((item) => (
+                  <div key={item.id} className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+                    {item.type === "image" ? (
+                      <Image
+                        src={item.url}
+                        alt=""
+                        fill
+                        className="object-cover"
+                      />
+                    ) : item.type === "youtube" ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${extractYouTubeId(item.url)}`}
+                        className="w-full h-full"
+                        allowFullScreen
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      />
+                    ) : (
+                      <video
+                        src={item.url}
+                        className="w-full h-full object-cover"
+                        controls
+                        playsInline
                       />
                     )}
-
-                    {needsTruncation && (
-                      <button
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        className={cn(
-                          "mt-2 text-sm font-medium transition-colors hover:opacity-80",
-                          !isExpanded && "relative z-10"
-                        )}
-                        style={{ color: textColor || "#374151" }}
-                      >
-                        {isExpanded ? "Show less" : "Read more"}
-                      </button>
-                    )}
                   </div>
-                )}
-
-                {/* Media Items */}
-                {settings.mediaItems && settings.mediaItems.length > 0 && (
-                  <div className={cn("mt-6 grid gap-4", isMobile ? "grid-cols-2" : "grid-cols-3")}>
-                    {settings.mediaItems.map((item) => (
-                      <div key={item.id} className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                        {item.type === "image" ? (
-                          <Image
-                            src={item.url}
-                            alt=""
-                            fill
-                            className="object-cover"
-                          />
-                        ) : item.type === "youtube" ? (
-                          <iframe
-                            src={`https://www.youtube.com/embed/${extractYouTubeId(item.url)}`}
-                            className="w-full h-full"
-                            allowFullScreen
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          />
-                        ) : (
-                          <video
-                            src={item.url}
-                            className="w-full h-full object-cover"
-                            controls
-                            playsInline
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              // If no headline or content, just show placeholder in preview mode
-              isPreviewMode && (
-                <div className="text-center py-8">
-                  <p
-                    className="text-sm"
-                    style={{ color: textColor ? `${textColor}60` : "#9ca3af" }}
-                  >
-                    Add a headline and content in the section settings
-                  </p>
-                </div>
-              )
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -527,6 +605,48 @@ function UnifiedAboutSection({
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
       </div>
+
+      {/* Inline Edit Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center" onClick={handleDiscardEdit}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            className="relative bg-background max-w-md w-full mx-4 p-6 rounded-2xl shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4">
+              {editModalOpen === "headline" ? "Edit Headline" : "Edit About Content"}
+            </h3>
+            {editModalOpen === "headline" ? (
+              <input
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                placeholder="Enter headline..."
+                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                autoFocus
+              />
+            ) : (
+              <textarea
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                placeholder="Tell visitors about your shop, your story, what makes you unique..."
+                rows={6}
+                className="w-full px-3 py-2 border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-sky-500"
+                autoFocus
+              />
+            )}
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={handleDiscardEdit}>
+                Discard
+              </Button>
+              <Button onClick={handleSaveEdit}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </SectionContainer>
   )
 }
@@ -562,6 +682,7 @@ export function UnifiedSectionRenderer({
   globalSettings,
   sellerMemberSince,
   sellerTotalSales,
+  onUpdateAboutSettings,
 }: UnifiedSectionProps) {
   if (!section.settings.visible) return null
 
@@ -650,9 +771,11 @@ export function UnifiedSectionRenderer({
           settings={section.settings as AboutSettings}
           isMobile={isMobile}
           isPreviewMode={isPreviewMode}
+          isEditorMode={!!onSelect}
           creatorName={creatorName}
           memberSince={sellerMemberSince}
           totalSales={sellerTotalSales}
+          onUpdateSettings={onUpdateAboutSettings}
         />
       )}
     </div>

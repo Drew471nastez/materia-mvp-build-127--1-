@@ -233,6 +233,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings)
     // Get theme background color from published config
     const pageBackgroundColor = publishedConfig.globalColors?.backgroundColor
+    // Calculate total sales for About section
+    const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
 
     return (
       <div
@@ -253,11 +255,40 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           globalSettings={globalSettings}
         />
 
-        {publishedConfig.sections
-          .sort((a, b) => a.order - b.order)
-          .map((section) => (
-            <SectionRenderer key={section.id} section={section} products={productsData} globalSettings={globalSettings} />
-          ))}
+        {(() => {
+          // Separate About section to render last
+          const regularSections = publishedConfig.sections
+            .filter((s) => s.type !== "about")
+            .sort((a, b) => a.order - b.order)
+          const aboutSection = publishedConfig.sections.find((s) => s.type === "about")
+
+          return (
+            <>
+              {regularSections.map((section) => (
+                <SectionRenderer
+                  key={section.id}
+                  section={section}
+                  products={productsData}
+                  globalSettings={globalSettings}
+                  creatorName={profile.display_name || undefined}
+                />
+              ))}
+
+              {/* About section - always rendered last */}
+              {aboutSection && (
+                <SectionRenderer
+                  key={aboutSection.id}
+                  section={aboutSection}
+                  products={productsData}
+                  globalSettings={globalSettings}
+                  creatorName={profile.display_name || undefined}
+                  sellerMemberSince={profile.created_at}
+                  sellerTotalSales={totalSales}
+                />
+              )}
+            </>
+          )
+        })()}
 
         <SellerFooter />
       </div>

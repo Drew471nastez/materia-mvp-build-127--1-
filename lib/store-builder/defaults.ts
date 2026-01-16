@@ -1125,14 +1125,14 @@ export const defaultAboutSettings: AboutSettings = {
   spacing: {
     paddingTop: 48,
     paddingBottom: 48,
-    paddingLeft: 16,
-    paddingRight: 16,
+    paddingLeft: 0,
+    paddingRight: 0,
   },
   mobileSpacing: {
     paddingTop: 24,
     paddingBottom: 24,
-    paddingLeft: 12,
-    paddingRight: 12,
+    paddingLeft: 0,
+    paddingRight: 0,
   },
   colors: {
     backgroundColor: "transparent",

@@ -59,6 +59,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     selectedProductId,
     setSidebarMode,
     updateHeaderSettings,
+    updateSectionSettings,
   } = useStoreBuilder()
 
   const isMobile = previewDevice === "mobile"
@@ -71,6 +72,11 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
   const moreFromSellerProducts = selectedProductId
     ? products?.filter((p) => p.id !== selectedProductId) || []
     : products || []
+
+  // Calculate total sales from products for About section
+  const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
+  // Get member since date from profile or creator
+  const memberSince = profile?.created_at || creator?.created_at
 
   const [coverEditorOpen, setCoverEditorOpen] = useState(false)
 
@@ -421,6 +427,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
             {(() => {
               // Filter out announcement bar at position 0 (already rendered at top)
+              // Also filter out About section to render it separately at the bottom
               const sortedSections = [...draftConfig.sections].sort((a, b) => a.order - b.order)
               const topAnnouncementBarId = sortedSections.length > 0 &&
                 sortedSections[0].type === "announcement-bar" &&
@@ -428,24 +435,51 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   ? sortedSections[0].id
                   : null
 
-              return draftConfig.sections
-                .filter((s) => s.settings.visible && s.id !== topAnnouncementBarId)
+              const regularSections = draftConfig.sections
+                .filter((s) => s.settings.visible && s.id !== topAnnouncementBarId && s.type !== "about")
                 .sort((a, b) => a.order - b.order)
-                .map((section) => (
-                  <UnifiedSectionRenderer
-                    key={section.id}
-                    section={section}
-                    products={products}
-                    isMobile={isMobile}
-                    isPreviewMode={sectionsPreviewMode}
-                    isSelected={isEditorMode && selectedSectionId === section.id}
-                    onSelect={() => handleSelectSection(section.id)}
-                    moreFromSellerProducts={moreFromSellerProducts}
-                    creatorName={profile?.display_name}
-                    accentColor={draftConfig.globalSettings?.themeColors?.accent}
-                    globalSettings={draftConfig.globalSettings}
-                  />
-                ))
+
+              const aboutSection = draftConfig.sections.find((s) => s.type === "about" && s.settings.visible)
+
+              return (
+                <>
+                  {regularSections.map((section) => (
+                    <UnifiedSectionRenderer
+                      key={section.id}
+                      section={section}
+                      products={products}
+                      isMobile={isMobile}
+                      isPreviewMode={sectionsPreviewMode}
+                      isSelected={isEditorMode && selectedSectionId === section.id}
+                      onSelect={() => handleSelectSection(section.id)}
+                      moreFromSellerProducts={moreFromSellerProducts}
+                      creatorName={profile?.display_name}
+                      accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                      globalSettings={draftConfig.globalSettings}
+                    />
+                  ))}
+
+                  {/* About section - always rendered last (fixed at bottom) */}
+                  {aboutSection && (
+                    <UnifiedSectionRenderer
+                      key={aboutSection.id}
+                      section={aboutSection}
+                      products={products}
+                      isMobile={isMobile}
+                      isPreviewMode={sectionsPreviewMode}
+                      isSelected={isEditorMode && selectedSectionId === aboutSection.id}
+                      onSelect={() => handleSelectSection(aboutSection.id)}
+                      moreFromSellerProducts={moreFromSellerProducts}
+                      creatorName={profile?.display_name}
+                      accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                      globalSettings={draftConfig.globalSettings}
+                      sellerMemberSince={memberSince}
+                      sellerTotalSales={totalSales}
+                      onUpdateAboutSettings={(settings) => updateSectionSettings(aboutSection.id, settings)}
+                    />
+                  )}
+                </>
+              )
             })()}
 
             <SellerFooter isMobile={isMobile} />

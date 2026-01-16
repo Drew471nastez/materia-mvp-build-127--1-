@@ -344,7 +344,12 @@ function SortableSectionItem({
   onToggleVisibility,
   onDelete,
 }: SortableSectionItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id })
+  // About section is not draggable - always fixed at bottom
+  const isAboutSection = section.type === "about"
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: section.id,
+    disabled: isAboutSection,
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -359,19 +364,24 @@ function SortableSectionItem({
         "group flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 transition-all cursor-pointer",
         isSelected ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20" : "border-transparent hover:bg-muted/50",
         isDragging && "opacity-50 shadow-lg",
-        !section.settings.visible && section.type !== "reviews" && "opacity-50",
+        !section.settings.visible && section.type !== "reviews" && section.type !== "about" && "opacity-50",
       )}
       onClick={onSelect}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
-        aria-label="Drag to reorder"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
+      {/* Only show drag handle for non-about sections */}
+      {!isAboutSection ? (
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+          aria-label="Drag to reorder"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      ) : (
+        <div className="w-4" /> // Placeholder for spacing
+      )}
 
       <span
         className={cn(
@@ -384,9 +394,14 @@ function SortableSectionItem({
 
       <span className="flex-1 truncate text-sm font-medium">{sectionNames[section.type]}</span>
 
+      {/* Show "Fixed" label for About section */}
+      {isAboutSection && (
+        <span className="text-xs text-muted-foreground">Fixed</span>
+      )}
+
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* Reviews must always be present (cannot be hidden) */}
-        {section.type !== "reviews" && (
+        {/* Reviews and About must always be present (cannot be hidden) */}
+        {section.type !== "reviews" && section.type !== "about" && (
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -1456,20 +1471,42 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
           )}
 
           {/* Real draggable sections list (Reviews lives here like a normal section) */}
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={draftConfig.sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-              {draftConfig.sections.map((section) => (
-                <SortableSectionItem
-                  key={section.id}
-                  section={section}
-                  isSelected={selectedSectionId === section.id}
-                  onSelect={() => setSelectedSectionId(section.id)}
-                  onToggleVisibility={() => handleToggleVisibility(section)}
-                  onDelete={() => removeSection(section.id)}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+          {/* About section is excluded and rendered separately at bottom */}
+          {(() => {
+            const sortableSections = draftConfig.sections.filter((s) => s.type !== "about")
+            const aboutSection = draftConfig.sections.find((s) => s.type === "about")
+
+            return (
+              <>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={sortableSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                    {sortableSections.map((section) => (
+                      <SortableSectionItem
+                        key={section.id}
+                        section={section}
+                        isSelected={selectedSectionId === section.id}
+                        onSelect={() => setSelectedSectionId(section.id)}
+                        onToggleVisibility={() => handleToggleVisibility(section)}
+                        onDelete={() => removeSection(section.id)}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+
+                {/* About section - always at bottom, not draggable */}
+                {aboutSection && (
+                  <SortableSectionItem
+                    key={aboutSection.id}
+                    section={aboutSection}
+                    isSelected={selectedSectionId === aboutSection.id}
+                    onSelect={() => setSelectedSectionId(aboutSection.id)}
+                    onToggleVisibility={() => handleToggleVisibility(aboutSection)}
+                    onDelete={() => removeSection(aboutSection.id)}
+                  />
+                )}
+              </>
+            )
+          })()}
         </div>
       </div>
 
@@ -3751,26 +3788,16 @@ function AboutSettingsForm({
     }
   }
 
+  // About section only has top/bottom padding (left/right fixed at 0)
+  const paddingTop = settings.spacing?.paddingTop ?? 48
+  const paddingBottom = settings.spacing?.paddingBottom ?? 48
+
   return (
     <div className="space-y-4">
-      {/* Seller Name */}
-      <div className="space-y-2">
-        <Label className="text-sm font-normal">Seller Name</Label>
-        <Input
-          value={settings.sellerName || ""}
-          onChange={(e) => onChange({ sellerName: e.target.value })}
-          placeholder="Your shop name"
-          className="h-9"
-        />
-        <p className="text-xs text-muted-foreground">
-          Displayed as "About [Name]" in the section
-        </p>
-      </div>
-
       {/* Show Sales Stats Toggle */}
       <ToggleField
         label="Show Sales Stats"
-        description="Display sales count and member since date"
+        description="Display sales count and year joined"
         checked={settings.showSalesStats}
         onChange={(checked) => onChange({ showSalesStats: checked })}
       />
@@ -3784,6 +3811,9 @@ function AboutSettingsForm({
           placeholder="e.g., About my shop"
           className="h-9"
         />
+        <p className="text-xs text-muted-foreground">
+          You can also click the placeholder in the preview to edit
+        </p>
       </div>
 
       {/* About Content */}
@@ -3796,6 +3826,9 @@ function AboutSettingsForm({
           rows={6}
           className="resize-none"
         />
+        <p className="text-xs text-muted-foreground">
+          You can also click the placeholder in the preview to edit
+        </p>
       </div>
 
       {/* Max Content Height (for "Read more" truncation) */}
@@ -3814,6 +3847,42 @@ function AboutSettingsForm({
           unit="px"
         />
       </div>
+
+      {/* Spacing - only top/bottom */}
+      <div className="space-y-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Spacing</h4>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-normal">Top</Label>
+              <span className="text-xs text-muted-foreground">{paddingTop}px</span>
+            </div>
+            <PremiumSlider
+              value={[paddingTop]}
+              onValueChange={([value]) => onChange({ spacing: { ...settings.spacing, paddingTop: value, paddingLeft: 0, paddingRight: 0 } })}
+              min={0}
+              max={96}
+              step={4}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-normal">Bottom</Label>
+              <span className="text-xs text-muted-foreground">{paddingBottom}px</span>
+            </div>
+            <PremiumSlider
+              value={[paddingBottom]}
+              onValueChange={([value]) => onChange({ spacing: { ...settings.spacing, paddingBottom: value, paddingLeft: 0, paddingRight: 0 } })}
+              min={0}
+              max={96}
+              step={4}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Colors */}
+      <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
 
       {/* Media Section */}
       <div className="space-y-3 pt-2">
