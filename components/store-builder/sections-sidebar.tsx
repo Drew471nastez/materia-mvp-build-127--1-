@@ -74,6 +74,8 @@ import type {
   ProductCreatorBarSettings,
   StickyAddToCartSettings,
   ReviewsSettings,
+  AboutSettings,
+  AboutMediaItem,
   GlobalStoreSettings,
   ThemePreset,
   VerifiedBadgeType,
@@ -298,6 +300,7 @@ const sectionIcons: Record<
   "featured-products": <Grid className="h-5 w-5" />,
   "custom-html": <FileText className="h-5 w-5" />,
   reviews: <Star className="h-5 w-5" />,
+  about: <Info className="h-5 w-5" />,
 }
 
 const sectionNames: Record<
@@ -323,6 +326,7 @@ const sectionNames: Record<
   "featured-products": "Featured Products",
   "custom-html": "Custom HTML",
   reviews: "Reviews",
+  about: "About",
 }
 
 interface SortableSectionItemProps {
@@ -2234,6 +2238,8 @@ function SectionSettingsForm({
 
       {section.type === "reviews" && <ReviewsSettingsForm settings={settings as ReviewsSettings} onChange={onChange} />}
 
+      {section.type === "about" && <AboutSettingsForm settings={settings as AboutSettings} onChange={onChange} />}
+
       <SpacingSettings spacing={settings.spacing} onChange={(spacing) => onChange({ spacing })} />
       <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
     </div>
@@ -3708,6 +3714,216 @@ function ReviewsSettingsForm({
     <div className="space-y-4">
       <SpacingSettings spacing={settings.spacing} onChange={(spacing) => onChange({ spacing })} />
       <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
+    </div>
+  )
+}
+
+function AboutSettingsForm({
+  settings,
+  onChange,
+}: {
+  settings: AboutSettings
+  onChange: (settings: Partial<AboutSettings>) => void
+}) {
+  const [youtubeUrl, setYoutubeUrl] = useState("")
+
+  const addMediaItem = (type: "image" | "youtube" | "video", url: string) => {
+    const newItem: AboutMediaItem = {
+      id: `media_${Date.now()}`,
+      type,
+      url,
+    }
+    onChange({
+      mediaItems: [...(settings.mediaItems || []), newItem],
+    })
+  }
+
+  const removeMediaItem = (id: string) => {
+    onChange({
+      mediaItems: (settings.mediaItems || []).filter((item) => item.id !== id),
+    })
+  }
+
+  const handleAddYoutubeVideo = () => {
+    if (youtubeUrl.trim()) {
+      addMediaItem("youtube", youtubeUrl.trim())
+      setYoutubeUrl("")
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Seller Name */}
+      <div className="space-y-2">
+        <Label className="text-sm font-normal">Seller Name</Label>
+        <Input
+          value={settings.sellerName || ""}
+          onChange={(e) => onChange({ sellerName: e.target.value })}
+          placeholder="Your shop name"
+          className="h-9"
+        />
+        <p className="text-xs text-muted-foreground">
+          Displayed as "About [Name]" in the section
+        </p>
+      </div>
+
+      {/* Show Sales Stats Toggle */}
+      <ToggleField
+        label="Show Sales Stats"
+        description="Display sales count and member since date"
+        checked={settings.showSalesStats}
+        onChange={(checked) => onChange({ showSalesStats: checked })}
+      />
+
+      {/* Headline */}
+      <div className="space-y-2">
+        <Label className="text-sm font-normal">Headline</Label>
+        <Input
+          value={settings.headline || ""}
+          onChange={(e) => onChange({ headline: e.target.value })}
+          placeholder="e.g., About my shop"
+          className="h-9"
+        />
+      </div>
+
+      {/* About Content */}
+      <div className="space-y-2">
+        <Label className="text-sm font-normal">About Content</Label>
+        <Textarea
+          value={settings.aboutContent || ""}
+          onChange={(e) => onChange({ aboutContent: e.target.value })}
+          placeholder="Tell visitors about your shop, your story, what makes you unique..."
+          rows={6}
+          className="resize-none"
+        />
+      </div>
+
+      {/* Max Content Height (for "Read more" truncation) */}
+      <div className="space-y-2">
+        <Label className="text-sm font-normal">Content Preview Height</Label>
+        <p className="text-xs text-muted-foreground mb-2">
+          Content taller than this will show "Read more" button
+        </p>
+        <PremiumSlider
+          value={[settings.maxContentHeight ?? 150]}
+          onValueChange={(value) => onChange({ maxContentHeight: value[0] })}
+          min={80}
+          max={400}
+          step={10}
+          showValue
+          unit="px"
+        />
+      </div>
+
+      {/* Media Section */}
+      <div className="space-y-3 pt-2">
+        <Label className="text-sm font-normal">Media</Label>
+        <p className="text-xs text-muted-foreground">
+          Add images and videos to showcase your shop
+        </p>
+
+        {/* Image Upload */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Add Image</Label>
+          <ImageUpload
+            bucket="store-builder-images"
+            folder="about-media"
+            value=""
+            onChange={(url) => {
+              if (url) addMediaItem("image", url)
+            }}
+            aspectRatio="video"
+            maxSizeMB={10}
+          />
+        </div>
+
+        {/* YouTube URL Input */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Add YouTube Video</Label>
+          <div className="flex gap-2">
+            <Input
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              placeholder="https://youtube.com/watch?v=..."
+              className="h-9 flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAddYoutubeVideo}
+              disabled={!youtubeUrl.trim()}
+              className="h-9"
+            >
+              Add
+            </Button>
+          </div>
+        </div>
+
+        {/* Video Upload */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Upload Video</Label>
+          <ImageUpload
+            bucket="store-builder-images"
+            folder="about-media"
+            value=""
+            onChange={(url) => {
+              if (url) addMediaItem("video", url)
+            }}
+            aspectRatio="video"
+            maxSizeMB={50}
+            accept="video/*"
+          />
+        </div>
+
+        {/* Media Items List */}
+        {settings.mediaItems && settings.mediaItems.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <Label className="text-xs text-muted-foreground">Added Media</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {settings.mediaItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="relative aspect-video rounded-lg overflow-hidden bg-muted group"
+                >
+                  {item.type === "image" ? (
+                    <img
+                      src={item.url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : item.type === "youtube" ? (
+                    <div className="w-full h-full flex items-center justify-center bg-red-100">
+                      <div className="text-center">
+                        <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-1">
+                          <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                        </div>
+                        <p className="text-[10px] text-red-600">YouTube</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-blue-100">
+                      <div className="text-center">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-1">
+                          <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                        </div>
+                        <p className="text-[10px] text-blue-600">Video</p>
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeMediaItem(item.id)}
+                    className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

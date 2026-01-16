@@ -14,6 +14,7 @@ import type {
   ProductHeaderSettings,
   MoreFromSellerSettings,
   ReviewsSettings,
+  AboutSettings,
   GlobalStoreSettings,
 } from "@/lib/store-builder/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -104,6 +105,9 @@ export interface UnifiedSectionProps {
   reviewsAverage?: number
   accentColor?: string
   globalSettings?: GlobalStoreSettings
+  // For About section
+  sellerMemberSince?: string // ISO date string
+  sellerTotalSales?: number
 }
 
 // Helper function to get product href
@@ -282,6 +286,264 @@ function UnifiedReviewsSection({
   )
 }
 
+// ====== ABOUT SECTION - UNIFIED ======
+function UnifiedAboutSection({
+  settings,
+  isMobile,
+  isPreviewMode,
+  creatorName,
+  memberSince,
+  totalSales,
+}: {
+  settings: AboutSettings
+  isMobile?: boolean
+  isPreviewMode?: boolean
+  creatorName?: string
+  memberSince?: string
+  totalSales?: number
+}) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [needsTruncation, setNeedsTruncation] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+
+  // Get colors from settings
+  const textColor = settings.colors?.textColor || undefined
+  const backgroundColor = settings.colors?.backgroundColor || "transparent"
+
+  // Use settings values or fall back to props
+  const displayName = settings.sellerName || creatorName || "Seller"
+  const displayMemberSince = settings.memberSince || memberSince
+  const displayTotalSales = settings.totalSales ?? totalSales ?? 0
+  const maxContentHeight = settings.maxContentHeight ?? 150
+
+  // Format member since date to year
+  const memberSinceYear = displayMemberSince
+    ? new Date(displayMemberSince).getFullYear()
+    : undefined
+
+  // Check if content needs truncation
+  useEffect(() => {
+    if (contentRef.current) {
+      const contentHeight = contentRef.current.scrollHeight
+      setNeedsTruncation(contentHeight > maxContentHeight)
+    }
+  }, [settings.aboutContent, maxContentHeight])
+
+  // Determine if we have headline or content to show
+  const hasContent = settings.headline || settings.aboutContent
+
+  // Compute gradient color for fade effect based on background
+  const getFadeGradient = () => {
+    if (!backgroundColor || backgroundColor === "transparent") {
+      return "from-transparent to-white"
+    }
+    // For solid colors, fade to that color
+    return `from-transparent`
+  }
+
+  return (
+    <SectionContainer isMobile={isMobile}>
+      <div
+        className={cn("w-full", isMobile ? "py-6" : "py-12")}
+        style={{
+          paddingTop: spacing?.paddingTop,
+          paddingBottom: spacing?.paddingBottom,
+          paddingLeft: spacing?.paddingLeft,
+          paddingRight: spacing?.paddingRight,
+          backgroundColor,
+        }}
+      >
+        {/* Top divider */}
+        <div
+          className="w-full h-px mb-8"
+          style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
+        />
+
+        <div className={cn("flex", isMobile ? "flex-col gap-8" : "flex-row gap-12")}>
+          {/* Left Column - Seller Info */}
+          <div className={cn("flex-shrink-0", isMobile ? "w-full" : "w-64")}>
+            <h3
+              className={cn(
+                "font-semibold mb-6",
+                isMobile ? "text-lg" : "text-xl"
+              )}
+              style={{ color: textColor || undefined }}
+            >
+              About {displayName}
+            </h3>
+
+            {/* Stats */}
+            {settings.showSalesStats && (
+              <div className="flex gap-8">
+                {/* Sales */}
+                <div>
+                  <p
+                    className="text-xs uppercase tracking-wide mb-1"
+                    style={{ color: textColor ? `${textColor}80` : "#6b7280" }}
+                  >
+                    Sales
+                  </p>
+                  <p
+                    className={cn("font-semibold", isMobile ? "text-xl" : "text-2xl")}
+                    style={{ color: textColor || undefined }}
+                  >
+                    {displayTotalSales}
+                  </p>
+                </div>
+
+                {/* Member Since */}
+                {memberSinceYear && (
+                  <div>
+                    <p
+                      className="text-xs uppercase tracking-wide mb-1"
+                      style={{ color: textColor ? `${textColor}80` : "#6b7280" }}
+                    >
+                      On Etsy since
+                    </p>
+                    <p
+                      className={cn("font-semibold", isMobile ? "text-xl" : "text-2xl")}
+                      style={{ color: textColor || undefined }}
+                    >
+                      {memberSinceYear}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - About Content */}
+          <div className="flex-1 min-w-0">
+            {hasContent ? (
+              <>
+                {settings.headline && (
+                  <h4
+                    className={cn(
+                      "font-semibold mb-4",
+                      isMobile ? "text-xl" : "text-2xl"
+                    )}
+                    style={{ color: textColor || undefined }}
+                  >
+                    {settings.headline}
+                  </h4>
+                )}
+
+                {settings.aboutContent && (
+                  <div className="relative">
+                    <div
+                      ref={contentRef}
+                      className={cn(
+                        "text-base leading-relaxed overflow-hidden transition-all duration-300",
+                        !isExpanded && needsTruncation && "relative"
+                      )}
+                      style={{
+                        maxHeight: !isExpanded && needsTruncation ? `${maxContentHeight}px` : undefined,
+                        color: textColor ? `${textColor}cc` : "#374151",
+                      }}
+                    >
+                      <p className="whitespace-pre-wrap">{settings.aboutContent}</p>
+                    </div>
+
+                    {/* Fade gradient and Read more button */}
+                    {needsTruncation && !isExpanded && (
+                      <div
+                        className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
+                        style={{
+                          background: backgroundColor && backgroundColor !== "transparent"
+                            ? `linear-gradient(to bottom, transparent, ${backgroundColor})`
+                            : "linear-gradient(to bottom, transparent, white)"
+                        }}
+                      />
+                    )}
+
+                    {needsTruncation && (
+                      <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className={cn(
+                          "mt-2 text-sm font-medium transition-colors hover:opacity-80",
+                          !isExpanded && "relative z-10"
+                        )}
+                        style={{ color: textColor || "#374151" }}
+                      >
+                        {isExpanded ? "Show less" : "Read more"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Media Items */}
+                {settings.mediaItems && settings.mediaItems.length > 0 && (
+                  <div className={cn("mt-6 grid gap-4", isMobile ? "grid-cols-2" : "grid-cols-3")}>
+                    {settings.mediaItems.map((item) => (
+                      <div key={item.id} className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+                        {item.type === "image" ? (
+                          <Image
+                            src={item.url}
+                            alt=""
+                            fill
+                            className="object-cover"
+                          />
+                        ) : item.type === "youtube" ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${extractYouTubeId(item.url)}`}
+                            className="w-full h-full"
+                            allowFullScreen
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          />
+                        ) : (
+                          <video
+                            src={item.url}
+                            className="w-full h-full object-cover"
+                            controls
+                            playsInline
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              // If no headline or content, just show placeholder in preview mode
+              isPreviewMode && (
+                <div className="text-center py-8">
+                  <p
+                    className="text-sm"
+                    style={{ color: textColor ? `${textColor}60` : "#9ca3af" }}
+                  >
+                    Add a headline and content in the section settings
+                  </p>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Bottom divider */}
+        <div
+          className="w-full h-px mt-8"
+          style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
+        />
+      </div>
+    </SectionContainer>
+  )
+}
+
+// Helper function to extract YouTube video ID
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /^([a-zA-Z0-9_-]{11})$/, // Direct video ID
+  ]
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match) return match[1]
+  }
+  return null
+}
+
 // Unified Section Renderer - used by BOTH editor preview and live pages
 export function UnifiedSectionRenderer({
   section,
@@ -298,6 +560,8 @@ export function UnifiedSectionRenderer({
   reviewsAverage = 0,
   accentColor,
   globalSettings,
+  sellerMemberSince,
+  sellerTotalSales,
 }: UnifiedSectionProps) {
   if (!section.settings.visible) return null
 
@@ -379,6 +643,16 @@ export function UnifiedSectionRenderer({
           reviewsCount={reviewsCount}
           reviewsAverage={reviewsAverage}
           accentColor={accentColor}
+        />
+      )}
+      {section.type === "about" && (
+        <UnifiedAboutSection
+          settings={section.settings as AboutSettings}
+          isMobile={isMobile}
+          isPreviewMode={isPreviewMode}
+          creatorName={creatorName}
+          memberSince={sellerMemberSince}
+          totalSales={sellerTotalSales}
         />
       )}
     </div>
@@ -716,6 +990,10 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
   const [isHovered, setIsHovered] = useState(false)
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
+  // Mouse drag state for trackpad support
+  const [isDragging, setIsDragging] = useState(false)
+  const [mouseStart, setMouseStart] = useState<number | null>(null)
+  const [mouseEnd, setMouseEnd] = useState<number | null>(null)
   const carouselRef = useRef<HTMLDivElement>(null)
   const autoplayRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -824,6 +1102,45 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
     }
   }
 
+  // Mouse drag handlers for trackpad/mouse support
+  const onMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true)
+    setMouseEnd(null)
+    setMouseStart(e.clientX)
+  }
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return
+    setMouseEnd(e.clientX)
+  }
+
+  const onMouseUp = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+
+    if (!mouseStart || !mouseEnd) return
+    const distance = mouseStart - mouseEnd
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+
+    if (isLeftSwipe) {
+      goToNext()
+    } else if (isRightSwipe) {
+      goToPrev()
+    }
+
+    setMouseStart(null)
+    setMouseEnd(null)
+  }
+
+  const onMouseLeave = () => {
+    if (isDragging) {
+      setIsDragging(false)
+      setMouseStart(null)
+      setMouseEnd(null)
+    }
+  }
+
   // Render a single benefit item
   const renderBenefitItem = (benefit: typeof settings.benefits[0], index: number) => {
     const useCustomImage = benefit.iconType === "custom" && benefit.customImageUrl
@@ -921,10 +1238,15 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
           {/* Carousel container */}
           <div
             ref={carouselRef}
-            className="overflow-hidden"
+            className={cn("overflow-hidden select-none", isDragging && "cursor-grabbing")}
+            style={{ cursor: isDragging ? "grabbing" : "grab" }}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseLeave}
           >
             <div
               className="flex transition-transform duration-500 ease-out"

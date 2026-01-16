@@ -15,6 +15,7 @@ import type {
   ProductCreatorBarSettings,
   StickyAddToCartSettings,
   ReviewsSettings,
+  AboutSettings,
   GlobalStoreSettings,
   ThemePreset,
   VerifiedBadgeType,
@@ -1111,6 +1112,40 @@ export const defaultReviewsSettings: ReviewsSettings = {
   },
 }
 
+export const defaultAboutSettings: AboutSettings = {
+  visible: true,
+  sellerName: "",
+  headline: "",
+  aboutContent: "",
+  mediaItems: [],
+  showSalesStats: true,
+  memberSince: undefined,
+  totalSales: undefined,
+  maxContentHeight: 150,
+  spacing: {
+    paddingTop: 48,
+    paddingBottom: 48,
+    paddingLeft: 16,
+    paddingRight: 16,
+  },
+  mobileSpacing: {
+    paddingTop: 24,
+    paddingBottom: 24,
+    paddingLeft: 12,
+    paddingRight: 12,
+  },
+  colors: {
+    backgroundColor: "transparent",
+    textColor: "",
+    accentColor: "",
+  },
+  typography: {
+    fontSize: 16,
+    fontWeight: "normal",
+    textAlign: "left",
+  },
+}
+
 // Section library for adding new sections
 export const sectionLibrary: SectionLibraryItem[] = [
   {
@@ -1163,7 +1198,15 @@ export const sectionLibrary: SectionLibraryItem[] = [
 export const defaultShopPageConfig: PageConfig = {
   pageType: "shop",
   headerSettings: defaultShopHeaderSettings,
-  sections: [],
+  sections: [
+    {
+      id: generateSectionId(),
+      type: "about",
+      settings: defaultAboutSettings,
+      order: 0,
+      locked: true, // Locked so it can only be hidden, not deleted
+    },
+  ],
   version: 1,
 }
 

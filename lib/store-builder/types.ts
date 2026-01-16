@@ -13,6 +13,7 @@ export type SectionType =
   | "more-from-seller"
   | "subscribe-bar"
   | "reviews" // Added reviews section type
+  | "about" // About seller section
 
 export type DeviceType = "desktop" | "mobile"
 
@@ -229,6 +230,34 @@ export interface ReviewsSettings extends BaseSectionSettings {
   maxReviewsToShow: number
 }
 
+// About media item (image or video)
+export interface AboutMediaItem {
+  id: string
+  type: "image" | "youtube" | "video"
+  url: string
+  thumbnailUrl?: string // For videos, optional thumbnail
+}
+
+// About section for seller/shop information
+export interface AboutSettings extends BaseSectionSettings {
+  // Seller display name (used when no headline)
+  sellerName: string
+  // Main headline (e.g., "About my shop")
+  headline: string
+  // About content/bio paragraph
+  aboutContent: string
+  // Media items (images and videos)
+  mediaItems: AboutMediaItem[]
+  // Stats visibility
+  showSalesStats: boolean
+  // Member since date (ISO string)
+  memberSince?: string
+  // Total sales count (fetched from system, but can be displayed/hidden)
+  totalSales?: number
+  // Max content height before "Read more" (in pixels)
+  maxContentHeight?: number
+}
+
 // Union of all section settings
 export type SectionSettings =
   | ImageTextSettings
@@ -239,6 +268,7 @@ export type SectionSettings =
   | MoreFromSellerSettings
   | SubscribeBarSettings
   | ReviewsSettings
+  | AboutSettings
 
 // Section definition
 export interface Section {
