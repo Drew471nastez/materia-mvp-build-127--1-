@@ -351,28 +351,62 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
           </>
         ) : currentPageType === "shop" ? (
           <>
-            {/* Subscribe Bar - MUST be BEFORE header, at absolute top of canvas */}
-            <EditorSubscribeBar
-              settings={
-                {
-                  ...subscribeBarSettings,
-                  // Normalize colors: extract from colors object if not at top level
-                  backgroundColor:
-                    subscribeBarSettings?.backgroundColor || subscribeBarSettings?.colors?.backgroundColor || "#ffffff",
-                  textColor: subscribeBarSettings?.textColor || subscribeBarSettings?.colors?.textColor || "#000000",
-                  // Pass avatar and creator info
-                  showAvatar: subscribeBarSettings?.showAvatar ?? true,
-                  avatarUrl: avatarUrl,
-                  creatorName: profile?.display_name || "Creator",
-                } || defaultSubscribeBarSettings
-              }
-              creatorId={creatorId}
-              isEditorPreview={isEditorMode}
-              isMobile={isMobile}
-              isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
-              onSelect={() => handleSelectSection("subscribe-bar")}
-              scrollContainerRef={scrollParentRef}
-            />
+            {/* Check if there's an announcement bar at position 0 (top) - render it above everything */}
+            {(() => {
+              const sortedSections = [...draftConfig.sections].sort((a, b) => a.order - b.order)
+              const topAnnouncementBar = sortedSections.length > 0 &&
+                sortedSections[0].type === "announcement-bar" &&
+                sortedSections[0].settings.visible
+                  ? sortedSections[0]
+                  : null
+
+              return topAnnouncementBar ? (
+                <UnifiedSectionRenderer
+                  key={topAnnouncementBar.id}
+                  section={topAnnouncementBar}
+                  products={products}
+                  isMobile={isMobile}
+                  isPreviewMode={sectionsPreviewMode}
+                  isSelected={isEditorMode && selectedSectionId === topAnnouncementBar.id}
+                  onSelect={() => handleSelectSection(topAnnouncementBar.id)}
+                  moreFromSellerProducts={moreFromSellerProducts}
+                  creatorName={profile?.display_name}
+                  accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                />
+              ) : null
+            })()}
+
+            {/* Subscribe Bar - Only render when visible
+                When sticky is enabled, render a placeholder spacer inside canvas and actual bar is rendered outside in fixed position
+                When sticky is disabled, render the actual bar here */}
+            {subscribeBarSettings?.visible && (
+              subscribeBarSettings?.enableStickyBar ? (
+                // Spacer for sticky bar - matches the height of the subscribe bar
+                <div className={isMobile ? "h-[76px]" : "h-[52px]"} />
+              ) : (
+                <EditorSubscribeBar
+                  settings={
+                    {
+                      ...subscribeBarSettings,
+                      // Normalize colors: extract from colors object if not at top level
+                      backgroundColor:
+                        subscribeBarSettings?.backgroundColor || subscribeBarSettings?.colors?.backgroundColor || "#ffffff",
+                      textColor: subscribeBarSettings?.textColor || subscribeBarSettings?.colors?.textColor || "#000000",
+                      // Pass avatar and creator info
+                      showAvatar: subscribeBarSettings?.showAvatar ?? true,
+                      avatarUrl: avatarUrl,
+                      creatorName: profile?.display_name || "Creator",
+                    } || defaultSubscribeBarSettings
+                  }
+                  creatorId={creatorId}
+                  isEditorPreview={isEditorMode}
+                  isMobile={isMobile}
+                  isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
+                  onSelect={() => handleSelectSection("subscribe-bar")}
+                  scrollContainerRef={scrollParentRef}
+                />
+              )
+            )}
 
             <UnifiedShopHeader
               settings={draftConfig.headerSettings as ShopHeaderSettings}
@@ -389,23 +423,33 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               globalSettings={draftConfig.globalSettings}
             />
 
-            {draftConfig.sections
-              .filter((s) => s.settings.visible)
-              .sort((a, b) => a.order - b.order)
-              .map((section) => (
-                <UnifiedSectionRenderer
-                  key={section.id}
-                  section={section}
-                  products={products}
-                  isMobile={isMobile}
-                  isPreviewMode={sectionsPreviewMode}
-                  isSelected={isEditorMode && selectedSectionId === section.id}
-                  onSelect={() => handleSelectSection(section.id)}
-                  moreFromSellerProducts={moreFromSellerProducts}
-                  creatorName={profile?.display_name}
-                  accentColor={draftConfig.globalSettings?.themeColors?.accent}
-                />
-              ))}
+            {(() => {
+              // Filter out announcement bar at position 0 (already rendered at top)
+              const sortedSections = [...draftConfig.sections].sort((a, b) => a.order - b.order)
+              const topAnnouncementBarId = sortedSections.length > 0 &&
+                sortedSections[0].type === "announcement-bar" &&
+                sortedSections[0].settings.visible
+                  ? sortedSections[0].id
+                  : null
+
+              return draftConfig.sections
+                .filter((s) => s.settings.visible && s.id !== topAnnouncementBarId)
+                .sort((a, b) => a.order - b.order)
+                .map((section) => (
+                  <UnifiedSectionRenderer
+                    key={section.id}
+                    section={section}
+                    products={products}
+                    isMobile={isMobile}
+                    isPreviewMode={sectionsPreviewMode}
+                    isSelected={isEditorMode && selectedSectionId === section.id}
+                    onSelect={() => handleSelectSection(section.id)}
+                    moreFromSellerProducts={moreFromSellerProducts}
+                    creatorName={profile?.display_name}
+                    accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                  />
+                ))
+            })()}
 
             <SellerFooter />
           </>

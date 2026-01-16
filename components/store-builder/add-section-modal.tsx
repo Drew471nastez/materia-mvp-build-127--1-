@@ -54,7 +54,10 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-muted/30">
           <div className="p-4 sm:p-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {sectionLibrary.map((item) => (
+              {/* Filter out featured-products (automatically added and locked) and reviews (product page only) */}
+              {sectionLibrary
+                .filter((item) => item.type !== "featured-products" && item.type !== "reviews")
+                .map((item) => (
                 <button
                   key={item.type}
                   onClick={() => handleAddSection(item)}

@@ -89,14 +89,20 @@ export interface ImageTextSettings extends BaseSectionSettings {
 }
 
 // Benefits section (icon list)
+export interface BenefitItem {
+  id: string
+  icon: string
+  title: string
+  description: string
+  // Custom image support - when set, displays custom image instead of icon
+  customImageUrl?: string
+  // Icon type: 'preset' for lucide icons, 'custom' for uploaded images
+  iconType?: 'preset' | 'custom'
+}
+
 export interface BenefitsSettings extends BaseSectionSettings {
   headline: string
-  benefits: Array<{
-    id: string
-    icon: string
-    title: string
-    description: string
-  }>
+  benefits: Array<BenefitItem>
   columns: 2 | 3 | 4
 }
 

@@ -532,19 +532,38 @@ interface EditorSubscribeBarProps {
   scrollContainerRef?: React.RefObject<HTMLElement | null>
 }
 
+/**
+ * Extract solid color from gradient or return the color as-is
+ * This ensures subscriber bar only uses solid background colors (no gradients)
+ */
+function extractSolidColor(color: string | undefined): string {
+  if (!color) return "#ffffff"
+
+  // If it's a gradient, extract the first color
+  if (color.includes("gradient")) {
+    // Match hex colors in gradient like "#ffffff" or "#e2e8f0"
+    const hexMatch = color.match(/#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}/)
+    if (hexMatch) {
+      return hexMatch[0]
+    }
+    // Fallback to white if no hex found
+    return "#ffffff"
+  }
+
+  return color
+}
+
 export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMobile, isSelected, onSelect, scrollContainerRef }: EditorSubscribeBarProps) {
   const [isVisible, setIsVisible] = useState(true)
   const lastScrollY = useRef(0)
 
-  if (!settings.visible) return null
-
   // Extract colors from either top level or nested colors object
-  const backgroundColor = settings.backgroundColor || settings.colors?.backgroundColor || "#ffffff"
+  // IMPORTANT: Always use solid colors for subscriber bar (no gradients)
+  const rawBackgroundColor = settings.backgroundColor || settings.colors?.backgroundColor || "#ffffff"
+  const backgroundColor = extractSolidColor(rawBackgroundColor)
   const textColor = settings.textColor || settings.colors?.textColor || "#000000"
 
-  // Check if background is a gradient
-  const isGradientBackground = (backgroundColor || "").includes("gradient")
-
+  // Hooks must be called before early return to avoid React error #300
   const isDarkBackground = useMemo(() => isDarkHex(backgroundColor), [backgroundColor])
   const hasCustomInputColors = useMemo(() => hasThemeInputColors(settings), [settings.inputTextColor, settings.inputPlaceholderColor, settings.inputBorderColor, settings.inputBackgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, backgroundColor, hasCustomInputColors), [isDarkBackground, backgroundColor, hasCustomInputColors])
@@ -578,6 +597,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
     scrollContainer.addEventListener("scroll", handleScroll, { passive: true })
     return () => scrollContainer.removeEventListener("scroll", handleScroll)
   }, [settings.enableStickyBar, settings.enableStickyOnScrollUp, scrollContainerRef])
+
+  // Early return AFTER all hooks have been called
+  if (!settings.visible) return null
 
   const initials =
     settings.creatorName
@@ -743,8 +765,8 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
         isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",
       )}
       style={{
-        background: isGradientBackground ? backgroundColor : undefined,
-        backgroundColor: !isGradientBackground ? backgroundColor : undefined,
+        // Always use solid backgroundColor - gradients are converted to solid colors
+        backgroundColor: backgroundColor,
         color: textColor,
       }}
     >

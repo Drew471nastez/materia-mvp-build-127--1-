@@ -47,6 +47,11 @@ import {
   Circle,
   Square,
   Hexagon,
+  CheckCircle,
+  Check,
+  Heart,
+  Download,
+  Upload,
 } from "lucide-react"
 import type {
   Section,
@@ -100,7 +105,7 @@ import {
   verifiedBadgeLabels,
 } from "@/lib/store-builder/defaults"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Check, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -2289,6 +2294,232 @@ function ImageTextSettingsForm({
   )
 }
 
+// Available icons for benefits section
+const BENEFIT_ICONS = [
+  "check-circle", "check", "star", "heart", "shield", "shield-check", "zap", "award",
+  "trophy", "target", "gift", "crown", "sparkles", "rocket", "flame", "thumbs-up",
+  "smile", "users", "user-check", "clock", "timer", "calendar", "mail", "phone",
+  "globe", "map-pin", "lock", "key", "credit-card", "wallet", "dollar-sign", "percent",
+  "tag", "bookmark", "flag", "bell", "megaphone", "headphones", "mic", "video",
+  "camera", "image", "download", "upload", "cloud", "server", "cpu", "monitor",
+  "smartphone", "laptop", "wifi", "power", "settings", "wrench", "hammer", "brush",
+  "pen", "pencil", "scissors", "copy", "clipboard", "file", "folder", "archive",
+  "box", "package", "shopping-cart", "shopping-bag", "store", "truck", "plane",
+  "home", "building", "tree", "leaf", "sun", "moon", "droplet", "activity",
+  "heart-pulse", "dumbbell", "apple", "coffee", "book", "graduation-cap", "brain",
+  "lightbulb", "puzzle", "gamepad", "medal", "gem", "diamond", "infinity"
+] as const
+
+// Icon Picker Component for Benefits
+function BenefitIconPicker({
+  selectedIcon,
+  customImageUrl,
+  iconType,
+  onSelectIcon,
+  onUploadImage,
+}: {
+  selectedIcon: string
+  customImageUrl?: string
+  iconType?: "preset" | "custom"
+  onSelectIcon: (icon: string, type: "preset" | "custom", customUrl?: string) => void
+  onUploadImage: (url: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState<"icons" | "upload">(iconType === "custom" ? "upload" : "icons")
+
+  const filteredIcons = BENEFIT_ICONS.filter((icon) =>
+    icon.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Get icon component for preview
+  const getIconComponent = (iconName: string) => {
+    const iconMap: Record<string, any> = {
+      "check-circle": CheckCircle,
+      "check": Check,
+      "star": Star,
+      "heart": Heart,
+      "shield": Shield,
+      "zap": Zap,
+      "award": Award,
+      "trophy": Trophy,
+      "target": Target,
+      "gift": Gift,
+      "crown": Crown,
+      "sparkles": Sparkles,
+      "rocket": Rocket,
+      "flame": Flame,
+      "thumbs-up": ThumbsUp,
+      "smile": Smile,
+      "users": Users,
+      "clock": Clock,
+      "mail": Mail,
+      "globe": Globe,
+      "lock": Lock,
+      "credit-card": CreditCard,
+      "wallet": Wallet,
+      "bell": Bell,
+      "headphones": Headphones,
+      "camera": Camera,
+      "download": Download,
+      "upload": Upload,
+      "cloud": Cloud,
+      "monitor": Monitor,
+      "smartphone": Smartphone,
+      "laptop": Laptop,
+      "settings": Settings,
+      "file": FileText,
+      "folder": Folder,
+      "box": Box,
+      "package": Package,
+      "shopping-cart": ShoppingCart,
+      "shopping-bag": ShoppingBag,
+      "home": Home,
+      "sun": Sun,
+      "moon": Moon,
+      "book": Book,
+      "lightbulb": Lightbulb,
+      "puzzle": Puzzle,
+      "gem": Gem,
+    }
+    return iconMap[iconName] || CheckCircle
+  }
+
+  // Import additional icons for the picker
+  const Shield = require("lucide-react").Shield
+  const Zap = require("lucide-react").Zap
+  const Award = require("lucide-react").Award
+  const Trophy = require("lucide-react").Trophy
+  const Target = require("lucide-react").Target
+  const Gift = require("lucide-react").Gift
+  const Crown = require("lucide-react").Crown
+  const Sparkles = require("lucide-react").Sparkles
+  const Rocket = require("lucide-react").Rocket
+  const Flame = require("lucide-react").Flame
+  const ThumbsUp = require("lucide-react").ThumbsUp
+  const Smile = require("lucide-react").Smile
+  const Users = require("lucide-react").Users
+  const Clock = require("lucide-react").Clock
+  const CreditCard = require("lucide-react").CreditCard
+  const Wallet = require("lucide-react").Wallet
+  const Headphones = require("lucide-react").Headphones
+  const Camera = require("lucide-react").Camera
+  const Cloud = require("lucide-react").Cloud
+  const Monitor = require("lucide-react").Monitor
+  const Smartphone = require("lucide-react").Smartphone
+  const Laptop = require("lucide-react").Laptop
+  const Folder = require("lucide-react").Folder
+  const Box = require("lucide-react").Box
+  const ShoppingCart = require("lucide-react").ShoppingCart
+  const Sun = require("lucide-react").Sun
+  const Moon = require("lucide-react").Moon
+  const Book = require("lucide-react").Book
+  const Lightbulb = require("lucide-react").Lightbulb
+  const Puzzle = require("lucide-react").Puzzle
+  const Gem = require("lucide-react").Gem
+
+  const IconComponent = getIconComponent(selectedIcon)
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-2 p-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors"
+        >
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+            {iconType === "custom" && customImageUrl ? (
+              <img src={customImageUrl} alt="Custom icon" className="w-full h-full object-cover" />
+            ) : (
+              <IconComponent className="w-4 h-4 text-primary" />
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground">Change icon</span>
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Choose Icon</DialogTitle>
+          <DialogDescription>Select an icon from the library or upload your own image</DialogDescription>
+        </DialogHeader>
+
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "icons" | "upload")} className="flex-1 flex flex-col min-h-0">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="icons">Icon Library</TabsTrigger>
+            <TabsTrigger value="upload">Custom Image</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="icons" className="flex-1 min-h-0 flex flex-col">
+            <div className="mb-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search icons..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-6 gap-2 p-1">
+                {filteredIcons.map((iconName) => {
+                  const Icon = getIconComponent(iconName)
+                  const isSelected = selectedIcon === iconName && iconType !== "custom"
+                  return (
+                    <button
+                      key={iconName}
+                      type="button"
+                      onClick={() => {
+                        onSelectIcon(iconName, "preset")
+                        setIsOpen(false)
+                      }}
+                      className={cn(
+                        "w-10 h-10 flex items-center justify-center rounded-lg transition-all",
+                        isSelected
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
+                      )}
+                      title={iconName}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="upload" className="flex-1 min-h-0">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Upload a custom image to use as the icon. It will be displayed as a circle.
+              </p>
+              <ImageUpload
+                value={customImageUrl || ""}
+                onChange={(url) => {
+                  onUploadImage(url)
+                  onSelectIcon(selectedIcon, "custom", url)
+                  setIsOpen(false)
+                }}
+                label="Upload Icon Image"
+              />
+              {customImageUrl && (
+                <div className="flex items-center gap-2">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 overflow-hidden">
+                    <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-sm text-muted-foreground">Current custom icon</span>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function BenefitsSettingsForm({
   settings,
   onChange,
@@ -2296,9 +2527,20 @@ function BenefitsSettingsForm({
   settings: BenefitsSettings
   onChange: (settings: Partial<BenefitsSettings>) => void
 }) {
-  const updateBenefit = (index: number, field: string, value: string) => {
+  const updateBenefit = (index: number, field: string, value: any) => {
     const newBenefits = [...settings.benefits]
     newBenefits[index] = { ...newBenefits[index], [field]: value }
+    onChange({ benefits: newBenefits })
+  }
+
+  const updateBenefitIcon = (index: number, icon: string, iconType: "preset" | "custom", customUrl?: string) => {
+    const newBenefits = [...settings.benefits]
+    newBenefits[index] = {
+      ...newBenefits[index],
+      icon,
+      iconType,
+      customImageUrl: iconType === "custom" ? customUrl : undefined,
+    }
     onChange({ benefits: newBenefits })
   }
 
@@ -2306,7 +2548,13 @@ function BenefitsSettingsForm({
     onChange({
       benefits: [
         ...settings.benefits,
-        { id: `benefit_${Date.now()}`, icon: "check-circle", title: "New Benefit", description: "Description here" },
+        {
+          id: `benefit_${Date.now()}`,
+          icon: "check-circle",
+          iconType: "preset" as const,
+          title: "New Benefit",
+          description: "Description here",
+        },
       ],
     })
   }
@@ -2352,7 +2600,19 @@ function BenefitsSettingsForm({
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
 
-            <div className="space-y-2 pr-8">
+            <div className="space-y-3 pr-8">
+              {/* Icon Picker */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Icon</Label>
+                <BenefitIconPicker
+                  selectedIcon={benefit.icon}
+                  customImageUrl={benefit.customImageUrl}
+                  iconType={benefit.iconType}
+                  onSelectIcon={(icon, type, customUrl) => updateBenefitIcon(index, icon, type, customUrl)}
+                  onUploadImage={(url) => updateBenefit(index, "customImageUrl", url)}
+                />
+              </div>
+
               <Input
                 value={benefit.title}
                 onChange={(e) => updateBenefit(index, "title", e.target.value)}
