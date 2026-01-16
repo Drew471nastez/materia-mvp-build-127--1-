@@ -895,7 +895,7 @@ export const defaultImageTextSettings: ImageTextSettings = {
 
 export const defaultBenefitsSettings: BenefitsSettings = {
   visible: true,
-  headline: "Why choose us",
+  headline: "",
   benefits: [
     {
       id: "1",
@@ -917,6 +917,13 @@ export const defaultBenefitsSettings: BenefitsSettings = {
     },
   ],
   columns: 3,
+  // Carousel settings
+  enableCarousel: false,
+  autoplay: false,
+  autoplaySpeed: 4000,
+  // Gap settings
+  horizontalGap: 24,
+  verticalGap: 24,
   spacing: {
     paddingTop: 48,
     paddingBottom: 48,

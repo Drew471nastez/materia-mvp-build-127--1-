@@ -104,6 +104,13 @@ export interface BenefitsSettings extends BaseSectionSettings {
   headline: string
   benefits: Array<BenefitItem>
   columns: 2 | 3 | 4
+  // Carousel mode settings
+  enableCarousel?: boolean
+  autoplay?: boolean
+  autoplaySpeed?: number // milliseconds between slides
+  // Gap settings
+  horizontalGap?: number // pixels
+  verticalGap?: number // pixels
 }
 
 // Text/Paragraph block section

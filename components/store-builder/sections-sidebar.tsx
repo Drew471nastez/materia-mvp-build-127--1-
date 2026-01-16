@@ -52,6 +52,8 @@ import {
   Heart,
   Download,
   Upload,
+  Sparkles,
+  Image as ImageLucide,
 } from "lucide-react"
 import type {
   Section,
@@ -2503,99 +2505,143 @@ function BenefitIconPicker({
           <span className="text-xs text-muted-foreground">Change icon</span>
         </button>
       </DialogTrigger>
-      <DialogContent className="w-[95vw] max-w-lg sm:max-w-xl max-h-[85vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-4 sm:p-6">
-        <DialogHeader className="pb-2 sm:pb-4">
-          <DialogTitle className="text-lg sm:text-xl">Choose Icon</DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">Select an icon from the library or upload your own image</DialogDescription>
-        </DialogHeader>
+      <DialogContent className="w-[calc(100vw-32px)] max-w-md sm:max-w-lg md:max-w-xl max-h-[85vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-0 gap-0 rounded-2xl">
+        {/* Header */}
+        <div className="px-4 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-border/50">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-lg sm:text-xl font-semibold">Choose Icon</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
+              Select an icon from the library or upload your own image
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "icons" | "upload")} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2 h-9 sm:h-10">
-            <TabsTrigger value="icons" className="text-xs sm:text-sm">Icon Library</TabsTrigger>
-            <TabsTrigger value="upload" className="text-xs sm:text-sm">Custom Image</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="icons" className="flex-1 min-h-0 flex flex-col mt-2 sm:mt-4">
-            <div className="mb-2 sm:mb-3">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search icons..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-8 sm:h-9 text-sm"
-                />
-              </div>
+        <div className="flex-1 overflow-hidden flex flex-col px-4 pb-4 sm:px-6 sm:pb-6">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "icons" | "upload")} className="flex-1 flex flex-col min-h-0 mt-4">
+            {/* Tab buttons styled like the screenshot */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                type="button"
+                onClick={() => setActiveTab("icons")}
+                className={cn(
+                  "flex flex-col items-center justify-center p-4 sm:p-5 rounded-xl border-2 transition-all",
+                  activeTab === "icons"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
+                )}
+              >
+                <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center mb-2">
+                  <Sparkles className={cn("w-6 h-6 sm:w-7 sm:h-7", activeTab === "icons" ? "text-primary" : "text-muted-foreground")} />
+                </div>
+                <span className={cn("text-sm font-medium", activeTab === "icons" ? "text-foreground" : "text-muted-foreground")}>
+                  Icon Library
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("upload")}
+                className={cn(
+                  "flex flex-col items-center justify-center p-4 sm:p-5 rounded-xl border-2 transition-all",
+                  activeTab === "upload"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
+                )}
+              >
+                <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center mb-2">
+                  <ImageLucide className={cn("w-6 h-6 sm:w-7 sm:h-7", activeTab === "upload" ? "text-primary" : "text-muted-foreground")} />
+                </div>
+                <span className={cn("text-sm font-medium", activeTab === "upload" ? "text-foreground" : "text-muted-foreground")}>
+                  Custom Image
+                </span>
+              </button>
             </div>
-            <div className="flex-1 overflow-y-auto -mx-1 px-1">
-              {/* Responsive grid: 5 cols on mobile, 6 on tablet, 8 on desktop */}
-              <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1.5 sm:gap-2 p-0.5 sm:p-1">
-                {filteredIcons.map((iconName) => {
-                  const Icon = getIconComponent(iconName)
-                  const isSelected = selectedIcon === iconName && iconType !== "custom"
-                  return (
-                    <button
-                      key={iconName}
-                      type="button"
-                      onClick={() => {
-                        onSelectIcon(iconName, "preset")
+
+            <TabsContent value="icons" className="flex-1 min-h-0 flex flex-col mt-0 data-[state=inactive]:hidden">
+              {/* Search input */}
+              <div className="mb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search icons..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-10 sm:h-11 text-sm rounded-xl bg-muted/50 border-0 focus-visible:ring-1"
+                  />
+                </div>
+              </div>
+
+              {/* Icons grid with proper scrolling */}
+              <div className="flex-1 overflow-y-auto -mx-1 px-1" style={{ maxHeight: "calc(85vh - 340px)" }}>
+                <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 gap-2 sm:gap-2.5 pb-2">
+                  {filteredIcons.map((iconName) => {
+                    const Icon = getIconComponent(iconName)
+                    const isSelected = selectedIcon === iconName && iconType !== "custom"
+                    return (
+                      <button
+                        key={iconName}
+                        type="button"
+                        onClick={() => {
+                          onSelectIcon(iconName, "preset")
+                          setIsOpen(false)
+                        }}
+                        className={cn(
+                          "aspect-square w-full flex items-center justify-center rounded-xl transition-all touch-manipulation",
+                          "min-h-[44px] sm:min-h-[48px]",
+                          isSelected
+                            ? "bg-primary text-primary-foreground shadow-md"
+                            : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95"
+                        )}
+                        title={iconName.replace(/-/g, ' ')}
+                      >
+                        <Icon className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
+                      </button>
+                    )
+                  })}
+                </div>
+                {filteredIcons.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <Search className="w-10 h-10 mb-3 opacity-40" />
+                    <p className="text-sm">No icons found for "{searchQuery}"</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="upload" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Upload a custom image to use as the icon. It will be displayed as a circle.
+                </p>
+                <div className="rounded-xl border-2 border-dashed border-border p-4 sm:p-6">
+                  <ImageUpload
+                    bucket="store-builder-images"
+                    folder="benefit-icons"
+                    value={customImageUrl || ""}
+                    onChange={(url) => {
+                      if (url) {
+                        onUploadImage(url)
+                        onSelectIcon(selectedIcon, "custom", url)
                         setIsOpen(false)
-                      }}
-                      className={cn(
-                        "aspect-square w-full flex items-center justify-center rounded-lg transition-all touch-manipulation",
-                        "min-h-[40px] sm:min-h-[44px]",
-                        isSelected
-                          ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1"
-                          : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95"
-                      )}
-                      title={iconName.replace(/-/g, ' ')}
-                    >
-                      <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                  )
-                })}
+                      }
+                    }}
+                    aspectRatio="square"
+                  />
+                </div>
+                {customImageUrl && (
+                  <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50 border border-border/50">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary/10 overflow-hidden ring-2 ring-primary/20 flex-shrink-0">
+                      <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-foreground block">Current custom icon</span>
+                      <span className="text-xs text-muted-foreground">Click above to change</span>
+                    </div>
+                  </div>
+                )}
               </div>
-              {filteredIcons.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <Search className="w-8 h-8 mb-2 opacity-50" />
-                  <p className="text-sm">No icons found for "{searchQuery}"</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="upload" className="flex-1 min-h-0 mt-2 sm:mt-4">
-            <div className="space-y-3 sm:space-y-4">
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Upload a custom image to use as the icon. It will be displayed as a circle.
-              </p>
-              <ImageUpload
-                bucket="store-builder-images"
-                folder="benefit-icons"
-                value={customImageUrl || ""}
-                onChange={(url) => {
-                  if (url) {
-                    onUploadImage(url)
-                    onSelectIcon(selectedIcon, "custom", url)
-                    setIsOpen(false)
-                  }
-                }}
-                aspectRatio="square"
-              />
-              {customImageUrl && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 overflow-hidden ring-2 ring-primary/20 flex-shrink-0">
-                    <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-foreground block">Current custom icon</span>
-                    <span className="text-xs text-muted-foreground">Click above to change</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -2651,18 +2697,80 @@ function BenefitsSettingsForm({
         <Input value={settings.headline} onChange={(e) => onChange({ headline: e.target.value })} className="h-9" />
       </div>
 
-      <div className="space-y-2">
-        <Label className="text-sm font-normal">Columns</Label>
-        <Select value={String(settings.columns)} onValueChange={(value) => onChange({ columns: Number(value) as 2 | 3 | 4 })}>
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="2">2 Columns</SelectItem>
-            <SelectItem value="3">3 Columns</SelectItem>
-            <SelectItem value="4">4 Columns</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Carousel Toggle */}
+      <div className="flex items-center justify-between py-2">
+        <div className="space-y-0.5">
+          <Label className="text-sm font-normal">Enable Carousel</Label>
+          <p className="text-xs text-muted-foreground">Display benefits in a sliding carousel</p>
+        </div>
+        <Switch
+          checked={settings.enableCarousel ?? false}
+          onCheckedChange={(checked) => onChange({ enableCarousel: checked })}
+        />
+      </div>
+
+      {/* Autoplay Toggle - only show when carousel is enabled */}
+      {settings.enableCarousel && (
+        <div className="flex items-center justify-between py-2 pl-4 border-l-2 border-primary/20">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-normal">Autoplay</Label>
+            <p className="text-xs text-muted-foreground">Automatically cycle through benefits</p>
+          </div>
+          <Switch
+            checked={settings.autoplay ?? false}
+            onCheckedChange={(checked) => onChange({ autoplay: checked })}
+          />
+        </div>
+      )}
+
+      {/* Columns - only show when carousel is disabled */}
+      {!settings.enableCarousel && (
+        <div className="space-y-2">
+          <Label className="text-sm font-normal">Columns</Label>
+          <Select value={String(settings.columns)} onValueChange={(value) => onChange({ columns: Number(value) as 2 | 3 | 4 })}>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2">2 Columns</SelectItem>
+              <SelectItem value="3">3 Columns</SelectItem>
+              <SelectItem value="4">4 Columns</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Gap Settings */}
+      <div className="space-y-4 pt-2">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Horizontal Gap</Label>
+            <span className="text-xs text-muted-foreground">{settings.horizontalGap ?? 24}px</span>
+          </div>
+          <Slider
+            value={[settings.horizontalGap ?? 24]}
+            onValueChange={([value]) => onChange({ horizontalGap: value })}
+            min={0}
+            max={64}
+            step={4}
+            className="py-1"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Vertical Gap</Label>
+            <span className="text-xs text-muted-foreground">{settings.verticalGap ?? 24}px</span>
+          </div>
+          <Slider
+            value={[settings.verticalGap ?? 24]}
+            onValueChange={([value]) => onChange({ verticalGap: value })}
+            min={0}
+            max={64}
+            step={4}
+            className="py-1"
+          />
+        </div>
       </div>
 
       <div className="space-y-3">

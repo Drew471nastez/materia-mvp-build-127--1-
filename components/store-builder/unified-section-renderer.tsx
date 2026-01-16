@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type {
   Section,
@@ -25,6 +25,8 @@ import {
   CheckCircle,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Files,
   Infinity,
@@ -642,8 +644,16 @@ function getBenefitIcon(iconName: string): React.ComponentType<{ className?: str
   return LucideIcons.CheckCircle
 }
 
-// Benefits Section - UNIFIED
+// Benefits Section - UNIFIED with Carousel Support
 function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSettings; isMobile?: boolean }) {
+  // Carousel state
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isHovered, setIsHovered] = useState(false)
+  const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [touchEnd, setTouchEnd] = useState<number | null>(null)
+  const carouselRef = useRef<HTMLDivElement>(null)
+  const autoplayRef = useRef<NodeJS.Timeout | null>(null)
+
   // Safely get spacing with fallback defaults
   const defaultSpacing = { paddingTop: 48, paddingBottom: 48, paddingLeft: 16, paddingRight: 16 }
   const defaultMobileSpacing = { paddingTop: 24, paddingBottom: 24, paddingLeft: 12, paddingRight: 12 }
@@ -653,9 +663,129 @@ function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSett
 
   // Get text color from settings (theme-applied)
   const textColor = settings.colors?.textColor || undefined
+  const accentColor = settings.colors?.accentColor || undefined
 
   // Safely get typography with fallback
   const textAlign = settings.typography?.textAlign || "center"
+
+  // Gap settings with defaults
+  const horizontalGap = settings.horizontalGap ?? 24
+  const verticalGap = settings.verticalGap ?? 24
+
+  // Carousel settings
+  const enableCarousel = settings.enableCarousel ?? false
+  const autoplay = settings.autoplay ?? false
+  const autoplaySpeed = settings.autoplaySpeed ?? 4000
+  const benefitsCount = settings.benefits.length
+
+  // Navigate to next slide
+  const goToNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % benefitsCount)
+  }, [benefitsCount])
+
+  // Navigate to previous slide
+  const goToPrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + benefitsCount) % benefitsCount)
+  }, [benefitsCount])
+
+  // Go to specific slide
+  const goToSlide = useCallback((index: number) => {
+    setCurrentIndex(index)
+  }, [])
+
+  // Handle autoplay
+  useEffect(() => {
+    if (!enableCarousel || !autoplay || isHovered) {
+      if (autoplayRef.current) {
+        clearInterval(autoplayRef.current)
+        autoplayRef.current = null
+      }
+      return
+    }
+
+    autoplayRef.current = setInterval(goToNext, autoplaySpeed)
+
+    return () => {
+      if (autoplayRef.current) {
+        clearInterval(autoplayRef.current)
+      }
+    }
+  }, [enableCarousel, autoplay, autoplaySpeed, isHovered, goToNext])
+
+  // Touch handlers for swipe support
+  const minSwipeDistance = 50
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null)
+    setTouchStart(e.targetTouches[0].clientX)
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX)
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+
+    if (isLeftSwipe) {
+      goToNext()
+    } else if (isRightSwipe) {
+      goToPrev()
+    }
+  }
+
+  // Render a single benefit item
+  const renderBenefitItem = (benefit: typeof settings.benefits[0], index: number) => {
+    const useCustomImage = benefit.iconType === "custom" && benefit.customImageUrl
+    const IconComponent = !useCustomImage ? getBenefitIcon(benefit.icon) : null
+
+    return (
+      <div key={benefit.id} className="text-center flex-shrink-0" style={{ width: enableCarousel ? "100%" : undefined }}>
+        <div
+          className={cn(
+            "mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-3 overflow-hidden",
+            isMobile ? "h-12 w-12" : "h-14 w-14",
+          )}
+        >
+          {useCustomImage ? (
+            <Image
+              src={benefit.customImageUrl!}
+              alt={benefit.title}
+              width={isMobile ? 48 : 56}
+              height={isMobile ? 48 : 56}
+              className="w-full h-full object-cover"
+            />
+          ) : IconComponent ? (
+            <IconComponent className={cn("text-primary", isMobile ? "h-6 w-6" : "h-7 w-7")} />
+          ) : (
+            <CheckCircle className={cn("text-primary", isMobile ? "h-6 w-6" : "h-7 w-7")} />
+          )}
+        </div>
+        <h3
+          className={cn(
+            "font-semibold",
+            isMobile ? "text-base" : "text-lg",
+            !textColor && "text-foreground",
+          )}
+          style={{ color: textColor || undefined }}
+        >
+          {benefit.title}
+        </h3>
+        <p
+          className={cn(
+            "mt-2 text-sm",
+            !textColor && "text-muted-foreground",
+          )}
+          style={{ color: textColor ? `${textColor}99` : undefined }}
+        >
+          {benefit.description}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <SectionContainer
@@ -667,82 +797,138 @@ function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSett
         paddingRight: spacing.paddingRight,
       }}
     >
-      <h2
-        className={cn(
-          "font-semibold",
-          isMobile ? "text-xl mb-6" : "text-2xl sm:text-3xl mb-8 sm:mb-12",
-          !textColor && "text-foreground",
-        )}
-        style={{
-          textAlign: textAlign,
-          color: textColor || undefined,
-        }}
-      >
-        {settings.headline}
-      </h2>
+      {/* Only show headline if it has content */}
+      {settings.headline && (
+        <h2
+          className={cn(
+            "font-semibold",
+            isMobile ? "text-xl mb-6" : "text-2xl sm:text-3xl mb-8 sm:mb-12",
+            !textColor && "text-foreground",
+          )}
+          style={{
+            textAlign: textAlign,
+            color: textColor || undefined,
+          }}
+        >
+          {settings.headline}
+        </h2>
+      )}
 
-      <div
-        className={cn(
-          "grid gap-6",
-          isMobile
-            ? "grid-cols-1"
-            : cn(
-                settings.columns === 2 && "grid-cols-1 sm:grid-cols-2",
-                settings.columns === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-                settings.columns === 4 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
-              ),
-        )}
-      >
-        {settings.benefits.map((benefit) => {
-          // Determine if using custom image or preset icon
-          const useCustomImage = benefit.iconType === "custom" && benefit.customImageUrl
-          const IconComponent = !useCustomImage ? getBenefitIcon(benefit.icon) : null
+      {enableCarousel ? (
+        // Carousel mode
+        <div
+          className="relative group"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          {/* Carousel container */}
+          <div
+            ref={carouselRef}
+            className="overflow-hidden"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            <div
+              className="flex transition-transform duration-500 ease-out"
+              style={{
+                transform: `translateX(-${currentIndex * 100}%)`,
+              }}
+            >
+              {settings.benefits.map((benefit, index) => (
+                <div
+                  key={benefit.id}
+                  className="w-full flex-shrink-0 px-4"
+                >
+                  {renderBenefitItem(benefit, index)}
+                </div>
+              ))}
+            </div>
+          </div>
 
-          return (
-            <div key={benefit.id} className="text-center">
-              <div
+          {/* Navigation arrows - appear on hover */}
+          {benefitsCount > 1 && (
+            <>
+              <button
+                onClick={goToPrev}
                 className={cn(
-                  "mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-3 overflow-hidden",
-                  isMobile ? "h-12 w-12" : "h-14 w-14",
-                )}
-              >
-                {useCustomImage ? (
-                  <Image
-                    src={benefit.customImageUrl!}
-                    alt={benefit.title}
-                    width={isMobile ? 48 : 56}
-                    height={isMobile ? 48 : 56}
-                    className="w-full h-full object-cover"
-                  />
-                ) : IconComponent ? (
-                  <IconComponent className={cn("text-primary", isMobile ? "h-6 w-6" : "h-7 w-7")} />
-                ) : (
-                  <CheckCircle className={cn("text-primary", isMobile ? "h-6 w-6" : "h-7 w-7")} />
-                )}
-              </div>
-              <h3
-                className={cn(
-                  "font-semibold",
-                  isMobile ? "text-base" : "text-lg",
-                  !textColor && "text-foreground",
+                  "absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:translate-x-0",
+                  "w-10 h-10 rounded-full bg-background/90 shadow-lg border border-border/50",
+                  "flex items-center justify-center",
+                  "opacity-0 group-hover:opacity-100 transition-all duration-300",
+                  "hover:bg-background hover:scale-110 active:scale-95",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
+                  isMobile && "opacity-0" // Hide arrows on mobile, use swipe instead
                 )}
                 style={{ color: textColor || undefined }}
+                aria-label="Previous benefit"
               >
-                {benefit.title}
-              </h3>
-              <p
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={goToNext}
                 className={cn(
-                  "mt-2 text-sm",
-                  !textColor && "text-muted-foreground",
+                  "absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-0",
+                  "w-10 h-10 rounded-full bg-background/90 shadow-lg border border-border/50",
+                  "flex items-center justify-center",
+                  "opacity-0 group-hover:opacity-100 transition-all duration-300",
+                  "hover:bg-background hover:scale-110 active:scale-95",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
+                  isMobile && "opacity-0" // Hide arrows on mobile, use swipe instead
                 )}
-                style={{ color: textColor ? `${textColor}99` : undefined }}
+                style={{ color: textColor || undefined }}
+                aria-label="Next benefit"
               >
-                {benefit.description}
-              </p>
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </>
+          )}
+
+          {/* Navigation dots */}
+          {benefitsCount > 1 && (
+            <div className="flex justify-center gap-2 mt-6">
+              {settings.benefits.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={cn(
+                    "w-2 h-2 rounded-full transition-all duration-300",
+                    "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2",
+                    index === currentIndex
+                      ? "bg-primary w-6"
+                      : "bg-primary/30 hover:bg-primary/50"
+                  )}
+                  style={{
+                    backgroundColor: index === currentIndex
+                      ? (accentColor || undefined)
+                      : undefined,
+                  }}
+                  aria-label={`Go to benefit ${index + 1}`}
+                />
+              ))}
             </div>
-          )
-        })}
-      </div>
+          )}
+        </div>
+      ) : (
+        // Grid mode (original behavior)
+        <div
+          className={cn(
+            "grid",
+            isMobile
+              ? "grid-cols-1"
+              : cn(
+                  settings.columns === 2 && "grid-cols-1 sm:grid-cols-2",
+                  settings.columns === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+                  settings.columns === 4 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+                ),
+          )}
+          style={{
+            gap: `${verticalGap}px ${horizontalGap}px`,
+          }}
+        >
+          {settings.benefits.map((benefit, index) => renderBenefitItem(benefit, index))}
+        </div>
+      )}
     </SectionContainer>
   )
 }
@@ -1185,22 +1371,19 @@ function UnifiedFeaturedProductsSection({
                   onPointerCancel={runtimeIsMobile ? onSortPointerCancel : undefined}
                   onClick={runtimeIsMobile ? (e) => e.preventDefault() : undefined}
                   className={cn(
-                    // ✅ Mobile: themed pill button with proper contrast
+                    // ✅ Mobile: subtle themed button - no visible border, very subtle appearance
                     runtimeIsMobile
-                      ? "inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-200 touch-pan-y select-none active:scale-[0.98]"
+                      ? "inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200 touch-pan-y select-none active:scale-[0.98] hover:bg-foreground/5"
                       : // ✅ Desktop: clean text control on the right
                         "inline-flex w-auto items-center gap-2 rounded-md px-2 py-1 text-sm hover:opacity-80 bg-transparent",
                     // Only apply default classes when no theme colors are set
                     !settings.categoryFilterColors?.textColor && !runtimeIsMobile && "text-muted-foreground hover:text-foreground",
                   )}
                   style={{
-                    // Mobile: use theme-aware styling
+                    // Mobile: use theme-aware styling with subtle transparent background
                     ...(runtimeIsMobile ? {
                       backgroundColor: "transparent",
                       color: settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined,
-                      borderColor: settings.categoryFilterColors?.borderColor ||
-                        (settings.categoryFilterColors?.textColor ? `${settings.categoryFilterColors.textColor}40` : undefined) ||
-                        (settings.colors?.textColor ? `${settings.colors.textColor}40` : undefined),
                     } : {
                       color: settings.categoryFilterColors?.textColor || undefined,
                     }),
