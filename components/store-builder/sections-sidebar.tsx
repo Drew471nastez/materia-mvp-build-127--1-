@@ -3831,23 +3831,6 @@ function AboutSettingsForm({
         </p>
       </div>
 
-      {/* Max Content Height (for "Read more" truncation) */}
-      <div className="space-y-2">
-        <Label className="text-sm font-normal">Content Preview Height</Label>
-        <p className="text-xs text-muted-foreground mb-2">
-          Content taller than this will show "Read more" button
-        </p>
-        <PremiumSlider
-          value={[settings.maxContentHeight ?? 150]}
-          onValueChange={(value) => onChange({ maxContentHeight: value[0] })}
-          min={80}
-          max={400}
-          step={10}
-          showValue
-          unit="px"
-        />
-      </div>
-
       {/* Spacing - only top/bottom */}
       <div className="space-y-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Spacing</h4>

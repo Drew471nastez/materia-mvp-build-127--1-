@@ -292,13 +292,13 @@ function UnifiedReviewsSection({
   )
 }
 
-// Payment method icon components
+// Payment method icon components - using standard recognizable designs
 function PayPalIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <path d="M11.5 7.5h3.2c1.7 0 2.9.9 2.7 2.6-.3 2.3-1.8 3.4-3.8 3.4h-.9c-.3 0-.5.2-.6.5l-.4 2.5c0 .2-.2.3-.4.3H10l1.1-8.9c0-.2.2-.4.4-.4z" fill="#003087"/>
-      <path d="M21.5 7.5h3.2c1.7 0 2.9.9 2.7 2.6-.3 2.3-1.8 3.4-3.8 3.4h-.9c-.3 0-.5.2-.6.5l-.4 2.5c0 .2-.2.3-.4.3H20l1.1-8.9c0-.2.2-.4.4-.4z" fill="#0070E0"/>
+      <path d="M14.5 6h3.8c2.5 0 3.5 1.3 3.3 3.3-.3 2.7-2.1 4.2-4.6 4.2h-1.2c-.3 0-.5.2-.5.5l-.6 3.5c0 .3-.3.5-.5.5h-2.3c-.2 0-.4-.2-.3-.4l1.6-11.2c0-.2.2-.4.3-.4z" fill="#003087"/>
+      <path d="M23.5 6h3.8c1.5 0 2.6.5 3 1.5.3.7.3 1.5.1 2.3-.4 2.5-2.1 4-4.5 4h-1.3c-.3 0-.5.2-.5.5l-.5 3.2c0 .3-.3.5-.5.5h-2c-.2 0-.4-.2-.3-.4l1.4-11.2c0-.2.2-.4.3-.4z" fill="#0070E0"/>
     </svg>
   )
 }
@@ -307,8 +307,8 @@ function VisaIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <path d="M15.3 15.5h-2l1.3-7.9h2l-1.3 7.9zm7.2-7.7c-.4-.2-1-.3-1.7-.3-1.9 0-3.2 1-3.2 2.4 0 1 1 1.6 1.7 2 .7.4 1 .6 1 1 0 .5-.6.8-1.1.8-.8 0-1.2-.1-1.8-.4l-.3-.1-.3 1.7c.5.2 1.3.4 2.2.4 2 0 3.3-1 3.3-2.5 0-.8-.5-1.5-1.6-2-.7-.4-1.1-.6-1.1-.9 0-.3.4-.6 1.1-.6.6 0 1.1.1 1.5.3l.2.1.3-1.9zm5.1-.2h-1.5c-.5 0-.8.1-1 .6l-2.9 6.8h2l.4-1.1h2.5l.2 1.1h1.8l-1.5-7.4zm-2.4 4.8l.8-2.1.2-.7.1.6.5 2.2h-1.6zm-12.6-4.8l-1.8 5.4-.2-1c-.3-1.1-1.4-2.3-2.6-2.9l1.7 6.4h2l3.1-7.9h-2.2z" fill="#1A1F71"/>
-      <path d="M9.3 7.6H6.1l0 .2c2.4.6 4 2.1 4.6 3.9l-.7-3.4c-.1-.5-.4-.7-.7-.7z" fill="#F9A533"/>
+      <path d="M16.2 16h-2.5l1.6-9.5h2.5L16.2 16zm5.5-9.3c-.5-.2-1.3-.4-2.2-.4-2.5 0-4.2 1.3-4.2 3.1 0 1.4 1.2 2.1 2.2 2.6 1 .5 1.3.8 1.3 1.2 0 .7-.8 1-1.5 1-1 0-1.5-.2-2.4-.5l-.3-.2-.4 2.1c.6.3 1.7.5 2.8.5 2.6 0 4.3-1.3 4.3-3.2 0-1.1-.7-1.9-2.1-2.5-.9-.4-1.4-.7-1.4-1.2 0-.4.5-.8 1.4-.8.8 0 1.4.2 1.9.4l.2.1.4-2.2zm6.7 0h-2c-.6 0-1.1.2-1.3.8l-3.8 8.7h2.7l.5-1.5h3.2l.3 1.5h2.3l-2-9.5zm-3.1 6.1l1-2.7.3-1 .2.9.6 2.8h-2.1zm-11.8-6.1l-2.4 6.5-.3-1.3c-.5-1.6-1.9-3.2-3.5-4.1l2.3 8.2h2.7l4-9.3h-2.8z" fill="#1A1F71"/>
+      <path d="M9 6.7H5l-.1.2c3.2.8 5.3 2.6 6.2 4.9l-.9-4.3c-.2-.6-.6-.8-1-.8H9z" fill="#F9A533"/>
     </svg>
   )
 }
@@ -317,9 +317,9 @@ function MastercardIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <circle cx="15" cy="12" r="6" fill="#EB001B"/>
-      <circle cx="23" cy="12" r="6" fill="#F79E1B"/>
-      <path d="M19 7.5a6 6 0 000 9 6 6 0 000-9z" fill="#FF5F00"/>
+      <circle cx="15" cy="12" r="6.5" fill="#EB001B"/>
+      <circle cx="23" cy="12" r="6.5" fill="#F79E1B"/>
+      <path d="M19 7a6.5 6.5 0 000 10 6.5 6.5 0 000-10z" fill="#FF5F00"/>
     </svg>
   )
 }
@@ -328,7 +328,7 @@ function AmexIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="#006FCF"/>
-      <path d="M7 12l1.5-3.5h2L12 12l1.5-3.5h2L17 12h-1.5l-1-2.3-1 2.3h-2l-1-2.3-1 2.3H7zm17.5-3.5h2.5l1.5 1.5 1.5-1.5h2.5l-2.5 2.5 2.5 2.5h-2.5l-1.5-1.5-1.5 1.5h-2.5l2.5-2.5-2.5-2.5zm-7 0h5v1.2h-3.5v.6h3.5v1.2h-3.5v.6h3.5v1.2h-5V8.5z" fill="white"/>
+      <path d="M5 12.5l.8-2h1.5l.8 2h1.3l-.8-2h.8l-.8-2h-1.5l-.8 2H5l.8-2H4.5l-1.5 4h2zm4.5-4h2v4h-2v-4zm3 0l1.5 2.5V8.5h1.5l1.5 2.5V8.5h1.5v4h-2l-1.3-2v2h-2.7v-4zm7.5 0h4v1h-2.5v.5h2.5v1h-2.5v.5h2.5v1h-4v-4zm5 0h2c1.2 0 1.8.6 1.8 1.3 0 .5-.3.9-.8 1.1l1 1.6h-1.7l-.8-1.3h-.5v1.3h-1.5v-4h.5zm1.5 1.5h.5c.4 0 .5-.2.5-.4s-.2-.4-.5-.4H26v.8zm3 2.5v-4h1.5v4H29zm2-4h2.5c.8 0 1.4.3 1.7.8l-1 .8c-.2-.3-.4-.4-.8-.4h-.9v.4h1.5v.8h-1.5v.4h.9c.4 0 .6-.2.8-.4l1 .8c-.3.5-.9.8-1.7.8H31v-4z" fill="white"/>
     </svg>
   )
 }
@@ -337,8 +337,10 @@ function ApplePayIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <path d="M10.8 8.3c.4-.5.7-1.2.6-1.9-.6 0-1.3.4-1.7.9-.4.4-.7 1.1-.6 1.8.6 0 1.3-.4 1.7-.8zm.6 1c-.9-.1-1.7.5-2.2.5-.4 0-1.1-.5-1.8-.5-1 0-1.8.5-2.3 1.4-1 1.7-.3 4.2.7 5.6.5.7 1 1.4 1.8 1.4.7 0 1-.5 1.8-.5s1.1.5 1.8.5c.8 0 1.2-.7 1.7-1.4.5-.8.7-1.5.7-1.6-1-.4-1.2-1.8-.2-2.8-.4-.6-1.1-1-1.7-1.1h-.3z" fill="black"/>
-      <path d="M17.3 16.5v-6.9h2.3c1.3 0 2.2.9 2.2 2.1 0 1.2-.9 2.1-2.2 2.1h-1.5v2.7h-.8zm.8-3.4h1.3c.9 0 1.4-.5 1.4-1.4 0-.9-.5-1.4-1.4-1.4h-1.3v2.8zm4.3 1.3c0-1.3 1-2.1 2.7-2.2l2-.1v-.5c0-.8-.5-1.3-1.4-1.3-.7 0-1.2.4-1.3.9h-.8c.1-1 1-1.6 2.2-1.6 1.3 0 2.1.7 2.1 1.9v4h-.8v-1h0c-.3.7-1 1.1-1.8 1.1-1.1 0-1.9-.7-1.9-1.7v-.5zm4.7-.5v-.6l-1.8.1c-.9.1-1.4.4-1.4 1 0 .6.5 1 1.2 1 1 0 2-.7 2-1.5zm1.5 3.8v-.7c.1 0 .3.1.5.1.5 0 .8-.2 1-.8l.1-.4-2.1-5.8h.9l1.6 5h0l1.6-5h.9l-2.2 6.1c-.5 1.3-1 1.7-2 1.7-.2-.1-.3-.1-.3-.2z" fill="black"/>
+      <path d="M10.8 8c.4-.5.6-1.1.5-1.8-.5.1-1.2.4-1.6.9-.4.4-.7 1-.6 1.7.6 0 1.3-.3 1.7-.8zm.5 1c-.9 0-1.7.5-2.1.5-.5 0-1.1-.5-1.9-.5-1 0-1.9.6-2.4 1.5-1 1.8-.3 4.4.7 5.8.5.7 1.1 1.5 1.8 1.5.7 0 1-.5 1.9-.5s1.1.5 1.9.5c.8 0 1.3-.7 1.8-1.4.5-.8.8-1.6.8-1.6-1-.4-1.2-1.7-.2-2.7-.4-.6-1-1-1.6-1.1h-.7z" fill="#000"/>
+      <path d="M17.5 17.5v-8h2.7c1.4 0 2.4 1 2.4 2.3s-1 2.3-2.4 2.3H18.5v3.4h-1zm1-4.3h1.4c.9 0 1.5-.5 1.5-1.4s-.6-1.4-1.5-1.4h-1.4v2.8z" fill="#000"/>
+      <path d="M23.5 14.3c0-1.4 1-2.3 2.9-2.4l2.1-.1v-.5c0-.9-.5-1.3-1.5-1.3-.7 0-1.3.4-1.4 1h-1c.1-1.1 1-1.9 2.5-1.9s2.3.8 2.3 2.1v4.3h-.9v-1h0c-.3.7-1 1.1-1.9 1.1-1.2 0-2-.7-2-.9v-.4h-.1zm5-.5v-.7l-1.9.1c-.9.1-1.5.5-1.5 1.1s.5 1 1.3 1c1 0 2.1-.6 2.1-1.5z" fill="#000"/>
+      <path d="M31.5 18.8v-.8c.1 0 .2 0 .4.1.5 0 .9-.3 1.1-.9l.1-.3-2.3-6.4h1.1l1.7 5.4h0l1.7-5.4h1l-2.3 6.8c-.5 1.4-1.1 1.8-2.2 1.8-.1-.1-.2-.1-.3-.1v-.2z" fill="#000"/>
     </svg>
   )
 }
@@ -347,13 +349,13 @@ function GooglePayIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 38 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="38" height="24" rx="4" fill="white" stroke="#E5E7EB"/>
-      <path d="M17.7 12.3v2.9h-.9V8.5h2.5c.6 0 1.1.2 1.5.6.4.4.6.9.6 1.5s-.2 1.1-.6 1.5c-.4.4-.9.6-1.5.6h-1.6v-.4zm0-3v2.5h1.6c.4 0 .7-.1 1-.4.3-.3.4-.6.4-1s-.1-.7-.4-1c-.3-.3-.6-.4-1-.4h-1.6v.3z" fill="#5F6368"/>
-      <path d="M23.6 10c.7 0 1.2.2 1.6.5.4.4.6.9.6 1.5v3.2h-.9v-.7h0c-.3.6-.8.9-1.5.9-.6 0-1.1-.2-1.4-.5-.4-.3-.5-.7-.5-1.2 0-.5.2-.9.5-1.2.4-.3.9-.5 1.5-.5.5 0 1 .1 1.3.4v-.3c0-.4-.1-.7-.4-.9-.3-.3-.6-.4-1-.4-.6 0-1 .2-1.3.7l-.8-.5c.4-.6 1.1-.9 2-1h.3v.1zm-1.2 3.6c0 .3.1.5.3.7.2.2.5.3.8.3.4 0 .8-.2 1.1-.5.3-.3.5-.7.5-1.1-.3-.3-.7-.4-1.2-.4-.4 0-.7.1-1 .3-.3.2-.5.5-.5.7z" fill="#5F6368"/>
-      <path d="M30.3 10.1l-3.2 7.4h-1l1.2-2.6-2.1-4.8h1l1.5 3.7h0l1.5-3.7h1.1z" fill="#5F6368"/>
-      <path d="M12.7 11.7c0-.3 0-.6-.1-.9h-4v1.7h2.3c-.1.5-.4 1-.8 1.3v1h1.3c.8-.7 1.3-1.8 1.3-3.1z" fill="#4285F4"/>
-      <path d="M8.6 15c1.1 0 2-.4 2.7-1l-1.3-1c-.4.3-.8.4-1.4.4-.1 0-.3 0-.4 0-1-.1-1.8-.8-2.1-1.7H5.3v1.1c.7 1.3 2 2.2 3.3 2.2z" fill="#34A853"/>
-      <path d="M6.1 11.6c-.1-.3-.2-.6-.2-1s.1-.7.2-1V8.5H5.3c-.3.6-.4 1.3-.4 2s.2 1.4.4 2l.8-1v.1z" fill="#FBBC04"/>
-      <path d="M8.6 8.4c.6 0 1.1.2 1.5.6l1.1-1.1c-.7-.6-1.6-1-2.6-1-1.3 0-2.6.9-3.3 2.2l.8 1.1c.3-.9 1.1-1.6 2.1-1.7.1 0 .3-.1.4-.1z" fill="#EA4335"/>
+      <path d="M17.1 12v3h-1V7.5h2.6c.6 0 1.2.2 1.6.6.4.4.6 1 .6 1.6s-.2 1.1-.6 1.6c-.4.4-1 .6-1.6.6h-1.6V12zm0-3.6v2.7h1.7c.4 0 .8-.2 1-.4.3-.3.4-.6.4-1s-.1-.7-.4-1c-.3-.3-.6-.4-1-.4h-1.7v.1z" fill="#5F6368"/>
+      <path d="M23.4 9.5c.7 0 1.3.2 1.7.6.4.4.6.9.6 1.6v3.3h-1v-.7c-.3.6-.9.9-1.6.9-.6 0-1.1-.2-1.5-.5-.4-.3-.5-.8-.5-1.2 0-.5.2-.9.5-1.2.4-.3.9-.5 1.6-.5.5 0 1 .1 1.3.4v-.3c0-.4-.2-.7-.4-1-.3-.2-.6-.4-1-.4-.6 0-1.1.3-1.4.8l-.9-.5c.5-.7 1.2-1.1 2.1-1.1l.1-.2zm-1.1 4.1c0 .3.1.5.4.7.2.2.5.3.8.3.4 0 .9-.2 1.2-.5.3-.3.5-.7.5-1.1-.3-.3-.7-.4-1.3-.4-.4 0-.8.1-1 .3-.3.2-.5.4-.5.7h-.1z" fill="#5F6368"/>
+      <path d="M30.7 9.6l-3.5 8h-1l1.3-2.8-2.3-5.2h1.1l1.7 3.9 1.6-3.9h1.1z" fill="#5F6368"/>
+      <path d="M13 11.6c0-.3 0-.6-.1-.9H9v1.7h2.3c-.1.5-.4 1-.9 1.3v1.1h1.4c.8-.8 1.3-1.9 1.3-3.2h-.1z" fill="#4285F4"/>
+      <path d="M9 15c1.2 0 2.2-.4 2.9-1.1l-1.4-1.1c-.4.3-.9.4-1.5.4-1.1 0-2.1-.8-2.4-1.8H5.2v1.1c.7 1.5 2.2 2.5 3.8 2.5z" fill="#34A853"/>
+      <path d="M6.6 11.4c-.1-.3-.2-.6-.2-.9s.1-.6.2-.9V8.5H5.2c-.2.5-.4 1-.4 1.6s.1 1.1.4 1.6l1.4-1v-.3z" fill="#FBBC04"/>
+      <path d="M9 8.2c.6 0 1.2.2 1.6.6l1.2-1.2c-.8-.7-1.7-1.1-2.8-1.1-1.6 0-3 1-3.8 2.5l1.4 1.1c.3-1 1.3-1.8 2.4-1.9z" fill="#EA4335"/>
     </svg>
   )
 }
@@ -379,6 +381,7 @@ function UnifiedAboutSection({
   totalSales,
   onUpdateSettings,
   onOpenSidebar,
+  pageBackgroundColor,
 }: {
   settings: AboutSettings
   isMobile?: boolean
@@ -389,6 +392,7 @@ function UnifiedAboutSection({
   totalSales?: number
   onUpdateSettings?: (settings: Partial<AboutSettings>) => void
   onOpenSidebar?: () => void
+  pageBackgroundColor?: string
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [needsTruncation, setNeedsTruncation] = useState(false)
@@ -407,20 +411,21 @@ function UnifiedAboutSection({
   const displayTotalSales = totalSales ?? 0
   // Use actual memberSince from props
   const displayMemberSince = memberSince
-  const maxContentHeight = settings.maxContentHeight ?? 150
+  // Fixed max height for 4 lines: text-base (16px) * leading-relaxed (1.625) * 4 lines = ~104px
+  const maxContentHeight = 104
 
   // Format member since date to year - show current year as fallback in editor
   const memberSinceYear = displayMemberSince
     ? new Date(displayMemberSince).getFullYear()
     : isEditorMode ? new Date().getFullYear() : undefined
 
-  // Check if content needs truncation
+  // Check if content needs truncation (show Read more if more than 4 lines)
   useEffect(() => {
     if (contentRef.current) {
       const contentHeight = contentRef.current.scrollHeight
       setNeedsTruncation(contentHeight > maxContentHeight)
     }
-  }, [settings.aboutContent, maxContentHeight])
+  }, [settings.aboutContent])
 
   // Determine if we have headline or content to show
   const hasHeadline = !!settings.headline
@@ -510,31 +515,33 @@ function UnifiedAboutSection({
             {/* Headline - with inline edit placeholder in editor mode */}
             {hasHeadline ? (
               <div
-                className="relative group"
+                className="group mb-4"
                 onMouseEnter={() => setHoveredField("headline")}
                 onMouseLeave={() => setHoveredField(null)}
               >
-                <h4
-                  className={cn(
-                    "font-semibold mb-4",
-                    isMobile ? "text-xl" : "text-2xl"
-                  )}
-                  style={{ color: textColor || undefined }}
-                >
-                  {settings.headline}
-                </h4>
-                {/* Edit icon on hover - only in editor mode */}
-                {isEditorMode && hoveredField === "headline" && (
-                  <button
-                    onClick={handleEditClick}
-                    className="absolute -right-8 top-0 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-opacity"
+                <span className="inline-flex items-center gap-2">
+                  <h4
+                    className={cn(
+                      "font-semibold",
+                      isMobile ? "text-xl" : "text-2xl"
+                    )}
+                    style={{ color: textColor || undefined }}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    Edit
-                  </button>
-                )}
+                    {settings.headline}
+                  </h4>
+                  {/* Edit icon on hover - only in editor mode */}
+                  {isEditorMode && hoveredField === "headline" && (
+                    <button
+                      onClick={handleEditClick}
+                      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-opacity"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      Edit
+                    </button>
+                  )}
+                </span>
               </div>
             ) : (
               // Placeholder for headline in editor mode
@@ -560,6 +567,18 @@ function UnifiedAboutSection({
                 onMouseEnter={() => setHoveredField("content")}
                 onMouseLeave={() => setHoveredField(null)}
               >
+                {/* Edit icon on hover - only in editor mode, positioned at top right of content */}
+                {isEditorMode && hoveredField === "content" && (
+                  <button
+                    onClick={handleEditClick}
+                    className="absolute -top-1 right-0 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-opacity z-20"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
                 <div
                   ref={contentRef}
                   className={cn(
@@ -574,27 +593,23 @@ function UnifiedAboutSection({
                   <p className="whitespace-pre-wrap">{settings.aboutContent}</p>
                 </div>
 
-                {/* Edit icon on hover - only in editor mode */}
-                {isEditorMode && hoveredField === "content" && (
-                  <button
-                    onClick={handleEditClick}
-                    className="absolute -right-8 top-0 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-opacity"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    Edit
-                  </button>
-                )}
-
                 {/* Fade gradient and Read more button */}
                 {needsTruncation && !isExpanded && (
                   <div
                     className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
                     style={{
-                      background: backgroundColor && backgroundColor !== "transparent"
-                        ? `linear-gradient(to bottom, transparent, ${backgroundColor})`
-                        : "linear-gradient(to bottom, transparent, white)"
+                      background: (() => {
+                        // Use section background if set and not transparent
+                        if (backgroundColor && backgroundColor !== "transparent") {
+                          return `linear-gradient(to bottom, transparent, ${backgroundColor})`
+                        }
+                        // Fall back to page background color if available
+                        if (pageBackgroundColor && pageBackgroundColor !== "transparent") {
+                          return `linear-gradient(to bottom, transparent, ${pageBackgroundColor})`
+                        }
+                        // Default to white
+                        return "linear-gradient(to bottom, transparent, white)"
+                      })()
                     }}
                   />
                 )}
@@ -685,7 +700,7 @@ function UnifiedAboutSection({
                   return (
                     <IconComponent
                       key={method}
-                      className={cn(isMobile ? "w-10 h-6" : "w-12 h-8")}
+                      className={cn(isMobile ? "w-[38px] h-[23px]" : "w-[45px] h-[30px]")}
                     />
                   )
                 })}
@@ -831,6 +846,7 @@ export function UnifiedSectionRenderer({
           totalSales={sellerTotalSales}
           onUpdateSettings={onUpdateAboutSettings}
           onOpenSidebar={onOpenAboutSidebar}
+          pageBackgroundColor={globalSettings?.themeColors?.background}
         />
       )}
     </div>
