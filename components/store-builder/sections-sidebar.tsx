@@ -2212,7 +2212,7 @@ function SectionSettingsForm({
         </div>
       )}
 
-      {section.type === "image-text" && <ImageTextSettingsForm settings={settings as ImageTextSettings} onChange={onChange} />}
+      {section.type === "image-text" && <ImageTextSettingsForm settings={settings as ImageTextSettings} onChange={onChange} products={products} />}
       {section.type === "benefits" && <BenefitsSettingsForm settings={settings as BenefitsSettings} onChange={onChange} />}
       {section.type === "text-block" && <TextBlockSettingsForm settings={settings as TextBlockSettings} onChange={onChange} />}
       {section.type === "announcement-bar" && (
@@ -2240,10 +2240,28 @@ function SectionSettingsForm({
 function ImageTextSettingsForm({
   settings,
   onChange,
+  products = [],
 }: {
   settings: ImageTextSettings
   onChange: (settings: Partial<ImageTextSettings>) => void
+  products?: Array<{ id: string; title: string; slug?: string; thumbnail_url?: string }>
 }) {
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false)
+  const [productSearchQuery, setProductSearchQuery] = useState("")
+
+  // Determine current link mode
+  const buttonLinkType = settings.buttonLinkType || (settings.buttonProductSlug ? "product" : "custom")
+
+  // Find selected product for display
+  const selectedProduct = products.find(
+    (p) => p.slug === settings.buttonProductSlug || p.id === settings.buttonProductId
+  )
+
+  // Filter products for search
+  const filteredProducts = products.filter((p) =>
+    p.title.toLowerCase().includes(productSearchQuery.toLowerCase())
+  )
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -2281,7 +2299,7 @@ function ImageTextSettingsForm({
         <Textarea value={settings.body} onChange={(e) => onChange({ body: e.target.value })} rows={4} className="resize-none" />
       </div>
 
-      <ToggleField label="Show Button" checked={settings.showButton} onChange={(checked) => onChange({ showButton: checked })} />
+      <ToggleField label="Enable Button" checked={settings.showButton} onChange={(checked) => onChange({ showButton: checked })} />
 
       {settings.showButton && (
         <>
@@ -2290,15 +2308,182 @@ function ImageTextSettingsForm({
             <Input value={settings.buttonText || ""} onChange={(e) => onChange({ buttonText: e.target.value })} className="h-9" />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm font-normal">Button URL</Label>
-            <Input
-              value={settings.buttonUrl || ""}
-              onChange={(e) => onChange({ buttonUrl: e.target.value })}
-              className="h-9"
-              placeholder="https://"
-            />
+          {/* Button Link Type Selector */}
+          <div className="space-y-3">
+            <Label className="text-sm font-normal">Button Link</Label>
+            <Select
+              value={buttonLinkType}
+              onValueChange={(value: "product" | "custom") => {
+                onChange({
+                  buttonLinkType: value,
+                  // Clear the other type's values when switching
+                  ...(value === "product"
+                    ? { buttonUrl: undefined }
+                    : { buttonProductId: undefined, buttonProductSlug: undefined }),
+                })
+              }}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="product">Link to product</SelectItem>
+                <SelectItem value="custom">Custom URL</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Product Selector - shows when "Link to product" is selected */}
+          {buttonLinkType === "product" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-normal">Select Product</Label>
+              <Dialog open={isProductModalOpen} onOpenChange={setIsProductModalOpen}>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left"
+                  >
+                    {selectedProduct ? (
+                      <>
+                        <div className="w-10 h-10 rounded-md bg-muted overflow-hidden flex-shrink-0">
+                          {selectedProduct.thumbnail_url ? (
+                            <img
+                              src={selectedProduct.thumbnail_url}
+                              alt={selectedProduct.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{selectedProduct.title}</p>
+                          <p className="text-xs text-muted-foreground">Click to change</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                          <Package className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-muted-foreground">Select a product...</p>
+                        </div>
+                      </>
+                    )}
+                    <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="w-[calc(100vw-32px)] max-w-md sm:max-w-lg max-h-[85vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-0 gap-0 rounded-2xl">
+                  <div className="px-4 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-border/50">
+                    <DialogHeader className="space-y-1">
+                      <DialogTitle className="text-lg sm:text-xl font-semibold">Select Product</DialogTitle>
+                      <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
+                        Choose a product to link the button to
+                      </DialogDescription>
+                    </DialogHeader>
+                  </div>
+
+                  <div className="flex-1 overflow-hidden flex flex-col px-4 pb-4 sm:px-6 sm:pb-6">
+                    {/* Search input */}
+                    <div className="my-4">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search products..."
+                          value={productSearchQuery}
+                          onChange={(e) => setProductSearchQuery(e.target.value)}
+                          className="pl-9 h-10 sm:h-11 text-sm rounded-xl bg-muted/50 border-0 focus-visible:ring-1"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Products list */}
+                    <div className="flex-1 overflow-y-auto -mx-1 px-1" style={{ maxHeight: "calc(85vh - 220px)" }}>
+                      <div className="space-y-2 pb-2">
+                        {filteredProducts.length > 0 ? (
+                          filteredProducts.map((product) => {
+                            const isSelected = product.slug === settings.buttonProductSlug || product.id === settings.buttonProductId
+                            return (
+                              <button
+                                key={product.id}
+                                type="button"
+                                onClick={() => {
+                                  onChange({
+                                    buttonLinkType: "product",
+                                    buttonProductId: product.id,
+                                    buttonProductSlug: product.slug || product.id,
+                                    buttonUrl: undefined,
+                                  })
+                                  setIsProductModalOpen(false)
+                                  setProductSearchQuery("")
+                                }}
+                                className={cn(
+                                  "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left",
+                                  isSelected
+                                    ? "bg-primary/10 border-2 border-primary"
+                                    : "bg-muted/50 border-2 border-transparent hover:bg-muted"
+                                )}
+                              >
+                                <div className="w-12 h-12 rounded-lg bg-background overflow-hidden flex-shrink-0">
+                                  {product.thumbnail_url ? (
+                                    <img
+                                      src={product.thumbnail_url}
+                                      alt={product.title}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Package className="w-6 h-6 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{product.title}</p>
+                                </div>
+                                {isSelected && (
+                                  <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                                )}
+                              </button>
+                            )
+                          })
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                            <Package className="w-10 h-10 mb-3 opacity-40" />
+                            <p className="text-sm">
+                              {productSearchQuery ? `No products found for "${productSearchQuery}"` : "No products available"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
+          {/* Custom URL Input - shows when "Custom URL" is selected */}
+          {buttonLinkType === "custom" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-normal">Custom URL</Label>
+              <Input
+                value={settings.buttonUrl || ""}
+                onChange={(e) =>
+                  onChange({
+                    buttonUrl: e.target.value,
+                    buttonProductId: undefined,
+                    buttonProductSlug: undefined,
+                  })
+                }
+                className="h-9"
+                placeholder="https://"
+              />
+              <p className="text-xs text-muted-foreground">Opens in a new tab when clicked</p>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -2505,114 +2690,110 @@ function BenefitIconPicker({
           <span className="text-xs text-muted-foreground">Change icon</span>
         </button>
       </DialogTrigger>
-      <DialogContent className="w-[calc(100vw-32px)] max-w-md sm:max-w-lg md:max-w-xl max-h-[85vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-0 gap-0 rounded-2xl">
+      <DialogContent className="w-[calc(100vw-24px)] max-w-[420px] sm:max-w-lg max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0 rounded-xl sm:rounded-2xl mx-auto">
         {/* Header */}
-        <div className="px-4 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-border/50">
+        <div className="px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4 border-b border-border/50 flex-shrink-0">
           <DialogHeader className="space-y-1">
-            <DialogTitle className="text-lg sm:text-xl font-semibold">Choose Icon</DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
-              Select an icon from the library or upload your own image
+            <DialogTitle className="text-base sm:text-lg font-semibold">Choose Icon</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Select an icon or upload your own
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className="flex-1 overflow-hidden flex flex-col px-4 pb-4 sm:px-6 sm:pb-6">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "icons" | "upload")} className="flex-1 flex flex-col min-h-0 mt-4">
-            {/* Tab buttons styled like the screenshot */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <button
-                type="button"
-                onClick={() => setActiveTab("icons")}
-                className={cn(
-                  "flex flex-col items-center justify-center p-4 sm:p-5 rounded-xl border-2 transition-all",
-                  activeTab === "icons"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
-                )}
-              >
-                <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center mb-2">
-                  <Sparkles className={cn("w-6 h-6 sm:w-7 sm:h-7", activeTab === "icons" ? "text-primary" : "text-muted-foreground")} />
-                </div>
-                <span className={cn("text-sm font-medium", activeTab === "icons" ? "text-foreground" : "text-muted-foreground")}>
-                  Icon Library
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("upload")}
-                className={cn(
-                  "flex flex-col items-center justify-center p-4 sm:p-5 rounded-xl border-2 transition-all",
-                  activeTab === "upload"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
-                )}
-              >
-                <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center mb-2">
-                  <ImageLucide className={cn("w-6 h-6 sm:w-7 sm:h-7", activeTab === "upload" ? "text-primary" : "text-muted-foreground")} />
-                </div>
-                <span className={cn("text-sm font-medium", activeTab === "upload" ? "text-foreground" : "text-muted-foreground")}>
-                  Custom Image
-                </span>
-              </button>
-            </div>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="px-4 py-3 sm:px-5 sm:py-4">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "icons" | "upload")} className="space-y-4">
+              {/* Tab buttons - compact on mobile */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("icons")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all",
+                    activeTab === "icons"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
+                  )}
+                >
+                  <Sparkles className={cn("w-5 h-5 sm:w-6 sm:h-6", activeTab === "icons" ? "text-primary" : "text-muted-foreground")} />
+                  <span className={cn("text-sm font-medium", activeTab === "icons" ? "text-foreground" : "text-muted-foreground")}>
+                    Icons
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("upload")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all",
+                    activeTab === "upload"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
+                  )}
+                >
+                  <ImageLucide className={cn("w-5 h-5 sm:w-6 sm:h-6", activeTab === "upload" ? "text-primary" : "text-muted-foreground")} />
+                  <span className={cn("text-sm font-medium", activeTab === "upload" ? "text-foreground" : "text-muted-foreground")}>
+                    Upload
+                  </span>
+                </button>
+              </div>
 
-            <TabsContent value="icons" className="flex-1 min-h-0 flex flex-col mt-0 data-[state=inactive]:hidden">
-              {/* Search input */}
-              <div className="mb-3">
+              <TabsContent value="icons" className="mt-0 space-y-3 data-[state=inactive]:hidden">
+                {/* Search input */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search icons..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10 sm:h-11 text-sm rounded-xl bg-muted/50 border-0 focus-visible:ring-1"
+                    className="pl-9 h-9 sm:h-10 text-sm rounded-lg bg-muted/50 border-0 focus-visible:ring-1"
                   />
                 </div>
-              </div>
 
-              {/* Icons grid with proper scrolling */}
-              <div className="flex-1 overflow-y-auto -mx-1 px-1" style={{ maxHeight: "calc(85vh - 340px)" }}>
-                <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 gap-2 sm:gap-2.5 pb-2">
-                  {filteredIcons.map((iconName) => {
-                    const Icon = getIconComponent(iconName)
-                    const isSelected = selectedIcon === iconName && iconType !== "custom"
-                    return (
-                      <button
-                        key={iconName}
-                        type="button"
-                        onClick={() => {
-                          onSelectIcon(iconName, "preset")
-                          setIsOpen(false)
-                        }}
-                        className={cn(
-                          "aspect-square w-full flex items-center justify-center rounded-xl transition-all touch-manipulation",
-                          "min-h-[44px] sm:min-h-[48px]",
-                          isSelected
-                            ? "bg-primary text-primary-foreground shadow-md"
-                            : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95"
-                        )}
-                        title={iconName.replace(/-/g, ' ')}
-                      >
-                        <Icon className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
-                      </button>
-                    )
-                  })}
-                </div>
-                {filteredIcons.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <Search className="w-10 h-10 mb-3 opacity-40" />
-                    <p className="text-sm">No icons found for "{searchQuery}"</p>
+                {/* Icons grid - fixed height with scroll */}
+                <div className="max-h-[280px] sm:max-h-[320px] overflow-y-auto rounded-lg">
+                  <div className="grid grid-cols-5 sm:grid-cols-6 gap-1.5 sm:gap-2 p-1">
+                    {filteredIcons.map((iconName) => {
+                      const Icon = getIconComponent(iconName)
+                      const isSelected = selectedIcon === iconName && iconType !== "custom"
+                      return (
+                        <button
+                          key={iconName}
+                          type="button"
+                          onClick={() => {
+                            onSelectIcon(iconName, "preset")
+                            setIsOpen(false)
+                          }}
+                          className={cn(
+                            "aspect-square w-full flex items-center justify-center rounded-lg transition-all touch-manipulation",
+                            "min-h-[40px] sm:min-h-[44px]",
+                            isSelected
+                              ? "bg-primary text-primary-foreground shadow-md"
+                              : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95"
+                          )}
+                          title={iconName.replace(/-/g, ' ')}
+                        >
+                          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </button>
+                      )
+                    })}
                   </div>
-                )}
-              </div>
-            </TabsContent>
+                  {filteredIcons.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                      <Search className="w-8 h-8 mb-2 opacity-40" />
+                      <p className="text-xs">No icons found for "{searchQuery}"</p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
 
-            <TabsContent value="upload" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Upload a custom image to use as the icon. It will be displayed as a circle.
+              <TabsContent value="upload" className="mt-0 space-y-4 data-[state=inactive]:hidden">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Upload a custom image to use as the icon.
                 </p>
-                <div className="rounded-xl border-2 border-dashed border-border p-4 sm:p-6">
+
+                {/* Image upload area - ensure it's fully visible */}
+                <div className="rounded-lg sm:rounded-xl border-2 border-dashed border-border p-3 sm:p-4 bg-muted/20">
                   <ImageUpload
                     bucket="store-builder-images"
                     folder="benefit-icons"
@@ -2627,20 +2808,22 @@ function BenefitIconPicker({
                     aspectRatio="square"
                   />
                 </div>
+
+                {/* Current custom icon preview */}
                 {customImageUrl && (
-                  <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50 border border-border/50">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary/10 overflow-hidden ring-2 ring-primary/20 flex-shrink-0">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary/10 overflow-hidden ring-2 ring-primary/20 flex-shrink-0">
                       <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-foreground block">Current custom icon</span>
-                      <span className="text-xs text-muted-foreground">Click above to change</span>
+                      <span className="text-sm font-medium text-foreground block">Current icon</span>
+                      <span className="text-xs text-muted-foreground">Upload new to change</span>
                     </div>
                   </div>
                 )}
-              </div>
-            </TabsContent>
-          </Tabs>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -2697,11 +2880,11 @@ function BenefitsSettingsForm({
         <Input value={settings.headline} onChange={(e) => onChange({ headline: e.target.value })} className="h-9" />
       </div>
 
-      {/* Carousel Toggle */}
+      {/* Carousel Toggle - Mobile Only */}
       <div className="flex items-center justify-between py-2">
         <div className="space-y-0.5">
-          <Label className="text-sm font-normal">Enable Carousel</Label>
-          <p className="text-xs text-muted-foreground">Display benefits in a sliding carousel</p>
+          <Label className="text-sm font-normal">Enable Carousel (Mobile)</Label>
+          <p className="text-xs text-muted-foreground">Display benefits in a sliding carousel on mobile devices with swipe support</p>
         </div>
         <Switch
           checked={settings.enableCarousel ?? false}

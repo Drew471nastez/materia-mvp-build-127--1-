@@ -103,6 +103,7 @@ export interface UnifiedSectionProps {
   reviewsCount?: number
   reviewsAverage?: number
   accentColor?: string
+  globalSettings?: GlobalStoreSettings
 }
 
 // Helper function to get product href
@@ -296,6 +297,7 @@ export function UnifiedSectionRenderer({
   reviewsCount = 0,
   reviewsAverage = 0,
   accentColor,
+  globalSettings,
 }: UnifiedSectionProps) {
   if (!section.settings.visible) return null
 
@@ -326,6 +328,7 @@ export function UnifiedSectionRenderer({
           settings={section.settings as ImageTextSettings}
           isMobile={isMobile}
           isPreviewMode={isPreviewMode}
+          globalSettings={globalSettings}
         />
       )}
       {section.type === "benefits" && (
@@ -387,7 +390,8 @@ function UnifiedImageTextSection({
   settings,
   isMobile,
   isPreviewMode,
-}: { settings: ImageTextSettings; isMobile?: boolean; isPreviewMode?: boolean }) {
+  globalSettings,
+}: { settings: ImageTextSettings; isMobile?: boolean; isPreviewMode?: boolean; globalSettings?: GlobalStoreSettings }) {
   // Safely get spacing with fallback defaults
   const defaultSpacing = { paddingTop: 48, paddingBottom: 48, paddingLeft: 16, paddingRight: 16 }
   const defaultMobileSpacing = { paddingTop: 24, paddingBottom: 24, paddingLeft: 12, paddingRight: 12 }
@@ -400,6 +404,24 @@ function UnifiedImageTextSection({
 
   // Get text color from settings (theme-applied)
   const textColor = settings.colors?.textColor || undefined
+
+  // Get theme button styles from globalSettings
+  const themePreset = globalSettings?.themePreset || "default"
+  const themeConfig = require("@/lib/store-builder/defaults").themePresets[themePreset]
+  const buttonBgColor = themeConfig?.subscribeBar?.buttonColor || themeConfig?.colors?.primary || "#374151"
+  const buttonTextColor = themeConfig?.subscribeBar?.buttonTextColor || "#ffffff"
+  const buttonBorderRadius = themeConfig?.buttonBorderRadius || 8
+
+  // Determine button URL based on link type
+  const getButtonHref = () => {
+    if (settings.buttonLinkType === "product" && settings.buttonProductSlug) {
+      return `/p/${settings.buttonProductSlug}`
+    }
+    return settings.buttonUrl || "#"
+  }
+
+  // Determine if link should open in new tab
+  const isExternalLink = settings.buttonLinkType === "custom" && settings.buttonUrl && !settings.buttonUrl.startsWith("#")
 
   return (
     <SectionContainer isMobile={isMobile}>
@@ -467,11 +489,51 @@ function UnifiedImageTextSection({
           {settings.showButton && settings.buttonText && (
             <div className="mt-4" style={{ textAlign: textAlign }}>
               {isPreviewMode ? (
-                <Button size={isMobile ? "sm" : "default"}>{settings.buttonText}</Button>
+                <button
+                  className={cn(
+                    "inline-flex items-center justify-center font-medium transition-colors",
+                    isMobile ? "px-4 py-2 text-sm" : "px-6 py-2.5 text-sm"
+                  )}
+                  style={{
+                    backgroundColor: buttonBgColor,
+                    color: buttonTextColor,
+                    borderRadius: `${buttonBorderRadius}px`,
+                  }}
+                >
+                  {settings.buttonText}
+                </button>
+              ) : isExternalLink ? (
+                <a
+                  href={settings.buttonUrl || "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "inline-flex items-center justify-center font-medium transition-colors hover:opacity-90",
+                    isMobile ? "px-4 py-2 text-sm" : "px-6 py-2.5 text-sm"
+                  )}
+                  style={{
+                    backgroundColor: buttonBgColor,
+                    color: buttonTextColor,
+                    borderRadius: `${buttonBorderRadius}px`,
+                  }}
+                >
+                  {settings.buttonText}
+                </a>
               ) : (
-                <Button asChild size={isMobile ? "sm" : "default"}>
-                  <Link href={settings.buttonUrl || "#"}>{settings.buttonText}</Link>
-                </Button>
+                <Link
+                  href={getButtonHref()}
+                  className={cn(
+                    "inline-flex items-center justify-center font-medium transition-colors hover:opacity-90",
+                    isMobile ? "px-4 py-2 text-sm" : "px-6 py-2.5 text-sm"
+                  )}
+                  style={{
+                    backgroundColor: buttonBgColor,
+                    color: buttonTextColor,
+                    borderRadius: `${buttonBorderRadius}px`,
+                  }}
+                >
+                  {settings.buttonText}
+                </Link>
               )}
             </div>
           )}
@@ -644,8 +706,8 @@ function getBenefitIcon(iconName: string): React.ComponentType<{ className?: str
   return LucideIcons.CheckCircle
 }
 
-// Benefits Section - UNIFIED with Carousel Support
-function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSettings; isMobile?: boolean }) {
+// Benefits Section - UNIFIED with Carousel Support (Mobile Only)
+function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { settings: BenefitsSettings; isMobile?: boolean; isPreviewMode?: boolean }) {
   // Carousel state
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
@@ -672,8 +734,10 @@ function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSett
   const horizontalGap = settings.horizontalGap ?? 24
   const verticalGap = settings.verticalGap ?? 24
 
-  // Carousel settings
-  const enableCarousel = settings.enableCarousel ?? false
+  // Carousel settings - ONLY enable on mobile devices
+  // Carousel is mobile-only: only shows on mobile view (published or preview canvas in mobile mode)
+  const carouselEnabled = settings.enableCarousel ?? false
+  const enableCarousel = carouselEnabled && isMobile
   const autoplay = settings.autoplay ?? false
   const autoplaySpeed = settings.autoplaySpeed ?? 4000
   const benefitsCount = settings.benefits.length
@@ -846,43 +910,8 @@ function UnifiedBenefitsSection({ settings, isMobile }: { settings: BenefitsSett
             </div>
           </div>
 
-          {/* Navigation arrows - appear on hover */}
-          {benefitsCount > 1 && (
-            <>
-              <button
-                onClick={goToPrev}
-                className={cn(
-                  "absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:translate-x-0",
-                  "w-10 h-10 rounded-full bg-background/90 shadow-lg border border-border/50",
-                  "flex items-center justify-center",
-                  "opacity-0 group-hover:opacity-100 transition-all duration-300",
-                  "hover:bg-background hover:scale-110 active:scale-95",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  isMobile && "opacity-0" // Hide arrows on mobile, use swipe instead
-                )}
-                style={{ color: textColor || undefined }}
-                aria-label="Previous benefit"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={goToNext}
-                className={cn(
-                  "absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-0",
-                  "w-10 h-10 rounded-full bg-background/90 shadow-lg border border-border/50",
-                  "flex items-center justify-center",
-                  "opacity-0 group-hover:opacity-100 transition-all duration-300",
-                  "hover:bg-background hover:scale-110 active:scale-95",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  isMobile && "opacity-0" // Hide arrows on mobile, use swipe instead
-                )}
-                style={{ color: textColor || undefined }}
-                aria-label="Next benefit"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </>
-          )}
+          {/* Navigation arrows - NEVER show on mobile (carousel is mobile-only with dots/swipe) */}
+          {/* Since carousel is only enabled on mobile, we don't render arrows at all */}
 
           {/* Navigation dots */}
           {benefitsCount > 1 && (

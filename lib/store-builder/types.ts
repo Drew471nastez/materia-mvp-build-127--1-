@@ -86,6 +86,12 @@ export interface ImageTextSettings extends BaseSectionSettings {
   buttonUrl?: string
   showButton: boolean
   imageFocalPoint?: FocalPointConfig
+  // Button link type: 'product' links to a product, 'custom' uses custom URL
+  buttonLinkType?: "product" | "custom"
+  // Product ID when buttonLinkType is 'product'
+  buttonProductId?: string
+  // Product slug for routing when buttonLinkType is 'product'
+  buttonProductSlug?: string
 }
 
 // Benefits section (icon list)

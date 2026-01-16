@@ -863,12 +863,13 @@ export const defaultProductHeaderSettings: ProductHeaderSettings = {
 export const defaultImageTextSettings: ImageTextSettings = {
   visible: true,
   headline: "Welcome to my store",
-  body: "Discover amazing digital products crafted with care.",
+  body: "Discover my amazing collection of digital products, crafted with care.",
   imageUrl: "",
   imagePosition: "right",
   buttonText: "Browse Products",
   buttonUrl: "#products",
   showButton: true,
+  buttonLinkType: "custom",
   spacing: {
     paddingTop: 48,
     paddingBottom: 48,
