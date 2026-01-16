@@ -20,6 +20,7 @@ import {
   defaultMoreFromSellerSettings,
   defaultReviewsSettings,
   defaultSubscribeBarSettings,
+  defaultAboutSettings,
   generateSectionId,
 } from "@/lib/store-builder/defaults"
 
@@ -306,6 +307,56 @@ export function StoreBuilderProvider({
               sections: loadedDraft.sections.map((s) => (s.type === "featured-products" ? { ...s, locked: true } : s)),
             }
           }
+
+          // Ensure About section exists for shop pages (locked section that can be hidden but not deleted)
+          const hasAboutSection = loadedDraft.sections.some((s) => s.type === "about")
+          if (!hasAboutSection) {
+            const aboutSection: Section = {
+              id: generateSectionId(),
+              type: "about",
+              settings: defaultAboutSettings,
+              order: 0, // About section should be first (order 0)
+              locked: true,
+            }
+            // Shift other sections' order to make room for About at position 0
+            loadedDraft = {
+              ...loadedDraft,
+              sections: [
+                aboutSection,
+                ...loadedDraft.sections.map((s) => ({ ...s, order: s.order + 1 })),
+              ],
+            }
+          } else {
+            // Ensure existing About section is locked
+            loadedDraft = {
+              ...loadedDraft,
+              sections: loadedDraft.sections.map((s) => (s.type === "about" ? { ...s, locked: true } : s)),
+            }
+          }
+
+          // Apply same logic to published config
+          const hasPublishedAbout = loadedPublished.sections.some((s) => s.type === "about")
+          if (!hasPublishedAbout) {
+            const aboutSection: Section = {
+              id: generateSectionId(),
+              type: "about",
+              settings: defaultAboutSettings,
+              order: 0,
+              locked: true,
+            }
+            loadedPublished = {
+              ...loadedPublished,
+              sections: [
+                aboutSection,
+                ...loadedPublished.sections.map((s) => ({ ...s, order: s.order + 1 })),
+              ],
+            }
+          } else {
+            loadedPublished = {
+              ...loadedPublished,
+              sections: loadedPublished.sections.map((s) => (s.type === "about" ? { ...s, locked: true } : s)),
+            }
+          }
         }
 
         if (pageType === "product") {
@@ -378,9 +429,18 @@ export function StoreBuilderProvider({
       let configWithDefaults: PageConfig = defaultConfig
 
       if (pageType === "shop") {
+        // Create About section (locked, at order 0)
+        const aboutSection: Section = {
+          id: generateSectionId(),
+          type: "about",
+          settings: defaultAboutSettings,
+          order: 0,
+          locked: true,
+        }
+
         const featuredProductsLibraryItem = sectionLibrary.find((item) => item.type === "featured-products")
         if (featuredProductsLibraryItem) {
-          const featuredProductsSection = createSectionFromLibrary(featuredProductsLibraryItem, 0)
+          const featuredProductsSection = createSectionFromLibrary(featuredProductsLibraryItem, 1) // Order 1 after About
           featuredProductsSection.locked = true
           configWithDefaults = {
             ...defaultConfig,
@@ -388,7 +448,16 @@ export function StoreBuilderProvider({
               ...defaultConfig.headerSettings,
               subscribeBar: defaultSubscribeBarSettings,
             },
-            sections: [featuredProductsSection],
+            sections: [aboutSection, featuredProductsSection],
+          }
+        } else {
+          configWithDefaults = {
+            ...defaultConfig,
+            headerSettings: {
+              ...defaultConfig.headerSettings,
+              subscribeBar: defaultSubscribeBarSettings,
+            },
+            sections: [aboutSection],
           }
         }
       }

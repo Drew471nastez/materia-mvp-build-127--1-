@@ -7,88 +7,132 @@ interface SellerFooterProps {
 }
 
 export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
+  // Determine if we should use mobile layout
+  const useMobileLayout = isMobile === true
+  const useDesktopLayout = isMobile === false
+  const useResponsiveLayout = isMobile === undefined
+
   return (
     <footer className="w-full bg-white border-t border-gray-100" data-seller-footer>
-      {/* Mobile: Stack vertically, centered */}
       <div className={cn(
-        "px-4 py-4 flex items-center",
-        // When isMobile is explicitly set (editor preview), use it to determine layout
-        // When isMobile is undefined (live pages), use responsive classes
-        isMobile === true
-          ? "flex-col gap-4"
-          : isMobile === false
-            ? "flex-row justify-between gap-0"
-            : "flex-col gap-4 sm:flex-row sm:justify-between sm:gap-0"
+        "px-4 flex items-center",
+        useMobileLayout
+          ? "flex-col gap-3 py-4"
+          : useDesktopLayout
+            ? "flex-row justify-between py-4"
+            : "flex-col gap-3 py-4 sm:flex-row sm:justify-between"
       )}>
-        {/* Powered by - centered on mobile, left on desktop */}
-        <span className={cn(
-          "text-sm text-gray-500 flex items-center",
-          isMobile === true
-            ? "order-2"
-            : isMobile === false
-              ? "order-1"
-              : "order-2 sm:order-1"
-        )}>
-          <span className="text-[calc(0.875rem+4px)] mr-[4px]">
-            Powered by
-          </span>
-
-          <a
-            href="/"
-            className="inline-flex items-center"
-            aria-label="Go to Storelib homepage"
-          >
-            <img
-              src="/images/design-mode/storelib.png"
-              alt="Storelib"
-              className={cn(
-                "w-auto translate-y-[1px]",
-                isMobile === true
-                  ? "h-[32px]"
-                  : isMobile === false
-                    ? "h-[39px]"
-                    : "h-[32px] sm:h-[39px]"
-              )}
-            />
-          </a>
-        </span>
-
-        {/* Legal links - centered on mobile, wrap if needed */}
-        <div className={cn(
-          "flex flex-wrap items-center justify-center",
-          isMobile === true
-            ? "gap-3 order-1"
-            : isMobile === false
-              ? "gap-6 order-2"
-              : "gap-3 sm:gap-6 order-1 sm:order-2"
-        )}>
-          <a
-            href="/privacy"
-            className={cn(
-              "text-gray-500 hover:text-gray-700 transition-colors",
-              isMobile === true
-                ? "text-xs"
-                : isMobile === false
-                  ? "text-sm"
-                  : "text-xs sm:text-sm"
-            )}
-          >
-            Privacy
-          </a>
-          <a
-            href="/terms"
-            className={cn(
-              "text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap",
-              isMobile === true
-                ? "text-xs"
-                : isMobile === false
-                  ? "text-sm"
-                  : "text-xs sm:text-sm"
-            )}
-          >
-            Terms & Conditions
-          </a>
-        </div>
+        {/* Mobile: Centered branding */}
+        {useMobileLayout ? (
+          <>
+            {/* Links first on mobile - centered */}
+            <div className="flex items-center gap-4">
+              <a
+                href="/privacy"
+                className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Privacy
+              </a>
+              <span className="text-gray-300">·</span>
+              <a
+                href="/terms"
+                className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Terms
+              </a>
+            </div>
+            {/* Powered by centered below */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-400">Powered by</span>
+              <a
+                href="/"
+                className="inline-flex items-center"
+                aria-label="Go to Storelib homepage"
+              >
+                <img
+                  src="/images/design-mode/storelib.png"
+                  alt="Storelib"
+                  className="h-[24px] w-auto"
+                />
+              </a>
+            </div>
+          </>
+        ) : useDesktopLayout ? (
+          <>
+            {/* Desktop: Powered by on left */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm text-gray-500">Powered by</span>
+              <a
+                href="/"
+                className="inline-flex items-center"
+                aria-label="Go to Storelib homepage"
+              >
+                <img
+                  src="/images/design-mode/storelib.png"
+                  alt="Storelib"
+                  className="h-[32px] w-auto translate-y-[1px]"
+                />
+              </a>
+            </div>
+            {/* Desktop: Links on right */}
+            <div className="flex items-center gap-6">
+              <a
+                href="/privacy"
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Privacy
+              </a>
+              <a
+                href="/terms"
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Terms & Conditions
+              </a>
+            </div>
+          </>
+        ) : (
+          /* Responsive: Mobile-first that adapts to desktop */
+          <>
+            {/* Links - top on mobile, right on desktop */}
+            <div className={cn(
+              "flex items-center",
+              "gap-4 order-1 sm:order-2 sm:gap-6"
+            )}>
+              <a
+                href="/privacy"
+                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Privacy
+              </a>
+              <span className="text-gray-300 sm:hidden">·</span>
+              <a
+                href="/terms"
+                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <span className="sm:hidden">Terms</span>
+                <span className="hidden sm:inline">Terms & Conditions</span>
+              </a>
+            </div>
+            {/* Powered by - bottom on mobile, left on desktop */}
+            <div className={cn(
+              "flex items-center gap-1.5",
+              "order-2 sm:order-1"
+            )}>
+              <span className="text-xs sm:text-sm text-gray-400 sm:text-gray-500">Powered by</span>
+              <a
+                href="/"
+                className="inline-flex items-center"
+                aria-label="Go to Storelib homepage"
+              >
+                <img
+                  src="/images/design-mode/storelib.png"
+                  alt="Storelib"
+                  className="h-[24px] sm:h-[32px] w-auto sm:translate-y-[1px]"
+                />
+              </a>
+            </div>
+          </>
+        )}
       </div>
     </footer>
   )
