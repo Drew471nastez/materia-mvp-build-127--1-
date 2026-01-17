@@ -113,7 +113,15 @@ export function ImageUpload({
         onChange(urlData.publicUrl)
       } catch (err) {
         console.error("[v0] Upload error:", err)
-        setError(err instanceof Error ? err.message : `Failed to upload ${isVideoMode ? "video" : "image"}`)
+        // Handle specific Supabase storage errors
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        if (errorMessage.toLowerCase().includes("exceeded the maximum allowed size") ||
+            errorMessage.toLowerCase().includes("payload too large") ||
+            errorMessage.toLowerCase().includes("file too large")) {
+          setError(`${isVideoMode ? "Video" : "File"} is too large. Please use a file under ${maxSizeMB}MB.`)
+        } else {
+          setError(err instanceof Error ? err.message : `Failed to upload ${isVideoMode ? "video" : "image"}`)
+        }
       } finally {
         setUploading(false)
         setProgress(0)
@@ -203,7 +211,7 @@ export function ImageUpload({
         {uploading ? (
           <div className="flex flex-col items-center gap-2 p-4">
             <Progress value={progress} className="h-2 w-32" />
-            <p className="text-sm text-muted-foreground">Uploading...</p>
+            <p className="text-sm text-muted-foreground">Uploading... {progress}%</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 p-4">

@@ -15,9 +15,9 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
   return (
     <footer className="w-full bg-white border-t border-gray-100" data-seller-footer>
       <div className={cn(
-        "px-4 flex items-center",
+        "px-4 flex items-center w-full",
         useMobileLayout
-          ? "flex-col gap-3 py-4"
+          ? "flex-col justify-center gap-3 py-4"
           : useDesktopLayout
             ? "flex-row justify-between py-4"
             : "flex-col gap-3 py-4 sm:flex-row sm:justify-between"
@@ -26,7 +26,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         {useMobileLayout ? (
           <>
             {/* Powered by centered at top */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-center gap-1.5 w-full">
               <span className="text-xs text-gray-400">Powered by</span>
               <a
                 href="/"
@@ -36,12 +36,12 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
                 <img
                   src="/images/design-mode/storelib.png"
                   alt="Storelib"
-                  className="h-[24px] w-auto"
+                  className="h-[20px] w-auto"
                 />
               </a>
             </div>
             {/* Links centered below */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center gap-4 w-full">
               <a
                 href="/privacy"
                 className="text-xs text-gray-500 hover:text-gray-700 transition-colors"

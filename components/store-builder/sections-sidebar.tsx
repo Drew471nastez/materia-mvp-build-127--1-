@@ -4138,7 +4138,7 @@ function AboutSettingsForm({
 
                   {/* Video Upload */}
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Or Upload Video (max 500MB)</Label>
+                    <Label className="text-xs text-muted-foreground">Or Upload Video (max 50MB)</Label>
                     <ImageUpload
                       bucket="store-builder-images"
                       folder="about-media"
@@ -4147,7 +4147,7 @@ function AboutSettingsForm({
                         if (url) addMediaItem("video", url)
                       }}
                       aspectRatio="video"
-                      maxSizeMB={500}
+                      maxSizeMB={50}
                       accept="video/*"
                     />
                   </div>
