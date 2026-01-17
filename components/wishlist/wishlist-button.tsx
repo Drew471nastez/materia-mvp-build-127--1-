@@ -10,6 +10,11 @@ interface WishlistButtonProps {
   className?: string
   isLoggedIn?: boolean
   onWishlistChange?: (count: number) => void
+  // Theme color props
+  backgroundColor?: string
+  textColor?: string
+  borderColor?: string
+  iconColor?: string
 }
 
 // Helper to save guest ID
@@ -23,7 +28,16 @@ function saveGuestId(guestId: string): void {
   }
 }
 
-export function WishlistButton({ productId, className, isLoggedIn = false, onWishlistChange }: WishlistButtonProps) {
+export function WishlistButton({
+  productId,
+  className,
+  isLoggedIn = false,
+  onWishlistChange,
+  backgroundColor,
+  textColor,
+  borderColor,
+  iconColor,
+}: WishlistButtonProps) {
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
@@ -96,17 +110,28 @@ export function WishlistButton({ productId, className, isLoggedIn = false, onWis
 
   const wishlistHref = userLoggedIn ? "/library/wishlist" : "/wishlist"
 
+  // Common button styles
+  const buttonStyle = {
+    backgroundColor: backgroundColor || "#ffffff",
+    borderColor: borderColor || "#d1d5db",
+    color: textColor || "#111827",
+  }
+
+  const iconStyle = iconColor ? { color: iconColor } : undefined
+  const iconClassName = iconColor ? "h-4 w-4" : "h-4 w-4 text-gray-400"
+
   // Loading state
   if (isLoading) {
     return (
       <button
         disabled
         className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white py-3 px-4 min-h-[44px] text-gray-900",
+          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[44px]",
           className
         )}
+        style={buttonStyle}
       >
-        <Heart className="h-4 w-4 text-gray-400" />
+        <Heart className={iconClassName} style={iconStyle} />
         <span className="text-sm font-medium">Add to wishlist</span>
       </button>
     )
@@ -118,7 +143,12 @@ export function WishlistButton({ productId, className, isLoggedIn = false, onWis
       <div className={cn("space-y-2", className)}>
         <button
           onClick={handleClick}
-          className="w-full flex items-center justify-center gap-2 rounded-lg border border-red-300 bg-white py-3 px-4 min-h-[44px] text-red-600 hover:bg-red-50 transition-colors"
+          className="w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[44px] hover:opacity-80 transition-colors"
+          style={{
+            ...buttonStyle,
+            borderColor: "#fca5a5",
+            color: textColor || "#dc2626",
+          }}
         >
           <Heart className="h-4 w-4" />
           <span className="text-sm font-medium">Try again</span>
@@ -128,21 +158,33 @@ export function WishlistButton({ productId, className, isLoggedIn = false, onWis
     )
   }
 
-  // Already in wishlist - gray check icon in circle, black text, chevron
+  // Already in wishlist - check icon in circle, themed text, chevron
   if (isWishlisted) {
+    // Determine check badge colors based on theme
+    const checkBadgeBg = backgroundColor ? (textColor || "rgba(255,255,255,0.2)") : "#e5e7eb"
+    const checkIconColor = backgroundColor ? backgroundColor : "#6b7280"
+
     return (
       <Link
         href={wishlistHref}
         className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white py-3 px-4 min-h-[44px] hover:bg-gray-50 hover:border-gray-400 transition-colors cursor-pointer",
+          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[44px] hover:opacity-80 transition-colors cursor-pointer",
           className
         )}
+        style={buttonStyle}
       >
-        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-gray-200">
-          <Check className="h-3 w-3 text-gray-500" strokeWidth={2.5} />
+        <div
+          className="flex items-center justify-center w-5 h-5 rounded-full"
+          style={{ backgroundColor: iconColor ? `${iconColor}33` : checkBadgeBg }}
+        >
+          <Check
+            className="h-3 w-3"
+            strokeWidth={2.5}
+            style={{ color: iconColor || checkIconColor }}
+          />
         </div>
-        <span className="text-sm font-medium text-gray-900">In your wishlist</span>
-        <ChevronRight className="h-4 w-4 text-gray-400 ml-1" />
+        <span className="text-sm font-medium">In your wishlist</span>
+        <ChevronRight className="h-4 w-4 ml-1" style={iconStyle} />
       </Link>
     )
   }
@@ -153,20 +195,24 @@ export function WishlistButton({ productId, className, isLoggedIn = false, onWis
       onClick={handleClick}
       disabled={isAdding}
       className={cn(
-        "w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white py-3 px-4 min-h-[44px] hover:bg-gray-50 hover:border-gray-400 transition-colors group",
+        "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[44px] hover:opacity-80 transition-colors group",
         isAdding && "opacity-70 cursor-not-allowed",
         className
       )}
+      style={buttonStyle}
     >
       {isAdding ? (
         <>
-          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-          <span className="text-sm font-medium text-gray-900">Adding...</span>
+          <Loader2 className="h-4 w-4 animate-spin" style={iconStyle} />
+          <span className="text-sm font-medium">Adding...</span>
         </>
       ) : (
         <>
-          <Heart className="h-4 w-4 text-gray-500 group-hover:text-rose-500 transition-colors" />
-          <span className="text-sm font-medium text-gray-900">Add to wishlist</span>
+          <Heart
+            className={cn("h-4 w-4 transition-colors", !iconColor && "group-hover:text-rose-500")}
+            style={iconStyle}
+          />
+          <span className="text-sm font-medium">Add to wishlist</span>
         </>
       )}
     </button>

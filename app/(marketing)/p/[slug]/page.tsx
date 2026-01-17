@@ -583,7 +583,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     backgroundColor={buyButtonColor}
                     textColor={buyButtonTextColor}
                   />
-                  <WishlistButton productId={product.id} isLoggedIn={!!user} />
+                  <WishlistButton
+                    productId={product.id}
+                    isLoggedIn={!!user}
+                    backgroundColor={themeColors.cardBackground}
+                    textColor={themeColors.cardTextColor}
+                    borderColor={themeColors.cardBorderColor}
+                    iconColor={themeColors.cardIconColor}
+                  />
                 </div>
               )}
 
@@ -868,7 +875,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 backgroundColor={buyButtonColor}
                 textColor={buyButtonTextColor}
               />
-              <WishlistButton productId={product.id} isLoggedIn={!!user} />
+              <WishlistButton
+                productId={product.id}
+                isLoggedIn={!!user}
+                backgroundColor={themeColors.cardBackground}
+                textColor={themeColors.cardTextColor}
+                borderColor={themeColors.cardBorderColor}
+                iconColor={themeColors.cardIconColor}
+              />
             </div>
           )}
 
