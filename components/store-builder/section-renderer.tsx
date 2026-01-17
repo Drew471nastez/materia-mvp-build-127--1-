@@ -35,6 +35,7 @@ export function SectionRenderer({
   globalSettings,
   sellerMemberSince,
   sellerTotalSales,
+  sellerProductsCount,
 }: {
   section: Section
   products?: ProductData[]
@@ -48,6 +49,7 @@ export function SectionRenderer({
   globalSettings?: any
   sellerMemberSince?: string
   sellerTotalSales?: number
+  sellerProductsCount?: number
 }) {
   return (
     <UnifiedSectionRenderer
@@ -66,6 +68,7 @@ export function SectionRenderer({
       globalSettings={globalSettings}
       sellerMemberSince={sellerMemberSince}
       sellerTotalSales={sellerTotalSales}
+      sellerProductsCount={sellerProductsCount}
     />
   )
 }

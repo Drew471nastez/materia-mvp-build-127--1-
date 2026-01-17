@@ -110,6 +110,7 @@ export interface UnifiedSectionProps {
   // For About section
   sellerMemberSince?: string // ISO date string
   sellerTotalSales?: number
+  sellerProductsCount?: number
   // For inline editing in About section
   onUpdateAboutSettings?: (settings: Partial<AboutSettings>) => void
   // For opening About section in sidebar
@@ -392,6 +393,7 @@ function UnifiedAboutSection({
   creatorName,
   memberSince,
   totalSales,
+  productsCount,
   onUpdateSettings,
   onOpenSidebar,
   pageBackgroundColor,
@@ -403,6 +405,7 @@ function UnifiedAboutSection({
   creatorName?: string
   memberSince?: string
   totalSales?: number
+  productsCount?: number
   onUpdateSettings?: (settings: Partial<AboutSettings>) => void
   onOpenSidebar?: () => void
   pageBackgroundColor?: string
@@ -461,6 +464,8 @@ function UnifiedAboutSection({
   const displayName = creatorName || "Seller"
   // Use actual totalSales from props, not from settings (settings value is deprecated)
   const displayTotalSales = totalSales ?? 0
+  // Use actual productsCount from props
+  const displayProductsCount = productsCount ?? 0
   // Use actual memberSince from props
   const displayMemberSince = memberSince
   // Fixed max height for 4 lines: text-base (16px) * leading-relaxed (1.625) * 4 lines = ~104px
@@ -531,7 +536,7 @@ function UnifiedAboutSection({
               About {displayName}
             </h3>
 
-            {/* Stats - Sales is controlled by showSalesStats, Joined is always shown */}
+            {/* Stats - Sales and Products are controlled by settings, Joined is always shown */}
             <div className="flex gap-8">
               {/* Sales - only shown when showSalesStats is true */}
               {settings.showSalesStats && (
@@ -571,6 +576,27 @@ function UnifiedAboutSection({
                     style={{ color: textColor || undefined }}
                   >
                     {memberSinceYear}
+                  </p>
+                </div>
+              )}
+
+              {/* Products - only shown when showProductsStats is true */}
+              {settings.showProductsStats !== false && (
+                <div>
+                  <p
+                    className="text-xs uppercase tracking-wide mb-1"
+                    style={{ color: textColor ? `${textColor}80` : "#6b7280" }}
+                  >
+                    Products
+                  </p>
+                  <p
+                    className={cn(
+                      "font-semibold text-xl md:text-2xl",
+                      isMobile && "!text-xl"
+                    )}
+                    style={{ color: textColor || undefined }}
+                  >
+                    {displayProductsCount}
                   </p>
                 </div>
               )}
@@ -976,6 +1002,7 @@ export function UnifiedSectionRenderer({
   globalSettings,
   sellerMemberSince,
   sellerTotalSales,
+  sellerProductsCount,
   onUpdateAboutSettings,
   onOpenAboutSidebar,
 }: UnifiedSectionProps) {
@@ -1070,6 +1097,7 @@ export function UnifiedSectionRenderer({
           creatorName={creatorName}
           memberSince={sellerMemberSince}
           totalSales={sellerTotalSales}
+          productsCount={sellerProductsCount}
           onUpdateSettings={onUpdateAboutSettings}
           onOpenSidebar={onOpenAboutSidebar}
           pageBackgroundColor={globalSettings?.themeColors?.background}

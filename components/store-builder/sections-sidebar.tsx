@@ -4002,6 +4002,14 @@ function AboutSettingsForm({
         onChange={(checked) => onChange({ showSalesStats: checked })}
       />
 
+      {/* Show Products Stats Toggle */}
+      <ToggleField
+        label="Enable Products Stats"
+        description="Display number of products in your shop"
+        checked={settings.showProductsStats !== false}
+        onChange={(checked) => onChange({ showProductsStats: checked })}
+      />
+
       {/* Headline */}
       <div className="space-y-2">
         <Label className="text-sm font-normal">Headline</Label>

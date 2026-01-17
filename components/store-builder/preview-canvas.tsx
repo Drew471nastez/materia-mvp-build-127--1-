@@ -75,6 +75,8 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
   // Calculate total sales from products for About section
   const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
+  // Calculate products count for About section
+  const productsCount = products?.length || 0
   // Get member since date from profile or creator
   const memberSince = profile?.created_at || creator?.created_at
 
@@ -475,6 +477,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                       globalSettings={draftConfig.globalSettings}
                       sellerMemberSince={memberSince}
                       sellerTotalSales={totalSales}
+                      sellerProductsCount={productsCount}
                       onUpdateAboutSettings={(settings) => updateSectionSettings(aboutSection.id, settings)}
                       onOpenAboutSidebar={() => handleSelectSection(aboutSection.id)}
                     />

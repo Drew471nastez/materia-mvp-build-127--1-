@@ -235,6 +235,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const pageBackgroundColor = publishedConfig.globalColors?.backgroundColor
     // Calculate total sales for About section
     const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
+    // Calculate products count for About section
+    const productsCount = products?.length || 0
 
     return (
       <div
@@ -284,6 +286,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   creatorName={profile.display_name || undefined}
                   sellerMemberSince={profile.created_at}
                   sellerTotalSales={totalSales}
+                  sellerProductsCount={productsCount}
                 />
               )}
             </>

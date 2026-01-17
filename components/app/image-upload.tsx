@@ -5,7 +5,7 @@ import { useState, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { X, ImageIcon, AlertCircle } from "lucide-react"
+import { X, ImageIcon, AlertCircle, Video } from "lucide-react"
 import Image from "next/image"
 
 interface ImageUploadProps {
@@ -15,6 +15,7 @@ interface ImageUploadProps {
   onChange: (url: string | null) => void
   aspectRatio?: "square" | "video" | "cover" | "compact"
   maxSizeMB?: number
+  accept?: "image/*" | "video/*"
 }
 
 export function ImageUpload({
@@ -24,7 +25,9 @@ export function ImageUpload({
   onChange,
   aspectRatio = "video",
   maxSizeMB = 5,
+  accept = "image/*",
 }: ImageUploadProps) {
+  const isVideoMode = accept === "video/*"
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -45,16 +48,24 @@ export function ImageUpload({
       setProgress(0)
 
       // Validate file type
-      if (!file.type.startsWith("image/")) {
-        setError("Please upload an image file")
-        setUploading(false)
-        return
+      if (isVideoMode) {
+        if (!file.type.startsWith("video/")) {
+          setError("Please upload a video file")
+          setUploading(false)
+          return
+        }
+      } else {
+        if (!file.type.startsWith("image/")) {
+          setError("Please upload an image file")
+          setUploading(false)
+          return
+        }
       }
 
       // Validate file size
       const maxBytes = maxSizeMB * 1024 * 1024
       if (file.size > maxBytes) {
-        setError(`Image must be under ${maxSizeMB}MB`)
+        setError(`${isVideoMode ? "Video" : "Image"} must be under ${maxSizeMB}MB`)
         setUploading(false)
         return
       }
@@ -102,13 +113,13 @@ export function ImageUpload({
         onChange(urlData.publicUrl)
       } catch (err) {
         console.error("[v0] Upload error:", err)
-        setError(err instanceof Error ? err.message : "Failed to upload image")
+        setError(err instanceof Error ? err.message : `Failed to upload ${isVideoMode ? "video" : "image"}`)
       } finally {
         setUploading(false)
         setProgress(0)
       }
     },
-    [bucket, folder, maxSizeMB, onChange],
+    [bucket, folder, maxSizeMB, onChange, isVideoMode],
   )
 
   const handleRemove = useCallback(async () => {
@@ -184,7 +195,7 @@ export function ImageUpload({
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept={accept}
           className="hidden"
           onChange={handleFileSelect}
           disabled={uploading}
@@ -197,10 +208,16 @@ export function ImageUpload({
         ) : (
           <div className="flex flex-col items-center gap-2 p-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <ImageIcon className="h-6 w-6 text-muted-foreground" />
+              {isVideoMode ? (
+                <Video className="h-6 w-6 text-muted-foreground" />
+              ) : (
+                <ImageIcon className="h-6 w-6 text-muted-foreground" />
+              )}
             </div>
-            <p className="text-sm font-medium">Click to upload or drag and drop</p>
-            <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to {maxSizeMB}MB</p>
+            <p className="text-sm font-medium">Click to upload{!isVideoMode && " or drag and drop"}</p>
+            <p className="text-xs text-muted-foreground">
+              {isVideoMode ? `MP4, MOV, WebM up to ${maxSizeMB}MB` : `PNG, JPG, GIF up to ${maxSizeMB}MB`}
+            </p>
           </div>
         )}
       </div>

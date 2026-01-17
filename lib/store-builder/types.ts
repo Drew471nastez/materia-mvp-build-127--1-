@@ -254,10 +254,13 @@ export interface AboutSettings extends BaseSectionSettings {
   mediaItems: AboutMediaItem[]
   // Stats visibility
   showSalesStats: boolean
+  showProductsStats?: boolean
   // Member since date (ISO string)
   memberSince?: string
   // Total sales count (fetched from system, but can be displayed/hidden)
   totalSales?: number
+  // Products count (fetched from system, but can be displayed/hidden)
+  productsCount?: number
   // Max content height before "Read more" (in pixels)
   maxContentHeight?: number
   // Payment methods to display
