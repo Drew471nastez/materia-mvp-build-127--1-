@@ -3829,7 +3829,7 @@ function SortableMediaItem({
             alt=""
             className="w-full h-full object-cover"
           />
-        ) : item.type === "youtube" ? (
+        ) : (
           // Show YouTube thumbnail preview
           (() => {
             const thumbnailUrl = getYouTubeThumbnail(item.url)
@@ -3861,26 +3861,6 @@ function SortableMediaItem({
               </div>
             )
           })()
-        ) : (
-          // Show video preview for uploaded videos
-          <div className="relative w-full h-full">
-            <video
-              src={item.url}
-              className="w-full h-full object-cover"
-              muted
-              preload="metadata"
-              poster={item.thumbnailUrl}
-            />
-            {/* Video play button overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
-                <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1" />
-              </div>
-            </div>
-            <div className="absolute bottom-1 left-1 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium">
-              Video
-            </div>
-          </div>
         )}
         <button
           type="button"
@@ -3964,7 +3944,7 @@ function AboutSettingsForm({
 }) {
   const [youtubeUrl, setYoutubeUrl] = useState("")
 
-  const addMediaItem = (type: "image" | "youtube" | "video", url: string) => {
+  const addMediaItem = (type: "image" | "youtube", url: string) => {
     const newItem: AboutMediaItem = {
       id: `media_${Date.now()}`,
       type,
@@ -4081,14 +4061,14 @@ function AboutSettingsForm({
       <div className="space-y-3 pt-2">
         <Label className="text-sm font-normal">Media</Label>
         <p className="text-xs text-muted-foreground">
-          Add up to 5 images and 2 videos to showcase your shop. Drag to reorder.
+          Add up to 5 images and 5 YouTube videos to showcase your shop. Drag to reorder.
         </p>
 
         {/* Count current media */}
         {(() => {
           const imageCount = (settings.mediaItems || []).filter(m => m.type === "image").length
-          const videoCount = (settings.mediaItems || []).filter(m => m.type === "video" || m.type === "youtube").length
-          const hasMaxVideos = videoCount >= 2
+          const youtubeCount = (settings.mediaItems || []).filter(m => m.type === "youtube").length
+          const hasMaxYouTube = youtubeCount >= 5
           const hasMaxImages = imageCount >= 5
 
           return (
@@ -4110,53 +4090,34 @@ function AboutSettingsForm({
                 </div>
               )}
 
-              {/* Video Upload - only if less than 2 videos */}
-              {!hasMaxVideos && (
-                <>
-                  {/* YouTube URL Input */}
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Add YouTube Video ({videoCount}/2)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={youtubeUrl}
-                        onChange={(e) => setYoutubeUrl(e.target.value)}
-                        placeholder="https://youtube.com/watch?v=..."
-                        className="h-9 flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleAddYoutubeVideo}
-                        disabled={!youtubeUrl.trim()}
-                        className="h-9"
-                      >
-                        Add
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Video Upload */}
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Or Upload Video (max 5GB)</Label>
-                    <ImageUpload
-                      bucket="store-builder-images"
-                      folder="about-media"
-                      value=""
-                      onChange={(url) => {
-                        if (url) addMediaItem("video", url)
-                      }}
-                      aspectRatio="video"
-                      maxSizeMB={5000}
-                      accept="video/*"
+              {/* YouTube URL Input - only if less than 5 YouTube videos */}
+              {!hasMaxYouTube && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Add YouTube Video ({youtubeCount}/5)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder="https://youtube.com/watch?v=..."
+                      className="h-9 flex-1"
                     />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddYoutubeVideo}
+                      disabled={!youtubeUrl.trim()}
+                      className="h-9"
+                    >
+                      Add
+                    </Button>
                   </div>
-                </>
+                </div>
               )}
 
-              {hasMaxVideos && (
+              {hasMaxYouTube && (
                 <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                  Video limit reached (2/2). Remove a video to add a new one.
+                  YouTube video limit reached (5/5). Remove a video to add a new one.
                 </p>
               )}
 

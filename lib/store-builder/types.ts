@@ -230,12 +230,11 @@ export interface ReviewsSettings extends BaseSectionSettings {
   maxReviewsToShow: number
 }
 
-// About media item (image or video)
+// About media item (image or YouTube embed)
 export interface AboutMediaItem {
   id: string
-  type: "image" | "youtube" | "video"
+  type: "image" | "youtube"
   url: string
-  thumbnailUrl?: string // For videos, optional thumbnail
   caption?: string // Optional caption text for the media item
 }
 

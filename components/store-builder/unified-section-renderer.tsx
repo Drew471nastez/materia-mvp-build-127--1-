@@ -664,20 +664,12 @@ function UnifiedAboutSection({
                               onLoadStart={() => handleMediaLoadStart(item.id)}
                               onLoad={() => handleMediaLoad(item.id)}
                             />
-                          ) : item.type === "youtube" ? (
+                          ) : (
                             <iframe
                               src={`https://www.youtube.com/embed/${extractYouTubeId(item.url)}`}
                               className="w-full h-full"
                               allowFullScreen
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            />
-                          ) : (
-                            <video
-                              src={item.url}
-                              className="w-full h-full object-cover"
-                              controls
-                              playsInline
-                              poster={item.thumbnailUrl}
                             />
                           )}
                         </div>
