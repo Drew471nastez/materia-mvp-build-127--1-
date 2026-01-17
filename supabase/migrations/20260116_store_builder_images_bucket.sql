@@ -7,13 +7,13 @@ VALUES (
   'store-builder-images',
   'store-builder-images',
   true,
-  5242880, -- 5MB limit
-  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']::text[]
+  1073741824, -- 1GB limit for videos
+  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'video/mp4', 'video/webm', 'video/quicktime', 'video/mov']::text[]
 )
 ON CONFLICT (id) DO UPDATE SET
   public = true,
-  file_size_limit = 5242880,
-  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']::text[];
+  file_size_limit = 1073741824,
+  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'video/mp4', 'video/webm', 'video/quicktime', 'video/mov']::text[];
 
 -- Enable RLS on storage.objects if not already enabled
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;

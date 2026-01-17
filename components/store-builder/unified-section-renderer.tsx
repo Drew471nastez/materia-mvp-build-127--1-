@@ -924,7 +924,7 @@ function UnifiedAboutSection({
               </h4>
             </div>
             <div className="flex-1 w-full">
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-0.5">
                 {paymentMethods.map((method) => {
                   const IconComponent = paymentMethodIcons[method]
                   if (!IconComponent) return null
@@ -932,8 +932,8 @@ function UnifiedAboutSection({
                     <IconComponent
                       key={method}
                       className={cn(
-                        "flex-shrink-0 w-[45px] h-[29px] md:w-[48px] md:h-[33px]",
-                        isMobile && "!w-[45px] !h-[29px]"
+                        "flex-shrink-0 w-[46px] h-[30px] md:w-[49px] md:h-[34px]",
+                        isMobile && "!w-[46px] !h-[30px]"
                       )}
                     />
                   )
