@@ -70,47 +70,110 @@ export function ImageUpload({
         return
       }
 
-      const supabase = createClient()
-
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
+        // For video uploads, use signed URL approach to handle large files
+        if (isVideoMode) {
+          setProgress(10)
 
-        if (!user) {
-          throw new Error("You must be logged in to upload images")
+          // Get signed upload URL from API
+          const signedUrlResponse = await fetch("/api/storage/upload-video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filename: file.name,
+              contentType: file.type,
+              folder: folder,
+            }),
+          })
+
+          if (!signedUrlResponse.ok) {
+            const errorData = await signedUrlResponse.json()
+            throw new Error(errorData.error || "Failed to get upload URL")
+          }
+
+          const { signedUrl, token, publicUrl } = await signedUrlResponse.json()
+
+          setProgress(20)
+
+          // Upload directly to signed URL using XHR for progress tracking
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest()
+
+            xhr.upload.addEventListener("progress", (event) => {
+              if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 70) + 20
+                setProgress(percentComplete)
+              }
+            })
+
+            xhr.addEventListener("load", () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve()
+              } else {
+                reject(new Error(`Upload failed with status ${xhr.status}`))
+              }
+            })
+
+            xhr.addEventListener("error", () => {
+              reject(new Error("Upload failed due to network error"))
+            })
+
+            xhr.addEventListener("abort", () => {
+              reject(new Error("Upload was aborted"))
+            })
+
+            xhr.open("PUT", signedUrl)
+            xhr.setRequestHeader("Content-Type", file.type)
+            xhr.setRequestHeader("x-upsert", "true")
+            xhr.send(file)
+          })
+
+          setProgress(100)
+          console.log("[v0] Video upload successful, URL:", publicUrl)
+          onChange(publicUrl)
+        } else {
+          // For image uploads, use the standard Supabase client
+          const supabase = createClient()
+
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+
+          if (!user) {
+            throw new Error("You must be logged in to upload images")
+          }
+
+          // Generate unique path with user folder
+          const timestamp = Date.now()
+          const ext = file.name.split(".").pop()
+          const safeName = `${timestamp}.${ext}`
+          const filePath = folder ? `${user.id}/${folder}/${safeName}` : `${user.id}/${safeName}`
+
+          console.log("[v0] Uploading to bucket:", bucket, "path:", filePath)
+
+          setProgress(30)
+
+          // Upload to Supabase Storage
+          const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: true,
+          })
+
+          if (uploadError) {
+            console.error("[v0] Upload error:", uploadError)
+            throw uploadError
+          }
+
+          setProgress(70)
+
+          // Get public URL
+          const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
+
+          console.log("[v0] Upload successful, URL:", urlData.publicUrl)
+
+          setProgress(100)
+          onChange(urlData.publicUrl)
         }
-
-        // Generate unique path with user folder
-        const timestamp = Date.now()
-        const ext = file.name.split(".").pop()
-        const safeName = `${timestamp}.${ext}`
-        const filePath = folder ? `${user.id}/${folder}/${safeName}` : `${user.id}/${safeName}`
-
-        console.log("[v0] Uploading to bucket:", bucket, "path:", filePath)
-
-        setProgress(30)
-
-        // Upload to Supabase Storage
-        const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: true,
-        })
-
-        if (uploadError) {
-          console.error("[v0] Upload error:", uploadError)
-          throw uploadError
-        }
-
-        setProgress(70)
-
-        // Get public URL
-        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
-
-        console.log("[v0] Upload successful, URL:", urlData.publicUrl)
-
-        setProgress(100)
-        onChange(urlData.publicUrl)
       } catch (err) {
         console.error("[v0] Upload error:", err)
         // Handle specific Supabase storage errors
