@@ -328,6 +328,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               reviewsCount={productReviews.count}
               reviewsAverage={productReviews.average}
               reviews={productReviews.reviews}
+              globalSettings={draftConfig.globalSettings}
             />
 
             {draftConfig.sections
