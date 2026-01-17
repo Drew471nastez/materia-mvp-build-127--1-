@@ -109,6 +109,20 @@ export interface ThemeConfig {
     borderColor: string
     iconColor: string
   }
+  // Price container styling (product page sidebar)
+  priceContainer: {
+    backgroundColor: string
+    textColor: string
+    mutedTextColor: string
+    borderColor: string
+    iconColor: string
+  }
+  // View in Library button styling
+  viewInLibraryButton: {
+    backgroundColor: string
+    textColor: string
+    borderColor: string
+  }
 }
 
 export const themePresets: Record<ThemePreset, ThemeConfig> = {
@@ -188,6 +202,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       borderColor: "#e5e7eb",
       iconColor: "#374151",
     },
+    priceContainer: {
+      backgroundColor: "#ffffff",
+      textColor: "#374151",
+      mutedTextColor: "#6b7280",
+      borderColor: "#e5e7eb",
+      iconColor: "#374151",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "transparent",
+      textColor: "#374151",
+      borderColor: "#e5e7eb",
+    },
   },
   air: {
     name: "Air",
@@ -266,6 +292,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       borderColor: "#cbd5e1",
       iconColor: "#0f172a",
     },
+    priceContainer: {
+      backgroundColor: "#ffffff",
+      textColor: "#0f172a",
+      mutedTextColor: "#64748b",
+      borderColor: "#cbd5e1",
+      iconColor: "#0f172a",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "transparent",
+      textColor: "#0f172a",
+      borderColor: "#cbd5e1",
+    },
   },
   astrid: {
     name: "Astrid",
@@ -341,8 +379,20 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     faqSection: {
       textColor: "#fafafa",
-      borderColor: "#262626",
+      borderColor: "#404040",
       iconColor: "#fafafa",
+    },
+    priceContainer: {
+      backgroundColor: "#1a1a1a",
+      textColor: "#fafafa",
+      mutedTextColor: "#a1a1aa",
+      borderColor: "#2a2a2a",
+      iconColor: "#fafafa",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "#262626",
+      textColor: "#fafafa",
+      borderColor: "#404040",
     },
   },
   royal: {
@@ -419,8 +469,20 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     faqSection: {
       textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.25)",
+      iconColor: "#ffffff",
+    },
+    priceContainer: {
+      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      textColor: "#ffffff",
+      mutedTextColor: "rgba(255, 255, 255, 0.75)",
       borderColor: "rgba(255, 255, 255, 0.2)",
       iconColor: "#ffffff",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
     },
   },
   ocean: {
@@ -497,8 +559,20 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     faqSection: {
       textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.25)",
+      iconColor: "#ffffff",
+    },
+    priceContainer: {
+      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      textColor: "#ffffff",
+      mutedTextColor: "rgba(255, 255, 255, 0.75)",
       borderColor: "rgba(255, 255, 255, 0.2)",
       iconColor: "#ffffff",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
     },
   },
   sunset: {
@@ -575,8 +649,20 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     faqSection: {
       textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.25)",
+      iconColor: "#ffffff",
+    },
+    priceContainer: {
+      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      textColor: "#ffffff",
+      mutedTextColor: "rgba(255, 255, 255, 0.75)",
       borderColor: "rgba(255, 255, 255, 0.2)",
       iconColor: "#ffffff",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
     },
   },
   forest: {
@@ -653,8 +739,20 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     faqSection: {
       textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.25)",
+      iconColor: "#ffffff",
+    },
+    priceContainer: {
+      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      textColor: "#ffffff",
+      mutedTextColor: "rgba(255, 255, 255, 0.75)",
       borderColor: "rgba(255, 255, 255, 0.2)",
       iconColor: "#ffffff",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
     },
   },
   rose: {
@@ -731,8 +829,20 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     faqSection: {
       textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.25)",
+      iconColor: "#ffffff",
+    },
+    priceContainer: {
+      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      textColor: "#ffffff",
+      mutedTextColor: "rgba(255, 255, 255, 0.75)",
       borderColor: "rgba(255, 255, 255, 0.2)",
       iconColor: "#ffffff",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
     },
   },
   midnight: {
@@ -809,8 +919,20 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     faqSection: {
       textColor: "#f8fafc",
-      borderColor: "#334155",
+      borderColor: "#475569",
       iconColor: "#f8fafc",
+    },
+    priceContainer: {
+      backgroundColor: "#253349",
+      textColor: "#f8fafc",
+      mutedTextColor: "#94a3b8",
+      borderColor: "#3d4f6a",
+      iconColor: "#f8fafc",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "#334155",
+      textColor: "#f8fafc",
+      borderColor: "#475569",
     },
   },
 }

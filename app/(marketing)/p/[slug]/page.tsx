@@ -26,19 +26,26 @@ import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 
+import { themePresets } from "@/lib/store-builder/defaults"
+
 // Icon mapping for what's included items
-function getIncludedItemIcon(item: string) {
+function getIncludedItemIcon(item: string, iconColor?: string) {
   const lowerItem = item.toLowerCase()
+  const colorStyle = iconColor ? { color: iconColor } : undefined
+  const defaultClass = iconColor ? "h-4 w-4 mt-0.5 shrink-0" : "h-4 w-4 mt-0.5 shrink-0 text-black"
+
   if (lowerItem.includes("instant") || lowerItem.includes("download")) {
-    return <Download className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+    return <Download className={defaultClass} style={colorStyle} />
   }
   if (lowerItem.includes("files") || lowerItem.includes("included")) {
-    return <Files className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+    return <Files className={defaultClass} style={colorStyle} />
   }
   if (lowerItem.includes("lifetime") || lowerItem.includes("access")) {
-    return <Infinity className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+    return <Infinity className={defaultClass} style={colorStyle} />
   }
-  return <Check className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
+  // For check icon, use iconColor if provided, otherwise default green
+  const checkClass = iconColor ? "h-4 w-4 mt-0.5 shrink-0" : "h-4 w-4 mt-0.5 shrink-0 text-green-600"
+  return <Check className={checkClass} style={colorStyle} />
 }
 
 export const dynamic = "force-dynamic"
@@ -180,24 +187,38 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // Extract theme colors from config
   const headerSettings = productPageConfig?.headerSettings as any
+
+  // Get theme preset from global settings
+  const themePreset = productPageConfig?.globalSettings?.themePreset || "default"
+  const themeConfig = themePresets[themePreset as keyof typeof themePresets]
+
+  // Determine if this is a dark/colorful theme
+  const isColorfulTheme = ["royal", "ocean", "sunset", "forest", "rose"].includes(themePreset)
+  const isDarkTheme = ["astrid", "midnight"].includes(themePreset)
+
   const themeColors = {
     // Page and text colors
     pageBackground: productPageConfig?.globalColors?.backgroundColor || "var(--background)",
     textColor: headerSettings?.colors?.textColor || "inherit",
-    // FAQ section colors
-    faqTextColor: headerSettings?.faqColors?.textColor,
-    faqBorderColor: headerSettings?.faqColors?.borderColor,
-    faqIconColor: headerSettings?.faqColors?.iconColor,
+    // FAQ section colors from theme preset
+    faqTextColor: themeConfig?.faqSection?.textColor || headerSettings?.faqColors?.textColor,
+    faqBorderColor: themeConfig?.faqSection?.borderColor || headerSettings?.faqColors?.borderColor,
+    faqIconColor: themeConfig?.faqSection?.iconColor || headerSettings?.faqColors?.iconColor,
     // Reviews section colors
     reviewsTextColor: headerSettings?.reviewsColors?.textColor,
     reviewsStarColor: headerSettings?.reviewsColors?.starColor,
     reviewsCardBackground: headerSettings?.reviewsColors?.cardBackgroundColor,
     reviewsCardBorder: headerSettings?.reviewsColors?.cardBorderColor,
-    // Product card colors (for price cards, containers)
-    cardBackground: headerSettings?.productCardColors?.backgroundColor,
-    cardTextColor: headerSettings?.productCardColors?.textColor,
-    cardPriceColor: headerSettings?.productCardColors?.priceColor,
-    cardBorderColor: headerSettings?.productCardColors?.borderColor,
+    // Product card colors (for price cards, containers) from theme preset
+    cardBackground: themeConfig?.priceContainer?.backgroundColor || headerSettings?.productCardColors?.backgroundColor,
+    cardTextColor: themeConfig?.priceContainer?.textColor || headerSettings?.productCardColors?.textColor,
+    cardPriceColor: themeConfig?.priceContainer?.mutedTextColor || headerSettings?.productCardColors?.priceColor,
+    cardBorderColor: themeConfig?.priceContainer?.borderColor || headerSettings?.productCardColors?.borderColor,
+    cardIconColor: themeConfig?.priceContainer?.iconColor || headerSettings?.productCardColors?.textColor,
+    // View in Library button colors from theme preset
+    viewInLibraryBg: themeConfig?.viewInLibraryButton?.backgroundColor,
+    viewInLibraryText: themeConfig?.viewInLibraryButton?.textColor,
+    viewInLibraryBorder: themeConfig?.viewInLibraryButton?.borderColor,
   }
 
   // ---------------------------------------------------------------------------
@@ -537,7 +558,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                       Download File
                     </DownloadButton>
                   )}
-                  <Button variant="outline" className="w-full bg-transparent min-h-[44px]" asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full min-h-[44px]"
+                    asChild
+                    style={{
+                      backgroundColor: themeColors.viewInLibraryBg || "transparent",
+                      color: themeColors.viewInLibraryText || "inherit",
+                      borderColor: themeColors.viewInLibraryBorder || "var(--border)",
+                    }}
+                  >
                     <Link href="/library/my-downloads">
                       <ArrowRight className="mr-2 h-4 w-4" />
                       View in Library
@@ -568,13 +598,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   What&apos;s included
                 </h3>
                 <ul className="mt-3 space-y-2">
-                  {getWhatsIncluded().map((item, idx) => (
+                  {getWhatsIncluded().map((item: string, idx: number) => (
                     <li
                       key={idx}
                       className="flex items-start gap-2 text-sm"
                       style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
                     >
-                      {getIncludedItemIcon(item)}
+                      {getIncludedItemIcon(item, themeColors.cardIconColor)}
                       <span>{item}</span>
                     </li>
                   ))}
@@ -813,7 +843,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   Download File
                 </DownloadButton>
               )}
-              <Button variant="outline" className="w-full bg-transparent min-h-[44px]" asChild>
+              <Button
+                variant="outline"
+                className="w-full min-h-[44px]"
+                asChild
+                style={{
+                  backgroundColor: themeColors.viewInLibraryBg || "transparent",
+                  color: themeColors.viewInLibraryText || "inherit",
+                  borderColor: themeColors.viewInLibraryBorder || "var(--border)",
+                }}
+              >
                 <Link href="/library/my-downloads">
                   <ArrowRight className="mr-2 h-4 w-4" />
                   View in Library
@@ -844,13 +883,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               What&apos;s included
             </h3>
             <ul className="mt-3 space-y-2">
-              {getWhatsIncluded().map((item, idx) => (
+              {getWhatsIncluded().map((item: string, idx: number) => (
                 <li
                   key={idx}
                   className="flex items-start gap-2 text-sm"
                   style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
                 >
-                  {getIncludedItemIcon(item)}
+                  {getIncludedItemIcon(item, themeColors.cardIconColor)}
                   <span>{item}</span>
                 </li>
               ))}

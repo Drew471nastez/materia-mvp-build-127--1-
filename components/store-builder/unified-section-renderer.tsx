@@ -123,18 +123,23 @@ const getProductHref = (product: ProductData): string => {
 }
 
 // Icon mapping for what's included items
-function getIncludedItemIcon(item: string): React.ReactNode {
+function getIncludedItemIcon(item: string, iconColor?: string): React.ReactNode {
   const lowerItem = item.toLowerCase()
+  const colorStyle = iconColor ? { color: iconColor } : undefined
+  const defaultClass = iconColor ? "h-4 w-4 mt-0.5 shrink-0" : "h-4 w-4 mt-0.5 shrink-0 text-black"
+
   if (lowerItem.includes("instant") || lowerItem.includes("download")) {
-    return <Download className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+    return <Download className={defaultClass} style={colorStyle} />
   }
   if (lowerItem.includes("files") || lowerItem.includes("included")) {
-    return <Files className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+    return <Files className={defaultClass} style={colorStyle} />
   }
   if (lowerItem.includes("lifetime") || lowerItem.includes("access")) {
-    return <Infinity className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+    return <Infinity className={defaultClass} style={colorStyle} />
   }
-  return <Check className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
+  // For check icon, use iconColor if provided, otherwise default green
+  const checkClass = iconColor ? "h-4 w-4 mt-0.5 shrink-0" : "h-4 w-4 mt-0.5 shrink-0 text-green-600"
+  return <Check className={checkClass} style={colorStyle} />
 }
 
 // Share Modal Component - Fixed position to overlay everything
@@ -2793,6 +2798,7 @@ export interface UnifiedProductPageProps {
   reviewsCount?: number
   reviewsAverage?: number
   reviews?: any[]
+  globalSettings?: GlobalStoreSettings
 }
 
 export function UnifiedProductPage({
@@ -2807,6 +2813,7 @@ export function UnifiedProductPage({
   reviewsCount = 0,
   reviewsAverage = 0,
   reviews = [],
+  globalSettings,
 }: UnifiedProductPageProps) {
   const [showShareModal, setShowShareModal] = useState(false)
 
@@ -2867,17 +2874,37 @@ export function UnifiedProductPage({
   ]
   const displayFaqs = faqs.length > 0 ? faqs : defaultFaqs
 
-  // Theme color helpers
+  // Theme preset colors
+  const themePreset = globalSettings?.themePreset || "default"
+  const themeConfig = require("@/lib/store-builder/defaults").themePresets[themePreset]
+
+  // Theme color helpers - use theme preset colors when available
   const themeTextColor = settings.colors?.textColor || undefined
   const themeMutedColor = themeTextColor ? `${themeTextColor}99` : undefined // 60% opacity for muted
-  const isDarkTheme = settings.colors?.backgroundColor && (
+
+  // Determine if this is a dark/colorful theme based on preset
+  const isColorfulTheme = ["royal", "ocean", "sunset", "forest", "rose"].includes(themePreset)
+  const isDarkTheme = ["astrid", "midnight"].includes(themePreset) || (settings.colors?.backgroundColor && (
     settings.colors.backgroundColor.startsWith("#0") ||
     settings.colors.backgroundColor.startsWith("#1") ||
     settings.colors.backgroundColor.startsWith("#2")
-  )
-  // Card background color - slightly lighter than page background for dark themes
-  const cardBgColor = isDarkTheme ? "#1a1a1a" : undefined
-  const cardBorderColor = isDarkTheme ? "#2a2a2a" : undefined
+  ))
+
+  // Price container colors from theme preset
+  const priceContainerBg = themeConfig?.priceContainer?.backgroundColor || (isDarkTheme ? "#1a1a1a" : undefined)
+  const priceContainerText = themeConfig?.priceContainer?.textColor || themeTextColor
+  const priceContainerMuted = themeConfig?.priceContainer?.mutedTextColor || themeMutedColor
+  const priceContainerBorder = themeConfig?.priceContainer?.borderColor || (isDarkTheme ? "#2a2a2a" : undefined)
+  const priceContainerIcon = themeConfig?.priceContainer?.iconColor || themeTextColor
+
+  // FAQ section colors from theme preset
+  const faqTextColor = themeConfig?.faqSection?.textColor || themeTextColor
+  const faqBorderColor = themeConfig?.faqSection?.borderColor || priceContainerBorder
+  const faqIconColor = themeConfig?.faqSection?.iconColor || themeTextColor
+
+  // Legacy aliases for backward compatibility
+  const cardBgColor = priceContainerBg
+  const cardBorderColor = priceContainerBorder
 
   return (
     <div
@@ -3000,27 +3027,27 @@ export function UnifiedProductPage({
               {isMobile && (
                 <div className="mt-6">
                   <div
-                    className={cn("rounded-xl border p-4", !cardBgColor && "border-border bg-card")}
+                    className={cn("rounded-xl border p-4", !priceContainerBg && "border-border bg-card")}
                     style={{
-                      backgroundColor: cardBgColor,
-                      borderColor: cardBorderColor,
-                      boxShadow: isDarkTheme
+                      backgroundColor: priceContainerBg,
+                      borderColor: priceContainerBorder,
+                      boxShadow: isDarkTheme || isColorfulTheme
                         ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
                         : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                     }}
                   >
                     <div className="mb-4">
                       <div
-                        className={cn("text-xl font-bold", !themeTextColor && "text-foreground")}
-                        style={{ color: themeTextColor }}
+                        className={cn("text-xl font-bold", !priceContainerText && "text-foreground")}
+                        style={{ color: priceContainerText }}
                       >
                         {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                       </div>
                       {compareAtPrice && compareAtPrice > productPrice && (
                         <div className="mt-1 flex items-center gap-2">
                           <span
-                            className={cn("text-base line-through", !themeMutedColor && "text-muted-foreground")}
-                            style={{ color: themeMutedColor }}
+                            className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
+                            style={{ color: priceContainerMuted }}
                           >
                             {formatPrice(compareAtPrice)}
                           </span>
@@ -3038,7 +3065,7 @@ export function UnifiedProductPage({
                           style={{
                             backgroundColor: settings.buyButtonColor || undefined,
                             color: settings.buyButtonTextColor || undefined,
-                            border: "1px solid rgba(0, 0, 0, 0.08)",
+                            border: isColorfulTheme ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.08)",
                             borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
                           }}
                         >
@@ -3047,9 +3074,12 @@ export function UnifiedProductPage({
                         {/* Wishlist button placeholder in preview */}
                         <Button
                           variant="outline"
-                          className="w-full bg-white border-gray-200 min-h-[44px]"
+                          className={cn("w-full min-h-[44px]", !isColorfulTheme && !isDarkTheme && "bg-white border-gray-200")}
                           style={{
                             borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
+                            backgroundColor: isColorfulTheme || isDarkTheme ? "transparent" : undefined,
+                            borderColor: isColorfulTheme || isDarkTheme ? priceContainerBorder : undefined,
+                            color: priceContainerText,
                           }}
                         >
                           <Heart className="h-4 w-4 mr-2" />
@@ -3064,7 +3094,7 @@ export function UnifiedProductPage({
                           style={{
                             backgroundColor: settings.buyButtonColor || undefined,
                             color: settings.buyButtonTextColor || undefined,
-                            border: "1px solid rgba(0, 0, 0, 0.08)",
+                            border: isColorfulTheme ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.08)",
                             borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
                           }}
                         >
@@ -3073,10 +3103,13 @@ export function UnifiedProductPage({
                         {/* Wishlist button placeholder */}
                         <Button
                           variant="outline"
-                          className="w-full bg-white border-gray-200 min-h-[44px]"
+                          className={cn("w-full min-h-[44px]", !isColorfulTheme && !isDarkTheme && "bg-white border-gray-200")}
                           disabled
                           style={{
                             borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
+                            backgroundColor: isColorfulTheme || isDarkTheme ? "transparent" : undefined,
+                            borderColor: isColorfulTheme || isDarkTheme ? priceContainerBorder : undefined,
+                            color: priceContainerText,
                           }}
                         >
                           <Heart className="h-4 w-4 mr-2" />
@@ -3091,8 +3124,8 @@ export function UnifiedProductPage({
                         style={{ borderColor: cardBorderColor }}
                       >
                         <h3
-                          className={cn("font-semibold text-sm", !themeTextColor && "text-foreground")}
-                          style={{ color: themeTextColor }}
+                          className={cn("font-semibold text-sm", !priceContainerText && "text-foreground")}
+                          style={{ color: priceContainerText }}
                         >
                           What&apos;s included
                         </h3>
@@ -3100,10 +3133,10 @@ export function UnifiedProductPage({
                           {whatsIncluded.map((item, idx) => (
                             <li
                               key={idx}
-                              className={cn("flex items-center gap-2 text-sm", !themeMutedColor && "text-muted-foreground")}
-                              style={{ color: themeMutedColor }}
+                              className={cn("flex items-center gap-2 text-sm", !priceContainerMuted && "text-muted-foreground")}
+                              style={{ color: priceContainerMuted }}
                             >
-                              {getIncludedItemIcon(item)}
+                              {getIncludedItemIcon(item, priceContainerIcon)}
                               <span>{item}</span>
                             </li>
                           ))}
@@ -3117,8 +3150,8 @@ export function UnifiedProductPage({
                         style={{ borderColor: cardBorderColor }}
                       >
                         <p
-                          className={cn("text-sm text-center", !themeMutedColor && "text-muted-foreground")}
-                          style={{ color: themeMutedColor }}
+                          className={cn("text-sm text-center", !priceContainerMuted && "text-muted-foreground")}
+                          style={{ color: priceContainerMuted }}
                         >
                           {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
                         </p>
@@ -3207,27 +3240,27 @@ export function UnifiedProductPage({
             {!isMobile && (
               <div className="mt-6 lg:hidden">
                 <div
-                  className={cn("rounded-xl border p-4 sm:p-6", !cardBgColor && "border-border bg-card")}
+                  className={cn("rounded-xl border p-4 sm:p-6", !priceContainerBg && "border-border bg-card")}
                   style={{
-                    backgroundColor: cardBgColor,
-                    borderColor: cardBorderColor,
-                    boxShadow: isDarkTheme
+                    backgroundColor: priceContainerBg,
+                    borderColor: priceContainerBorder,
+                    boxShadow: isDarkTheme || isColorfulTheme
                       ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
                       : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                   }}
                 >
                   <div className="mb-4">
                     <div
-                      className={cn("text-2xl sm:text-3xl font-bold", !themeTextColor && "text-foreground")}
-                      style={{ color: themeTextColor }}
+                      className={cn("text-2xl sm:text-3xl font-bold", !priceContainerText && "text-foreground")}
+                      style={{ color: priceContainerText }}
                     >
                       {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                     </div>
                     {compareAtPrice && compareAtPrice > productPrice && (
                       <div className="mt-1 flex items-center gap-2">
                         <span
-                          className={cn("text-base line-through", !themeMutedColor && "text-muted-foreground")}
-                          style={{ color: themeMutedColor }}
+                          className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
+                          style={{ color: priceContainerMuted }}
                         >
                           {formatPrice(compareAtPrice)}
                         </span>
@@ -3245,7 +3278,7 @@ export function UnifiedProductPage({
                         style={{
                           backgroundColor: settings.buyButtonColor || undefined,
                           color: settings.buyButtonTextColor || undefined,
-                          border: "1px solid rgba(0, 0, 0, 0.08)",
+                          border: isColorfulTheme ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.08)",
                           borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
                         }}
                       >
@@ -3253,9 +3286,12 @@ export function UnifiedProductPage({
                       </Button>
                       <Button
                         variant="outline"
-                        className="w-full bg-white border-gray-200 min-h-[44px]"
+                        className={cn("w-full min-h-[44px]", !isColorfulTheme && !isDarkTheme && "bg-white border-gray-200")}
                         style={{
                           borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
+                          backgroundColor: isColorfulTheme || isDarkTheme ? "transparent" : undefined,
+                          borderColor: isColorfulTheme || isDarkTheme ? priceContainerBorder : undefined,
+                          color: priceContainerText,
                         }}
                       >
                         <Heart className="h-4 w-4 mr-2" />
@@ -3270,7 +3306,7 @@ export function UnifiedProductPage({
                         style={{
                           backgroundColor: settings.buyButtonColor || undefined,
                           color: settings.buyButtonTextColor || undefined,
-                          border: "1px solid rgba(0, 0, 0, 0.08)",
+                          border: isColorfulTheme ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.08)",
                           borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
                         }}
                       >
@@ -3278,10 +3314,13 @@ export function UnifiedProductPage({
                       </Button>
                       <Button
                         variant="outline"
-                        className="w-full bg-white border-gray-200 min-h-[44px]"
+                        className={cn("w-full min-h-[44px]", !isColorfulTheme && !isDarkTheme && "bg-white border-gray-200")}
                         disabled
                         style={{
                           borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
+                          backgroundColor: isColorfulTheme || isDarkTheme ? "transparent" : undefined,
+                          borderColor: isColorfulTheme || isDarkTheme ? priceContainerBorder : undefined,
+                          color: priceContainerText,
                         }}
                       >
                         <Heart className="h-4 w-4 mr-2" />
@@ -3296,8 +3335,8 @@ export function UnifiedProductPage({
                       style={{ borderColor: cardBorderColor }}
                     >
                       <h3
-                        className={cn("font-semibold text-sm", !themeTextColor && "text-foreground")}
-                        style={{ color: themeTextColor }}
+                        className={cn("font-semibold text-sm", !priceContainerText && "text-foreground")}
+                        style={{ color: priceContainerText }}
                       >
                         What&apos;s included
                       </h3>
@@ -3305,10 +3344,10 @@ export function UnifiedProductPage({
                         {whatsIncluded.map((item, idx) => (
                           <li
                             key={idx}
-                            className={cn("flex items-center gap-2 text-sm", !themeMutedColor && "text-muted-foreground")}
-                            style={{ color: themeMutedColor }}
+                            className={cn("flex items-center gap-2 text-sm", !priceContainerMuted && "text-muted-foreground")}
+                            style={{ color: priceContainerMuted }}
                           >
-                            {getIncludedItemIcon(item)}
+                            {getIncludedItemIcon(item, priceContainerIcon)}
                             <span>{item}</span>
                           </li>
                         ))}
@@ -3322,8 +3361,8 @@ export function UnifiedProductPage({
                       style={{ borderColor: cardBorderColor }}
                     >
                       <p
-                        className={cn("text-sm text-center", !themeMutedColor && "text-muted-foreground")}
-                        style={{ color: themeMutedColor }}
+                        className={cn("text-sm text-center", !priceContainerMuted && "text-muted-foreground")}
+                        style={{ color: priceContainerMuted }}
                       >
                         {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
                       </p>
@@ -3337,8 +3376,8 @@ export function UnifiedProductPage({
             {settings.showFaqs !== false && (
               <div className={cn("mt-8", !isMobile && "sm:mt-10")}>
                 <h2
-                  className={cn("mb-4 font-semibold", isMobile ? "text-base" : "text-lg", !themeTextColor && "text-foreground")}
-                  style={{ color: themeTextColor }}
+                  className={cn("mb-4 font-semibold", isMobile ? "text-base" : "text-lg", !faqTextColor && "text-foreground")}
+                  style={{ color: faqTextColor }}
                 >
                   Frequently Asked Questions
                 </h2>
@@ -3348,18 +3387,18 @@ export function UnifiedProductPage({
                       <AccordionItem
                         key={idx}
                         value={`item-${idx}`}
-                        className={cn(!cardBorderColor && "border-border")}
-                        style={{ borderColor: cardBorderColor }}
+                        className={cn(!faqBorderColor && "border-border")}
+                        style={{ borderColor: faqBorderColor }}
                       >
                         <AccordionTrigger
-                          className={cn("min-h-[44px] text-left text-sm", !themeTextColor && "text-foreground")}
-                          style={{ color: themeTextColor }}
+                          className={cn("min-h-[44px] text-left text-sm", !faqTextColor && "text-foreground")}
+                          style={{ color: faqTextColor }}
                         >
                           {faq.question}
                         </AccordionTrigger>
                         <AccordionContent
-                          className={cn("text-sm", !themeMutedColor && "text-muted-foreground")}
-                          style={{ color: themeMutedColor }}
+                          className={cn("text-sm", !faqTextColor && "text-muted-foreground")}
+                          style={{ color: faqTextColor ? `${faqTextColor}cc` : undefined }}
                         >
                           {faq.answer}
                         </AccordionContent>
@@ -3375,27 +3414,27 @@ export function UnifiedProductPage({
           {!isMobile && (
             <div className="hidden lg:block lg:col-span-2">
               <div
-                className={cn("sticky top-6 rounded-xl border p-6", !cardBgColor && "border-border bg-card")}
+                className={cn("sticky top-6 rounded-xl border p-6", !priceContainerBg && "border-border bg-card")}
                 style={{
-                  backgroundColor: cardBgColor,
-                  borderColor: cardBorderColor,
-                  boxShadow: isDarkTheme
+                  backgroundColor: priceContainerBg,
+                  borderColor: priceContainerBorder,
+                  boxShadow: isDarkTheme || isColorfulTheme
                     ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset"
                     : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                 }}
               >
                 <div className="mb-4">
                   <div
-                    className={cn("text-3xl font-bold", !themeTextColor && "text-foreground")}
-                    style={{ color: themeTextColor }}
+                    className={cn("text-3xl font-bold", !priceContainerText && "text-foreground")}
+                    style={{ color: priceContainerText }}
                   >
                     {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                   </div>
                   {compareAtPrice && compareAtPrice > productPrice && (
                     <div className="mt-1 flex items-center gap-2">
                       <span
-                        className={cn("text-lg line-through", !themeMutedColor && "text-muted-foreground")}
-                        style={{ color: themeMutedColor }}
+                        className={cn("text-lg line-through", !priceContainerMuted && "text-muted-foreground")}
+                        style={{ color: priceContainerMuted }}
                       >
                         {formatPrice(compareAtPrice)}
                       </span>
@@ -3411,7 +3450,7 @@ export function UnifiedProductPage({
                       style={{
                         backgroundColor: settings.buyButtonColor || undefined,
                         color: settings.buyButtonTextColor || undefined,
-                        border: "1px solid rgba(0, 0, 0, 0.08)",
+                        border: isColorfulTheme ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.08)",
                         borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
                       }}
                     >
@@ -3419,9 +3458,12 @@ export function UnifiedProductPage({
                     </Button>
                     <Button
                       variant="outline"
-                      className="w-full bg-white border-gray-200 min-h-[44px]"
+                      className={cn("w-full min-h-[44px]", !isColorfulTheme && !isDarkTheme && "bg-white border-gray-200")}
                       style={{
                         borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
+                        backgroundColor: isColorfulTheme || isDarkTheme ? "transparent" : undefined,
+                        borderColor: isColorfulTheme || isDarkTheme ? priceContainerBorder : undefined,
+                        color: priceContainerText,
                       }}
                     >
                       <Heart className="h-4 w-4 mr-2" />
@@ -3436,7 +3478,7 @@ export function UnifiedProductPage({
                       style={{
                         backgroundColor: settings.buyButtonColor || undefined,
                         color: settings.buyButtonTextColor || undefined,
-                        border: "1px solid rgba(0, 0, 0, 0.08)",
+                        border: isColorfulTheme ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.08)",
                         borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
                       }}
                     >
@@ -3444,10 +3486,13 @@ export function UnifiedProductPage({
                     </Button>
                     <Button
                       variant="outline"
-                      className="w-full bg-white border-gray-200 min-h-[44px]"
+                      className={cn("w-full min-h-[44px]", !isColorfulTheme && !isDarkTheme && "bg-white border-gray-200")}
                       disabled
                       style={{
                         borderRadius: settings.buttonsBorderRadius != null ? `${settings.buttonsBorderRadius}px` : undefined,
+                        backgroundColor: isColorfulTheme || isDarkTheme ? "transparent" : undefined,
+                        borderColor: isColorfulTheme || isDarkTheme ? priceContainerBorder : undefined,
+                        color: priceContainerText,
                       }}
                     >
                       <Heart className="h-4 w-4 mr-2" />
@@ -3462,8 +3507,8 @@ export function UnifiedProductPage({
                     style={{ borderColor: cardBorderColor }}
                   >
                     <h3
-                      className={cn("font-semibold", !themeTextColor && "text-foreground")}
-                      style={{ color: themeTextColor }}
+                      className={cn("font-semibold", !priceContainerText && "text-foreground")}
+                      style={{ color: priceContainerText }}
                     >
                       What&apos;s included
                     </h3>
@@ -3471,10 +3516,10 @@ export function UnifiedProductPage({
                       {whatsIncluded.map((item, idx) => (
                         <li
                           key={idx}
-                          className={cn("flex items-start gap-2 text-sm", !themeMutedColor && "text-muted-foreground")}
-                          style={{ color: themeMutedColor }}
+                          className={cn("flex items-start gap-2 text-sm", !priceContainerMuted && "text-muted-foreground")}
+                          style={{ color: priceContainerMuted }}
                         >
-                          {getIncludedItemIcon(item)}
+                          {getIncludedItemIcon(item, priceContainerIcon)}
                           <span>{item}</span>
                         </li>
                       ))}
@@ -3488,8 +3533,8 @@ export function UnifiedProductPage({
                     style={{ borderColor: cardBorderColor }}
                   >
                     <p
-                      className={cn("text-sm text-center", !themeMutedColor && "text-muted-foreground")}
-                      style={{ color: themeMutedColor }}
+                      className={cn("text-sm text-center", !priceContainerMuted && "text-muted-foreground")}
+                      style={{ color: priceContainerMuted }}
                     >
                       {salesCount} {salesCount === 1 ? "person has" : "people have"} purchased this
                     </p>
