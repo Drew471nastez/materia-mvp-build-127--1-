@@ -565,10 +565,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
       { id: "badge" as const, label: "Verified Badge", icon: BadgeCheck },
     ]
 
-    // Filter out theme tab for product pages
-    const settingsTabs = currentPageType === "product"
-      ? allSettingsTabs.filter(tab => tab.id !== "theme")
-      : allSettingsTabs
+    // Theme tab is available for all page types (shop and product)
+    const settingsTabs = allSettingsTabs
 
     return (
       <div className="w-80 border-r border-border bg-background overflow-hidden flex flex-col h-full">

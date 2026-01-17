@@ -2897,10 +2897,10 @@ export function UnifiedProductPage({
   const priceContainerBorder = themeConfig?.priceContainer?.borderColor || (isDarkTheme ? "#2a2a2a" : undefined)
   const priceContainerIcon = themeConfig?.priceContainer?.iconColor || themeTextColor
 
-  // FAQ section colors from theme preset
-  const faqTextColor = themeConfig?.faqSection?.textColor || themeTextColor
-  const faqBorderColor = themeConfig?.faqSection?.borderColor || priceContainerBorder
-  const faqIconColor = themeConfig?.faqSection?.iconColor || themeTextColor
+  // FAQ section colors from theme preset, with fallback to headerSettings faqColors
+  const faqTextColor = themeConfig?.faqSection?.textColor || (settings as any)?.faqColors?.textColor || themeTextColor
+  const faqBorderColor = themeConfig?.faqSection?.borderColor || (settings as any)?.faqColors?.borderColor || priceContainerBorder
+  const faqIconColor = themeConfig?.faqSection?.iconColor || (settings as any)?.faqColors?.iconColor || themeTextColor
 
   // Legacy aliases for backward compatibility
   const cardBgColor = priceContainerBg
