@@ -91,42 +91,36 @@ export function ImageUpload({
             throw new Error(errorData.error || "Failed to get upload URL")
           }
 
-          const { signedUrl, token, publicUrl } = await signedUrlResponse.json()
+          const { token, path, publicUrl } = await signedUrlResponse.json()
 
           setProgress(20)
 
-          // Upload directly to signed URL using XHR for progress tracking
-          await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest()
+          // Use Supabase client's uploadToSignedUrl for reliable uploads
+          const supabase = createClient()
 
-            xhr.upload.addEventListener("progress", (event) => {
-              if (event.lengthComputable) {
-                const percentComplete = Math.round((event.loaded / event.total) * 70) + 20
-                setProgress(percentComplete)
-              }
-            })
+          // For progress tracking, we'll use a simulated progress since uploadToSignedUrl doesn't support it
+          const progressInterval = setInterval(() => {
+            setProgress((prev) => Math.min(prev + 5, 90))
+          }, 500)
 
-            xhr.addEventListener("load", () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                resolve()
-              } else {
-                reject(new Error(`Upload failed with status ${xhr.status}`))
-              }
-            })
+          try {
+            const { error: uploadError } = await supabase.storage
+              .from("store-builder-images")
+              .uploadToSignedUrl(path, token, file, {
+                contentType: file.type,
+                upsert: true,
+              })
 
-            xhr.addEventListener("error", () => {
-              reject(new Error("Upload failed due to network error"))
-            })
+            clearInterval(progressInterval)
 
-            xhr.addEventListener("abort", () => {
-              reject(new Error("Upload was aborted"))
-            })
-
-            // Supabase createSignedUploadUrl expects PUT with raw file body and Content-Type header
-            xhr.open("PUT", signedUrl)
-            xhr.setRequestHeader("Content-Type", file.type)
-            xhr.send(file)
-          })
+            if (uploadError) {
+              console.error("[v0] Signed URL upload error:", uploadError)
+              throw uploadError
+            }
+          } catch (uploadErr) {
+            clearInterval(progressInterval)
+            throw uploadErr
+          }
 
           setProgress(100)
           console.log("[v0] Video upload successful, URL:", publicUrl)
