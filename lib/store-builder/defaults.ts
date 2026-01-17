@@ -95,6 +95,20 @@ export interface ThemeConfig {
     activeTextColor: string
     borderColor: string
   }
+  // Reviews section styling
+  reviewsSection: {
+    backgroundColor: string
+    textColor: string
+    starColor: string
+    cardBackgroundColor: string
+    cardBorderColor: string
+  }
+  // FAQ section styling
+  faqSection: {
+    textColor: string
+    borderColor: string
+    iconColor: string
+  }
 }
 
 export const themePresets: Record<ThemePreset, ThemeConfig> = {
@@ -162,6 +176,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       activeTextColor: "#374151",
       borderColor: "#374151",
     },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#374151",
+      starColor: "#374151",
+      cardBackgroundColor: "#ffffff",
+      cardBorderColor: "#e5e7eb",
+    },
+    faqSection: {
+      textColor: "#374151",
+      borderColor: "#e5e7eb",
+      iconColor: "#374151",
+    },
   },
   air: {
     name: "Air",
@@ -227,6 +253,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#64748b",
       activeTextColor: "#0f172a",
       borderColor: "#0f172a",
+    },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#0f172a",
+      starColor: "#0f172a",
+      cardBackgroundColor: "#ffffff",
+      cardBorderColor: "#cbd5e1",
+    },
+    faqSection: {
+      textColor: "#0f172a",
+      borderColor: "#cbd5e1",
+      iconColor: "#0f172a",
     },
   },
   astrid: {
@@ -294,6 +332,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       activeTextColor: "#fafafa",
       borderColor: "#fafafa",
     },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#fafafa",
+      starColor: "#fafafa",
+      cardBackgroundColor: "#1a1a1a",
+      cardBorderColor: "#2a2a2a",
+    },
+    faqSection: {
+      textColor: "#fafafa",
+      borderColor: "#262626",
+      iconColor: "#fafafa",
+    },
   },
   royal: {
     name: "Royal",
@@ -359,6 +409,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#e9d5ff",
       activeTextColor: "#ffffff",
       borderColor: "#ffffff",
+    },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      starColor: "#ffffff",
+      cardBackgroundColor: "rgba(255, 255, 255, 0.15)",
+      cardBorderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    faqSection: {
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+      iconColor: "#ffffff",
     },
   },
   ocean: {
@@ -426,6 +488,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       activeTextColor: "#ffffff",
       borderColor: "#ffffff",
     },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      starColor: "#ffffff",
+      cardBackgroundColor: "rgba(255, 255, 255, 0.15)",
+      cardBorderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    faqSection: {
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+      iconColor: "#ffffff",
+    },
   },
   sunset: {
     name: "Sunset",
@@ -491,6 +565,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#fecdd3",
       activeTextColor: "#ffffff",
       borderColor: "#ffffff",
+    },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      starColor: "#ffffff",
+      cardBackgroundColor: "rgba(255, 255, 255, 0.15)",
+      cardBorderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    faqSection: {
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+      iconColor: "#ffffff",
     },
   },
   forest: {
@@ -558,6 +644,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       activeTextColor: "#ffffff",
       borderColor: "#ffffff",
     },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      starColor: "#ffffff",
+      cardBackgroundColor: "rgba(255, 255, 255, 0.15)",
+      cardBorderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    faqSection: {
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+      iconColor: "#ffffff",
+    },
   },
   rose: {
     name: "Rose",
@@ -624,6 +722,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       activeTextColor: "#ffffff",
       borderColor: "#ffffff",
     },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      starColor: "#ffffff",
+      cardBackgroundColor: "rgba(255, 255, 255, 0.15)",
+      cardBorderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    faqSection: {
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.2)",
+      iconColor: "#ffffff",
+    },
   },
   midnight: {
     name: "Midnight",
@@ -689,6 +799,18 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#94a3b8",
       activeTextColor: "#f8fafc",
       borderColor: "#f8fafc",
+    },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#f8fafc",
+      starColor: "#f8fafc",
+      cardBackgroundColor: "#253349",
+      cardBorderColor: "#3d4f6a",
+    },
+    faqSection: {
+      textColor: "#f8fafc",
+      borderColor: "#334155",
+      iconColor: "#f8fafc",
     },
   },
 }

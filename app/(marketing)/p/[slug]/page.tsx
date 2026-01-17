@@ -178,6 +178,28 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const showRatingNextToSeller =
     (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.showRatingNextToSeller ?? true
 
+  // Extract theme colors from config
+  const headerSettings = productPageConfig?.headerSettings as any
+  const themeColors = {
+    // Page and text colors
+    pageBackground: productPageConfig?.globalColors?.backgroundColor || "var(--background)",
+    textColor: headerSettings?.colors?.textColor || "inherit",
+    // FAQ section colors
+    faqTextColor: headerSettings?.faqColors?.textColor,
+    faqBorderColor: headerSettings?.faqColors?.borderColor,
+    faqIconColor: headerSettings?.faqColors?.iconColor,
+    // Reviews section colors
+    reviewsTextColor: headerSettings?.reviewsColors?.textColor,
+    reviewsStarColor: headerSettings?.reviewsColors?.starColor,
+    reviewsCardBackground: headerSettings?.reviewsColors?.cardBackgroundColor,
+    reviewsCardBorder: headerSettings?.reviewsColors?.cardBorderColor,
+    // Product card colors (for price cards, containers)
+    cardBackground: headerSettings?.productCardColors?.backgroundColor,
+    cardTextColor: headerSettings?.productCardColors?.textColor,
+    cardPriceColor: headerSettings?.productCardColors?.priceColor,
+    cardBorderColor: headerSettings?.productCardColors?.borderColor,
+  }
+
   // ---------------------------------------------------------------------------
   // Purchase state
   // ---------------------------------------------------------------------------
@@ -418,7 +440,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
         <div className="mt-6 sm:mt-8">
           <div className="flex items-start justify-between gap-3 sm:gap-4">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-foreground break-words flex-1 min-w-0">
+            <h1
+              className="text-2xl sm:text-3xl font-semibold break-words flex-1 min-w-0"
+              style={{ color: themeColors.textColor || "var(--foreground)" }}
+            >
               {product.title}
             </h1>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -440,17 +465,33 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     <AvatarImage src={creatorProfile?.avatar_url || undefined} />
                     <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
                   </Avatar>
-                  <p className="font-medium text-foreground truncate">{creatorProfile?.display_name || "Creator"}</p>
+                  <p
+                    className="font-medium truncate"
+                    style={{ color: themeColors.textColor || "var(--foreground)" }}
+                  >
+                    {creatorProfile?.display_name || "Creator"}
+                  </p>
                 </Link>
                 {showRatingNextToSeller && reviewsCount > 0 && (
                   <div className="flex items-center gap-1 shrink-0">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <Star
                         key={star}
-                        className={`h-4 w-4 ${star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300"}`}
+                        className="h-4 w-4"
+                        style={{
+                          color: star <= Math.round(reviewsAverage)
+                            ? (themeColors.reviewsStarColor || "#000000")
+                            : "rgb(209, 213, 219)",
+                          fill: star <= Math.round(reviewsAverage) ? "currentColor" : "none",
+                        }}
                       />
                     ))}
-                    <span className="text-sm text-muted-foreground ml-1">({reviewsCount})</span>
+                    <span
+                      className="text-sm ml-1"
+                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                    >
+                      ({reviewsCount})
+                    </span>
                   </div>
                 )}
               </div>
@@ -460,14 +501,26 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
           {/* Mobile: Price card and Creator info ABOVE description */}
           <div className="mt-6 lg:hidden">
-            <div className="rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
+            <div
+              className="rounded-xl border p-4 sm:p-6 shadow-sm"
+              style={{
+                backgroundColor: themeColors.cardBackground || "var(--card)",
+                borderColor: themeColors.cardBorderColor || "var(--border)",
+              }}
+            >
               <div className="mb-4">
-                <div className="text-2xl font-bold text-foreground">
+                <div
+                  className="text-2xl font-bold"
+                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                >
                   {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                 </div>
                 {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="text-base text-muted-foreground line-through">
+                    <span
+                      className="text-base line-through"
+                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                    >
                       {formatPrice(product.compare_at_cents)}
                     </span>
                     <Badge variant="destructive">
@@ -504,11 +557,23 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 </div>
               )}
 
-              <div className="mt-4 border-t border-border pt-4">
-                <h3 className="font-semibold text-foreground">What&apos;s included</h3>
+              <div
+                className="mt-4 border-t pt-4"
+                style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+              >
+                <h3
+                  className="font-semibold"
+                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                >
+                  What&apos;s included
+                </h3>
                 <ul className="mt-3 space-y-2">
                   {getWhatsIncluded().map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <li
+                      key={idx}
+                      className="flex items-start gap-2 text-sm"
+                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                    >
                       {getIncludedItemIcon(item)}
                       <span>{item}</span>
                     </li>
@@ -517,8 +582,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               </div>
 
               {showSalesAnnouncement && product.sales_count > 0 && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <p className="text-sm text-muted-foreground text-center">
+                <div
+                  className="mt-4 pt-4 border-t"
+                  style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+                >
+                  <p
+                    className="text-sm text-center"
+                    style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                  >
                     {product.sales_count} {product.sales_count === 1 ? "person has" : "people have"} purchased this
                   </p>
                 </div>
@@ -527,14 +598,23 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
             {/* Mobile: Creator info OUTSIDE the card with share button */}
             {creator && (
-              <div className="mt-4 flex items-center justify-between p-3 rounded-lg border border-border bg-card">
+              <div
+                className="mt-4 flex items-center justify-between p-3 rounded-lg border"
+                style={{
+                  backgroundColor: themeColors.cardBackground || "var(--card)",
+                  borderColor: themeColors.cardBorderColor || "var(--border)",
+                }}
+              >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <Link href={`/u/${creatorUsername}${srcParam}`} className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorProfile?.avatar_url || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
                     </Avatar>
-                    <p className="font-medium text-foreground truncate text-sm">
+                    <p
+                      className="font-medium truncate text-sm"
+                      style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                    >
                       {creatorProfile?.display_name || "Creator"}
                     </p>
                   </Link>
@@ -543,10 +623,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
                           key={star}
-                          className={`h-3 w-3 ${star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300"}`}
+                          className="h-3 w-3"
+                          style={{
+                            color: star <= Math.round(reviewsAverage)
+                              ? (themeColors.reviewsStarColor || "#000000")
+                              : "rgb(209, 213, 219)",
+                            fill: star <= Math.round(reviewsAverage) ? "currentColor" : "none",
+                          }}
                         />
                       ))}
-                      <span className="text-xs text-muted-foreground ml-1">({reviewsCount})</span>
+                      <span
+                        className="text-xs ml-1"
+                        style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                      >
+                        ({reviewsCount})
+                      </span>
                     </div>
                   )}
                 </div>
@@ -562,8 +653,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
           {product.description && (
             <div className="mt-6">
-              <h2 className="mb-3 text-lg font-semibold text-foreground">Description</h2>
-              <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed break-words">
+              <h2
+                className="mb-3 text-lg font-semibold"
+                style={{ color: themeColors.textColor || "var(--foreground)" }}
+              >
+                Description
+              </h2>
+              <p
+                className="whitespace-pre-wrap leading-relaxed break-words"
+                style={{ color: themeColors.textColor ? `${themeColors.textColor}cc` : "var(--muted-foreground)" }}
+              >
                 {product.description.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
               </p>
             </div>
@@ -572,18 +671,40 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
         {product.type === "course" && courseModules && courseModules.length > 0 && (
           <div className="mt-8 sm:mt-10">
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Course Curriculum</h2>
+            <h2
+              className="mb-4 text-lg font-semibold"
+              style={{ color: themeColors.textColor || "var(--foreground)" }}
+            >
+              Course Curriculum
+            </h2>
             <div className="space-y-3">
               {courseModules.map((module, idx) => (
-                <div key={module.id} className="rounded-lg border border-border bg-card p-4">
-                  <h3 className="font-medium text-foreground">
+                <div
+                  key={module.id}
+                  className="rounded-lg border p-4"
+                  style={{
+                    backgroundColor: themeColors.cardBackground || "var(--card)",
+                    borderColor: themeColors.cardBorderColor || "var(--border)",
+                  }}
+                >
+                  <h3
+                    className="font-medium"
+                    style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                  >
                     {idx + 1}. {module.title}
                   </h3>
                   {module.lessons && module.lessons.length > 0 && (
                     <ul className="mt-3 space-y-2">
                       {module.lessons.map((lesson) => (
-                        <li key={lesson.id} className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                        <li
+                          key={lesson.id}
+                          className="flex items-center gap-2 text-sm"
+                          style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                        >
+                          <div
+                            className="h-1.5 w-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: themeColors.cardPriceColor ? `${themeColors.cardPriceColor}80` : "var(--muted-foreground)" }}
+                          />
                           <span className="break-words">{lesson.title}</span>
                         </li>
                       ))}
@@ -596,28 +717,57 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         )}
 
         <div className="mt-8 sm:mt-10">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Frequently Asked Questions</h2>
+          <h2
+            className="mb-4 text-lg font-semibold"
+            style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+          >
+            Frequently Asked Questions
+          </h2>
 
           {/* ✅ Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
           <div className="px-2 sm:px-0">
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="item-1">
-                <AccordionTrigger className="min-h-[44px] text-left">How do I access my purchase?</AccordionTrigger>
-                <AccordionContent>
+              <AccordionItem
+                value="item-1"
+                style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
+              >
+                <AccordionTrigger
+                  className="min-h-[44px] text-left"
+                  style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+                >
+                  How do I access my purchase?
+                </AccordionTrigger>
+                <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
                   After completing your purchase, you&apos;ll have instant access to your content through your library.
                   You can access it anytime by logging in to your Materia account.
                 </AccordionContent>
               </AccordionItem>
-              <AccordionItem value="item-2">
-                <AccordionTrigger className="min-h-[44px] text-left">Is there a refund policy?</AccordionTrigger>
-                <AccordionContent>
+              <AccordionItem
+                value="item-2"
+                style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
+              >
+                <AccordionTrigger
+                  className="min-h-[44px] text-left"
+                  style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+                >
+                  Is there a refund policy?
+                </AccordionTrigger>
+                <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
                   Refund policies are set by individual creators. Please contact the creator directly if you have
                   questions about refunds.
                 </AccordionContent>
               </AccordionItem>
-              <AccordionItem value="item-3">
-                <AccordionTrigger className="min-h-[44px] text-left">How long do I have access?</AccordionTrigger>
-                <AccordionContent>
+              <AccordionItem
+                value="item-3"
+                style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
+              >
+                <AccordionTrigger
+                  className="min-h-[44px] text-left"
+                  style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+                >
+                  How long do I have access?
+                </AccordionTrigger>
+                <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
                   You have lifetime access to all purchased content. Once you buy, it&apos;s yours forever.
                 </AccordionContent>
               </AccordionItem>
@@ -627,14 +777,26 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       </div>
 
       <div className="hidden lg:block lg:col-span-2">
-        <div className="sticky top-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div
+          className="sticky top-6 rounded-xl border p-6 shadow-sm"
+          style={{
+            backgroundColor: themeColors.cardBackground || "var(--card)",
+            borderColor: themeColors.cardBorderColor || "var(--border)",
+          }}
+        >
           <div className="mb-4">
-            <div className="text-3xl font-bold text-foreground">
+            <div
+              className="text-3xl font-bold"
+              style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+            >
               {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
             </div>
             {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
               <div className="mt-1 flex items-center gap-2">
-                <span className="text-lg text-muted-foreground line-through">
+                <span
+                  className="text-lg line-through"
+                  style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                >
                   {formatPrice(product.compare_at_cents)}
                 </span>
                 <Badge variant="destructive">
@@ -671,11 +833,23 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             </div>
           )}
 
-          <div className="mt-4 border-t border-border pt-4">
-            <h3 className="font-semibold text-foreground">What&apos;s included</h3>
+          <div
+            className="mt-4 border-t pt-4"
+            style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+          >
+            <h3
+              className="font-semibold"
+              style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+            >
+              What&apos;s included
+            </h3>
             <ul className="mt-3 space-y-2">
               {getWhatsIncluded().map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                <li
+                  key={idx}
+                  className="flex items-start gap-2 text-sm"
+                  style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                >
                   {getIncludedItemIcon(item)}
                   <span>{item}</span>
                 </li>
@@ -684,8 +858,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           </div>
 
           {showSalesAnnouncement && product.sales_count > 0 && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-sm text-muted-foreground text-center">
+            <div
+              className="mt-4 pt-4 border-t"
+              style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+            >
+              <p
+                className="text-sm text-center"
+                style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+              >
                 {product.sales_count} {product.sales_count === 1 ? "person has" : "people have"} purchased this
               </p>
             </div>

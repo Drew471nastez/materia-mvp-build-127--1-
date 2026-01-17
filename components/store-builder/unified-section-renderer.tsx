@@ -245,6 +245,7 @@ function UnifiedReviewsSection({
   reviewsCount = 0,
   reviewsAverage = 0,
   accentColor,
+  reviewsColors,
 }: {
   settings: ReviewsSettings
   isMobile?: boolean
@@ -254,8 +255,14 @@ function UnifiedReviewsSection({
   reviewsCount?: number
   reviewsAverage?: number
   accentColor?: string
+  reviewsColors?: {
+    starColor?: string
+    cardBackgroundColor?: string
+    cardBorderColor?: string
+  }
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+  const textColor = settings.colors?.textColor
 
   if (!isPreviewMode && reviewsCount === 0 && reviews.length === 0) {
     return null
@@ -287,6 +294,10 @@ function UnifiedReviewsSection({
           isPreview={isPreviewMode}
           isMobile={isMobile}
           accentColor={accentColor}
+          textColor={textColor}
+          starColor={reviewsColors?.starColor || settings.reviewsColors?.starColor}
+          cardBackgroundColor={reviewsColors?.cardBackgroundColor || settings.reviewsColors?.cardBackgroundColor}
+          cardBorderColor={reviewsColors?.cardBorderColor || settings.reviewsColors?.cardBorderColor}
         />
       </div>
     </div>
@@ -821,20 +832,21 @@ function UnifiedAboutSection({
                 <div
                   ref={contentRef}
                   className={cn(
-                    "leading-relaxed overflow-hidden transition-all duration-300 text-sm md:text-base",
+                    "leading-relaxed overflow-hidden text-sm md:text-base",
                     isMobile && "!text-sm",
                     !isExpanded && needsTruncation && "relative"
                   )}
                   style={{
-                    maxHeight: !isExpanded && needsTruncation ? `${maxContentHeight}px` : undefined,
+                    maxHeight: !isExpanded && needsTruncation ? `${maxContentHeight}px` : '2000px',
                     color: textColor ? `${textColor}cc` : "#374151",
+                    transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
                   <p className="whitespace-pre-wrap">{settings.aboutContent}</p>
                 </div>
 
                 {/* Fade gradient and Read more button */}
-                {needsTruncation && !isExpanded && (
+                {needsTruncation && (
                   <div
                     className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
                     style={{
@@ -849,7 +861,9 @@ function UnifiedAboutSection({
                         }
                         // Default to white
                         return "linear-gradient(to bottom, transparent, white)"
-                      })()
+                      })(),
+                      opacity: isExpanded ? 0 : 1,
+                      transition: 'opacity 0.3s ease-in-out',
                     }}
                   />
                 )}
@@ -858,10 +872,13 @@ function UnifiedAboutSection({
                   <button
                     onClick={() => setIsExpanded(!isExpanded)}
                     className={cn(
-                      "mt-2 text-sm font-medium transition-colors hover:opacity-80",
+                      "mt-2 text-sm font-medium hover:opacity-80",
                       !isExpanded && "relative z-10"
                     )}
-                    style={{ color: textColor || "#374151" }}
+                    style={{
+                      color: textColor || "#374151",
+                      transition: 'opacity 0.2s ease-in-out',
+                    }}
                   >
                     {isExpanded ? "Show less" : "Read more"}
                   </button>
@@ -924,8 +941,8 @@ function UnifiedAboutSection({
                     <IconComponent
                       key={method}
                       className={cn(
-                        "flex-shrink-0 w-[46px] h-[30px] md:w-[49px] md:h-[34px]",
-                        isMobile && "!w-[46px] !h-[30px]"
+                        "flex-shrink-0 w-[48px] h-[32px] md:w-[51px] md:h-[36px]",
+                        isMobile && "!w-[48px] !h-[32px]"
                       )}
                     />
                   )

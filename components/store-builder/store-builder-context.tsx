@@ -733,6 +733,26 @@ export function StoreBuilderProvider({
               backgroundColor: theme.sections.pageBackgroundColor,
               textColor: theme.colors.foreground,
             }
+            // Apply FAQ section colors
+            productHeader.faqColors = {
+              textColor: theme.faqSection.textColor,
+              borderColor: theme.faqSection.borderColor,
+              iconColor: theme.faqSection.iconColor,
+            }
+            // Apply reviews section colors for product page
+            productHeader.reviewsColors = {
+              textColor: theme.reviewsSection.textColor,
+              starColor: theme.reviewsSection.starColor,
+              cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+              cardBorderColor: theme.reviewsSection.cardBorderColor,
+            }
+            // Apply product card colors for price display etc.
+            productHeader.productCardColors = {
+              textColor: theme.productCard.textColor,
+              priceColor: theme.productCard.priceColor,
+              backgroundColor: theme.productCard.backgroundColor,
+              borderColor: theme.productCard.borderColor,
+            }
           }
 
           // Apply theme to all sections
@@ -812,6 +832,23 @@ export function StoreBuilderProvider({
                   ...newSection.settings.colors,
                   backgroundColor: "transparent",
                   textColor: theme.colors.foreground,
+                },
+              }
+            }
+
+            // Apply reviews section colors
+            if (section.type === "reviews") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  ...newSection.settings.colors,
+                  backgroundColor: theme.reviewsSection.backgroundColor,
+                  textColor: theme.reviewsSection.textColor,
+                },
+                reviewsColors: {
+                  starColor: theme.reviewsSection.starColor,
+                  cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+                  cardBorderColor: theme.reviewsSection.cardBorderColor,
                 },
               }
             }

@@ -18,9 +18,20 @@ interface ReviewCardProps {
     } | null
   }
   isMobile?: boolean
+  textColor?: string
+  starColor?: string
+  cardBackgroundColor?: string
+  cardBorderColor?: string
 }
 
-export function ReviewCard({ review, isMobile = false }: ReviewCardProps) {
+export function ReviewCard({
+  review,
+  isMobile = false,
+  textColor,
+  starColor,
+  cardBackgroundColor,
+  cardBorderColor,
+}: ReviewCardProps) {
   const [showVerifiedTooltip, setShowVerifiedTooltip] = useState(false)
   
   const buyerName = review.buyer?.display_name || "Anonymous Customer"
@@ -49,10 +60,13 @@ export function ReviewCard({ review, isMobile = false }: ReviewCardProps) {
   }
 
   return (
-    <div className={cn(
-      "border-b border-gray-100 last:border-0",
-      isMobile ? "py-4 first:pt-0" : "py-5 first:pt-0"
-    )}>
+    <div
+      className={cn(
+        "border-b last:border-0",
+        isMobile ? "py-4 first:pt-0" : "py-5 first:pt-0"
+      )}
+      style={{ borderColor: cardBorderColor || "rgb(243, 244, 246)" }}
+    >
       <div className={cn("flex gap-3", isMobile ? "items-start" : "items-start gap-4")}>
         {/* Avatar */}
         <Avatar className={cn("shrink-0", isMobile ? "h-10 w-10" : "h-12 w-12")}>
@@ -73,13 +87,16 @@ export function ReviewCard({ review, isMobile = false }: ReviewCardProps) {
             isMobile && "flex-wrap"
           )}>
             <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-              <span className={cn(
-                "font-semibold text-gray-900",
-                isMobile ? "text-sm truncate max-w-[120px]" : "truncate"
-              )}>
+              <span
+                className={cn(
+                  "font-semibold",
+                  isMobile ? "text-sm truncate max-w-[120px]" : "truncate"
+                )}
+                style={{ color: textColor || "#111827" }}
+              >
                 {buyerName}
               </span>
-              
+
               {/* Verified Buyer Badge */}
               <div className="relative shrink-0">
                 <button
@@ -97,7 +114,7 @@ export function ReviewCard({ review, isMobile = false }: ReviewCardProps) {
                     </svg>
                   </div>
                 </button>
-                
+
                 {/* Tooltip */}
                 {showVerifiedTooltip && (
                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-50">
@@ -117,10 +134,13 @@ export function ReviewCard({ review, isMobile = false }: ReviewCardProps) {
                 </span>
               )}
             </div>
-            <span className={cn(
-              "text-gray-500 shrink-0",
-              isMobile ? "text-[10px]" : "text-xs"
-            )}>
+            <span
+              className={cn(
+                "shrink-0",
+                isMobile ? "text-[10px]" : "text-xs"
+              )}
+              style={{ color: textColor ? `${textColor}99` : "rgb(107, 114, 128)" }}
+            >
               {formatDate(review.created_at)}
             </span>
           </div>
@@ -130,19 +150,25 @@ export function ReviewCard({ review, isMobile = false }: ReviewCardProps) {
             {[1, 2, 3, 4, 5].map((star) => (
               <Star
                 key={star}
-                className={cn(
-                  isMobile ? "h-3.5 w-3.5" : "h-4 w-4",
-                  star <= review.rating ? "fill-black text-black" : "text-gray-300",
-                )}
+                className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")}
+                style={{
+                  color: star <= review.rating
+                    ? (starColor || "#000000")
+                    : (starColor ? `${starColor}40` : "rgb(209, 213, 219)"),
+                  fill: star <= review.rating ? "currentColor" : "none",
+                }}
               />
             ))}
           </div>
 
           {/* Review Text */}
-          <p className={cn(
-            "text-gray-700 leading-relaxed whitespace-pre-wrap",
-            isMobile ? "text-sm" : "text-sm"
-          )}>
+          <p
+            className={cn(
+              "leading-relaxed whitespace-pre-wrap",
+              isMobile ? "text-sm" : "text-sm"
+            )}
+            style={{ color: textColor ? `${textColor}cc` : "rgb(55, 65, 81)" }}
+          >
             {review.content}
           </p>
         </div>
