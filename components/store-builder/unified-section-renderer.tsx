@@ -924,7 +924,7 @@ function UnifiedAboutSection({
               </h4>
             </div>
             <div className="flex-1 w-full">
-              <div className="flex flex-wrap items-center gap-0.5">
+              <div className="flex flex-wrap items-center -space-x-1">
                 {paymentMethods.map((method) => {
                   const IconComponent = paymentMethodIcons[method]
                   if (!IconComponent) return null

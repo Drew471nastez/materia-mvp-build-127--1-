@@ -7,12 +7,12 @@ VALUES (
   'store-builder-images',
   'store-builder-images',
   true,
-  1073741824, -- 1GB limit for videos
+  2147483648, -- 2GB limit for videos
   ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'video/mp4', 'video/webm', 'video/quicktime', 'video/mov']::text[]
 )
 ON CONFLICT (id) DO UPDATE SET
   public = true,
-  file_size_limit = 1073741824,
+  file_size_limit = 2147483648,
   allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'video/mp4', 'video/webm', 'video/quicktime', 'video/mov']::text[];
 
 -- Enable RLS on storage.objects if not already enabled
