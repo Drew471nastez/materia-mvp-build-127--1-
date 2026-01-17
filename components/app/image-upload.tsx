@@ -122,13 +122,10 @@ export function ImageUpload({
               reject(new Error("Upload was aborted"))
             })
 
-            // Supabase signed upload URLs expect POST with FormData
-            const formData = new FormData()
-            formData.append("file", file)
-
-            xhr.open("POST", signedUrl)
-            // Don't set Content-Type header - browser sets it with correct boundary for FormData
-            xhr.send(formData)
+            // Supabase createSignedUploadUrl expects PUT with raw file body and Content-Type header
+            xhr.open("PUT", signedUrl)
+            xhr.setRequestHeader("Content-Type", file.type)
+            xhr.send(file)
           })
 
           setProgress(100)
