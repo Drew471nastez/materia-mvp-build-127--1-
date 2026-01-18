@@ -487,6 +487,31 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Apply theme colors to all sections in the product page config
   const themedSections = productPageConfig?.sections ? applySectionThemeColors(productPageConfig.sections) : []
 
+  // Get FAQ section settings for custom FAQs
+  const faqSection = productPageConfig?.sections?.find((s: Section) => s.type === "faq")
+  const customFaqs = ((faqSection?.settings as any)?.customFaqs || [])
+    .filter((faq: any) => faq.question && faq.answer)
+    .map((faq: any) => ({ question: faq.question, answer: faq.answer }))
+
+  // Default FAQs
+  const defaultFaqs = [
+    {
+      question: "How do I access my purchase?",
+      answer: "After completing your purchase, you'll have instant access to your content through your library. You can access it anytime by logging in to your Materia account.",
+    },
+    {
+      question: "Is there a refund policy?",
+      answer: "Refund policies are set by individual creators. Please contact the creator directly if you have questions about refunds.",
+    },
+    {
+      question: "How long do I have access?",
+      answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.",
+    },
+  ]
+
+  // Combine default FAQs with custom FAQs
+  const displayFaqs = [...defaultFaqs, ...customFaqs]
+
   const { data: reviews } = await supabase
     .from("reviews")
     .select(`
@@ -942,53 +967,26 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             Frequently Asked Questions
           </h2>
 
-          {/* ✅ Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
+          {/* Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
           <div className="px-2 sm:px-0">
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem
-                value="item-1"
-                style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
-              >
-                <AccordionTrigger
-                  className="min-h-[44px] text-left"
-                  style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+              {displayFaqs.map((faq, idx) => (
+                <AccordionItem
+                  key={`faq-${idx}`}
+                  value={`item-${idx}`}
+                  style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
                 >
-                  How do I access my purchase?
-                </AccordionTrigger>
-                <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
-                  After completing your purchase, you&apos;ll have instant access to your content through your library.
-                  You can access it anytime by logging in to your Materia account.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem
-                value="item-2"
-                style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
-              >
-                <AccordionTrigger
-                  className="min-h-[44px] text-left"
-                  style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
-                >
-                  Is there a refund policy?
-                </AccordionTrigger>
-                <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
-                  Refund policies are set by individual creators. Please contact the creator directly if you have
-                  questions about refunds.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem
-                value="item-3"
-                style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
-              >
-                <AccordionTrigger
-                  className="min-h-[44px] text-left"
-                  style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
-                >
-                  How long do I have access?
-                </AccordionTrigger>
-                <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
-                  You have lifetime access to all purchased content. Once you buy, it&apos;s yours forever.
-                </AccordionContent>
-              </AccordionItem>
+                  <AccordionTrigger
+                    className="min-h-[44px] text-left"
+                    style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+                  >
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
             </Accordion>
           </div>
         </div>

@@ -15,19 +15,19 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
   return (
     <footer className="w-full bg-white border-t border-gray-100" data-seller-footer>
       <div className={cn(
-        "flex items-center w-full",
+        "flex items-center w-full max-w-6xl mx-auto",
         useMobileLayout
-          ? "flex-col justify-center gap-2 py-4 px-4"
+          ? "flex-col justify-center gap-3 py-5 px-4"
           : useDesktopLayout
-            ? "flex-row justify-between py-4 px-4"
-            : "flex-col gap-2 py-4 px-4 sm:flex-row sm:justify-between"
+            ? "flex-row justify-between py-4 px-6"
+            : "flex-col gap-3 py-5 px-4 sm:flex-row sm:justify-between sm:py-4 sm:px-6"
       )}>
         {/* Mobile: Powered by above, links below centered */}
         {useMobileLayout ? (
           <>
             {/* Powered by centered at top */}
             <div className="flex items-center justify-center gap-1.5 w-full">
-              <span className="text-xs text-gray-400 whitespace-nowrap">Powered by</span>
+              <span className="text-[11px] text-gray-400 whitespace-nowrap">Powered by</span>
               <a
                 href="/"
                 className="inline-flex items-center shrink-0"
@@ -36,22 +36,22 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
                 <img
                   src="/images/design-mode/storelib.png"
                   alt="Storelib"
-                  className="h-[16px] w-auto"
+                  className="h-[14px] w-auto"
                 />
               </a>
             </div>
             {/* Privacy and Terms centered below on separate row */}
-            <div className="flex items-center justify-center gap-4 w-full">
+            <div className="flex items-center justify-center gap-2.5 w-full">
               <a
                 href="/privacy"
-                className="text-xs text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+                className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
                 Privacy Policy
               </a>
-              <span className="text-gray-300">|</span>
+              <span className="text-[11px] text-gray-300">|</span>
               <a
                 href="/terms"
-                className="text-xs text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+                className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
                 Terms & Conditions
               </a>
@@ -70,7 +70,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
                 <img
                   src="/images/design-mode/storelib.png"
                   alt="Storelib"
-                  className="h-[32px] w-auto translate-y-[1px]"
+                  className="h-[28px] w-auto translate-y-[1px]"
                 />
               </a>
             </div>
@@ -98,7 +98,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
               "flex items-center justify-center gap-1.5 w-full",
               "sm:w-auto sm:justify-start"
             )}>
-              <span className="text-xs sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap">Powered by</span>
+              <span className="text-[11px] sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap">Powered by</span>
               <a
                 href="/"
                 className="inline-flex items-center shrink-0"
@@ -107,25 +107,25 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
                 <img
                   src="/images/design-mode/storelib.png"
                   alt="Storelib"
-                  className="h-[16px] sm:h-[32px] w-auto sm:translate-y-[1px]"
+                  className="h-[14px] sm:h-[28px] w-auto sm:translate-y-[1px]"
                 />
               </a>
             </div>
             {/* Links - bottom on mobile (centered), right on desktop */}
             <div className={cn(
-              "flex items-center justify-center gap-4 w-full",
+              "flex items-center justify-center gap-2.5 w-full",
               "sm:w-auto sm:justify-end sm:gap-6"
             )}>
               <a
                 href="/privacy"
-                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+                className="text-[11px] sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
                 Privacy Policy
               </a>
-              <span className="text-gray-300 sm:hidden">|</span>
+              <span className="text-[11px] text-gray-300 sm:hidden">|</span>
               <a
                 href="/terms"
-                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+                className="text-[11px] sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
                 Terms & Conditions
               </a>

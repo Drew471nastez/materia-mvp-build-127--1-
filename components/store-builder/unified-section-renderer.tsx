@@ -2840,6 +2840,7 @@ export interface UnifiedProductPageProps {
   reviews?: any[]
   globalSettings?: GlobalStoreSettings
   onEditFaqs?: () => void
+  faqSettings?: { customFaqs?: Array<{ id: string; question: string; answer: string }> }
 }
 
 export function UnifiedProductPage({
@@ -2856,6 +2857,7 @@ export function UnifiedProductPage({
   reviews = [],
   globalSettings,
   onEditFaqs,
+  faqSettings,
 }: UnifiedProductPageProps) {
   const [showShareModal, setShowShareModal] = useState(false)
   const [isFaqHovered, setIsFaqHovered] = useState(false)
@@ -2898,7 +2900,7 @@ export function UnifiedProductPage({
       ? product.whats_included.map((item) => item.replace(/\*\*/g, ""))
       : ["Instant download access", "All included files", "Lifetime access"]
 
-  const faqs = product?.faqs || []
+  const productFaqs = product?.faqs || []
   const defaultFaqs = [
     {
       question: "How do I access my purchase?",
@@ -2915,7 +2917,14 @@ export function UnifiedProductPage({
       answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.",
     },
   ]
-  const displayFaqs = faqs.length > 0 ? faqs : defaultFaqs
+  // Custom FAQs from FAQ section settings (added via the sidebar)
+  const customFaqs = (faqSettings?.customFaqs || [])
+    .filter(faq => faq.question && faq.answer) // Only include FAQs with both question and answer
+    .map(faq => ({ question: faq.question, answer: faq.answer }))
+
+  // Combine: product-level FAQs OR default FAQs, then append custom FAQs
+  const baseFaqs = productFaqs.length > 0 ? productFaqs : defaultFaqs
+  const displayFaqs = [...baseFaqs, ...customFaqs]
 
   // Theme preset colors
   const themePreset = globalSettings?.themePreset || "default"
@@ -3442,16 +3451,16 @@ export function UnifiedProductPage({
                 onMouseEnter={() => !isPreviewMode && setIsFaqHovered(true)}
                 onMouseLeave={() => !isPreviewMode && setIsFaqHovered(false)}
               >
-                {/* Edit FAQs hover overlay - only in editor mode */}
+                {/* Edit FAQs hover link - only in editor mode */}
                 {!isPreviewMode && isFaqHovered && onEditFaqs && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       onEditFaqs()
                     }}
-                    className="absolute -top-2 right-0 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 text-white text-xs font-medium rounded-full shadow-lg hover:bg-sky-600 transition-colors"
+                    className="absolute -top-1 right-0 z-10 flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 hover:underline transition-colors"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     Edit FAQs

@@ -501,6 +501,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   handleSelectSection(faqSection.id)
                 }
               }}
+              faqSettings={draftConfig.sections.find((s) => s.type === "faq")?.settings as { customFaqs?: Array<{ id: string; question: string; answer: string }> } | undefined}
             />
 
             {draftConfig.sections

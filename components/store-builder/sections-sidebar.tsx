@@ -4308,21 +4308,19 @@ function FAQSettingsForm({
 
   return (
     <div className="space-y-6">
-      {/* Edit FAQs Button */}
-      <div className="p-3 bg-muted/50 rounded-lg">
-        <p className="text-xs text-muted-foreground mb-2">
-          To edit the default FAQs or add more detailed FAQs, edit the product directly.
+      {/* Edit FAQs Link */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          To edit FAQs, edit the product directly.
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full gap-2"
+        <button
           onClick={handleEditProductFaqs}
           disabled={!productId}
+          className="text-xs text-purple-600 hover:text-purple-700 hover:underline disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
         >
-          <ExternalLink className="h-4 w-4" />
           Edit FAQs
-        </Button>
+          <ExternalLink className="h-3 w-3" />
+        </button>
       </div>
 
       {/* Default FAQs (read-only display) */}
