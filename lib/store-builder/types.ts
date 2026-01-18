@@ -96,6 +96,7 @@ export interface ImageTextSettings extends BaseSectionSettings {
   // Button customization colors
   buttonColor?: string
   buttonTextColor?: string
+  buttonBorderRadius?: number
 }
 
 // Benefits section (icon list)
@@ -121,6 +122,8 @@ export interface BenefitsSettings extends BaseSectionSettings {
   // Gap settings
   horizontalGap?: number // pixels
   verticalGap?: number // pixels
+  // Theme-applied icon color
+  iconColor?: string
 }
 
 // Text/Paragraph block section
@@ -128,6 +131,9 @@ export interface TextBlockSettings extends BaseSectionSettings {
   headline?: string
   body: string
   maxWidth: "sm" | "md" | "lg" | "full"
+  // Theme-applied text colors
+  headlineColor?: string
+  contentColor?: string
 }
 
 // Announcement Bar section
@@ -228,6 +234,12 @@ export interface ReviewsSettings extends BaseSectionSettings {
   showReviewCount: boolean
   showStarRatings?: boolean
   maxReviewsToShow: number
+  // Theme-applied reviews colors
+  reviewsColors?: {
+    starColor?: string
+    cardBackgroundColor?: string
+    cardBorderColor?: string
+  }
 }
 
 // About media item (image or YouTube embed)
@@ -265,6 +277,8 @@ export interface AboutSettings extends BaseSectionSettings {
   // Payment methods to display
   showPaymentMethods?: boolean
   paymentMethods?: PaymentMethodType[]
+  // Theme-applied muted text color
+  mutedTextColor?: string
 }
 
 // Union of all section settings
@@ -341,6 +355,41 @@ export interface ProductHeaderSettings {
   // Product page specific settings
   creatorBar?: ProductCreatorBarSettings
   stickyAddToCart?: StickyAddToCartSettings
+  // Theme-applied color settings for product page components
+  faqColors?: {
+    textColor?: string
+    borderColor?: string
+    iconColor?: string
+  }
+  reviewsColors?: {
+    textColor?: string
+    starColor?: string
+    cardBackgroundColor?: string
+    cardBorderColor?: string
+  }
+  productCardColors?: {
+    textColor?: string
+    priceColor?: string
+    backgroundColor?: string
+    borderColor?: string
+  }
+  priceContainerColors?: {
+    backgroundColor?: string
+    textColor?: string
+    mutedTextColor?: string
+    borderColor?: string
+    iconColor?: string
+  }
+  wishlistButtonColors?: {
+    backgroundColor?: string
+    textColor?: string
+    borderColor?: string
+  }
+  viewInLibraryButtonColors?: {
+    backgroundColor?: string
+    textColor?: string
+    borderColor?: string
+  }
 }
 
 // Creator bar settings for product pages (like Subscribe Bar but with creator name)

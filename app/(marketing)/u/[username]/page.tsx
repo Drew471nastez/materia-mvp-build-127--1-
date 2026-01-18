@@ -8,8 +8,8 @@ import Image from "next/image"
 import { TrackView } from "@/components/analytics/track-view"
 import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
-import type { ShopHeaderSettings, GlobalStoreSettings } from "@/lib/store-builder/types"
-import { defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
+import type { ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
+import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
@@ -239,6 +239,115 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     // Calculate products count for About section
     const productsCount = products?.length || 0
 
+    // Get theme preset and config
+    const themePreset = globalSettings?.themePreset || "default"
+    const themeConfig = themePresets[themePreset as keyof typeof themePresets]
+
+    // Apply theme colors to all sections from the shop page config
+    // This ensures sections always reflect the current theme preset
+    const applySectionThemeColors = (sections: Section[]): Section[] => {
+      if (!themeConfig) return sections
+
+      return sections.map((section) => {
+        const newSection = { ...section, settings: { ...section.settings } }
+
+        // Apply featured-products section colors from theme
+        if (section.type === "featured-products") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.sections?.featuredProductsBackgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.sections?.featuredProductsTextColor || themeConfig.colors?.foreground || newSection.settings.colors?.textColor,
+            },
+            productCardColors: {
+              backgroundColor: themeConfig.productCard?.backgroundColor,
+              textColor: themeConfig.productCard?.textColor,
+              priceColor: themeConfig.productCard?.priceColor,
+              borderColor: themeConfig.productCard?.borderColor,
+            },
+            categoryFilterColors: {
+              textColor: themeConfig.categoryFilter?.textColor,
+              activeTextColor: themeConfig.categoryFilter?.activeTextColor,
+              borderColor: themeConfig.categoryFilter?.borderColor,
+            },
+          }
+        }
+
+        // Apply about section colors from theme
+        if (section.type === "about") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.about?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.about?.textColor || newSection.settings.colors?.textColor,
+            },
+            mutedTextColor: themeConfig.about?.mutedTextColor,
+          }
+        }
+
+        // Apply text block colors from theme
+        if (section.type === "text-block") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.textBlock?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.textBlock?.headlineColor || newSection.settings.colors?.textColor,
+            },
+            headlineColor: themeConfig.textBlock?.headlineColor,
+            contentColor: themeConfig.textBlock?.contentColor,
+          }
+        }
+
+        // Apply image-text section colors from theme
+        if (section.type === "image-text") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.imageText?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.imageText?.textColor || newSection.settings.colors?.textColor,
+            },
+            buttonColor: themeConfig.imageText?.buttonColor,
+            buttonTextColor: themeConfig.imageText?.buttonTextColor,
+            buttonBorderRadius: themeConfig.buttonBorderRadius,
+          }
+        }
+
+        // Apply benefits section colors from theme
+        if (section.type === "benefits") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.benefits?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.benefits?.textColor || newSection.settings.colors?.textColor,
+            },
+            iconColor: themeConfig.benefits?.iconColor,
+          }
+        }
+
+        // Apply announcement bar colors from theme
+        if (section.type === "announcement-bar") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.announcementBar?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.announcementBar?.textColor || newSection.settings.colors?.textColor,
+            },
+          }
+        }
+
+        return newSection
+      })
+    }
+
+    // Apply theme colors to all sections
+    const themedSections = applySectionThemeColors(publishedConfig.sections)
+
     return (
       <div
         className="min-h-screen overflow-x-hidden"
@@ -263,10 +372,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
         {(() => {
           // Separate About section to render last
-          const regularSections = publishedConfig.sections
+          const regularSections = themedSections
             .filter((s) => s.type !== "about")
             .sort((a, b) => a.order - b.order)
-          const aboutSection = publishedConfig.sections.find((s) => s.type === "about")
+          const aboutSection = themedSections.find((s) => s.type === "about")
 
           return (
             <>

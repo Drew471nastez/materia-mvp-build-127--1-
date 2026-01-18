@@ -329,17 +329,125 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       description: p.description,
     })) || []
 
+  // Apply theme colors to all sections from the product page config
+  // This ensures sections always reflect the current theme preset
+  const applySectionThemeColors = (sections: Section[]): Section[] => {
+    if (!themeConfig) return sections
+
+    return sections.map((section) => {
+      const newSection = { ...section, settings: { ...section.settings } }
+
+      // Apply more-from-seller section colors from theme
+      if (section.type === "more-from-seller") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            ...newSection.settings.colors,
+            backgroundColor: themeConfig.sections?.featuredProductsBackgroundColor || newSection.settings.colors?.backgroundColor,
+            textColor: themeConfig.sections?.featuredProductsTextColor || themeConfig.colors?.foreground || newSection.settings.colors?.textColor,
+          },
+          productCardColors: {
+            backgroundColor: themeConfig.productCard?.backgroundColor,
+            textColor: themeConfig.productCard?.textColor,
+            priceColor: themeConfig.productCard?.priceColor,
+            borderColor: themeConfig.productCard?.borderColor,
+          },
+        }
+      }
+
+      // Apply reviews section colors from theme
+      if (section.type === "reviews") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            ...newSection.settings.colors,
+            backgroundColor: themeConfig.reviewsSection?.backgroundColor || newSection.settings.colors?.backgroundColor,
+            textColor: themeConfig.reviewsSection?.textColor || newSection.settings.colors?.textColor,
+          },
+          reviewsColors: {
+            starColor: themeConfig.reviewsSection?.starColor,
+            cardBackgroundColor: themeConfig.reviewsSection?.cardBackgroundColor,
+            cardBorderColor: themeConfig.reviewsSection?.cardBorderColor,
+          },
+        }
+      }
+
+      // Apply text block colors from theme
+      if (section.type === "text-block") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            ...newSection.settings.colors,
+            backgroundColor: themeConfig.textBlock?.backgroundColor || newSection.settings.colors?.backgroundColor,
+            textColor: themeConfig.textBlock?.headlineColor || newSection.settings.colors?.textColor,
+          },
+          headlineColor: themeConfig.textBlock?.headlineColor,
+          contentColor: themeConfig.textBlock?.contentColor,
+        }
+      }
+
+      // Apply image-text section colors from theme
+      if (section.type === "image-text") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            ...newSection.settings.colors,
+            backgroundColor: themeConfig.imageText?.backgroundColor || newSection.settings.colors?.backgroundColor,
+            textColor: themeConfig.imageText?.textColor || newSection.settings.colors?.textColor,
+          },
+          buttonColor: themeConfig.imageText?.buttonColor,
+          buttonTextColor: themeConfig.imageText?.buttonTextColor,
+          buttonBorderRadius: themeConfig.buttonBorderRadius,
+        }
+      }
+
+      // Apply benefits section colors from theme
+      if (section.type === "benefits") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            ...newSection.settings.colors,
+            backgroundColor: themeConfig.benefits?.backgroundColor || newSection.settings.colors?.backgroundColor,
+            textColor: themeConfig.benefits?.textColor || newSection.settings.colors?.textColor,
+          },
+          iconColor: themeConfig.benefits?.iconColor,
+        }
+      }
+
+      // Apply announcement bar colors from theme
+      if (section.type === "announcement-bar") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            ...newSection.settings.colors,
+            backgroundColor: themeConfig.announcementBar?.backgroundColor || newSection.settings.colors?.backgroundColor,
+            textColor: themeConfig.announcementBar?.textColor || newSection.settings.colors?.textColor,
+          },
+        }
+      }
+
+      return newSection
+    })
+  }
+
   // Get more-from-seller section settings from published config, or use defaults
   const publishedMoreFromSellerSection = productPageConfig?.sections?.find(
     (s: Section) => s.type === "more-from-seller",
   )
 
-  const moreFromSellerSection: Section = publishedMoreFromSellerSection || {
+  // Create default more-from-seller section with theme colors applied
+  const moreFromSellerSectionRaw: Section = publishedMoreFromSellerSection || {
     id: "more-from-seller-default",
     type: "more-from-seller",
     settings: { ...defaultMoreFromSellerSettings },
     order: 999,
   }
+
+  // Apply theme colors to the section
+  const moreFromSellerSection = applySectionThemeColors([moreFromSellerSectionRaw])[0]
+
+  // Apply theme colors to all sections in the product page config
+  const themedSections = productPageConfig?.sections ? applySectionThemeColors(productPageConfig.sections) : []
 
   const { data: reviews } = await supabase
     .from("reviews")
@@ -946,7 +1054,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // Render with custom config if it exists
   // ---------------------------------------------------------------------------
-  if (productPageConfig?.sections && productPageConfig.sections.length > 0) {
+  if (themedSections && themedSections.length > 0) {
     // Get creator bar and sticky add to cart settings from published config
     const headerSettings = productPageConfig.headerSettings as ProductHeaderSettings | undefined
     const creatorBarSettings = headerSettings?.creatorBar || defaultProductCreatorBarSettings
@@ -1001,7 +1109,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {MainProductContent}
         </div>
 
-        {productPageConfig.sections.map((section: any) => (
+        {themedSections.map((section: any) => (
           <SectionRenderer
             key={section.id}
             section={section}

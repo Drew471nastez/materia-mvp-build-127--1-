@@ -1119,6 +1119,7 @@ export function UnifiedSectionRenderer({
           reviewsCount={reviewsCount}
           reviewsAverage={reviewsAverage}
           accentColor={accentColor}
+          reviewsColors={(section.settings as ReviewsSettings).reviewsColors}
         />
       )}
       {section.type === "about" && (
