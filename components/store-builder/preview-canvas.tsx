@@ -289,6 +289,89 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       }
     }
 
+    const getBorderColor = () => {
+      return themePreset === 'astrid' ? '#2a2a2a' : '#e5e7eb'
+    }
+
+    // Product page skeleton
+    if (currentPageType === "product") {
+      return (
+        <div className={cn("min-h-full flex items-start justify-center bg-muted/30", isMobile ? "p-2" : "p-4 sm:p-6")}>
+          <div
+            className={cn(
+              "shadow-xl overflow-hidden",
+              isMobile ? "w-[375px] min-h-[667px] rounded-[20px]" : "w-full max-w-5xl rounded-[20px] ring-1 ring-border",
+            )}
+            style={{ backgroundColor: getLoadingBackground() }}
+          >
+            {/* Creator Bar Skeleton */}
+            <div
+              className="h-14 border-b flex items-center justify-between px-4"
+              style={{
+                backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground(),
+                borderColor: getBorderColor()
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <Skeleton themePreset={themePreset} className="h-8 w-8 rounded-full" />
+                <Skeleton themePreset={themePreset} className="h-4 w-24" />
+              </div>
+              <Skeleton themePreset={themePreset} className="h-8 w-24 rounded-lg" />
+            </div>
+
+            {/* Main Content */}
+            <div className={cn("p-4", isMobile ? "space-y-4" : "p-6")}>
+              {/* Gallery */}
+              <Skeleton themePreset={themePreset} className="aspect-video w-full rounded-xl" />
+              <div className="flex gap-2 mt-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} themePreset={themePreset} className={cn("rounded-lg", isMobile ? "h-12 w-12" : "h-16 w-16")} />
+                ))}
+              </div>
+
+              {/* Title */}
+              <div className="mt-6 space-y-3">
+                <Skeleton themePreset={themePreset} className="h-8 w-3/4" />
+                <div className="flex items-center gap-3">
+                  <Skeleton themePreset={themePreset} className="h-10 w-10 rounded-full" />
+                  <Skeleton themePreset={themePreset} className="h-5 w-32" />
+                </div>
+              </div>
+
+              {/* Mobile Price Card */}
+              {isMobile && (
+                <div
+                  className="mt-4 rounded-xl border p-4 space-y-3"
+                  style={{ borderColor: getBorderColor(), backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground() }}
+                >
+                  <Skeleton themePreset={themePreset} className="h-8 w-24" />
+                  <Skeleton themePreset={themePreset} className="h-12 w-full rounded-lg" />
+                  <Skeleton themePreset={themePreset} className="h-10 w-full rounded-lg" />
+                </div>
+              )}
+
+              {/* Description */}
+              <div className="mt-6 space-y-2">
+                <Skeleton themePreset={themePreset} className="h-6 w-32 mb-3" />
+                <Skeleton themePreset={themePreset} className="h-4 w-full" />
+                <Skeleton themePreset={themePreset} className="h-4 w-full" />
+                <Skeleton themePreset={themePreset} className="h-4 w-3/4" />
+              </div>
+
+              {/* FAQ */}
+              <div className="mt-8 space-y-3">
+                <Skeleton themePreset={themePreset} className="h-6 w-48 mb-4" />
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} themePreset={themePreset} className="h-12 w-full rounded-lg" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Shop page skeleton (default)
     return (
       <div className={cn("min-h-full flex items-start justify-center bg-muted/30", isMobile ? "p-2" : "p-4 sm:p-6")}>
         <div
@@ -298,14 +381,70 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
           )}
           style={{ backgroundColor: getLoadingBackground() }}
         >
-          <Skeleton themePreset={themePreset} className={cn("w-full", isMobile ? "h-32" : "h-40")} />
-          <div className="p-6 space-y-6">
-            <Skeleton themePreset={themePreset} className="h-24 w-24 rounded-full mx-auto" />
-            <Skeleton themePreset={themePreset} className="h-8 w-48 mx-auto" />
-            <Skeleton themePreset={themePreset} className="h-4 w-64 mx-auto" />
-            <div className="space-y-2 max-w-xl mx-auto">
-              <Skeleton themePreset={themePreset} className="h-4 w-full" />
-              <Skeleton themePreset={themePreset} className="h-4 w-3/4" />
+          {/* Subscribe Bar Skeleton */}
+          <div
+            className={cn("py-3 px-4 flex items-center justify-center gap-4 border-b", isMobile ? "flex-col gap-2" : "")}
+            style={{ borderColor: getBorderColor(), backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground() }}
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton themePreset={themePreset} className="h-8 w-8 rounded-full" />
+              <Skeleton themePreset={themePreset} className={cn("h-4", isMobile ? "w-32" : "w-48")} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton themePreset={themePreset} className={cn("h-10 rounded-lg", isMobile ? "w-40" : "w-48")} />
+              <Skeleton themePreset={themePreset} className="h-10 w-24 rounded-lg" />
+            </div>
+          </div>
+
+          {/* Cover Image */}
+          <Skeleton themePreset={themePreset} className={cn("w-full", isMobile ? "h-32" : "h-48")} />
+
+          {/* Header */}
+          <div className="p-6 space-y-4">
+            <div className="flex flex-col items-center text-center">
+              <Skeleton themePreset={themePreset} className={cn("rounded-full -mt-12", isMobile ? "h-20 w-20" : "h-24 w-24")} />
+              <Skeleton themePreset={themePreset} className="mt-4 h-8 w-48" />
+              <Skeleton themePreset={themePreset} className="mt-2 h-4 w-64" />
+              <div className="mt-4 flex gap-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} themePreset={themePreset} className="h-6 w-20 rounded-full" />
+                ))}
+              </div>
+              <div className="mt-6 w-full max-w-xl space-y-2">
+                <Skeleton themePreset={themePreset} className="h-4 w-full" />
+                <Skeleton themePreset={themePreset} className="h-4 w-3/4 mx-auto" />
+              </div>
+              <div className="mt-6 flex gap-8">
+                <Skeleton themePreset={themePreset} className="h-4 w-24" />
+                <Skeleton themePreset={themePreset} className="h-4 w-24" />
+              </div>
+            </div>
+          </div>
+
+          {/* Featured Products */}
+          <div className="p-6 pt-0">
+            <Skeleton themePreset={themePreset} className="h-7 w-48 mb-4" />
+            <Skeleton themePreset={themePreset} className="h-4 w-64 mb-6" />
+            <div className="flex gap-3 mb-6">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} themePreset={themePreset} className="h-8 w-20 rounded-full" />
+              ))}
+            </div>
+            <div className={cn("grid gap-4", isMobile ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-3")}>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border overflow-hidden"
+                  style={{ borderColor: getBorderColor(), backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground() }}
+                >
+                  <Skeleton themePreset={themePreset} className="aspect-video w-full" />
+                  <div className="p-4 space-y-2">
+                    <Skeleton themePreset={themePreset} className="h-5 w-3/4" />
+                    <Skeleton themePreset={themePreset} className="h-4 w-1/2" />
+                    <Skeleton themePreset={themePreset} className="h-6 w-20 mt-3" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
