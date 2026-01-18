@@ -2681,9 +2681,9 @@ export function UnifiedShopHeader({
             className={cn(
               "mt-3 font-semibold break-words max-w-full px-4 flex items-center justify-center gap-1.5",
               isMobile ? "text-lg" : "text-xl sm:text-2xl mt-4",
-              !settings.colors?.textColor && "text-foreground",
+              !(settings.textsColor || settings.colors?.textColor) && "text-foreground",
             )}
-            style={{ color: settings.colors?.textColor || undefined }}
+            style={{ color: settings.textsColor || settings.colors?.textColor || undefined }}
           >
             {profile?.display_name || "Creator"}
             {globalSettings?.verifiedBadgeEnabled && (
@@ -2721,9 +2721,9 @@ export function UnifiedShopHeader({
               className={cn(
                 "mt-1 break-words max-w-full px-4",
                 isMobile ? "text-xs" : "text-sm sm:text-base",
-                !settings.colors?.textColor && "text-muted-foreground",
+                !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
               )}
-              style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
+              style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
             >
               {creator.headline}
             </p>
@@ -2744,9 +2744,9 @@ export function UnifiedShopHeader({
               className={cn(
                 "max-w-xl break-words px-4",
                 isMobile ? "mt-4 text-xs" : "mt-6 text-sm",
-                !settings.colors?.textColor && "text-muted-foreground",
+                !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
               )}
-              style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
+              style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
             >
               {creator.bio}
             </p>
@@ -2758,9 +2758,9 @@ export function UnifiedShopHeader({
                 className={cn(
                   "flex items-center gap-2",
                   isMobile ? "text-xs" : "text-sm sm:text-base",
-                  !settings.colors?.textColor && "text-muted-foreground",
+                  !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
                 )}
-                style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
+                style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
               >
                 <Package className={cn(isMobile ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5")} />
                 <span>{productCount} products</span>
@@ -2771,9 +2771,9 @@ export function UnifiedShopHeader({
                   className={cn(
                     "flex items-center gap-2",
                     isMobile ? "text-xs" : "text-sm sm:text-base",
-                    !settings.colors?.textColor && "text-muted-foreground",
+                    !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
                   )}
-                  style={{ color: settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined }}
+                  style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
                 >
                   <ShoppingBag className={cn(isMobile ? "h-4 w-4" : "h-4 w-4 sm:h-5 sm:w-5")} />
                   <span>{totalSales} sales</span>

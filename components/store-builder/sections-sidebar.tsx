@@ -1059,8 +1059,9 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                         <div
                           className="w-14 h-4 rounded flex items-center justify-center"
                           style={{
-                            backgroundColor: theme.subscribeBar.buttonColor,
-                            borderRadius: `${Math.min(theme.borderRadius, 12)}px`
+                            // For Bubble theme, use light gray in thumbnail since white button is not visible on white background
+                            backgroundColor: preset === "bubble" ? "#d1d5db" : theme.subscribeBar.buttonColor,
+                            borderRadius: `${Math.min(theme.buttonBorderRadius || theme.borderRadius, 12)}px`
                           }}
                         />
                       </div>
@@ -1975,6 +1976,16 @@ function ShopHeaderSettingsForm({
             </div>
           </div>
         )}
+      </div>
+
+      <div className="space-y-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colors</h4>
+        <ColorPicker
+          label="Texts Color"
+          value={settings.textsColor || ""}
+          onChange={(value) => onChange({ textsColor: value })}
+          description="Color for stats, icons, seller name, and bio"
+        />
       </div>
 
       <CoverImageEditor

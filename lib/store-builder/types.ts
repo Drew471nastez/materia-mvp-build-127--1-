@@ -328,6 +328,8 @@ export interface ShopHeaderSettings {
   spacing: SpacingConfig
   // Subscribe bar settings embedded in header for shop pages
   subscribeBar?: SubscribeBarSettings
+  // Texts color for header elements (stats text, icons, seller name, bio description)
+  textsColor?: string
 }
 
 // Header settings for product page (locked but editable)
@@ -428,7 +430,7 @@ export interface PageConfig {
 export type SaveState = "unsaved" | "saving" | "saved" | "publishing" | "published"
 
 // Theme preset for global styling
-export type ThemePreset = "default" | "air" | "astrid" | "bubble" | "pink"
+export type ThemePreset = "default" | "air" | "astrid" | "bubble" | "pink" | "cream"
 
 // Verified badge type options
 export type VerifiedBadgeType = "verified_creator" | "verified_brand" | "verified_business" | "official_page" | "verified_artist"
