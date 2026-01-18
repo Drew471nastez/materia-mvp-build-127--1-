@@ -951,13 +951,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     const headerSettings = productPageConfig.headerSettings as ProductHeaderSettings | undefined
     const creatorBarSettings = headerSettings?.creatorBar || defaultProductCreatorBarSettings
     const stickyAddToCartSettings = headerSettings?.stickyAddToCart || defaultStickyAddToCartSettings
-    // Get theme background color from published config
+    // Get theme colors from published config
     const pageBackgroundColor = productPageConfig.globalColors?.backgroundColor
+    const pageTextColor = themeColors.textColor
 
     return (
       <div
         className="min-h-screen overflow-x-hidden w-full"
-        style={{ background: pageBackgroundColor || "var(--background)" }}
+        style={{
+          background: pageBackgroundColor || "var(--background)",
+          color: pageTextColor || "var(--foreground)",
+        }}
       >
         <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
         <DynamicFavicon

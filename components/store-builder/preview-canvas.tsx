@@ -299,6 +299,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
         )}
         style={{
           background: draftConfig.globalColors?.backgroundColor || "var(--background)",
+          color: (draftConfig.headerSettings as any)?.colors?.textColor || "var(--foreground)",
         }}
       >
         {currentPageType === "product" && selectedProduct ? (

@@ -231,8 +231,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const headerSettings = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
     const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings)
-    // Get theme background color from published config
+    // Get theme colors from published config
     const pageBackgroundColor = publishedConfig.globalColors?.backgroundColor
+    const pageTextColor = headerSettings?.colors?.textColor
     // Calculate total sales for About section
     const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
     // Calculate products count for About section
@@ -241,7 +242,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     return (
       <div
         className="min-h-screen overflow-x-hidden"
-        style={{ background: pageBackgroundColor || "var(--background)" }}
+        style={{
+          background: pageBackgroundColor || "var(--background)",
+          color: pageTextColor || "var(--foreground)",
+        }}
       >
         <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
         <TrackView type="store" creatorId={creator.id} />

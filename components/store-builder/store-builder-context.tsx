@@ -962,6 +962,11 @@ export function StoreBuilderProvider({
 
             // Build product page header settings with theme applied
             const productHeaderSettings = {
+              // Page background and text colors - CRITICAL for theme propagation
+              colors: {
+                backgroundColor: theme.sections.pageBackgroundColor,
+                textColor: theme.colors.foreground,
+              },
               creatorBar: {
                 visible: true,
                 backgroundColor: theme.creatorBar.backgroundColor,
@@ -1028,6 +1033,8 @@ export function StoreBuilderProvider({
                 const updatedConfig = {
                   ...existingConfig,
                   globalSettings: newGlobalSettings,
+                  // CRITICAL: Include globalColors for page background
+                  globalColors: newGlobalColors,
                   headerSettings: {
                     ...existingConfig.headerSettings,
                     ...productHeaderSettings,
@@ -1077,8 +1084,12 @@ export function StoreBuilderProvider({
           config: {
             ...defaultProductPageConfig,
             globalSettings: draftConfig.globalSettings,
+            // CRITICAL: Include globalColors for page background
+            globalColors: draftConfig.globalColors,
             headerSettings: {
               ...defaultProductPageConfig.headerSettings,
+              // Page background and text colors - CRITICAL for theme propagation
+              colors: productHeader.colors,
               creatorBar: productHeader.creatorBar,
               stickyAddToCart: productHeader.stickyAddToCart,
               buyButtonColor: productHeader.buyButtonColor,
@@ -1158,8 +1169,12 @@ export function StoreBuilderProvider({
           config: {
             ...defaultProductPageConfig,
             globalSettings: draftConfig.globalSettings,
+            // CRITICAL: Include globalColors for page background
+            globalColors: draftConfig.globalColors,
             headerSettings: {
               ...defaultProductPageConfig.headerSettings,
+              // Page background and text colors - CRITICAL for theme propagation
+              colors: productHeader.colors,
               creatorBar: productHeader.creatorBar,
               stickyAddToCart: productHeader.stickyAddToCart,
               buyButtonColor: productHeader.buyButtonColor,
