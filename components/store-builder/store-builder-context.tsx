@@ -370,11 +370,15 @@ export function StoreBuilderProvider({
                 const globalHeader = globalData.draft_config?.headerSettings || {}
 
                 // Merge global settings into loaded config
+                // IMPORTANT: globalSettings, globalColors, and theme colors ALWAYS come from global template
+                // This ensures that when theme is changed from homepage, ALL product pages update correctly
                 const productHeader = loadedDraft.headerSettings as any
                 loadedDraft = {
                   ...loadedDraft,
-                  // Also merge globalSettings (includes themePreset)
+                  // Always use globalSettings from global template (includes themePreset)
                   globalSettings: globalData.draft_config?.globalSettings || loadedDraft.globalSettings,
+                  // Always use globalColors from global template (includes page background)
+                  globalColors: globalData.draft_config?.globalColors || loadedDraft.globalColors,
                   headerSettings: {
                     ...loadedDraft.headerSettings,
                     // Use global settings for these fields (fallback to loaded values if global not set)
@@ -384,7 +388,8 @@ export function StoreBuilderProvider({
                     buyButtonTextColor: globalHeader.buyButtonTextColor || productHeader.buyButtonTextColor,
                     buttonsBorderRadius: globalHeader.buttonsBorderRadius || productHeader.buttonsBorderRadius,
                     spacing: globalHeader.spacing || productHeader.spacing,
-                    // Theme-related color settings
+                    // Theme-related color settings (always from global template)
+                    colors: globalHeader.colors || productHeader.colors,
                     faqColors: globalHeader.faqColors || productHeader.faqColors,
                     reviewsColors: globalHeader.reviewsColors || productHeader.reviewsColors,
                     productCardColors: globalHeader.productCardColors || productHeader.productCardColors,
@@ -395,11 +400,14 @@ export function StoreBuilderProvider({
                 }
 
                 // Also merge for published config
+                // IMPORTANT: globalSettings, globalColors, and theme colors ALWAYS come from global template
+                // This ensures that when theme is changed from homepage, ALL product pages update correctly
                 const globalPublishedHeader = globalData.published_config?.headerSettings || {}
                 const publishedProductHeader = loadedPublished.headerSettings as any
                 loadedPublished = {
                   ...loadedPublished,
                   globalSettings: globalData.published_config?.globalSettings || loadedPublished.globalSettings,
+                  globalColors: globalData.published_config?.globalColors || loadedPublished.globalColors,
                   headerSettings: {
                     ...loadedPublished.headerSettings,
                     creatorBar: globalPublishedHeader.creatorBar || publishedProductHeader.creatorBar,
@@ -408,7 +416,8 @@ export function StoreBuilderProvider({
                     buyButtonTextColor: globalPublishedHeader.buyButtonTextColor || publishedProductHeader.buyButtonTextColor,
                     buttonsBorderRadius: globalPublishedHeader.buttonsBorderRadius || publishedProductHeader.buttonsBorderRadius,
                     spacing: globalPublishedHeader.spacing || publishedProductHeader.spacing,
-                    // Theme-related color settings
+                    // Theme-related color settings (always from global template)
+                    colors: globalPublishedHeader.colors || publishedProductHeader.colors,
                     faqColors: globalPublishedHeader.faqColors || publishedProductHeader.faqColors,
                     reviewsColors: globalPublishedHeader.reviewsColors || publishedProductHeader.reviewsColors,
                     productCardColors: globalPublishedHeader.productCardColors || publishedProductHeader.productCardColors,

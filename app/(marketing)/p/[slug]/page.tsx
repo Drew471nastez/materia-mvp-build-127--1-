@@ -154,8 +154,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   if (specificConfig?.published_config) {
     // Merge global settings into product-specific config
+    // IMPORTANT: globalSettings (themePreset) and globalColors ALWAYS come from default template
+    // This ensures that when theme is changed from homepage, ALL product pages update correctly
     productPageConfig = {
       ...specificConfig.published_config,
+      // Always use globalSettings from default template (includes themePreset)
+      globalSettings: defaultTemplate?.published_config?.globalSettings || specificConfig.published_config.globalSettings,
+      // Always use globalColors from default template (includes page background)
+      globalColors: defaultTemplate?.published_config?.globalColors || specificConfig.published_config.globalColors,
       headerSettings: {
         ...specificConfig.published_config.headerSettings,
         // Use global settings for these fields (from default template)
@@ -163,7 +169,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         stickyAddToCart: globalHeaderSettings.stickyAddToCart || specificConfig.published_config.headerSettings?.stickyAddToCart,
         buyButtonColor: globalHeaderSettings.buyButtonColor || specificConfig.published_config.headerSettings?.buyButtonColor,
         buyButtonTextColor: globalHeaderSettings.buyButtonTextColor || specificConfig.published_config.headerSettings?.buyButtonTextColor,
+        buttonsBorderRadius: globalHeaderSettings.buttonsBorderRadius || specificConfig.published_config.headerSettings?.buttonsBorderRadius,
         spacing: globalHeaderSettings.spacing || specificConfig.published_config.headerSettings?.spacing,
+        // Theme-related color settings from global template (always override product-specific)
+        colors: globalHeaderSettings.colors || specificConfig.published_config.headerSettings?.colors,
+        faqColors: globalHeaderSettings.faqColors || specificConfig.published_config.headerSettings?.faqColors,
+        reviewsColors: globalHeaderSettings.reviewsColors || specificConfig.published_config.headerSettings?.reviewsColors,
+        productCardColors: globalHeaderSettings.productCardColors || specificConfig.published_config.headerSettings?.productCardColors,
+        priceContainerColors: globalHeaderSettings.priceContainerColors || specificConfig.published_config.headerSettings?.priceContainerColors,
+        wishlistButtonColors: globalHeaderSettings.wishlistButtonColors || specificConfig.published_config.headerSettings?.wishlistButtonColors,
+        viewInLibraryButtonColors: globalHeaderSettings.viewInLibraryButtonColors || specificConfig.published_config.headerSettings?.viewInLibraryButtonColors,
       },
     }
   } else if (defaultTemplate?.published_config) {

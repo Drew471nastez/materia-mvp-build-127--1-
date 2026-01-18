@@ -81,6 +81,7 @@ import type {
   VerifiedBadgeType,
 } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   DndContext,
   closestCenter,
@@ -582,9 +583,11 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
           <div className="p-3 space-y-1 border-b border-border">
             {settingsTabs.map((tab) => {
               const Icon = tab.icon
-              return (
+              // Show tooltip for Theme Presets tab on product pages
+              const showTooltip = tab.id === "theme" && currentPageType === "product"
+
+              const tabButton = (
                 <button
-                  key={tab.id}
                   onClick={() => setSettingsTab(tab.id)}
                   className={cn(
                     "flex items-center gap-2 w-full rounded-lg px-3 py-2.5 transition-all text-left",
@@ -611,6 +614,21 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   </span>
                 </button>
               )
+
+              if (showTooltip) {
+                return (
+                  <Tooltip key={tab.id}>
+                    <TooltipTrigger asChild>
+                      {tabButton}
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8} className="max-w-[200px]">
+                      The theme styles for the product pages apply only for product pages
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              }
+
+              return <React.Fragment key={tab.id}>{tabButton}</React.Fragment>
             })}
           </div>
 

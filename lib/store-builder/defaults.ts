@@ -244,7 +244,7 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#000000", // Black text
       mutedTextColor: "#6b7280",
       borderColor: "#e5e7eb",
-      iconColor: "#2563eb", // Blue icons
+      iconColor: "#000000", // Black icons to match text color
     },
     viewInLibraryButton: {
       backgroundColor: "transparent",
