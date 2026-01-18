@@ -1107,20 +1107,56 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {MainProductContent}
         </div>
 
-        {themedSections.map((section: any) => (
+        {/* Render sections that are NOT reviews or more-from-seller */}
+        {themedSections
+          .filter((section: any) => section.type !== "reviews" && section.type !== "more-from-seller")
+          .map((section: any) => (
+            <SectionRenderer
+              key={section.id}
+              section={section}
+              products={currentProductData}
+              moreFromSellerProducts={moreProductsData}
+              creatorName={creatorProfile?.display_name || creator?.name || "this creator"}
+              productId={product.id}
+              reviews={reviews || []}
+              reviewsCount={reviewsCount}
+              reviewsAverage={reviewsAverage}
+              globalSettings={productPageConfig?.globalSettings}
+            />
+          ))}
+
+        {/* ALWAYS render More from Seller with fresh theme colors - ensures theme preset is always applied */}
+        {moreProductsData.length > 0 && (
           <SectionRenderer
-            key={section.id}
-            section={section}
+            section={moreFromSellerSection}
             products={currentProductData}
             moreFromSellerProducts={moreProductsData}
             creatorName={creatorProfile?.display_name || creator?.name || "this creator"}
-            productId={product.id}
-            reviews={reviews || []}
-            reviewsCount={reviewsCount}
-            reviewsAverage={reviewsAverage}
-            globalSettings={productPageConfig?.globalSettings}
           />
-        ))}
+        )}
+
+        {/* ALWAYS render Reviews with fresh theme colors - ensures theme preset is always applied */}
+        {reviewsCount > 0 && (() => {
+          const reviewsSectionRaw: Section = {
+            id: "reviews-themed",
+            type: "reviews",
+            settings: {
+              ...defaultReviewsSettings,
+              visible: true,
+            },
+            order: 998,
+          }
+          const themedReviewsSection = applySectionThemeColors([reviewsSectionRaw])[0]
+          return (
+            <SectionRenderer
+              section={themedReviewsSection}
+              productId={product.id}
+              reviews={reviews || []}
+              reviewsCount={reviewsCount}
+              reviewsAverage={reviewsAverage}
+            />
+          )
+        })()}
 
         <SellerFooter />
       </div>
