@@ -54,6 +54,8 @@ import {
   Upload,
   Sparkles,
   Image as ImageLucide,
+  HelpCircle,
+  ExternalLink,
 } from "lucide-react"
 import type {
   Section,
@@ -77,6 +79,8 @@ import type {
   AboutSettings,
   AboutMediaItem,
   GlobalStoreSettings,
+  FAQSettings,
+  FAQItem,
   ThemePreset,
   VerifiedBadgeType,
 } from "@/lib/store-builder/types"
@@ -301,6 +305,7 @@ const sectionIcons: Record<
   "custom-html": <FileText className="h-5 w-5" />,
   reviews: <Star className="h-5 w-5" />,
   about: <Info className="h-5 w-5" />,
+  faq: <HelpCircle className="h-5 w-5" />,
 }
 
 const sectionNames: Record<
@@ -327,6 +332,7 @@ const sectionNames: Record<
   "custom-html": "Custom HTML",
   reviews: "Reviews",
   about: "About",
+  faq: "FAQ",
 }
 
 interface SortableSectionItemProps {
@@ -344,11 +350,13 @@ function SortableSectionItem({
   onToggleVisibility,
   onDelete,
 }: SortableSectionItemProps) {
-  // About section is not draggable - always fixed at bottom
+  // About and FAQ sections are not draggable - always fixed positions
   const isAboutSection = section.type === "about"
+  const isFaqSection = section.type === "faq"
+  const isFixedSection = isAboutSection || isFaqSection
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: section.id,
-    disabled: isAboutSection,
+    disabled: isFixedSection,
   })
 
   const style = {
@@ -364,12 +372,12 @@ function SortableSectionItem({
         "group flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 transition-all cursor-pointer",
         isSelected ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20" : "border-transparent hover:bg-muted/50",
         isDragging && "opacity-50 shadow-lg",
-        !section.settings.visible && section.type !== "reviews" && section.type !== "about" && "opacity-50",
+        !section.settings.visible && section.type !== "reviews" && section.type !== "about" && section.type !== "faq" && "opacity-50",
       )}
       onClick={onSelect}
     >
-      {/* Only show drag handle for non-about sections */}
-      {!isAboutSection ? (
+      {/* Only show drag handle for non-fixed sections (About and FAQ are fixed) */}
+      {!isFixedSection ? (
         <button
           {...attributes}
           {...listeners}
@@ -394,11 +402,14 @@ function SortableSectionItem({
 
       <span className="flex-1 truncate text-sm font-medium">{sectionNames[section.type]}</span>
 
-      {/* About section - no "Fixed" label */}
+      {/* Fixed sections (About, FAQ) - show "Locked" indicator */}
+      {isFaqSection && (
+        <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded">Locked</span>
+      )}
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* Reviews and About must always be present (cannot be hidden) */}
-        {section.type !== "reviews" && section.type !== "about" && (
+        {/* Reviews, About, and FAQ must always be present (cannot be hidden) */}
+        {section.type !== "reviews" && section.type !== "about" && section.type !== "faq" && (
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -411,7 +422,8 @@ function SortableSectionItem({
           </button>
         )}
 
-        {!section.locked && (
+        {/* FAQ sections cannot be deleted */}
+        {!section.locked && section.type !== "faq" && (
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -1172,6 +1184,12 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 settings={selectedSection.settings as ReviewsSettings}
                 onChange={(settings) => updateSectionSettings(selectedSectionId, settings)}
               />
+            ) : selectedSectionType === "faq" && selectedSection ? (
+              <FAQSettingsForm
+                settings={selectedSection.settings as FAQSettings}
+                onChange={(settings) => updateSectionSettings(selectedSectionId, settings)}
+                productId={selectedProductId}
+              />
             ) : selectedSection ? (
               <SectionSettingsForm
                 section={selectedSection}
@@ -1479,14 +1497,43 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 <span className="text-xs text-muted-foreground">Locked</span>
               </div>
 
-              {/* ✅ REMOVED: old fake "reviews-section" locked card */}
+              {/* FAQ Section - always positioned under Product Content, locked */}
+              {(() => {
+                const faqSection = draftConfig.sections.find((s) => s.type === "faq")
+                if (!faqSection) return null
+                return (
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 cursor-pointer transition-all",
+                      selectedSectionId === faqSection.id
+                        ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
+                        : "border-transparent hover:bg-muted/50",
+                    )}
+                    onClick={() => setSelectedSectionId(faqSection.id)}
+                  >
+                    <div className="w-4" /> {/* Placeholder for drag handle spacing */}
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+                        selectedSectionId === faqSection.id
+                          ? "bg-sky-100 text-sky-600 dark:bg-sky-900 dark:text-sky-400"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      <HelpCircle className="h-5 w-5" />
+                    </span>
+                    <span className="flex-1 text-sm font-medium">FAQ</span>
+                    <span className="text-xs text-muted-foreground">Locked</span>
+                  </div>
+                )
+              })()}
             </>
           )}
 
           {/* Real draggable sections list (Reviews lives here like a normal section) */}
-          {/* About section is excluded and rendered separately at bottom */}
+          {/* About and FAQ sections are excluded and rendered separately (FAQ after Product Content, About at bottom) */}
           {(() => {
-            const sortableSections = draftConfig.sections.filter((s) => s.type !== "about")
+            const sortableSections = draftConfig.sections.filter((s) => s.type !== "about" && s.type !== "faq")
             const aboutSection = draftConfig.sections.find((s) => s.type === "about")
 
             return (
@@ -4187,6 +4234,162 @@ function AboutSettingsForm({
               onChange({ mediaItems: updatedItems })
             }}
           />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// FAQ Settings Form for product pages
+function FAQSettingsForm({
+  settings,
+  onChange,
+  productId,
+}: {
+  settings: FAQSettings
+  onChange: (settings: Partial<FAQSettings>) => void
+  productId?: string
+}) {
+  const router = useRouter()
+
+  // Default FAQs that cannot be deleted
+  const defaultFaqs: FAQItem[] = [
+    {
+      id: "default-1",
+      question: "How do I access my purchase?",
+      answer: "After completing your purchase, you'll have instant access to your content through your library.",
+      isDefault: true,
+    },
+    {
+      id: "default-2",
+      question: "Is there a refund policy?",
+      answer: "Refund policies are set by individual creators. Please contact the creator directly if you have questions about refunds.",
+      isDefault: true,
+    },
+    {
+      id: "default-3",
+      question: "How long do I have access?",
+      answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.",
+      isDefault: true,
+    },
+  ]
+
+  const customFaqs = settings.customFaqs || []
+  const maxCustomFaqs = 4
+  const canAddMore = customFaqs.length < maxCustomFaqs
+
+  const addCustomFaq = () => {
+    if (!canAddMore) return
+    const newFaq: FAQItem = {
+      id: `custom-${Date.now()}`,
+      question: "",
+      answer: "",
+      isDefault: false,
+    }
+    onChange({ customFaqs: [...customFaqs, newFaq] })
+  }
+
+  const updateCustomFaq = (id: string, updates: Partial<FAQItem>) => {
+    const updated = customFaqs.map(faq =>
+      faq.id === id ? { ...faq, ...updates } : faq
+    )
+    onChange({ customFaqs: updated })
+  }
+
+  const removeCustomFaq = (id: string) => {
+    onChange({ customFaqs: customFaqs.filter(faq => faq.id !== id) })
+  }
+
+  const handleEditProductFaqs = () => {
+    if (productId) {
+      window.open(`/app/products/${productId}`, '_blank')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Edit FAQs Button */}
+      <div className="p-3 bg-muted/50 rounded-lg">
+        <p className="text-xs text-muted-foreground mb-2">
+          To edit the default FAQs or add more detailed FAQs, edit the product directly.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full gap-2"
+          onClick={handleEditProductFaqs}
+          disabled={!productId}
+        >
+          <ExternalLink className="h-4 w-4" />
+          Edit FAQs
+        </Button>
+      </div>
+
+      {/* Default FAQs (read-only display) */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Default FAQs (3)</Label>
+        <p className="text-xs text-muted-foreground">
+          These FAQs appear by default and cannot be removed from this view.
+        </p>
+        <div className="space-y-2">
+          {defaultFaqs.map((faq, index) => (
+            <div key={faq.id} className="p-3 bg-muted/30 rounded-lg border border-border/50">
+              <p className="text-sm font-medium text-muted-foreground">
+                {index + 1}. {faq.question}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom FAQs */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Custom FAQs ({customFaqs.length}/{maxCustomFaqs})</Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Add up to {maxCustomFaqs} additional FAQs specific to this product page.
+        </p>
+
+        {customFaqs.map((faq, index) => (
+          <div key={faq.id} className="p-3 border border-border rounded-lg space-y-3 bg-background">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground">FAQ {index + 4}</span>
+              <button
+                onClick={() => removeCustomFaq(faq.id)}
+                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Input
+                placeholder="Question"
+                value={faq.question}
+                onChange={(e) => updateCustomFaq(faq.id, { question: e.target.value })}
+                className="text-sm"
+              />
+              <Textarea
+                placeholder="Answer"
+                value={faq.answer}
+                onChange={(e) => updateCustomFaq(faq.id, { answer: e.target.value })}
+                rows={2}
+                className="text-sm resize-none"
+              />
+            </div>
+          </div>
+        ))}
+
+        {canAddMore && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2"
+            onClick={addCustomFaq}
+          >
+            <Plus className="h-4 w-4" />
+            Add FAQ
+          </Button>
         )}
       </div>
     </div>

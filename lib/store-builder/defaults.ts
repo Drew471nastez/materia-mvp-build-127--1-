@@ -16,6 +16,7 @@ import type {
   StickyAddToCartSettings,
   ReviewsSettings,
   AboutSettings,
+  FAQSettings,
   GlobalStoreSettings,
   ThemePreset,
   VerifiedBadgeType,
@@ -1320,6 +1321,34 @@ export const defaultAboutSettings: AboutSettings = {
   spacing: {
     paddingTop: 48,
     paddingBottom: 48,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  mobileSpacing: {
+    paddingTop: 24,
+    paddingBottom: 24,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  colors: {
+    backgroundColor: "transparent",
+    textColor: "",
+    accentColor: "",
+  },
+  typography: {
+    fontSize: 16,
+    fontWeight: "normal",
+    textAlign: "left",
+  },
+}
+
+export const defaultFAQSettings: FAQSettings = {
+  visible: true,
+  headline: "Frequently Asked Questions",
+  customFaqs: [],
+  spacing: {
+    paddingTop: 32,
+    paddingBottom: 32,
     paddingLeft: 0,
     paddingRight: 0,
   },

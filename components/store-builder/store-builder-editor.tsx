@@ -257,7 +257,13 @@ function EditorLayout({
 
           {/* Canvas - always visible */}
           <div className="h-full overflow-auto">
-            <PreviewCanvas creatorId={creatorId} creator={creator} profile={profile} products={products} />
+            <PreviewCanvas
+              creatorId={creatorId}
+              creator={creator}
+              profile={profile}
+              products={products}
+              isMobileSidebarOpen={mobileSidebarOpen}
+            />
           </div>
         </div>
 

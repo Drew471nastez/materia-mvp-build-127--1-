@@ -21,6 +21,7 @@ import {
   defaultReviewsSettings,
   defaultSubscribeBarSettings,
   defaultAboutSettings,
+  defaultFAQSettings,
   generateSectionId,
 } from "@/lib/store-builder/defaults"
 
@@ -135,6 +136,25 @@ function ensureReviewsSection(sections: Section[]): Section[] {
 }
 
 /**
+ * Ensures FAQ section exists on product pages and is locked
+ */
+function ensureFAQSection(sections: Section[]): Section[] {
+  const hasFaq = sections.some((s) => s.type === "faq")
+  if (!hasFaq) {
+    const faqSection: Section = {
+      id: generateSectionId(),
+      type: "faq",
+      settings: defaultFAQSettings,
+      order: sections.length,
+      locked: true, // Cannot be deleted
+    }
+    return [...sections, faqSection]
+  }
+  // Make sure existing FAQ section is locked
+  return sections.map((s) => (s.type === "faq" ? { ...s, locked: true } : s))
+}
+
+/**
  * Ensures mandatory sections exist on product pages
  */
 function ensureMandatoryProductSections(config: PageConfig): PageConfig {
@@ -144,6 +164,12 @@ function ensureMandatoryProductSections(config: PageConfig): PageConfig {
   next = {
     ...next,
     sections: ensureReviewsSection(next.sections),
+  }
+
+  // Ensure FAQ section exists and is locked (always after Product Content)
+  next = {
+    ...next,
+    sections: ensureFAQSection(next.sections),
   }
 
   // Ensure More from Seller section exists and is locked

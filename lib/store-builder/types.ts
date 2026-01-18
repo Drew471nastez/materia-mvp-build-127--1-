@@ -14,6 +14,7 @@ export type SectionType =
   | "subscribe-bar"
   | "reviews" // Added reviews section type
   | "about" // About seller section
+  | "faq" // FAQ section for product pages
 
 export type DeviceType = "desktop" | "mobile"
 
@@ -281,6 +282,21 @@ export interface AboutSettings extends BaseSectionSettings {
   mutedTextColor?: string
 }
 
+// FAQ item for product pages
+export interface FAQItem {
+  id: string
+  question: string
+  answer: string
+  isDefault?: boolean // Default FAQs cannot be deleted
+}
+
+// FAQ section for product pages
+export interface FAQSettings extends BaseSectionSettings {
+  headline: string
+  // Custom FAQs (up to 4 additional ones)
+  customFaqs: FAQItem[]
+}
+
 // Union of all section settings
 export type SectionSettings =
   | ImageTextSettings
@@ -292,6 +308,7 @@ export type SectionSettings =
   | SubscribeBarSettings
   | ReviewsSettings
   | AboutSettings
+  | FAQSettings
 
 // Section definition
 export interface Section {

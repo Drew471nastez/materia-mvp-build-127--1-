@@ -2839,6 +2839,7 @@ export interface UnifiedProductPageProps {
   reviewsAverage?: number
   reviews?: any[]
   globalSettings?: GlobalStoreSettings
+  onEditFaqs?: () => void
 }
 
 export function UnifiedProductPage({
@@ -2854,8 +2855,10 @@ export function UnifiedProductPage({
   reviewsAverage = 0,
   reviews = [],
   globalSettings,
+  onEditFaqs,
 }: UnifiedProductPageProps) {
   const [showShareModal, setShowShareModal] = useState(false)
+  const [isFaqHovered, setIsFaqHovered] = useState(false)
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -3434,7 +3437,26 @@ export function UnifiedProductPage({
 
             {/* FAQs */}
             {settings.showFaqs !== false && (
-              <div className={cn("mt-8", !isMobile && "sm:mt-10")}>
+              <div
+                className={cn("mt-8 relative group/faq", !isMobile && "sm:mt-10")}
+                onMouseEnter={() => !isPreviewMode && setIsFaqHovered(true)}
+                onMouseLeave={() => !isPreviewMode && setIsFaqHovered(false)}
+              >
+                {/* Edit FAQs hover overlay - only in editor mode */}
+                {!isPreviewMode && isFaqHovered && onEditFaqs && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEditFaqs()
+                    }}
+                    className="absolute -top-2 right-0 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 text-white text-xs font-medium rounded-full shadow-lg hover:bg-sky-600 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit FAQs
+                  </button>
+                )}
                 <h2
                   className={cn("mb-4 font-semibold", isMobile ? "text-base" : "text-lg", !faqTextColor && "text-foreground")}
                   style={{ color: faqTextColor }}

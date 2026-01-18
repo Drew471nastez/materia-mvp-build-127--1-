@@ -30,6 +30,7 @@ interface PreviewCanvasProps {
   profile?: ProfileData
   products?: ProductData[]
   isPreviewMode?: boolean
+  isMobileSidebarOpen?: boolean
 }
 
 type Rect = { left: number; width: number; bottom: number }
@@ -48,7 +49,7 @@ function getScrollParent(el: HTMLElement | null): HTMLElement | null {
   return null
 }
 
-export function PreviewCanvas({ creatorId, creator, profile, products, isPreviewMode = false }: PreviewCanvasProps) {
+export function PreviewCanvas({ creatorId, creator, profile, products, isPreviewMode = false, isMobileSidebarOpen = false }: PreviewCanvasProps) {
   const {
     currentPageType,
     draftConfig,
@@ -261,26 +262,50 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       ? (draftConfig.headerSettings as ProductHeaderSettings).stickyAddToCart || defaultStickyAddToCartSettings
       : null
 
+  // Don't render sticky add-to-cart when mobile sidebar is open (to avoid overlap)
   const shouldRenderSticky =
-    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible && canvasRect
+    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible && canvasRect && !isMobileSidebarOpen
+
+  // Get theme preset for skeleton loading colors
+  const themePreset = draftConfig.globalSettings?.themePreset || "default"
+  const isDarkTheme = themePreset === "astrid"
 
   if (isLoading) {
+    // Get theme-specific background colors for loading state
+    const getLoadingBackground = () => {
+      switch (themePreset) {
+        case 'astrid':
+          return '#0a0a0a'
+        case 'cream':
+          return '#FAF4E8'
+        case 'bubble':
+          return '#ffffff'
+        case 'pink':
+          return '#ffffff'
+        case 'air':
+          return '#ffffff'
+        default:
+          return 'var(--background)'
+      }
+    }
+
     return (
       <div className={cn("min-h-full flex items-start justify-center bg-muted/30", isMobile ? "p-2" : "p-4 sm:p-6")}>
         <div
           className={cn(
-            "bg-background shadow-xl overflow-hidden",
+            "shadow-xl overflow-hidden",
             isMobile ? "w-[375px] min-h-[667px] rounded-[20px]" : "w-full max-w-5xl rounded-[20px] ring-1 ring-border",
           )}
+          style={{ backgroundColor: getLoadingBackground() }}
         >
-          <Skeleton className={cn("w-full", isMobile ? "h-32" : "h-40")} />
+          <Skeleton themePreset={themePreset} className={cn("w-full", isMobile ? "h-32" : "h-40")} />
           <div className="p-6 space-y-6">
-            <Skeleton className="h-24 w-24 rounded-full mx-auto" />
-            <Skeleton className="h-8 w-48 mx-auto" />
-            <Skeleton className="h-4 w-64 mx-auto" />
+            <Skeleton themePreset={themePreset} className="h-24 w-24 rounded-full mx-auto" />
+            <Skeleton themePreset={themePreset} className="h-8 w-48 mx-auto" />
+            <Skeleton themePreset={themePreset} className="h-4 w-64 mx-auto" />
             <div className="space-y-2 max-w-xl mx-auto">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
+              <Skeleton themePreset={themePreset} className="h-4 w-full" />
+              <Skeleton themePreset={themePreset} className="h-4 w-3/4" />
             </div>
           </div>
         </div>
@@ -330,6 +355,13 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               reviewsAverage={productReviews.average}
               reviews={productReviews.reviews}
               globalSettings={draftConfig.globalSettings}
+              onEditFaqs={() => {
+                // Find the FAQ section and select it to open the sidebar
+                const faqSection = draftConfig.sections.find((s) => s.type === "faq")
+                if (faqSection) {
+                  handleSelectSection(faqSection.id)
+                }
+              }}
             />
 
             {draftConfig.sections
