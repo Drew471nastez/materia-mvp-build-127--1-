@@ -212,26 +212,28 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const isColorfulTheme = ["royal", "ocean", "sunset", "forest", "rose"].includes(themePreset)
   const isDarkTheme = ["astrid", "midnight"].includes(themePreset)
 
+  // CRITICAL: Theme colors ALWAYS come from the theme preset to ensure global consistency
+  // This ensures that when a theme preset is applied on any product page, ALL products get the same colors
   const themeColors = {
-    // Page and text colors
-    pageBackground: productPageConfig?.globalColors?.backgroundColor || "var(--background)",
-    textColor: headerSettings?.colors?.textColor || "inherit",
-    // FAQ section colors from theme preset
+    // Page and text colors - prioritize theme preset, then globalColors, then fallback
+    pageBackground: themeConfig?.sections?.pageBackgroundColor || productPageConfig?.globalColors?.backgroundColor || "var(--background)",
+    textColor: themeConfig?.colors?.foreground || headerSettings?.colors?.textColor || "inherit",
+    // FAQ section colors - ALWAYS from theme preset for global consistency
     faqTextColor: themeConfig?.faqSection?.textColor || headerSettings?.faqColors?.textColor,
     faqBorderColor: themeConfig?.faqSection?.borderColor || headerSettings?.faqColors?.borderColor,
     faqIconColor: themeConfig?.faqSection?.iconColor || headerSettings?.faqColors?.iconColor,
-    // Reviews section colors
-    reviewsTextColor: headerSettings?.reviewsColors?.textColor,
-    reviewsStarColor: headerSettings?.reviewsColors?.starColor,
-    reviewsCardBackground: headerSettings?.reviewsColors?.cardBackgroundColor,
-    reviewsCardBorder: headerSettings?.reviewsColors?.cardBorderColor,
-    // Product card colors (for price cards, containers) from theme preset
+    // Reviews section colors - ALWAYS from theme preset for global consistency
+    reviewsTextColor: themeConfig?.reviewsSection?.textColor || headerSettings?.reviewsColors?.textColor,
+    reviewsStarColor: themeConfig?.reviewsSection?.starColor || headerSettings?.reviewsColors?.starColor,
+    reviewsCardBackground: themeConfig?.reviewsSection?.cardBackgroundColor || headerSettings?.reviewsColors?.cardBackgroundColor,
+    reviewsCardBorder: themeConfig?.reviewsSection?.cardBorderColor || headerSettings?.reviewsColors?.cardBorderColor,
+    // Product card colors (for price cards, containers) - ALWAYS from theme preset
     cardBackground: themeConfig?.priceContainer?.backgroundColor || headerSettings?.productCardColors?.backgroundColor,
     cardTextColor: themeConfig?.priceContainer?.textColor || headerSettings?.productCardColors?.textColor,
     cardPriceColor: themeConfig?.priceContainer?.mutedTextColor || headerSettings?.productCardColors?.priceColor,
     cardBorderColor: themeConfig?.priceContainer?.borderColor || headerSettings?.productCardColors?.borderColor,
     cardIconColor: themeConfig?.priceContainer?.iconColor || headerSettings?.productCardColors?.textColor,
-    // View in Library button colors from theme preset
+    // View in Library button colors - ALWAYS from theme preset
     viewInLibraryBg: themeConfig?.viewInLibraryButton?.backgroundColor,
     viewInLibraryText: themeConfig?.viewInLibraryButton?.textColor,
     viewInLibraryBorder: themeConfig?.viewInLibraryButton?.borderColor,
@@ -421,6 +423,40 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             backgroundColor: themeConfig.announcementBar?.backgroundColor,
             textColor: themeConfig.announcementBar?.textColor,
           },
+        }
+      }
+
+      // Apply featured-products section colors from theme (in case used on product pages)
+      if (section.type === "featured-products") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.sections?.featuredProductsBackgroundColor,
+            textColor: themeConfig.sections?.featuredProductsTextColor || themeConfig.colors?.foreground,
+          },
+          productCardColors: {
+            backgroundColor: themeConfig.productCard?.backgroundColor,
+            textColor: themeConfig.productCard?.textColor,
+            priceColor: themeConfig.productCard?.priceColor,
+            borderColor: themeConfig.productCard?.borderColor,
+          },
+          categoryFilterColors: {
+            textColor: themeConfig.categoryFilter?.textColor,
+            activeTextColor: themeConfig.categoryFilter?.activeTextColor,
+            borderColor: themeConfig.categoryFilter?.borderColor,
+          },
+        }
+      }
+
+      // Apply about section colors from theme
+      if (section.type === "about") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.about?.backgroundColor,
+            textColor: themeConfig.about?.textColor,
+          },
+          mutedTextColor: themeConfig.about?.mutedTextColor,
         }
       }
 

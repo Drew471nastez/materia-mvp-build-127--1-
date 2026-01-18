@@ -1025,6 +1025,132 @@ export function StoreBuilderProvider({
               },
             }
 
+            // Helper function to apply theme colors to all sections
+            const applyThemeToSections = (sections: Section[]) => {
+              return sections.map((section: Section) => {
+                const newSection = { ...section, settings: { ...section.settings } }
+
+                // Apply more-from-seller section colors
+                if (section.type === "more-from-seller") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                      textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                    },
+                    productCardColors: {
+                      backgroundColor: theme.productCard.backgroundColor,
+                      textColor: theme.productCard.textColor,
+                      priceColor: theme.productCard.priceColor,
+                      borderColor: theme.productCard.borderColor,
+                    },
+                  }
+                }
+
+                // Apply reviews section colors
+                if (section.type === "reviews") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.reviewsSection.backgroundColor,
+                      textColor: theme.reviewsSection.textColor,
+                    },
+                    reviewsColors: {
+                      starColor: theme.reviewsSection.starColor,
+                      cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+                      cardBorderColor: theme.reviewsSection.cardBorderColor,
+                    },
+                  }
+                }
+
+                // Apply text-block section colors
+                if (section.type === "text-block") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.textBlock.backgroundColor,
+                      textColor: theme.textBlock.headlineColor,
+                    },
+                    headlineColor: theme.textBlock.headlineColor,
+                    contentColor: theme.textBlock.contentColor,
+                  }
+                }
+
+                // Apply image-text section colors
+                if (section.type === "image-text") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.imageText.backgroundColor,
+                      textColor: theme.imageText.textColor,
+                    },
+                    buttonColor: theme.imageText.buttonColor,
+                    buttonTextColor: theme.imageText.buttonTextColor,
+                    buttonBorderRadius: theme.buttonBorderRadius,
+                  }
+                }
+
+                // Apply benefits section colors
+                if (section.type === "benefits") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.benefits.backgroundColor,
+                      textColor: theme.benefits.textColor,
+                    },
+                    iconColor: theme.benefits.iconColor,
+                  }
+                }
+
+                // Apply announcement bar colors
+                if (section.type === "announcement-bar") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.announcementBar.backgroundColor,
+                      textColor: theme.announcementBar.textColor,
+                    },
+                  }
+                }
+
+                // Apply about section colors
+                if (section.type === "about") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.about.backgroundColor,
+                      textColor: theme.about.textColor,
+                    },
+                    mutedTextColor: theme.about.mutedTextColor,
+                  }
+                }
+
+                // Apply featured-products section colors
+                if (section.type === "featured-products") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                      textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                    },
+                    productCardColors: {
+                      backgroundColor: theme.productCard.backgroundColor,
+                      textColor: theme.productCard.textColor,
+                      priceColor: theme.productCard.priceColor,
+                      borderColor: theme.productCard.borderColor,
+                    },
+                    categoryFilterColors: {
+                      textColor: theme.categoryFilter.textColor,
+                      activeTextColor: theme.categoryFilter.activeTextColor,
+                      borderColor: theme.categoryFilter.borderColor,
+                    },
+                  }
+                }
+
+                return newSection
+              })
+            }
+
             // Save product theme settings to global template asynchronously
             fetch("/api/store-builder?pageType=product")
               .then((res) => res.ok ? res.json() : Promise.reject("Failed to load"))
@@ -1059,44 +1185,7 @@ export function StoreBuilderProvider({
                 }
 
                 // Apply theme colors to all sections in the global template
-                const themedSections = existingSections.map((section: Section) => {
-                  const newSection = { ...section, settings: { ...section.settings } }
-
-                  // Apply more-from-seller section colors
-                  if (section.type === "more-from-seller") {
-                    newSection.settings = {
-                      ...newSection.settings,
-                      colors: {
-                        backgroundColor: theme.sections.featuredProductsBackgroundColor,
-                        textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
-                      },
-                      productCardColors: {
-                        backgroundColor: theme.productCard.backgroundColor,
-                        textColor: theme.productCard.textColor,
-                        priceColor: theme.productCard.priceColor,
-                        borderColor: theme.productCard.borderColor,
-                      },
-                    }
-                  }
-
-                  // Apply reviews section colors
-                  if (section.type === "reviews") {
-                    newSection.settings = {
-                      ...newSection.settings,
-                      colors: {
-                        backgroundColor: theme.reviewsSection.backgroundColor,
-                        textColor: theme.reviewsSection.textColor,
-                      },
-                      reviewsColors: {
-                        starColor: theme.reviewsSection.starColor,
-                        cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
-                        cardBorderColor: theme.reviewsSection.cardBorderColor,
-                      },
-                    }
-                  }
-
-                  return newSection
-                })
+                const themedSections = applyThemeToSections(existingSections)
 
                 const updatedConfig = {
                   ...existingConfig,
@@ -1124,7 +1213,22 @@ export function StoreBuilderProvider({
                   body: JSON.stringify({ pageType: "product" }),
                 })
               })
-              .then(() => console.log("[v0] Global product template updated and PUBLISHED with theme"))
+              .then(() => {
+                console.log("[v0] Global product template updated and PUBLISHED with theme")
+                // CRITICAL: Also update ALL existing product-specific configs with the new theme
+                // This ensures ALL products get the new theme, not just new ones
+                return fetch("/api/store-builder/apply-theme-globally", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    themePreset,
+                    globalSettings: newGlobalSettings,
+                    globalColors: newGlobalColors,
+                    headerSettings: productHeaderSettings,
+                  }),
+                })
+              })
+              .then(() => console.log("[v0] Theme applied to ALL product configs globally"))
               .catch((err) => console.error("[v0] Failed to update global product template:", err))
 
             // If applying theme from product page, also update the shop page with matching theme
