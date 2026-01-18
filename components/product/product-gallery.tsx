@@ -26,9 +26,9 @@ interface ProductGalleryProps {
   isEditorMobilePreview?: boolean
 }
 
-export function ProductGallery({ 
-  images, 
-  title, 
+export function ProductGallery({
+  images,
+  title,
   mobileDotsMode = false,
   desktopDotsMode = false,
   autoplayInterval = 7000,
@@ -44,6 +44,8 @@ export function ProductGallery({
   const [isPaused, setIsPaused] = useState(false)
   const [isMobileScreen, setIsMobileScreen] = useState(false)
   const [isDesktopScreen, setIsDesktopScreen] = useState(true)
+  const [isHovering, setIsHovering] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const imageRef = useRef<HTMLDivElement>(null)
   const autoplayRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -90,12 +92,20 @@ export function ProductGallery({
   })()
 
   const goToPrevious = useCallback(() => {
+    if (isTransitioning) return
+    setIsTransitioning(true)
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
-  }, [images.length])
+    // Reset transition state after animation completes
+    setTimeout(() => setIsTransitioning(false), 300)
+  }, [images.length, isTransitioning])
 
   const goToNext = useCallback(() => {
+    if (isTransitioning) return
+    setIsTransitioning(true)
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
-  }, [images.length])
+    // Reset transition state after animation completes
+    setTimeout(() => setIsTransitioning(false), 300)
+  }, [images.length, isTransitioning])
 
   // Autoplay for dots mode
   useEffect(() => {
@@ -200,7 +210,7 @@ export function ProductGallery({
       <div
         ref={imageRef}
         className={cn(
-          "relative aspect-video overflow-hidden rounded-xl bg-muted w-full",
+          "relative aspect-video overflow-hidden rounded-xl bg-muted w-full group",
           isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
         onTouchStart={onTouchStart}
@@ -209,25 +219,40 @@ export function ProductGallery({
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
-        onMouseLeave={onMouseLeave}
+        onMouseLeave={() => {
+          setIsDragging(false)
+          setIsHovering(false)
+        }}
+        onMouseEnter={() => setIsHovering(true)}
       >
-        <Image
-          src={images[currentIndex] || "/placeholder.svg"}
-          alt={`${title} - Image ${currentIndex + 1}`}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
-          className="object-cover pointer-events-none select-none"
-          priority
-          draggable={false}
-        />
+        {/* Images with smooth fade transition */}
+        {images.map((image, index) => (
+          <Image
+            key={index}
+            src={image || "/placeholder.svg"}
+            alt={`${title} - Image ${index + 1}`}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
+            className={cn(
+              "object-cover pointer-events-none select-none transition-opacity duration-300 ease-in-out",
+              currentIndex === index ? "opacity-100" : "opacity-0"
+            )}
+            priority={index === 0}
+            draggable={false}
+          />
+        ))}
 
-        {/* Navigation Arrows */}
+        {/* Navigation Arrows - show on hover for desktop, always visible on mobile */}
         {images.length > 1 && (
           <>
             <Button
               variant="secondary"
               size="icon"
-              className="absolute left-2 sm:left-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white"
+              className={cn(
+                "absolute left-2 sm:left-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out",
+                // Mobile: always visible, Desktop: show on hover with smooth animation
+                "sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
+              )}
               onClick={(e) => {
                 e.stopPropagation()
                 goToPrevious()
@@ -240,7 +265,11 @@ export function ProductGallery({
             <Button
               variant="secondary"
               size="icon"
-              className="absolute right-2 sm:right-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white"
+              className={cn(
+                "absolute right-2 sm:right-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out",
+                // Mobile: always visible, Desktop: show on hover with smooth animation
+                "sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
+              )}
               onClick={(e) => {
                 e.stopPropagation()
                 goToNext()

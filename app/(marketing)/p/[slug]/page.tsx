@@ -209,8 +209,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const themeConfig = themePresets[themePreset as keyof typeof themePresets]
 
   // Determine if this is a dark/colorful theme
-  const isColorfulTheme = ["royal", "ocean", "sunset", "forest", "rose"].includes(themePreset)
-  const isDarkTheme = ["astrid", "midnight"].includes(themePreset)
+  const isColorfulTheme = false // No more colorful themes
+  const isDarkTheme = ["astrid"].includes(themePreset)
 
   // CRITICAL: Theme colors ALWAYS come from the theme preset to ensure global consistency
   // This ensures that when a theme preset is applied on any product page, ALL products get the same colors
