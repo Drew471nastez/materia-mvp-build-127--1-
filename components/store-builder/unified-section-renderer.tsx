@@ -1846,8 +1846,10 @@ function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSe
     right: "ml-auto",
   }[textAlign]
 
-  // Get text color from settings (theme-applied)
-  const textColor = settings.colors?.textColor || undefined
+  // Get text colors from settings (theme-applied)
+  // Use separate headline and content colors if available, fallback to textColor for backwards compatibility
+  const headlineColor = (settings as any).headlineColor || settings.colors?.textColor || undefined
+  const contentColor = (settings as any).contentColor || (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined)
 
   return (
     <div
@@ -1864,11 +1866,11 @@ function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSe
           className={cn(
             "font-semibold mb-3",
             isMobile ? "text-lg" : "text-2xl sm:text-3xl mb-4",
-            !textColor && "text-foreground",
+            !headlineColor && "text-foreground",
           )}
           style={{
             textAlign: textAlign,
-            color: textColor || undefined,
+            color: headlineColor || undefined,
           }}
         >
           {settings.headline}
@@ -1878,12 +1880,12 @@ function UnifiedTextBlockSection({ settings, isMobile }: { settings: TextBlockSe
         className={cn(
           "leading-relaxed whitespace-pre-wrap",
           isMobile ? "text-sm" : "text-base",
-          !textColor && "text-muted-foreground",
+          !contentColor && "text-muted-foreground",
         )}
         style={{
           textAlign: textAlign,
           lineHeight: lineHeight,
-          color: textColor ? `${textColor}99` : undefined,
+          color: contentColor || undefined,
         }}
       >
         {settings.body}

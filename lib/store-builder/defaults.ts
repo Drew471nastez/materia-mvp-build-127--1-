@@ -123,18 +123,54 @@ export interface ThemeConfig {
     textColor: string
     borderColor: string
   }
+  // Announcement Bar styling
+  announcementBar: {
+    backgroundColor: string
+    textColor: string
+  }
+  // Text Block styling
+  textBlock: {
+    backgroundColor: string
+    headlineColor: string
+    contentColor: string
+  }
+  // Benefits section styling
+  benefits: {
+    backgroundColor: string
+    textColor: string
+    iconColor: string
+  }
+  // Image + Text section styling
+  imageText: {
+    backgroundColor: string
+    textColor: string
+    buttonColor: string
+    buttonTextColor: string
+  }
+  // About section styling
+  about: {
+    backgroundColor: string
+    textColor: string
+    mutedTextColor: string
+  }
+  // Wishlist button styling
+  wishlistButton: {
+    backgroundColor: string
+    textColor: string
+    borderColor: string
+  }
 }
 
 export const themePresets: Record<ThemePreset, ThemeConfig> = {
   default: {
     name: "Default",
-    description: "Clean minimal white with subtle shadows",
+    description: "Clean minimal white with blue buttons",
     colors: {
-      primary: "#e5e5e5",
+      primary: "#2563eb", // Blue primary
       secondary: "#f5f5f5",
-      accent: "#6b7280",
+      accent: "#2563eb", // Blue accent
       background: "#ffffff",
-      foreground: "#374151",
+      foreground: "#000000", // Black text
       muted: "#f9fafb",
       border: "#e5e7eb",
     },
@@ -142,76 +178,107 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     buttonBorderRadius: 8,
     profileImageBorderColor: "#e5e7eb",
     subscribeBar: {
-      buttonColor: "#6b7280",
-      buttonTextColor: "#ffffff",
-      backgroundColor: "#ffffff",
-      textColor: "#374151",
+      buttonColor: "#2563eb", // Blue button
+      buttonTextColor: "#ffffff", // White button text
+      backgroundColor: "#ffffff", // White background
+      textColor: "#000000", // Black text
       buttonBorderRadius: 8,
       inputBorderColor: "#e5e7eb",
-      inputTextColor: "#374151",
+      inputTextColor: "#000000", // Black input text
       inputPlaceholderColor: "#9ca3af",
       inputBackgroundColor: "transparent",
     },
     creatorBar: {
-      backgroundColor: "#f3f4f6",
-      textColor: "#374151",
-      buttonColor: "#6b7280",
-      buttonTextColor: "#ffffff",
+      backgroundColor: "#ffffff", // White background
+      textColor: "#000000", // Black text
+      buttonColor: "#2563eb", // Blue button
+      buttonTextColor: "#ffffff", // White button text
       buttonBorderRadius: 8,
     },
     stickyAddToCart: {
       backgroundColor: "#ffffff",
-      buttonColor: "#374151",
+      buttonColor: "#2563eb", // Blue button
       buttonTextColor: "#ffffff",
       borderRadius: 8,
+      textColor: "#000000", // Black text for price
     },
     productHeader: {
-      buyButtonColor: "#374151",
+      buyButtonColor: "#2563eb", // Blue buy button
       buyButtonTextColor: "#ffffff",
       buttonsBorderRadius: 8,
     },
     sections: {
-      headerBackgroundColor: "transparent",
-      headerTextColor: "#374151",
-      featuredProductsBackgroundColor: "#ffffff",
-      featuredProductsTextColor: "#374151",
+      headerBackgroundColor: "#ffffff", // White header background
+      headerTextColor: "#000000", // Black header text
+      featuredProductsBackgroundColor: "#ffffff", // White background
+      featuredProductsTextColor: "#2d3034", // Dark text as specified
       footerBackgroundColor: "#f9fafb",
       footerTextColor: "#6b7280",
       pageBackgroundColor: "#ffffff",
     },
     productCard: {
       backgroundColor: "#ffffff",
-      textColor: "#374151",
-      priceColor: "#6b7280",
+      textColor: "#2d3034", // Dark text
+      priceColor: "#000000", // Black price
       borderColor: "#e5e7eb",
     },
     categoryFilter: {
       textColor: "#6b7280",
-      activeTextColor: "#374151",
-      borderColor: "#374151",
+      activeTextColor: "#000000", // Black active text
+      borderColor: "#000000",
     },
     reviewsSection: {
-      backgroundColor: "transparent",
-      textColor: "#374151",
-      starColor: "#374151",
+      backgroundColor: "#ffffff", // White background
+      textColor: "#000000", // Black text
+      starColor: "#000000", // Black stars
       cardBackgroundColor: "#ffffff",
       cardBorderColor: "#e5e7eb",
     },
     faqSection: {
-      textColor: "#374151",
+      textColor: "#000000", // Black text
       borderColor: "#e5e7eb",
-      iconColor: "#374151",
+      iconColor: "#000000", // Black icons
     },
     priceContainer: {
       backgroundColor: "#ffffff",
-      textColor: "#374151",
+      textColor: "#000000", // Black text
       mutedTextColor: "#6b7280",
       borderColor: "#e5e7eb",
-      iconColor: "#374151",
+      iconColor: "#2563eb", // Blue icons
     },
     viewInLibraryButton: {
       backgroundColor: "transparent",
-      textColor: "#374151",
+      textColor: "#000000", // Black text
+      borderColor: "#e5e7eb",
+    },
+    announcementBar: {
+      backgroundColor: "#f7f7f7", // Light gray background as specified
+      textColor: "#000000", // Black text
+    },
+    textBlock: {
+      backgroundColor: "#ffffff", // White background
+      headlineColor: "#000000", // Black headline
+      contentColor: "#4b5563", // Dark gray content
+    },
+    benefits: {
+      backgroundColor: "#ffffff", // White background
+      textColor: "#000000", // Black text
+      iconColor: "#2563eb", // Blue icons
+    },
+    imageText: {
+      backgroundColor: "#ffffff", // White background
+      textColor: "#000000", // Black text
+      buttonColor: "#2563eb", // Blue button
+      buttonTextColor: "#ffffff", // White button text
+    },
+    about: {
+      backgroundColor: "#ffffff", // White background
+      textColor: "#000000", // Black text
+      mutedTextColor: "#6b7280", // Gray muted text
+    },
+    wishlistButton: {
+      backgroundColor: "transparent",
+      textColor: "#000000",
       borderColor: "#e5e7eb",
     },
   },
@@ -304,6 +371,36 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       borderColor: "#475569",
     },
+    announcementBar: {
+      backgroundColor: "#1e293b",
+      textColor: "#ffffff",
+    },
+    textBlock: {
+      backgroundColor: "transparent",
+      headlineColor: "#0f172a",
+      contentColor: "#475569",
+    },
+    benefits: {
+      backgroundColor: "transparent",
+      textColor: "#0f172a",
+      iconColor: "#1e293b",
+    },
+    imageText: {
+      backgroundColor: "transparent",
+      textColor: "#0f172a",
+      buttonColor: "#1e293b",
+      buttonTextColor: "#ffffff",
+    },
+    about: {
+      backgroundColor: "transparent",
+      textColor: "#0f172a",
+      mutedTextColor: "#64748b",
+    },
+    wishlistButton: {
+      backgroundColor: "transparent",
+      textColor: "#0f172a",
+      borderColor: "#cbd5e1",
+    },
   },
   astrid: {
     name: "Astrid",
@@ -394,6 +491,36 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#fafafa",
       borderColor: "#404040",
     },
+    announcementBar: {
+      backgroundColor: "#171717",
+      textColor: "#fafafa",
+    },
+    textBlock: {
+      backgroundColor: "transparent",
+      headlineColor: "#fafafa",
+      contentColor: "#a1a1aa",
+    },
+    benefits: {
+      backgroundColor: "transparent",
+      textColor: "#fafafa",
+      iconColor: "#a855f7",
+    },
+    imageText: {
+      backgroundColor: "transparent",
+      textColor: "#fafafa",
+      buttonColor: "#404040",
+      buttonTextColor: "#ffffff",
+    },
+    about: {
+      backgroundColor: "transparent",
+      textColor: "#fafafa",
+      mutedTextColor: "#a1a1aa",
+    },
+    wishlistButton: {
+      backgroundColor: "transparent",
+      textColor: "#fafafa",
+      borderColor: "#404040",
+    },
   },
   royal: {
     name: "Royal",
@@ -480,6 +607,36 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       iconColor: "#ffffff",
     },
     viewInLibraryButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
+    },
+    announcementBar: {
+      backgroundColor: "#6d28d9",
+      textColor: "#ffffff",
+    },
+    textBlock: {
+      backgroundColor: "transparent",
+      headlineColor: "#ffffff",
+      contentColor: "#e9d5ff",
+    },
+    benefits: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      iconColor: "#ffffff",
+    },
+    imageText: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      buttonColor: "#ffffff",
+      buttonTextColor: "#7c3aed",
+    },
+    about: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      mutedTextColor: "#e9d5ff",
+    },
+    wishlistButton: {
       backgroundColor: "rgba(255, 255, 255, 0.15)",
       textColor: "#ffffff",
       borderColor: "rgba(255, 255, 255, 0.3)",
@@ -574,6 +731,36 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       borderColor: "rgba(255, 255, 255, 0.3)",
     },
+    announcementBar: {
+      backgroundColor: "#065986",
+      textColor: "#ffffff",
+    },
+    textBlock: {
+      backgroundColor: "transparent",
+      headlineColor: "#ffffff",
+      contentColor: "#bae6fd",
+    },
+    benefits: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      iconColor: "#ffffff",
+    },
+    imageText: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      buttonColor: "#0ea5e9",
+      buttonTextColor: "#ffffff",
+    },
+    about: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      mutedTextColor: "#bae6fd",
+    },
+    wishlistButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
+    },
   },
   sunset: {
     name: "Sunset",
@@ -660,6 +847,36 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       iconColor: "#ffffff",
     },
     viewInLibraryButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
+    },
+    announcementBar: {
+      backgroundColor: "#ec4899",
+      textColor: "#ffffff",
+    },
+    textBlock: {
+      backgroundColor: "transparent",
+      headlineColor: "#ffffff",
+      contentColor: "#fecdd3",
+    },
+    benefits: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      iconColor: "#ffffff",
+    },
+    imageText: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      buttonColor: "#ffffff",
+      buttonTextColor: "#f97316",
+    },
+    about: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      mutedTextColor: "#fecdd3",
+    },
+    wishlistButton: {
       backgroundColor: "rgba(255, 255, 255, 0.15)",
       textColor: "#ffffff",
       borderColor: "rgba(255, 255, 255, 0.3)",
@@ -754,6 +971,36 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       borderColor: "rgba(255, 255, 255, 0.3)",
     },
+    announcementBar: {
+      backgroundColor: "#14532d",
+      textColor: "#ffffff",
+    },
+    textBlock: {
+      backgroundColor: "transparent",
+      headlineColor: "#ffffff",
+      contentColor: "#bbf7d0",
+    },
+    benefits: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      iconColor: "#ffffff",
+    },
+    imageText: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      buttonColor: "#22c55e",
+      buttonTextColor: "#ffffff",
+    },
+    about: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      mutedTextColor: "#bbf7d0",
+    },
+    wishlistButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
+    },
   },
   rose: {
     name: "Rose",
@@ -844,6 +1091,36 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       textColor: "#ffffff",
       borderColor: "rgba(255, 255, 255, 0.3)",
     },
+    announcementBar: {
+      backgroundColor: "#9d174d",
+      textColor: "#ffffff",
+    },
+    textBlock: {
+      backgroundColor: "transparent",
+      headlineColor: "#ffffff",
+      contentColor: "#fce7f3",
+    },
+    benefits: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      iconColor: "#ffffff",
+    },
+    imageText: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      buttonColor: "#ec4899",
+      buttonTextColor: "#ffffff",
+    },
+    about: {
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      mutedTextColor: "#fce7f3",
+    },
+    wishlistButton: {
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      textColor: "#ffffff",
+      borderColor: "rgba(255, 255, 255, 0.3)",
+    },
   },
   midnight: {
     name: "Midnight",
@@ -930,6 +1207,36 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       iconColor: "#f8fafc",
     },
     viewInLibraryButton: {
+      backgroundColor: "#334155",
+      textColor: "#f8fafc",
+      borderColor: "#475569",
+    },
+    announcementBar: {
+      backgroundColor: "#1e293b",
+      textColor: "#f8fafc",
+    },
+    textBlock: {
+      backgroundColor: "transparent",
+      headlineColor: "#f8fafc",
+      contentColor: "#94a3b8",
+    },
+    benefits: {
+      backgroundColor: "transparent",
+      textColor: "#f8fafc",
+      iconColor: "#3b82f6",
+    },
+    imageText: {
+      backgroundColor: "transparent",
+      textColor: "#f8fafc",
+      buttonColor: "#3b82f6",
+      buttonTextColor: "#ffffff",
+    },
+    about: {
+      backgroundColor: "transparent",
+      textColor: "#f8fafc",
+      mutedTextColor: "#94a3b8",
+    },
+    wishlistButton: {
       backgroundColor: "#334155",
       textColor: "#f8fafc",
       borderColor: "#475569",

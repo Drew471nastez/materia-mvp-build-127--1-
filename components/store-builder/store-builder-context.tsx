@@ -373,6 +373,8 @@ export function StoreBuilderProvider({
                 const productHeader = loadedDraft.headerSettings as any
                 loadedDraft = {
                   ...loadedDraft,
+                  // Also merge globalSettings (includes themePreset)
+                  globalSettings: globalData.draft_config?.globalSettings || loadedDraft.globalSettings,
                   headerSettings: {
                     ...loadedDraft.headerSettings,
                     // Use global settings for these fields (fallback to loaded values if global not set)
@@ -380,7 +382,15 @@ export function StoreBuilderProvider({
                     stickyAddToCart: globalHeader.stickyAddToCart || productHeader.stickyAddToCart,
                     buyButtonColor: globalHeader.buyButtonColor || productHeader.buyButtonColor,
                     buyButtonTextColor: globalHeader.buyButtonTextColor || productHeader.buyButtonTextColor,
+                    buttonsBorderRadius: globalHeader.buttonsBorderRadius || productHeader.buttonsBorderRadius,
                     spacing: globalHeader.spacing || productHeader.spacing,
+                    // Theme-related color settings
+                    faqColors: globalHeader.faqColors || productHeader.faqColors,
+                    reviewsColors: globalHeader.reviewsColors || productHeader.reviewsColors,
+                    productCardColors: globalHeader.productCardColors || productHeader.productCardColors,
+                    priceContainerColors: globalHeader.priceContainerColors || productHeader.priceContainerColors,
+                    wishlistButtonColors: globalHeader.wishlistButtonColors || productHeader.wishlistButtonColors,
+                    viewInLibraryButtonColors: globalHeader.viewInLibraryButtonColors || productHeader.viewInLibraryButtonColors,
                   },
                 }
 
@@ -389,13 +399,22 @@ export function StoreBuilderProvider({
                 const publishedProductHeader = loadedPublished.headerSettings as any
                 loadedPublished = {
                   ...loadedPublished,
+                  globalSettings: globalData.published_config?.globalSettings || loadedPublished.globalSettings,
                   headerSettings: {
                     ...loadedPublished.headerSettings,
                     creatorBar: globalPublishedHeader.creatorBar || publishedProductHeader.creatorBar,
                     stickyAddToCart: globalPublishedHeader.stickyAddToCart || publishedProductHeader.stickyAddToCart,
                     buyButtonColor: globalPublishedHeader.buyButtonColor || publishedProductHeader.buyButtonColor,
                     buyButtonTextColor: globalPublishedHeader.buyButtonTextColor || publishedProductHeader.buyButtonTextColor,
+                    buttonsBorderRadius: globalPublishedHeader.buttonsBorderRadius || publishedProductHeader.buttonsBorderRadius,
                     spacing: globalPublishedHeader.spacing || publishedProductHeader.spacing,
+                    // Theme-related color settings
+                    faqColors: globalPublishedHeader.faqColors || publishedProductHeader.faqColors,
+                    reviewsColors: globalPublishedHeader.reviewsColors || publishedProductHeader.reviewsColors,
+                    productCardColors: globalPublishedHeader.productCardColors || publishedProductHeader.productCardColors,
+                    priceContainerColors: globalPublishedHeader.priceContainerColors || publishedProductHeader.priceContainerColors,
+                    wishlistButtonColors: globalPublishedHeader.wishlistButtonColors || publishedProductHeader.wishlistButtonColors,
+                    viewInLibraryButtonColors: globalPublishedHeader.viewInLibraryButtonColors || publishedProductHeader.viewInLibraryButtonColors,
                   },
                 }
 
@@ -753,6 +772,26 @@ export function StoreBuilderProvider({
               backgroundColor: theme.productCard.backgroundColor,
               borderColor: theme.productCard.borderColor,
             }
+            // Apply price container colors
+            productHeader.priceContainerColors = {
+              backgroundColor: theme.priceContainer.backgroundColor,
+              textColor: theme.priceContainer.textColor,
+              mutedTextColor: theme.priceContainer.mutedTextColor,
+              borderColor: theme.priceContainer.borderColor,
+              iconColor: theme.priceContainer.iconColor,
+            }
+            // Apply wishlist button colors
+            productHeader.wishlistButtonColors = {
+              backgroundColor: theme.wishlistButton.backgroundColor,
+              textColor: theme.wishlistButton.textColor,
+              borderColor: theme.wishlistButton.borderColor,
+            }
+            // Apply view in library button colors
+            productHeader.viewInLibraryButtonColors = {
+              backgroundColor: theme.viewInLibraryButton.backgroundColor,
+              textColor: theme.viewInLibraryButton.textColor,
+              borderColor: theme.viewInLibraryButton.borderColor,
+            }
           }
 
           // Apply theme to all sections
@@ -800,39 +839,71 @@ export function StoreBuilderProvider({
               }
             }
 
-            // Apply text blocks and other sections - use page background
-            if (section.type === "text-block" || section.type === "image-text" || section.type === "benefits") {
+            // Apply text block colors - use section-specific theme colors
+            if (section.type === "text-block") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
                   ...newSection.settings.colors,
-                  backgroundColor: "transparent",
-                  textColor: theme.colors.foreground,
+                  backgroundColor: theme.textBlock.backgroundColor,
+                  textColor: theme.textBlock.headlineColor,
                 },
+                // Store headline and content colors separately
+                headlineColor: theme.textBlock.headlineColor,
+                contentColor: theme.textBlock.contentColor,
               }
             }
 
-            // Apply announcement bar colors
+            // Apply image-text section colors with button styling
+            if (section.type === "image-text") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  ...newSection.settings.colors,
+                  backgroundColor: theme.imageText.backgroundColor,
+                  textColor: theme.imageText.textColor,
+                },
+                buttonColor: theme.imageText.buttonColor,
+                buttonTextColor: theme.imageText.buttonTextColor,
+                buttonBorderRadius: theme.buttonBorderRadius,
+              }
+            }
+
+            // Apply benefits section colors
+            if (section.type === "benefits") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  ...newSection.settings.colors,
+                  backgroundColor: theme.benefits.backgroundColor,
+                  textColor: theme.benefits.textColor,
+                },
+                iconColor: theme.benefits.iconColor,
+              }
+            }
+
+            // Apply announcement bar colors from section-specific theme
             if (section.type === "announcement-bar") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
                   ...newSection.settings.colors,
-                  backgroundColor: theme.colors.primary,
-                  textColor: theme.colors.foreground === "#ffffff" ? "#ffffff" : theme.colors.foreground,
+                  backgroundColor: theme.announcementBar.backgroundColor,
+                  textColor: theme.announcementBar.textColor,
                 },
               }
             }
 
-            // Apply about section colors - use foreground color for text
+            // Apply about section colors from section-specific theme
             if (section.type === "about") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
                   ...newSection.settings.colors,
-                  backgroundColor: "transparent",
-                  textColor: theme.colors.foreground,
+                  backgroundColor: theme.about.backgroundColor,
+                  textColor: theme.about.textColor,
                 },
+                mutedTextColor: theme.about.mutedTextColor,
               }
             }
 
@@ -871,6 +942,98 @@ export function StoreBuilderProvider({
           }
 
           addToHistory(newConfig)
+
+          // When applying theme from shop page, also update the global product template
+          // This ensures all product pages inherit the same theme colors
+          if (prev.pageType === "shop") {
+            // Calculate border color for sticky add to cart
+            const stickyBgColor = theme.stickyAddToCart.backgroundColor
+            const isDarkBg = stickyBgColor && (stickyBgColor.startsWith("#0") || stickyBgColor.startsWith("#1") || stickyBgColor.startsWith("#2"))
+            const stickyBorderColor = isDarkBg ? `${theme.colors.foreground}20` : theme.colors.border || "#e5e7eb"
+
+            // Build product page header settings with theme applied
+            const productHeaderSettings = {
+              creatorBar: {
+                visible: true,
+                backgroundColor: theme.creatorBar.backgroundColor,
+                textColor: theme.creatorBar.textColor,
+                buttonColor: theme.creatorBar.buttonColor,
+                buttonTextColor: theme.creatorBar.buttonTextColor,
+                buttonBorderRadius: theme.creatorBar.buttonBorderRadius,
+                buttonStyle: "style4",
+              },
+              stickyAddToCart: {
+                visible: true,
+                backgroundColor: theme.stickyAddToCart.backgroundColor,
+                buttonColor: theme.stickyAddToCart.buttonColor,
+                buttonTextColor: theme.stickyAddToCart.buttonTextColor,
+                borderRadius: theme.stickyAddToCart.borderRadius,
+                borderColor: stickyBorderColor,
+                textColor: theme.stickyAddToCart.textColor || theme.colors.foreground,
+                buttonStyle: "add_to_cart",
+              },
+              buyButtonColor: theme.productHeader.buyButtonColor,
+              buyButtonTextColor: theme.productHeader.buyButtonTextColor,
+              buttonsBorderRadius: theme.productHeader.buttonsBorderRadius ?? theme.buttonBorderRadius,
+              faqColors: {
+                textColor: theme.faqSection.textColor,
+                borderColor: theme.faqSection.borderColor,
+                iconColor: theme.faqSection.iconColor,
+              },
+              reviewsColors: {
+                textColor: theme.reviewsSection.textColor,
+                starColor: theme.reviewsSection.starColor,
+                cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+                cardBorderColor: theme.reviewsSection.cardBorderColor,
+              },
+              productCardColors: {
+                textColor: theme.productCard.textColor,
+                priceColor: theme.productCard.priceColor,
+                backgroundColor: theme.productCard.backgroundColor,
+                borderColor: theme.productCard.borderColor,
+              },
+              priceContainerColors: {
+                backgroundColor: theme.priceContainer.backgroundColor,
+                textColor: theme.priceContainer.textColor,
+                mutedTextColor: theme.priceContainer.mutedTextColor,
+                borderColor: theme.priceContainer.borderColor,
+                iconColor: theme.priceContainer.iconColor,
+              },
+              wishlistButtonColors: {
+                backgroundColor: theme.wishlistButton.backgroundColor,
+                textColor: theme.wishlistButton.textColor,
+                borderColor: theme.wishlistButton.borderColor,
+              },
+              viewInLibraryButtonColors: {
+                backgroundColor: theme.viewInLibraryButton.backgroundColor,
+                textColor: theme.viewInLibraryButton.textColor,
+                borderColor: theme.viewInLibraryButton.borderColor,
+              },
+            }
+
+            // Save product theme settings to global template asynchronously
+            fetch("/api/store-builder?pageType=product")
+              .then((res) => res.ok ? res.json() : Promise.reject("Failed to load"))
+              .then((data) => {
+                const existingConfig = data.draft_config || { pageType: "product", sections: [], headerSettings: {} }
+                const updatedConfig = {
+                  ...existingConfig,
+                  globalSettings: newGlobalSettings,
+                  headerSettings: {
+                    ...existingConfig.headerSettings,
+                    ...productHeaderSettings,
+                  },
+                }
+                return fetch("/api/store-builder", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ pageType: "product", config: updatedConfig }),
+                })
+              })
+              .then(() => console.log("[v0] Global product template updated with theme"))
+              .catch((err) => console.error("[v0] Failed to update global product template:", err))
+          }
+
           return newConfig
         })
         markUnsaved()
@@ -897,20 +1060,29 @@ export function StoreBuilderProvider({
           sections: draftConfig.sections.length,
         })
 
-        // ALSO save global settings (creator bar, sticky, buy button, spacing) to default product template
+        // ALSO save global settings (creator bar, sticky, buy button, spacing, theme colors) to default product template
         // These settings should apply to ALL product pages
         const productHeader = draftConfig.headerSettings as any
         const globalProductSettings = {
           pageType: "product",
           config: {
             ...defaultProductPageConfig,
+            globalSettings: draftConfig.globalSettings,
             headerSettings: {
               ...defaultProductPageConfig.headerSettings,
               creatorBar: productHeader.creatorBar,
               stickyAddToCart: productHeader.stickyAddToCart,
               buyButtonColor: productHeader.buyButtonColor,
               buyButtonTextColor: productHeader.buyButtonTextColor,
+              buttonsBorderRadius: productHeader.buttonsBorderRadius,
               spacing: productHeader.spacing,
+              // Theme-related color settings
+              faqColors: productHeader.faqColors,
+              reviewsColors: productHeader.reviewsColors,
+              productCardColors: productHeader.productCardColors,
+              priceContainerColors: productHeader.priceContainerColors,
+              wishlistButtonColors: productHeader.wishlistButtonColors,
+              viewInLibraryButtonColors: productHeader.viewInLibraryButtonColors,
             },
           },
         }
@@ -970,19 +1142,28 @@ export function StoreBuilderProvider({
           sections: draftConfig.sections.length,
         })
 
-        // ALSO save and publish global settings (creator bar, sticky, buy button, spacing) to default product template
+        // ALSO save and publish global settings (creator bar, sticky, buy button, spacing, theme colors) to default product template
         const productHeader = draftConfig.headerSettings as any
         const globalProductSettings = {
           pageType: "product",
           config: {
             ...defaultProductPageConfig,
+            globalSettings: draftConfig.globalSettings,
             headerSettings: {
               ...defaultProductPageConfig.headerSettings,
               creatorBar: productHeader.creatorBar,
               stickyAddToCart: productHeader.stickyAddToCart,
               buyButtonColor: productHeader.buyButtonColor,
               buyButtonTextColor: productHeader.buyButtonTextColor,
+              buttonsBorderRadius: productHeader.buttonsBorderRadius,
               spacing: productHeader.spacing,
+              // Theme-related color settings
+              faqColors: productHeader.faqColors,
+              reviewsColors: productHeader.reviewsColors,
+              productCardColors: productHeader.productCardColors,
+              priceContainerColors: productHeader.priceContainerColors,
+              wishlistButtonColors: productHeader.wishlistButtonColors,
+              viewInLibraryButtonColors: productHeader.viewInLibraryButtonColors,
             },
           },
         }

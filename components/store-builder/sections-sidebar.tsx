@@ -1868,6 +1868,18 @@ function ShopHeaderSettingsForm({
       </div>
 
       <div className="space-y-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Header Background</h4>
+        <div className="space-y-2">
+          <ColorPicker
+            label="Background Color"
+            value={settings.colors?.backgroundColor || "#ffffff"}
+            onChange={(value) => onChange({ colors: { ...settings.colors, backgroundColor: value } })}
+            description="Background color for the header section"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stats & Badges</h4>
         <div className="space-y-3">
           <ToggleField label="Stats" checked={settings.showStats} onChange={(checked) => onChange({ showStats: checked })} />
