@@ -208,7 +208,7 @@ function ShareModal({
           </Button>
           <Button
             variant="outline"
-            className="w-full justify-center gap-2 h-14 rounded-xl text-base font-medium border-2 bg-transparent"
+            className="w-full justify-center gap-2 h-14 rounded-xl text-base font-medium border-2 bg-transparent text-black"
             onClick={handleCopyLink}
           >
             <Link2 className="h-5 w-5" />
@@ -946,8 +946,8 @@ function UnifiedAboutSection({
                     <IconComponent
                       key={method}
                       className={cn(
-                        "flex-shrink-0 w-[48px] h-[32px] md:w-[51px] md:h-[36px]",
-                        isMobile && "!w-[48px] !h-[32px]"
+                        "flex-shrink-0 w-[50px] h-[34px] md:w-[53px] md:h-[38px]",
+                        isMobile && "!w-[50px] !h-[34px]"
                       )}
                     />
                   )
@@ -2937,6 +2937,8 @@ export function UnifiedProductPage({
                     forceDotsMode={isMobile && (settings.mobileGalleryDots ?? false)}
                     forceDesktopDotsMode={!isMobile && (settings.desktopGalleryDots ?? false)}
                     isEditorMobilePreview={isMobile}
+                    selectionColor={themeConfig?.colors?.primary}
+                    backgroundColor={isDarkTheme ? themeConfig?.colors?.muted || "#171717" : undefined}
                   />
                 ) : (
                   <div className="relative aspect-square sm:aspect-video overflow-hidden rounded-xl bg-muted">
@@ -2962,7 +2964,15 @@ export function UnifiedProductPage({
                 </h1>
                 {settings.showBadges && (
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant="secondary" className="shrink-0 capitalize">
+                    <Badge
+                      variant="secondary"
+                      className="shrink-0 capitalize"
+                      style={isDarkTheme ? {
+                        backgroundColor: "#2a2a2a",
+                        color: "#fafafa",
+                        borderColor: "#3a3a3a"
+                      } : undefined}
+                    >
                       {categoryBadgeText}
                     </Badge>
                   </div>
@@ -3014,7 +3024,10 @@ export function UnifiedProductPage({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="shrink-0"
+                    className={cn(
+                      "shrink-0 transition-colors",
+                      isDarkTheme ? "hover:bg-white/10" : "hover:bg-black/5"
+                    )}
                     onClick={(e) => {
                       e.stopPropagation()
                       setShowShareModal(true)
@@ -3207,7 +3220,10 @@ export function UnifiedProductPage({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="shrink-0 h-8 w-8"
+                        className={cn(
+                          "shrink-0 h-8 w-8 transition-colors",
+                          isDarkTheme ? "hover:bg-white/10" : "hover:bg-black/5"
+                        )}
                         onClick={(e) => {
                           e.stopPropagation()
                           setShowShareModal(true)

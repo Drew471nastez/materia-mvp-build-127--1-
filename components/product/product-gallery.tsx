@@ -24,6 +24,10 @@ interface ProductGalleryProps {
   forceDesktopDotsMode?: boolean
   // When true, we're in editor mobile preview - desktop dots should NOT apply
   isEditorMobilePreview?: boolean
+  // Theme selection color for thumbnail border (uses theme preset accent/primary color)
+  selectionColor?: string
+  // Background color for the gallery container (for dark themes)
+  backgroundColor?: string
 }
 
 export function ProductGallery({
@@ -34,7 +38,9 @@ export function ProductGallery({
   autoplayInterval = 7000,
   forceDotsMode = false,
   forceDesktopDotsMode = false,
-  isEditorMobilePreview = false
+  isEditorMobilePreview = false,
+  selectionColor,
+  backgroundColor
 }: ProductGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [touchStart, setTouchStart] = useState<number | null>(null)
@@ -210,9 +216,11 @@ export function ProductGallery({
       <div
         ref={imageRef}
         className={cn(
-          "relative aspect-video overflow-hidden rounded-xl bg-muted w-full group",
+          "relative aspect-video overflow-hidden rounded-xl w-full group",
+          !backgroundColor && "bg-muted",
           isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
+        style={backgroundColor ? { backgroundColor } : undefined}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -328,9 +336,13 @@ export function ProductGallery({
                   "relative shrink-0 overflow-hidden rounded-lg border-2 transition-all snap-start",
                   "h-16 w-20 sm:h-20 sm:w-24",
                   currentIndex === index
-                    ? "border-primary ring-2 ring-primary/20"
+                    ? selectionColor ? "" : "border-primary ring-2 ring-primary/20"
                     : "border-transparent hover:border-muted-foreground/30",
                 )}
+                style={currentIndex === index && selectionColor ? {
+                  borderColor: selectionColor,
+                  boxShadow: `0 0 0 2px ${selectionColor}33`
+                } : undefined}
                 aria-label={`View image ${index + 1}`}
               >
                 <Image
