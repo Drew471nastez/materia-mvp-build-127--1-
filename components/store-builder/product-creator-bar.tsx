@@ -310,7 +310,16 @@ export function ProductCreatorBar({
   const EditorMobileLayout = () => (
     <div className="w-full py-4 px-3">
       <div className="flex items-center gap-2 w-full">
-        <Link href={creatorHref} className="flex items-center gap-1.5 shrink-0" aria-label={`Go to ${creatorName}'s shop`}>
+        <Link
+          href={creatorHref}
+          className="flex items-center gap-1.5 shrink-0"
+          aria-label={`Go to ${creatorName}'s shop`}
+          onClick={(e) => {
+            if (isEditorPreview) {
+              e.preventDefault()
+            }
+          }}
+        >
           <Avatar className="h-7 w-7 shrink-0">
             {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
             <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
@@ -364,7 +373,16 @@ export function ProductCreatorBar({
   const CompactMobileLayout = () => (
     <form onSubmit={handleSubmit} className="w-full px-3 py-3.5">
       <div className="flex items-center gap-2 w-full justify-center">
-        <Link href={creatorHref} className="shrink-0" aria-label={`Go to ${creatorName}'s shop`}>
+        <Link
+          href={creatorHref}
+          className="shrink-0"
+          aria-label={`Go to ${creatorName}'s shop`}
+          onClick={(e) => {
+            if (isEditorPreview) {
+              e.preventDefault()
+            }
+          }}
+        >
           <Avatar className="h-7 w-7 shrink-0">
             {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
             <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
@@ -422,6 +440,11 @@ export function ProductCreatorBar({
             href={creatorHref}
             className="flex items-center gap-2 shrink-0 group"
             aria-label={`Go to ${creatorName}'s shop`}
+            onClick={(e) => {
+              if (isEditorPreview) {
+                e.preventDefault()
+              }
+            }}
           >
             <Avatar className="h-8 w-8 shrink-0 cursor-pointer">
               {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}

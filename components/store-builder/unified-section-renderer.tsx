@@ -1098,6 +1098,7 @@ export function UnifiedSectionRenderer({
           isMobile={isMobile}
           isPreviewMode={isPreviewMode}
           isEditorCanvas={!!onSelect}
+          globalSettings={globalSettings}
         />
       )}
       {section.type === "more-from-seller" && (
@@ -1957,14 +1958,19 @@ function UnifiedFeaturedProductsSection({
   isMobile,
   isPreviewMode,
   isEditorCanvas = false,
+  globalSettings,
 }: {
   settings: FeaturedProductsSettings
   products?: ProductData[]
   isMobile?: boolean
   isPreviewMode?: boolean
   isEditorCanvas?: boolean
+  globalSettings?: GlobalStoreSettings
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+
+  // Get theme preset for mobile filter pills styling
+  const themePreset = globalSettings?.themePreset || "default"
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<"recent" | "oldest" | "price-low" | "price-high" | "popular">("recent")
@@ -2293,62 +2299,93 @@ function UnifiedFeaturedProductsSection({
           </div>
 
           {/* Mobile pills - only show when mobile AND category filter is not hidden */}
-          {uiIsMobile && !settings.hideCategoryFilter && (
-            <div className="mt-3">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                <button
-                  onClick={() => handleCategoryChange(null)}
-                  className="flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
-                  style={{
-                    backgroundColor: selectedCategory === null
-                      ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || "rgba(255,255,255,0.9)")
-                      : "transparent",
-                    color: selectedCategory === null
-                      ? (settings.productCardColors?.backgroundColor ||
-                         (settings.colors?.textColor?.includes("fff") ? "#000000" : "#ffffff"))
-                      : (settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined),
-                    borderColor: selectedCategory === null
-                      ? "transparent"
-                      : (settings.categoryFilterColors?.borderColor ||
-                         (settings.categoryFilterColors?.textColor ? `${settings.categoryFilterColors.textColor}50` : undefined) ||
-                         (settings.colors?.textColor ? `${settings.colors.textColor}50` : undefined)),
-                    boxShadow: selectedCategory === null
-                      ? "0 2px 8px rgba(0,0,0,0.15)"
-                      : undefined,
-                  }}
-                >
-                  All <span className={selectedCategory === null ? "opacity-60" : "opacity-50"}>{totalProducts}</span>
-                </button>
+          {uiIsMobile && !settings.hideCategoryFilter && (() => {
+            // Theme-specific mobile filter pill colors
+            const getMobilePillStyles = (isSelected: boolean) => {
+              // Default border color for unselected pills
+              const defaultUnselectedBorderColor = themePreset === "default"
+                ? "#e5e7eb" // Light gray for default theme
+                : (settings.categoryFilterColors?.borderColor ||
+                   (settings.categoryFilterColors?.textColor ? `${settings.categoryFilterColors.textColor}50` : undefined) ||
+                   (settings.colors?.textColor ? `${settings.colors.textColor}50` : undefined))
 
-                {categoriesWithCounts.map((category) => (
+              if (isSelected) {
+                // Selected pill colors based on theme preset
+                switch (themePreset) {
+                  case "astrid":
+                    return {
+                      backgroundColor: "#404040", // Dark gray for Astrid
+                      color: "#ffffff",
+                      borderColor: "transparent",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    }
+                  case "bubble":
+                    return {
+                      backgroundColor: "#8b5cf6", // Purple for Bubble
+                      color: "#ffffff",
+                      borderColor: "transparent",
+                      boxShadow: "0 2px 8px rgba(139,92,246,0.3)",
+                    }
+                  case "pink":
+                    return {
+                      backgroundColor: "#ec4899", // Pink for Pink theme
+                      color: "#ffffff",
+                      borderColor: "transparent",
+                      boxShadow: "0 2px 8px rgba(236,72,153,0.3)",
+                    }
+                  case "default":
+                    return {
+                      backgroundColor: "#000000", // Black for Default
+                      color: "#ffffff",
+                      borderColor: "transparent",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    }
+                  default:
+                    // For other themes (cream, air, etc.), use the settings colors
+                    return {
+                      backgroundColor: settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || "rgba(255,255,255,0.9)",
+                      color: settings.productCardColors?.backgroundColor ||
+                             (settings.colors?.textColor?.includes("fff") ? "#000000" : "#ffffff"),
+                      borderColor: "transparent",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    }
+                }
+              } else {
+                // Unselected pill colors
+                return {
+                  backgroundColor: "transparent",
+                  color: settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined,
+                  borderColor: defaultUnselectedBorderColor,
+                  boxShadow: undefined,
+                }
+              }
+            }
+
+            return (
+              <div className="mt-3">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                   <button
-                    key={category.id}
-                    onClick={() => handleCategoryChange(category.id)}
+                    onClick={() => handleCategoryChange(null)}
                     className="flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
-                    style={{
-                      backgroundColor: selectedCategory === category.id
-                        ? (settings.categoryFilterColors?.activeTextColor || settings.colors?.textColor || "rgba(255,255,255,0.9)")
-                        : "transparent",
-                      color: selectedCategory === category.id
-                        ? (settings.productCardColors?.backgroundColor ||
-                           (settings.colors?.textColor?.includes("fff") ? "#000000" : "#ffffff"))
-                        : (settings.categoryFilterColors?.textColor || settings.colors?.textColor || undefined),
-                      borderColor: selectedCategory === category.id
-                        ? "transparent"
-                        : (settings.categoryFilterColors?.borderColor ||
-                           (settings.categoryFilterColors?.textColor ? `${settings.categoryFilterColors.textColor}50` : undefined) ||
-                           (settings.colors?.textColor ? `${settings.colors.textColor}50` : undefined)),
-                      boxShadow: selectedCategory === category.id
-                        ? "0 2px 8px rgba(0,0,0,0.15)"
-                        : undefined,
-                    }}
+                    style={getMobilePillStyles(selectedCategory === null)}
                   >
-                    {category.name} <span className={selectedCategory === category.id ? "opacity-60" : "opacity-50"}>{category.count}</span>
+                    All <span className={selectedCategory === null ? "opacity-60" : "opacity-50"}>{totalProducts}</span>
                   </button>
-                ))}
+
+                  {categoriesWithCounts.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => handleCategoryChange(category.id)}
+                      className="flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98]"
+                      style={getMobilePillStyles(selectedCategory === category.id)}
+                    >
+                      {category.name} <span className={selectedCategory === category.id ? "opacity-60" : "opacity-50"}>{category.count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Grid - use uiIsMobile to determine layout */}
           <div
@@ -2971,6 +3008,10 @@ export function UnifiedProductPage({
                         backgroundColor: "#2a2a2a",
                         color: "#fafafa",
                         borderColor: "#3a3a3a"
+                      } : themePreset === "cream" ? {
+                        backgroundColor: "#ffffff",
+                        color: "#000000",
+                        borderColor: "#e8dfc9"
                       } : undefined}
                     >
                       {categoryBadgeText}

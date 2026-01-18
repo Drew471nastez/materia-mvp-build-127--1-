@@ -239,6 +239,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     viewInLibraryBorder: themeConfig?.viewInLibraryButton?.borderColor,
   }
 
+  // Download button colors - use buyButtonColor if set (custom), otherwise use theme preset colors
+  const downloadButtonBgColor = buyButtonColor || themeConfig?.productHeader?.buyButtonColor || "#2563eb"
+  const downloadButtonTextColor = buyButtonTextColor || themeConfig?.productHeader?.buyButtonTextColor || "#ffffff"
+
   // ---------------------------------------------------------------------------
   // Purchase state
   // ---------------------------------------------------------------------------
@@ -625,7 +629,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               {product.title}
             </h1>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Badge variant="secondary" className="shrink-0 capitalize">
+              <Badge
+                variant="secondary"
+                className="shrink-0 capitalize"
+                style={isDarkTheme ? {
+                  backgroundColor: "#2a2a2a",
+                  color: "#fafafa",
+                  borderColor: "#3a3a3a"
+                } : themePreset === "cream" ? {
+                  backgroundColor: "#ffffff",
+                  color: "#000000",
+                  borderColor: "#e8dfc9"
+                } : undefined}
+              >
                 {productCategories[0]?.name || product.type}
               </Badge>
             </div>
@@ -711,7 +727,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               {hasPurchased ? (
                 <div className="space-y-3">
                   {product.type === "digital" && firstAssetId && (
-                    <DownloadButton assetId={firstAssetId} className="w-full min-h-[44px]" size="default">
+                    <DownloadButton
+                      assetId={firstAssetId}
+                      className="w-full min-h-[44px]"
+                      size="default"
+                      style={{
+                        backgroundColor: downloadButtonBgColor,
+                        color: downloadButtonTextColor,
+                      }}
+                    >
                       Download File
                     </DownloadButton>
                   )}
@@ -1003,7 +1027,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {hasPurchased ? (
             <div className="space-y-3">
               {product.type === "digital" && firstAssetId && (
-                <DownloadButton assetId={firstAssetId} className="w-full min-h-[44px]" size="default">
+                <DownloadButton
+                  assetId={firstAssetId}
+                  className="w-full min-h-[44px]"
+                  size="default"
+                  style={{
+                    backgroundColor: downloadButtonBgColor,
+                    color: downloadButtonTextColor,
+                  }}
+                >
                   Download File
                 </DownloadButton>
               )}

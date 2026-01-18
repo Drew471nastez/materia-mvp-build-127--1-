@@ -14,6 +14,7 @@ interface DownloadButtonProps {
   variant?: "default" | "outline" | "secondary"
   size?: "default" | "sm" | "lg"
   className?: string
+  style?: React.CSSProperties
   children?: React.ReactNode
 }
 
@@ -97,6 +98,7 @@ export function DownloadButton({
   variant = "default",
   size = "default",
   className,
+  style,
   children,
 }: DownloadButtonProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
@@ -131,6 +133,7 @@ export function DownloadButton({
         variant={variant}
         size={size}
         className={className}
+        style={style}
         onClick={handleDownload}
         disabled={status === "loading"}
       >

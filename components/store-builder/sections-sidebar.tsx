@@ -1059,8 +1059,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                         <div
                           className="w-14 h-4 rounded flex items-center justify-center"
                           style={{
-                            // For Bubble theme, use light gray in thumbnail since white button is not visible on white background
-                            backgroundColor: preset === "bubble" ? "#d1d5db" : theme.subscribeBar.buttonColor,
+                            // For Bubble theme, use purple in thumbnail since white button is not visible on white background
+                            backgroundColor: preset === "bubble" ? "#8b5cf6" : theme.subscribeBar.buttonColor,
                             borderRadius: `${Math.min(theme.buttonBorderRadius || theme.borderRadius, 12)}px`
                           }}
                         />
