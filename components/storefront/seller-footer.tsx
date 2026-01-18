@@ -15,44 +15,44 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
   return (
     <footer className="w-full bg-white border-t border-gray-100" data-seller-footer>
       <div className={cn(
-        "px-4 flex items-center w-full",
+        "px-3 flex items-center w-full",
         useMobileLayout
-          ? "flex-col justify-center gap-2 py-4"
+          ? "flex-col justify-center gap-1.5 py-3"
           : useDesktopLayout
-            ? "flex-row justify-between py-4"
-            : "flex-col gap-2 py-4 sm:flex-row sm:justify-between"
+            ? "flex-row justify-between py-4 px-4"
+            : "flex-col gap-1.5 py-3 sm:flex-row sm:justify-between sm:py-4 sm:px-4"
       )}>
         {/* Mobile: Powered by above, links below centered */}
         {useMobileLayout ? (
           <>
             {/* Powered by centered at top */}
-            <div className="flex items-center justify-center gap-1.5 w-full">
-              <span className="text-xs text-gray-400">Powered by</span>
+            <div className="flex items-center justify-center gap-1 w-full">
+              <span className="text-[11px] text-gray-400 whitespace-nowrap">Powered by</span>
               <a
                 href="/"
-                className="inline-flex items-center"
+                className="inline-flex items-center shrink-0"
                 aria-label="Go to Storelib homepage"
               >
                 <img
                   src="/images/design-mode/storelib.png"
                   alt="Storelib"
-                  className="h-[18px] w-auto"
+                  className="h-[14px] w-auto"
                 />
               </a>
             </div>
             {/* Links centered below */}
-            <div className="flex items-center justify-center gap-3 w-full">
+            <div className="flex items-center justify-center gap-2 w-full">
               <a
                 href="/privacy"
-                className="text-xs text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+                className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
                 Privacy
               </a>
               <a
                 href="/terms"
-                className="text-xs text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+                className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
-                Terms & Conditions
+                Terms
               </a>
             </div>
           </>
@@ -60,10 +60,10 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <>
             {/* Desktop: Powered by on left */}
             <div className="flex items-center gap-1.5">
-              <span className="text-sm text-gray-500">Powered by</span>
+              <span className="text-sm text-gray-500 whitespace-nowrap">Powered by</span>
               <a
                 href="/"
-                className="inline-flex items-center"
+                className="inline-flex items-center shrink-0"
                 aria-label="Go to Storelib homepage"
               >
                 <img
@@ -77,55 +77,56 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
             <div className="flex items-center gap-6">
               <a
                 href="/privacy"
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
                 Privacy
               </a>
               <a
                 href="/terms"
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
                 Terms & Conditions
               </a>
             </div>
           </>
         ) : (
-          /* Responsive: Mobile-first (Powered by above, links below on mobile) that adapts to desktop */
+          /* Responsive: Mobile-first that adapts to desktop - uses actual viewport breakpoints */
           <>
             {/* Powered by - top on mobile, left on desktop */}
             <div className={cn(
-              "flex items-center justify-center gap-1.5 w-full",
-              "sm:w-auto sm:justify-start"
+              "flex items-center justify-center gap-1 w-full",
+              "sm:w-auto sm:justify-start sm:gap-1.5"
             )}>
-              <span className="text-xs sm:text-sm text-gray-400 sm:text-gray-500">Powered by</span>
+              <span className="text-[11px] sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap">Powered by</span>
               <a
                 href="/"
-                className="inline-flex items-center"
+                className="inline-flex items-center shrink-0"
                 aria-label="Go to Storelib homepage"
               >
                 <img
                   src="/images/design-mode/storelib.png"
                   alt="Storelib"
-                  className="h-[18px] sm:h-[32px] w-auto sm:translate-y-[1px]"
+                  className="h-[14px] sm:h-[32px] w-auto sm:translate-y-[1px]"
                 />
               </a>
             </div>
             {/* Links - bottom on mobile (centered), right on desktop */}
             <div className={cn(
-              "flex items-center justify-center gap-3 w-full",
+              "flex items-center justify-center gap-2 w-full",
               "sm:w-auto sm:justify-end sm:gap-6"
             )}>
               <a
                 href="/privacy"
-                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+                className="text-[11px] sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
                 Privacy
               </a>
               <a
                 href="/terms"
-                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+                className="text-[11px] sm:text-sm text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
               >
-                Terms & Conditions
+                <span className="sm:hidden">Terms</span>
+                <span className="hidden sm:inline">Terms & Conditions</span>
               </a>
             </div>
           </>

@@ -3600,14 +3600,20 @@ function SubscribeBarSettingsForm({
 
       <ColorPicker
         label="Background Color"
-        value={safeSettings.colors?.backgroundColor || "#ffffff"}
-        onChange={(value) => onChange({ colors: { ...safeSettings.colors, backgroundColor: value } })}
+        value={safeSettings.backgroundColor || safeSettings.colors?.backgroundColor || "#ffffff"}
+        onChange={(value) => onChange({
+          backgroundColor: value,
+          colors: { ...safeSettings.colors, backgroundColor: value }
+        })}
       />
 
       <ColorPicker
         label="Text Color"
-        value={safeSettings.colors?.textColor || "#000000"}
-        onChange={(value) => onChange({ colors: { ...safeSettings.colors, textColor: value } })}
+        value={safeSettings.textColor || safeSettings.colors?.textColor || "#000000"}
+        onChange={(value) => onChange({
+          textColor: value,
+          colors: { ...safeSettings.colors, textColor: value }
+        })}
       />
     </div>
   )
