@@ -808,11 +808,11 @@ export function StoreBuilderProvider({
             const newSection = { ...section, settings: { ...section.settings } }
 
             // Apply featured products section colors (including product card and category filter colors)
+            // Theme colors ALWAYS override to ensure global consistency
             if (section.type === "featured-products") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
-                  ...newSection.settings.colors,
                   backgroundColor: theme.sections.featuredProductsBackgroundColor,
                   textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
                 },
@@ -831,11 +831,11 @@ export function StoreBuilderProvider({
             }
 
             // Apply more-from-seller section colors (including product card colors)
+            // Theme colors ALWAYS override to ensure global consistency
             if (section.type === "more-from-seller") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
-                  ...newSection.settings.colors,
                   backgroundColor: theme.sections.featuredProductsBackgroundColor,
                   textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
                 },
@@ -849,11 +849,11 @@ export function StoreBuilderProvider({
             }
 
             // Apply text block colors - use section-specific theme colors
+            // Theme colors ALWAYS override to ensure global consistency
             if (section.type === "text-block") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
-                  ...newSection.settings.colors,
                   backgroundColor: theme.textBlock.backgroundColor,
                   textColor: theme.textBlock.headlineColor,
                 },
@@ -864,11 +864,11 @@ export function StoreBuilderProvider({
             }
 
             // Apply image-text section colors with button styling
+            // Theme colors ALWAYS override to ensure global consistency
             if (section.type === "image-text") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
-                  ...newSection.settings.colors,
                   backgroundColor: theme.imageText.backgroundColor,
                   textColor: theme.imageText.textColor,
                 },
@@ -879,11 +879,11 @@ export function StoreBuilderProvider({
             }
 
             // Apply benefits section colors
+            // Theme colors ALWAYS override to ensure global consistency
             if (section.type === "benefits") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
-                  ...newSection.settings.colors,
                   backgroundColor: theme.benefits.backgroundColor,
                   textColor: theme.benefits.textColor,
                 },
@@ -892,11 +892,11 @@ export function StoreBuilderProvider({
             }
 
             // Apply announcement bar colors from section-specific theme
+            // Theme colors ALWAYS override to ensure global consistency
             if (section.type === "announcement-bar") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
-                  ...newSection.settings.colors,
                   backgroundColor: theme.announcementBar.backgroundColor,
                   textColor: theme.announcementBar.textColor,
                 },
@@ -904,11 +904,11 @@ export function StoreBuilderProvider({
             }
 
             // Apply about section colors from section-specific theme
+            // Theme colors ALWAYS override to ensure global consistency
             if (section.type === "about") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
-                  ...newSection.settings.colors,
                   backgroundColor: theme.about.backgroundColor,
                   textColor: theme.about.textColor,
                 },
@@ -917,11 +917,11 @@ export function StoreBuilderProvider({
             }
 
             // Apply reviews section colors
+            // Theme colors ALWAYS override to ensure global consistency
             if (section.type === "reviews") {
               newSection.settings = {
                 ...newSection.settings,
                 colors: {
-                  ...newSection.settings.colors,
                   backgroundColor: theme.reviewsSection.backgroundColor,
                   textColor: theme.reviewsSection.textColor,
                 },
@@ -1031,8 +1031,34 @@ export function StoreBuilderProvider({
               .then((data) => {
                 const existingConfig = data.draft_config || { pageType: "product", sections: [], headerSettings: {} }
 
+                // Ensure mandatory sections exist in the global template before applying theme
+                let existingSections = existingConfig.sections || []
+
+                // Ensure reviews section exists
+                const hasReviews = existingSections.some((s: Section) => s.type === "reviews")
+                if (!hasReviews) {
+                  existingSections = [...existingSections, {
+                    id: `reviews-${Date.now()}`,
+                    type: "reviews",
+                    settings: defaultReviewsSettings,
+                    order: existingSections.length,
+                    locked: true,
+                  }]
+                }
+
+                // Ensure more-from-seller section exists
+                const hasMoreFromSeller = existingSections.some((s: Section) => s.type === "more-from-seller")
+                if (!hasMoreFromSeller) {
+                  existingSections = [...existingSections, {
+                    id: `more-from-seller-${Date.now()}`,
+                    type: "more-from-seller",
+                    settings: defaultMoreFromSellerSettings,
+                    order: existingSections.length,
+                    locked: true,
+                  }]
+                }
+
                 // Apply theme colors to all sections in the global template
-                const existingSections = existingConfig.sections || []
                 const themedSections = existingSections.map((section: Section) => {
                   const newSection = { ...section, settings: { ...section.settings } }
 
@@ -1041,7 +1067,6 @@ export function StoreBuilderProvider({
                     newSection.settings = {
                       ...newSection.settings,
                       colors: {
-                        ...newSection.settings.colors,
                         backgroundColor: theme.sections.featuredProductsBackgroundColor,
                         textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
                       },
@@ -1059,7 +1084,6 @@ export function StoreBuilderProvider({
                     newSection.settings = {
                       ...newSection.settings,
                       colors: {
-                        ...newSection.settings.colors,
                         backgroundColor: theme.reviewsSection.backgroundColor,
                         textColor: theme.reviewsSection.textColor,
                       },

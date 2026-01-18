@@ -332,6 +332,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // Apply theme colors to all sections from the product page config
   // This ensures sections always reflect the current theme preset
+  // IMPORTANT: Theme colors ALWAYS override section settings to ensure global theme consistency
   const applySectionThemeColors = (sections: Section[]): Section[] => {
     if (!themeConfig) return sections
 
@@ -339,13 +340,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       const newSection = { ...section, settings: { ...section.settings } }
 
       // Apply more-from-seller section colors from theme
+      // Theme colors ALWAYS override - this ensures global theme preset applies correctly
       if (section.type === "more-from-seller") {
         newSection.settings = {
           ...newSection.settings,
           colors: {
-            ...newSection.settings.colors,
-            backgroundColor: themeConfig.sections?.featuredProductsBackgroundColor || newSection.settings.colors?.backgroundColor,
-            textColor: themeConfig.sections?.featuredProductsTextColor || themeConfig.colors?.foreground || newSection.settings.colors?.textColor,
+            backgroundColor: themeConfig.sections?.featuredProductsBackgroundColor,
+            textColor: themeConfig.sections?.featuredProductsTextColor || themeConfig.colors?.foreground,
           },
           productCardColors: {
             backgroundColor: themeConfig.productCard?.backgroundColor,
@@ -357,13 +358,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       }
 
       // Apply reviews section colors from theme
+      // Theme colors ALWAYS override - this ensures global theme preset applies correctly
       if (section.type === "reviews") {
         newSection.settings = {
           ...newSection.settings,
           colors: {
-            ...newSection.settings.colors,
-            backgroundColor: themeConfig.reviewsSection?.backgroundColor || newSection.settings.colors?.backgroundColor,
-            textColor: themeConfig.reviewsSection?.textColor || newSection.settings.colors?.textColor,
+            backgroundColor: themeConfig.reviewsSection?.backgroundColor,
+            textColor: themeConfig.reviewsSection?.textColor,
           },
           reviewsColors: {
             starColor: themeConfig.reviewsSection?.starColor,
@@ -378,9 +379,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         newSection.settings = {
           ...newSection.settings,
           colors: {
-            ...newSection.settings.colors,
-            backgroundColor: themeConfig.textBlock?.backgroundColor || newSection.settings.colors?.backgroundColor,
-            textColor: themeConfig.textBlock?.headlineColor || newSection.settings.colors?.textColor,
+            backgroundColor: themeConfig.textBlock?.backgroundColor,
+            textColor: themeConfig.textBlock?.headlineColor,
           },
           headlineColor: themeConfig.textBlock?.headlineColor,
           contentColor: themeConfig.textBlock?.contentColor,
@@ -392,9 +392,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         newSection.settings = {
           ...newSection.settings,
           colors: {
-            ...newSection.settings.colors,
-            backgroundColor: themeConfig.imageText?.backgroundColor || newSection.settings.colors?.backgroundColor,
-            textColor: themeConfig.imageText?.textColor || newSection.settings.colors?.textColor,
+            backgroundColor: themeConfig.imageText?.backgroundColor,
+            textColor: themeConfig.imageText?.textColor,
           },
           buttonColor: themeConfig.imageText?.buttonColor,
           buttonTextColor: themeConfig.imageText?.buttonTextColor,
@@ -407,9 +406,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         newSection.settings = {
           ...newSection.settings,
           colors: {
-            ...newSection.settings.colors,
-            backgroundColor: themeConfig.benefits?.backgroundColor || newSection.settings.colors?.backgroundColor,
-            textColor: themeConfig.benefits?.textColor || newSection.settings.colors?.textColor,
+            backgroundColor: themeConfig.benefits?.backgroundColor,
+            textColor: themeConfig.benefits?.textColor,
           },
           iconColor: themeConfig.benefits?.iconColor,
         }
@@ -420,9 +418,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         newSection.settings = {
           ...newSection.settings,
           colors: {
-            ...newSection.settings.colors,
-            backgroundColor: themeConfig.announcementBar?.backgroundColor || newSection.settings.colors?.backgroundColor,
-            textColor: themeConfig.announcementBar?.textColor || newSection.settings.colors?.textColor,
+            backgroundColor: themeConfig.announcementBar?.backgroundColor,
+            textColor: themeConfig.announcementBar?.textColor,
           },
         }
       }
