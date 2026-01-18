@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { useStoreBuilder } from "./store-builder-context"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
