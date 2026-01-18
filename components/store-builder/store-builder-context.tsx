@@ -1115,7 +1115,16 @@ export function StoreBuilderProvider({
                   body: JSON.stringify({ pageType: "product", config: updatedConfig }),
                 })
               })
-              .then(() => console.log("[v0] Global product template updated with theme"))
+              .then(() => {
+                console.log("[v0] Global product template draft saved, now publishing...")
+                // CRITICAL: Also publish the global product template so live product pages update
+                return fetch("/api/store-builder", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ pageType: "product" }),
+                })
+              })
+              .then(() => console.log("[v0] Global product template updated and PUBLISHED with theme"))
               .catch((err) => console.error("[v0] Failed to update global product template:", err))
 
             // If applying theme from product page, also update the shop page with matching theme
@@ -1264,7 +1273,16 @@ export function StoreBuilderProvider({
                     body: JSON.stringify({ pageType: "shop", config: updatedShopConfig }),
                   })
                 })
-                .then(() => console.log("[v0] Shop page updated with theme from product page"))
+                .then(() => {
+                  console.log("[v0] Shop page draft saved, now publishing...")
+                  // CRITICAL: Also publish the shop page so live homepage updates
+                  return fetch("/api/store-builder", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pageType: "shop" }),
+                  })
+                })
+                .then(() => console.log("[v0] Shop page updated and PUBLISHED with theme from product page"))
                 .catch((err) => console.error("[v0] Failed to update shop page:", err))
             }
           }
