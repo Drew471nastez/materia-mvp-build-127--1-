@@ -20,6 +20,7 @@ import {
   defaultMoreFromSellerSettings,
   defaultProductCreatorBarSettings,
   defaultStickyAddToCartSettings,
+  defaultReviewsSettings,
 } from "@/lib/store-builder/defaults"
 import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 import { SellerFooter } from "@/components/storefront/seller-footer"
@@ -1131,11 +1132,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // ---------------------------------------------------------------------------
   // Default rendering when no custom config
+  // Apply theme colors to page background
   // ---------------------------------------------------------------------------
+  const defaultPageBackgroundColor = themeConfig?.colors?.background || productPageConfig?.globalColors?.backgroundColor
+  const defaultPageTextColor = themeColors.textColor
+
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden w-full">
+    <div
+      className="min-h-screen overflow-x-hidden w-full"
+      style={{
+        background: defaultPageBackgroundColor || "var(--background)",
+        color: defaultPageTextColor || "var(--foreground)",
+      }}
+    >
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
-      <DynamicFavicon url={undefined} />
+      <DynamicFavicon avatarUrl={creatorProfile?.avatar_url} />
 
       {/* Creator Bar - at top */}
       <LiveProductCreatorBar
@@ -1176,24 +1187,31 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         />
       )}
 
-      {/* Default reviews section if there are reviews */}
-      {reviewsCount > 0 && (
-        <SectionRenderer
-          section={{
-            id: "default-reviews",
-            type: "reviews",
-            settings: {
-              ...defaultMoreFromSellerSettings,
-              visible: true,
-            },
-            order: 0,
-          }}
-          productId={product.id}
-          reviews={reviews || []}
-          reviewsCount={reviewsCount}
-          reviewsAverage={reviewsAverage}
-        />
-      )}
+      {/* Default reviews section if there are reviews - apply theme colors */}
+      {reviewsCount > 0 && (() => {
+        // Create the reviews section with proper defaults
+        const reviewsSectionRaw: Section = {
+          id: "default-reviews",
+          type: "reviews",
+          settings: {
+            ...defaultReviewsSettings,
+            visible: true,
+          },
+          order: 0,
+        }
+        // Apply theme colors to the reviews section
+        const themedReviewsSection = applySectionThemeColors([reviewsSectionRaw])[0]
+
+        return (
+          <SectionRenderer
+            section={themedReviewsSection}
+            productId={product.id}
+            reviews={reviews || []}
+            reviewsCount={reviewsCount}
+            reviewsAverage={reviewsAverage}
+          />
+        )
+      })()}
 
       <SellerFooter />
     </div>
