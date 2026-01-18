@@ -1,6 +1,6 @@
 import type React from "react"
 import { createClient } from "@/lib/supabase/server"
-import { getThemeSkeletonColors } from "@/components/store-builder/public-page-skeleton"
+import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
 import type { ThemePreset } from "@/lib/store-builder/types"
 
 interface ShopLayoutProps {

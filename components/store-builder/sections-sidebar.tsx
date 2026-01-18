@@ -4240,6 +4240,73 @@ function AboutSettingsForm({
   )
 }
 
+// Sortable FAQ Item component for drag and drop
+function SortableFAQItem({
+  faq,
+  index,
+  onUpdate,
+  onRemove,
+}: {
+  faq: FAQItem
+  index: number
+  onUpdate: (id: string, updates: Partial<FAQItem>) => void
+  onRemove: (id: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: faq.id,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "p-3 border border-border rounded-lg space-y-3 bg-background",
+        isDragging && "opacity-50 shadow-lg"
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="p-1 rounded hover:bg-muted text-muted-foreground cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+          <span className="text-xs font-medium text-muted-foreground">FAQ {index + 4}</span>
+        </div>
+        <button
+          onClick={() => onRemove(faq.id)}
+          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="space-y-2">
+        <Input
+          placeholder="Question"
+          value={faq.question}
+          onChange={(e) => onUpdate(faq.id, { question: e.target.value })}
+          className="text-sm"
+        />
+        <Textarea
+          placeholder="Answer"
+          value={faq.answer}
+          onChange={(e) => onUpdate(faq.id, { answer: e.target.value })}
+          rows={2}
+          className="text-sm resize-none"
+        />
+      </div>
+    </div>
+  )
+}
+
 // FAQ Settings Form for product pages
 function FAQSettingsForm({
   settings,
@@ -4278,6 +4345,18 @@ function FAQSettingsForm({
   const maxCustomFaqs = 4
   const canAddMore = customFaqs.length < maxCustomFaqs
 
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
   const addCustomFaq = () => {
     if (!canAddMore) return
     const newFaq: FAQItem = {
@@ -4298,6 +4377,20 @@ function FAQSettingsForm({
 
   const removeCustomFaq = (id: string) => {
     onChange({ customFaqs: customFaqs.filter(faq => faq.id !== id) })
+  }
+
+  const handleFaqDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      const oldIndex = customFaqs.findIndex((faq) => faq.id === active.id)
+      const newIndex = customFaqs.findIndex((faq) => faq.id === over.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(customFaqs, oldIndex, newIndex)
+        onChange({ customFaqs: reordered })
+      }
+    }
   }
 
   const handleEditProductFaqs = () => {
@@ -4340,43 +4433,32 @@ function FAQSettingsForm({
         </div>
       </div>
 
-      {/* Custom FAQs */}
+      {/* Custom FAQs with drag and drop */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium">Custom FAQs ({customFaqs.length}/{maxCustomFaqs})</Label>
         </div>
         <p className="text-xs text-muted-foreground">
-          Add up to {maxCustomFaqs} additional FAQs specific to this product page.
+          Add up to {maxCustomFaqs} additional FAQs. Drag to reorder.
         </p>
 
-        {customFaqs.map((faq, index) => (
-          <div key={faq.id} className="p-3 border border-border rounded-lg space-y-3 bg-background">
-            <div className="flex items-start justify-between gap-2">
-              <span className="text-xs font-medium text-muted-foreground">FAQ {index + 4}</span>
-              <button
-                onClick={() => removeCustomFaq(faq.id)}
-                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              <Input
-                placeholder="Question"
-                value={faq.question}
-                onChange={(e) => updateCustomFaq(faq.id, { question: e.target.value })}
-                className="text-sm"
-              />
-              <Textarea
-                placeholder="Answer"
-                value={faq.answer}
-                onChange={(e) => updateCustomFaq(faq.id, { answer: e.target.value })}
-                rows={2}
-                className="text-sm resize-none"
-              />
-            </div>
-          </div>
-        ))}
+        {customFaqs.length > 0 && (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFaqDragEnd}>
+            <SortableContext items={customFaqs.map(faq => faq.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {customFaqs.map((faq, index) => (
+                  <SortableFAQItem
+                    key={faq.id}
+                    faq={faq}
+                    index={index}
+                    onUpdate={updateCustomFaq}
+                    onRemove={removeCustomFaq}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
 
         {canAddMore && (
           <Button
