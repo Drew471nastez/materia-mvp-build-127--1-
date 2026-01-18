@@ -51,6 +51,11 @@ export function SectionRenderer({
   sellerTotalSales?: number
   sellerProductsCount?: number
 }) {
+  // Defensive check - don't render if section or settings are invalid
+  if (!section || !section.settings) {
+    return null
+  }
+
   return (
     <UnifiedSectionRenderer
       section={section}

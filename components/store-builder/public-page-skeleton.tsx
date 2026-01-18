@@ -18,6 +18,12 @@ export function getThemeSkeletonColors(themePreset: ThemePreset = "default") {
         skeletonColor: "#1a1a1a",
         textColor: "#fafafa",
       }
+    case "midnight":
+      return {
+        backgroundColor: "#0f172a",
+        skeletonColor: "#1e293b",
+        textColor: "#f8fafc",
+      }
     case "cream":
       return {
         backgroundColor: "#FAF4E8",
@@ -40,6 +46,36 @@ export function getThemeSkeletonColors(themePreset: ThemePreset = "default") {
       return {
         backgroundColor: "#ffffff",
         skeletonColor: "#e5e7eb",
+        textColor: "#000000",
+      }
+    case "rose":
+      return {
+        backgroundColor: "#fff1f2",
+        skeletonColor: "#ffe4e6",
+        textColor: "#000000",
+      }
+    case "royal":
+      return {
+        backgroundColor: "#f5f3ff",
+        skeletonColor: "#ddd6fe",
+        textColor: "#000000",
+      }
+    case "ocean":
+      return {
+        backgroundColor: "#ecfeff",
+        skeletonColor: "#cffafe",
+        textColor: "#000000",
+      }
+    case "sunset":
+      return {
+        backgroundColor: "#fff7ed",
+        skeletonColor: "#ffedd5",
+        textColor: "#000000",
+      }
+    case "forest":
+      return {
+        backgroundColor: "#f0fdf4",
+        skeletonColor: "#dcfce7",
         textColor: "#000000",
       }
     default:

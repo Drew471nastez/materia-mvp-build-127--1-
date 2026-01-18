@@ -1039,18 +1039,23 @@ export function UnifiedSectionRenderer({
   onUpdateAboutSettings,
   onOpenAboutSidebar,
 }: UnifiedSectionProps) {
-  if (!section.settings.visible) return null
+  // Defensive check - ensure section and settings exist
+  if (!section?.settings?.visible) return null
 
   // For more-from-seller, don't apply wrapper padding as it handles its own layout
   const isMoreFromSeller = section.type === "more-from-seller"
 
+  // Defensive access to spacing and colors with fallbacks
+  const spacing = section.settings.spacing || { paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 }
+  const colors = section.settings.colors || { backgroundColor: "transparent", textColor: "inherit" }
+
   const style = {
-    paddingTop: isMoreFromSeller ? undefined : section.settings.spacing.paddingTop,
-    paddingBottom: isMoreFromSeller ? undefined : section.settings.spacing.paddingBottom,
-    paddingLeft: isMoreFromSeller ? undefined : section.settings.spacing.paddingLeft,
-    paddingRight: isMoreFromSeller ? undefined : section.settings.spacing.paddingRight,
-    backgroundColor: section.settings.colors.backgroundColor || "transparent",
-    color: section.settings.colors.textColor || "inherit",
+    paddingTop: isMoreFromSeller ? undefined : spacing.paddingTop,
+    paddingBottom: isMoreFromSeller ? undefined : spacing.paddingBottom,
+    paddingLeft: isMoreFromSeller ? undefined : spacing.paddingLeft,
+    paddingRight: isMoreFromSeller ? undefined : spacing.paddingRight,
+    backgroundColor: colors.backgroundColor || "transparent",
+    color: colors.textColor || "inherit",
   }
 
   return (
@@ -2922,9 +2927,10 @@ export function UnifiedProductPage({
     .filter(faq => faq.question && faq.answer) // Only include FAQs with both question and answer
     .map(faq => ({ question: faq.question, answer: faq.answer }))
 
-  // Combine: product-level FAQs OR default FAQs, then append custom FAQs
+  // Combine: Custom FAQs FIRST, then product-level FAQs OR default FAQs
+  // This ensures custom FAQs from store builder appear ABOVE default FAQs
   const baseFaqs = productFaqs.length > 0 ? productFaqs : defaultFaqs
-  const displayFaqs = [...baseFaqs, ...customFaqs]
+  const displayFaqs = [...customFaqs, ...baseFaqs]
 
   // Theme preset colors
   const themePreset = globalSettings?.themePreset || "default"

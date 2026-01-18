@@ -509,8 +509,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     },
   ]
 
-  // Combine default FAQs with custom FAQs
-  const displayFaqs = [...defaultFaqs, ...customFaqs]
+  // Combine custom FAQs with default FAQs - Custom FAQs appear ABOVE default FAQs
+  const displayFaqs = [...customFaqs, ...defaultFaqs]
 
   const { data: reviews } = await supabase
     .from("reviews")
@@ -1118,13 +1118,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // Render with custom config if it exists
   // ---------------------------------------------------------------------------
-  if (themedSections && themedSections.length > 0) {
+  if (themedSections && themedSections.length > 0 && productPageConfig) {
     // Get creator bar and sticky add to cart settings from published config
-    const headerSettings = productPageConfig.headerSettings as ProductHeaderSettings | undefined
+    // Use optional chaining to prevent server-side exceptions
+    const headerSettings = productPageConfig?.headerSettings as ProductHeaderSettings | undefined
     const creatorBarSettings = headerSettings?.creatorBar || defaultProductCreatorBarSettings
     const stickyAddToCartSettings = headerSettings?.stickyAddToCart || defaultStickyAddToCartSettings
     // Get theme colors from published config
-    const pageBackgroundColor = productPageConfig.globalColors?.backgroundColor
+    const pageBackgroundColor = productPageConfig?.globalColors?.backgroundColor
     const pageTextColor = themeColors.textColor
 
     return (
@@ -1138,7 +1139,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
         <DynamicFavicon
           avatarUrl={creatorProfile?.avatar_url}
-          faviconUrl={productPageConfig.headerSettings?.faviconUrl}
+          faviconUrl={productPageConfig?.headerSettings?.faviconUrl}
         />
 
         {/* Creator Bar - at top */}
