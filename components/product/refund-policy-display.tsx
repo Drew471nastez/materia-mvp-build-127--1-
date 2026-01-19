@@ -12,7 +12,11 @@ interface RefundPolicyDisplayProps {
   className?: string
   textColor?: string
   isPreviewMode?: boolean
-  // Theme preset colors for the tooltip
+  // Theme preset name for automatic color adaptation
+  themePreset?: string
+  // Whether the current theme is a dark theme
+  isDarkTheme?: boolean
+  // Theme preset colors for the tooltip (can override defaults)
   themeColors?: {
     tooltipBackground?: string
     tooltipTextColor?: string
@@ -74,6 +78,8 @@ export function RefundPolicyDisplay({
   className,
   textColor,
   isPreviewMode = false,
+  themePreset,
+  isDarkTheme = false,
   themeColors,
 }: RefundPolicyDisplayProps) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
@@ -124,12 +130,63 @@ export function RefundPolicyDisplay({
     setIsTooltipOpen(!isTooltipOpen)
   }
 
-  // Tooltip theme colors - use theme preset colors if provided, otherwise use defaults
-  const tooltipBg = themeColors?.tooltipBackground || "#1a1a1a"
-  const tooltipText = themeColors?.tooltipTextColor || "#ffffff"
-  const tooltipBorder = themeColors?.tooltipBorderColor || "rgba(55, 65, 81, 0.5)"
-  const accentBg = themeColors?.accentColor || "rgba(124, 58, 237, 0.2)" // purple-500/20
-  const accentText = themeColors?.accentTextColor || "#c4b5fd" // purple-300
+  // Determine tooltip colors based on theme preset
+  // For dark themes: use light tooltip
+  // For light themes: use dark tooltip
+  const getThemeBasedColors = () => {
+    // Check if explicit theme colors provided
+    if (themeColors?.tooltipBackground) {
+      return {
+        bg: themeColors.tooltipBackground,
+        text: themeColors.tooltipTextColor || "#ffffff",
+        border: themeColors.tooltipBorderColor || "rgba(55, 65, 81, 0.5)",
+        accent: themeColors.accentColor || "rgba(124, 58, 237, 0.2)",
+        accentText: themeColors.accentTextColor || "#c4b5fd"
+      }
+    }
+
+    // Automatically determine based on isDarkTheme prop or theme preset
+    const isThemeDark = isDarkTheme || themePreset === "astrid" || themePreset === "midnight"
+
+    if (isThemeDark) {
+      // Dark theme: use a light tooltip for contrast
+      return {
+        bg: "#ffffff",
+        text: "#1a1a1a",
+        border: "rgba(229, 231, 235, 1)",
+        accent: "rgba(124, 58, 237, 0.1)",
+        accentText: "#7c3aed"
+      }
+    }
+
+    // Light themes: use dark tooltip for contrast
+    // Special handling for cream theme
+    if (themePreset === "cream") {
+      return {
+        bg: "#2d2a24",
+        text: "#faf4e8",
+        border: "rgba(139, 109, 52, 0.3)",
+        accent: "rgba(139, 109, 52, 0.2)",
+        accentText: "#d4b062"
+      }
+    }
+
+    // Default dark tooltip for light themes
+    return {
+      bg: "#1a1a1a",
+      text: "#ffffff",
+      border: "rgba(55, 65, 81, 0.5)",
+      accent: "rgba(124, 58, 237, 0.2)",
+      accentText: "#c4b5fd"
+    }
+  }
+
+  const tooltipColors = getThemeBasedColors()
+  const tooltipBg = tooltipColors.bg
+  const tooltipText = tooltipColors.text
+  const tooltipBorder = tooltipColors.border
+  const accentBg = tooltipColors.accent
+  const accentText = tooltipColors.accentText
 
   // Check if tooltip background is dark or light
   const isDarkTooltip = isColorDark(tooltipBg)

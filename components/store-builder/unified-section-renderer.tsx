@@ -3195,6 +3195,8 @@ export function UnifiedProductPage({
                           className="mt-3"
                           textColor={priceContainerText}
                           isPreviewMode={true}
+                          themePreset={themePreset}
+                          isDarkTheme={isDarkTheme}
                         />
                       </div>
                     ) : (
@@ -3235,6 +3237,8 @@ export function UnifiedProductPage({
                           className="mt-3"
                           textColor={priceContainerText}
                           isPreviewMode={true}
+                          themePreset={themePreset}
+                          isDarkTheme={isDarkTheme}
                         />
                       </div>
                     )}
@@ -3447,6 +3451,8 @@ export function UnifiedProductPage({
                         className="mt-3"
                         textColor={priceContainerText}
                         isPreviewMode={true}
+                        themePreset={themePreset}
+                        isDarkTheme={isDarkTheme}
                       />
                     </div>
                   ) : (
@@ -3486,6 +3492,8 @@ export function UnifiedProductPage({
                         className="mt-3"
                         textColor={priceContainerText}
                         isPreviewMode={true}
+                        themePreset={themePreset}
+                        isDarkTheme={isDarkTheme}
                       />
                     </div>
                   )}
@@ -3662,6 +3670,8 @@ export function UnifiedProductPage({
                       className="mt-3"
                       textColor={priceContainerText}
                       isPreviewMode={true}
+                      themePreset={themePreset}
+                      isDarkTheme={isDarkTheme}
                     />
                   </div>
                 ) : (
@@ -3701,6 +3711,8 @@ export function UnifiedProductPage({
                       className="mt-3"
                       textColor={priceContainerText}
                       isPreviewMode={true}
+                      themePreset={themePreset}
+                      isDarkTheme={isDarkTheme}
                     />
                   </div>
                 )}

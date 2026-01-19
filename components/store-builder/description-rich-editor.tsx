@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useRef, useState, useCallback, useEffect } from "react"
+import React, { useRef, useState, useCallback, useEffect, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -62,6 +62,10 @@ interface DescriptionRichEditorProps {
   textColor?: string
   className?: string
 }
+
+// Stable unique ID generator for embeds
+let embedIdCounter = 0
+const generateEmbedId = () => `embed-${Date.now()}-${++embedIdCounter}`
 
 // Text style options for the dropdown
 const textStyleOptions = [
@@ -143,14 +147,63 @@ export function DescriptionRichEditor({
   // Image upload ref
   const imageInputRef = useRef<HTMLInputElement>(null)
 
-  // Initialize editor content
+  // Initialize editor content - only once when mounted
   useEffect(() => {
     if (editorRef.current && !isInitialized) {
       const htmlContent = textToHtml(value)
       editorRef.current.innerHTML = htmlContent
       setIsInitialized(true)
+
+      // Focus editor and place cursor at the end
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.focus()
+          placeCursorAtEnd()
+        }
+      }, 50)
     }
   }, [value, isInitialized])
+
+  // Helper to place cursor at end of editor content
+  const placeCursorAtEnd = useCallback(() => {
+    if (!editorRef.current) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    const range = document.createRange()
+    range.selectNodeContents(editorRef.current)
+    range.collapse(false) // collapse to end
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }, [])
+
+  // Helper to place cursor after a specific element
+  const placeCursorAfterElement = useCallback((element: Element) => {
+    if (!editorRef.current) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    // Create a new paragraph after the element for text insertion
+    const newParagraph = document.createElement('p')
+    newParagraph.innerHTML = '<br>'
+
+    if (element.nextSibling) {
+      element.parentNode?.insertBefore(newParagraph, element.nextSibling)
+    } else {
+      element.parentNode?.appendChild(newParagraph)
+    }
+
+    // Place cursor in the new paragraph
+    const range = document.createRange()
+    range.setStart(newParagraph, 0)
+    range.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(range)
+
+    editorRef.current.focus()
+  }, [])
 
   // Save content as HTML (not plain text)
   const saveContent = useCallback(() => {
@@ -169,6 +222,50 @@ export function DescriptionRichEditor({
   const handleContentChange = useCallback(() => {
     saveContent()
   }, [saveContent])
+
+  // Handle Enter key to create proper new lines/paragraphs
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      // Let the default behavior handle Enter for now, but ensure we're in a paragraph
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+        const parentElement = range.startContainer.parentElement
+
+        // Check if we're inside a contenteditable=false embed container
+        const embedContainer = parentElement?.closest('[contenteditable="false"]')
+        if (embedContainer) {
+          e.preventDefault()
+          // Insert a new paragraph after the embed
+          const newParagraph = document.createElement('p')
+          newParagraph.innerHTML = '<br>'
+
+          if (embedContainer.nextSibling) {
+            embedContainer.parentNode?.insertBefore(newParagraph, embedContainer.nextSibling)
+          } else {
+            embedContainer.parentNode?.appendChild(newParagraph)
+          }
+
+          // Move cursor to new paragraph
+          const newRange = document.createRange()
+          newRange.setStart(newParagraph, 0)
+          newRange.collapse(true)
+          selection.removeAllRanges()
+          selection.addRange(newRange)
+
+          handleContentChange()
+          return
+        }
+      }
+    }
+
+    // Handle tab key for indentation
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;')
+      handleContentChange()
+    }
+  }, [handleContentChange])
 
   // Handle close with auto-save
   const handleClose = useCallback(() => {
@@ -254,6 +351,8 @@ export function DescriptionRichEditor({
     const file = e.target.files?.[0]
     if (!file) return
 
+    const embedId = generateEmbedId()
+
     // For now, create a local URL. In production, this would upload to storage
     const reader = new FileReader()
     reader.onload = (event) => {
@@ -262,8 +361,26 @@ export function DescriptionRichEditor({
       requestAnimationFrame(() => {
         if (editorRef.current) {
           editorRef.current.focus()
-          document.execCommand("insertHTML", false, `<img src="${imageDataUrl}" alt="Image" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 7px;" />`)
+          // Wrap image in a div with contenteditable=false to prevent cursor issues, add paragraph after for text
+          document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" contenteditable="false" style="margin: 12px 0; user-select: none;"><img src="${imageDataUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block;" loading="lazy" /></div><p><br></p>`)
           handleContentChange()
+
+          // Place cursor after the image
+          setTimeout(() => {
+            const embedElement = editorRef.current?.querySelector(`[data-embed-id="${embedId}"]`)
+            if (embedElement) {
+              const nextParagraph = embedElement.nextElementSibling
+              if (nextParagraph) {
+                const selection = window.getSelection()
+                const range = document.createRange()
+                range.setStart(nextParagraph, 0)
+                range.collapse(true)
+                selection?.removeAllRanges()
+                selection?.addRange(range)
+                editorRef.current?.focus()
+              }
+            }
+          }, 50)
         }
       })
     }
@@ -278,12 +395,32 @@ export function DescriptionRichEditor({
 
   // Insert image from URL
   const insertImage = useCallback(() => {
+    const embedId = generateEmbedId()
+
     restoreSelection()
     requestAnimationFrame(() => {
       if (editorRef.current && imageUrl) {
         editorRef.current.focus()
-        document.execCommand("insertHTML", false, `<img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 7px;" />`)
+        // Wrap image in a div with contenteditable=false to prevent cursor issues, add paragraph after
+        document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" contenteditable="false" style="margin: 12px 0; user-select: none;"><img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block;" loading="lazy" /></div><p><br></p>`)
         handleContentChange()
+
+        // Place cursor after the image
+        setTimeout(() => {
+          const embedElement = editorRef.current?.querySelector(`[data-embed-id="${embedId}"]`)
+          if (embedElement) {
+            const nextParagraph = embedElement.nextElementSibling
+            if (nextParagraph) {
+              const selection = window.getSelection()
+              const range = document.createRange()
+              range.setStart(nextParagraph, 0)
+              range.collapse(true)
+              selection?.removeAllRanges()
+              selection?.addRange(range)
+              editorRef.current?.focus()
+            }
+          }
+        }, 50)
       }
     })
 
@@ -321,27 +458,48 @@ export function DescriptionRichEditor({
         return
       }
 
+      const embedId = generateEmbedId()
+
       requestAnimationFrame(() => {
         if (editorRef.current) {
           editorRef.current.focus()
 
           if (videoDisplayMode === "embed") {
-            // Embed the video with responsive container
-            const embedUrl = `https://www.youtube.com/embed/${videoId}`
-            document.execCommand("insertHTML", false, `<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; margin: 8px 0; border-radius: 7px;"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 7px;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`)
+            // Embed the video with responsive container - using data attributes for stability
+            const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`
+            // Wrap in a contenteditable=false container to prevent cursor issues
+            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube" contenteditable="false" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; margin: 12px 0; border-radius: 8px; user-select: none;"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px; pointer-events: auto;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div><p><br></p>`)
           } else {
             // Insert as a link with thumbnail
             const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
-            document.execCommand("insertHTML", false, `<a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="display: block; margin: 8px 0; position: relative;">
-              <img src="${thumbnailUrl}" alt="YouTube Video" style="width: 100%; height: auto; border-radius: 7px;" />
-              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;">
+            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube-thumbnail" contenteditable="false" style="margin: 12px 0; user-select: none;"><a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="display: block; position: relative;">
+              <img src="${thumbnailUrl}" alt="YouTube Video" style="width: 100%; height: auto; border-radius: 8px;" loading="lazy" />
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;">
                 <div style="background-color: #dc2626; border-radius: 50%; padding: 12px;">
                   <svg style="width: 24px; height: 24px; color: white;" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 </div>
               </div>
-            </a>`)
+            </a></div><p><br></p>`)
           }
+
           handleContentChange()
+
+          // Place cursor in the new paragraph after the embed
+          setTimeout(() => {
+            const embedElement = editorRef.current?.querySelector(`[data-embed-id="${embedId}"]`)
+            if (embedElement) {
+              const nextParagraph = embedElement.nextElementSibling
+              if (nextParagraph) {
+                const selection = window.getSelection()
+                const range = document.createRange()
+                range.setStart(nextParagraph, 0)
+                range.collapse(true)
+                selection?.removeAllRanges()
+                selection?.addRange(range)
+                editorRef.current?.focus()
+              }
+            }
+          }, 50)
         }
       })
     }
@@ -619,21 +777,26 @@ export function DescriptionRichEditor({
         className={cn(
           "flex-1 p-3 sm:p-4 focus:outline-none min-h-[150px] sm:min-h-[200px] max-h-[300px] sm:max-h-[400px] overflow-y-auto",
           "prose prose-sm max-w-none",
-          "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-2",
-          "[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mb-2",
+          "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3",
+          "[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mb-3",
           "[&_h3]:text-lg [&_h3]:font-medium [&_h3]:mb-2",
-          "[&_p]:mb-2",
-          "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2",
-          "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2",
-          "[&_blockquote]:border-l-4 [&_blockquote]:border-purple-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2",
+          "[&_p]:mb-3 [&_p]:min-h-[1.5em]",
+          "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3",
+          "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3",
+          "[&_blockquote]:border-l-4 [&_blockquote]:border-purple-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3",
           "[&_a]:text-purple-600 [&_a]:underline",
-          "[&_img]:rounded-[7px] [&_img]:max-w-full [&_img]:h-auto",
-          "[&_iframe]:rounded-[7px]",
+          "[&_img]:rounded-[8px] [&_img]:max-w-full [&_img]:h-auto",
+          "[&_iframe]:rounded-[8px]",
+          // Make embed containers clearly selectable but not editable
+          "[&_[data-embed-type]]:cursor-default [&_[data-embed-type]]:select-none",
+          "[&_[data-embed-type]]:ring-transparent [&_[data-embed-type]:hover]:ring-2 [&_[data-embed-type]:hover]:ring-purple-200",
+          "[&_[data-embed-type]:focus-within]:ring-2 [&_[data-embed-type]:focus-within]:ring-purple-400",
           "empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 empty:before:italic empty:before:pointer-events-none"
         )}
         style={{ color: textColor || "inherit" }}
         onInput={handleContentChange}
         onBlur={handleContentChange}
+        onKeyDown={handleKeyDown}
       />
 
       {/* Link Dialog */}
@@ -934,7 +1097,17 @@ export function DescriptionEditWrapper({
 }: DescriptionEditWrapperProps) {
   const [isHovering, setIsHovering] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [isAnimatingOut, setIsAnimatingOut] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // Handle close with animation
+  const handleClose = useCallback(() => {
+    setIsAnimatingOut(true)
+    setTimeout(() => {
+      setIsEditing(false)
+      setIsAnimatingOut(false)
+    }, 200) // Match animation duration
+  }, [])
 
   // Handle click outside to close and save
   useEffect(() => {
@@ -943,8 +1116,8 @@ export function DescriptionEditWrapper({
     const handleClickOutside = (e: MouseEvent) => {
       // Don't close if clicking inside the wrapper or any dialog
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        // Check if clicked on a dialog
-        const dialogs = document.querySelectorAll('[role="dialog"]')
+        // Check if clicked on a dialog or dropdown
+        const dialogs = document.querySelectorAll('[role="dialog"], [data-radix-popper-content-wrapper]')
         let clickedOnDialog = false
         dialogs.forEach(dialog => {
           if (dialog.contains(e.target as Node)) {
@@ -953,7 +1126,7 @@ export function DescriptionEditWrapper({
         })
 
         if (!clickedOnDialog) {
-          setIsEditing(false)
+          handleClose()
         }
       }
     }
@@ -961,7 +1134,7 @@ export function DescriptionEditWrapper({
     // Use mousedown for earlier detection
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [isEditing])
+  }, [isEditing, handleClose])
 
   if (!isEditorMode) {
     return <>{children}</>
@@ -969,27 +1142,38 @@ export function DescriptionEditWrapper({
 
   if (isEditing) {
     return (
-      <div ref={wrapperRef} className="mt-6" data-description-section>
+      <div
+        ref={wrapperRef}
+        className={cn(
+          "mt-6 transition-all duration-200 ease-out",
+          isAnimatingOut
+            ? "opacity-0 transform scale-[0.98]"
+            : "opacity-100 transform scale-100"
+        )}
+        data-description-section
+      >
         <h2
           className={cn("mb-3 font-semibold", isMobile ? "text-base" : "text-lg")}
           style={{ color: textColor }}
         >
           Description
         </h2>
-        <DescriptionRichEditor
-          value={description}
-          onChange={onDescriptionChange}
-          onClose={() => setIsEditing(false)}
-          isMobile={isMobile}
-          textColor={mutedTextColor}
-        />
+        <div className="animate-in fade-in-0 slide-in-from-top-2 duration-200">
+          <DescriptionRichEditor
+            value={description}
+            onChange={onDescriptionChange}
+            onClose={handleClose}
+            isMobile={isMobile}
+            textColor={mutedTextColor}
+          />
+        </div>
       </div>
     )
   }
 
   return (
     <div
-      className="relative group/description"
+      className="relative group/description animate-in fade-in-0 duration-200"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       data-description-section
@@ -1022,7 +1206,8 @@ export function DescriptionEditWrapper({
 }
 
 // Component to render rich HTML description content
-export function RichDescriptionContent({
+// Memoized to prevent unnecessary re-renders that cause flashing
+export const RichDescriptionContent = React.memo(function RichDescriptionContent({
   html,
   className,
   textColor
@@ -1051,16 +1236,23 @@ export function RichDescriptionContent({
     <div
       className={cn(
         "prose prose-sm max-w-none",
-        "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-2",
-        "[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mb-2",
+        "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3",
+        "[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mb-3",
         "[&_h3]:text-lg [&_h3]:font-medium [&_h3]:mb-2",
-        "[&_p]:mb-2",
-        "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2",
-        "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2",
-        "[&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2",
+        "[&_p]:mb-3",
+        "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3",
+        "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3",
+        "[&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3",
         "[&_a]:text-purple-600 [&_a]:underline [&_a]:hover:text-purple-700",
-        "[&_img]:rounded-[7px] [&_img]:max-w-full [&_img]:h-auto",
-        "[&_iframe]:rounded-[7px]",
+        "[&_img]:rounded-[8px] [&_img]:max-w-full [&_img]:h-auto",
+        // Stable iframe/embed container styling to prevent flashing
+        "[&_iframe]:rounded-[8px]",
+        "[&_[data-embed-type]]:pointer-events-auto",
+        "[&_[data-embed-type='youtube']]:relative [&_[data-embed-type='youtube']]:overflow-hidden",
+        "[&_[data-embed-type='youtube']_iframe]:pointer-events-auto",
+        // Prevent hover state changes from causing re-renders/flashing
+        "[&_div[style*='position: relative'][style*='padding-bottom']]:will-change-auto",
+        "[&_div[style*='position: relative'][style*='padding-bottom']]:transform-gpu",
         "[&_hr]:my-4 [&_hr]:border-gray-300",
         className
       )}
@@ -1068,4 +1260,4 @@ export function RichDescriptionContent({
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )
-}
+})

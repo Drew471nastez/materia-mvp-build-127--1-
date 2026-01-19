@@ -794,6 +794,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     updatedAt={product.refund_policy_updated_at}
                     className="mt-3"
                     textColor={themeColors.cardTextColor}
+                    themePreset={themePreset}
+                    isDarkTheme={isDarkTheme}
                   />
                 </div>
               ) : (
@@ -822,6 +824,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     updatedAt={product.refund_policy_updated_at}
                     className="mt-3"
                     textColor={themeColors.cardTextColor}
+                    themePreset={themePreset}
+                    isDarkTheme={isDarkTheme}
                   />
                 </div>
               )}
@@ -1085,6 +1089,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 updatedAt={product.refund_policy_updated_at}
                 className="mt-3"
                 textColor={themeColors.cardTextColor}
+                themePreset={themePreset}
+                isDarkTheme={isDarkTheme}
               />
             </div>
           ) : (
@@ -1113,6 +1119,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 updatedAt={product.refund_policy_updated_at}
                 className="mt-3"
                 textColor={themeColors.cardTextColor}
+                themePreset={themePreset}
+                isDarkTheme={isDarkTheme}
               />
             </div>
           )}
