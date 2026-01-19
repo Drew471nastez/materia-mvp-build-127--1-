@@ -1750,7 +1750,7 @@ function ShopHeaderSettingsForm({
       {/* Edit Settings Link */}
       <a
         href="/app/settings"
-        className="flex items-center justify-center gap-1.5 text-purple-600 hover:text-purple-700 text-sm font-medium transition-colors"
+        className="flex items-center justify-start gap-1.5 text-purple-600 hover:text-purple-700 text-sm font-medium transition-colors"
       >
         <Settings className="h-3.5 w-3.5" />
         Edit Settings
