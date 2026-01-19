@@ -26,6 +26,7 @@ import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
+import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 
 import { themePresets } from "@/lib/store-builder/defaults"
 
@@ -797,6 +798,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     borderColor={themeColors.cardBorderColor}
                     iconColor={themeColors.cardIconColor}
                   />
+
+                  {/* Refund Policy Display */}
+                  <RefundPolicyDisplay
+                    enabled={product.refund_policy_enabled}
+                    policyType={product.refund_policy_type}
+                    finePrint={product.refund_policy_fine_print}
+                    updatedAt={product.refund_policy_updated_at}
+                    className="mt-3"
+                    textColor={themeColors.cardTextColor}
+                  />
                 </div>
               )}
 
@@ -1069,6 +1080,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 textColor={themeColors.cardTextColor}
                 borderColor={themeColors.cardBorderColor}
                 iconColor={themeColors.cardIconColor}
+              />
+
+              {/* Refund Policy Display */}
+              <RefundPolicyDisplay
+                enabled={product.refund_policy_enabled}
+                policyType={product.refund_policy_type}
+                finePrint={product.refund_policy_fine_print}
+                updatedAt={product.refund_policy_updated_at}
+                className="mt-3"
+                textColor={themeColors.cardTextColor}
               />
             </div>
           )}

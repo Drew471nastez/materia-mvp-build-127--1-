@@ -69,6 +69,11 @@ export interface ProductData {
   type?: string
   show_sales_badge?: boolean
   categories?: Array<{ id: string; name: string; slug: string; type: string | null }>
+  // Refund policy fields
+  refund_policy_enabled?: boolean
+  refund_policy_type?: 'no_refunds' | '7_day' | '14_day' | '30_day' | '6_month' | null
+  refund_policy_fine_print?: string | null
+  refund_policy_updated_at?: string | null
 }
 
 // Creator data type
@@ -3475,13 +3480,16 @@ export function UnifiedProductPage({
                 onMouseLeave={() => !isPreviewMode && setIsFaqHovered(false)}
               >
                 {/* Edit FAQs hover link - only in editor mode */}
-                {!isPreviewMode && isFaqHovered && onEditFaqs && (
+                {!isPreviewMode && onEditFaqs && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       onEditFaqs()
                     }}
-                    className="absolute -top-1 right-0 z-10 flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 hover:underline transition-colors"
+                    className={cn(
+                      "absolute -top-1 right-0 z-10 flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 hover:underline transition-all duration-200 ease-out",
+                      isFaqHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"
+                    )}
                   >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

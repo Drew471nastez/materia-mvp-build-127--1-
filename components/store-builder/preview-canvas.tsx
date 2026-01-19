@@ -147,11 +147,23 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     const ro = new ResizeObserver(() => measureCanvas())
     if (canvasRef.current) ro.observe(canvasRef.current)
 
+    // Robust measurement: keep trying until canvasRect is set (for initial load)
+    let attempts = 0
+    const maxAttempts = 10
+    const measureInterval = setInterval(() => {
+      measureCanvas()
+      attempts++
+      if (attempts >= maxAttempts) {
+        clearInterval(measureInterval)
+      }
+    }, 100)
+
     return () => {
       window.removeEventListener("resize", onResize)
       ro.disconnect()
+      clearInterval(measureInterval)
     }
-  }, [])
+  }, [currentPageType, selectedProductId, isMobile])
 
   // In editor mode, start with sticky visible so users can see and customize it
   // ALWAYS visible in editor mode on all devices (mobile included)
@@ -549,8 +561,8 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
             <SellerFooter isMobile={isMobile} />
 
-            {/* Footer sentinel for detecting when to hide sticky */}
-            <div ref={footerSentinelRef} className="h-px w-full" />
+            {/* Footer sentinel for detecting when to hide sticky - positioned absolute to avoid layout gap */}
+            <div ref={footerSentinelRef} className="absolute bottom-0 h-px w-full pointer-events-none" />
           </>
         ) : currentPageType === "shop" ? (
           <>

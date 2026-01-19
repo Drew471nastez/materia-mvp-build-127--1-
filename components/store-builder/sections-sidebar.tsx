@@ -4466,7 +4466,7 @@ function FAQSettingsForm({
           disabled={!productId}
           className="text-xs text-purple-600 hover:text-purple-700 hover:underline disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
         >
-          Edit FAQs
+          Edit
           <ExternalLink className="h-3 w-3" />
         </button>
       </div>
