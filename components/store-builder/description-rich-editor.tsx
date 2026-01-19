@@ -182,16 +182,12 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
         const rect = popoverRef.current.getBoundingClientRect()
         const viewportWidth = window.innerWidth
         const viewportHeight = window.innerHeight
-        const padding = 12
+        const padding = 16
         const popoverHeight = rect.height
         const popoverWidth = rect.width
 
         // On mobile, use fixed positioning centered on screen
         if (isMobile || viewportWidth < 640) {
-          // Calculate centered position that fits within viewport
-          const maxWidth = Math.min(viewportWidth - padding * 2, 360)
-          const maxHeight = Math.min(viewportHeight - padding * 2, viewportHeight * 0.7)
-
           setAdjustedPosition({
             position: "fixed",
             left: "50%",
@@ -219,12 +215,12 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           newPosition.top = "auto"
           newPosition.bottom = "100%"
           newPosition.marginTop = "0"
-          newPosition.marginBottom = "8px"
+          newPosition.marginBottom = "12px"
         } else {
           // Position below the trigger (default)
           newPosition.top = "100%"
           newPosition.bottom = "auto"
-          newPosition.marginTop = "8px"
+          newPosition.marginTop = "12px"
           newPosition.marginBottom = "0"
         }
 
@@ -269,14 +265,14 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       {/* Backdrop for mobile to prevent interaction with content behind */}
       {isMobileView && (
         <div
-          className="fixed inset-0 bg-black/20 z-[999998] animate-in fade-in-0 duration-150"
+          className="fixed inset-0 bg-black/30 z-[999998] animate-in fade-in-0 duration-150"
           onClick={onClose}
         />
       )}
       <div
         ref={popoverRef}
         className={cn(
-          "z-[999999] rounded-xl shadow-2xl border",
+          "z-[999999] rounded-xl shadow-2xl border flex flex-col",
           "animate-in fade-in-0 duration-200",
           isDark ? "bg-[#1a1a1a] border-[#333]" : "bg-white border-gray-200",
           isMobileView ? "fixed slide-in-from-bottom-4" : "absolute slide-in-from-top-2",
@@ -288,25 +284,27 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
             left: "50%",
             top: "50%",
             transform: "translate(-50%, -50%)",
-            width: "calc(100vw - 24px)",
-            maxWidth: "360px",
-            maxHeight: "70vh",
-            overflowY: "auto",
+            width: "calc(100vw - 32px)",
+            maxWidth: "340px",
+            maxHeight: "calc(100vh - 48px)",
+            overflow: "hidden",
           } : {
             position: adjustedPosition.position || "absolute",
             top: adjustedPosition.top ?? "100%",
             bottom: adjustedPosition.bottom ?? "auto",
             left: adjustedPosition.left,
             right: adjustedPosition.right,
-            marginTop: adjustedPosition.marginTop ?? "8px",
+            marginTop: adjustedPosition.marginTop ?? "12px",
             marginBottom: adjustedPosition.marginBottom ?? "0",
             transform: adjustedPosition.transform,
-            maxHeight: "min(400px, 60vh)",
-            overflowY: "auto",
+            maxHeight: "min(450px, calc(100vh - 100px))",
+            overflow: "hidden",
           }),
         }}
       >
-        {children}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          {children}
+        </div>
       </div>
     </>
   )
@@ -1286,26 +1284,26 @@ export function DescriptionRichEditor({
           </ToolbarButton>
 
           <InlinePopover isOpen={showLinkPopover} onClose={() => setShowLinkPopover(false)} themeColors={themeColors} isMobile={isMobile}>
-            <div className={cn("p-4", isMobile ? "w-full" : "w-72")} style={{ color: fgColor }}>
-              <h3 className="font-semibold text-sm mb-3">Insert Link</h3>
-              <div className="space-y-3">
+            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-72")} style={{ color: fgColor }}>
+              <h3 className="font-semibold text-sm mb-4">Insert Link</h3>
+              <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Link Text</Label>
+                  <Label className="text-xs font-medium">Link Text</Label>
                   <Input
                     placeholder="Enter link text"
                     value={linkText}
                     onChange={(e) => setLinkText(e.target.value)}
-                    className="h-9 text-sm"
+                    className="h-10 text-sm"
                     autoFocus
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">URL</Label>
+                  <Label className="text-xs font-medium">URL</Label>
                   <Input
                     placeholder="https://example.com"
                     value={linkUrl}
                     onChange={(e) => setLinkUrl(e.target.value)}
-                    className="h-9 text-sm"
+                    className="h-10 text-sm"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
@@ -1314,19 +1312,19 @@ export function DescriptionRichEditor({
                     }}
                   />
                 </div>
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-2 pt-2">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setShowLinkPopover(false)}
-                    className="flex-1"
+                    className="flex-1 h-10"
                   >
                     Cancel
                   </Button>
                   <Button
                     size="sm"
                     onClick={insertLink}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                    className="flex-1 h-10 bg-purple-600 hover:bg-purple-700"
                   >
                     Insert
                   </Button>
@@ -1351,16 +1349,16 @@ export function DescriptionRichEditor({
           </ToolbarButton>
 
           <InlinePopover isOpen={showImagePopover} onClose={() => setShowImagePopover(false)} themeColors={themeColors} isMobile={isMobile}>
-            <div className={cn("p-4", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
-              <h3 className="font-semibold text-sm mb-3">Insert Image</h3>
-              <div className="space-y-3">
+            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
+              <h3 className="font-semibold text-sm mb-4">Insert Image</h3>
+              <div className="space-y-4">
                 {/* Upload button */}
                 <button
                   type="button"
-                  className="w-full h-16 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors flex flex-col items-center justify-center gap-1"
+                  className="w-full h-20 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors flex flex-col items-center justify-center gap-1.5"
                   onClick={() => imageInputRef.current?.click()}
                 >
-                  <Upload className="h-5 w-5 text-purple-500" />
+                  <Upload className="h-6 w-6 text-purple-500" />
                   <span className="text-xs text-gray-500">Click to upload</span>
                 </button>
 
@@ -1369,17 +1367,17 @@ export function DescriptionRichEditor({
                     <span className="w-full border-t" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-gray-500">or</span>
+                    <span className={cn("px-2", isDarkTheme ? "bg-[#1a1a1a] text-gray-400" : "bg-white text-gray-500")}>or</span>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Image URL</Label>
+                  <Label className="text-xs font-medium">Image URL</Label>
                   <Input
                     placeholder="https://example.com/image.jpg"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
-                    className="h-9 text-sm"
+                    className="h-10 text-sm"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
@@ -1388,12 +1386,12 @@ export function DescriptionRichEditor({
                     }}
                   />
                 </div>
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-2 pt-2">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setShowImagePopover(false)}
-                    className="flex-1"
+                    className="flex-1 h-10"
                   >
                     Cancel
                   </Button>
@@ -1401,7 +1399,7 @@ export function DescriptionRichEditor({
                     size="sm"
                     onClick={insertImage}
                     disabled={!imageUrl}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
+                    className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
                   >
                     Insert
                   </Button>
@@ -1426,46 +1424,46 @@ export function DescriptionRichEditor({
           </ToolbarButton>
 
           <InlinePopover isOpen={showVideoPopover} onClose={() => setShowVideoPopover(false)} themeColors={themeColors} isMobile={isMobile}>
-            <div className={cn("p-4", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
-              <h3 className="font-semibold text-sm mb-3">Insert YouTube Video</h3>
-              <div className="space-y-3">
+            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
+              <h3 className="font-semibold text-sm mb-4">Insert YouTube Video</h3>
+              <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">YouTube URL</Label>
+                  <Label className="text-xs font-medium">YouTube URL</Label>
                   <Input
                     placeholder="https://www.youtube.com/watch?v=..."
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
-                    className="h-9 text-sm"
+                    className="h-10 text-sm"
                     autoFocus
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-xs">Display Mode</Label>
-                  <RadioGroup value={videoDisplayMode} onValueChange={(v) => setVideoDisplayMode(v as "embed" | "link")}>
+                <div className="space-y-2.5">
+                  <Label className="text-xs font-medium">Display Mode</Label>
+                  <RadioGroup value={videoDisplayMode} onValueChange={(v) => setVideoDisplayMode(v as "embed" | "link")} className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="embed" id="embed" className="text-purple-600 border-purple-600" />
                       <Label htmlFor="embed" className="flex items-center gap-2 cursor-pointer text-sm">
-                        <Play className="h-3 w-3" />
+                        <Play className="h-3.5 w-3.5" />
                         Embed video player
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="link" id="link" className="text-purple-600 border-purple-600" />
                       <Label htmlFor="link" className="flex items-center gap-2 cursor-pointer text-sm">
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="h-3.5 w-3.5" />
                         Show as thumbnail link
                       </Label>
                     </div>
                   </RadioGroup>
                 </div>
 
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-2 pt-2">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setShowVideoPopover(false)}
-                    className="flex-1"
+                    className="flex-1 h-10"
                   >
                     Cancel
                   </Button>
@@ -1473,7 +1471,7 @@ export function DescriptionRichEditor({
                     size="sm"
                     onClick={insertVideo}
                     disabled={!videoUrl}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
+                    className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
                   >
                     Insert
                   </Button>
@@ -1515,15 +1513,15 @@ export function DescriptionRichEditor({
 
         {/* Button Popover (triggered from Insert menu) - Simplified UI */}
         <InlinePopover isOpen={showButtonPopover} onClose={() => setShowButtonPopover(false)} className="left-auto right-0" themeColors={themeColors} isMobile={isMobile}>
-          <div className={cn("p-3", isMobile ? "w-full" : "w-64")} style={{ color: fgColor }}>
-            <h3 className="font-semibold text-sm mb-3">Insert Button</h3>
-            <div className="space-y-3">
+          <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-72")} style={{ color: fgColor }}>
+            <h3 className="font-semibold text-sm mb-4">Insert Button</h3>
+            <div className="space-y-4">
               {/* Button Text */}
               <Input
                 placeholder="Button text..."
                 value={buttonText}
                 onChange={(e) => setButtonText(e.target.value)}
-                className="h-9 text-sm"
+                className="h-10 text-sm"
                 autoFocus
               />
 
@@ -1532,11 +1530,11 @@ export function DescriptionRichEditor({
                 placeholder="Link URL (optional)"
                 value={buttonLink}
                 onChange={(e) => setButtonLink(e.target.value)}
-                className="h-9 text-sm"
+                className="h-10 text-sm"
               />
 
               {/* Color presets - compact grid */}
-              <div className="flex flex-wrap gap-1.5 justify-center">
+              <div className="flex flex-wrap gap-2 justify-center py-1">
                 {buttonColorPresets.map((preset) => (
                   <button
                     key={preset.value}
@@ -1546,7 +1544,7 @@ export function DescriptionRichEditor({
                       setButtonTextColor(preset.textColor)
                     }}
                     className={cn(
-                      "w-6 h-6 rounded-full border-2 transition-all",
+                      "w-7 h-7 rounded-full border-2 transition-all",
                       buttonColor === preset.value ? "scale-110 ring-2" : "border-transparent hover:scale-105"
                     )}
                     style={{
@@ -1562,13 +1560,13 @@ export function DescriptionRichEditor({
               {/* Preview - inline compact */}
               <div
                 className={cn(
-                  "p-2 rounded-lg border text-center",
+                  "p-3 rounded-lg border text-center",
                   isDarkTheme ? "border-[#333]" : "border-gray-200"
                 )}
                 style={{ backgroundColor: isDarkTheme ? "#0f0f0f" : "#f9fafb" }}
               >
                 <span
-                  className="inline-block px-3 py-1.5 font-medium text-sm rounded-lg"
+                  className="inline-block px-4 py-2 font-medium text-sm rounded-lg"
                   style={{
                     backgroundColor: buttonColor,
                     color: buttonTextColor,
@@ -1578,20 +1576,20 @@ export function DescriptionRichEditor({
                 </span>
               </div>
 
-              {/* Actions - compact */}
-              <div className="flex gap-2">
+              {/* Actions */}
+              <div className="flex gap-2 pt-1">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setShowButtonPopover(false)}
-                  className="flex-1 h-8"
+                  className="flex-1 h-10"
                 >
                   Cancel
                 </Button>
                 <Button
                   size="sm"
                   onClick={insertButton}
-                  className="flex-1 h-8"
+                  className="flex-1 h-10"
                   style={{ backgroundColor: accentColor }}
                 >
                   Insert

@@ -262,8 +262,8 @@ export function RefundPolicyDisplay({
   }
 
   // Determine tooltip colors based on theme preset
-  // For dark themes: use light tooltip
-  // For light themes: use dark tooltip
+  // For dark themes: use dark tooltip (matching the page)
+  // For light themes: use light tooltip (matching the page)
   const getThemeBasedColors = () => {
     // Check if explicit theme colors provided
     if (themeColors?.tooltipBackground) {
@@ -280,35 +280,35 @@ export function RefundPolicyDisplay({
     const isThemeDark = determineIfDark()
 
     if (isThemeDark) {
-      // Dark theme: use a light tooltip for contrast
+      // Dark theme: use dark tooltip that matches the page
       return {
-        bg: "#ffffff",
-        text: "#1a1a1a",
-        border: "rgba(229, 231, 235, 1)",
-        accent: "rgba(124, 58, 237, 0.1)",
-        accentText: "#7c3aed"
+        bg: "#1a1a1a",
+        text: "#ffffff",
+        border: "rgba(55, 65, 81, 0.5)",
+        accent: "rgba(124, 58, 237, 0.2)",
+        accentText: "#c4b5fd"
       }
     }
 
-    // Light themes: use dark tooltip for contrast
+    // Light themes: use light tooltip that matches the page
     // Special handling for cream theme
     if (themePreset === "cream") {
       return {
-        bg: "#2d2a24",
-        text: "#faf4e8",
-        border: "rgba(139, 109, 52, 0.3)",
-        accent: "rgba(139, 109, 52, 0.2)",
-        accentText: "#d4b062"
+        bg: "#faf4e8",
+        text: "#2d2a24",
+        border: "rgba(139, 109, 52, 0.2)",
+        accent: "rgba(139, 109, 52, 0.1)",
+        accentText: "#8b6d34"
       }
     }
 
-    // Default dark tooltip for light themes
+    // Default light tooltip for light themes
     return {
-      bg: "#1a1a1a",
-      text: "#ffffff",
-      border: "rgba(55, 65, 81, 0.5)",
-      accent: "rgba(124, 58, 237, 0.2)",
-      accentText: "#c4b5fd"
+      bg: "#ffffff",
+      text: "#1a1a1a",
+      border: "rgba(229, 231, 235, 1)",
+      accent: "rgba(124, 58, 237, 0.1)",
+      accentText: "#7c3aed"
     }
   }
 
@@ -351,7 +351,7 @@ export function RefundPolicyDisplay({
         <div
           ref={tooltipRef}
           className={cn(
-            "z-[9999] w-[280px] sm:w-[320px] rounded-xl shadow-2xl",
+            "z-[9999] w-[280px] sm:w-[320px] rounded-xl shadow-2xl flex flex-col",
             "transition-all duration-200 ease-out",
             isTooltipOpen
               ? "opacity-100 scale-100 pointer-events-auto"
@@ -368,16 +368,19 @@ export function RefundPolicyDisplay({
               left: "50%",
               top: "50%",
               transform: "translate(-50%, -50%)",
-              maxWidth: "calc(100vw - 24px)",
-              maxHeight: "70vh",
+              maxWidth: "calc(100vw - 32px)",
+              maxHeight: "calc(100vh - 48px)",
+              overflow: "hidden",
             } : {
               top: tooltipPosition.top,
               bottom: tooltipPosition.bottom,
               left: tooltipPosition.left,
               right: tooltipPosition.right,
               transform: tooltipPosition.transform,
-              marginTop: arrowPosition === "top" ? "10px" : undefined,
-              marginBottom: arrowPosition === "bottom" ? "10px" : undefined,
+              marginTop: arrowPosition === "top" ? "12px" : undefined,
+              marginBottom: arrowPosition === "bottom" ? "12px" : undefined,
+              maxHeight: "min(350px, calc(100vh - 100px))",
+              overflow: "hidden",
             }),
           }}
         >
@@ -421,10 +424,11 @@ export function RefundPolicyDisplay({
 
           {/* Content with scroll if needed */}
           <div
-            className="px-4 py-3 max-h-[200px] overflow-y-auto overscroll-contain"
+            className="px-4 py-3 flex-1 overflow-y-auto overscroll-contain"
             style={{
               scrollbarWidth: 'thin',
               scrollbarColor: `${mutedTextColor} transparent`,
+              minHeight: 0,
             }}
           >
             {/* Policy badge */}
@@ -450,7 +454,7 @@ export function RefundPolicyDisplay({
             {/* Updated date */}
             {updatedAt && (
               <p
-                className="text-[10px] mt-3 pt-2"
+                className="text-[10px] mt-3 pt-2 pb-1"
                 style={{
                   color: mutedTextColor,
                   borderTop: `1px solid ${borderDivider}`,
@@ -459,6 +463,8 @@ export function RefundPolicyDisplay({
                 Last updated: {formatDate(updatedAt)}
               </p>
             )}
+            {/* Extra padding at bottom to prevent cutoff */}
+            {!updatedAt && <div className="pb-1" />}
           </div>
         </div>
       </>
