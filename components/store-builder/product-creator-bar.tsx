@@ -295,7 +295,9 @@ export function ProductCreatorBar({
   }
 
   const wrapperClass = cn(
-    "w-full overflow-hidden transition-all relative",
+    "w-full transition-all relative",
+    // Use clip-path instead of overflow-hidden to prevent avatar clipping during scroll
+    // while still containing the selection ring
     isSelected && "ring-2 ring-sky-500 ring-inset",
   )
 
@@ -320,10 +322,13 @@ export function ProductCreatorBar({
             }
           }}
         >
-          <Avatar className="h-7 w-7 shrink-0">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-          </Avatar>
+          {/* Avatar wrapper with explicit sizing to prevent clipping during scroll */}
+          <div className="relative h-7 w-7 shrink-0">
+            <Avatar className="h-7 w-7 shrink-0 absolute inset-0">
+              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} className="object-cover" /> : null}
+              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+            </Avatar>
+          </div>
           <span className="text-[13px] font-medium truncate max-w-[70px]" style={{ color: settings.textColor || "#ffffff" }}>
             {creatorName}
           </span>
@@ -375,7 +380,7 @@ export function ProductCreatorBar({
       <div className="flex items-center gap-2 w-full justify-center">
         <Link
           href={creatorHref}
-          className="shrink-0"
+          className="shrink-0 flex items-center justify-center"
           aria-label={`Go to ${creatorName}'s shop`}
           onClick={(e) => {
             if (isEditorPreview) {
@@ -383,10 +388,13 @@ export function ProductCreatorBar({
             }
           }}
         >
-          <Avatar className="h-7 w-7 shrink-0">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-          </Avatar>
+          {/* Avatar wrapper with explicit sizing to prevent clipping during scroll */}
+          <div className="relative h-7 w-7 shrink-0">
+            <Avatar className="h-7 w-7 shrink-0 absolute inset-0">
+              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} className="object-cover" /> : null}
+              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+            </Avatar>
+          </div>
         </Link>
 
         {/* Input fits remaining space */}
@@ -400,7 +408,7 @@ export function ProductCreatorBar({
           required
           disabled={loading}
           className={cn(
-            adaptiveInputClass, 
+            adaptiveInputClass,
             "h-9 text-sm flex-1 min-w-0 px-3",
             inputOpacityClass
           )}

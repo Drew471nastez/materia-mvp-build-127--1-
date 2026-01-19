@@ -154,10 +154,18 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
   }, [])
 
   // In editor mode, start with sticky visible so users can see and customize it
-  const [showSticky, setShowSticky] = useState(!isPreviewMode)
+  // ALWAYS visible in editor mode on all devices (mobile included)
+  const [showSticky, setShowSticky] = useState(true)
   const lastScrollTopRef = useRef(0)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollParentRef = useRef<HTMLElement | null>(null)
+
+  // Ensure sticky is visible by default when in editor mode
+  useEffect(() => {
+    if (isEditorMode && currentPageType === "product") {
+      setShowSticky(true)
+    }
+  }, [isEditorMode, currentPageType, selectedProductId])
 
   useEffect(() => {
     if (currentPageType !== "product") return
@@ -175,11 +183,13 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       const sentinel = footerSentinelRef.current
       if (!sentinel) return false
       const rect = sentinel.getBoundingClientRect()
-      return rect.top < window.innerHeight + 120
+      // Smoother footer detection - hide when footer is about to enter viewport
+      return rect.top < window.innerHeight + 100
     }
 
     const handleScroll = () => {
       const y = getScrollTop()
+      const prevY = lastScrollTopRef.current
       lastScrollTopRef.current = y
 
       measureCanvas()
@@ -187,18 +197,24 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       const nearFooter = isNearFooter()
 
       // In editor mode, ALWAYS show sticky so users can see and customize it
-      // In preview/live mode, use scroll threshold
+      // Hide smoothly when approaching footer
       if (isEditorMode) {
         // Always visible in editor unless near footer
         setShowSticky(!nearFooter)
         return
       }
 
-      // Live mode: show after 200px scroll and not near footer
+      // Preview/Live mode: show on scroll up OR after initial scroll, hide near footer
       const scrollThreshold = 200
-      if (y > scrollThreshold && !nearFooter) {
+      const isScrollingUp = y < prevY
+
+      if (nearFooter) {
+        setShowSticky(false)
+      } else if (y > scrollThreshold) {
+        // Show after passing threshold (either scroll up or down)
         setShowSticky(true)
-      } else {
+      } else if (y <= scrollThreshold && !isScrollingUp) {
+        // Hide when scrolling back to top
         setShowSticky(false)
       }
     }
@@ -210,8 +226,12 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     targets.forEach((t) => t.addEventListener("scroll", handleScroll, { passive: true }))
     window.addEventListener("resize", handleScroll, { passive: true })
 
-    // Initial check
-    handleScroll()
+    // Initial check - in editor mode, always show by default
+    if (isEditorMode) {
+      setShowSticky(true)
+    } else {
+      handleScroll()
+    }
 
     return () => {
       targets.forEach((t) => t.removeEventListener("scroll", handleScroll))
@@ -501,7 +521,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   handleSelectSection(faqSection.id)
                 }
               }}
-              faqSettings={draftConfig.sections.find((s) => s.type === "faq")?.settings as { customFaqs?: Array<{ id: string; question: string; answer: string }> } | undefined}
+              faqSettings={draftConfig.sections.find((s) => s.type === "faq")?.settings as { customFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }>; allFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }> } | undefined}
             />
 
             {draftConfig.sections

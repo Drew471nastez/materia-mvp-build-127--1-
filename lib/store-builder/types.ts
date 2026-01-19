@@ -293,8 +293,10 @@ export interface FAQItem {
 // FAQ section for product pages
 export interface FAQSettings extends BaseSectionSettings {
   headline: string
-  // Custom FAQs (up to 4 additional ones)
+  // Custom FAQs (up to 4 additional ones) - kept for backward compatibility
   customFaqs: FAQItem[]
+  // All FAQs in order (defaults + custom) - used for combined ordering
+  allFaqs?: FAQItem[]
 }
 
 // Union of all section settings

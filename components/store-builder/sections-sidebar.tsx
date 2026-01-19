@@ -4240,17 +4240,19 @@ function AboutSettingsForm({
   )
 }
 
-// Sortable FAQ Item component for drag and drop
+// Sortable FAQ Item component for drag and drop - supports both default and custom FAQs
 function SortableFAQItem({
   faq,
   index,
   onUpdate,
   onRemove,
+  isDefault,
 }: {
   faq: FAQItem
   index: number
   onUpdate: (id: string, updates: Partial<FAQItem>) => void
   onRemove: (id: string) => void
+  isDefault?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: faq.id,
@@ -4266,7 +4268,8 @@ function SortableFAQItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "p-3 border border-border rounded-lg space-y-3 bg-background",
+        "p-3 border rounded-lg space-y-3",
+        isDefault ? "bg-muted/30 border-border/50" : "bg-background border-border",
         isDragging && "opacity-50 shadow-lg"
       )}
     >
@@ -4279,35 +4282,46 @@ function SortableFAQItem({
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
-          <span className="text-xs font-medium text-muted-foreground">FAQ {index + 4}</span>
+          <span className={cn("text-xs font-medium", isDefault ? "text-muted-foreground/70" : "text-muted-foreground")}>
+            FAQ {index + 1}
+            {isDefault && <span className="ml-1 text-[10px] opacity-70">(default)</span>}
+          </span>
         </div>
-        <button
-          onClick={() => onRemove(faq.id)}
-          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        {!isDefault && (
+          <button
+            onClick={() => onRemove(faq.id)}
+            className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
-      <div className="space-y-2">
-        <Input
-          placeholder="Question"
-          value={faq.question}
-          onChange={(e) => onUpdate(faq.id, { question: e.target.value })}
-          className="text-sm"
-        />
-        <Textarea
-          placeholder="Answer"
-          value={faq.answer}
-          onChange={(e) => onUpdate(faq.id, { answer: e.target.value })}
-          rows={2}
-          className="text-sm resize-none"
-        />
-      </div>
+      {isDefault ? (
+        <p className="text-sm text-muted-foreground pl-1">
+          {faq.question}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <Input
+            placeholder="Question"
+            value={faq.question}
+            onChange={(e) => onUpdate(faq.id, { question: e.target.value })}
+            className="text-sm"
+          />
+          <Textarea
+            placeholder="Answer"
+            value={faq.answer}
+            onChange={(e) => onUpdate(faq.id, { answer: e.target.value })}
+            rows={2}
+            className="text-sm resize-none"
+          />
+        </div>
+      )}
     </div>
   )
 }
 
-// FAQ Settings Form for product pages
+// FAQ Settings Form for product pages - ALL FAQs (default + custom) can be reordered together
 function FAQSettingsForm({
   settings,
   onChange,
@@ -4319,8 +4333,8 @@ function FAQSettingsForm({
 }) {
   const router = useRouter()
 
-  // Default FAQs that cannot be deleted
-  const defaultFaqs: FAQItem[] = [
+  // Default FAQs that cannot be deleted (3 total)
+  const defaultFaqTemplates: FAQItem[] = [
     {
       id: "default-1",
       question: "How do I access my purchase?",
@@ -4341,9 +4355,27 @@ function FAQSettingsForm({
     },
   ]
 
-  const customFaqs = settings.customFaqs || []
+  // Get all FAQs in order - if allFaqs is set, use it; otherwise initialize with defaults then custom
+  const getAllFaqs = (): FAQItem[] => {
+    if (settings.allFaqs && settings.allFaqs.length > 0) {
+      // Use stored order, but ensure all defaults are present
+      const storedIds = new Set(settings.allFaqs.map(f => f.id))
+      const missingDefaults = defaultFaqTemplates.filter(d => !storedIds.has(d.id))
+      // If any defaults are missing, add them at the start
+      if (missingDefaults.length > 0) {
+        return [...missingDefaults, ...settings.allFaqs]
+      }
+      return settings.allFaqs
+    }
+    // Initialize with defaults first, then any custom FAQs
+    const customFaqs = (settings.customFaqs || []).map(faq => ({ ...faq, isDefault: false }))
+    return [...defaultFaqTemplates, ...customFaqs]
+  }
+
+  const allFaqs = getAllFaqs()
+  const customFaqsCount = allFaqs.filter(f => !f.isDefault).length
   const maxCustomFaqs = 4
-  const canAddMore = customFaqs.length < maxCustomFaqs
+  const canAddMore = customFaqsCount < maxCustomFaqs
 
   // Sensors for drag and drop
   const sensors = useSensors(
@@ -4357,6 +4389,7 @@ function FAQSettingsForm({
     })
   )
 
+  // Add new custom FAQ at the END (below all existing FAQs including defaults)
   const addCustomFaq = () => {
     if (!canAddMore) return
     const newFaq: FAQItem = {
@@ -4365,30 +4398,52 @@ function FAQSettingsForm({
       answer: "",
       isDefault: false,
     }
-    onChange({ customFaqs: [...customFaqs, newFaq] })
+    const updatedAllFaqs = [...allFaqs, newFaq]
+    const updatedCustomFaqs = updatedAllFaqs.filter(f => !f.isDefault)
+    onChange({
+      allFaqs: updatedAllFaqs,
+      customFaqs: updatedCustomFaqs
+    })
   }
 
-  const updateCustomFaq = (id: string, updates: Partial<FAQItem>) => {
-    const updated = customFaqs.map(faq =>
+  const updateFaq = (id: string, updates: Partial<FAQItem>) => {
+    const updated = allFaqs.map(faq =>
       faq.id === id ? { ...faq, ...updates } : faq
     )
-    onChange({ customFaqs: updated })
+    const updatedCustomFaqs = updated.filter(f => !f.isDefault)
+    onChange({
+      allFaqs: updated,
+      customFaqs: updatedCustomFaqs
+    })
   }
 
-  const removeCustomFaq = (id: string) => {
-    onChange({ customFaqs: customFaqs.filter(faq => faq.id !== id) })
+  const removeFaq = (id: string) => {
+    // Only allow removing custom FAQs
+    const faq = allFaqs.find(f => f.id === id)
+    if (faq?.isDefault) return
+
+    const updated = allFaqs.filter(faq => faq.id !== id)
+    const updatedCustomFaqs = updated.filter(f => !f.isDefault)
+    onChange({
+      allFaqs: updated,
+      customFaqs: updatedCustomFaqs
+    })
   }
 
   const handleFaqDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
 
     if (over && active.id !== over.id) {
-      const oldIndex = customFaqs.findIndex((faq) => faq.id === active.id)
-      const newIndex = customFaqs.findIndex((faq) => faq.id === over.id)
+      const oldIndex = allFaqs.findIndex((faq) => faq.id === active.id)
+      const newIndex = allFaqs.findIndex((faq) => faq.id === over.id)
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        const reordered = arrayMove(customFaqs, oldIndex, newIndex)
-        onChange({ customFaqs: reordered })
+        const reordered = arrayMove(allFaqs, oldIndex, newIndex)
+        const reorderedCustomFaqs = reordered.filter(f => !f.isDefault)
+        onChange({
+          allFaqs: reordered,
+          customFaqs: reorderedCustomFaqs
+        })
       }
     }
   }
@@ -4416,49 +4471,34 @@ function FAQSettingsForm({
         </button>
       </div>
 
-      {/* Default FAQs (read-only display) */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Default FAQs (3)</Label>
-        <p className="text-xs text-muted-foreground">
-          These FAQs appear by default and cannot be removed from this view.
-        </p>
-        <div className="space-y-2">
-          {defaultFaqs.map((faq, index) => (
-            <div key={faq.id} className="p-3 bg-muted/30 rounded-lg border border-border/50">
-              <p className="text-sm font-medium text-muted-foreground">
-                {index + 1}. {faq.question}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Custom FAQs with drag and drop */}
+      {/* All FAQs with drag and drop - defaults + custom together */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Custom FAQs ({customFaqs.length}/{maxCustomFaqs})</Label>
+          <Label className="text-sm font-medium">FAQs ({allFaqs.length})</Label>
+          <span className="text-xs text-muted-foreground">
+            {customFaqsCount}/{maxCustomFaqs} custom
+          </span>
         </div>
         <p className="text-xs text-muted-foreground">
-          Add up to {maxCustomFaqs} additional FAQs. Drag to reorder.
+          Drag to reorder all FAQs. Default FAQs cannot be deleted.
         </p>
 
-        {customFaqs.length > 0 && (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFaqDragEnd}>
-            <SortableContext items={customFaqs.map(faq => faq.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-2">
-                {customFaqs.map((faq, index) => (
-                  <SortableFAQItem
-                    key={faq.id}
-                    faq={faq}
-                    index={index}
-                    onUpdate={updateCustomFaq}
-                    onRemove={removeCustomFaq}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFaqDragEnd}>
+          <SortableContext items={allFaqs.map(faq => faq.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {allFaqs.map((faq, index) => (
+                <SortableFAQItem
+                  key={faq.id}
+                  faq={faq}
+                  index={index}
+                  onUpdate={updateFaq}
+                  onRemove={removeFaq}
+                  isDefault={faq.isDefault}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
 
         {canAddMore && (
           <Button

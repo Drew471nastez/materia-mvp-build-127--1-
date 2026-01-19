@@ -2845,7 +2845,10 @@ export interface UnifiedProductPageProps {
   reviews?: any[]
   globalSettings?: GlobalStoreSettings
   onEditFaqs?: () => void
-  faqSettings?: { customFaqs?: Array<{ id: string; question: string; answer: string }> }
+  faqSettings?: {
+    customFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }>
+    allFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }>
+  }
 }
 
 export function UnifiedProductPage({
@@ -2922,15 +2925,29 @@ export function UnifiedProductPage({
       answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.",
     },
   ]
-  // Custom FAQs from FAQ section settings (added via the sidebar)
-  const customFaqs = (faqSettings?.customFaqs || [])
-    .filter(faq => faq.question && faq.answer) // Only include FAQs with both question and answer
-    .map(faq => ({ question: faq.question, answer: faq.answer }))
 
-  // Combine: Custom FAQs FIRST, then product-level FAQs OR default FAQs
-  // This ensures custom FAQs from store builder appear ABOVE default FAQs
-  const baseFaqs = productFaqs.length > 0 ? productFaqs : defaultFaqs
-  const displayFaqs = [...customFaqs, ...baseFaqs]
+  // Use allFaqs if available (preserves user-defined order of all FAQs including defaults)
+  // Otherwise fall back to old behavior for backward compatibility
+  const getDisplayFaqs = () => {
+    // If allFaqs is set (new unified ordering system), use it
+    if (faqSettings?.allFaqs && faqSettings.allFaqs.length > 0) {
+      return faqSettings.allFaqs
+        .filter(faq => faq.question && faq.answer)
+        .map(faq => ({ question: faq.question, answer: faq.answer }))
+    }
+
+    // Legacy behavior: Custom FAQs from FAQ section settings (added via the sidebar)
+    const customFaqs = (faqSettings?.customFaqs || [])
+      .filter(faq => faq.question && faq.answer)
+      .map(faq => ({ question: faq.question, answer: faq.answer }))
+
+    // Combine: Default FAQs FIRST, then custom FAQs (matches new behavior where custom added at end)
+    // If there are product-level FAQs, use those instead of defaults
+    const baseFaqs = productFaqs.length > 0 ? productFaqs : defaultFaqs
+    return [...baseFaqs, ...customFaqs]
+  }
+
+  const displayFaqs = getDisplayFaqs()
 
   // Theme preset colors
   const themePreset = globalSettings?.themePreset || "default"
