@@ -111,13 +111,13 @@ export function RefundPolicyDisplay({
   )
 
   // Preview mode modal - renders inline within the preview canvas only
-  // Responsive: mobile-first with proper spacing
+  // Responsive: mobile-first with compact spacing
   const renderPreviewModeModal = () => {
     if (!isModalOpen) return null
 
     return (
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4"
         style={{ pointerEvents: "auto" }}
       >
         {/* Overlay - covers entire viewport */}
@@ -125,41 +125,41 @@ export function RefundPolicyDisplay({
           className="fixed inset-0 bg-black/60 backdrop-blur-sm"
           onClick={() => setIsModalOpen(false)}
         />
-        {/* Modal content - responsive popup with good UX sizes */}
-        <div className="relative z-10 w-full max-w-[340px] sm:max-w-[400px] mx-auto bg-white border-0 shadow-2xl rounded-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
-          {/* Header with close button */}
-          <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-100">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+        {/* Modal content - compact responsive popup */}
+        <div className="relative z-10 w-full max-w-[300px] sm:max-w-[340px] mx-auto bg-white border-0 shadow-2xl rounded-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
+          {/* Header with close button - compact */}
+          <div className="flex items-center justify-between px-4 py-2.5 sm:px-4 sm:py-3 border-b border-gray-100">
+            <h2 className="text-sm sm:text-base font-semibold text-gray-900">
               Refund Policy
             </h2>
             <button
               onClick={() => setIsModalOpen(false)}
-              className="flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
               aria-label="Close"
             >
-              <X className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-600" />
+              <X className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-gray-600" />
             </button>
           </div>
 
-          {/* Body content - responsive padding and spacing */}
-          <div className="px-4 py-3 sm:px-5 sm:py-4 space-y-3 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto">
-            <div className="rounded-lg bg-purple-50 px-3 py-2.5 sm:px-4 sm:py-3 border border-purple-100">
-              <p className="text-sm font-medium text-purple-900">
+          {/* Body content - compact padding and spacing */}
+          <div className="px-4 py-2.5 sm:px-4 sm:py-3 space-y-2.5 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto">
+            <div className="rounded-lg bg-purple-50 px-3 py-2 sm:px-3 sm:py-2.5 border border-purple-100">
+              <p className="text-xs sm:text-sm font-medium text-purple-900">
                 {policyLabel}
               </p>
             </div>
 
             {finePrint && (
-              <div className="space-y-1.5 sm:space-y-2">
-                <h4 className="text-xs sm:text-sm font-medium text-gray-700">Details</h4>
-                <p className="text-xs sm:text-sm text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
+              <div className="space-y-1 sm:space-y-1.5">
+                <h4 className="text-xs font-medium text-gray-700">Details</h4>
+                <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
                   {finePrint}
                 </p>
               </div>
             )}
 
             {updatedAt && (
-              <p className="text-[10px] sm:text-xs text-gray-400 pt-2 sm:pt-3 border-t border-gray-100">
+              <p className="text-[10px] text-gray-400 pt-1.5 sm:pt-2 border-t border-gray-100">
                 Last updated: {formatDate(updatedAt)}
               </p>
             )}
@@ -201,35 +201,35 @@ export function RefundPolicyDisplay({
       {/* Preview mode: render inline modal within preview canvas */}
       {isPreviewMode && renderPreviewModeModal()}
 
-      {/* Normal mode: use Dialog portal - responsive for desktop and mobile */}
+      {/* Normal mode: use Dialog portal - compact responsive for desktop and mobile */}
       {!isPreviewMode && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="w-[calc(100vw-32px)] max-w-[340px] sm:max-w-[400px] mx-auto bg-white border-0 shadow-2xl p-0 rounded-xl overflow-hidden">
-            {/* Header with title */}
-            <DialogHeader className="px-4 py-3 sm:px-5 sm:py-4 pb-0">
-              <DialogTitle className="text-base sm:text-lg font-semibold text-gray-900">
+          <DialogContent className="w-[calc(100vw-24px)] max-w-[300px] sm:max-w-[340px] mx-auto bg-white border-0 shadow-2xl p-0 rounded-xl overflow-hidden">
+            {/* Header with title - compact */}
+            <DialogHeader className="px-4 py-2.5 sm:px-4 sm:py-3 pb-0">
+              <DialogTitle className="text-sm sm:text-base font-semibold text-gray-900">
                 Refund Policy
               </DialogTitle>
             </DialogHeader>
-            {/* Body content - responsive padding and spacing */}
-            <div className="px-4 py-3 sm:px-5 sm:py-4 pt-2 space-y-3 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto">
-              <div className="rounded-lg bg-purple-50 px-3 py-2.5 sm:px-4 sm:py-3 border border-purple-100">
-                <p className="text-sm font-medium text-purple-900">
+            {/* Body content - compact padding and spacing */}
+            <div className="px-4 py-2.5 sm:px-4 sm:py-3 pt-1.5 space-y-2.5 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto">
+              <div className="rounded-lg bg-purple-50 px-3 py-2 sm:px-3 sm:py-2.5 border border-purple-100">
+                <p className="text-xs sm:text-sm font-medium text-purple-900">
                   {policyLabel}
                 </p>
               </div>
 
               {finePrint && (
-                <div className="space-y-1.5 sm:space-y-2">
-                  <h4 className="text-xs sm:text-sm font-medium text-gray-700">Details</h4>
-                  <p className="text-xs sm:text-sm text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
+                <div className="space-y-1 sm:space-y-1.5">
+                  <h4 className="text-xs font-medium text-gray-700">Details</h4>
+                  <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
                     {finePrint}
                   </p>
                 </div>
               )}
 
               {updatedAt && (
-                <p className="text-[10px] sm:text-xs text-gray-400 pt-2 sm:pt-3 border-t border-gray-100">
+                <p className="text-[10px] text-gray-400 pt-1.5 sm:pt-2 border-t border-gray-100">
                   Last updated: {formatDate(updatedAt)}
                 </p>
               )}

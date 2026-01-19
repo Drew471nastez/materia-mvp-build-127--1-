@@ -3517,6 +3517,7 @@ export function UnifiedProductPage({
             {settings.showFaqs !== false && (
               <div
                 className={cn("mt-8 relative group/faq", !isMobile && "sm:mt-10")}
+                data-faq-section
                 onMouseEnter={() => !isPreviewMode && setIsFaqHovered(true)}
                 onMouseLeave={() => !isPreviewMode && setIsFaqHovered(false)}
               >

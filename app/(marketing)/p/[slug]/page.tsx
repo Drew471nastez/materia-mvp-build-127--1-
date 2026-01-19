@@ -984,7 +984,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           </div>
         )}
 
-        <div className="mt-8 sm:mt-10">
+        <div className="mt-8 sm:mt-10" data-faq-section>
           <h2
             className="mb-4 text-lg font-semibold"
             style={{ color: themeColors.faqTextColor || "var(--foreground)" }}

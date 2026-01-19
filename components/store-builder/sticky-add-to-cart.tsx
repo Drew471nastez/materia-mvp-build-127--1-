@@ -57,7 +57,17 @@ export function EditorStickyAddToCart({
   onSelect,
   scrollY = 0,
 }: StickyAddToCartProps) {
+  // Calculate visibility based on scroll position (show after 40% scroll)
+  // In editor, we show it after some scroll to simulate live behavior
+  const scrollThreshold = 400 // Show after scrolling 400px in editor preview
+  const isVisibleByScroll = scrollY >= scrollThreshold
+
+  // If settings say not visible, don't render
   if (!settings.visible) return null
+
+  // In editor preview mode, show based on scroll (unless selected for editing)
+  // When selected, always show so user can edit
+  const shouldShow = isSelected || isVisibleByScroll || !isEditorPreview
 
   const buttonText = getButtonText(settings.buttonStyle)
   const reviewsCount = product.reviews_count || 0
@@ -133,11 +143,12 @@ export function EditorStickyAddToCart({
     <div
       onClick={handleWrapperClick}
       className={cn(
-        "sticky bottom-0 w-full z-30 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
+        "sticky bottom-0 w-full z-30 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
         isMobile ? "py-3 px-[7px]" : "py-3.5 px-[15px]",
         onSelect && "cursor-pointer",
         isSelected && "ring-2 ring-sky-500 ring-inset",
         !settings.borderColor && "border-gray-200",
+        shouldShow ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none",
       )}
       style={{
         backgroundColor: settings.backgroundColor || "#ffffff",
@@ -192,8 +203,8 @@ export function LiveStickyAddToCart({
   creatorId,
   onAddToCart,
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
-  // Start visible by default so it shows immediately on page load/refresh
-  const [isVisible, setIsVisible] = useState(true)
+  // Start hidden - only show after scrolling past product content area
+  const [isVisible, setIsVisible] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
 
@@ -202,7 +213,7 @@ export function LiveStickyAddToCart({
     setIsMounted(true)
   }, [])
 
-  // Handle scroll visibility - only hide when near footer
+  // Handle scroll visibility - show after scrolling past 40% of page, hide near footer
   useEffect(() => {
     if (!isMounted) return
 
@@ -223,8 +234,29 @@ export function LiveStickyAddToCart({
       const currentBottom = scrollY + windowHeight
       const nearFooter = currentBottom > footerTop - 100
 
-      // Show by default, only hide when near footer
-      const shouldShow = !nearFooter
+      // Calculate scroll percentage of the page
+      const scrollableHeight = documentHeight - windowHeight
+      const scrollPercentage = scrollableHeight > 0 ? (scrollY / scrollableHeight) * 100 : 0
+
+      // Try to find FAQ section as the trigger point
+      const faqSection = document.querySelector('[data-faq-section]') ||
+                         document.querySelector('.faq-section') ||
+                         document.querySelector('h2:has(+ .accordion)')
+
+      let pastProductContent = false
+
+      if (faqSection) {
+        // Show after scrolling past the FAQ section (user has seen product content)
+        const faqRect = faqSection.getBoundingClientRect()
+        const faqTop = faqRect.top + scrollY
+        pastProductContent = scrollY > faqTop - windowHeight * 0.5
+      } else {
+        // Fallback: show after scrolling past 40% of the page
+        pastProductContent = scrollPercentage >= 40
+      }
+
+      // Show only after scrolling past product content and not near footer
+      const shouldShow = pastProductContent && !nearFooter
       setIsVisible(shouldShow)
     }
 
