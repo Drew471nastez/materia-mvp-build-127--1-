@@ -283,13 +283,15 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
 
   const popoverContent = (
     <>
-      {/* Backdrop */}
+      {/* Backdrop - very subtle fade */}
       <div
-        className="fixed inset-0 animate-in fade-in-0 duration-150"
+        className="fixed inset-0"
         style={{
-          backgroundColor: isMobileView ? "rgba(0,0,0,0.4)" : "transparent",
+          backgroundColor: isMobileView ? "rgba(0,0,0,0.3)" : "transparent",
           zIndex: 2147483645,
-          pointerEvents: "auto"
+          pointerEvents: "auto",
+          opacity: 1,
+          animation: "fadeIn 150ms ease-out forwards"
         }}
         onClick={onClose}
         onMouseDown={(e) => e.stopPropagation()}
@@ -298,7 +300,6 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
         ref={popoverRef}
         className={cn(
           "rounded-xl shadow-2xl border flex flex-col",
-          "animate-in fade-in-0 zoom-in-95 duration-200",
           className
         )}
         style={{
@@ -308,6 +309,8 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           backgroundColor: bgColor,
           borderColor: borderColorValue,
           color: textColor,
+          // Subtle animation: gentle fade + very slight scale from 98%
+          animation: "popoverIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
           ...(isMobileView ? {
             left: "50%",
             top: "50%",
@@ -332,6 +335,23 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           {children}
         </div>
       </div>
+      {/* Inline keyframes for subtle animations */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes popoverIn {
+          from {
+            opacity: 0;
+            transform: ${isMobileView ? 'translate(-50%, -50%) scale(0.98)' : 'scale(0.98)'};
+          }
+          to {
+            opacity: 1;
+            transform: ${isMobileView ? 'translate(-50%, -50%) scale(1)' : 'scale(1)'};
+          }
+        }
+      `}</style>
     </>
   )
 
@@ -1078,21 +1098,47 @@ export function DescriptionRichEditor({
         if (editorRef.current) {
           editorRef.current.focus()
 
-          // Create X embed using Twitter's embed format with blockquote
-          const embedHtml = `<div data-embed-id="${embedId}" data-embed-type="x-post" contenteditable="false" class="embed-container" style="margin: 12px 0; user-select: none; position: relative;" onmouseenter="this.querySelector('[data-delete-embed]').style.opacity='1'" onmouseleave="this.querySelector('[data-delete-embed]').style.opacity='0'">${deleteButtonHtml}<blockquote class="twitter-tweet" data-dnt="true"><a href="${xPostUrl}"></a></blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></div><p><br></p>`
+          // Create X embed using Twitter's embed format with blockquote (NO inline script - it won't execute)
+          // Store the URL in a data attribute for the preview renderer to use
+          const embedHtml = `<div data-embed-id="${embedId}" data-embed-type="x-post" data-x-url="${xPostUrl}" contenteditable="false" class="embed-container x-embed-container" style="margin: 12px 0; user-select: none; position: relative; min-height: 200px;" onmouseenter="this.querySelector('[data-delete-embed]').style.opacity='1'" onmouseleave="this.querySelector('[data-delete-embed]').style.opacity='0'">${deleteButtonHtml}<blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${xPostUrl}">Loading tweet...</a></blockquote></div><p><br></p>`
 
           document.execCommand("insertHTML", false, embedHtml)
           handleContentChange()
 
-          // Load Twitter widgets script if not already loaded
-          if (typeof window !== 'undefined' && !(window as any).twttr) {
-            const script = document.createElement('script')
-            script.src = 'https://platform.twitter.com/widgets.js'
-            script.async = true
-            document.head.appendChild(script)
-          } else if ((window as any).twttr?.widgets) {
-            (window as any).twttr.widgets.load()
+          // Load Twitter widgets script and render the embed
+          const loadAndRenderTwitterWidget = () => {
+            if (typeof window === 'undefined') return
+
+            const renderEmbed = () => {
+              const embedElement = editorRef.current?.querySelector(`[data-embed-id="${embedId}"]`)
+              if (embedElement && (window as any).twttr?.widgets) {
+                (window as any).twttr.widgets.load(embedElement)
+              }
+            }
+
+            if (!(window as any).twttr) {
+              // Load Twitter widgets script
+              const script = document.createElement('script')
+              script.src = 'https://platform.twitter.com/widgets.js'
+              script.async = true
+              script.onload = () => {
+                // Wait for twttr to be ready
+                if ((window as any).twttr?.ready) {
+                  (window as any).twttr.ready(renderEmbed)
+                } else {
+                  setTimeout(renderEmbed, 500)
+                }
+              }
+              document.head.appendChild(script)
+            } else if ((window as any).twttr?.widgets) {
+              renderEmbed()
+            } else if ((window as any).twttr?.ready) {
+              (window as any).twttr.ready(renderEmbed)
+            }
           }
+
+          // Render the embed after a small delay to ensure DOM is updated
+          setTimeout(loadAndRenderTwitterWidget, 100)
 
           // Place cursor after the embed
           setTimeout(() => {
@@ -1878,12 +1924,13 @@ export function DescriptionRichEditor({
       {/* Floating Link Button - appears when text is selected */}
       {textSelectionPosition && !showTextSelectionLinkPopover && (
         <div
-          className="absolute animate-in fade-in-0 duration-100"
+          className="absolute"
           style={{
             top: textSelectionPosition.top,
             left: textSelectionPosition.left,
             transform: "translateX(-50%)",
             zIndex: 2147483640,
+            animation: "fadeIn 120ms ease-out forwards"
           }}
         >
           <button
@@ -1907,12 +1954,13 @@ export function DescriptionRichEditor({
       {/* Text Selection Link Popover */}
       {textSelectionPosition && showTextSelectionLinkPopover && (
         <div
-          className="absolute animate-in fade-in-0 slide-in-from-top-2 duration-150"
+          className="absolute"
           style={{
             top: textSelectionPosition.top - 10,
             left: textSelectionPosition.left,
             transform: "translateX(-50%)",
             zIndex: 2147483641,
+            animation: "popoverIn 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards"
           }}
         >
           <div
@@ -2170,7 +2218,13 @@ export function DescriptionEditWrapper({
         >
           Description
         </h2>
-        <div className="animate-in fade-in-0 slide-in-from-top-2 duration-200">
+        <div style={{ animation: "editorFadeIn 180ms ease-out forwards" }}>
+          <style>{`
+            @keyframes editorFadeIn {
+              from { opacity: 0; transform: translateY(-4px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
           <DescriptionRichEditor
             value={description}
             onChange={onDescriptionChange}
@@ -2189,7 +2243,8 @@ export function DescriptionEditWrapper({
 
   return (
     <div
-      className="relative group/description animate-in fade-in-0 duration-200"
+      className="relative group/description"
+      style={{ animation: "fadeIn 150ms ease-out forwards" }}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       data-description-section
@@ -2234,6 +2289,64 @@ export const RichDescriptionContent = React.memo(function RichDescriptionContent
   className?: string
   textColor?: string
 }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Load Twitter widgets for any X embeds in the content
+  useEffect(() => {
+    if (!html || !containerRef.current) return
+
+    // Check if there are any X embeds that need rendering
+    const xEmbeds = containerRef.current.querySelectorAll('[data-embed-type="x-post"]')
+    if (xEmbeds.length === 0) return
+
+    const loadTwitterWidgets = () => {
+      if (typeof window === 'undefined') return
+
+      const renderEmbeds = () => {
+        if ((window as any).twttr?.widgets && containerRef.current) {
+          (window as any).twttr.widgets.load(containerRef.current)
+        }
+      }
+
+      if (!(window as any).twttr) {
+        // Check if script is already being loaded
+        const existingScript = document.querySelector('script[src*="platform.twitter.com/widgets.js"]')
+        if (existingScript) {
+          // Script is loading, wait for it
+          existingScript.addEventListener('load', () => {
+            if ((window as any).twttr?.ready) {
+              (window as any).twttr.ready(renderEmbeds)
+            } else {
+              setTimeout(renderEmbeds, 500)
+            }
+          })
+          return
+        }
+
+        // Load Twitter widgets script
+        const script = document.createElement('script')
+        script.src = 'https://platform.twitter.com/widgets.js'
+        script.async = true
+        script.onload = () => {
+          if ((window as any).twttr?.ready) {
+            (window as any).twttr.ready(renderEmbeds)
+          } else {
+            setTimeout(renderEmbeds, 500)
+          }
+        }
+        document.head.appendChild(script)
+      } else if ((window as any).twttr?.widgets) {
+        renderEmbeds()
+      } else if ((window as any).twttr?.ready) {
+        (window as any).twttr.ready(renderEmbeds)
+      }
+    }
+
+    // Small delay to ensure DOM is ready
+    const timeoutId = setTimeout(loadTwitterWidgets, 100)
+    return () => clearTimeout(timeoutId)
+  }, [html])
+
   if (!html) return null
 
   // Check if it's plain text (no HTML tags)
@@ -2252,6 +2365,7 @@ export const RichDescriptionContent = React.memo(function RichDescriptionContent
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         "prose prose-sm max-w-none",
         "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3",
@@ -2268,6 +2382,10 @@ export const RichDescriptionContent = React.memo(function RichDescriptionContent
         "[&_[data-embed-type]]:pointer-events-auto",
         "[&_[data-embed-type='youtube']]:relative [&_[data-embed-type='youtube']]:overflow-hidden",
         "[&_[data-embed-type='youtube']_iframe]:pointer-events-auto",
+        // X/Twitter embed styling
+        "[&_[data-embed-type='x-post']]:my-4 [&_[data-embed-type='x-post']]:min-h-[200px]",
+        "[&_.twitter-tweet]:mx-auto",
+        "[&_.twitter-tweet-rendered]:mx-auto",
         // Prevent hover state changes from causing re-renders/flashing
         "[&_div[style*='position: relative'][style*='padding-bottom']]:will-change-auto",
         "[&_div[style*='position: relative'][style*='padding-bottom']]:transform-gpu",
