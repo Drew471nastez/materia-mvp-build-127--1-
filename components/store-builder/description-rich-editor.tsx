@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from "react"
+import ReactDOM from "react-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -136,6 +137,7 @@ function textToHtml(text: string): string {
 }
 
 // Inline Popover Component for a modern, smooth experience
+// Uses fixed positioning and portal to prevent clipping issues
 interface InlinePopoverProps {
   isOpen: boolean
   onClose: () => void
@@ -144,20 +146,37 @@ interface InlinePopoverProps {
   anchorRef?: React.RefObject<HTMLElement | null>
   themeColors?: ThemeColors
   isMobile?: boolean
+  triggerRef?: React.RefObject<HTMLElement | null>
 }
 
-function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeColors, isMobile }: InlinePopoverProps) {
+function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeColors, isMobile, triggerRef }: InlinePopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null)
-  const [adjustedPosition, setAdjustedPosition] = useState<{
-    left?: string
-    right?: string
-    transform?: string
-    top?: string
-    bottom?: string
-    marginTop?: string
-    marginBottom?: string
-    position?: "absolute" | "fixed"
-  }>({})
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null)
+  const [position, setPosition] = useState<{
+    top: number
+    left: number
+    transformOrigin: string
+  }>({ top: 0, left: 0, transformOrigin: "top left" })
+
+  // Create portal container on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      let container = document.getElementById("popover-portal-root")
+      if (!container) {
+        container = document.createElement("div")
+        container.id = "popover-portal-root"
+        container.style.position = "fixed"
+        container.style.top = "0"
+        container.style.left = "0"
+        container.style.width = "0"
+        container.style.height = "0"
+        container.style.zIndex = "2147483647" // Max z-index
+        container.style.pointerEvents = "none"
+        document.body.appendChild(container)
+      }
+      setPortalContainer(container)
+    }
+  }, [])
 
   useEffect(() => {
     if (!isOpen) return
@@ -174,111 +193,122 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       }
     }
 
-    // Adjust position to keep popover within viewport
-    const adjustPosition = () => {
-      if (popoverRef.current) {
-        const rect = popoverRef.current.getBoundingClientRect()
-        const viewportWidth = window.innerWidth
-        const viewportHeight = window.innerHeight
-        const padding = 16
-        const popoverHeight = rect.height
-        const popoverWidth = rect.width
+    // Calculate fixed position based on trigger element
+    const calculatePosition = () => {
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const isMobileView = isMobile || viewportWidth < 640
 
-        // On mobile, use fixed positioning centered on screen
-        if (isMobile || viewportWidth < 640) {
-          setAdjustedPosition({
-            position: "fixed",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%, -50%)",
-            marginTop: "0",
-            marginBottom: "0",
-          })
-          return
-        }
-
-        // Desktop positioning
-        const newPosition: typeof adjustedPosition = {}
-
-        // Get parent element position for reference
-        const parentRect = popoverRef.current.parentElement?.getBoundingClientRect()
-        if (!parentRect) return
-
-        // Check vertical overflow - if popover would go below viewport, position above
-        const spaceBelow = viewportHeight - parentRect.bottom - padding
-        const spaceAbove = parentRect.top - padding
-
-        if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
-          // Position above the trigger
-          newPosition.top = "auto"
-          newPosition.bottom = "100%"
-          newPosition.marginTop = "0"
-          newPosition.marginBottom = "12px"
-        } else {
-          // Position below the trigger (default)
-          newPosition.top = "100%"
-          newPosition.bottom = "auto"
-          newPosition.marginTop = "12px"
-          newPosition.marginBottom = "0"
-        }
-
-        // Check horizontal overflow
-        if (rect.right > viewportWidth - padding) {
-          // If popover goes off right edge, align to right
-          newPosition.left = "auto"
-          newPosition.right = "0"
-        } else if (rect.left < padding) {
-          // If popover goes off left edge, align to left
-          newPosition.left = "0"
-          newPosition.right = "auto"
-        }
-
-        setAdjustedPosition(newPosition)
+      // On mobile, center on screen
+      if (isMobileView) {
+        setPosition({
+          top: viewportHeight / 2,
+          left: viewportWidth / 2,
+          transformOrigin: "center center"
+        })
+        return
       }
+
+      // Get the trigger element (parent of popover or anchorRef)
+      const triggerElement = triggerRef?.current || anchorRef?.current || popoverRef.current?.parentElement
+      if (!triggerElement) {
+        // Default to center if no trigger found
+        setPosition({
+          top: viewportHeight / 2,
+          left: viewportWidth / 2,
+          transformOrigin: "center center"
+        })
+        return
+      }
+
+      const triggerRect = triggerElement.getBoundingClientRect()
+      const popoverRect = popoverRef.current?.getBoundingClientRect()
+      const popoverWidth = popoverRect?.width || 320
+      const popoverHeight = popoverRect?.height || 300
+      const padding = 16
+
+      // Calculate position below the trigger by default
+      let top = triggerRect.bottom + 12
+      let left = triggerRect.left
+      let transformOrigin = "top left"
+
+      // Check if popover would go below viewport
+      const spaceBelow = viewportHeight - triggerRect.bottom - padding
+      const spaceAbove = triggerRect.top - padding
+
+      if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
+        // Position above
+        top = triggerRect.top - popoverHeight - 12
+        transformOrigin = "bottom left"
+      }
+
+      // Check horizontal overflow
+      if (left + popoverWidth > viewportWidth - padding) {
+        // Align to right edge of trigger
+        left = triggerRect.right - popoverWidth
+        transformOrigin = transformOrigin.replace("left", "right")
+      }
+
+      // Ensure left doesn't go off screen
+      if (left < padding) {
+        left = padding
+      }
+
+      setPosition({ top, left, transformOrigin })
     }
 
-    // Delay to allow popover to render first, then adjust
-    const timeoutId = setTimeout(adjustPosition, 10)
+    // Initial position calculation
+    const timeoutId = setTimeout(calculatePosition, 10)
 
     document.addEventListener("mousedown", handleClickOutside)
     document.addEventListener("keydown", handleEscape)
-    window.addEventListener("resize", adjustPosition)
-    window.addEventListener("scroll", adjustPosition, true)
+    window.addEventListener("resize", calculatePosition)
+    window.addEventListener("scroll", calculatePosition, true)
     return () => {
       clearTimeout(timeoutId)
       document.removeEventListener("mousedown", handleClickOutside)
       document.removeEventListener("keydown", handleEscape)
-      window.removeEventListener("resize", adjustPosition)
-      window.removeEventListener("scroll", adjustPosition, true)
+      window.removeEventListener("resize", calculatePosition)
+      window.removeEventListener("scroll", calculatePosition, true)
     }
-  }, [isOpen, onClose, isMobile])
+  }, [isOpen, onClose, isMobile, triggerRef, anchorRef])
 
   if (!isOpen) return null
 
   const isDark = themeColors?.isDarkTheme
   const isMobileView = isMobile || (typeof window !== "undefined" && window.innerWidth < 640)
+  const bgColor = isDark ? "#1a1a1a" : "#ffffff"
+  const borderColorValue = isDark ? "#444" : "#e5e7eb"
+  const textColor = isDark ? "#fafafa" : "#1a1a1a"
 
-  return (
+  const popoverContent = (
     <>
-      {/* Backdrop for mobile to prevent interaction with content behind */}
-      {isMobileView && (
-        <div
-          className="fixed inset-0 bg-black/30 z-[999998] animate-in fade-in-0 duration-150"
-          onClick={onClose}
-        />
-      )}
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 animate-in fade-in-0 duration-150"
+        style={{
+          backgroundColor: isMobileView ? "rgba(0,0,0,0.4)" : "transparent",
+          zIndex: 2147483645,
+          pointerEvents: "auto"
+        }}
+        onClick={onClose}
+      />
       <div
         ref={popoverRef}
         className={cn(
-          "z-[999999] rounded-xl shadow-2xl border flex flex-col",
+          "rounded-xl shadow-2xl border flex flex-col",
           "animate-in fade-in-0 duration-200",
-          isDark ? "bg-[#1a1a1a] border-[#333]" : "bg-white border-gray-200",
-          isMobileView ? "fixed slide-in-from-bottom-4" : "absolute slide-in-from-top-2",
+          isMobileView ? "slide-in-from-bottom-4" : "slide-in-from-top-2",
           className
         )}
         style={{
+          position: "fixed",
+          zIndex: 2147483646,
+          pointerEvents: "auto",
+          backgroundColor: bgColor,
+          borderColor: borderColorValue,
+          color: textColor,
           ...(isMobileView ? {
-            position: "fixed",
             left: "50%",
             top: "50%",
             transform: "translate(-50%, -50%)",
@@ -287,14 +317,9 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
             maxHeight: "calc(100vh - 48px)",
             overflow: "hidden",
           } : {
-            position: adjustedPosition.position || "absolute",
-            top: adjustedPosition.top ?? "100%",
-            bottom: adjustedPosition.bottom ?? "auto",
-            left: adjustedPosition.left,
-            right: adjustedPosition.right,
-            marginTop: adjustedPosition.marginTop ?? "12px",
-            marginBottom: adjustedPosition.marginBottom ?? "0",
-            transform: adjustedPosition.transform,
+            top: position.top,
+            left: position.left,
+            transformOrigin: position.transformOrigin,
             maxHeight: "min(450px, calc(100vh - 100px))",
             overflow: "hidden",
           }),
@@ -306,6 +331,14 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       </div>
     </>
   )
+
+  // Use portal to render outside the overflow:hidden container
+  if (portalContainer && typeof window !== "undefined") {
+    return ReactDOM.createPortal(popoverContent, portalContainer)
+  }
+
+  // Fallback for SSR
+  return popoverContent
 }
 
 // Embed Controls Component
@@ -459,6 +492,11 @@ export function DescriptionRichEditor({
 
   // Image upload ref
   const imageInputRef = useRef<HTMLInputElement>(null)
+
+  // Trigger refs for popovers (for positioning)
+  const imageButtonRef = useRef<HTMLDivElement>(null)
+  const videoButtonRef = useRef<HTMLDivElement>(null)
+  const insertButtonRef = useRef<HTMLDivElement>(null)
 
   // Undo/Redo history
   const [undoStack, setUndoStack] = useState<string[]>([])
@@ -1335,7 +1373,7 @@ export function DescriptionRichEditor({
               <ChevronDown className="h-3 w-3" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
+          <DropdownMenuContent align="start" className="w-48 z-[2147483640]">
             {textStyleOptions.map((option) => (
               <DropdownMenuItem
                 key={option.value}
@@ -1387,7 +1425,7 @@ export function DescriptionRichEditor({
         </ToolbarButton>
 
         {/* Image - Inline Popover */}
-        <div className="relative">
+        <div className="relative" ref={imageButtonRef}>
           <ToolbarButton
             onClick={() => {
               closeAllPopovers()
@@ -1400,26 +1438,45 @@ export function DescriptionRichEditor({
             <ImageIcon className={iconSize} />
           </ToolbarButton>
 
-          <InlinePopover isOpen={showImagePopover} onClose={() => setShowImagePopover(false)} themeColors={themeColors} isMobile={isMobile}>
-            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
+          <InlinePopover
+            isOpen={showImagePopover}
+            onClose={() => setShowImagePopover(false)}
+            themeColors={themeColors}
+            isMobile={isMobile}
+            triggerRef={imageButtonRef}
+          >
+            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")}>
               <h3 className="font-semibold text-sm mb-4">Insert Image</h3>
               <div className="space-y-4">
                 {/* Upload button */}
                 <button
                   type="button"
-                  className="w-full h-20 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors flex flex-col items-center justify-center gap-1.5"
+                  className={cn(
+                    "w-full h-20 border-2 border-dashed rounded-lg transition-colors flex flex-col items-center justify-center gap-1.5",
+                    isDarkTheme
+                      ? "border-purple-400/50 hover:border-purple-400 hover:bg-purple-500/10"
+                      : "border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                  )}
                   onClick={() => imageInputRef.current?.click()}
                 >
-                  <Upload className="h-6 w-6 text-purple-500" />
-                  <span className="text-xs text-gray-500">Click to upload</span>
+                  <Upload className="h-6 w-6" style={{ color: accentColor }} />
+                  <span className="text-xs" style={{ color: mutedColor }}>Click to upload</span>
                 </button>
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+                    <span className="w-full border-t" style={{ borderColor: borderColor }} />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className={cn("px-2", isDarkTheme ? "bg-[#1a1a1a] text-gray-400" : "bg-white text-gray-500")}>or</span>
+                    <span
+                      className="px-2"
+                      style={{
+                        backgroundColor: isDarkTheme ? "#1a1a1a" : "#ffffff",
+                        color: mutedColor
+                      }}
+                    >
+                      or
+                    </span>
                   </div>
                 </div>
 
@@ -1444,6 +1501,11 @@ export function DescriptionRichEditor({
                     variant="outline"
                     onClick={() => setShowImagePopover(false)}
                     className="flex-1 h-10"
+                    style={{
+                      borderColor: borderColor,
+                      color: isDarkTheme ? "#fafafa" : "#1a1a1a",
+                      backgroundColor: "transparent"
+                    }}
                   >
                     Cancel
                   </Button>
@@ -1451,7 +1513,12 @@ export function DescriptionRichEditor({
                     size="sm"
                     onClick={insertImage}
                     disabled={!imageUrl}
-                    className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
+                    className="flex-1 h-10"
+                    style={{
+                      backgroundColor: accentColor,
+                      color: "#ffffff",
+                      opacity: !imageUrl ? 0.5 : 1
+                    }}
                   >
                     Insert
                   </Button>
@@ -1462,7 +1529,7 @@ export function DescriptionRichEditor({
         </div>
 
         {/* Video - Inline Popover */}
-        <div className="relative">
+        <div className="relative" ref={videoButtonRef}>
           <ToolbarButton
             onClick={() => {
               closeAllPopovers()
@@ -1475,8 +1542,14 @@ export function DescriptionRichEditor({
             <Video className={iconSize} />
           </ToolbarButton>
 
-          <InlinePopover isOpen={showVideoPopover} onClose={() => setShowVideoPopover(false)} themeColors={themeColors} isMobile={isMobile}>
-            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
+          <InlinePopover
+            isOpen={showVideoPopover}
+            onClose={() => setShowVideoPopover(false)}
+            themeColors={themeColors}
+            isMobile={isMobile}
+            triggerRef={videoButtonRef}
+          >
+            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")}>
               <h3 className="font-semibold text-sm mb-4">Insert YouTube Video</h3>
               <div className="space-y-4">
                 <div className="space-y-1.5">
@@ -1494,14 +1567,14 @@ export function DescriptionRichEditor({
                   <Label className="text-xs font-medium">Display Mode</Label>
                   <RadioGroup value={videoDisplayMode} onValueChange={(v) => setVideoDisplayMode(v as "embed" | "link")} className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="embed" id="embed" className="text-purple-600 border-purple-600" />
+                      <RadioGroupItem value="embed" id="embed" style={{ borderColor: accentColor, color: accentColor }} />
                       <Label htmlFor="embed" className="flex items-center gap-2 cursor-pointer text-sm">
                         <Play className="h-3.5 w-3.5" />
                         Embed video player
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="link" id="link" className="text-purple-600 border-purple-600" />
+                      <RadioGroupItem value="link" id="link" style={{ borderColor: accentColor, color: accentColor }} />
                       <Label htmlFor="link" className="flex items-center gap-2 cursor-pointer text-sm">
                         <ExternalLink className="h-3.5 w-3.5" />
                         Show as thumbnail link
@@ -1516,6 +1589,11 @@ export function DescriptionRichEditor({
                     variant="outline"
                     onClick={() => setShowVideoPopover(false)}
                     className="flex-1 h-10"
+                    style={{
+                      borderColor: borderColor,
+                      color: isDarkTheme ? "#fafafa" : "#1a1a1a",
+                      backgroundColor: "transparent"
+                    }}
                   >
                     Cancel
                   </Button>
@@ -1523,7 +1601,12 @@ export function DescriptionRichEditor({
                     size="sm"
                     onClick={insertVideo}
                     disabled={!videoUrl}
-                    className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
+                    className="flex-1 h-10"
+                    style={{
+                      backgroundColor: accentColor,
+                      color: "#ffffff",
+                      opacity: !videoUrl ? 0.5 : 1
+                    }}
                   >
                     Insert
                   </Button>
@@ -1536,36 +1619,44 @@ export function DescriptionRichEditor({
         <div className="w-px h-5 mx-1" style={{ backgroundColor: borderColor }} />
 
         {/* Insert Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
-              style={{ color: fgColor }}
-            >
-              Insert
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
-            {insertOptions.map((option) => (
-              <DropdownMenuItem
-                key={option.value}
+        <div ref={insertButtonRef}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleInsert(option.value)}
-                className="flex items-center gap-2 cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
+                style={{ color: fgColor }}
               >
-                <option.icon className="h-4 w-4" />
-                {option.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                Insert
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 z-[2147483640]">
+              {insertOptions.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleInsert(option.value)}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <option.icon className="h-4 w-4" />
+                  {option.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         {/* Button Popover (triggered from Insert menu) - Simplified UI */}
-        <InlinePopover isOpen={showButtonPopover} onClose={() => setShowButtonPopover(false)} className="left-auto right-0" themeColors={themeColors} isMobile={isMobile}>
-          <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-72")} style={{ color: fgColor }}>
+        <InlinePopover
+          isOpen={showButtonPopover}
+          onClose={() => setShowButtonPopover(false)}
+          themeColors={themeColors}
+          isMobile={isMobile}
+          triggerRef={insertButtonRef}
+        >
+          <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-72")}>
             <h3 className="font-semibold text-sm mb-4">Insert Button</h3>
             <div className="space-y-4">
               {/* Button Text */}
@@ -1611,11 +1702,11 @@ export function DescriptionRichEditor({
 
               {/* Preview - inline compact */}
               <div
-                className={cn(
-                  "p-3 rounded-lg border text-center",
-                  isDarkTheme ? "border-[#333]" : "border-gray-200"
-                )}
-                style={{ backgroundColor: isDarkTheme ? "#0f0f0f" : "#f9fafb" }}
+                className="p-3 rounded-lg border text-center"
+                style={{
+                  borderColor: borderColor,
+                  backgroundColor: isDarkTheme ? "#0f0f0f" : "#f9fafb"
+                }}
               >
                 <span
                   className="inline-block px-4 py-2 font-medium text-sm rounded-lg"
@@ -1635,6 +1726,11 @@ export function DescriptionRichEditor({
                   variant="outline"
                   onClick={() => setShowButtonPopover(false)}
                   className="flex-1 h-10"
+                  style={{
+                    borderColor: borderColor,
+                    color: isDarkTheme ? "#fafafa" : "#1a1a1a",
+                    backgroundColor: "transparent"
+                  }}
                 >
                   Cancel
                 </Button>
@@ -1642,7 +1738,7 @@ export function DescriptionRichEditor({
                   size="sm"
                   onClick={insertButton}
                   className="flex-1 h-10"
-                  style={{ backgroundColor: accentColor }}
+                  style={{ backgroundColor: accentColor, color: "#ffffff" }}
                 >
                   Insert
                 </Button>
@@ -1652,8 +1748,14 @@ export function DescriptionRichEditor({
         </InlinePopover>
 
         {/* X Embed Popover (triggered from Insert menu) */}
-        <InlinePopover isOpen={showXEmbedPopover} onClose={() => setShowXEmbedPopover(false)} className="left-auto right-0" themeColors={themeColors} isMobile={isMobile}>
-          <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
+        <InlinePopover
+          isOpen={showXEmbedPopover}
+          onClose={() => setShowXEmbedPopover(false)}
+          themeColors={themeColors}
+          isMobile={isMobile}
+          triggerRef={insertButtonRef}
+        >
+          <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")}>
             <div className="flex items-center gap-2 mb-4">
               <Twitter className="h-5 w-5" />
               <h3 className="font-semibold text-sm">Insert post</h3>
@@ -1681,6 +1783,11 @@ export function DescriptionRichEditor({
                   variant="outline"
                   onClick={() => setShowXEmbedPopover(false)}
                   className="flex-1 h-10"
+                  style={{
+                    borderColor: borderColor,
+                    color: "#1a1a1a",
+                    backgroundColor: isDarkTheme ? "#fafafa" : "#ffffff"
+                  }}
                 >
                   Cancel
                 </Button>
@@ -1689,7 +1796,11 @@ export function DescriptionRichEditor({
                   onClick={insertXEmbed}
                   disabled={!xPostUrl}
                   className="flex-1 h-10"
-                  style={{ backgroundColor: "#000000", color: "#ffffff" }}
+                  style={{
+                    backgroundColor: "#000000",
+                    color: "#ffffff",
+                    opacity: !xPostUrl ? 0.5 : 1
+                  }}
                 >
                   Insert
                 </Button>
@@ -1764,11 +1875,12 @@ export function DescriptionRichEditor({
       {/* Floating Link Button - appears when text is selected */}
       {textSelectionPosition && !showTextSelectionLinkPopover && (
         <div
-          className="absolute z-[999999] animate-in fade-in-0 duration-100"
+          className="absolute animate-in fade-in-0 duration-100"
           style={{
             top: textSelectionPosition.top,
             left: textSelectionPosition.left,
             transform: "translateX(-50%)",
+            zIndex: 2147483640,
           }}
         >
           <button
@@ -1776,11 +1888,12 @@ export function DescriptionRichEditor({
             onClick={() => {
               setShowTextSelectionLinkPopover(true)
             }}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg shadow-lg border text-sm font-medium transition-colors",
-              isDarkTheme ? "bg-[#1a1a1a] border-[#333] hover:bg-[#252525]" : "bg-white border-gray-200 hover:bg-gray-50"
-            )}
-            style={{ color: fgColor }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg shadow-lg border text-sm font-medium transition-colors"
+            style={{
+              color: fgColor,
+              backgroundColor: isDarkTheme ? "#1a1a1a" : "#ffffff",
+              borderColor: borderColor,
+            }}
           >
             <LinkIcon className="h-4 w-4" />
             Link
@@ -1791,19 +1904,22 @@ export function DescriptionRichEditor({
       {/* Text Selection Link Popover */}
       {textSelectionPosition && showTextSelectionLinkPopover && (
         <div
-          className="absolute z-[999999] animate-in fade-in-0 slide-in-from-top-2 duration-150"
+          className="absolute animate-in fade-in-0 slide-in-from-top-2 duration-150"
           style={{
             top: textSelectionPosition.top - 10,
             left: textSelectionPosition.left,
             transform: "translateX(-50%)",
+            zIndex: 2147483641,
           }}
         >
           <div
-            className={cn(
-              "rounded-xl shadow-2xl border p-4",
-              isDarkTheme ? "bg-[#1a1a1a] border-[#333]" : "bg-white border-gray-200"
-            )}
-            style={{ color: fgColor, minWidth: "260px" }}
+            className="rounded-xl shadow-2xl border p-4"
+            style={{
+              color: fgColor,
+              minWidth: "260px",
+              backgroundColor: isDarkTheme ? "#1a1a1a" : "#ffffff",
+              borderColor: borderColor,
+            }}
           >
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-sm">Add Link</h3>
@@ -1813,7 +1929,10 @@ export function DescriptionRichEditor({
                   setShowTextSelectionLinkPopover(false)
                   setTextSelectionPosition(null)
                 }}
-                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="p-1 rounded transition-colors"
+                style={{
+                  color: mutedColor,
+                }}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1844,6 +1963,11 @@ export function DescriptionRichEditor({
                   setTextSelectionPosition(null)
                 }}
                 className="flex-1 h-9"
+                style={{
+                  borderColor: borderColor,
+                  color: isDarkTheme ? "#fafafa" : "#1a1a1a",
+                  backgroundColor: "transparent"
+                }}
               >
                 Cancel
               </Button>
@@ -1851,7 +1975,12 @@ export function DescriptionRichEditor({
                 size="sm"
                 onClick={insertTextSelectionLink}
                 disabled={!textSelectionLinkUrl}
-                className="flex-1 h-9 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
+                className="flex-1 h-9"
+                style={{
+                  backgroundColor: accentColor,
+                  color: "#ffffff",
+                  opacity: !textSelectionLinkUrl ? 0.5 : 1
+                }}
               >
                 Insert
               </Button>
@@ -1862,7 +1991,8 @@ export function DescriptionRichEditor({
 
       {/* Selected Embed Controls */}
       {selectedEmbed && (
-        <div className="fixed z-[999999]" style={{
+        <div className="fixed" style={{
+          zIndex: 2147483640,
           top: selectedEmbed.getBoundingClientRect().top + window.scrollY + 8,
           right: Math.max(8, window.innerWidth - selectedEmbed.getBoundingClientRect().right + 8),
         }}>
@@ -1903,7 +2033,7 @@ export function DescriptionRichEditor({
                     <Maximize2 className="h-4 w-4" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44 z-[9999999]">
+                <DropdownMenuContent align="end" className="w-44 z-[2147483640]">
                   {imageSizeOptions.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
