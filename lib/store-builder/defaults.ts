@@ -438,13 +438,13 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     },
     stickyAddToCart: {
       backgroundColor: "#0f0f0f",
-      buttonColor: "#404040",
+      buttonColor: "#2563eb",
       buttonTextColor: "#ffffff",
       borderRadius: 10,
       textColor: "#e5e5e5",
     },
     productHeader: {
-      buyButtonColor: "#404040",
+      buyButtonColor: "#2563eb",
       buyButtonTextColor: "#ffffff",
       buttonsBorderRadius: 10,
     },

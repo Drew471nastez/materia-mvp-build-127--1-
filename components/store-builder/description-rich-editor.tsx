@@ -93,10 +93,8 @@ const textStyleOptions = [
 // Insert options for the dropdown
 const insertOptions = [
   { label: "Button", value: "button", icon: Sparkles },
-  { label: "Twitter post", value: "twitter", icon: Twitter },
+  { label: "X post", value: "twitter", icon: Twitter },
   { label: "Divider", value: "divider", icon: Minus },
-  { label: "Upsell", value: "upsell", icon: ShoppingCart },
-  { label: "Reviews", value: "reviews", icon: Star },
 ]
 
 // Button color presets
@@ -435,11 +433,16 @@ export function DescriptionRichEditor({
   const [showImagePopover, setShowImagePopover] = useState(false)
   const [showVideoPopover, setShowVideoPopover] = useState(false)
   const [showButtonPopover, setShowButtonPopover] = useState(false)
+  const [showXEmbedPopover, setShowXEmbedPopover] = useState(false)
+  const [showTextSelectionLinkPopover, setShowTextSelectionLinkPopover] = useState(false)
+  const [textSelectionLinkUrl, setTextSelectionLinkUrl] = useState("")
+  const [textSelectionPosition, setTextSelectionPosition] = useState<{ top: number; left: number } | null>(null)
 
   const [linkUrl, setLinkUrl] = useState("")
   const [linkText, setLinkText] = useState("")
   const [imageUrl, setImageUrl] = useState("")
   const [videoUrl, setVideoUrl] = useState("")
+  const [xPostUrl, setXPostUrl] = useState("")
   const [videoDisplayMode, setVideoDisplayMode] = useState<"embed" | "link">("embed")
   const [savedSelection, setSavedSelection] = useState<Range | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
@@ -997,6 +1000,110 @@ export function DescriptionRichEditor({
     setButtonAlignment("center")
   }, [buttonText, buttonLink, buttonColor, buttonTextColor, buttonAlignment, restoreSelection, handleContentChange])
 
+  // Extract X/Twitter post ID from URL
+  const extractXPostId = useCallback((url: string) => {
+    // Handle various X/Twitter URL formats
+    const regexps = [
+      /(?:twitter\.com|x\.com)\/\w+\/status\/(\d+)/,
+      /(?:twitter\.com|x\.com)\/\w+\/statuses\/(\d+)/,
+    ]
+
+    for (const regex of regexps) {
+      const match = url.match(regex)
+      if (match && match[1]) {
+        return match[1]
+      }
+    }
+    return null
+  }, [])
+
+  // Insert X/Twitter embed
+  const insertXEmbed = useCallback(() => {
+    restoreSelection()
+
+    if (xPostUrl) {
+      const postId = extractXPostId(xPostUrl)
+
+      if (!postId) {
+        alert("Please enter a valid X/Twitter post URL (e.g., https://x.com/user/status/123456)")
+        return
+      }
+
+      const embedId = generateEmbedId()
+      // Inline X button that shows on hover - positioned top-right corner
+      const deleteButtonHtml = `<button data-delete-embed="true" style="position: absolute; top: 8px; right: 8px; z-index: 10; width: 28px; height: 28px; border-radius: 50%; background-color: rgba(0,0,0,0.7); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; pointer-events: auto;" onmouseenter="this.style.backgroundColor='#dc2626'" onmouseleave="this.style.backgroundColor='rgba(0,0,0,0.7)'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`
+
+      requestAnimationFrame(() => {
+        if (editorRef.current) {
+          editorRef.current.focus()
+
+          // Create X embed using Twitter's embed format with blockquote
+          const embedHtml = `<div data-embed-id="${embedId}" data-embed-type="x-post" contenteditable="false" class="embed-container" style="margin: 12px 0; user-select: none; position: relative;" onmouseenter="this.querySelector('[data-delete-embed]').style.opacity='1'" onmouseleave="this.querySelector('[data-delete-embed]').style.opacity='0'">${deleteButtonHtml}<blockquote class="twitter-tweet" data-dnt="true"><a href="${xPostUrl}"></a></blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></div><p><br></p>`
+
+          document.execCommand("insertHTML", false, embedHtml)
+          handleContentChange()
+
+          // Load Twitter widgets script if not already loaded
+          if (typeof window !== 'undefined' && !(window as any).twttr) {
+            const script = document.createElement('script')
+            script.src = 'https://platform.twitter.com/widgets.js'
+            script.async = true
+            document.head.appendChild(script)
+          } else if ((window as any).twttr?.widgets) {
+            (window as any).twttr.widgets.load()
+          }
+
+          // Place cursor after the embed
+          setTimeout(() => {
+            const embedElement = editorRef.current?.querySelector(`[data-embed-id="${embedId}"]`)
+            if (embedElement) {
+              const nextParagraph = embedElement.nextElementSibling
+              if (nextParagraph) {
+                const selection = window.getSelection()
+                const range = document.createRange()
+                range.setStart(nextParagraph, 0)
+                range.collapse(true)
+                selection?.removeAllRanges()
+                selection?.addRange(range)
+                editorRef.current?.focus()
+              }
+            }
+          }, 50)
+        }
+      })
+    }
+
+    setShowXEmbedPopover(false)
+    setXPostUrl("")
+  }, [xPostUrl, restoreSelection, handleContentChange, extractXPostId])
+
+  // Insert link for selected text
+  const insertTextSelectionLink = useCallback(() => {
+    if (savedSelection && textSelectionLinkUrl && editorRef.current) {
+      const selection = window.getSelection()
+      if (selection) {
+        selection.removeAllRanges()
+        selection.addRange(savedSelection)
+        editorRef.current.focus()
+        document.execCommand("createLink", false, textSelectionLinkUrl)
+        // Style the link
+        const links = editorRef.current.querySelectorAll('a')
+        links.forEach(link => {
+          if (link.href === textSelectionLinkUrl) {
+            link.style.color = accentColor
+            link.style.textDecoration = 'underline'
+            link.setAttribute('target', '_blank')
+            link.setAttribute('rel', 'noopener noreferrer')
+          }
+        })
+        handleContentChange()
+      }
+    }
+    setShowTextSelectionLinkPopover(false)
+    setTextSelectionLinkUrl("")
+    setTextSelectionPosition(null)
+  }, [savedSelection, textSelectionLinkUrl, accentColor, handleContentChange])
+
   // Handle insert options
   const handleInsert = useCallback((insertType: string) => {
     requestAnimationFrame(() => {
@@ -1013,17 +1120,9 @@ export function DescriptionRichEditor({
             setShowButtonPopover(true)
             return
           case "twitter":
-            document.execCommand("insertHTML", false, '<div style="padding: 16px; border: 1px solid #e5e7eb; border-radius: 7px; margin: 8px 0; background-color: #f9fafb;">[Twitter Post Embed]</div>')
-            handleContentChange()
-            break
-          case "upsell":
-            document.execCommand("insertHTML", false, '<div style="padding: 16px; border: 1px solid #e5e7eb; border-radius: 7px; margin: 8px 0; background-color: #f9fafb;">[Upsell Widget]</div>')
-            handleContentChange()
-            break
-          case "reviews":
-            document.execCommand("insertHTML", false, '<div style="padding: 16px; border: 1px solid #e5e7eb; border-radius: 7px; margin: 8px 0; background-color: #f9fafb;">[Reviews Widget]</div>')
-            handleContentChange()
-            break
+            saveSelection()
+            setShowXEmbedPopover(true)
+            return
         }
       }
     })
@@ -1173,6 +1272,28 @@ export function DescriptionRichEditor({
     setShowImagePopover(false)
     setShowVideoPopover(false)
     setShowButtonPopover(false)
+    setShowXEmbedPopover(false)
+    setShowTextSelectionLinkPopover(false)
+  }, [])
+
+  // Handle text selection for link button
+  const handleTextSelection = useCallback(() => {
+    const selection = window.getSelection()
+    if (selection && selection.toString().trim() && editorRef.current?.contains(selection.anchorNode)) {
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      const containerRect = containerRef.current?.getBoundingClientRect()
+
+      if (containerRect) {
+        setTextSelectionPosition({
+          top: rect.top - containerRect.top - 40,
+          left: rect.left - containerRect.left + rect.width / 2,
+        })
+        setSavedSelection(range.cloneRange())
+      }
+    } else {
+      setTextSelectionPosition(null)
+    }
   }, [])
 
   return (
@@ -1264,75 +1385,6 @@ export function DescriptionRichEditor({
         <ToolbarButton onClick={() => execCommand("formatBlock", "<blockquote>")} title="Quote">
           <Quote className={iconSize} />
         </ToolbarButton>
-
-        {/* Link - Inline Popover */}
-        <div className="relative">
-          <ToolbarButton
-            onClick={() => {
-              closeAllPopovers()
-              saveSelection()
-              const selection = window.getSelection()
-              if (selection && selection.toString()) {
-                setLinkText(selection.toString())
-              }
-              setShowLinkPopover(true)
-            }}
-            title="Insert Link"
-            active={showLinkPopover}
-          >
-            <LinkIcon className={iconSize} />
-          </ToolbarButton>
-
-          <InlinePopover isOpen={showLinkPopover} onClose={() => setShowLinkPopover(false)} themeColors={themeColors} isMobile={isMobile}>
-            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-72")} style={{ color: fgColor }}>
-              <h3 className="font-semibold text-sm mb-4">Insert Link</h3>
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Link Text</Label>
-                  <Input
-                    placeholder="Enter link text"
-                    value={linkText}
-                    onChange={(e) => setLinkText(e.target.value)}
-                    className="h-10 text-sm"
-                    autoFocus
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">URL</Label>
-                  <Input
-                    placeholder="https://example.com"
-                    value={linkUrl}
-                    onChange={(e) => setLinkUrl(e.target.value)}
-                    className="h-10 text-sm"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        insertLink()
-                      }
-                    }}
-                  />
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowLinkPopover(false)}
-                    className="flex-1 h-10"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={insertLink}
-                    className="flex-1 h-10 bg-purple-600 hover:bg-purple-700"
-                  >
-                    Insert
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </InlinePopover>
-        </div>
 
         {/* Image - Inline Popover */}
         <div className="relative">
@@ -1599,6 +1651,53 @@ export function DescriptionRichEditor({
           </div>
         </InlinePopover>
 
+        {/* X Embed Popover (triggered from Insert menu) */}
+        <InlinePopover isOpen={showXEmbedPopover} onClose={() => setShowXEmbedPopover(false)} className="left-auto right-0" themeColors={themeColors} isMobile={isMobile}>
+          <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Twitter className="h-5 w-5" />
+              <h3 className="font-semibold text-sm">Insert post</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Tweet URL</Label>
+                <Input
+                  placeholder="https://x.com/gumroad/status/..."
+                  value={xPostUrl}
+                  onChange={(e) => setXPostUrl(e.target.value)}
+                  className="h-10 text-sm"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      insertXEmbed()
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowXEmbedPopover(false)}
+                  className="flex-1 h-10"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={insertXEmbed}
+                  disabled={!xPostUrl}
+                  className="flex-1 h-10"
+                  style={{ backgroundColor: "#000000", color: "#ffffff" }}
+                >
+                  Insert
+                </Button>
+              </div>
+            </div>
+          </div>
+        </InlinePopover>
+
         {/* Spacer */}
         <div className="flex-1" />
 
@@ -1628,7 +1727,7 @@ export function DescriptionRichEditor({
         suppressContentEditableWarning
         data-placeholder="Write your product description here..."
         className={cn(
-          "flex-1 p-3 sm:p-4 focus:outline-none min-h-[150px] sm:min-h-[200px] max-h-[300px] sm:max-h-[400px] overflow-y-auto",
+          "flex-1 p-3 sm:p-4 focus:outline-none min-h-[150px] sm:min-h-[205px] max-h-[300px] sm:max-h-[400px] overflow-y-auto",
           "prose prose-sm max-w-none",
           isDarkTheme && "prose-invert",
           "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3",
@@ -1659,8 +1758,107 @@ export function DescriptionRichEditor({
         onBlur={handleContentChange}
         onKeyDown={handleKeyDown}
         onClick={handleEditorClick}
+        onMouseUp={handleTextSelection}
       />
 
+      {/* Floating Link Button - appears when text is selected */}
+      {textSelectionPosition && !showTextSelectionLinkPopover && (
+        <div
+          className="absolute z-[999999] animate-in fade-in-0 duration-100"
+          style={{
+            top: textSelectionPosition.top,
+            left: textSelectionPosition.left,
+            transform: "translateX(-50%)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setShowTextSelectionLinkPopover(true)
+            }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg shadow-lg border text-sm font-medium transition-colors",
+              isDarkTheme ? "bg-[#1a1a1a] border-[#333] hover:bg-[#252525]" : "bg-white border-gray-200 hover:bg-gray-50"
+            )}
+            style={{ color: fgColor }}
+          >
+            <LinkIcon className="h-4 w-4" />
+            Link
+          </button>
+        </div>
+      )}
+
+      {/* Text Selection Link Popover */}
+      {textSelectionPosition && showTextSelectionLinkPopover && (
+        <div
+          className="absolute z-[999999] animate-in fade-in-0 slide-in-from-top-2 duration-150"
+          style={{
+            top: textSelectionPosition.top - 10,
+            left: textSelectionPosition.left,
+            transform: "translateX(-50%)",
+          }}
+        >
+          <div
+            className={cn(
+              "rounded-xl shadow-2xl border p-4",
+              isDarkTheme ? "bg-[#1a1a1a] border-[#333]" : "bg-white border-gray-200"
+            )}
+            style={{ color: fgColor, minWidth: "260px" }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm">Add Link</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTextSelectionLinkPopover(false)
+                  setTextSelectionPosition(null)
+                }}
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <Input
+              placeholder="https://example.com"
+              value={textSelectionLinkUrl}
+              onChange={(e) => setTextSelectionLinkUrl(e.target.value)}
+              className="h-9 text-sm mb-3"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  insertTextSelectionLink()
+                }
+                if (e.key === 'Escape') {
+                  setShowTextSelectionLinkPopover(false)
+                  setTextSelectionPosition(null)
+                }
+              }}
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setShowTextSelectionLinkPopover(false)
+                  setTextSelectionPosition(null)
+                }}
+                className="flex-1 h-9"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={insertTextSelectionLink}
+                disabled={!textSelectionLinkUrl}
+                className="flex-1 h-9 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
+              >
+                Insert
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Selected Embed Controls */}
       {selectedEmbed && (
