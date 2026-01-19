@@ -2551,6 +2551,7 @@ export interface UnifiedShopHeaderProps {
   onSelect?: () => void
   onAvatarEdit?: () => void
   onCoverEdit?: () => void
+  onBioEdit?: () => void
   globalSettings?: GlobalStoreSettings
 }
 
@@ -2566,6 +2567,7 @@ export function UnifiedShopHeader({
   onSelect,
   onAvatarEdit,
   onCoverEdit,
+  onBioEdit,
   globalSettings,
 }: UnifiedShopHeaderProps) {
   const avatarSizeChoice = isMobile
@@ -2789,16 +2791,41 @@ export function UnifiedShopHeader({
           )}
 
           {settings.showBio && (settings.bio || creator?.bio) && (
-            <p
-              className={cn(
-                "max-w-xl break-words px-4",
-                isMobile ? "mt-4 text-xs" : "mt-6 text-sm",
-                !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
+            <div className="relative group/bio inline-flex items-center justify-center">
+              <p
+                className={cn(
+                  "max-w-xl break-words px-4",
+                  isMobile ? "mt-4 text-xs" : "mt-6 text-sm",
+                  !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
+                )}
+                style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
+              >
+                {settings.bio || creator?.bio}
+              </p>
+              {!isPreviewMode && onBioEdit && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onBioEdit()
+                  }}
+                  className={cn(
+                    "absolute -right-1 top-1/2 -translate-y-1/2 translate-x-full opacity-0 group-hover/bio:opacity-100 transition-opacity duration-200 cursor-pointer",
+                    isMobile ? "mt-2" : "mt-3"
+                  )}
+                >
+                  <div className="bg-white rounded-full p-1.5 shadow-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <svg className="h-3.5 w-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                      />
+                    </svg>
+                  </div>
+                </div>
               )}
-              style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
-            >
-              {settings.bio || creator?.bio}
-            </p>
+            </div>
           )}
 
           {settings.showStats && (

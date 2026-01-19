@@ -673,6 +673,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               onSelect={() => handleSelectSection("header")}
               onAvatarEdit={handleAvatarEdit}
               onCoverEdit={handleCoverEdit}
+              onBioEdit={() => handleSelectSection("header")}
               globalSettings={draftConfig.globalSettings}
             />
 

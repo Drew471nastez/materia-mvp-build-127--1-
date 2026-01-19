@@ -1747,12 +1747,12 @@ function ShopHeaderSettingsForm({
 
   return (
     <div className="space-y-6">
-      {/* Edit Settings Button */}
+      {/* Edit Settings Link */}
       <a
         href="/app/settings"
-        className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+        className="flex items-center justify-center gap-1.5 text-purple-600 hover:text-purple-700 text-sm font-medium transition-colors"
       >
-        <Settings className="h-4 w-4" />
+        <Settings className="h-3.5 w-3.5" />
         Edit Settings
       </a>
 
