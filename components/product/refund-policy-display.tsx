@@ -43,7 +43,6 @@ export function RefundPolicyDisplay({
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -75,14 +74,6 @@ export function RefundPolicyDisplay({
     }
   }, [isTooltipOpen])
 
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-    }
-  }, [])
 
   if (!enabled || !policyType) {
     return null
@@ -92,27 +83,7 @@ export function RefundPolicyDisplay({
   const hasFinePrint = !!finePrint && finePrint.trim().length > 0
   const isNoRefunds = policyType === "no_refunds"
 
-  // Handle mouse enter with delay for smooth appearance
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    timeoutRef.current = setTimeout(() => {
-      setIsTooltipOpen(true)
-    }, 150)
-  }
-
-  // Handle mouse leave with delay
-  const handleMouseLeave = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    timeoutRef.current = setTimeout(() => {
-      setIsTooltipOpen(false)
-    }, 200)
-  }
-
-  // Handle click for mobile/touch
+  // Handle click to toggle tooltip (only opens on click, not hover)
   const handleClick = () => {
     setIsTooltipOpen(!isTooltipOpen)
   }
@@ -127,10 +98,6 @@ export function RefundPolicyDisplay({
     return (
       <div
         ref={tooltipRef}
-        onMouseEnter={() => {
-          if (timeoutRef.current) clearTimeout(timeoutRef.current)
-        }}
-        onMouseLeave={handleMouseLeave}
         className={cn(
           "absolute z-50 w-[280px] sm:w-[320px] bg-[#1a1a1a] text-white rounded-xl shadow-2xl",
           "transform transition-all duration-200 ease-out origin-top",
@@ -204,12 +171,10 @@ export function RefundPolicyDisplay({
       <button
         type="button"
         onClick={handleClick}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
         className={cn(
           "text-xs text-center transition-all duration-200 flex items-center gap-1 group",
           "hover:opacity-80 focus:outline-none focus-visible:underline",
-          hasFinePrint || isNoRefunds ? "cursor-pointer underline decoration-dotted underline-offset-2" : "cursor-default",
+          hasFinePrint || isNoRefunds ? "cursor-pointer underline underline-offset-2 decoration-[0.5px]" : "cursor-default",
           !textColor && "text-muted-foreground hover:text-foreground"
         )}
         style={textColor ? { color: `${textColor}99` } : undefined}

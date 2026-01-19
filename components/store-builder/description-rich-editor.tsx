@@ -537,6 +537,7 @@ export function DescriptionRichEditor({
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
+        data-placeholder="Write your product description here..."
         className={cn(
           "flex-1 p-3 sm:p-4 focus:outline-none min-h-[150px] sm:min-h-[200px] max-h-[300px] sm:max-h-[400px] overflow-y-auto",
           "prose prose-sm max-w-none",
@@ -548,7 +549,8 @@ export function DescriptionRichEditor({
           "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2",
           "[&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2",
           "[&_a]:text-blue-600 [&_a]:underline",
-          "[&_img]:rounded-[7px]"
+          "[&_img]:rounded-[7px]",
+          "empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 empty:before:italic empty:before:pointer-events-none"
         )}
         style={{ color: textColor || "inherit" }}
         onInput={handleContentChange}
@@ -885,7 +887,7 @@ export function DescriptionEditWrapper({
           {children}
         </div>
 
-        {/* Edit button - appears to the right, subtle text style */}
+        {/* Edit button - appears to the right, more visible */}
         <button
           type="button"
           onClick={() => setIsEditing(true)}
@@ -895,7 +897,7 @@ export function DescriptionEditWrapper({
             "mt-1", // Align with description title
             isHovering
               ? "opacity-100 text-gray-600"
-              : "opacity-30 text-gray-400"
+              : "opacity-70 text-gray-500"
           )}
         >
           <Pencil className="h-3 w-3" />

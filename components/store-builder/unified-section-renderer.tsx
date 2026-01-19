@@ -3342,10 +3342,10 @@ export function UnifiedProductPage({
                 </div>
               )}
 
-              {settings.showDescription !== false && productDescription && (
+              {settings.showDescription !== false && (productDescription || !isPreviewMode) && (
                 <DescriptionEditWrapper
                   isEditorMode={!isPreviewMode}
-                  description={productDescription}
+                  description={productDescription || ""}
                   onDescriptionChange={onDescriptionChange || (() => {})}
                   isMobile={isMobile}
                   textColor={themeTextColor}
@@ -3358,12 +3358,21 @@ export function UnifiedProductPage({
                     >
                       Description
                     </h2>
-                    <p
-                      className={cn("whitespace-pre-wrap leading-relaxed break-words text-sm", !themeMutedColor && "text-muted-foreground")}
-                      style={{ color: themeMutedColor }}
-                    >
-                      {productDescription.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
-                    </p>
+                    {productDescription ? (
+                      <p
+                        className={cn("whitespace-pre-wrap leading-relaxed break-words text-sm", !themeMutedColor && "text-muted-foreground")}
+                        style={{ color: themeMutedColor }}
+                      >
+                        {productDescription.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
+                      </p>
+                    ) : (
+                      <p
+                        className={cn("whitespace-pre-wrap leading-relaxed break-words text-sm italic opacity-60", !themeMutedColor && "text-muted-foreground")}
+                        style={{ color: themeMutedColor }}
+                      >
+                        No description yet. Click Edit to add one.
+                      </p>
+                    )}
                   </div>
                 </DescriptionEditWrapper>
               )}
