@@ -94,7 +94,6 @@ const textStyleOptions = [
 // Insert options for the dropdown
 const insertOptions = [
   { label: "Button", value: "button", icon: Sparkles },
-  { label: "X post", value: "twitter", icon: Twitter },
   { label: "Divider", value: "divider", icon: Minus },
 ]
 
