@@ -346,6 +346,7 @@ export function RefundPolicyDisplay({
           <div
             className="fixed inset-0 bg-black/30 z-[9998] animate-in fade-in-0 duration-150"
             onClick={() => setIsTooltipOpen(false)}
+            onMouseDown={(e) => e.stopPropagation()}
           />
         )}
         <div
@@ -356,8 +357,7 @@ export function RefundPolicyDisplay({
             isTooltipOpen
               ? "opacity-100 scale-100 pointer-events-auto"
               : "opacity-0 scale-95 pointer-events-none",
-            isSmallScreen ? "fixed" : "absolute",
-            arrowPosition === "top" ? "origin-top" : "origin-bottom"
+            isSmallScreen ? "fixed" : "absolute"
           )}
           style={{
             pointerEvents: isTooltipOpen ? "auto" : "none",
@@ -368,6 +368,7 @@ export function RefundPolicyDisplay({
               left: "50%",
               top: "50%",
               transform: "translate(-50%, -50%)",
+              transformOrigin: "center center",
               maxWidth: "calc(100vw - 32px)",
               maxHeight: "calc(100vh - 48px)",
               overflow: "hidden",
@@ -377,12 +378,15 @@ export function RefundPolicyDisplay({
               left: tooltipPosition.left,
               right: tooltipPosition.right,
               transform: tooltipPosition.transform,
+              transformOrigin: arrowPosition === "top" ? "top center" : "bottom center",
               marginTop: arrowPosition === "top" ? "12px" : undefined,
               marginBottom: arrowPosition === "bottom" ? "12px" : undefined,
               maxHeight: "min(350px, calc(100vh - 100px))",
               overflow: "hidden",
             }),
           }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           {/* Arrow pointer - only show on desktop */}
           {!isSmallScreen && (

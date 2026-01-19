@@ -292,13 +292,13 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           pointerEvents: "auto"
         }}
         onClick={onClose}
+        onMouseDown={(e) => e.stopPropagation()}
       />
       <div
         ref={popoverRef}
         className={cn(
           "rounded-xl shadow-2xl border flex flex-col",
-          "animate-in fade-in-0 duration-200",
-          isMobileView ? "slide-in-from-bottom-4" : "slide-in-from-top-2",
+          "animate-in fade-in-0 zoom-in-95 duration-200",
           className
         )}
         style={{
@@ -312,6 +312,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
             left: "50%",
             top: "50%",
             transform: "translate(-50%, -50%)",
+            transformOrigin: "center center",
             width: "calc(100vw - 32px)",
             maxWidth: "340px",
             maxHeight: "calc(100vh - 48px)",
@@ -324,6 +325,8 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
             overflow: "hidden",
           }),
         }}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex-1 overflow-y-auto overscroll-contain">
           {children}
@@ -2112,7 +2115,7 @@ export function DescriptionEditWrapper({
     const handleClickOutside = (e: MouseEvent) => {
       // Don't close if clicking inside the wrapper or any dialog
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        // Check if clicked on a dialog or dropdown
+        // Check if clicked on a dialog, dropdown, or popover portal
         const dialogs = document.querySelectorAll('[role="dialog"], [data-radix-popper-content-wrapper]')
         let clickedOnDialog = false
         dialogs.forEach(dialog => {
@@ -2120,6 +2123,19 @@ export function DescriptionEditWrapper({
             clickedOnDialog = true
           }
         })
+
+        // Also check if clicked inside the popover portal
+        const popoverPortal = document.getElementById("popover-portal-root")
+        if (popoverPortal && popoverPortal.contains(e.target as Node)) {
+          clickedOnDialog = true
+        }
+
+        // Check for any fixed position elements that are part of the editor UI
+        const target = e.target as HTMLElement
+        const closestFixed = target.closest('[style*="position: fixed"][style*="z-index: 2147483"]')
+        if (closestFixed) {
+          clickedOnDialog = true
+        }
 
         if (!clickedOnDialog) {
           handleClose()
