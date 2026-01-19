@@ -44,6 +44,7 @@ import type { Product, DigitalAsset } from "@/lib/types"
 import { FileUpload } from "@/components/app/file-upload"
 import { ImageUpload } from "@/components/app/image-upload"
 import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
+import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
 
 interface ProductEditFormProps {
   product: Product & {
@@ -340,12 +341,10 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId }: P
             </div>
             <div className="grid gap-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
+              <DescriptionRichEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                placeholder="Describe what's included in this product..."
+                onChange={setDescription}
+                className="min-h-[200px]"
               />
             </div>
             <div className="grid gap-2">

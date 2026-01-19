@@ -43,6 +43,7 @@ import {
   FileIcon,
   Loader2,
 } from "lucide-react"
+import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
 
 const STEPS = [
   { id: 1, name: "Basics", description: "Name and type" },
@@ -559,11 +560,10 @@ export default function NewProductWizard() {
                 <CardDescription>Tell potential customers what they&apos;re getting</CardDescription>
               </CardHeader>
               <CardContent>
-                <Textarea
-                  placeholder="Describe your product in detail. What problems does it solve? Who is it for?"
+                <DescriptionRichEditor
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={6}
+                  onChange={setDescription}
+                  className="min-h-[200px]"
                 />
               </CardContent>
             </Card>

@@ -920,7 +920,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           </div>
 
           {product.description && (
-            <div className="mt-6">
+            <div className="mt-6" data-description-section>
               <h2
                 className="mb-3 text-lg font-semibold"
                 style={{ color: themeColors.textColor || "var(--foreground)" }}

@@ -209,7 +209,7 @@ export function LiveStickyAddToCart({
     setIsMounted(true)
   }, [])
 
-  // Handle scroll visibility - show after scrolling past 40% of page, hide near footer
+  // Handle scroll visibility - show when reaching description section, hide near footer
   useEffect(() => {
     if (!isMounted) return
 
@@ -230,29 +230,50 @@ export function LiveStickyAddToCart({
       const currentBottom = scrollY + windowHeight
       const nearFooter = currentBottom > footerTop - 100
 
-      // Calculate scroll percentage of the page
-      const scrollableHeight = documentHeight - windowHeight
-      const scrollPercentage = scrollableHeight > 0 ? (scrollY / scrollableHeight) * 100 : 0
+      // Try to find description section as the trigger point (primary)
+      // Look for the description heading or container
+      const descriptionSection = document.querySelector('[data-description-section]') ||
+                                 document.querySelector('h2:contains("Description")') ||
+                                 document.querySelector('.description-section')
 
-      // Try to find FAQ section as the trigger point
-      const faqSection = document.querySelector('[data-faq-section]') ||
-                         document.querySelector('.faq-section') ||
-                         document.querySelector('h2:has(+ .accordion)')
-
-      let pastProductContent = false
-
-      if (faqSection) {
-        // Show after scrolling past the FAQ section (user has seen product content)
-        const faqRect = faqSection.getBoundingClientRect()
-        const faqTop = faqRect.top + scrollY
-        pastProductContent = scrollY > faqTop - windowHeight * 0.5
-      } else {
-        // Fallback: show after scrolling past 40% of the page
-        pastProductContent = scrollPercentage >= 40
+      // Fallback: find any h2 with "Description" text
+      let descriptionHeading: Element | null = null
+      if (!descriptionSection) {
+        const allH2s = document.querySelectorAll('h2')
+        allH2s.forEach(h2 => {
+          if (h2.textContent?.toLowerCase().includes('description')) {
+            descriptionHeading = h2
+          }
+        })
       }
 
-      // Show only after scrolling past product content and not near footer
-      const shouldShow = pastProductContent && !nearFooter
+      // Secondary fallback: FAQ section
+      const faqSection = document.querySelector('[data-faq-section]') ||
+                         document.querySelector('.faq-section')
+
+      let pastDescriptionStart = false
+
+      // Priority 1: Description section
+      const targetSection = descriptionSection || descriptionHeading
+      if (targetSection) {
+        const rect = targetSection.getBoundingClientRect()
+        const sectionTop = rect.top + scrollY
+        // Show when the description section starts entering the viewport (top 70%)
+        pastDescriptionStart = scrollY > sectionTop - windowHeight * 0.7
+      } else if (faqSection) {
+        // Priority 2: FAQ section fallback
+        const faqRect = faqSection.getBoundingClientRect()
+        const faqTop = faqRect.top + scrollY
+        pastDescriptionStart = scrollY > faqTop - windowHeight * 0.5
+      } else {
+        // Priority 3: Percentage fallback (30% of page - earlier than before)
+        const scrollableHeight = documentHeight - windowHeight
+        const scrollPercentage = scrollableHeight > 0 ? (scrollY / scrollableHeight) * 100 : 0
+        pastDescriptionStart = scrollPercentage >= 30
+      }
+
+      // Show only after reaching description area and not near footer
+      const shouldShow = pastDescriptionStart && !nearFooter
       setIsVisible(shouldShow)
     }
 
