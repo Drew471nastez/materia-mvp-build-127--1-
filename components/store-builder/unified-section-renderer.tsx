@@ -3191,6 +3191,7 @@ export function UnifiedProductPage({
                           updatedAt={product?.refund_policy_updated_at || null}
                           className="mt-3"
                           textColor={priceContainerText}
+                          isPreviewMode={true}
                         />
                       </div>
                     ) : (
@@ -3230,6 +3231,7 @@ export function UnifiedProductPage({
                           updatedAt={product?.refund_policy_updated_at || null}
                           className="mt-3"
                           textColor={priceContainerText}
+                          isPreviewMode={true}
                         />
                       </div>
                     )}
@@ -3424,6 +3426,7 @@ export function UnifiedProductPage({
                         updatedAt={product?.refund_policy_updated_at || null}
                         className="mt-3"
                         textColor={priceContainerText}
+                        isPreviewMode={true}
                       />
                     </div>
                   ) : (
@@ -3462,6 +3465,7 @@ export function UnifiedProductPage({
                         updatedAt={product?.refund_policy_updated_at || null}
                         className="mt-3"
                         textColor={priceContainerText}
+                        isPreviewMode={true}
                       />
                     </div>
                   )}
@@ -3636,6 +3640,7 @@ export function UnifiedProductPage({
                       updatedAt={product?.refund_policy_updated_at || null}
                       className="mt-3"
                       textColor={priceContainerText}
+                      isPreviewMode={true}
                     />
                   </div>
                 ) : (
@@ -3674,6 +3679,7 @@ export function UnifiedProductPage({
                       updatedAt={product?.refund_policy_updated_at || null}
                       className="mt-3"
                       textColor={priceContainerText}
+                      isPreviewMode={true}
                     />
                   </div>
                 )}

@@ -784,6 +784,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                       View in Library
                     </Link>
                   </Button>
+
+                  {/* Refund Policy Display - shown after View in Library */}
+                  <RefundPolicyDisplay
+                    enabled={product.refund_policy_enabled}
+                    policyType={product.refund_policy_type}
+                    finePrint={product.refund_policy_fine_print}
+                    updatedAt={product.refund_policy_updated_at}
+                    className="mt-3"
+                    textColor={themeColors.cardTextColor}
+                  />
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1067,6 +1077,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   View in Library
                 </Link>
               </Button>
+
+              {/* Refund Policy Display - shown after View in Library */}
+              <RefundPolicyDisplay
+                enabled={product.refund_policy_enabled}
+                policyType={product.refund_policy_type}
+                finePrint={product.refund_policy_fine_print}
+                updatedAt={product.refund_policy_updated_at}
+                className="mt-3"
+                textColor={themeColors.cardTextColor}
+              />
             </div>
           ) : (
             <div className="space-y-3">
