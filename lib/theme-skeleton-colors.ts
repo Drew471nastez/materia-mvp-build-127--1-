@@ -40,6 +40,12 @@ export function getThemeSkeletonColors(themePreset: ThemePreset = "default") {
         skeletonColor: "#e5e7eb",
         textColor: "#000000",
       }
+    case "blacks":
+      return {
+        backgroundColor: "#ffffff",
+        skeletonColor: "#e5e7eb",
+        textColor: "#000000",
+      }
     case "rose":
       return {
         backgroundColor: "#fff1f2",
