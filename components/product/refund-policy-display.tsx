@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { X, ChevronDown } from "lucide-react"
 
@@ -26,6 +26,8 @@ interface RefundPolicyDisplayProps {
     accentColor?: string
     accentTextColor?: string
   }
+  // For mobile view detection
+  isMobile?: boolean
 }
 
 const POLICY_LABELS: Record<string, string> = {
@@ -97,10 +99,97 @@ export function RefundPolicyDisplay({
   isDarkTheme = false,
   backgroundColor,
   themeColors,
+  isMobile = false,
 }: RefundPolicyDisplayProps) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
+  const [tooltipPosition, setTooltipPosition] = useState<{
+    top?: string
+    bottom?: string
+    left?: string
+    right?: string
+    transform?: string
+    arrowPosition?: "top" | "bottom"
+  }>({})
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  // Calculate tooltip position to avoid overflow
+  const calculatePosition = useCallback(() => {
+    if (!triggerRef.current || !tooltipRef.current) return
+
+    const triggerRect = triggerRef.current.getBoundingClientRect()
+    const tooltipRect = tooltipRef.current.getBoundingClientRect()
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const padding = 12
+    const tooltipWidth = Math.min(320, viewportWidth - padding * 2)
+    const tooltipHeight = tooltipRect.height || 250
+
+    const newPosition: typeof tooltipPosition = {}
+
+    // Check if we're on mobile or small screen
+    const isSmallScreen = isMobile || viewportWidth < 640
+
+    if (isSmallScreen) {
+      // On mobile, position centered on screen with fixed positioning
+      newPosition.left = "50%"
+      newPosition.top = "50%"
+      newPosition.transform = "translate(-50%, -50%)"
+      newPosition.arrowPosition = "top"
+    } else {
+      // Desktop positioning
+      // Vertical: check if there's enough space below
+      const spaceBelow = viewportHeight - triggerRect.bottom - padding
+      const spaceAbove = triggerRect.top - padding
+
+      if (spaceBelow >= tooltipHeight) {
+        // Position below
+        newPosition.top = "100%"
+        newPosition.bottom = "auto"
+        newPosition.arrowPosition = "top"
+      } else if (spaceAbove >= tooltipHeight) {
+        // Position above
+        newPosition.top = "auto"
+        newPosition.bottom = "100%"
+        newPosition.arrowPosition = "bottom"
+      } else {
+        // Not enough space either way, use whichever has more space
+        if (spaceBelow >= spaceAbove) {
+          newPosition.top = "100%"
+          newPosition.bottom = "auto"
+          newPosition.arrowPosition = "top"
+        } else {
+          newPosition.top = "auto"
+          newPosition.bottom = "100%"
+          newPosition.arrowPosition = "bottom"
+        }
+      }
+
+      // Horizontal: center by default, adjust if overflows
+      const triggerCenterX = triggerRect.left + triggerRect.width / 2
+      const tooltipHalfWidth = tooltipWidth / 2
+
+      if (triggerCenterX - tooltipHalfWidth < padding) {
+        // Would overflow left, align to left edge
+        newPosition.left = `${-triggerRect.left + padding}px`
+        newPosition.right = "auto"
+        newPosition.transform = "none"
+      } else if (triggerCenterX + tooltipHalfWidth > viewportWidth - padding) {
+        // Would overflow right, align to right edge
+        newPosition.left = "auto"
+        newPosition.right = `${-(viewportWidth - triggerRect.right - padding)}px`
+        newPosition.transform = "none"
+      } else {
+        // Center normally
+        newPosition.left = "50%"
+        newPosition.right = "auto"
+        newPosition.transform = "translateX(-50%)"
+      }
+    }
+
+    setTooltipPosition(newPosition)
+  }, [isMobile])
 
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -124,13 +213,19 @@ export function RefundPolicyDisplay({
     if (isTooltipOpen) {
       document.addEventListener("mousedown", handleClickOutside)
       document.addEventListener("keydown", handleEscape)
+      // Calculate position when opening
+      requestAnimationFrame(calculatePosition)
+      window.addEventListener("resize", calculatePosition)
+      window.addEventListener("scroll", calculatePosition, true)
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
       document.removeEventListener("keydown", handleEscape)
+      window.removeEventListener("resize", calculatePosition)
+      window.removeEventListener("scroll", calculatePosition, true)
     }
-  }, [isTooltipOpen])
+  }, [isTooltipOpen, calculatePosition])
 
 
   if (!enabled || !policyType) {
@@ -232,6 +327,9 @@ export function RefundPolicyDisplay({
   const closeButtonColor = isDarkTooltip ? "rgba(156, 163, 175, 1)" : "rgba(107, 114, 128, 1)"
   const borderDivider = isDarkTooltip ? "rgba(55, 65, 81, 0.5)" : "rgba(229, 231, 235, 1)"
 
+  // Check if we're on mobile
+  const isSmallScreen = isMobile || (typeof window !== "undefined" && window.innerWidth < 640)
+
   // Tooltip content
   const renderTooltipContent = () => {
     // Default content for "No refunds" without fine print
@@ -239,98 +337,131 @@ export function RefundPolicyDisplay({
 
     const showFinePrint = hasFinePrint || isNoRefunds
 
+    const arrowPosition = tooltipPosition.arrowPosition || "top"
+
     return (
-      <div
-        ref={tooltipRef}
-        className={cn(
-          "absolute z-50 w-[280px] sm:w-[320px] rounded-xl shadow-2xl",
-          "transform transition-all duration-200 ease-out origin-top",
-          isTooltipOpen
-            ? "opacity-100 translate-y-0 scale-100 pointer-events-auto"
-            : "opacity-0 -translate-y-1 scale-95 pointer-events-none",
-          // Position: centered below the trigger
-          "left-1/2 -translate-x-1/2 top-full mt-2"
-        )}
-        style={{
-          pointerEvents: isTooltipOpen ? "auto" : "none",
-          backgroundColor: tooltipBg,
-          color: tooltipText,
-          border: `1px solid ${tooltipBorder}`,
-        }}
-      >
-        {/* Arrow pointer */}
-        <div
-          className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
-          style={{
-            backgroundColor: tooltipBg,
-            borderLeft: `1px solid ${tooltipBorder}`,
-            borderTop: `1px solid ${tooltipBorder}`,
-          }}
-        />
-
-        {/* Header */}
-        <div
-          className="relative px-4 py-3 flex items-center justify-between"
-          style={{ borderBottom: `1px solid ${borderDivider}` }}
-        >
-          <h4 className="text-sm font-semibold" style={{ color: tooltipText }}>Refund Policy</h4>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsTooltipOpen(false)
-            }}
-            className="p-1 rounded-full transition-colors"
-            style={{ backgroundColor: "transparent" }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = closeButtonHoverBg)}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-            aria-label="Close"
-          >
-            <X className="h-3.5 w-3.5" style={{ color: closeButtonColor }} />
-          </button>
-        </div>
-
-        {/* Content with scroll if needed */}
-        <div
-          className="px-4 py-3 max-h-[200px] overflow-y-auto overscroll-contain"
-          style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: `${mutedTextColor} transparent`,
-          }}
-        >
-          {/* Policy badge */}
+      <>
+        {/* Backdrop for mobile */}
+        {isSmallScreen && isTooltipOpen && (
           <div
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mb-3"
-            style={{ backgroundColor: accentBg }}
+            className="fixed inset-0 bg-black/30 z-[9998] animate-in fade-in-0 duration-150"
+            onClick={() => setIsTooltipOpen(false)}
+          />
+        )}
+        <div
+          ref={tooltipRef}
+          className={cn(
+            "z-[9999] w-[280px] sm:w-[320px] rounded-xl shadow-2xl",
+            "transition-all duration-200 ease-out",
+            isTooltipOpen
+              ? "opacity-100 scale-100 pointer-events-auto"
+              : "opacity-0 scale-95 pointer-events-none",
+            isSmallScreen ? "fixed" : "absolute",
+            arrowPosition === "top" ? "origin-top" : "origin-bottom"
+          )}
+          style={{
+            pointerEvents: isTooltipOpen ? "auto" : "none",
+            backgroundColor: tooltipBg,
+            color: tooltipText,
+            border: `1px solid ${tooltipBorder}`,
+            ...(isSmallScreen ? {
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              maxWidth: "calc(100vw - 24px)",
+              maxHeight: "70vh",
+            } : {
+              top: tooltipPosition.top,
+              bottom: tooltipPosition.bottom,
+              left: tooltipPosition.left,
+              right: tooltipPosition.right,
+              transform: tooltipPosition.transform,
+              marginTop: arrowPosition === "top" ? "10px" : undefined,
+              marginBottom: arrowPosition === "bottom" ? "10px" : undefined,
+            }),
+          }}
+        >
+          {/* Arrow pointer - only show on desktop */}
+          {!isSmallScreen && (
+            <div
+              className={cn(
+                "absolute left-1/2 -translate-x-1/2 w-4 h-4 rotate-45",
+                arrowPosition === "top" ? "-top-2" : "-bottom-2"
+              )}
+              style={{
+                backgroundColor: tooltipBg,
+                borderLeft: arrowPosition === "top" ? `1px solid ${tooltipBorder}` : "none",
+                borderTop: arrowPosition === "top" ? `1px solid ${tooltipBorder}` : "none",
+                borderRight: arrowPosition === "bottom" ? `1px solid ${tooltipBorder}` : "none",
+                borderBottom: arrowPosition === "bottom" ? `1px solid ${tooltipBorder}` : "none",
+              }}
+            />
+          )}
+
+          {/* Header */}
+          <div
+            className="relative px-4 py-3 flex items-center justify-between"
+            style={{ borderBottom: `1px solid ${borderDivider}` }}
           >
-            <span className="text-xs font-medium" style={{ color: accentText }}>{policyLabel}</span>
+            <h4 className="text-sm font-semibold" style={{ color: tooltipText }}>Refund Policy</h4>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsTooltipOpen(false)
+              }}
+              className="p-1 rounded-full transition-colors"
+              style={{ backgroundColor: "transparent" }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = closeButtonHoverBg)}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+              aria-label="Close"
+            >
+              <X className="h-3.5 w-3.5" style={{ color: closeButtonColor }} />
+            </button>
           </div>
 
-          {/* Fine print or default text */}
-          {showFinePrint && (
-            <div className="space-y-2">
-              <p
-                className="text-xs leading-relaxed whitespace-pre-wrap break-words"
-                style={{ color: contentTextColor }}
-              >
-                {hasFinePrint ? finePrint : defaultNoRefundText}
-              </p>
-            </div>
-          )}
-
-          {/* Updated date */}
-          {updatedAt && (
-            <p
-              className="text-[10px] mt-3 pt-2"
-              style={{
-                color: mutedTextColor,
-                borderTop: `1px solid ${borderDivider}`,
-              }}
+          {/* Content with scroll if needed */}
+          <div
+            className="px-4 py-3 max-h-[200px] overflow-y-auto overscroll-contain"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: `${mutedTextColor} transparent`,
+            }}
+          >
+            {/* Policy badge */}
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mb-3"
+              style={{ backgroundColor: accentBg }}
             >
-              Last updated: {formatDate(updatedAt)}
-            </p>
-          )}
+              <span className="text-xs font-medium" style={{ color: accentText }}>{policyLabel}</span>
+            </div>
+
+            {/* Fine print or default text */}
+            {showFinePrint && (
+              <div className="space-y-2">
+                <p
+                  className="text-xs leading-relaxed whitespace-pre-wrap break-words"
+                  style={{ color: contentTextColor }}
+                >
+                  {hasFinePrint ? finePrint : defaultNoRefundText}
+                </p>
+              </div>
+            )}
+
+            {/* Updated date */}
+            {updatedAt && (
+              <p
+                className="text-[10px] mt-3 pt-2"
+                style={{
+                  color: mutedTextColor,
+                  borderTop: `1px solid ${borderDivider}`,
+                }}
+              >
+                Last updated: {formatDate(updatedAt)}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
@@ -342,6 +473,7 @@ export function RefundPolicyDisplay({
     >
       {/* Trigger text */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={handleClick}
         className={cn(

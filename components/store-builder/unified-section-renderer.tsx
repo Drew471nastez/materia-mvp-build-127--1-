@@ -3197,6 +3197,7 @@ export function UnifiedProductPage({
                           isPreviewMode={true}
                           themePreset={themePreset}
                           isDarkTheme={isDarkTheme}
+                          isMobile={isMobile}
                         />
                       </div>
                     ) : (
@@ -3239,6 +3240,7 @@ export function UnifiedProductPage({
                           isPreviewMode={true}
                           themePreset={themePreset}
                           isDarkTheme={isDarkTheme}
+                          isMobile={isMobile}
                         />
                       </div>
                     )}
@@ -3461,6 +3463,7 @@ export function UnifiedProductPage({
                         isPreviewMode={true}
                         themePreset={themePreset}
                         isDarkTheme={isDarkTheme}
+                        isMobile={isMobile}
                       />
                     </div>
                   ) : (
@@ -3502,6 +3505,7 @@ export function UnifiedProductPage({
                         isPreviewMode={true}
                         themePreset={themePreset}
                         isDarkTheme={isDarkTheme}
+                        isMobile={isMobile}
                       />
                     </div>
                   )}
@@ -3680,6 +3684,7 @@ export function UnifiedProductPage({
                       isPreviewMode={true}
                       themePreset={themePreset}
                       isDarkTheme={isDarkTheme}
+                      isMobile={isMobile}
                     />
                   </div>
                 ) : (
@@ -3721,6 +3726,7 @@ export function UnifiedProductPage({
                       isPreviewMode={true}
                       themePreset={themePreset}
                       isDarkTheme={isDarkTheme}
+                      isMobile={isMobile}
                     />
                   </div>
                 )}

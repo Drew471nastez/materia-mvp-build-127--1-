@@ -150,7 +150,16 @@ interface InlinePopoverProps {
 
 function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeColors, isMobile }: InlinePopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null)
-  const [adjustedPosition, setAdjustedPosition] = useState<{ left?: string; right?: string; transform?: string }>({})
+  const [adjustedPosition, setAdjustedPosition] = useState<{
+    left?: string
+    right?: string
+    transform?: string
+    top?: string
+    bottom?: string
+    marginTop?: string
+    marginBottom?: string
+    position?: "absolute" | "fixed"
+  }>({})
 
   useEffect(() => {
     if (!isOpen) return
@@ -172,62 +181,134 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       if (popoverRef.current) {
         const rect = popoverRef.current.getBoundingClientRect()
         const viewportWidth = window.innerWidth
-        const padding = 8
+        const viewportHeight = window.innerHeight
+        const padding = 12
+        const popoverHeight = rect.height
+        const popoverWidth = rect.width
 
-        // On mobile, center the popover
+        // On mobile, use fixed positioning centered on screen
         if (isMobile || viewportWidth < 640) {
+          // Calculate centered position that fits within viewport
+          const maxWidth = Math.min(viewportWidth - padding * 2, 360)
+          const maxHeight = Math.min(viewportHeight - padding * 2, viewportHeight * 0.7)
+
           setAdjustedPosition({
-            left: '50%',
-            transform: 'translateX(-50%)'
+            position: "fixed",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            marginTop: "0",
+            marginBottom: "0",
           })
-        } else if (rect.right > viewportWidth - padding) {
+          return
+        }
+
+        // Desktop positioning
+        const newPosition: typeof adjustedPosition = {}
+
+        // Get parent element position for reference
+        const parentRect = popoverRef.current.parentElement?.getBoundingClientRect()
+        if (!parentRect) return
+
+        // Check vertical overflow - if popover would go below viewport, position above
+        const spaceBelow = viewportHeight - parentRect.bottom - padding
+        const spaceAbove = parentRect.top - padding
+
+        if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
+          // Position above the trigger
+          newPosition.top = "auto"
+          newPosition.bottom = "100%"
+          newPosition.marginTop = "0"
+          newPosition.marginBottom = "8px"
+        } else {
+          // Position below the trigger (default)
+          newPosition.top = "100%"
+          newPosition.bottom = "auto"
+          newPosition.marginTop = "8px"
+          newPosition.marginBottom = "0"
+        }
+
+        // Check horizontal overflow
+        if (rect.right > viewportWidth - padding) {
           // If popover goes off right edge, align to right
-          setAdjustedPosition({ left: 'auto', right: '0' })
+          newPosition.left = "auto"
+          newPosition.right = "0"
         } else if (rect.left < padding) {
           // If popover goes off left edge, align to left
-          setAdjustedPosition({ left: '0', right: 'auto' })
+          newPosition.left = "0"
+          newPosition.right = "auto"
         }
+
+        setAdjustedPosition(newPosition)
       }
     }
 
-    // Delay to allow popover to render first
-    setTimeout(adjustPosition, 0)
+    // Delay to allow popover to render first, then adjust
+    const timeoutId = setTimeout(adjustPosition, 10)
 
     document.addEventListener("mousedown", handleClickOutside)
     document.addEventListener("keydown", handleEscape)
     window.addEventListener("resize", adjustPosition)
+    window.addEventListener("scroll", adjustPosition, true)
     return () => {
+      clearTimeout(timeoutId)
       document.removeEventListener("mousedown", handleClickOutside)
       document.removeEventListener("keydown", handleEscape)
       window.removeEventListener("resize", adjustPosition)
+      window.removeEventListener("scroll", adjustPosition, true)
     }
   }, [isOpen, onClose, isMobile])
 
   if (!isOpen) return null
 
   const isDark = themeColors?.isDarkTheme
+  const isMobileView = isMobile || (typeof window !== "undefined" && window.innerWidth < 640)
 
   return (
-    <div
-      ref={popoverRef}
-      className={cn(
-        "absolute z-[999999] rounded-xl shadow-2xl border",
-        "animate-in fade-in-0 slide-in-from-top-2 duration-200",
-        isDark ? "bg-[#1a1a1a] border-[#333]" : "bg-white border-gray-200",
-        // Mobile: full width with margins
-        isMobile && "!fixed !left-2 !right-2 !top-auto !bottom-auto !w-auto !max-w-[calc(100vw-16px)]",
-        className
+    <>
+      {/* Backdrop for mobile to prevent interaction with content behind */}
+      {isMobileView && (
+        <div
+          className="fixed inset-0 bg-black/20 z-[999998] animate-in fade-in-0 duration-150"
+          onClick={onClose}
+        />
       )}
-      style={{
-        top: isMobile ? undefined : "100%",
-        marginTop: isMobile ? undefined : "8px",
-        maxHeight: isMobile ? "70vh" : "80vh",
-        overflowY: "auto",
-        ...(!isMobile && adjustedPosition)
-      }}
-    >
-      {children}
-    </div>
+      <div
+        ref={popoverRef}
+        className={cn(
+          "z-[999999] rounded-xl shadow-2xl border",
+          "animate-in fade-in-0 duration-200",
+          isDark ? "bg-[#1a1a1a] border-[#333]" : "bg-white border-gray-200",
+          isMobileView ? "fixed slide-in-from-bottom-4" : "absolute slide-in-from-top-2",
+          className
+        )}
+        style={{
+          ...(isMobileView ? {
+            position: "fixed",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "calc(100vw - 24px)",
+            maxWidth: "360px",
+            maxHeight: "70vh",
+            overflowY: "auto",
+          } : {
+            position: adjustedPosition.position || "absolute",
+            top: adjustedPosition.top ?? "100%",
+            bottom: adjustedPosition.bottom ?? "auto",
+            left: adjustedPosition.left,
+            right: adjustedPosition.right,
+            marginTop: adjustedPosition.marginTop ?? "8px",
+            marginBottom: adjustedPosition.marginBottom ?? "0",
+            transform: adjustedPosition.transform,
+            maxHeight: "min(400px, 60vh)",
+            overflowY: "auto",
+          }),
+        }}
+      >
+        {children}
+      </div>
+    </>
   )
 }
 
