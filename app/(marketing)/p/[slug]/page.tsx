@@ -598,6 +598,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       whats_included: product.whats_included,
       gallery_urls: product.gallery_urls,
       faqs: product.faqs,
+      refund_policy_enabled: product.refund_policy_enabled,
+      refund_policy_type: product.refund_policy_type,
+      refund_policy_fine_print: product.refund_policy_fine_print,
+      refund_policy_updated_at: product.refund_policy_updated_at,
     },
   ]
 
