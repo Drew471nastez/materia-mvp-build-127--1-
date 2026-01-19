@@ -332,6 +332,7 @@ export interface ShopHeaderSettings {
   avatarSizeChoice?: AvatarSizeChoice // 'small' | 'medium' | 'large'
   mobileAvatarSizeChoice?: AvatarSizeChoice // 'small' | 'medium' | 'large'
   profileImageBorderColor?: string // Border color for the profile image circle
+  bio?: string // Bio text that can be edited from header settings
   showHeadline: boolean
   showBio: boolean
   showNicheTags: boolean

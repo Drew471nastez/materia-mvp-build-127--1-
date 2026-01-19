@@ -1072,7 +1072,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                           className="w-14 h-4 rounded flex items-center justify-center"
                           style={{
                             // For Bubble theme, use purple in thumbnail since white button is not visible on white background
-                            backgroundColor: preset === "bubble" ? "#8b5cf6" : theme.subscribeBar.buttonColor,
+                            // For Blacks theme, use light gray in thumbnail since the actual button is white on the black subscribe bar
+                            backgroundColor: preset === "bubble" ? "#8b5cf6" : preset === "blacks" ? "#9ca3af" : theme.subscribeBar.buttonColor,
                             borderRadius: `${Math.min(theme.buttonBorderRadius || theme.borderRadius, 12)}px`
                           }}
                         />
@@ -1167,6 +1168,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 settings={draftConfig.headerSettings as ShopHeaderSettings}
                 onChange={updateHeaderSettings}
                 creatorId={creatorId}
+                creator={creator}
               />
             ) : selectedSectionId === "product-content" && currentPageType === "product" ? (
               <ProductHeaderSettingsForm
@@ -1654,10 +1656,15 @@ function ShopHeaderSettingsForm({
   settings,
   onChange,
   creatorId,
+  creator,
 }: {
   settings: ShopHeaderSettings
   onChange: (settings: Partial<ShopHeaderSettings>) => void
   creatorId: string
+  creator?: {
+    headline?: string | null
+    bio?: string | null
+  }
 }) {
   const [coverEditorOpen, setCoverEditorOpen] = useState(false)
   const [avatarCropperOpen, setAvatarCropperOpen] = useState(false)
@@ -1740,6 +1747,15 @@ function ShopHeaderSettingsForm({
 
   return (
     <div className="space-y-6">
+      {/* Edit Settings Button */}
+      <a
+        href="/app/settings"
+        className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+      >
+        <Settings className="h-4 w-4" />
+        Edit Settings
+      </a>
+
       <div className="space-y-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cover Image</h4>
 
@@ -1928,6 +1944,20 @@ function ShopHeaderSettingsForm({
               onChange={(value) => onChange({ profileImageBorderColor: value })}
               description="Border color for the profile image circle"
             />
+          </div>
+
+          <div className="space-y-2 pt-3">
+            <Label className="text-sm font-medium">Bio</Label>
+            <Textarea
+              value={settings.bio ?? creator?.bio ?? ""}
+              onChange={(e) => onChange({ bio: e.target.value })}
+              placeholder="Enter your bio description..."
+              rows={3}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              Your bio description shown below your profile picture
+            </p>
           </div>
         </div>
       </div>
@@ -4344,7 +4374,7 @@ function FAQSettingsForm({
     {
       id: "default-2",
       question: "Is there a refund policy?",
-      answer: "Refund policies are set by individual creators. Please contact the creator directly if you have questions about refunds.",
+      answer: "Refund policies are set by individual creators. Please check product info or contact the seller directly if you have questions about refunds.",
       isDefault: true,
     },
     {

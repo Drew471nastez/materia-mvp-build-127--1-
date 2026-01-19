@@ -503,7 +503,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     },
     {
       question: "Is there a refund policy?",
-      answer: "Refund policies are set by individual creators. Please contact the creator directly if you have questions about refunds.",
+      answer: "Refund policies are set by individual creators. Please check product info or contact the seller directly if you have questions about refunds.",
     },
     {
       question: "How long do I have access?",

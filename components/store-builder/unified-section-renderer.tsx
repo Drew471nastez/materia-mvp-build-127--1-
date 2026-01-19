@@ -2788,7 +2788,7 @@ export function UnifiedShopHeader({
             </div>
           )}
 
-          {settings.showBio && creator?.bio && (
+          {settings.showBio && (settings.bio || creator?.bio) && (
             <p
               className={cn(
                 "max-w-xl break-words px-4",
@@ -2797,7 +2797,7 @@ export function UnifiedShopHeader({
               )}
               style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
             >
-              {creator.bio}
+              {settings.bio || creator?.bio}
             </p>
           )}
 
@@ -2927,7 +2927,7 @@ export function UnifiedProductPage({
     {
       question: "Is there a refund policy?",
       answer:
-        "Refund policies are set by individual creators. Please contact the creator directly if you have questions about refunds.",
+        "Refund policies are set by individual creators. Please check product info or contact the seller directly if you have questions about refunds.",
     },
     {
       question: "How long do I have access?",
