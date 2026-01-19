@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react"
 import { useStoreBuilder } from "./store-builder-context"
+import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import type { ShopHeaderSettings, ProductHeaderSettings } from "@/lib/store-builder/types"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -263,6 +264,47 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
   const [productReviews, setProductReviews] = useState<{ count: number; average: number; reviews: any[] }>({ count: 0, average: 0, reviews: [] })
 
+  // Local product state for description editing
+  const [localProductData, setLocalProductData] = useState<ProductData | null>(null)
+
+  // Update local product data when selected product changes
+  useEffect(() => {
+    if (selectedProduct) {
+      setLocalProductData(selectedProduct)
+    }
+  }, [selectedProduct])
+
+  // Debounced description update to database
+  const descriptionUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const handleDescriptionChange = useCallback(async (newDescription: string) => {
+    if (!selectedProduct?.id) return
+
+    // Update local state immediately for responsive UI
+    setLocalProductData((prev) => prev ? { ...prev, description: newDescription } : null)
+
+    // Debounce the database update
+    if (descriptionUpdateTimeoutRef.current) {
+      clearTimeout(descriptionUpdateTimeoutRef.current)
+    }
+
+    descriptionUpdateTimeoutRef.current = setTimeout(async () => {
+      try {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from("products")
+          .update({ description: newDescription })
+          .eq("id", selectedProduct.id)
+
+        if (error) {
+          console.error("Failed to update product description:", error)
+        }
+      } catch (err) {
+        console.error("Failed to update product description:", err)
+      }
+    }, 500) // Debounce for 500ms
+  }, [selectedProduct?.id])
+
   useEffect(() => {
     if (!selectedProduct?.id) return
 
@@ -271,13 +313,13 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
         // Fetch stats
         const statsRes = await fetch(`/api/reviews/stats?productId=${selectedProduct.id}`)
         const statsData = await statsRes.json()
-        
+
         // Fetch actual reviews
         const reviewsRes = await fetch(`/api/reviews?productId=${selectedProduct.id}&limit=10`)
         const reviewsData = await reviewsRes.json()
-        
-        setProductReviews({ 
-          count: statsData.reviewsCount || 0, 
+
+        setProductReviews({
+          count: statsData.reviewsCount || 0,
           average: statsData.reviewsAverage || 0,
           reviews: reviewsData.reviews || []
         })
@@ -515,7 +557,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
             <UnifiedProductPage
               settings={draftConfig.headerSettings as ProductHeaderSettings}
-              product={selectedProduct}
+              product={localProductData || selectedProduct}
               creator={creator}
               profile={profile}
               isMobile={isMobile}
@@ -533,6 +575,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   handleSelectSection(faqSection.id)
                 }
               }}
+              onDescriptionChange={handleDescriptionChange}
               faqSettings={draftConfig.sections.find((s) => s.type === "faq")?.settings as { customFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }>; allFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }> } | undefined}
             />
 

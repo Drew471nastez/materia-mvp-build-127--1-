@@ -52,6 +52,7 @@ import { ReviewsList } from "@/components/reviews/reviews-list"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 import * as LucideIcons from "lucide-react"
+import { DescriptionEditWrapper } from "./description-rich-editor"
 
 // Shared product type for consistency
 export interface ProductData {
@@ -2851,6 +2852,7 @@ export interface UnifiedProductPageProps {
   reviews?: any[]
   globalSettings?: GlobalStoreSettings
   onEditFaqs?: () => void
+  onDescriptionChange?: (description: string) => void
   faqSettings?: {
     customFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }>
     allFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }>
@@ -2871,6 +2873,7 @@ export function UnifiedProductPage({
   reviews = [],
   globalSettings,
   onEditFaqs,
+  onDescriptionChange,
   faqSettings,
 }: UnifiedProductPageProps) {
   const [showShareModal, setShowShareModal] = useState(false)
@@ -3340,20 +3343,29 @@ export function UnifiedProductPage({
               )}
 
               {settings.showDescription !== false && productDescription && (
-                <div className="mt-6">
-                  <h2
-                    className={cn("mb-3 font-semibold", isMobile ? "text-base" : "text-lg", !themeTextColor && "text-foreground")}
-                    style={{ color: themeTextColor }}
-                  >
-                    Description
-                  </h2>
-                  <p
-                    className={cn("whitespace-pre-wrap leading-relaxed break-words text-sm", !themeMutedColor && "text-muted-foreground")}
-                    style={{ color: themeMutedColor }}
-                  >
-                    {productDescription.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
-                  </p>
-                </div>
+                <DescriptionEditWrapper
+                  isEditorMode={!isPreviewMode}
+                  description={productDescription}
+                  onDescriptionChange={onDescriptionChange || (() => {})}
+                  isMobile={isMobile}
+                  textColor={themeTextColor}
+                  mutedTextColor={themeMutedColor}
+                >
+                  <div className="mt-6">
+                    <h2
+                      className={cn("mb-3 font-semibold", isMobile ? "text-base" : "text-lg", !themeTextColor && "text-foreground")}
+                      style={{ color: themeTextColor }}
+                    >
+                      Description
+                    </h2>
+                    <p
+                      className={cn("whitespace-pre-wrap leading-relaxed break-words text-sm", !themeMutedColor && "text-muted-foreground")}
+                      style={{ color: themeMutedColor }}
+                    >
+                      {productDescription.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
+                    </p>
+                  </div>
+                </DescriptionEditWrapper>
               )}
             </div>
 

@@ -57,17 +57,13 @@ export function EditorStickyAddToCart({
   onSelect,
   scrollY = 0,
 }: StickyAddToCartProps) {
-  // Calculate visibility based on scroll position (show after 40% scroll)
-  // In editor, we show it after some scroll to simulate live behavior
-  const scrollThreshold = 400 // Show after scrolling 400px in editor preview
-  const isVisibleByScroll = scrollY >= scrollThreshold
-
   // If settings say not visible, don't render
   if (!settings.visible) return null
 
-  // In editor preview mode, show based on scroll (unless selected for editing)
-  // When selected, always show so user can edit
-  const shouldShow = isSelected || isVisibleByScroll || !isEditorPreview
+  // In editor preview mode, parent controls visibility via showSticky state
+  // So we always show here when rendered - the parent handles scroll-based visibility
+  // This fixes the issue where the bar wasn't showing in the editor preview
+  const shouldShow = true
 
   const buttonText = getButtonText(settings.buttonStyle)
   const reviewsCount = product.reviews_count || 0
