@@ -42,14 +42,15 @@ import {
   ExternalLink,
   Play,
   Pencil,
+  Trash2,
+  MoveUp,
+  MoveDown,
+  Maximize2,
+  Square,
+  RectangleHorizontal,
+  RectangleVertical,
+  Check,
 } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -97,6 +98,16 @@ const buttonColorPresets = [
   { label: "White", value: "#ffffff", textColor: "#000000" },
 ]
 
+// Image sizing options
+const imageSizeOptions = [
+  { label: "Cover", value: "cover", icon: Maximize2, description: "Fill container" },
+  { label: "Fit", value: "contain", icon: Square, description: "Show full image" },
+  { label: "Wide", value: "wide", icon: RectangleHorizontal, description: "16:9 ratio" },
+  { label: "Portrait", value: "portrait", icon: RectangleVertical, description: "3:4 ratio" },
+  { label: "Square", value: "square", icon: Square, description: "1:1 ratio" },
+  { label: "Standard", value: "standard", icon: RectangleHorizontal, description: "4:3 ratio" },
+]
+
 // Helper to check if a string looks like HTML
 function isHtmlContent(str: string): boolean {
   if (!str) return false
@@ -114,6 +125,157 @@ function textToHtml(text: string): string {
     .join("")
 }
 
+// Inline Popover Component for a modern, smooth experience
+interface InlinePopoverProps {
+  isOpen: boolean
+  onClose: () => void
+  children: React.ReactNode
+  className?: string
+  anchorRef?: React.RefObject<HTMLElement | null>
+}
+
+function InlinePopover({ isOpen, onClose, children, className, anchorRef }: InlinePopoverProps) {
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose()
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    document.addEventListener("keydown", handleEscape)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("keydown", handleEscape)
+    }
+  }, [isOpen, onClose])
+
+  if (!isOpen) return null
+
+  return (
+    <div
+      ref={popoverRef}
+      className={cn(
+        "absolute z-50 bg-white rounded-xl shadow-xl border border-gray-200",
+        "animate-in fade-in-0 slide-in-from-top-2 duration-200",
+        className
+      )}
+      style={{ top: "100%", left: 0, marginTop: "8px" }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// Embed Controls Component
+interface EmbedControlsProps {
+  onDelete: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onSizeChange?: (size: string) => void
+  currentSize?: string
+  showSizeOptions?: boolean
+  className?: string
+}
+
+function EmbedControls({
+  onDelete,
+  onMoveUp,
+  onMoveDown,
+  onSizeChange,
+  currentSize = "cover",
+  showSizeOptions = false,
+  className,
+}: EmbedControlsProps) {
+  const [showSizeMenu, setShowSizeMenu] = useState(false)
+
+  return (
+    <div
+      className={cn(
+        "absolute top-2 right-2 flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-1",
+        "opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+        className
+      )}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <button
+        type="button"
+        onClick={onMoveUp}
+        className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+        title="Move up"
+      >
+        <MoveUp className="h-4 w-4 text-gray-600" />
+      </button>
+      <button
+        type="button"
+        onClick={onMoveDown}
+        className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+        title="Move down"
+      >
+        <MoveDown className="h-4 w-4 text-gray-600" />
+      </button>
+      {showSizeOptions && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowSizeMenu(!showSizeMenu)}
+            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            title="Image size"
+          >
+            <Maximize2 className="h-4 w-4 text-gray-600" />
+          </button>
+          {showSizeMenu && (
+            <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 p-1 min-w-[140px] z-10">
+              {imageSizeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onSizeChange?.(option.value)
+                    setShowSizeMenu(false)
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-2 text-sm rounded hover:bg-gray-100 transition-colors",
+                    currentSize === option.value && "bg-purple-50 text-purple-700"
+                  )}
+                >
+                  <option.icon className="h-4 w-4" />
+                  <div className="text-left">
+                    <div className="font-medium">{option.label}</div>
+                    <div className="text-xs text-gray-500">{option.description}</div>
+                  </div>
+                  {currentSize === option.value && <Check className="h-4 w-4 ml-auto" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <div className="w-px h-5 bg-gray-200 mx-0.5" />
+      <button
+        type="button"
+        onClick={onDelete}
+        className="p-1.5 hover:bg-red-50 rounded transition-colors"
+        title="Delete"
+      >
+        <Trash2 className="h-4 w-4 text-red-500" />
+      </button>
+    </div>
+  )
+}
+
 export function DescriptionRichEditor({
   value,
   onChange,
@@ -125,10 +287,13 @@ export function DescriptionRichEditor({
   const editorRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [currentTextStyle, setCurrentTextStyle] = useState("Text")
-  const [showLinkDialog, setShowLinkDialog] = useState(false)
-  const [showImageDialog, setShowImageDialog] = useState(false)
-  const [showVideoDialog, setShowVideoDialog] = useState(false)
-  const [showButtonDialog, setShowButtonDialog] = useState(false)
+
+  // Popover states instead of modals
+  const [showLinkPopover, setShowLinkPopover] = useState(false)
+  const [showImagePopover, setShowImagePopover] = useState(false)
+  const [showVideoPopover, setShowVideoPopover] = useState(false)
+  const [showButtonPopover, setShowButtonPopover] = useState(false)
+
   const [linkUrl, setLinkUrl] = useState("")
   const [linkText, setLinkText] = useState("")
   const [imageUrl, setImageUrl] = useState("")
@@ -137,15 +302,23 @@ export function DescriptionRichEditor({
   const [savedSelection, setSavedSelection] = useState<Range | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Button dialog state
+  // Button popover state
   const [buttonText, setButtonText] = useState("Click me")
   const [buttonLink, setButtonLink] = useState("")
-  const [buttonColor, setButtonColor] = useState("#7c3aed") // Default to purple
+  const [buttonColor, setButtonColor] = useState("#7c3aed")
   const [buttonTextColor, setButtonTextColor] = useState("#ffffff")
   const [buttonAlignment, setButtonAlignment] = useState<"left" | "center" | "right">("center")
 
+  // Selected embed state
+  const [selectedEmbed, setSelectedEmbed] = useState<HTMLElement | null>(null)
+
   // Image upload ref
   const imageInputRef = useRef<HTMLInputElement>(null)
+
+  // Undo/Redo history
+  const [undoStack, setUndoStack] = useState<string[]>([])
+  const [redoStack, setRedoStack] = useState<string[]>([])
+  const [lastContent, setLastContent] = useState("")
 
   // Initialize editor content - only once when mounted
   useEffect(() => {
@@ -153,6 +326,7 @@ export function DescriptionRichEditor({
       const htmlContent = textToHtml(value)
       editorRef.current.innerHTML = htmlContent
       setIsInitialized(true)
+      setLastContent(htmlContent)
 
       // Focus editor and place cursor at the end
       setTimeout(() => {
@@ -205,6 +379,18 @@ export function DescriptionRichEditor({
     editorRef.current.focus()
   }, [])
 
+  // Save to undo stack
+  const saveToUndoStack = useCallback(() => {
+    if (editorRef.current) {
+      const currentContent = editorRef.current.innerHTML
+      if (currentContent !== lastContent) {
+        setUndoStack(prev => [...prev.slice(-50), lastContent])
+        setRedoStack([])
+        setLastContent(currentContent)
+      }
+    }
+  }, [lastContent])
+
   // Save content as HTML (not plain text)
   const saveContent = useCallback(() => {
     if (editorRef.current) {
@@ -220,13 +406,55 @@ export function DescriptionRichEditor({
 
   // Handle content changes - save as HTML
   const handleContentChange = useCallback(() => {
+    saveToUndoStack()
     saveContent()
-  }, [saveContent])
+  }, [saveContent, saveToUndoStack])
 
-  // Handle Enter key to create proper new lines/paragraphs
+  // Undo function
+  const handleUndo = useCallback(() => {
+    if (undoStack.length > 0 && editorRef.current) {
+      const previousContent = undoStack[undoStack.length - 1]
+      setRedoStack(prev => [...prev, editorRef.current!.innerHTML])
+      setUndoStack(prev => prev.slice(0, -1))
+      editorRef.current.innerHTML = previousContent
+      setLastContent(previousContent)
+      saveContent()
+    }
+  }, [undoStack, saveContent])
+
+  // Redo function
+  const handleRedo = useCallback(() => {
+    if (redoStack.length > 0 && editorRef.current) {
+      const nextContent = redoStack[redoStack.length - 1]
+      setUndoStack(prev => [...prev, editorRef.current!.innerHTML])
+      setRedoStack(prev => prev.slice(0, -1))
+      editorRef.current.innerHTML = nextContent
+      setLastContent(nextContent)
+      saveContent()
+    }
+  }, [redoStack, saveContent])
+
+  // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+    const ctrlKey = isMac ? e.metaKey : e.ctrlKey
+
+    // Undo: Cmd+Z (Mac) or Ctrl+Z (Windows)
+    if (ctrlKey && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      handleUndo()
+      return
+    }
+
+    // Redo: Cmd+Shift+Z (Mac) or Ctrl+Y (Windows)
+    if ((isMac && ctrlKey && e.shiftKey && e.key === 'z') || (!isMac && ctrlKey && e.key === 'y')) {
+      e.preventDefault()
+      handleRedo()
+      return
+    }
+
+    // Handle Enter key to create proper new lines/paragraphs
     if (e.key === 'Enter' && !e.shiftKey) {
-      // Let the default behavior handle Enter for now, but ensure we're in a paragraph
       const selection = window.getSelection()
       if (selection && selection.rangeCount > 0) {
         const range = selection.getRangeAt(0)
@@ -259,13 +487,62 @@ export function DescriptionRichEditor({
       }
     }
 
+    // Handle Backspace on embeds
+    if (e.key === 'Backspace') {
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+
+        // Check if we're at the start of an element following an embed
+        if (range.startOffset === 0) {
+          const currentElement = range.startContainer.parentElement
+          const prevElement = currentElement?.previousElementSibling
+
+          if (prevElement?.hasAttribute('data-embed-type')) {
+            e.preventDefault()
+            // Remove the embed
+            prevElement.remove()
+            handleContentChange()
+            return
+          }
+        }
+
+        // Check if we have selected an embed
+        const parentElement = range.startContainer.parentElement
+        const embedContainer = parentElement?.closest('[data-embed-type]')
+        if (embedContainer) {
+          e.preventDefault()
+          embedContainer.remove()
+          handleContentChange()
+          return
+        }
+      }
+    }
+
+    // Handle Delete key
+    if (e.key === 'Delete') {
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+        const currentElement = range.startContainer.parentElement
+        const nextElement = currentElement?.nextElementSibling
+
+        if (nextElement?.hasAttribute('data-embed-type')) {
+          e.preventDefault()
+          nextElement.remove()
+          handleContentChange()
+          return
+        }
+      }
+    }
+
     // Handle tab key for indentation
     if (e.key === 'Tab') {
       e.preventDefault()
       document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;')
       handleContentChange()
     }
-  }, [handleContentChange])
+  }, [handleContentChange, handleUndo, handleRedo])
 
   // Handle close with auto-save
   const handleClose = useCallback(() => {
@@ -273,7 +550,7 @@ export function DescriptionRichEditor({
     onClose?.()
   }, [saveContent, onClose])
 
-  // Save selection before opening dialogs
+  // Save selection before opening popovers
   const saveSelection = useCallback(() => {
     const selection = window.getSelection()
     if (selection && selection.rangeCount > 0) {
@@ -281,7 +558,7 @@ export function DescriptionRichEditor({
     }
   }, [])
 
-  // Restore selection after dialog closes
+  // Restore selection after popover closes
   const restoreSelection = useCallback(() => {
     if (savedSelection && editorRef.current) {
       const selection = window.getSelection()
@@ -294,7 +571,6 @@ export function DescriptionRichEditor({
 
   // Execute command on the editor - single click handling
   const execCommand = useCallback((command: string, value?: string) => {
-    // Use requestAnimationFrame to ensure proper event handling
     requestAnimationFrame(() => {
       if (editorRef.current) {
         editorRef.current.focus()
@@ -338,7 +614,7 @@ export function DescriptionRichEditor({
           document.execCommand("createLink", false, linkUrl)
         }
 
-        setShowLinkDialog(false)
+        setShowLinkPopover(false)
         setLinkUrl("")
         setLinkText("")
         handleContentChange()
@@ -362,7 +638,7 @@ export function DescriptionRichEditor({
         if (editorRef.current) {
           editorRef.current.focus()
           // Wrap image in a div with contenteditable=false to prevent cursor issues, add paragraph after for text
-          document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" contenteditable="false" style="margin: 12px 0; user-select: none;"><img src="${imageDataUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block;" loading="lazy" /></div><p><br></p>`)
+          document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" data-image-size="cover" contenteditable="false" class="embed-container group" style="margin: 12px 0; user-select: none; position: relative;"><img src="${imageDataUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block; object-fit: cover;" loading="lazy" /></div><p><br></p>`)
           handleContentChange()
 
           // Place cursor after the image
@@ -390,7 +666,7 @@ export function DescriptionRichEditor({
     if (imageInputRef.current) {
       imageInputRef.current.value = ""
     }
-    setShowImageDialog(false)
+    setShowImagePopover(false)
   }, [restoreSelection, handleContentChange])
 
   // Insert image from URL
@@ -402,7 +678,7 @@ export function DescriptionRichEditor({
       if (editorRef.current && imageUrl) {
         editorRef.current.focus()
         // Wrap image in a div with contenteditable=false to prevent cursor issues, add paragraph after
-        document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" contenteditable="false" style="margin: 12px 0; user-select: none;"><img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block;" loading="lazy" /></div><p><br></p>`)
+        document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" data-image-size="cover" contenteditable="false" class="embed-container group" style="margin: 12px 0; user-select: none; position: relative;"><img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block; object-fit: cover;" loading="lazy" /></div><p><br></p>`)
         handleContentChange()
 
         // Place cursor after the image
@@ -424,7 +700,7 @@ export function DescriptionRichEditor({
       }
     })
 
-    setShowImageDialog(false)
+    setShowImagePopover(false)
     setImageUrl("")
   }, [imageUrl, restoreSelection, handleContentChange])
 
@@ -468,11 +744,11 @@ export function DescriptionRichEditor({
             // Embed the video with responsive container - using data attributes for stability
             const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`
             // Wrap in a contenteditable=false container to prevent cursor issues
-            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube" contenteditable="false" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; margin: 12px 0; border-radius: 8px; user-select: none;"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px; pointer-events: auto;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div><p><br></p>`)
+            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube" contenteditable="false" class="embed-container group" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; margin: 12px 0; border-radius: 8px; user-select: none;"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px; pointer-events: auto;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div><p><br></p>`)
           } else {
             // Insert as a link with thumbnail
             const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
-            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube-thumbnail" contenteditable="false" style="margin: 12px 0; user-select: none;"><a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="display: block; position: relative;">
+            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube-thumbnail" contenteditable="false" class="embed-container group" style="margin: 12px 0; user-select: none; position: relative;"><a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="display: block; position: relative;">
               <img src="${thumbnailUrl}" alt="YouTube Video" style="width: 100%; height: auto; border-radius: 8px;" loading="lazy" />
               <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;">
                 <div style="background-color: #dc2626; border-radius: 50%; padding: 12px;">
@@ -504,7 +780,7 @@ export function DescriptionRichEditor({
       })
     }
 
-    setShowVideoDialog(false)
+    setShowVideoPopover(false)
     setVideoUrl("")
     setVideoDisplayMode("embed")
   }, [videoUrl, videoDisplayMode, restoreSelection, handleContentChange, extractYouTubeId])
@@ -527,10 +803,10 @@ export function DescriptionRichEditor({
       }
     })
 
-    setShowButtonDialog(false)
+    setShowButtonPopover(false)
     setButtonText("Click me")
     setButtonLink("")
-    setButtonColor("#7c3aed") // Reset to purple
+    setButtonColor("#7c3aed")
     setButtonTextColor("#ffffff")
     setButtonAlignment("center")
   }, [buttonText, buttonLink, buttonColor, buttonTextColor, buttonAlignment, restoreSelection, handleContentChange])
@@ -548,7 +824,7 @@ export function DescriptionRichEditor({
             break
           case "button":
             saveSelection()
-            setShowButtonDialog(true)
+            setShowButtonPopover(true)
             return
           case "twitter":
             document.execCommand("insertHTML", false, '<div style="padding: 16px; border: 1px solid #e5e7eb; border-radius: 7px; margin: 8px 0; background-color: #f9fafb;">[Twitter Post Embed]</div>')
@@ -566,6 +842,91 @@ export function DescriptionRichEditor({
       }
     })
   }, [handleContentChange, saveSelection])
+
+  // Handle embed click for selection and controls
+  const handleEditorClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    const embedContainer = target.closest('[data-embed-type]') as HTMLElement
+
+    if (embedContainer) {
+      setSelectedEmbed(embedContainer)
+    } else {
+      setSelectedEmbed(null)
+    }
+  }, [])
+
+  // Delete selected embed
+  const deleteEmbed = useCallback((embed: HTMLElement) => {
+    embed.remove()
+    setSelectedEmbed(null)
+    handleContentChange()
+  }, [handleContentChange])
+
+  // Move embed up
+  const moveEmbedUp = useCallback((embed: HTMLElement) => {
+    const prevElement = embed.previousElementSibling
+    if (prevElement) {
+      embed.parentNode?.insertBefore(embed, prevElement)
+      handleContentChange()
+    }
+  }, [handleContentChange])
+
+  // Move embed down
+  const moveEmbedDown = useCallback((embed: HTMLElement) => {
+    const nextElement = embed.nextElementSibling
+    if (nextElement) {
+      embed.parentNode?.insertBefore(nextElement, embed)
+      handleContentChange()
+    }
+  }, [handleContentChange])
+
+  // Change image size
+  const changeImageSize = useCallback((embed: HTMLElement, size: string) => {
+    const img = embed.querySelector('img')
+    if (img) {
+      embed.setAttribute('data-image-size', size)
+
+      // Apply size styles
+      switch (size) {
+        case 'cover':
+          img.style.objectFit = 'cover'
+          img.style.width = '100%'
+          img.style.height = 'auto'
+          img.style.aspectRatio = 'auto'
+          break
+        case 'contain':
+          img.style.objectFit = 'contain'
+          img.style.width = '100%'
+          img.style.height = 'auto'
+          img.style.aspectRatio = 'auto'
+          break
+        case 'wide':
+          img.style.objectFit = 'cover'
+          img.style.width = '100%'
+          img.style.aspectRatio = '16/9'
+          break
+        case 'portrait':
+          img.style.objectFit = 'cover'
+          img.style.width = '60%'
+          img.style.aspectRatio = '3/4'
+          embed.style.textAlign = 'center'
+          break
+        case 'square':
+          img.style.objectFit = 'cover'
+          img.style.width = '70%'
+          img.style.aspectRatio = '1/1'
+          embed.style.textAlign = 'center'
+          break
+        case 'standard':
+          img.style.objectFit = 'cover'
+          img.style.width = '100%'
+          img.style.aspectRatio = '4/3'
+          break
+      }
+
+      handleContentChange()
+    }
+  }, [handleContentChange])
 
   // Toolbar button component - fixed for single click
   const ToolbarButton = ({
@@ -601,6 +962,14 @@ export function DescriptionRichEditor({
 
   const iconSize = isMobile ? "h-4 w-4" : "h-5 w-5"
 
+  // Close all popovers
+  const closeAllPopovers = useCallback(() => {
+    setShowLinkPopover(false)
+    setShowImagePopover(false)
+    setShowVideoPopover(false)
+    setShowButtonPopover(false)
+  }, [])
+
   return (
     <div
       ref={containerRef}
@@ -616,7 +985,7 @@ export function DescriptionRichEditor({
       />
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 sm:gap-1 p-1.5 sm:p-2 border-b bg-white sticky top-0 z-10">
+      <div className="relative flex flex-wrap items-center gap-0.5 sm:gap-1 p-1.5 sm:p-2 border-b bg-white sticky top-0 z-10">
         {/* Text Style Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -680,42 +1049,221 @@ export function DescriptionRichEditor({
           <Quote className={iconSize} />
         </ToolbarButton>
 
-        {/* Link */}
-        <ToolbarButton
-          onClick={() => {
-            saveSelection()
-            const selection = window.getSelection()
-            if (selection && selection.toString()) {
-              setLinkText(selection.toString())
-            }
-            setShowLinkDialog(true)
-          }}
-          title="Insert Link"
-        >
-          <LinkIcon className={iconSize} />
-        </ToolbarButton>
+        {/* Link - Inline Popover */}
+        <div className="relative">
+          <ToolbarButton
+            onClick={() => {
+              closeAllPopovers()
+              saveSelection()
+              const selection = window.getSelection()
+              if (selection && selection.toString()) {
+                setLinkText(selection.toString())
+              }
+              setShowLinkPopover(true)
+            }}
+            title="Insert Link"
+            active={showLinkPopover}
+          >
+            <LinkIcon className={iconSize} />
+          </ToolbarButton>
 
-        {/* Image */}
-        <ToolbarButton
-          onClick={() => {
-            saveSelection()
-            setShowImageDialog(true)
-          }}
-          title="Insert Image"
-        >
-          <ImageIcon className={iconSize} />
-        </ToolbarButton>
+          <InlinePopover isOpen={showLinkPopover} onClose={() => setShowLinkPopover(false)}>
+            <div className="p-4 w-72">
+              <h3 className="font-semibold text-sm mb-3">Insert Link</h3>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Link Text</Label>
+                  <Input
+                    placeholder="Enter link text"
+                    value={linkText}
+                    onChange={(e) => setLinkText(e.target.value)}
+                    className="h-9 text-sm"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">URL</Label>
+                  <Input
+                    placeholder="https://example.com"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    className="h-9 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        insertLink()
+                      }
+                    }}
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowLinkPopover(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={insertLink}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                  >
+                    Insert
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </InlinePopover>
+        </div>
 
-        {/* Video */}
-        <ToolbarButton
-          onClick={() => {
-            saveSelection()
-            setShowVideoDialog(true)
-          }}
-          title="Insert YouTube Video"
-        >
-          <Video className={iconSize} />
-        </ToolbarButton>
+        {/* Image - Inline Popover */}
+        <div className="relative">
+          <ToolbarButton
+            onClick={() => {
+              closeAllPopovers()
+              saveSelection()
+              setShowImagePopover(true)
+            }}
+            title="Insert Image"
+            active={showImagePopover}
+          >
+            <ImageIcon className={iconSize} />
+          </ToolbarButton>
+
+          <InlinePopover isOpen={showImagePopover} onClose={() => setShowImagePopover(false)}>
+            <div className="p-4 w-80">
+              <h3 className="font-semibold text-sm mb-3">Insert Image</h3>
+              <div className="space-y-3">
+                {/* Upload button */}
+                <button
+                  type="button"
+                  className="w-full h-16 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors flex flex-col items-center justify-center gap-1"
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  <Upload className="h-5 w-5 text-purple-500" />
+                  <span className="text-xs text-gray-500">Click to upload</span>
+                </button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-gray-500">or</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Image URL</Label>
+                  <Input
+                    placeholder="https://example.com/image.jpg"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="h-9 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        insertImage()
+                      }
+                    }}
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowImagePopover(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={insertImage}
+                    disabled={!imageUrl}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
+                  >
+                    Insert
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </InlinePopover>
+        </div>
+
+        {/* Video - Inline Popover */}
+        <div className="relative">
+          <ToolbarButton
+            onClick={() => {
+              closeAllPopovers()
+              saveSelection()
+              setShowVideoPopover(true)
+            }}
+            title="Insert YouTube Video"
+            active={showVideoPopover}
+          >
+            <Video className={iconSize} />
+          </ToolbarButton>
+
+          <InlinePopover isOpen={showVideoPopover} onClose={() => setShowVideoPopover(false)}>
+            <div className="p-4 w-80">
+              <h3 className="font-semibold text-sm mb-3">Insert YouTube Video</h3>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">YouTube URL</Label>
+                  <Input
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    className="h-9 text-sm"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Display Mode</Label>
+                  <RadioGroup value={videoDisplayMode} onValueChange={(v) => setVideoDisplayMode(v as "embed" | "link")}>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="embed" id="embed" className="text-purple-600 border-purple-600" />
+                      <Label htmlFor="embed" className="flex items-center gap-2 cursor-pointer text-sm">
+                        <Play className="h-3 w-3" />
+                        Embed video player
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="link" id="link" className="text-purple-600 border-purple-600" />
+                      <Label htmlFor="link" className="flex items-center gap-2 cursor-pointer text-sm">
+                        <ExternalLink className="h-3 w-3" />
+                        Show as thumbnail link
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowVideoPopover(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={insertVideo}
+                    disabled={!videoUrl}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300"
+                  >
+                    Insert
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </InlinePopover>
+        </div>
 
         <div className="w-px h-5 bg-gray-200 mx-1" />
 
@@ -746,14 +1294,156 @@ export function DescriptionRichEditor({
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* Button Popover (triggered from Insert menu) */}
+        <InlinePopover isOpen={showButtonPopover} onClose={() => setShowButtonPopover(false)} className="left-auto right-0">
+          <div className="p-4 w-80 max-h-[70vh] overflow-y-auto">
+            <h3 className="font-semibold text-sm mb-3">Insert Button</h3>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <Input
+                  placeholder="Click me"
+                  value={buttonText}
+                  onChange={(e) => setButtonText(e.target.value)}
+                  className="h-9 text-sm"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Link (optional)</Label>
+                <Input
+                  placeholder="https://example.com"
+                  value={buttonLink}
+                  onChange={(e) => setButtonLink(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Alignment</Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant={buttonAlignment === "left" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setButtonAlignment("left")}
+                    className={cn("flex-1", buttonAlignment === "left" && "bg-purple-600 hover:bg-purple-700")}
+                  >
+                    <AlignLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={buttonAlignment === "center" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setButtonAlignment("center")}
+                    className={cn("flex-1", buttonAlignment === "center" && "bg-purple-600 hover:bg-purple-700")}
+                  >
+                    <AlignCenter className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={buttonAlignment === "right" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setButtonAlignment("right")}
+                    className={cn("flex-1", buttonAlignment === "right" && "bg-purple-600 hover:bg-purple-700")}
+                  >
+                    <AlignRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Button Color</Label>
+                <div className="flex flex-wrap gap-2">
+                  {buttonColorPresets.map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => {
+                        setButtonColor(preset.value)
+                        setButtonTextColor(preset.textColor)
+                      }}
+                      className={cn(
+                        "w-7 h-7 rounded-full border-2 transition-all",
+                        buttonColor === preset.value ? "border-purple-600 scale-110 ring-2 ring-purple-300" : "border-transparent"
+                      )}
+                      style={{ backgroundColor: preset.value }}
+                      title={preset.label}
+                    />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-[10px]">Background</Label>
+                    <Input
+                      type="color"
+                      value={buttonColor}
+                      onChange={(e) => setButtonColor(e.target.value)}
+                      className="h-7 p-1"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-[10px]">Text</Label>
+                    <Input
+                      type="color"
+                      value={buttonTextColor}
+                      onChange={(e) => setButtonTextColor(e.target.value)}
+                      className="h-7 p-1"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Preview</Label>
+                <div className={cn(
+                  "p-3 border rounded-lg bg-gray-50",
+                  buttonAlignment === "center" ? "text-center" : buttonAlignment === "right" ? "text-right" : "text-left"
+                )}>
+                  <span
+                    className="inline-block px-4 py-2 font-medium text-sm"
+                    style={{
+                      backgroundColor: buttonColor,
+                      color: buttonTextColor,
+                      borderRadius: "8px"
+                    }}
+                  >
+                    {buttonText || "Button"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowButtonPopover(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={insertButton}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700"
+                >
+                  Insert
+                </Button>
+              </div>
+            </div>
+          </div>
+        </InlinePopover>
+
         {/* Spacer */}
         <div className="flex-1" />
 
         {/* Undo/Redo */}
-        <ToolbarButton onClick={() => execCommand("undo")} title="Undo">
+        <ToolbarButton onClick={handleUndo} title="Undo (Ctrl/Cmd+Z)">
           <Undo2 className={iconSize} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => execCommand("redo")} title="Redo">
+        <ToolbarButton onClick={handleRedo} title="Redo (Ctrl+Y / Cmd+Shift+Z)">
           <Redo2 className={iconSize} />
         </ToolbarButton>
 
@@ -797,280 +1487,75 @@ export function DescriptionRichEditor({
         onInput={handleContentChange}
         onBlur={handleContentChange}
         onKeyDown={handleKeyDown}
+        onClick={handleEditorClick}
       />
 
-      {/* Link Dialog */}
-      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-        <DialogContent className="w-[calc(100vw-32px)] max-w-md mx-auto [&_button]:focus:ring-purple-500">
-          <DialogHeader>
-            <DialogTitle>Insert Link</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="link-text">Link Text</Label>
-              <Input
-                id="link-text"
-                placeholder="Enter link text"
-                value={linkText}
-                onChange={(e) => setLinkText(e.target.value)}
-                className="focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="link-url">URL</Label>
-              <Input
-                id="link-url"
-                placeholder="https://example.com"
-                value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
-                className="focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowLinkDialog(false)} className="w-full sm:w-auto">
-              Cancel
-            </Button>
-            <Button onClick={insertLink} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700">Insert Link</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Image Dialog */}
-      <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
-        <DialogContent className="w-[calc(100vw-32px)] max-w-md mx-auto">
-          <DialogHeader>
-            <DialogTitle>Insert Image</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Upload button */}
-            <div className="space-y-2">
-              <Label>Upload Image</Label>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-20 border-dashed border-purple-300 hover:border-purple-500 hover:bg-purple-50"
-                onClick={() => imageInputRef.current?.click()}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <Upload className="h-5 w-5 text-purple-500" />
-                  <span className="text-sm text-muted-foreground">Click to upload</span>
-                </div>
-              </Button>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">or</span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="image-url">Image URL</Label>
-              <Input
-                id="image-url"
-                placeholder="https://example.com/image.jpg"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">Images will have a 7px border radius</p>
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowImageDialog(false)} className="w-full sm:w-auto">
-              Cancel
-            </Button>
-            <Button onClick={insertImage} disabled={!imageUrl} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300">Insert Image</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Video Dialog */}
-      <Dialog open={showVideoDialog} onOpenChange={setShowVideoDialog}>
-        <DialogContent className="w-[calc(100vw-32px)] max-w-md mx-auto">
-          <DialogHeader>
-            <DialogTitle>Insert YouTube Video</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="video-url">YouTube Video URL</Label>
-              <Input
-                id="video-url"
-                placeholder="https://www.youtube.com/watch?v=..."
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                className="focus:ring-purple-500 focus:border-purple-500"
-              />
-              <p className="text-xs text-muted-foreground">Only YouTube URLs are supported</p>
-            </div>
-
-            <div className="space-y-3">
-              <Label>Display Mode</Label>
-              <RadioGroup value={videoDisplayMode} onValueChange={(v) => setVideoDisplayMode(v as "embed" | "link")}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="embed" id="embed" className="text-purple-600 border-purple-600" />
-                  <Label htmlFor="embed" className="flex items-center gap-2 cursor-pointer">
-                    <Play className="h-4 w-4" />
-                    Embed video player
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="link" id="link" className="text-purple-600 border-purple-600" />
-                  <Label htmlFor="link" className="flex items-center gap-2 cursor-pointer">
-                    <ExternalLink className="h-4 w-4" />
-                    Show as thumbnail link
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowVideoDialog(false)} className="w-full sm:w-auto">
-              Cancel
-            </Button>
-            <Button onClick={insertVideo} disabled={!videoUrl} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300">Insert Video</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Button Dialog */}
-      <Dialog open={showButtonDialog} onOpenChange={setShowButtonDialog}>
-        <DialogContent className="w-[calc(100vw-32px)] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Insert Button</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="button-text">Button Text</Label>
-              <Input
-                id="button-text"
-                placeholder="Click me"
-                value={buttonText}
-                onChange={(e) => setButtonText(e.target.value)}
-                className="focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="button-link">Button Link (optional)</Label>
-              <Input
-                id="button-link"
-                placeholder="https://example.com"
-                value={buttonLink}
-                onChange={(e) => setButtonLink(e.target.value)}
-                className="focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <Label>Alignment</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={buttonAlignment === "left" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setButtonAlignment("left")}
-                  className={cn("flex-1", buttonAlignment === "left" && "bg-purple-600 hover:bg-purple-700")}
-                >
-                  <AlignLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant={buttonAlignment === "center" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setButtonAlignment("center")}
-                  className={cn("flex-1", buttonAlignment === "center" && "bg-purple-600 hover:bg-purple-700")}
-                >
-                  <AlignCenter className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant={buttonAlignment === "right" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setButtonAlignment("right")}
-                  className={cn("flex-1", buttonAlignment === "right" && "bg-purple-600 hover:bg-purple-700")}
-                >
-                  <AlignRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <Label>Button Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {buttonColorPresets.map((preset) => (
+      {/* Selected Embed Controls */}
+      {selectedEmbed && (
+        <div className="fixed z-50" style={{
+          top: selectedEmbed.getBoundingClientRect().top + window.scrollY + 8,
+          right: window.innerWidth - selectedEmbed.getBoundingClientRect().right + 8,
+        }}>
+          <div className="flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-1">
+            <button
+              type="button"
+              onClick={() => moveEmbedUp(selectedEmbed)}
+              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+              title="Move up"
+            >
+              <MoveUp className="h-4 w-4 text-gray-600" />
+            </button>
+            <button
+              type="button"
+              onClick={() => moveEmbedDown(selectedEmbed)}
+              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+              title="Move down"
+            >
+              <MoveDown className="h-4 w-4 text-gray-600" />
+            </button>
+            {selectedEmbed.getAttribute('data-embed-type') === 'image' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <button
-                    key={preset.value}
                     type="button"
-                    onClick={() => {
-                      setButtonColor(preset.value)
-                      setButtonTextColor(preset.textColor)
-                    }}
-                    className={cn(
-                      "w-8 h-8 rounded-full border-2 transition-all",
-                      buttonColor === preset.value ? "border-purple-600 scale-110 ring-2 ring-purple-300" : "border-transparent"
-                    )}
-                    style={{ backgroundColor: preset.value }}
-                    title={preset.label}
-                  />
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Label htmlFor="custom-bg-color" className="text-xs">Background</Label>
-                  <Input
-                    id="custom-bg-color"
-                    type="color"
-                    value={buttonColor}
-                    onChange={(e) => setButtonColor(e.target.value)}
-                    className="h-8 p-1"
-                  />
-                </div>
-                <div className="flex-1">
-                  <Label htmlFor="custom-text-color" className="text-xs">Text</Label>
-                  <Input
-                    id="custom-text-color"
-                    type="color"
-                    value={buttonTextColor}
-                    onChange={(e) => setButtonTextColor(e.target.value)}
-                    className="h-8 p-1"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div className="space-y-2">
-              <Label>Preview</Label>
-              <div className={cn(
-                "p-4 border rounded-lg bg-gray-50",
-                buttonAlignment === "center" ? "text-center" : buttonAlignment === "right" ? "text-right" : "text-left"
-              )}>
-                <span
-                  className="inline-block px-6 py-3 font-medium"
-                  style={{
-                    backgroundColor: buttonColor,
-                    color: buttonTextColor,
-                    borderRadius: "8px"
-                  }}
-                >
-                  {buttonText || "Button"}
-                </span>
-              </div>
-            </div>
+                    className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                    title="Image size"
+                  >
+                    <Maximize2 className="h-4 w-4 text-gray-600" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  {imageSizeOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => changeImageSize(selectedEmbed, option.value)}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <option.icon className="h-4 w-4" />
+                      <div>
+                        <div className="text-sm">{option.label}</div>
+                        <div className="text-xs text-gray-500">{option.description}</div>
+                      </div>
+                      {selectedEmbed.getAttribute('data-image-size') === option.value && (
+                        <Check className="h-4 w-4 ml-auto text-purple-600" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <div className="w-px h-5 bg-gray-200 mx-0.5" />
+            <button
+              type="button"
+              onClick={() => deleteEmbed(selectedEmbed)}
+              className="p-1.5 hover:bg-red-50 rounded transition-colors"
+              title="Delete"
+            >
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </button>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowButtonDialog(false)} className="w-full sm:w-auto">
-              Cancel
-            </Button>
-            <Button onClick={insertButton} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700">Insert Button</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   )
 }

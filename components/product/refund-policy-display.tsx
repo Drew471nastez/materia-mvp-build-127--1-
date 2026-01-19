@@ -16,6 +16,8 @@ interface RefundPolicyDisplayProps {
   themePreset?: string
   // Whether the current theme is a dark theme
   isDarkTheme?: boolean
+  // Background color of the page/container (for contrast detection)
+  backgroundColor?: string
   // Theme preset colors for the tooltip (can override defaults)
   themeColors?: {
     tooltipBackground?: string
@@ -49,9 +51,13 @@ function isColorDark(color: string): boolean {
   // Handle hex colors
   if (color.startsWith('#')) {
     const hex = color.replace('#', '')
-    const r = parseInt(hex.substring(0, 2), 16)
-    const g = parseInt(hex.substring(2, 4), 16)
-    const b = parseInt(hex.substring(4, 6), 16)
+    // Handle shorthand hex
+    const fullHex = hex.length === 3
+      ? hex.split('').map(c => c + c).join('')
+      : hex
+    const r = parseInt(fullHex.substring(0, 2), 16)
+    const g = parseInt(fullHex.substring(2, 4), 16)
+    const b = parseInt(fullHex.substring(4, 6), 16)
     // Using relative luminance formula
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
     return luminance < 0.5
@@ -67,8 +73,17 @@ function isColorDark(color: string): boolean {
       return luminance < 0.5
     }
   }
+  // Named colors - add common ones
+  const darkColors = ['black', 'darkblue', 'darkgreen', 'darkred', 'navy', 'maroon', 'purple']
+  const lightColors = ['white', 'ivory', 'beige', 'cream', 'lightyellow', 'lightgray', 'lightgrey']
+  if (darkColors.includes(color.toLowerCase())) return true
+  if (lightColors.includes(color.toLowerCase())) return false
   return true
 }
+
+// Known dark theme presets
+const DARK_THEME_PRESETS = ['astrid', 'midnight', 'dark', 'noir', 'obsidian']
+const LIGHT_THEME_PRESETS = ['default', 'cream', 'minimal', 'clean', 'light']
 
 export function RefundPolicyDisplay({
   enabled,
@@ -80,6 +95,7 @@ export function RefundPolicyDisplay({
   isPreviewMode = false,
   themePreset,
   isDarkTheme = false,
+  backgroundColor,
   themeColors,
 }: RefundPolicyDisplayProps) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
@@ -130,6 +146,26 @@ export function RefundPolicyDisplay({
     setIsTooltipOpen(!isTooltipOpen)
   }
 
+  // Determine if the current UI is dark based on multiple factors
+  const determineIfDark = (): boolean => {
+    // Explicit isDarkTheme prop takes priority
+    if (isDarkTheme) return true
+
+    // Check theme preset against known dark/light presets
+    if (themePreset) {
+      if (DARK_THEME_PRESETS.includes(themePreset.toLowerCase())) return true
+      if (LIGHT_THEME_PRESETS.includes(themePreset.toLowerCase())) return false
+    }
+
+    // Check background color if provided
+    if (backgroundColor) {
+      return isColorDark(backgroundColor)
+    }
+
+    // Default to light theme
+    return false
+  }
+
   // Determine tooltip colors based on theme preset
   // For dark themes: use light tooltip
   // For light themes: use dark tooltip
@@ -145,8 +181,8 @@ export function RefundPolicyDisplay({
       }
     }
 
-    // Automatically determine based on isDarkTheme prop or theme preset
-    const isThemeDark = isDarkTheme || themePreset === "astrid" || themePreset === "midnight"
+    // Automatically determine based on theme detection
+    const isThemeDark = determineIfDark()
 
     if (isThemeDark) {
       // Dark theme: use a light tooltip for contrast
