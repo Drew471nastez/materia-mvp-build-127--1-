@@ -116,29 +116,32 @@ export function RefundPolicyDisplay({
 
     return (
       <div
-        className="absolute inset-0 z-50 flex items-center justify-center"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4"
         style={{ pointerEvents: "auto" }}
       >
-        {/* Overlay - only within the preview container */}
+        {/* Overlay - covers entire viewport */}
         <div
-          className="absolute inset-0 bg-black/50"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm"
           onClick={() => setIsModalOpen(false)}
         />
-        {/* Modal content */}
-        <div className="relative z-10 w-[calc(100%-2rem)] max-w-md mx-auto bg-white border-0 shadow-2xl p-4 sm:p-6 rounded-lg">
-          <button
-            onClick={() => setIsModalOpen(false)}
-            className="absolute top-4 right-4 opacity-70 hover:opacity-100 transition-opacity"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </button>
-          <div className="flex flex-col gap-2 text-left">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+        {/* Modal content - fully responsive popup */}
+        <div className="relative z-10 w-full max-w-[calc(100vw-24px)] sm:max-w-md mx-auto bg-white border-0 shadow-2xl rounded-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
+          {/* Header with close button */}
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
               Refund Policy
             </h2>
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4 text-gray-600" />
+            </button>
           </div>
-          <div className="space-y-3 sm:space-y-4 pt-2">
+
+          {/* Body content */}
+          <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 max-h-[60vh] overflow-y-auto">
             <div className="rounded-lg bg-purple-50 p-3 sm:p-4 border border-purple-100">
               <p className="text-sm font-medium text-purple-900">
                 {policyLabel}
@@ -155,7 +158,7 @@ export function RefundPolicyDisplay({
             )}
 
             {updatedAt && (
-              <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-400 pt-3 border-t border-gray-100">
                 Last updated: {formatDate(updatedAt)}
               </p>
             )}
@@ -167,7 +170,7 @@ export function RefundPolicyDisplay({
 
   return (
     <>
-      <div ref={containerRef} className={cn("flex justify-center w-full relative", className)}>
+      <div ref={containerRef} className={cn("flex justify-center w-full relative", className)} style={{ marginTop: '-0.5px' }}>
         {isClickable ? (
           <button
             onClick={handleClick}
@@ -200,13 +203,15 @@ export function RefundPolicyDisplay({
       {/* Normal mode: use Dialog portal */}
       {!isPreviewMode && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto bg-white border-0 shadow-2xl p-4 sm:p-6">
-            <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl font-semibold text-gray-900">
+          <DialogContent className="w-[calc(100vw-24px)] max-w-md mx-auto bg-white border-0 shadow-2xl p-0 rounded-xl overflow-hidden">
+            {/* Header with title */}
+            <DialogHeader className="p-4 sm:p-5 pb-0">
+              <DialogTitle className="text-base sm:text-lg font-semibold text-gray-900">
                 Refund Policy
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-3 sm:space-y-4 pt-2">
+            {/* Body content */}
+            <div className="p-4 sm:p-5 pt-3 space-y-3 sm:space-y-4 max-h-[60vh] overflow-y-auto">
               <div className="rounded-lg bg-purple-50 p-3 sm:p-4 border border-purple-100">
                 <p className="text-sm font-medium text-purple-900">
                   {policyLabel}
@@ -223,7 +228,7 @@ export function RefundPolicyDisplay({
               )}
 
               {updatedAt && (
-                <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
+                <p className="text-xs text-gray-400 pt-3 border-t border-gray-100">
                   Last updated: {formatDate(updatedAt)}
                 </p>
               )}
