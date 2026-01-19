@@ -55,6 +55,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
+interface ThemeColors {
+  backgroundColor?: string
+  foregroundColor?: string
+  mutedColor?: string
+  borderColor?: string
+  accentColor?: string
+  buttonColor?: string
+  buttonTextColor?: string
+  isDarkTheme?: boolean
+}
+
 interface DescriptionRichEditorProps {
   value: string
   onChange: (value: string) => void
@@ -62,6 +73,7 @@ interface DescriptionRichEditorProps {
   isMobile?: boolean
   textColor?: string
   className?: string
+  themeColors?: ThemeColors
 }
 
 // Stable unique ID generator for embeds
@@ -132,11 +144,13 @@ interface InlinePopoverProps {
   children: React.ReactNode
   className?: string
   anchorRef?: React.RefObject<HTMLElement | null>
+  themeColors?: ThemeColors
+  isMobile?: boolean
 }
 
-function InlinePopover({ isOpen, onClose, children, className, anchorRef }: InlinePopoverProps) {
+function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeColors, isMobile }: InlinePopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const [adjustedPosition, setAdjustedPosition] = useState<{ left?: string; right?: string; transform?: string }>({})
 
   useEffect(() => {
     if (!isOpen) return
@@ -153,25 +167,64 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef }: Inli
       }
     }
 
+    // Adjust position to keep popover within viewport
+    const adjustPosition = () => {
+      if (popoverRef.current) {
+        const rect = popoverRef.current.getBoundingClientRect()
+        const viewportWidth = window.innerWidth
+        const padding = 8
+
+        // On mobile, center the popover
+        if (isMobile || viewportWidth < 640) {
+          setAdjustedPosition({
+            left: '50%',
+            transform: 'translateX(-50%)'
+          })
+        } else if (rect.right > viewportWidth - padding) {
+          // If popover goes off right edge, align to right
+          setAdjustedPosition({ left: 'auto', right: '0' })
+        } else if (rect.left < padding) {
+          // If popover goes off left edge, align to left
+          setAdjustedPosition({ left: '0', right: 'auto' })
+        }
+      }
+    }
+
+    // Delay to allow popover to render first
+    setTimeout(adjustPosition, 0)
+
     document.addEventListener("mousedown", handleClickOutside)
     document.addEventListener("keydown", handleEscape)
+    window.addEventListener("resize", adjustPosition)
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
       document.removeEventListener("keydown", handleEscape)
+      window.removeEventListener("resize", adjustPosition)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, isMobile])
 
   if (!isOpen) return null
+
+  const isDark = themeColors?.isDarkTheme
 
   return (
     <div
       ref={popoverRef}
       className={cn(
-        "absolute z-50 bg-white rounded-xl shadow-xl border border-gray-200",
+        "absolute z-[999999] rounded-xl shadow-2xl border",
         "animate-in fade-in-0 slide-in-from-top-2 duration-200",
+        isDark ? "bg-[#1a1a1a] border-[#333]" : "bg-white border-gray-200",
+        // Mobile: full width with margins
+        isMobile && "!fixed !left-2 !right-2 !top-auto !bottom-auto !w-auto !max-w-[calc(100vw-16px)]",
         className
       )}
-      style={{ top: "100%", left: 0, marginTop: "8px" }}
+      style={{
+        top: isMobile ? undefined : "100%",
+        marginTop: isMobile ? undefined : "8px",
+        maxHeight: isMobile ? "70vh" : "80vh",
+        overflowY: "auto",
+        ...(!isMobile && adjustedPosition)
+      }}
     >
       {children}
     </div>
@@ -283,10 +336,20 @@ export function DescriptionRichEditor({
   isMobile = false,
   textColor,
   className,
+  themeColors,
 }: DescriptionRichEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [currentTextStyle, setCurrentTextStyle] = useState("Text")
+
+  // Theme-aware colors
+  const isDarkTheme = themeColors?.isDarkTheme || false
+  const bgColor = themeColors?.backgroundColor || (isDarkTheme ? "#1a1a1a" : "#ffffff")
+  const fgColor = themeColors?.foregroundColor || textColor || (isDarkTheme ? "#fafafa" : "#000000")
+  const mutedColor = themeColors?.mutedColor || (isDarkTheme ? "#a1a1aa" : "#6b7280")
+  const borderColor = themeColors?.borderColor || (isDarkTheme ? "#333" : "#e5e7eb")
+  const accentColor = themeColors?.accentColor || "#7c3aed"
+  const hoverBgColor = isDarkTheme ? "rgba(255,255,255,0.1)" : "rgba(124,58,237,0.1)"
 
   // Popover states instead of modals
   const [showLinkPopover, setShowLinkPopover] = useState(false)
@@ -319,6 +382,44 @@ export function DescriptionRichEditor({
   const [undoStack, setUndoStack] = useState<string[]>([])
   const [redoStack, setRedoStack] = useState<string[]>([])
   const [lastContent, setLastContent] = useState("")
+
+  // Inject dynamic styles for placeholder and theme-aware elements
+  useEffect(() => {
+    const styleId = "description-editor-dynamic-styles"
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement
+    if (!styleElement) {
+      styleElement = document.createElement("style")
+      styleElement.id = styleId
+      document.head.appendChild(styleElement)
+    }
+    styleElement.textContent = `
+      [data-placeholder]:empty:before {
+        content: attr(data-placeholder);
+        color: ${mutedColor};
+        font-style: italic;
+        pointer-events: none;
+      }
+      [contenteditable] [data-embed-type]:hover {
+        --tw-ring-color: ${accentColor}40;
+      }
+      [contenteditable] [data-embed-type]:focus-within {
+        --tw-ring-color: ${accentColor};
+      }
+      [contenteditable] blockquote {
+        border-left: 4px solid ${accentColor}60 !important;
+        padding-left: 1rem;
+        font-style: italic;
+        margin: 0.75rem 0;
+      }
+      [contenteditable] a {
+        color: ${accentColor} !important;
+        text-decoration: underline;
+      }
+    `
+    return () => {
+      // Don't remove on unmount as other editors may use it
+    }
+  }, [mutedColor, accentColor])
 
   // Initialize editor content - only once when mounted
   useEffect(() => {
@@ -628,6 +729,8 @@ export function DescriptionRichEditor({
     if (!file) return
 
     const embedId = generateEmbedId()
+    // Inline X button that shows on hover - positioned top-right corner
+    const deleteButtonHtml = `<button data-delete-embed="true" style="position: absolute; top: 8px; right: 8px; z-index: 10; width: 28px; height: 28px; border-radius: 50%; background-color: rgba(0,0,0,0.7); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; pointer-events: auto;" onmouseenter="this.style.backgroundColor='#dc2626'" onmouseleave="this.style.backgroundColor='rgba(0,0,0,0.7)'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`
 
     // For now, create a local URL. In production, this would upload to storage
     const reader = new FileReader()
@@ -638,7 +741,7 @@ export function DescriptionRichEditor({
         if (editorRef.current) {
           editorRef.current.focus()
           // Wrap image in a div with contenteditable=false to prevent cursor issues, add paragraph after for text
-          document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" data-image-size="cover" contenteditable="false" class="embed-container group" style="margin: 12px 0; user-select: none; position: relative;"><img src="${imageDataUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block; object-fit: cover;" loading="lazy" /></div><p><br></p>`)
+          document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" data-image-size="cover" contenteditable="false" class="embed-container" style="margin: 12px 0; user-select: none; position: relative;" onmouseenter="this.querySelector('[data-delete-embed]').style.opacity='1'" onmouseleave="this.querySelector('[data-delete-embed]').style.opacity='0'">${deleteButtonHtml}<img src="${imageDataUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block; object-fit: cover;" loading="lazy" /></div><p><br></p>`)
           handleContentChange()
 
           // Place cursor after the image
@@ -672,13 +775,15 @@ export function DescriptionRichEditor({
   // Insert image from URL
   const insertImage = useCallback(() => {
     const embedId = generateEmbedId()
+    // Inline X button that shows on hover - positioned top-right corner
+    const deleteButtonHtml = `<button data-delete-embed="true" style="position: absolute; top: 8px; right: 8px; z-index: 10; width: 28px; height: 28px; border-radius: 50%; background-color: rgba(0,0,0,0.7); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; pointer-events: auto;" onmouseenter="this.style.backgroundColor='#dc2626'" onmouseleave="this.style.backgroundColor='rgba(0,0,0,0.7)'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`
 
     restoreSelection()
     requestAnimationFrame(() => {
       if (editorRef.current && imageUrl) {
         editorRef.current.focus()
         // Wrap image in a div with contenteditable=false to prevent cursor issues, add paragraph after
-        document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" data-image-size="cover" contenteditable="false" class="embed-container group" style="margin: 12px 0; user-select: none; position: relative;"><img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block; object-fit: cover;" loading="lazy" /></div><p><br></p>`)
+        document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="image" data-image-size="cover" contenteditable="false" class="embed-container" style="margin: 12px 0; user-select: none; position: relative;" onmouseenter="this.querySelector('[data-delete-embed]').style.opacity='1'" onmouseleave="this.querySelector('[data-delete-embed]').style.opacity='0'">${deleteButtonHtml}<img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: block; object-fit: cover;" loading="lazy" /></div><p><br></p>`)
         handleContentChange()
 
         // Place cursor after the image
@@ -735,6 +840,8 @@ export function DescriptionRichEditor({
       }
 
       const embedId = generateEmbedId()
+      // Inline X button that shows on hover - positioned top-right corner
+      const deleteButtonHtml = `<button data-delete-embed="true" style="position: absolute; top: 8px; right: 8px; z-index: 10; width: 28px; height: 28px; border-radius: 50%; background-color: rgba(0,0,0,0.7); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; pointer-events: auto;" onmouseenter="this.style.backgroundColor='#dc2626'" onmouseleave="this.style.backgroundColor='rgba(0,0,0,0.7)'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`
 
       requestAnimationFrame(() => {
         if (editorRef.current) {
@@ -743,12 +850,12 @@ export function DescriptionRichEditor({
           if (videoDisplayMode === "embed") {
             // Embed the video with responsive container - using data attributes for stability
             const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`
-            // Wrap in a contenteditable=false container to prevent cursor issues
-            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube" contenteditable="false" class="embed-container group" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; margin: 12px 0; border-radius: 8px; user-select: none;"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px; pointer-events: auto;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div><p><br></p>`)
+            // Wrap in a contenteditable=false container to prevent cursor issues, with hover-visible delete button
+            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube" contenteditable="false" class="embed-container" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: visible; margin: 12px 0; border-radius: 8px; user-select: none;" onmouseenter="this.querySelector('[data-delete-embed]').style.opacity='1'" onmouseleave="this.querySelector('[data-delete-embed]').style.opacity='0'">${deleteButtonHtml}<iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px; pointer-events: auto;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div><p><br></p>`)
           } else {
             // Insert as a link with thumbnail
             const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
-            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube-thumbnail" contenteditable="false" class="embed-container group" style="margin: 12px 0; user-select: none; position: relative;"><a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="display: block; position: relative;">
+            document.execCommand("insertHTML", false, `<div data-embed-id="${embedId}" data-embed-type="youtube-thumbnail" contenteditable="false" class="embed-container" style="margin: 12px 0; user-select: none; position: relative;" onmouseenter="this.querySelector('[data-delete-embed]').style.opacity='1'" onmouseleave="this.querySelector('[data-delete-embed]').style.opacity='0'">${deleteButtonHtml}<a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="display: block; position: relative;">
               <img src="${thumbnailUrl}" alt="YouTube Video" style="width: 100%; height: auto; border-radius: 8px;" loading="lazy" />
               <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;">
                 <div style="background-color: #dc2626; border-radius: 50%; padding: 12px;">
@@ -846,6 +953,21 @@ export function DescriptionRichEditor({
   // Handle embed click for selection and controls
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement
+
+    // Check if the delete button (or its child SVG) was clicked
+    const deleteButton = target.closest('[data-delete-embed]') as HTMLElement
+    if (deleteButton) {
+      e.preventDefault()
+      e.stopPropagation()
+      const embedContainer = deleteButton.closest('[data-embed-type]') as HTMLElement
+      if (embedContainer) {
+        embedContainer.remove()
+        setSelectedEmbed(null)
+        handleContentChange()
+      }
+      return
+    }
+
     const embedContainer = target.closest('[data-embed-type]') as HTMLElement
 
     if (embedContainer) {
@@ -853,7 +975,7 @@ export function DescriptionRichEditor({
     } else {
       setSelectedEmbed(null)
     }
-  }, [])
+  }, [handleContentChange])
 
   // Delete selected embed
   const deleteEmbed = useCallback((embed: HTMLElement) => {
@@ -952,9 +1074,13 @@ export function DescriptionRichEditor({
       }}
       title={title}
       className={cn(
-        "p-1.5 sm:p-2 rounded hover:bg-purple-100 transition-colors",
-        active && "bg-purple-100 text-purple-700"
+        "p-1.5 sm:p-2 rounded transition-colors",
+        !active && "hover:opacity-80"
       )}
+      style={{
+        backgroundColor: active ? hoverBgColor : "transparent",
+        color: active ? accentColor : fgColor,
+      }}
     >
       {children}
     </button>
@@ -973,7 +1099,11 @@ export function DescriptionRichEditor({
   return (
     <div
       ref={containerRef}
-      className={cn("flex flex-col border rounded-lg bg-white shadow-lg overflow-hidden", className)}
+      className={cn("flex flex-col border rounded-lg shadow-lg overflow-hidden", className)}
+      style={{
+        backgroundColor: bgColor,
+        borderColor: borderColor,
+      }}
     >
       {/* Hidden file input for image upload */}
       <input
@@ -985,14 +1115,21 @@ export function DescriptionRichEditor({
       />
 
       {/* Toolbar */}
-      <div className="relative flex flex-wrap items-center gap-0.5 sm:gap-1 p-1.5 sm:p-2 border-b bg-white sticky top-0 z-10">
+      <div
+        className="relative flex flex-wrap items-center gap-0.5 sm:gap-1 p-1.5 sm:p-2 border-b sticky top-0 z-10"
+        style={{
+          backgroundColor: bgColor,
+          borderColor: borderColor,
+        }}
+      >
         {/* Text Style Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-purple-100 text-sm font-medium"
+              className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
+              style={{ color: fgColor }}
             >
               {currentTextStyle}
               <ChevronDown className="h-3 w-3" />
@@ -1013,7 +1150,7 @@ export function DescriptionRichEditor({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <div className="w-px h-5 mx-1" style={{ backgroundColor: borderColor }} />
 
         {/* Formatting buttons */}
         <ToolbarButton onClick={() => execCommand("bold")} title="Bold">
@@ -1029,7 +1166,7 @@ export function DescriptionRichEditor({
           <Strikethrough className={iconSize} />
         </ToolbarButton>
 
-        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <div className="w-px h-5 mx-1" style={{ backgroundColor: borderColor }} />
 
         {/* Alignment buttons */}
         <ToolbarButton onClick={() => execCommand("justifyLeft")} title="Align Left">
@@ -1042,7 +1179,7 @@ export function DescriptionRichEditor({
           <AlignRight className={iconSize} />
         </ToolbarButton>
 
-        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <div className="w-px h-5 mx-1" style={{ backgroundColor: borderColor }} />
 
         {/* Quote */}
         <ToolbarButton onClick={() => execCommand("formatBlock", "<blockquote>")} title="Quote">
@@ -1067,8 +1204,8 @@ export function DescriptionRichEditor({
             <LinkIcon className={iconSize} />
           </ToolbarButton>
 
-          <InlinePopover isOpen={showLinkPopover} onClose={() => setShowLinkPopover(false)}>
-            <div className="p-4 w-72">
+          <InlinePopover isOpen={showLinkPopover} onClose={() => setShowLinkPopover(false)} themeColors={themeColors} isMobile={isMobile}>
+            <div className={cn("p-4", isMobile ? "w-full" : "w-72")} style={{ color: fgColor }}>
               <h3 className="font-semibold text-sm mb-3">Insert Link</h3>
               <div className="space-y-3">
                 <div className="space-y-1.5">
@@ -1132,8 +1269,8 @@ export function DescriptionRichEditor({
             <ImageIcon className={iconSize} />
           </ToolbarButton>
 
-          <InlinePopover isOpen={showImagePopover} onClose={() => setShowImagePopover(false)}>
-            <div className="p-4 w-80">
+          <InlinePopover isOpen={showImagePopover} onClose={() => setShowImagePopover(false)} themeColors={themeColors} isMobile={isMobile}>
+            <div className={cn("p-4", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
               <h3 className="font-semibold text-sm mb-3">Insert Image</h3>
               <div className="space-y-3">
                 {/* Upload button */}
@@ -1207,8 +1344,8 @@ export function DescriptionRichEditor({
             <Video className={iconSize} />
           </ToolbarButton>
 
-          <InlinePopover isOpen={showVideoPopover} onClose={() => setShowVideoPopover(false)}>
-            <div className="p-4 w-80">
+          <InlinePopover isOpen={showVideoPopover} onClose={() => setShowVideoPopover(false)} themeColors={themeColors} isMobile={isMobile}>
+            <div className={cn("p-4", isMobile ? "w-full" : "w-80")} style={{ color: fgColor }}>
               <h3 className="font-semibold text-sm mb-3">Insert YouTube Video</h3>
               <div className="space-y-3">
                 <div className="space-y-1.5">
@@ -1265,7 +1402,7 @@ export function DescriptionRichEditor({
           </InlinePopover>
         </div>
 
-        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <div className="w-px h-5 mx-1" style={{ backgroundColor: borderColor }} />
 
         {/* Insert Dropdown */}
         <DropdownMenu>
@@ -1273,7 +1410,8 @@ export function DescriptionRichEditor({
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-purple-100 text-sm font-medium"
+              className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
+              style={{ color: fgColor }}
             >
               Insert
               <ChevronDown className="h-3 w-3" />
@@ -1294,140 +1432,86 @@ export function DescriptionRichEditor({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Button Popover (triggered from Insert menu) */}
-        <InlinePopover isOpen={showButtonPopover} onClose={() => setShowButtonPopover(false)} className="left-auto right-0">
-          <div className="p-4 w-80 max-h-[70vh] overflow-y-auto">
+        {/* Button Popover (triggered from Insert menu) - Simplified UI */}
+        <InlinePopover isOpen={showButtonPopover} onClose={() => setShowButtonPopover(false)} className="left-auto right-0" themeColors={themeColors} isMobile={isMobile}>
+          <div className={cn("p-3", isMobile ? "w-full" : "w-64")} style={{ color: fgColor }}>
             <h3 className="font-semibold text-sm mb-3">Insert Button</h3>
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Button Text</Label>
-                <Input
-                  placeholder="Click me"
-                  value={buttonText}
-                  onChange={(e) => setButtonText(e.target.value)}
-                  className="h-9 text-sm"
-                  autoFocus
-                />
-              </div>
+              {/* Button Text */}
+              <Input
+                placeholder="Button text..."
+                value={buttonText}
+                onChange={(e) => setButtonText(e.target.value)}
+                className="h-9 text-sm"
+                autoFocus
+              />
 
-              <div className="space-y-1.5">
-                <Label className="text-xs">Button Link (optional)</Label>
-                <Input
-                  placeholder="https://example.com"
-                  value={buttonLink}
-                  onChange={(e) => setButtonLink(e.target.value)}
-                  className="h-9 text-sm"
-                />
-              </div>
+              {/* Button Link */}
+              <Input
+                placeholder="Link URL (optional)"
+                value={buttonLink}
+                onChange={(e) => setButtonLink(e.target.value)}
+                className="h-9 text-sm"
+              />
 
-              <div className="space-y-2">
-                <Label className="text-xs">Alignment</Label>
-                <div className="flex gap-1">
-                  <Button
+              {/* Color presets - compact grid */}
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {buttonColorPresets.map((preset) => (
+                  <button
+                    key={preset.value}
                     type="button"
-                    variant={buttonAlignment === "left" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setButtonAlignment("left")}
-                    className={cn("flex-1", buttonAlignment === "left" && "bg-purple-600 hover:bg-purple-700")}
-                  >
-                    <AlignLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={buttonAlignment === "center" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setButtonAlignment("center")}
-                    className={cn("flex-1", buttonAlignment === "center" && "bg-purple-600 hover:bg-purple-700")}
-                  >
-                    <AlignCenter className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={buttonAlignment === "right" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setButtonAlignment("right")}
-                    className={cn("flex-1", buttonAlignment === "right" && "bg-purple-600 hover:bg-purple-700")}
-                  >
-                    <AlignRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs">Button Color</Label>
-                <div className="flex flex-wrap gap-2">
-                  {buttonColorPresets.map((preset) => (
-                    <button
-                      key={preset.value}
-                      type="button"
-                      onClick={() => {
-                        setButtonColor(preset.value)
-                        setButtonTextColor(preset.textColor)
-                      }}
-                      className={cn(
-                        "w-7 h-7 rounded-full border-2 transition-all",
-                        buttonColor === preset.value ? "border-purple-600 scale-110 ring-2 ring-purple-300" : "border-transparent"
-                      )}
-                      style={{ backgroundColor: preset.value }}
-                      title={preset.label}
-                    />
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Label className="text-[10px]">Background</Label>
-                    <Input
-                      type="color"
-                      value={buttonColor}
-                      onChange={(e) => setButtonColor(e.target.value)}
-                      className="h-7 p-1"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <Label className="text-[10px]">Text</Label>
-                    <Input
-                      type="color"
-                      value={buttonTextColor}
-                      onChange={(e) => setButtonTextColor(e.target.value)}
-                      className="h-7 p-1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Preview */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Preview</Label>
-                <div className={cn(
-                  "p-3 border rounded-lg bg-gray-50",
-                  buttonAlignment === "center" ? "text-center" : buttonAlignment === "right" ? "text-right" : "text-left"
-                )}>
-                  <span
-                    className="inline-block px-4 py-2 font-medium text-sm"
-                    style={{
-                      backgroundColor: buttonColor,
-                      color: buttonTextColor,
-                      borderRadius: "8px"
+                    onClick={() => {
+                      setButtonColor(preset.value)
+                      setButtonTextColor(preset.textColor)
                     }}
-                  >
-                    {buttonText || "Button"}
-                  </span>
-                </div>
+                    className={cn(
+                      "w-6 h-6 rounded-full border-2 transition-all",
+                      buttonColor === preset.value ? "scale-110 ring-2" : "border-transparent hover:scale-105"
+                    )}
+                    style={{
+                      backgroundColor: preset.value,
+                      borderColor: buttonColor === preset.value ? accentColor : "transparent",
+                      boxShadow: buttonColor === preset.value ? `0 0 0 2px ${accentColor}30` : undefined
+                    }}
+                    title={preset.label}
+                  />
+                ))}
               </div>
 
-              <div className="flex gap-2 pt-1">
+              {/* Preview - inline compact */}
+              <div
+                className={cn(
+                  "p-2 rounded-lg border text-center",
+                  isDarkTheme ? "border-[#333]" : "border-gray-200"
+                )}
+                style={{ backgroundColor: isDarkTheme ? "#0f0f0f" : "#f9fafb" }}
+              >
+                <span
+                  className="inline-block px-3 py-1.5 font-medium text-sm rounded-lg"
+                  style={{
+                    backgroundColor: buttonColor,
+                    color: buttonTextColor,
+                  }}
+                >
+                  {buttonText || "Button"}
+                </span>
+              </div>
+
+              {/* Actions - compact */}
+              <div className="flex gap-2">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setShowButtonPopover(false)}
-                  className="flex-1"
+                  className="flex-1 h-8"
                 >
                   Cancel
                 </Button>
                 <Button
                   size="sm"
                   onClick={insertButton}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700"
+                  className="flex-1 h-8"
+                  style={{ backgroundColor: accentColor }}
                 >
                   Insert
                 </Button>
@@ -1450,7 +1534,7 @@ export function DescriptionRichEditor({
         {/* Close button - now with auto-save */}
         {onClose && (
           <>
-            <div className="w-px h-5 bg-gray-200 mx-1" />
+            <div className="w-px h-5 mx-1" style={{ backgroundColor: borderColor }} />
             <ToolbarButton onClick={handleClose} title="Close & Save">
               <X className={iconSize} />
             </ToolbarButton>
@@ -1467,64 +1551,82 @@ export function DescriptionRichEditor({
         className={cn(
           "flex-1 p-3 sm:p-4 focus:outline-none min-h-[150px] sm:min-h-[200px] max-h-[300px] sm:max-h-[400px] overflow-y-auto",
           "prose prose-sm max-w-none",
+          isDarkTheme && "prose-invert",
           "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3",
           "[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mb-3",
           "[&_h3]:text-lg [&_h3]:font-medium [&_h3]:mb-2",
           "[&_p]:mb-3 [&_p]:min-h-[1.5em]",
           "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3",
           "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3",
-          "[&_blockquote]:border-l-4 [&_blockquote]:border-purple-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3",
-          "[&_a]:text-purple-600 [&_a]:underline",
           "[&_img]:rounded-[8px] [&_img]:max-w-full [&_img]:h-auto",
           "[&_iframe]:rounded-[8px]",
           // Make embed containers clearly selectable but not editable
           "[&_[data-embed-type]]:cursor-default [&_[data-embed-type]]:select-none",
-          "[&_[data-embed-type]]:ring-transparent [&_[data-embed-type]:hover]:ring-2 [&_[data-embed-type]:hover]:ring-purple-200",
-          "[&_[data-embed-type]:focus-within]:ring-2 [&_[data-embed-type]:focus-within]:ring-purple-400",
-          "empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 empty:before:italic empty:before:pointer-events-none"
+          "[&_[data-embed-type]]:ring-transparent [&_[data-embed-type]:hover]:ring-2",
+          "[&_[data-embed-type]:focus-within]:ring-2"
         )}
-        style={{ color: textColor || "inherit" }}
+        style={{
+          color: fgColor,
+          backgroundColor: bgColor,
+          // Dynamic styles based on theme
+          ["--tw-prose-body" as string]: fgColor,
+          ["--tw-prose-headings" as string]: fgColor,
+          ["--tw-prose-links" as string]: accentColor,
+          ["--tw-prose-bold" as string]: fgColor,
+          ["--tw-prose-quotes" as string]: fgColor,
+          ["--tw-prose-quote-borders" as string]: accentColor,
+        }}
         onInput={handleContentChange}
         onBlur={handleContentChange}
         onKeyDown={handleKeyDown}
         onClick={handleEditorClick}
       />
 
+
       {/* Selected Embed Controls */}
       {selectedEmbed && (
-        <div className="fixed z-50" style={{
+        <div className="fixed z-[999999]" style={{
           top: selectedEmbed.getBoundingClientRect().top + window.scrollY + 8,
-          right: window.innerWidth - selectedEmbed.getBoundingClientRect().right + 8,
+          right: Math.max(8, window.innerWidth - selectedEmbed.getBoundingClientRect().right + 8),
         }}>
-          <div className="flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-1">
+          <div
+            className="flex items-center gap-1 backdrop-blur-sm rounded-lg shadow-lg border p-1"
+            style={{
+              backgroundColor: isDarkTheme ? "rgba(26,26,26,0.95)" : "rgba(255,255,255,0.95)",
+              borderColor: borderColor,
+            }}
+          >
             <button
               type="button"
               onClick={() => moveEmbedUp(selectedEmbed)}
-              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+              className="p-1.5 rounded transition-colors"
+              style={{ color: mutedColor }}
               title="Move up"
             >
-              <MoveUp className="h-4 w-4 text-gray-600" />
+              <MoveUp className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={() => moveEmbedDown(selectedEmbed)}
-              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+              className="p-1.5 rounded transition-colors"
+              style={{ color: mutedColor }}
               title="Move down"
             >
-              <MoveDown className="h-4 w-4 text-gray-600" />
+              <MoveDown className="h-4 w-4" />
             </button>
             {selectedEmbed.getAttribute('data-embed-type') === 'image' && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                    className="p-1.5 rounded transition-colors"
+                    style={{ color: mutedColor }}
                     title="Image size"
                   >
-                    <Maximize2 className="h-4 w-4 text-gray-600" />
+                    <Maximize2 className="h-4 w-4" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuContent align="end" className="w-44 z-[9999999]">
                   {imageSizeOptions.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
@@ -1534,21 +1636,21 @@ export function DescriptionRichEditor({
                       <option.icon className="h-4 w-4" />
                       <div>
                         <div className="text-sm">{option.label}</div>
-                        <div className="text-xs text-gray-500">{option.description}</div>
+                        <div className="text-xs text-muted-foreground">{option.description}</div>
                       </div>
                       {selectedEmbed.getAttribute('data-image-size') === option.value && (
-                        <Check className="h-4 w-4 ml-auto text-purple-600" />
+                        <Check className="h-4 w-4 ml-auto" style={{ color: accentColor }} />
                       )}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            <div className="w-px h-5 bg-gray-200 mx-0.5" />
+            <div className="w-px h-5 mx-0.5" style={{ backgroundColor: borderColor }} />
             <button
               type="button"
               onClick={() => deleteEmbed(selectedEmbed)}
-              className="p-1.5 hover:bg-red-50 rounded transition-colors"
+              className="p-1.5 hover:bg-red-500/10 rounded transition-colors"
               title="Delete"
             >
               <Trash2 className="h-4 w-4 text-red-500" />
@@ -1569,6 +1671,7 @@ interface DescriptionEditWrapperProps {
   isMobile?: boolean
   textColor?: string
   mutedTextColor?: string
+  themeColors?: ThemeColors
 }
 
 export function DescriptionEditWrapper({
@@ -1579,6 +1682,7 @@ export function DescriptionEditWrapper({
   isMobile = false,
   textColor,
   mutedTextColor,
+  themeColors,
 }: DescriptionEditWrapperProps) {
   const [isHovering, setIsHovering] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -1650,11 +1754,15 @@ export function DescriptionEditWrapper({
             onClose={handleClose}
             isMobile={isMobile}
             textColor={mutedTextColor}
+            themeColors={themeColors}
           />
         </div>
       </div>
     )
   }
+
+  const isDark = themeColors?.isDarkTheme
+  const accentColor = themeColors?.accentColor || "#7c3aed"
 
   return (
     <div
@@ -1675,12 +1783,14 @@ export function DescriptionEditWrapper({
           onClick={() => setIsEditing(true)}
           className={cn(
             "flex items-center gap-1.5 text-xs font-medium transition-all duration-200 whitespace-nowrap",
-            "px-2 py-1 rounded hover:bg-purple-100 hover:text-purple-700",
+            "px-2 py-1 rounded",
             "mt-1", // Align with description title
-            isHovering
-              ? "opacity-100 text-purple-600"
-              : "opacity-70 text-gray-500"
+            isHovering ? "opacity-100" : "opacity-70"
           )}
+          style={{
+            color: isHovering ? accentColor : (isDark ? "#a1a1aa" : "#6b7280"),
+            backgroundColor: isHovering ? (isDark ? "rgba(255,255,255,0.1)" : `${accentColor}15`) : "transparent"
+          }}
         >
           <Pencil className="h-3 w-3" />
           <span>Edit</span>

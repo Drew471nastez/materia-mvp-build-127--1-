@@ -3354,6 +3354,14 @@ export function UnifiedProductPage({
                   isMobile={isMobile}
                   textColor={themeTextColor}
                   mutedTextColor={themeMutedColor}
+                  themeColors={{
+                    backgroundColor: isDarkTheme ? "#1a1a1a" : "#ffffff",
+                    foregroundColor: themeTextColor,
+                    mutedColor: themeMutedColor,
+                    borderColor: priceContainerBorder || (isDarkTheme ? "#333" : "#e5e7eb"),
+                    accentColor: themeConfig?.colors?.primary || "#7c3aed",
+                    isDarkTheme: isDarkTheme,
+                  }}
                 >
                   <div className="mt-6">
                     <h2
