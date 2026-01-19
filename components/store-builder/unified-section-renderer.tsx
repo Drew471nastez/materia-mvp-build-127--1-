@@ -44,6 +44,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
+import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { SocialMediaIcons } from "./social-media-icons"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -3182,6 +3183,15 @@ export function UnifiedProductPage({
                           <Heart className="h-4 w-4 mr-2" />
                           Add to wishlist
                         </Button>
+                        {/* Refund Policy Display */}
+                        <RefundPolicyDisplay
+                          enabled={product?.refund_policy_enabled || false}
+                          policyType={product?.refund_policy_type || null}
+                          finePrint={product?.refund_policy_fine_print || null}
+                          updatedAt={product?.refund_policy_updated_at || null}
+                          className="mt-3"
+                          textColor={priceContainerText}
+                        />
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -3212,6 +3222,15 @@ export function UnifiedProductPage({
                           <Heart className="h-4 w-4 mr-2" />
                           Add to wishlist
                         </Button>
+                        {/* Refund Policy Display */}
+                        <RefundPolicyDisplay
+                          enabled={product?.refund_policy_enabled || false}
+                          policyType={product?.refund_policy_type || null}
+                          finePrint={product?.refund_policy_fine_print || null}
+                          updatedAt={product?.refund_policy_updated_at || null}
+                          className="mt-3"
+                          textColor={priceContainerText}
+                        />
                       </div>
                     )}
 
@@ -3397,6 +3416,15 @@ export function UnifiedProductPage({
                         <Heart className="h-4 w-4 mr-2" />
                         Add to wishlist
                       </Button>
+                      {/* Refund Policy Display */}
+                      <RefundPolicyDisplay
+                        enabled={product?.refund_policy_enabled || false}
+                        policyType={product?.refund_policy_type || null}
+                        finePrint={product?.refund_policy_fine_print || null}
+                        updatedAt={product?.refund_policy_updated_at || null}
+                        className="mt-3"
+                        textColor={priceContainerText}
+                      />
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -3426,6 +3454,15 @@ export function UnifiedProductPage({
                         <Heart className="h-4 w-4 mr-2" />
                         Add to wishlist
                       </Button>
+                      {/* Refund Policy Display */}
+                      <RefundPolicyDisplay
+                        enabled={product?.refund_policy_enabled || false}
+                        policyType={product?.refund_policy_type || null}
+                        finePrint={product?.refund_policy_fine_print || null}
+                        updatedAt={product?.refund_policy_updated_at || null}
+                        className="mt-3"
+                        textColor={priceContainerText}
+                      />
                     </div>
                   )}
 
@@ -3591,6 +3628,15 @@ export function UnifiedProductPage({
                       <Heart className="h-4 w-4 mr-2" />
                       Add to wishlist
                     </Button>
+                    {/* Refund Policy Display */}
+                    <RefundPolicyDisplay
+                      enabled={product?.refund_policy_enabled || false}
+                      policyType={product?.refund_policy_type || null}
+                      finePrint={product?.refund_policy_fine_print || null}
+                      updatedAt={product?.refund_policy_updated_at || null}
+                      className="mt-3"
+                      textColor={priceContainerText}
+                    />
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -3620,6 +3666,15 @@ export function UnifiedProductPage({
                       <Heart className="h-4 w-4 mr-2" />
                       Add to wishlist
                     </Button>
+                    {/* Refund Policy Display */}
+                    <RefundPolicyDisplay
+                      enabled={product?.refund_policy_enabled || false}
+                      policyType={product?.refund_policy_type || null}
+                      finePrint={product?.refund_policy_fine_print || null}
+                      updatedAt={product?.refund_policy_updated_at || null}
+                      className="mt-3"
+                      textColor={priceContainerText}
+                    />
                   </div>
                 )}
 

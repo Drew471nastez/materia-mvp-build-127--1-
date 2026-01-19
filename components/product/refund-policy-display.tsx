@@ -8,6 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface RefundPolicyDisplayProps {
   enabled: boolean
@@ -52,12 +58,39 @@ export function RefundPolicyDisplay({
   const policyLabel = POLICY_LABELS[policyType] || policyType
   const hasFinePrint = !!finePrint && finePrint.trim().length > 0
   const isClickable = hasFinePrint
+  const isNoRefunds = policyType === "no_refunds"
 
   const handleClick = () => {
     if (isClickable) {
       setIsModalOpen(true)
     }
   }
+
+  // For "No refunds allowed" without fine print - show tooltip
+  const renderNoRefundsWithTooltip = () => (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              "text-xs text-center cursor-default",
+              !textColor && "text-muted-foreground"
+            )}
+            style={textColor ? { color: `${textColor}99` } : undefined}
+          >
+            {policyLabel}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent
+          side="bottom"
+          className="max-w-xs bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-lg border-0"
+          sideOffset={5}
+        >
+          <p>Due to the nature of digital products, this item cannot be refunded.</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 
   return (
     <>
@@ -66,13 +99,15 @@ export function RefundPolicyDisplay({
           <button
             onClick={handleClick}
             className={cn(
-              "text-xs text-center transition-colors hover:underline focus:outline-none focus-visible:underline",
+              "text-xs text-center transition-colors underline hover:opacity-80 focus:outline-none focus-visible:underline",
               !textColor && "text-muted-foreground hover:text-foreground"
             )}
             style={textColor ? { color: `${textColor}99` } : undefined}
           >
             {policyLabel}
           </button>
+        ) : isNoRefunds ? (
+          renderNoRefundsWithTooltip()
         ) : (
           <span
             className={cn(
