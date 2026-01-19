@@ -192,7 +192,8 @@ export function LiveStickyAddToCart({
   creatorId,
   onAddToCart,
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
-  const [isVisible, setIsVisible] = useState(false)
+  // Start visible by default so it shows immediately on page load/refresh
+  const [isVisible, setIsVisible] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
 
@@ -201,7 +202,7 @@ export function LiveStickyAddToCart({
     setIsMounted(true)
   }, [])
 
-  // Handle scroll visibility
+  // Handle scroll visibility - only hide when near footer
   useEffect(() => {
     if (!isMounted) return
 
@@ -222,8 +223,8 @@ export function LiveStickyAddToCart({
       const currentBottom = scrollY + windowHeight
       const nearFooter = currentBottom > footerTop - 100
 
-      // Show after scrolling 200px down, hide when near footer
-      const shouldShow = scrollY > 200 && !nearFooter
+      // Show by default, only hide when near footer
+      const shouldShow = !nearFooter
       setIsVisible(shouldShow)
     }
 
