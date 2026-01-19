@@ -52,7 +52,7 @@ import { ReviewsList } from "@/components/reviews/reviews-list"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 import * as LucideIcons from "lucide-react"
-import { DescriptionEditWrapper } from "./description-rich-editor"
+import { DescriptionEditWrapper, RichDescriptionContent } from "./description-rich-editor"
 
 // Shared product type for consistency
 export interface ProductData {
@@ -3359,12 +3359,11 @@ export function UnifiedProductPage({
                       Description
                     </h2>
                     {productDescription ? (
-                      <p
-                        className={cn("whitespace-pre-wrap leading-relaxed break-words text-sm", !themeMutedColor && "text-muted-foreground")}
-                        style={{ color: themeMutedColor }}
-                      >
-                        {productDescription.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
-                      </p>
+                      <RichDescriptionContent
+                        html={productDescription}
+                        className="text-sm"
+                        textColor={themeMutedColor}
+                      />
                     ) : (
                       <p
                         className={cn("whitespace-pre-wrap leading-relaxed break-words text-sm italic opacity-60", !themeMutedColor && "text-muted-foreground")}

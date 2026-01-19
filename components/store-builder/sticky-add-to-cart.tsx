@@ -232,8 +232,8 @@ export function LiveStickyAddToCart({
 
       // Try to find description section as the trigger point (primary)
       // Look for the description heading or container
+      // Note: :contains() is jQuery syntax, not valid CSS - removed to prevent errors
       const descriptionSection = document.querySelector('[data-description-section]') ||
-                                 document.querySelector('h2:contains("Description")') ||
                                  document.querySelector('.description-section')
 
       // Fallback: find any h2 with "Description" text

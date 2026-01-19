@@ -27,6 +27,7 @@ import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
+import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 
 import { themePresets } from "@/lib/store-builder/defaults"
 
@@ -927,12 +928,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               >
                 Description
               </h2>
-              <p
-                className="whitespace-pre-wrap leading-relaxed break-words"
-                style={{ color: themeColors.textColor ? `${themeColors.textColor}cc` : "var(--muted-foreground)" }}
-              >
-                {product.description.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
-              </p>
+              <RichDescriptionContent
+                html={product.description}
+                textColor={themeColors.textColor ? `${themeColors.textColor}cc` : "var(--muted-foreground)"}
+              />
             </div>
           )}
         </div>

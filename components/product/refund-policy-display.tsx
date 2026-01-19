@@ -12,6 +12,14 @@ interface RefundPolicyDisplayProps {
   className?: string
   textColor?: string
   isPreviewMode?: boolean
+  // Theme preset colors for the tooltip
+  themeColors?: {
+    tooltipBackground?: string
+    tooltipTextColor?: string
+    tooltipBorderColor?: string
+    accentColor?: string
+    accentTextColor?: string
+  }
 }
 
 const POLICY_LABELS: Record<string, string> = {
@@ -31,6 +39,33 @@ function formatDate(dateString: string): string {
   })
 }
 
+// Helper to determine if a color is dark
+function isColorDark(color: string): boolean {
+  if (!color) return true
+  // Handle hex colors
+  if (color.startsWith('#')) {
+    const hex = color.replace('#', '')
+    const r = parseInt(hex.substring(0, 2), 16)
+    const g = parseInt(hex.substring(2, 4), 16)
+    const b = parseInt(hex.substring(4, 6), 16)
+    // Using relative luminance formula
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance < 0.5
+  }
+  // For rgb/rgba colors
+  if (color.startsWith('rgb')) {
+    const match = color.match(/\d+/g)
+    if (match && match.length >= 3) {
+      const r = parseInt(match[0])
+      const g = parseInt(match[1])
+      const b = parseInt(match[2])
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+      return luminance < 0.5
+    }
+  }
+  return true
+}
+
 export function RefundPolicyDisplay({
   enabled,
   policyType,
@@ -39,6 +74,7 @@ export function RefundPolicyDisplay({
   className,
   textColor,
   isPreviewMode = false,
+  themeColors,
 }: RefundPolicyDisplayProps) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -88,6 +124,21 @@ export function RefundPolicyDisplay({
     setIsTooltipOpen(!isTooltipOpen)
   }
 
+  // Tooltip theme colors - use theme preset colors if provided, otherwise use defaults
+  const tooltipBg = themeColors?.tooltipBackground || "#1a1a1a"
+  const tooltipText = themeColors?.tooltipTextColor || "#ffffff"
+  const tooltipBorder = themeColors?.tooltipBorderColor || "rgba(55, 65, 81, 0.5)"
+  const accentBg = themeColors?.accentColor || "rgba(124, 58, 237, 0.2)" // purple-500/20
+  const accentText = themeColors?.accentTextColor || "#c4b5fd" // purple-300
+
+  // Check if tooltip background is dark or light
+  const isDarkTooltip = isColorDark(tooltipBg)
+  const contentTextColor = isDarkTooltip ? "rgba(209, 213, 219, 1)" : "rgba(75, 85, 99, 1)"
+  const mutedTextColor = isDarkTooltip ? "rgba(107, 114, 128, 1)" : "rgba(156, 163, 175, 1)"
+  const closeButtonHoverBg = isDarkTooltip ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"
+  const closeButtonColor = isDarkTooltip ? "rgba(156, 163, 175, 1)" : "rgba(107, 114, 128, 1)"
+  const borderDivider = isDarkTooltip ? "rgba(55, 65, 81, 0.5)" : "rgba(229, 231, 235, 1)"
+
   // Tooltip content
   const renderTooltipContent = () => {
     // Default content for "No refunds" without fine print
@@ -99,52 +150,75 @@ export function RefundPolicyDisplay({
       <div
         ref={tooltipRef}
         className={cn(
-          "absolute z-50 w-[280px] sm:w-[320px] bg-[#1a1a1a] text-white rounded-xl shadow-2xl",
+          "absolute z-50 w-[280px] sm:w-[320px] rounded-xl shadow-2xl",
           "transform transition-all duration-200 ease-out origin-top",
-          "border border-gray-800/50",
           isTooltipOpen
             ? "opacity-100 translate-y-0 scale-100 pointer-events-auto"
             : "opacity-0 -translate-y-1 scale-95 pointer-events-none",
           // Position: centered below the trigger
           "left-1/2 -translate-x-1/2 top-full mt-2"
         )}
-        style={{ pointerEvents: isTooltipOpen ? "auto" : "none" }}
+        style={{
+          pointerEvents: isTooltipOpen ? "auto" : "none",
+          backgroundColor: tooltipBg,
+          color: tooltipText,
+          border: `1px solid ${tooltipBorder}`,
+        }}
       >
         {/* Arrow pointer */}
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#1a1a1a] rotate-45 border-l border-t border-gray-800/50" />
+        <div
+          className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
+          style={{
+            backgroundColor: tooltipBg,
+            borderLeft: `1px solid ${tooltipBorder}`,
+            borderTop: `1px solid ${tooltipBorder}`,
+          }}
+        />
 
         {/* Header */}
-        <div className="relative px-4 py-3 border-b border-gray-700/50 flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-white">Refund Policy</h4>
+        <div
+          className="relative px-4 py-3 flex items-center justify-between"
+          style={{ borderBottom: `1px solid ${borderDivider}` }}
+        >
+          <h4 className="text-sm font-semibold" style={{ color: tooltipText }}>Refund Policy</h4>
           <button
             onClick={(e) => {
               e.stopPropagation()
               setIsTooltipOpen(false)
             }}
-            className="p-1 hover:bg-white/10 rounded-full transition-colors"
+            className="p-1 rounded-full transition-colors"
+            style={{ backgroundColor: "transparent" }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = closeButtonHoverBg)}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
             aria-label="Close"
           >
-            <X className="h-3.5 w-3.5 text-gray-400" />
+            <X className="h-3.5 w-3.5" style={{ color: closeButtonColor }} />
           </button>
         </div>
 
         {/* Content with scroll if needed */}
         <div
-          className="px-4 py-3 max-h-[200px] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
+          className="px-4 py-3 max-h-[200px] overflow-y-auto overscroll-contain"
           style={{
             scrollbarWidth: 'thin',
-            scrollbarColor: '#4b5563 transparent',
+            scrollbarColor: `${mutedTextColor} transparent`,
           }}
         >
           {/* Policy badge */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-500/20 rounded-lg mb-3">
-            <span className="text-xs font-medium text-purple-300">{policyLabel}</span>
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mb-3"
+            style={{ backgroundColor: accentBg }}
+          >
+            <span className="text-xs font-medium" style={{ color: accentText }}>{policyLabel}</span>
           </div>
 
           {/* Fine print or default text */}
           {showFinePrint && (
             <div className="space-y-2">
-              <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
+              <p
+                className="text-xs leading-relaxed whitespace-pre-wrap break-words"
+                style={{ color: contentTextColor }}
+              >
                 {hasFinePrint ? finePrint : defaultNoRefundText}
               </p>
             </div>
@@ -152,7 +226,13 @@ export function RefundPolicyDisplay({
 
           {/* Updated date */}
           {updatedAt && (
-            <p className="text-[10px] text-gray-500 mt-3 pt-2 border-t border-gray-700/50">
+            <p
+              className="text-[10px] mt-3 pt-2"
+              style={{
+                color: mutedTextColor,
+                borderTop: `1px solid ${borderDivider}`,
+              }}
+            >
               Last updated: {formatDate(updatedAt)}
             </p>
           )}
