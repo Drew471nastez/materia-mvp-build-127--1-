@@ -921,10 +921,10 @@ function UnifiedAboutSection({
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
 
-        {/* Accepted Payment Methods Section - 10% wider (1126px vs 1024px) */}
+        {/* Accepted Payment Methods Section - 1239px width */}
         {showPaymentMethods && paymentMethods.length > 0 && (
           <div className={cn(
-            "max-w-[1126px] mx-auto w-full",
+            "max-w-[1239px] mx-auto w-full",
             // Mobile: stack vertically, Desktop: side by side
             "flex flex-col gap-3 md:flex-row md:gap-12",
             // Override for editor preview mode
@@ -980,7 +980,7 @@ function UnifiedAboutSection({
 
         {/* Returns & Exchanges Section - Mobile only (stacked layout) */}
         <div className={cn(
-          "max-w-[1126px] mx-auto w-full mt-6 md:hidden",
+          "max-w-[1239px] mx-auto w-full mt-6 md:hidden",
           isMobile && "!block !mt-6"
         )}>
           <div
@@ -1034,9 +1034,9 @@ export function ProductAboutSection({
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
 
-        {/* Accepted Payment Methods Section - 10% wider (1126px vs 1024px) */}
+        {/* Accepted Payment Methods Section - 1239px width */}
         <div className={cn(
-          "max-w-[1126px] mx-auto w-full",
+          "max-w-[1239px] mx-auto w-full",
           "flex flex-col gap-3 md:flex-row md:gap-12",
           isMobile && "!flex-col !gap-3"
         )}>
@@ -1089,7 +1089,7 @@ export function ProductAboutSection({
 
         {/* Returns & Exchanges Section - Mobile only (stacked layout) */}
         <div className={cn(
-          "max-w-[1126px] mx-auto w-full mt-6 md:hidden",
+          "max-w-[1239px] mx-auto w-full mt-6 md:hidden",
           isMobile && "!block !mt-6"
         )}>
           <div

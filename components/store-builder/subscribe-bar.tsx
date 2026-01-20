@@ -325,6 +325,41 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
     return () => clearTimeout(timer)
   }, [successMessage])
 
+  // IMPORTANT: All useMemo hooks must be called BEFORE any early returns to avoid React error #310
+  const initials = useMemo(() =>
+    settings.creatorName
+      ?.split(" ")
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase() || "?",
+    [settings.creatorName]
+  )
+
+  // Memoize avatar elements to prevent re-renders when email changes
+  const mobileAvatar = useMemo(() => (
+    settings.showAvatar ? (
+      <Avatar className="h-6 w-6 shrink-0">
+        {settings.avatarUrl ? (
+          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+        ) : null}
+        <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+      </Avatar>
+    ) : null
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
+
+  const desktopAvatar = useMemo(() => (
+    settings.showAvatar ? (
+      <Avatar className="h-8 w-8 shrink-0">
+        {settings.avatarUrl ? (
+          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+        ) : null}
+        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+      </Avatar>
+    ) : null
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
+
+  // Early return AFTER all hooks
   if (!settings.visible || !isHydrated) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -357,16 +392,6 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
     if (subscribed) setSubscribed(false)
   }
 
-  const initials = useMemo(() =>
-    settings.creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?",
-    [settings.creatorName]
-  )
-
   const displayText = getDisplayText(settings, settings.creatorName)
   const buttonText = loading ? "..." : getButtonText(settings, subscribed)
 
@@ -375,29 +400,6 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   // Bar content component
   // Always use solid color for live subscriber bar (no gradients)
   const solidBackgroundColor = extractSolidColor(settings.backgroundColor)
-
-  // Memoize avatar elements to prevent re-renders when email changes
-  const mobileAvatar = useMemo(() => (
-    settings.showAvatar ? (
-      <Avatar className="h-6 w-6 shrink-0">
-        {settings.avatarUrl ? (
-          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
-        ) : null}
-        <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-      </Avatar>
-    ) : null
-  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
-
-  const desktopAvatar = useMemo(() => (
-    settings.showAvatar ? (
-      <Avatar className="h-8 w-8 shrink-0">
-        {settings.avatarUrl ? (
-          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
-        ) : null}
-        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-      </Avatar>
-    ) : null
-  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
 
   const BarContent = () => (
     <>
