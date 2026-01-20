@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       event_type: "purchase",
     })
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://materia.app"
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
     const emailResults = await sendOrderEmails(admin, {
       orderId: order.id,

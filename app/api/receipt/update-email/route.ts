@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       .eq("id", order.product.creator.user_id)
       .single()
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://materia.app"
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
     const receiptUrl = `${baseUrl}/receipt/${receiptToken}`
 
     const sellerReplyTo = await resolveSellerEmail(admin, order.product.creator.id)

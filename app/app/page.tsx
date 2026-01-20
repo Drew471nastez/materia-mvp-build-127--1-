@@ -170,7 +170,7 @@ export default async function AppDashboard() {
   const hasProducts = (products?.length || 0) > 0
   const storeUsername = profile?.username || creator.slug
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://v0-materia-mvp-build.vercel.app"
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://storelib.com"
   const storeUrl = storeUsername ? `${baseUrl}/u/${storeUsername}` : `${baseUrl}/app/settings`
 
   const gettingStartedCards = [

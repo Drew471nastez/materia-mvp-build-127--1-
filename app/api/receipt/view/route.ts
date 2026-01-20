@@ -97,7 +97,7 @@ export async function GET(request: Request) {
     </div>
     <div class="footer">
       Thank you for your purchase!<br/>
-      Questions? Contact support@materia.app
+      Questions? Contact support@storelib.com
     </div>
   </div>
 </body>
