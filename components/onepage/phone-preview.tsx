@@ -4859,7 +4859,34 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
     case "social_row": {
       const data = block.data as SocialRowBlockData
-      const platforms = data.platforms || []
+      let platforms = data.platforms || []
+
+      // Fallback to profile.social_links if platforms is empty (auto-sync for instant preview)
+      if (platforms.length === 0 && profile.social_links) {
+        const defaultLinks: Array<{ platform: string; url: string }> = []
+        if (profile.social_links.instagram) defaultLinks.push({ platform: "instagram", url: profile.social_links.instagram })
+        if (profile.social_links.tiktok) defaultLinks.push({ platform: "tiktok", url: profile.social_links.tiktok })
+        if (profile.social_links.youtube) defaultLinks.push({ platform: "youtube", url: profile.social_links.youtube })
+        if (profile.social_links.twitter) defaultLinks.push({ platform: "twitter", url: profile.social_links.twitter })
+        if (profile.social_links.spotify) defaultLinks.push({ platform: "spotify", url: profile.social_links.spotify })
+        if (profile.social_links.threads) defaultLinks.push({ platform: "threads", url: profile.social_links.threads })
+        if (profile.social_links.facebook) defaultLinks.push({ platform: "facebook", url: profile.social_links.facebook })
+        if (profile.social_links.linkedin) defaultLinks.push({ platform: "linkedin", url: profile.social_links.linkedin })
+        if (profile.social_links.github) defaultLinks.push({ platform: "github", url: profile.social_links.github })
+        if (profile.social_links.twitch) defaultLinks.push({ platform: "twitch", url: profile.social_links.twitch })
+        if (profile.social_links.discord) defaultLinks.push({ platform: "discord", url: profile.social_links.discord })
+        if (profile.social_links.whatsapp) defaultLinks.push({ platform: "whatsapp", url: profile.social_links.whatsapp })
+        if (profile.social_links.snapchat) defaultLinks.push({ platform: "snapchat", url: profile.social_links.snapchat })
+        if (profile.social_links.telegram) defaultLinks.push({ platform: "telegram", url: profile.social_links.telegram })
+        if (profile.social_links.pinterest) defaultLinks.push({ platform: "pinterest", url: profile.social_links.pinterest })
+        if (profile.social_links.soundcloud) defaultLinks.push({ platform: "soundcloud", url: profile.social_links.soundcloud })
+        if (profile.social_links.kick) defaultLinks.push({ platform: "kick", url: profile.social_links.kick })
+        if (profile.social_links.patreon) defaultLinks.push({ platform: "patreon", url: profile.social_links.patreon })
+        if (profile.social_links.website) defaultLinks.push({ platform: "website", url: profile.social_links.website })
+        if (profile.social_links.email) defaultLinks.push({ platform: "email", url: profile.social_links.email })
+        platforms = defaultLinks
+      }
+
       if (platforms.length === 0) return null
 
       const headerLayout = (theme as any).header_layout || "classic"
