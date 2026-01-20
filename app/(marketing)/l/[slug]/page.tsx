@@ -2,6 +2,13 @@ import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { headers } from "next/headers"
+import crypto from "crypto"
+
+// Hash IP address for privacy (same as track API)
+function hashIP(ip: string): string {
+  return crypto.createHash("sha256").update(ip + process.env.SUPABASE_URL).digest("hex").slice(0, 16)
+}
 
 export const dynamic = "force-dynamic"
 
@@ -99,13 +106,45 @@ export default async function PublicOnePageRoute({ params }: Props) {
     notFound()
   }
 
-  // Track view
+  // Track view with IP/device deduplication (one view per IP per day)
   try {
-    await adminSupabase.from("onepage_views").insert({
-      onepage_id: onepage.id,
-      visitor_id: null,
-      referrer: null,
-    })
+    const headersList = await headers()
+    const forwardedFor = headersList.get("x-forwarded-for")
+    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "unknown"
+    const ipHash = hashIP(ip)
+    const userAgent = headersList.get("user-agent") || ""
+    const referrer = headersList.get("referer") || ""
+
+    // Generate visitor ID from IP hash + user agent (for deduplication)
+    const visitorId = crypto
+      .createHash("sha256")
+      .update(ipHash + userAgent)
+      .digest("hex")
+      .slice(0, 32)
+
+    // Check for duplicate view (same IP within the same calendar day - UTC)
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    const todayStr = today.toISOString()
+
+    const { data: existingView } = await adminSupabase
+      .from("onepage_views")
+      .select("id")
+      .eq("onepage_id", onepage.id)
+      .eq("ip_hash", ipHash)
+      .gte("created_at", todayStr)
+      .maybeSingle()
+
+    // Only insert if no view from this IP today
+    if (!existingView) {
+      await adminSupabase.from("onepage_views").insert({
+        onepage_id: onepage.id,
+        visitor_id: visitorId,
+        referrer,
+        user_agent: userAgent.slice(0, 500),
+        ip_hash: ipHash,
+      })
+    }
   } catch {
     // Ignore
   }

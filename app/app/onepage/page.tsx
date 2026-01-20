@@ -206,18 +206,36 @@ export default async function OnePageEditorPage() {
       verified_badge_type: "verified_creator" as const,
     }
 
+    // Prepare the default published profile data
+    const defaultTitle = profile?.display_name || profile?.username || "My Page"
+    const defaultBio = ""
+    const defaultAvatarUrl = profile?.avatar_url || null
+    const defaultBlocks = [headerBlock, socialRowBlock, linkBlock1, linkBlock2, dividerBlock, newsletterBlock]
+
     const newOnepage = {
       owner_id: user.id,
       creator_id: creator.id,
       slug,
-      title: profile?.display_name || profile?.username || "My Page",
-      bio: "",
-      avatar_url: profile?.avatar_url || null,
+      title: defaultTitle,
+      bio: defaultBio,
+      avatar_url: defaultAvatarUrl,
       theme: newDefaultTheme,
       settings: newDefaultSettings,
       social_links: defaultSocialLinks,
-      draft_blocks: [headerBlock, socialRowBlock, linkBlock1, linkBlock2, dividerBlock, newsletterBlock],
-      status: "draft",
+      draft_blocks: defaultBlocks,
+      // Auto-publish by default so page is visible immediately
+      status: "published",
+      published_at: new Date().toISOString(),
+      published_blocks: defaultBlocks,
+      published_theme: newDefaultTheme,
+      published_profile: {
+        title: defaultTitle,
+        bio: defaultBio,
+        avatar_url: defaultAvatarUrl,
+        avatar_video_url: null,
+        avatar_video_crop: null,
+      },
+      published_social_links: defaultSocialLinks,
     }
 
     const { data: created, error: createError } = await supabase

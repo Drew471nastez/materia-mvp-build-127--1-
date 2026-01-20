@@ -463,8 +463,13 @@ END $$;
 -- =====================================================
 CREATE INDEX IF NOT EXISTS idx_onepage_views_onepage_id ON onepage_views(onepage_id);
 CREATE INDEX IF NOT EXISTS idx_onepage_views_created_at ON onepage_views(created_at);
+-- Index for IP-based deduplication (one view per IP per day)
+CREATE INDEX IF NOT EXISTS idx_onepage_views_ip_hash ON onepage_views(ip_hash);
+CREATE INDEX IF NOT EXISTS idx_onepage_views_onepage_ip_date ON onepage_views(onepage_id, ip_hash, created_at);
 CREATE INDEX IF NOT EXISTS idx_onepage_clicks_onepage_id ON onepage_clicks(onepage_id);
 CREATE INDEX IF NOT EXISTS idx_onepage_clicks_created_at ON onepage_clicks(created_at);
+-- Index for click deduplication (one click per visitor per block per day)
+CREATE INDEX IF NOT EXISTS idx_onepage_clicks_visitor_block ON onepage_clicks(onepage_id, block_id, visitor_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_onepage_leads_onepage_id ON onepage_leads(onepage_id);
 CREATE INDEX IF NOT EXISTS idx_onepage_leads_email ON onepage_leads(email);
 CREATE INDEX IF NOT EXISTS idx_onepage_billing_seller_id ON onepage_billing(seller_id);
