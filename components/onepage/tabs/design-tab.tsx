@@ -187,18 +187,19 @@ const SOCIAL_STYLES = [
 ]
 
 const BACKGROUND_IMAGES = [
-  { id: "gradient1", url: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1920&q=95", label: "Purple Gradient" },
-  { id: "gradient2", url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1920&q=95", label: "Colorful Gradient" },
-  { id: "gradient3", url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=1920&q=95", label: "Blue Gradient" },
-  { id: "abstract1", url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=1920&q=95", label: "Abstract" },
-  { id: "abstract2", url: "https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=1920&q=95", label: "Waves" },
-  { id: "mesh1", url: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=1920&q=95", label: "Mesh" },
-  { id: "dark1", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=95", label: "Dark" },
-  { id: "mountains", url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=95", label: "Mountains" },
-  { id: "marble", url: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=1920&q=95", label: "Marble" },
-  { id: "texture", url: "https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=1920&q=95", label: "Texture" },
-  { id: "ocean", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=95", label: "Ocean" },
-  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", label: "Forest" },
+  // Nature image (kept)
+  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", label: "Nature" },
+  // Space image (kept)
+  { id: "space-stars", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=95", label: "Space" },
+  // New Supabase images
+  { id: "blocks-gradient", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/download.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvZG93bmxvYWQucG5nIiwiaWF0IjoxNzY4OTA3NjA3LCJleHAiOjMzMzA0OTA3NjA3fQ.Vt9eh0yu6lOl3hlyq-e_Q1DAZnE3F6SRQmpblm43vAw", label: "Gradient Blocks" },
+  { id: "abstract-pink", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/c78fa2c87ca69f52361687fa7b27b909.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvYzc4ZmEyYzg3Y2E2OWY1MjM2MTY4N2ZhN2IyN2I5MDkuanBnIiwiaWF0IjoxNzY4OTA3NjIxLCJleHAiOjUzMDA5Mzk2MjF9.9BLSE0ZAWodphCHfDfLaPIcWby-1VbznKWyzV3M1U-M", label: "Abstract Pink" },
+  { id: "black-solid", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/black_background.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvYmxhY2tfYmFja2dyb3VuZC5qcGciLCJpYXQiOjE3Njg5MDc2MzYsImV4cCI6Mzg4NDg1OTY1OTYzNn0.gP0xzyavmUb1e_s-3JMarX7TEUEgBCMn7c1-m_fLL7U", label: "Black" },
+  { id: "dark-texture", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/b607af5996db7b6b9af70e1a777aa808.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvYjYwN2FmNTk5NmRiN2I2YjlhZjcwZTFhNzc3YWE4MDguanBnIiwiaWF0IjoxNzY4OTA3NjUyLCJleHAiOjYwMjYyNjc2NTJ9.axmEhvQleebXMWfojRjrou7-p74GKbtSlvbpVGY8mjA", label: "Dark Texture" },
+  { id: "gradient-warm", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/510e061be1f3d8c7a56a9cff56c8ae24.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvNTEwZTA2MWJlMWYzZDhjN2E1NmE5Y2ZmNTZjOGFlMjQuanBnIiwiaWF0IjoxNzY4OTA3NjY3LCJleHAiOjEwNzQ0NjA0MzY2N30.jnvnqbf6FRqvyIDIx0tYz9kOyNWLGHEi-DyiQfRLX0o", label: "Warm Gradient" },
+  { id: "fusion-gradient", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMzUxM2NjYjdjMjYwZmZkM2YzNjYyNzc2Y2E4YWM5ZTAuanBnIiwiaWF0IjoxNzY4OTA3Njc5LCJleHAiOjU2NDc4MzU2Nzl9.mNyFEKqxNOBl82EwxJrGPy_gC4bX31cnczX_zGgRt6k", label: "Fusion" },
+  { id: "blue-texture", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/214ffad10a8306624600af8823503d46.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMjE0ZmZhZDEwYTgzMDY2MjQ2MDBhZjg4MjM1MDNkNDYuanBnIiwiaWF0IjoxNzY4OTA3Njg5LCJleHAiOjYwMjYyNjc2ODl9.iymmMjpCYELdPQqT_BbfAOWDFSngkYtx4ssuE9Pid2g", label: "Blue Texture" },
+  { id: "abstract-dark", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/19fef3f73560866d37752eb95418f4bb.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMTlmZWYzZjczNTYwODY2ZDM3NzUyZWI5NTQxOGY0YmIuanBnIiwiaWF0IjoxNzY4OTA3Njk5LCJleHAiOjM5MzI1NjgxMTY5OX0.ThQFYyEylNyx07kOmK9oBiZ9JqqCNHeFJJ-zZAa_7R8", label: "Abstract Dark" },
 ]
 
 const BACKGROUND_PATTERNS = [
@@ -636,6 +637,42 @@ const THEME_TEMPLATES = [
       image_noise: true,
       noise_strength: 30,
     },
+  },
+  {
+    id: "fusion",
+    name: "Fusion",
+    category: "image",
+    theme_config: {
+      background_type: "image" as const,
+      background_color: "#0f0f1a",
+      background_gradient: "",
+      background_image_url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMzUxM2NjYjdjMjYwZmZkM2YzNjYyNzc2Y2E4YWM5ZTAuanBnIiwiaWF0IjoxNzY4OTA4Mjg2LCJleHAiOjM5NDg1NjIzODAyODZ9.gt2phg6Tkw-z5_Q-F4kqhDchEmd3eOupUWxohGQLmM0",
+      text_color: "#ffffff",
+      secondary_text_color: "#e9d5ff",
+      button_color: "#8b5cf6",
+      button_text_color: "#ffffff",
+      button_style: "filled" as const,
+      button_border_radius: 12,
+      button_border_width: 0,
+      button_border_color: "#8b5cf6",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Space Grotesk', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#e9d5ff",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      // Wallpaper settings: 60% brightness and 40% noise strength
+      image_brightness: 60,
+      image_noise: true,
+      noise_strength: 40,
+    },
+    profile_layout: "classic" as const,
+    // Fusion theme uses glassmorphism for share/subscribe buttons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
 ]
 
