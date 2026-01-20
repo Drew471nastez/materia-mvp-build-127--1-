@@ -1946,9 +1946,10 @@ function ShopHeaderSettingsForm({
             />
           </div>
 
-          <div className="space-y-2 pt-3">
+          <div className="space-y-2 pt-3" id="sidebar-bio-section">
             <Label className="text-sm font-medium">Bio</Label>
             <Textarea
+              id="sidebar-bio-input"
               value={settings.bio ?? creator?.bio ?? ""}
               onChange={(e) => onChange({ bio: e.target.value })}
               placeholder="Enter your bio description..."
@@ -4368,7 +4369,7 @@ function FAQSettingsForm({
     {
       id: "default-1",
       question: "How do I access my purchase?",
-      answer: "After completing your purchase, you'll have instant access to your content through your library.",
+      answer: "After you complete checkout, you can download the product immediately on the download page. You'll also receive an email with the download link, so you can access it anytime from your inbox.",
       isDefault: true,
     },
     {

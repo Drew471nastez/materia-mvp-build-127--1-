@@ -1000,12 +1000,115 @@ function UnifiedAboutSection({
             See item details for return and exchange eligibility.
           </p>
         </div>
+      </div>
+    </SectionContainer>
+  )
+}
 
-        {/* Bottom divider */}
+// ====== PRODUCT ABOUT SECTION - Payment Methods Only ======
+// This is a simplified About section for product pages that only shows payment methods
+export function ProductAboutSection({
+  isMobile,
+  textColor,
+  backgroundColor,
+}: {
+  isMobile?: boolean
+  textColor?: string
+  backgroundColor?: string
+}) {
+  // All payment methods enabled by default
+  const paymentMethods = ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"]
+
+  return (
+    <SectionContainer isMobile={isMobile}>
+      <div
+        className={cn(
+          "w-full py-6 px-4 md:py-12",
+          isMobile && "!py-6 !px-4"
+        )}
+        style={{ backgroundColor: backgroundColor || "transparent" }}
+      >
+        {/* Top divider */}
         <div
-          className="w-full h-px mt-8"
+          className="w-full h-px mb-8"
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
+
+        {/* Accepted Payment Methods Section */}
+        <div className={cn(
+          "max-w-5xl mx-auto w-full",
+          "flex flex-col gap-3 md:flex-row md:gap-12",
+          isMobile && "!flex-col !gap-3"
+        )}>
+          <div className={cn(
+            "flex-shrink-0 w-full md:w-64",
+            isMobile && "!w-full"
+          )}>
+            <h4
+              className={cn(
+                "font-semibold text-base md:text-lg",
+                isMobile && "!text-base"
+              )}
+              style={{ color: textColor || undefined }}
+            >
+              Accepted payment methods
+            </h4>
+          </div>
+          <div className="flex-1 w-full">
+            <div className="flex flex-wrap items-center -space-x-1">
+              {paymentMethods.map((method) => {
+                const IconComponent = paymentMethodIcons[method]
+                if (!IconComponent) return null
+                return (
+                  <IconComponent
+                    key={method}
+                    className={cn(
+                      "flex-shrink-0 w-[50px] h-[34px] md:w-[53px] md:h-[38px]",
+                      isMobile && "!w-[50px] !h-[34px]"
+                    )}
+                  />
+                )
+              })}
+            </div>
+            {/* Returns & Exchanges - desktop: below payment icons, smaller text */}
+            <div className={cn(
+              "hidden md:block mt-4",
+              isMobile && "!hidden"
+            )}>
+              <p
+                className="text-xs"
+                style={{ color: textColor ? `${textColor}99` : "#6b7280" }}
+              >
+                <span className="font-medium">Returns & exchanges</span>
+                {" · "}
+                See item details for return and exchange eligibility.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Returns & Exchanges Section - Mobile only (stacked layout) */}
+        <div className={cn(
+          "max-w-5xl mx-auto w-full mt-6 md:hidden",
+          isMobile && "!block !mt-6"
+        )}>
+          <div
+            className="w-full h-px mb-6"
+            style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
+          />
+          <h4
+            className="font-semibold text-base mb-2"
+            style={{ color: textColor || undefined }}
+          >
+            Returns & exchanges
+          </h4>
+          <p
+            className="text-sm"
+            style={{ color: textColor ? `${textColor}cc` : "#374151" }}
+          >
+            See item details for return and exchange eligibility.
+          </p>
+        </div>
       </div>
     </SectionContainer>
   )
@@ -2949,7 +3052,7 @@ export function UnifiedProductPage({
     {
       question: "How do I access my purchase?",
       answer:
-        "After completing your purchase, you'll have instant access to your content through your library. You can access it anytime by logging in to your Materia account.",
+        "After you complete checkout, you can download the product immediately on the download page. You'll also receive an email with the download link, so you can access it anytime from your inbox.",
     },
     {
       question: "Is there a refund policy?",

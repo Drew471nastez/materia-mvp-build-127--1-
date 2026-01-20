@@ -357,13 +357,15 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
     if (subscribed) setSubscribed(false)
   }
 
-  const initials =
+  const initials = useMemo(() =>
     settings.creatorName
       ?.split(" ")
       .filter(Boolean)
       .map((n) => n[0])
       .join("")
-      .toUpperCase() || "?"
+      .toUpperCase() || "?",
+    [settings.creatorName]
+  )
 
   const displayText = getDisplayText(settings, settings.creatorName)
   const buttonText = loading ? "..." : getButtonText(settings, subscribed)
@@ -374,6 +376,29 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   // Always use solid color for live subscriber bar (no gradients)
   const solidBackgroundColor = extractSolidColor(settings.backgroundColor)
 
+  // Memoize avatar elements to prevent re-renders when email changes
+  const mobileAvatar = useMemo(() => (
+    settings.showAvatar ? (
+      <Avatar className="h-6 w-6 shrink-0">
+        {settings.avatarUrl ? (
+          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+        ) : null}
+        <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+      </Avatar>
+    ) : null
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
+
+  const desktopAvatar = useMemo(() => (
+    settings.showAvatar ? (
+      <Avatar className="h-8 w-8 shrink-0">
+        {settings.avatarUrl ? (
+          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+        ) : null}
+        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+      </Avatar>
+    ) : null
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
+
   const BarContent = () => (
     <>
       {/* Custom placeholder color styles */}
@@ -382,14 +407,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
       {/* MOBILE */}
       <div className="sm:hidden flex flex-col items-center gap-2">
         <div className="flex items-center gap-2 justify-center">
-          {settings.showAvatar && (
-            <Avatar className="h-6 w-6 shrink-0">
-              {settings.avatarUrl ? (
-                <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
-              ) : null}
-              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-            </Avatar>
-          )}
+          {mobileAvatar}
           <p className="text-xs font-medium">{displayText}</p>
         </div>
 
@@ -431,14 +449,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
       {/* DESKTOP */}
       <div className="hidden sm:flex items-center justify-between gap-4 max-w-[1150px] mx-auto">
         <div className="flex items-center gap-2 shrink-0">
-          {settings.showAvatar && (
-            <Avatar className="h-8 w-8 shrink-0">
-              {settings.avatarUrl ? (
-                <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
-              ) : null}
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-            </Avatar>
-          )}
+          {desktopAvatar}
           <p className="text-sm font-medium">{displayText}</p>
           {successMessage && (
             <p className={cn("text-xs ml-2", isDarkBackground ? "text-white/80" : "text-green-600")}>{successMessage}</p>

@@ -89,6 +89,23 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     setSidebarMode("settings")
   }
 
+  const handleBioEdit = () => {
+    setSelectedSectionId("header")
+    setSidebarMode("settings")
+    // Scroll to bio input after sidebar renders
+    setTimeout(() => {
+      const bioSection = document.getElementById("sidebar-bio-section")
+      if (bioSection) {
+        bioSection.scrollIntoView({ behavior: "smooth", block: "center" })
+        // Focus the bio input
+        const bioInput = document.getElementById("sidebar-bio-input") as HTMLTextAreaElement
+        if (bioInput) {
+          bioInput.focus()
+        }
+      }
+    }, 100)
+  }
+
   const handleCoverEdit = () => {
     setCoverEditorOpen(true)
   }
@@ -673,7 +690,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               onSelect={() => handleSelectSection("header")}
               onAvatarEdit={handleAvatarEdit}
               onCoverEdit={handleCoverEdit}
-              onBioEdit={() => handleSelectSection("header")}
+              onBioEdit={handleBioEdit}
               globalSettings={draftConfig.globalSettings}
             />
 

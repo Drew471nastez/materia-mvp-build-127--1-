@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { DownloadButton } from "@/components/download-button"
 import { TrackView } from "@/components/analytics/track-view"
 import { SectionRenderer, type ProductData } from "@/components/store-builder/section-renderer"
+import { ProductAboutSection } from "@/components/store-builder/unified-section-renderer"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { LiveProductCreatorBar } from "@/components/store-builder/product-creator-bar"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
@@ -499,7 +500,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const defaultFaqs = [
     {
       question: "How do I access my purchase?",
-      answer: "After completing your purchase, you'll have instant access to your content through your library. You can access it anytime by logging in to your Materia account.",
+      answer: "After you complete checkout, you can download the product immediately on the download page. You'll also receive an email with the download link, so you can access it anytime from your inbox.",
     },
     {
       question: "Is there a refund policy?",
@@ -1277,6 +1278,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           )
         })()}
 
+        {/* About section with payment methods for product pages */}
+        <ProductAboutSection
+          textColor={pageTextColor}
+          backgroundColor={pageBackgroundColor}
+        />
+
         <SellerFooter />
       </div>
     )
@@ -1364,6 +1371,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           />
         )
       })()}
+
+      {/* About section with payment methods for product pages */}
+      <ProductAboutSection
+        textColor={defaultPageTextColor}
+        backgroundColor={defaultPageBackgroundColor}
+      />
 
       <SellerFooter />
     </div>
