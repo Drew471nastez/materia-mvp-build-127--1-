@@ -21,14 +21,60 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const supabase = createAdminClient()
 
-  const { data: onepage, error } = await supabase
+  // First try to find onepage by slug
+  let { data: onepage, error } = await supabase
     .from("onepages")
     .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title")
     .eq("slug", slug)
     .eq("status", "published")
     .single()
 
+  // If not found by slug, try to find by username (for subdomain routing)
   if (error || !onepage) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .ilike("username", slug)
+      .maybeSingle()
+
+    if (profile) {
+      const { data: creator } = await supabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", profile.id)
+        .maybeSingle()
+
+      if (creator) {
+        const { data: creatorOnepage } = await supabase
+          .from("onepages")
+          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title")
+          .or(`seller_id.eq.${creator.id},creator_id.eq.${creator.id}`)
+          .eq("status", "published")
+          .maybeSingle()
+
+        if (creatorOnepage) {
+          onepage = creatorOnepage
+          error = null
+        }
+      }
+
+      if (!onepage) {
+        const { data: ownerOnepage } = await supabase
+          .from("onepages")
+          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title")
+          .eq("owner_id", profile.id)
+          .eq("status", "published")
+          .maybeSingle()
+
+        if (ownerOnepage) {
+          onepage = ownerOnepage
+          error = null
+        }
+      }
+    }
+  }
+
+  if (!onepage) {
     return { title: slug ? `${slug} | Storelib` : "Page Not Found" }
   }
 
@@ -95,14 +141,79 @@ export default async function PublicOnePageRoute({ params }: Props) {
 
   const adminSupabase = createAdminClient()
 
-  const { data: onepage, error } = await adminSupabase
+  // First try to find onepage by slug
+  let { data: onepage, error } = await adminSupabase
     .from("onepages")
     .select("*")
     .eq("slug", slug)
     .eq("status", "published")
     .single()
 
+  // If not found by slug, try to find by username (for subdomain routing)
+  // This handles the case where username.storelib.com/links is accessed
+  // and the middleware passes the username as the slug
   if (error || !onepage) {
+    // Look up the user by username
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("id, username")
+      .ilike("username", slug)
+      .maybeSingle()
+
+    if (profile) {
+      // Find the creator for this user
+      const { data: creator } = await adminSupabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", profile.id)
+        .maybeSingle()
+
+      if (creator) {
+        // Try to find onepage by seller_id (creator_id)
+        const { data: creatorOnepage } = await adminSupabase
+          .from("onepages")
+          .select("*")
+          .eq("seller_id", creator.id)
+          .eq("status", "published")
+          .maybeSingle()
+
+        if (creatorOnepage) {
+          onepage = creatorOnepage
+          error = null
+        } else {
+          // Also try by creator_id field
+          const { data: altOnepage } = await adminSupabase
+            .from("onepages")
+            .select("*")
+            .eq("creator_id", creator.id)
+            .eq("status", "published")
+            .maybeSingle()
+
+          if (altOnepage) {
+            onepage = altOnepage
+            error = null
+          }
+        }
+      }
+
+      // If still not found, try by owner_id (user_id)
+      if (!onepage) {
+        const { data: ownerOnepage } = await adminSupabase
+          .from("onepages")
+          .select("*")
+          .eq("owner_id", profile.id)
+          .eq("status", "published")
+          .maybeSingle()
+
+        if (ownerOnepage) {
+          onepage = ownerOnepage
+          error = null
+        }
+      }
+    }
+  }
+
+  if (!onepage) {
     notFound()
   }
 
