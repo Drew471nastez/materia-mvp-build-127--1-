@@ -248,6 +248,8 @@ const THEME_TEMPLATES = [
     // Default theme uses white share/subscribe button styles
     share_style: "white",
     subscribe_style: "white",
+    // Default theme with light background - use dark button text for outline/glass styles
+    light_button_text_color: "#000000",
   },
   {
     id: "air",
@@ -273,7 +275,12 @@ const THEME_TEMPLATES = [
       social_icon_color: "#64748b",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      laser_glow_enabled: true,
+      laser_glow_color: "#dbdbdb",
+      laser_glow_intensity: "medium",
     },
+    // AIR theme with light background - use dark button text for outline/glass styles
+    light_button_text_color: "#0f172a",
   },
   {
     id: "astrid",
@@ -299,7 +306,13 @@ const THEME_TEMPLATES = [
       social_icon_color: "#a1a1aa",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      laser_glow_enabled: true,
+      laser_glow_color: "#303030",
+      laser_glow_intensity: "medium",
     },
+    // Astrid theme uses glassmorphism for share/subscribe icons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
   {
     id: "blocks",
@@ -2253,13 +2266,13 @@ function HeaderSection() {
 }
 
 function ThemeSection() {
-  const { onepage, updateTheme, updateSettings } = useOnePage()
+  const { onepage, updateTheme, updateSettings, updateBlock } = useOnePage()
   const [filter, setFilter] = useState<"all" | "light" | "dark" | "gradient" | "image">("all")
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useState<typeof THEME_TEMPLATES[0] | null>(null)
 
   if (!onepage) return null
-  const { theme } = onepage
+  const { theme, draft_blocks } = onepage
   const currentHeaderLayout = (theme as any).header_layout || "classic"
 
   const handleApplyTemplate = (template: typeof THEME_TEMPLATES[0]) => {
@@ -2289,6 +2302,24 @@ function ThemeSection() {
       if (templateWithStyles.share_style) settingsUpdate.share_style = templateWithStyles.share_style
       if (templateWithStyles.subscribe_style) settingsUpdate.subscribe_style = templateWithStyles.subscribe_style
       updateSettings(settingsUpdate)
+    }
+
+    // AIR theme: Set swipe animation on the first link_button block if no blocks have animations
+    if (template.id === "air" && draft_blocks) {
+      // Check if any block already has an animation
+      const hasAnimation = draft_blocks.some(b =>
+        b.type === "link_button" && (b.data as any)?.animation_type && (b.data as any)?.animation_type !== "none"
+      )
+
+      if (!hasAnimation) {
+        // Find the first link_button block and set swipe animation
+        const firstLinkButton = draft_blocks.find(b => b.type === "link_button" && b.enabled)
+        if (firstLinkButton) {
+          updateBlock(firstLinkButton.id, {
+            data: { ...(firstLinkButton.data || {}), animation_type: "swipe" }
+          })
+        }
+      }
     }
   }
 
@@ -3827,6 +3858,37 @@ function ButtonsSection() {
   if (!onepage) return null
   const { theme } = onepage
 
+  // Helper function to determine if background is light
+  const isLightBackground = (bgColor: string) => {
+    // Convert hex to RGB and calculate luminance
+    const hex = bgColor.replace('#', '')
+    if (hex.length !== 6) return true // Default to light if invalid
+    const r = parseInt(hex.substring(0, 2), 16)
+    const g = parseInt(hex.substring(2, 4), 16)
+    const b = parseInt(hex.substring(4, 6), 16)
+    // Calculate luminance using relative luminance formula
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance > 0.5 // Light if luminance > 0.5
+  }
+
+  // Handler for button style changes - auto-adjusts text color for light backgrounds
+  const handleButtonStyleChange = (style: "filled" | "outline" | "glass") => {
+    const updates: any = { button_style: style }
+
+    // If selecting outline or glass on a light background, use dark text color
+    if ((style === "outline" || style === "glass") && theme.background_type === "solid") {
+      const bgColor = theme.background_color || "#ffffff"
+      if (isLightBackground(bgColor)) {
+        // Find the current template to get its light_button_text_color, or use default dark color
+        const currentTemplate = THEME_TEMPLATES.find(t => t.id === theme.template_id)
+        const lightButtonTextColor = (currentTemplate as any)?.light_button_text_color || "#0f172a"
+        updates.button_text_color = lightButtonTextColor
+      }
+    }
+
+    updateTheme(updates)
+  }
+
   return (
     <div className="space-y-6 md:space-y-8">
       <h2 className="text-lg md:text-xl font-semibold">Buttons</h2>
@@ -3834,7 +3896,7 @@ function ButtonsSection() {
         <Label className="text-sm font-medium">Style</Label>
         <div className="grid grid-cols-3 gap-2">
           {(["filled", "outline", "glass"] as const).map((style) => (
-            <button key={style} onClick={() => updateTheme({ button_style: style })} className={cn("py-3 md:py-3.5 rounded-xl border-2 text-xs md:text-sm font-medium capitalize transition-colors", theme.button_style === style ? "border-foreground bg-gray-50" : "border-gray-200 hover:border-gray-300")}>{style === "filled" ? "Solid" : style}</button>
+            <button key={style} onClick={() => handleButtonStyleChange(style)} className={cn("py-3 md:py-3.5 rounded-xl border-2 text-xs md:text-sm font-medium capitalize transition-colors", theme.button_style === style ? "border-foreground bg-gray-50" : "border-gray-200 hover:border-gray-300")}>{style === "filled" ? "Solid" : style}</button>
           ))}
         </div>
       </div>

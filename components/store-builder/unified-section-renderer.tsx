@@ -921,10 +921,10 @@ function UnifiedAboutSection({
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
 
-        {/* Accepted Payment Methods Section - 1239px width */}
+        {/* Accepted Payment Methods Section - 1363px width (10% wider) */}
         {showPaymentMethods && paymentMethods.length > 0 && (
           <div className={cn(
-            "max-w-[1239px] mx-auto w-full",
+            "max-w-[1363px] mx-auto w-full",
             // Mobile: stack vertically, Desktop: side by side
             "flex flex-col gap-3 md:flex-row md:gap-12",
             // Override for editor preview mode
@@ -1034,9 +1034,9 @@ export function ProductAboutSection({
           style={{ backgroundColor: textColor ? `${textColor}20` : "#e5e7eb" }}
         />
 
-        {/* Accepted Payment Methods Section - 1239px width */}
+        {/* Accepted Payment Methods Section - 1363px width (10% wider) */}
         <div className={cn(
-          "max-w-[1239px] mx-auto w-full",
+          "max-w-[1363px] mx-auto w-full",
           "flex flex-col gap-3 md:flex-row md:gap-12",
           isMobile && "!flex-col !gap-3"
         )}>
