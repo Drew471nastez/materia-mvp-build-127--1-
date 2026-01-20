@@ -349,11 +349,24 @@ export default function ReceiptContent({
     setResendLoading(true)
     setResendSuccess(false)
     setResendError("")
+    setShowErrorToast(false)
     try {
+      // Determine which emails need to be resent based on status
+      let resendType = "buyer" // Default to buyer only
+      if (emailStatus) {
+        const buyerFailed = !emailStatus.buyerEmailSent || !!emailStatus.buyerEmailError
+        const sellerFailed = !emailStatus.sellerEmailSent || !!emailStatus.sellerEmailError
+        if (buyerFailed && sellerFailed) {
+          resendType = "both"
+        } else if (sellerFailed) {
+          resendType = "both" // Also resend buyer to be safe
+        }
+      }
+
       const res = await fetch("/api/receipt/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, receiptToken }),
+        body: JSON.stringify({ orderId, receiptToken, resendType }),
       })
 
       const data = await res.json()
@@ -364,11 +377,21 @@ export default function ReceiptContent({
         return
       }
 
-      if (res.ok) {
+      if (res.ok && data.success) {
         setResendSuccess(true)
+        setShowSuccessToast(true)
         setTimeout(() => setResendSuccess(false), 5000)
       } else {
-        setResendError(data.error || "Failed to resend email")
+        setResendError(data.error || data.details || "Failed to resend email. Please try again.")
+        if (!data.buyerSuccess || !data.sellerSuccess) {
+          // Show specific failure info
+          const failedParts = []
+          if (!data.buyerSuccess) failedParts.push("receipt email")
+          if (!data.sellerSuccess) failedParts.push("seller notification")
+          if (failedParts.length > 0) {
+            setResendError(`Failed to send: ${failedParts.join(", ")}. Please try again.`)
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to resend receipt:", err)

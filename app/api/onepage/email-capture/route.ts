@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { Resend } from "resend"
+import { sendLeadMagnetEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-const FROM_EMAIL = "noreply@storelib.com"
 
 function getBaseUrl() {
   const envUrl =
@@ -149,81 +146,35 @@ export async function POST(request: Request) {
         }
       }
 
-      // Send download email
-      if (resend && downloadLink) {
-        try {
-          await resend.emails.send({
-            from: `${sellerName} <${FROM_EMAIL}>`,
-            to: normalizedEmail,
-            subject: `Your download is ready - ${product.title}`,
-            html: `
-              <!DOCTYPE html>
-              <html>
-              <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              </head>
-              <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5;">
-                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
-                  <tr>
-                    <td align="center">
-                      <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 480px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                        <!-- Header -->
-                        <tr>
-                          <td style="padding: 32px 32px 24px; text-align: center;">
-                            <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 600; color: #111;">Your download is ready!</h1>
-                            <p style="margin: 0; font-size: 15px; color: #666;">Thanks for joining ${sellerName}'s list</p>
-                          </td>
-                        </tr>
-                        
-                        <!-- Product Card -->
-                        ${product.thumbnail_url ? `
-                        <tr>
-                          <td style="padding: 0 32px;">
-                            <div style="background: #f9f9f9; border-radius: 12px; overflow: hidden;">
-                              <img src="${product.thumbnail_url}" alt="${product.title}" style="width: 100%; height: auto; display: block;">
-                            </div>
-                          </td>
-                        </tr>
-                        ` : ''}
-                        
-                        <!-- Product Title -->
-                        <tr>
-                          <td style="padding: 20px 32px 8px; text-align: center;">
-                            <p style="margin: 0; font-size: 18px; font-weight: 600; color: #111;">${product.title}</p>
-                          </td>
-                        </tr>
-                        
-                        <!-- Download Button -->
-                        <tr>
-                          <td style="padding: 16px 32px 32px;">
-                            <a href="${downloadLink}" 
-                               style="display: block; width: 100%; padding: 16px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 600; text-align: center; box-sizing: border-box;">
-                              Download Now
-                            </a>
-                          </td>
-                        </tr>
-                        
-                        <!-- Footer -->
-                        <tr>
-                          <td style="padding: 0 32px 32px; text-align: center;">
-                            <p style="margin: 0; font-size: 13px; color: #999;">
-                              This link expires in 30 days and can be used up to 10 times.
-                            </p>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                </table>
-              </body>
-              </html>
-            `,
-            text: `Your download is ready!\n\nThanks for joining ${sellerName}'s list.\n\nDownload "${product.title}" here: ${downloadLink}\n\nThis link expires in 30 days and can be used up to 10 times.`,
-          })
-        } catch (emailError) {
-          console.error("Error sending download email:", emailError)
+      // Send download email using shared email function with retry logic
+      let emailSent = false
+      if (downloadLink) {
+        const emailResult = await sendLeadMagnetEmail(adminSupabase, {
+          recipientEmail: normalizedEmail,
+          productTitle: product.title,
+          productFileUrl: downloadLink,
+          creatorId: onepage.seller_id,
+          onepageId: onepage_id,
+          baseUrl: getBaseUrl(),
+          customSubject: `Your download is ready - ${product.title}`,
+          customHeading: "Your download is ready!",
+          customBody: `Thanks for joining ${sellerName}'s list! As promised, here's your free digital download: <strong>${product.title}</strong>. This link expires in 30 days and can be used up to 10 times.`,
+        })
+
+        emailSent = emailResult.success
+        if (!emailResult.success) {
+          console.error("[email-capture] Error sending download email:", emailResult.error)
+        } else {
+          console.log("[email-capture] ✅ Download email sent successfully to:", normalizedEmail)
         }
+      }
+
+      // Update lead/download record with email status if email failed
+      if (!emailSent && downloadToken) {
+        await adminSupabase
+          .from("subscriber_digital_products")
+          .update({ email_sent: false, email_error: "Failed to send after retries" })
+          .eq("download_token", downloadToken)
       }
     }
 

@@ -19,6 +19,43 @@ const FROM_EMAIL = "noreply@storelib.com"
 const DEFAULT_SUPPORT = "support@storelib.com"
 const PLATFORM_BRAND_NAME = "Materia Builder"
 
+// Retry configuration
+const MAX_RETRIES = 3
+const RETRY_DELAYS = [1000, 2000, 4000] // 1s, 2s, 4s exponential backoff
+
+// -------------------------
+// Retry helper with exponential backoff
+// -------------------------
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = MAX_RETRIES,
+  context: string = "operation",
+): Promise<T> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (err: any) {
+      lastError = err
+      console.error(`[email] ${context} attempt ${attempt + 1}/${maxRetries + 1} failed:`, err?.message || err)
+
+      // Don't retry on the last attempt
+      if (attempt < maxRetries) {
+        const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1]
+        console.log(`[email] Retrying ${context} in ${delay}ms...`)
+        await sleep(delay)
+      }
+    }
+  }
+
+  throw lastError || new Error(`${context} failed after ${maxRetries + 1} attempts`)
+}
+
 // -------------------------
 // URL + safety helpers
 // -------------------------
@@ -576,28 +613,40 @@ export async function sendBuyerDownloadEmail(
   const subject = `Your download is ready - ${safeText(productTitle)}`
 
   try {
-    const response = await resend.emails.send({
-      from: buildFromHeader(fromName),
-      to: customerEmail,
-      replyTo,
-      subject,
-      html: buyerEmailHtml({
-        buyerFirstName,
-        productTitle,
-        receiptLink,
-        supportEmail: replyTo,
-        footerBrand: fromName,
-      }),
-      text: buyerEmailText({ buyerFirstName, productTitle, receiptLink }),
-    })
+    const response = await withRetry(
+      async () => {
+        const result = await resend.emails.send({
+          from: buildFromHeader(fromName),
+          to: customerEmail,
+          replyTo,
+          subject,
+          html: buyerEmailHtml({
+            buyerFirstName,
+            productTitle,
+            receiptLink,
+            supportEmail: replyTo,
+            footerBrand: fromName,
+          }),
+          text: buyerEmailText({ buyerFirstName, productTitle, receiptLink }),
+        })
 
-    if ((response as any)?.error) throw new Error((response as any).error.message || "Resend API error")
+        if ((result as any)?.error) {
+          throw new Error((result as any).error.message || "Resend API error")
+        }
 
+        return result
+      },
+      MAX_RETRIES,
+      `buyer email to ${customerEmail}`,
+    )
+
+    console.log("[email] ✅ Buyer email sent successfully to:", customerEmail)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "buyer", true)
     return { success: true, logId: logId || undefined }
   } catch (err: any) {
     const errorMessage = err?.message || "Unknown error sending email"
+    console.error("[email] ❌ Buyer email failed after retries:", errorMessage)
     if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
     await updateOrderEmailStatus(admin, orderId, "buyer", false, errorMessage)
     return { success: false, error: errorMessage, logId: logId || undefined }
@@ -670,33 +719,43 @@ export async function sendSellerNotificationEmail(
   console.log("[email] Sending seller notification to:", finalSellerEmail, "Subject:", subject)
 
   try {
-    const response = await resend.emails.send({
-      from: buildFromHeader(fromName),
-      to: finalSellerEmail,
-      replyTo,
-      subject,
-      html: sellerEmailHtml({
-        productTitle,
-        buyerFirstName,
-        buyerLastName,
-        buyerEmail,
-        amountCents,
-        feeCents,
-        ordersLink,
-        footerBrand: fromName,
-      }),
-      text: sellerEmailText({
-        productTitle,
-        buyerFirstName,
-        buyerLastName,
-        buyerEmail,
-        amountCents,
-        feeCents,
-        ordersLink,
-      }),
-    })
+    const response = await withRetry(
+      async () => {
+        const result = await resend.emails.send({
+          from: buildFromHeader(fromName),
+          to: finalSellerEmail,
+          replyTo,
+          subject,
+          html: sellerEmailHtml({
+            productTitle,
+            buyerFirstName,
+            buyerLastName,
+            buyerEmail,
+            amountCents,
+            feeCents,
+            ordersLink,
+            footerBrand: fromName,
+          }),
+          text: sellerEmailText({
+            productTitle,
+            buyerFirstName,
+            buyerLastName,
+            buyerEmail,
+            amountCents,
+            feeCents,
+            ordersLink,
+          }),
+        })
 
-    if ((response as any)?.error) throw new Error((response as any).error.message || "Resend API error")
+        if ((result as any)?.error) {
+          throw new Error((result as any).error.message || "Resend API error")
+        }
+
+        return result
+      },
+      MAX_RETRIES,
+      `seller notification to ${finalSellerEmail}`,
+    )
 
     console.log("[email] ✅ Seller notification sent successfully to:", finalSellerEmail)
     if (logId) await updateEmailLog(admin, logId, "sent")
@@ -704,7 +763,7 @@ export async function sendSellerNotificationEmail(
     return { success: true, logId: logId || undefined }
   } catch (err: any) {
     const errorMessage = err?.message || "Unknown error sending email"
-    console.error("[email] ❌ Seller notification failed:", errorMessage)
+    console.error("[email] ❌ Seller notification failed after retries:", errorMessage)
     if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
     await updateOrderEmailStatus(admin, orderId, "seller", false, errorMessage)
     return { success: false, error: errorMessage, logId: logId || undefined }
@@ -959,33 +1018,41 @@ export async function sendLeadMagnetEmail(
   })
 
   try {
-    const response = await resend.emails.send({
-      from: fromHeader,
-      to: customerEmail,
-      replyTo,
-      subject,
-      html: leadMagnetEmailHtml({
-        productTitle,
-        downloadLink: productFileUrl,
-        supportEmail: replyTo,
-        footerBrand: fromName,
-        customHeading,
-        customBody,
-      }),
-      text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
-    })
+    const response = await withRetry(
+      async () => {
+        const result = await resend.emails.send({
+          from: fromHeader,
+          to: customerEmail,
+          replyTo,
+          subject,
+          html: leadMagnetEmailHtml({
+            productTitle,
+            downloadLink: productFileUrl,
+            supportEmail: replyTo,
+            footerBrand: fromName,
+            customHeading,
+            customBody,
+          }),
+          text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
+        })
 
-    console.log("[email] 📨 Resend API response:", JSON.stringify(response))
+        console.log("[email] 📨 Resend API response:", JSON.stringify(result))
 
-    if ((response as any)?.error) {
-      throw new Error((response as any).error.message || "Resend API error")
-    }
+        if ((result as any)?.error) {
+          throw new Error((result as any).error.message || "Resend API error")
+        }
+
+        return result
+      },
+      MAX_RETRIES,
+      `lead magnet email to ${customerEmail}`,
+    )
 
     console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail)
     return { success: true }
   } catch (err: any) {
     const errorMessage = err?.message || "Unknown error sending email"
-    console.error("[email] ❌ Lead magnet email failed:", errorMessage, err)
+    console.error("[email] ❌ Lead magnet email failed after retries:", errorMessage, err)
     return { success: false, error: errorMessage }
   }
 }
@@ -1097,31 +1164,39 @@ export async function sendWelcomeEmail(
   })
 
   try {
-    const response = await resend.emails.send({
-      from: fromHeader,
-      to: customerEmail,
-      replyTo,
-      subject,
-      html: welcomeEmailHtml({
-        heading,
-        bodyText,
-        supportEmail: replyTo,
-        footerBrand: fromName,
-      }),
-      text: welcomeEmailText({ heading, bodyText }),
-    })
+    const response = await withRetry(
+      async () => {
+        const result = await resend.emails.send({
+          from: fromHeader,
+          to: customerEmail,
+          replyTo,
+          subject,
+          html: welcomeEmailHtml({
+            heading,
+            bodyText,
+            supportEmail: replyTo,
+            footerBrand: fromName,
+          }),
+          text: welcomeEmailText({ heading, bodyText }),
+        })
 
-    console.log("[email] 📨 Resend API response:", JSON.stringify(response))
+        console.log("[email] 📨 Resend API response:", JSON.stringify(result))
 
-    if ((response as any)?.error) {
-      throw new Error((response as any).error.message || "Resend API error")
-    }
+        if ((result as any)?.error) {
+          throw new Error((result as any).error.message || "Resend API error")
+        }
+
+        return result
+      },
+      MAX_RETRIES,
+      `welcome email to ${customerEmail}`,
+    )
 
     console.log("[email] ✅ Welcome email sent successfully to:", customerEmail)
     return { success: true }
   } catch (err: any) {
     const errorMessage = err?.message || "Unknown error sending email"
-    console.error("[email] ❌ Welcome email failed:", errorMessage, err)
+    console.error("[email] ❌ Welcome email failed after retries:", errorMessage, err)
     return { success: false, error: errorMessage }
   }
 }
