@@ -397,11 +397,12 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
 
   const isSticky = settings.enableStickyBar
 
-  // Bar content component
   // Always use solid color for live subscriber bar (no gradients)
   const solidBackgroundColor = extractSolidColor(settings.backgroundColor)
 
-  const BarContent = () => (
+  // Render bar content directly (not as a component) to prevent remounting
+  // Avatar elements are memoized separately to prevent re-renders
+  const barContent = (
     <>
       {/* Custom placeholder color styles */}
       {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
@@ -510,7 +511,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             color: settings.textColor || "#000000",
           }}
         >
-          <BarContent />
+          {barContent}
         </div>
         {/* Spacer to prevent content from hiding behind fixed bar */}
         <div className="h-[76px] sm:h-[52px]" />
@@ -531,7 +532,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
         color: settings.textColor || "#000000",
       }}
     >
-      <BarContent />
+      {barContent}
     </div>
   )
 }
