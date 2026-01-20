@@ -637,8 +637,8 @@ function EditorLayout() {
 
       {/* Link Modal - Fully Responsive */}
       <Dialog open={showLinkModal} onOpenChange={setShowLinkModal}>
-        <DialogContent className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92vw] sm:w-[420px] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border bg-background shadow-lg z-50">
-          <DialogHeader className="p-4 sm:p-5 border-b bg-background">
+        <DialogContent className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92vw] sm:w-[420px] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border bg-background shadow-lg">
+          <DialogHeader className="p-4 sm:p-5 border-b bg-background relative">
             <DialogTitle className="text-base sm:text-lg font-semibold text-center">Share your OnePage</DialogTitle>
           </DialogHeader>
 

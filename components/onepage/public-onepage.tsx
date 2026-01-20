@@ -1520,6 +1520,80 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           <rect width="100%" height="100%" fill={`url(#${idPrefix}-topographic)`} />
         </svg>
       ),
+      stars: (
+        <div
+          className="absolute inset-0 pointer-events-none overflow-hidden"
+          style={{ zIndex: 1, opacity: patternOpacityValue * 0.8 }}
+        >
+          <style>{`
+            @keyframes starTwinkle1 {
+              0%, 100% { opacity: 0.2; }
+              50% { opacity: 0.8; }
+            }
+            @keyframes starTwinkle2 {
+              0%, 100% { opacity: 0.4; }
+              50% { opacity: 1; }
+            }
+            @keyframes starTwinkle3 {
+              0%, 100% { opacity: 0.3; }
+              50% { opacity: 0.7; }
+            }
+            .star-dot {
+              position: absolute;
+              border-radius: 50%;
+              background: ${patternColor};
+            }
+            .star-1 { animation: starTwinkle1 3s ease-in-out infinite; }
+            .star-2 { animation: starTwinkle2 4s ease-in-out infinite; animation-delay: 0.5s; }
+            .star-3 { animation: starTwinkle3 5s ease-in-out infinite; animation-delay: 1s; }
+            .star-4 { animation: starTwinkle1 4.5s ease-in-out infinite; animation-delay: 1.5s; }
+            .star-5 { animation: starTwinkle2 3.5s ease-in-out infinite; animation-delay: 2s; }
+          `}</style>
+          {/* Generate subtle star dots across the screen */}
+          <div className="star-dot star-1" style={{ width: '2px', height: '2px', top: '5%', left: '10%' }} />
+          <div className="star-dot star-2" style={{ width: '1.5px', height: '1.5px', top: '12%', left: '25%' }} />
+          <div className="star-dot star-3" style={{ width: '2px', height: '2px', top: '8%', left: '45%' }} />
+          <div className="star-dot star-4" style={{ width: '1px', height: '1px', top: '15%', left: '60%' }} />
+          <div className="star-dot star-5" style={{ width: '2px', height: '2px', top: '3%', left: '75%' }} />
+          <div className="star-dot star-1" style={{ width: '1.5px', height: '1.5px', top: '18%', left: '88%' }} />
+          <div className="star-dot star-2" style={{ width: '1px', height: '1px', top: '25%', left: '5%' }} />
+          <div className="star-dot star-3" style={{ width: '2px', height: '2px', top: '22%', left: '35%' }} />
+          <div className="star-dot star-4" style={{ width: '1.5px', height: '1.5px', top: '28%', left: '55%' }} />
+          <div className="star-dot star-5" style={{ width: '1px', height: '1px', top: '20%', left: '70%' }} />
+          <div className="star-dot star-1" style={{ width: '2px', height: '2px', top: '30%', left: '92%' }} />
+          <div className="star-dot star-2" style={{ width: '1.5px', height: '1.5px', top: '35%', left: '15%' }} />
+          <div className="star-dot star-3" style={{ width: '1px', height: '1px', top: '38%', left: '40%' }} />
+          <div className="star-dot star-4" style={{ width: '2px', height: '2px', top: '32%', left: '65%' }} />
+          <div className="star-dot star-5" style={{ width: '1.5px', height: '1.5px', top: '40%', left: '82%' }} />
+          <div className="star-dot star-1" style={{ width: '1px', height: '1px', top: '45%', left: '8%' }} />
+          <div className="star-dot star-2" style={{ width: '2px', height: '2px', top: '42%', left: '28%' }} />
+          <div className="star-dot star-3" style={{ width: '1.5px', height: '1.5px', top: '48%', left: '50%' }} />
+          <div className="star-dot star-4" style={{ width: '1px', height: '1px', top: '50%', left: '72%' }} />
+          <div className="star-dot star-5" style={{ width: '2px', height: '2px', top: '44%', left: '95%' }} />
+          <div className="star-dot star-1" style={{ width: '1.5px', height: '1.5px', top: '55%', left: '18%' }} />
+          <div className="star-dot star-2" style={{ width: '1px', height: '1px', top: '58%', left: '38%' }} />
+          <div className="star-dot star-3" style={{ width: '2px', height: '2px', top: '52%', left: '58%' }} />
+          <div className="star-dot star-4" style={{ width: '1.5px', height: '1.5px', top: '60%', left: '78%' }} />
+          <div className="star-dot star-5" style={{ width: '1px', height: '1px', top: '56%', left: '3%' }} />
+          <div className="star-dot star-1" style={{ width: '2px', height: '2px', top: '65%', left: '22%' }} />
+          <div className="star-dot star-2" style={{ width: '1.5px', height: '1.5px', top: '68%', left: '48%' }} />
+          <div className="star-dot star-3" style={{ width: '1px', height: '1px', top: '62%', left: '68%' }} />
+          <div className="star-dot star-4" style={{ width: '2px', height: '2px', top: '70%', left: '85%' }} />
+          <div className="star-dot star-5" style={{ width: '1.5px', height: '1.5px', top: '66%', left: '12%' }} />
+          <div className="star-dot star-1" style={{ width: '1px', height: '1px', top: '75%', left: '32%' }} />
+          <div className="star-dot star-2" style={{ width: '2px', height: '2px', top: '78%', left: '52%' }} />
+          <div className="star-dot star-3" style={{ width: '1.5px', height: '1.5px', top: '72%', left: '75%' }} />
+          <div className="star-dot star-4" style={{ width: '1px', height: '1px', top: '80%', left: '90%' }} />
+          <div className="star-dot star-5" style={{ width: '2px', height: '2px', top: '76%', left: '6%' }} />
+          <div className="star-dot star-1" style={{ width: '1.5px', height: '1.5px', top: '85%', left: '42%' }} />
+          <div className="star-dot star-2" style={{ width: '1px', height: '1px', top: '88%', left: '62%' }} />
+          <div className="star-dot star-3" style={{ width: '2px', height: '2px', top: '82%', left: '80%' }} />
+          <div className="star-dot star-4" style={{ width: '1.5px', height: '1.5px', top: '90%', left: '20%' }} />
+          <div className="star-dot star-5" style={{ width: '1px', height: '1px', top: '92%', left: '55%' }} />
+          <div className="star-dot star-1" style={{ width: '2px', height: '2px', top: '95%', left: '35%' }} />
+          <div className="star-dot star-2" style={{ width: '1.5px', height: '1.5px', top: '97%', left: '70%' }} />
+        </div>
+      ),
     }
 
     return patterns[patternType] || null

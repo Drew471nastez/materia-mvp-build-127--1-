@@ -212,6 +212,7 @@ const BACKGROUND_PATTERNS = [
   { id: "organic", name: "Organic", preview: "organic" },
   { id: "flowmaze", name: "Flow Maze", preview: "flowmaze" },
   { id: "topographic", name: "Topographic", preview: "topographic" },
+  { id: "stars", name: "Stars", preview: "stars" },
 ]
 
 const THEME_TEMPLATES = [
@@ -281,6 +282,9 @@ const THEME_TEMPLATES = [
     },
     // AIR theme with light background - use dark button text for outline/glass styles
     light_button_text_color: "#0f172a",
+    // Air theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "astrid",
@@ -338,7 +342,16 @@ const THEME_TEMPLATES = [
       social_icon_color: "#ffffff",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Blocks theme: laser glow off, grid pattern with low opacity
+      laser_glow_enabled: false,
+      background_pattern: "grid",
+      pattern_opacity: "low",
+      pattern_color: "#c9c9c990",
     },
+    // Button text colors for different styles
+    solid_button_text_color: "#7c3aed",
+    outline_button_text_color: "#ffffff",
+    glass_button_text_color: "#ffffff",
   },
   {
     id: "ocean",
@@ -351,20 +364,28 @@ const THEME_TEMPLATES = [
       background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#bae6fd",
-      button_color: "#38bdf8",
-      button_text_color: "#0c4a6e",
-      button_style: "filled" as const,
-      button_border_radius: 12,
-      button_border_width: 0,
-      button_border_color: "#38bdf8",
+      button_color: "rgba(255, 255, 255, 0.15)",
+      button_text_color: "#ffffff",
+      button_style: "glass" as const,
+      button_border_radius: 24,
+      button_border_width: 1,
+      button_border_color: "rgba(255, 255, 255, 0.2)",
       button_shadow: "subtle",
       font_family: "'Nunito', sans-serif",
       title_font: "'Nunito', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#bae6fd",
+      social_icon_style: "outline",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Ocean theme: waves pattern with low opacity
+      background_pattern: "waves",
+      pattern_opacity: "low",
+      pattern_color: "#428ad790",
     },
+    // Ocean theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "sunset",
@@ -388,9 +409,21 @@ const THEME_TEMPLATES = [
       title_font: "'Playfair Display', serif",
       title_color: "#ffffff",
       social_icon_color: "#ffffff",
+      social_icon_style: "filled",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Sunset theme: organic pattern with low opacity
+      background_pattern: "organic",
+      pattern_opacity: "low",
+      pattern_color: "#ffcccc90",
     },
+    // Sunset theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
+    // Button text colors for different styles
+    solid_button_text_color: "#ea580c",
+    outline_button_text_color: "#ffffff",
+    glass_button_text_color: "#ffffff",
   },
   {
     id: "midnight",
@@ -403,12 +436,12 @@ const THEME_TEMPLATES = [
       background_image_url: "",
       text_color: "#f8fafc",
       secondary_text_color: "#94a3b8",
-      button_color: "#3b82f6",
+      button_color: "rgba(255, 255, 255, 0.1)",
       button_text_color: "#ffffff",
-      button_style: "filled" as const,
+      button_style: "glass" as const,
       button_border_radius: 10,
-      button_border_width: 0,
-      button_border_color: "#3b82f6",
+      button_border_width: 1,
+      button_border_color: "#182b49",
       button_shadow: "subtle",
       font_family: "'Inter', sans-serif",
       title_font: "'Oswald', sans-serif",
@@ -416,7 +449,17 @@ const THEME_TEMPLATES = [
       social_icon_color: "#3b82f6",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Midnight theme: hero layout, laser glow off, zoom button animation
+      header_layout: "hero",
+      laser_glow_enabled: false,
+      button_hover_animation: "zoom",
+      // Midnight only allows stars pattern
+      allowed_patterns: ["none", "stars"],
     },
+    profile_layout: "hero" as const,
+    // Midnight theme uses glassmorphism for share/subscribe buttons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
   {
     id: "cream",
@@ -2279,7 +2322,11 @@ function ThemeSection() {
     const config = template.theme_config
     const templateLayout = (template as any).profile_layout
     const skipDialog = (template as any).skipLayoutDialog
-    const needsClassicLayout = config.background_type === "gradient" || config.background_type === "image" || templateLayout === "classic"
+
+    // Template explicitly requests hero layout (like Midnight)
+    const wantsHeroLayout = templateLayout === "hero" || (config as any).header_layout === "hero"
+    // Gradient/image backgrounds require classic layout (unless template explicitly specifies otherwise)
+    const needsClassicLayout = !wantsHeroLayout && (config.background_type === "gradient" || config.background_type === "image" || templateLayout === "classic")
 
     // If current layout is Hero and new template requires classic layout, show dialog (unless skipLayoutDialog is true)
     if (needsClassicLayout && currentHeaderLayout === "hero" && !skipDialog) {
@@ -2288,9 +2335,12 @@ function ThemeSection() {
       return
     }
 
-    // Apply template, ensuring Classic layout for gradient/image backgrounds or if template specifies it
+    // Apply template, ensuring correct layout
     const updatedConfig = { ...config, template_id: template.id }
-    if (needsClassicLayout) {
+    if (wantsHeroLayout) {
+      // Template explicitly wants hero layout (e.g., Midnight)
+      (updatedConfig as any).header_layout = "hero"
+    } else if (needsClassicLayout) {
       (updatedConfig as any).header_layout = "classic"
     }
     updateTheme(updatedConfig)
@@ -2562,6 +2612,34 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={`url(#topographic-${color})`} />
+      </svg>
+    ),
+    stars: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+        {/* Stars - subtle dots like space stars */}
+        <circle cx="10" cy="15" r="1" fill={color} opacity="0.7" />
+        <circle cx="25" cy="8" r="0.8" fill={color} opacity="0.5" />
+        <circle cx="45" cy="20" r="1.2" fill={color} opacity="0.6" />
+        <circle cx="65" cy="12" r="0.6" fill={color} opacity="0.4" />
+        <circle cx="80" cy="25" r="1" fill={color} opacity="0.7" />
+        <circle cx="90" cy="10" r="0.8" fill={color} opacity="0.5" />
+        <circle cx="15" cy="40" r="0.7" fill={color} opacity="0.4" />
+        <circle cx="35" cy="35" r="1" fill={color} opacity="0.6" />
+        <circle cx="55" cy="45" r="0.9" fill={color} opacity="0.5" />
+        <circle cx="75" cy="38" r="1.1" fill={color} opacity="0.7" />
+        <circle cx="95" cy="42" r="0.6" fill={color} opacity="0.4" />
+        <circle cx="8" cy="60" r="1" fill={color} opacity="0.6" />
+        <circle cx="30" cy="55" r="0.8" fill={color} opacity="0.5" />
+        <circle cx="50" cy="65" r="1.2" fill={color} opacity="0.7" />
+        <circle cx="70" cy="58" r="0.7" fill={color} opacity="0.4" />
+        <circle cx="88" cy="68" r="1" fill={color} opacity="0.6" />
+        <circle cx="20" cy="80" r="0.9" fill={color} opacity="0.5" />
+        <circle cx="42" cy="75" r="1.1" fill={color} opacity="0.7" />
+        <circle cx="62" cy="85" r="0.6" fill={color} opacity="0.4" />
+        <circle cx="82" cy="78" r="1" fill={color} opacity="0.6" />
+        <circle cx="5" cy="92" r="0.8" fill={color} opacity="0.5" />
+        <circle cx="48" cy="95" r="1" fill={color} opacity="0.7" />
+        <circle cx="92" cy="90" r="0.7" fill={color} opacity="0.4" />
       </svg>
     ),
   }
