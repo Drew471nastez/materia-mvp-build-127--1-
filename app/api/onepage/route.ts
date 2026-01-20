@@ -23,14 +23,19 @@ export async function GET() {
       .eq("user_id", user.id)
       .single()
 
-    // Try to get existing onepage
-    let { data: onepage, error } = await supabase
+    // Try to get existing onepage with proper error handling
+    let { data: onepage, error: fetchError } = await supabase
       .from("onepages")
       .select("*")
       .eq("owner_id", user.id)
       .single()
 
-    // If no onepage exists, create one
+    // Log actual errors (not "no rows found" which is expected for new users)
+    if (fetchError && fetchError.code !== "PGRST116") {
+      console.error("Error fetching onepage (will attempt to create):", fetchError)
+    }
+
+    // If no onepage exists (either null or PGRST116 error), create one
     if (!onepage) {
       // Get user's profile for default title
       const { data: profile } = await supabase
@@ -222,15 +227,69 @@ export async function GET() {
         published_social_links: defaultSocialLinks,
       }
 
-      const { data: created, error: createError } = await supabase
-        .from("onepages")
-        .insert(newOnepage)
-        .select()
-        .single()
+      // Try to create onepage with retry logic for robustness
+      let created = null
+      let createError = null
+      const maxRetries = 3
+      const originalSlug = newOnepage.slug
 
-      if (createError) {
-        console.error("Error creating onepage:", createError)
-        return NextResponse.json({ error: "Failed to create onepage" }, { status: 500 })
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const result = await supabase
+          .from("onepages")
+          .insert(newOnepage)
+          .select()
+          .single()
+
+        if (!result.error) {
+          created = result.data
+          break
+        }
+
+        createError = result.error
+
+        // If it's a duplicate key error (race condition), try to fetch existing
+        if (result.error.code === "23505" || result.error.message?.includes("duplicate")) {
+          const { data: existingAfterRace } = await supabase
+            .from("onepages")
+            .select("*")
+            .eq("owner_id", user.id)
+            .single()
+
+          if (existingAfterRace) {
+            created = existingAfterRace
+            break
+          }
+        }
+
+        // Log and retry for other errors
+        console.error(`OnePage creation attempt ${attempt}/${maxRetries} failed:`, result.error)
+
+        // Wait before retrying (exponential backoff)
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100))
+
+          // Generate a new unique slug in case of slug collision
+          const newCounter = Date.now() % 10000 + attempt
+          newOnepage.slug = `${originalSlug}-${newCounter}`
+        }
+      }
+
+      // If creation still failed after retries, do a final check for existing onepage
+      if (!created && createError) {
+        console.error("All OnePage creation attempts failed:", createError)
+
+        // Final attempt: check if onepage was created by another concurrent request
+        const { data: finalCheck } = await supabase
+          .from("onepages")
+          .select("*")
+          .eq("owner_id", user.id)
+          .single()
+
+        if (finalCheck) {
+          created = finalCheck
+        } else {
+          return NextResponse.json({ error: "Failed to create onepage" }, { status: 500 })
+        }
       }
 
       onepage = created
