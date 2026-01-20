@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
-import { getLinksUrl, getLinksInternalPath } from "@/lib/url-helpers"
+import { getLinksUrl } from "@/lib/url-helpers"
 import {
   Dialog,
   DialogContent,
@@ -362,7 +362,7 @@ function EditorLayout() {
   }
 
   const viewLive = () => {
-    window.open(getLinksInternalPath(onepage.slug), "_blank")
+    window.open(pageUrl, "_blank")
   }
 
   const tabs = [
