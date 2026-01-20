@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
+import { getLinksUrl, getLinksInternalPath } from "@/lib/url-helpers"
 import {
   Dialog,
   DialogContent,
@@ -352,7 +353,7 @@ function EditorLayout() {
     )
   }
 
-  const pageUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/l/${onepage.slug}`
+  const pageUrl = getLinksUrl(onepage.slug)
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(pageUrl)
@@ -361,7 +362,7 @@ function EditorLayout() {
   }
 
   const viewLive = () => {
-    window.open(`/l/${onepage.slug}`, "_blank")
+    window.open(getLinksInternalPath(onepage.slug), "_blank")
   }
 
   const tabs = [

@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
+import { getLinksUrl } from "@/lib/url-helpers"
 
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
@@ -1599,7 +1600,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     return patterns[patternType] || null
   }
 
-  const pageUrl = typeof window !== "undefined" ? `${window.location.origin}/l/${onepage.slug}` : `/l/${onepage.slug}`
+  const pageUrl = getLinksUrl(onepage.slug)
 
   // Page content component
   const PageContent = ({ isDesktop = false }: { isDesktop?: boolean }) => (

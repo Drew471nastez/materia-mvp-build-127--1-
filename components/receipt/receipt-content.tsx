@@ -28,6 +28,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { ReviewForm } from "@/components/reviews/review-form"
+import { getStoreUrl } from "@/lib/url-helpers"
 
 interface ReceiptContentProps {
   order: any
@@ -618,7 +619,7 @@ export default function ReceiptContent({
                 {sellerName ? (
                   sellerUsername ? (
                     <a
-                      href={`/u/${sellerUsername}`}
+                      href={getStoreUrl(sellerUsername)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-1 inline-block text-sm text-gray-500 hover:text-gray-700 hover:underline transition-colors"

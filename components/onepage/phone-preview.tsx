@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Globe, Bell, X, Send, Check, Link2, ExternalLink, Calendar } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
+import { getLinksUrl } from "@/lib/url-helpers"
 
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
@@ -1407,7 +1408,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               <ShareButtonPreview
                 sellerName={sellerName}
                 avatarUrl={avatar_url}
-                pageUrl={`https://storelib.co/l/${(onepage as any).slug || "preview"}`}
+                pageUrl={getLinksUrl((onepage as any).slug || "preview")}
                 scale="small"
                 style={(settings as any)?.share_style || "white"}
                 showSubscribe={settings?.subscribe_enabled !== false}

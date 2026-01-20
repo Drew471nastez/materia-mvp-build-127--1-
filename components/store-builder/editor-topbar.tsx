@@ -30,6 +30,7 @@ import {
 import type { PageType } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog"
+import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
 
 interface EditorTopbarProps {
   creatorSlug: string
@@ -65,17 +66,17 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
 
   const hasUnsavedChanges = saveState === "unsaved"
 
-  // Get the live store URL based on current page type
+  // Get the live store URL based on current page type (uses subdomain format)
   const getLiveStoreUrl = () => {
     if (currentPageType === "product" && selectedProductId) {
       const product = products.find((p) => p.id === selectedProductId)
       if (product) {
         // Use slug if available, otherwise use ID
         const productSlug = (product as any).slug || selectedProductId
-        return `/p/${productSlug}`
+        return getProductUrl(creatorSlug, productSlug)
       }
     }
-    return `/u/${creatorSlug}`
+    return getStoreUrl(creatorSlug)
   }
 
   // Handle browser back button with popstate

@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { getLinksUrl, getLinksUrlDisplay } from "@/lib/url-helpers"
 
 // Toggle component using theme-checkbox (same as Links tab)
 function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
@@ -113,8 +114,9 @@ export function SettingsTab() {
 
   if (!onepage) return null
 
-  const pageUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/l/${onepage.slug}`
-  const hostUrl = typeof window !== "undefined" ? window.location.host : ""
+  // Use subdomain-based URLs for the links page
+  const pageUrl = getLinksUrl(onepage.slug)
+  const pageUrlDisplay = getLinksUrlDisplay(onepage.slug)
 
   const copyUrl = async () => {
     await navigator.clipboard.writeText(pageUrl)
@@ -335,23 +337,28 @@ export function SettingsTab() {
         />
       </div>
 
-      {/* Public URL / Slug - Fixed with truncation */}
+      {/* Page Slug */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-700">Page Slug</Label>
+        <Input
+          value={pageSlug}
+          onChange={(e) => setPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+          placeholder="your-page"
+          className="h-10 rounded-lg border-gray-200 focus:border-gray-400 focus:ring-gray-400"
+        />
+      </div>
+
+      {/* Public URL Display */}
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-700">Public URL</Label>
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center bg-gray-50 rounded-lg border border-gray-200 h-10 min-w-0 overflow-hidden">
+          <div className="flex-1 flex items-center bg-gray-50 rounded-lg border border-gray-200 h-10 min-w-0 overflow-hidden px-3">
             <span
-              className="text-sm text-gray-500 pl-3 flex-shrink-0 truncate max-w-[120px]"
-              title={`${hostUrl}/l/`}
+              className="text-sm text-gray-700 font-mono truncate"
+              title={getLinksUrlDisplay(pageSlug)}
             >
-              {hostUrl}/l/
+              {getLinksUrlDisplay(pageSlug)}
             </span>
-            <Input
-              value={pageSlug}
-              onChange={(e) => setPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-              placeholder="your-page"
-              className="border-0 bg-transparent h-full px-1 focus-visible:ring-0 text-sm font-medium min-w-0 flex-1"
-            />
           </div>
           <button
             onClick={copyUrl}
