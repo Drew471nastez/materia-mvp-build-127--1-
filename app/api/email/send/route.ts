@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
         const messageId = `${send.id}-${Date.now()}@storelib.com`
 
         const result = await resend.emails.send({
-          from: `${senderName} <noreplycustomers@storelib.com>`,
+          from: `${senderName} <noreply@storelib.com>`,
           to: subscriber.email,
           subject: campaign.subject,
           html: personalizedBody,

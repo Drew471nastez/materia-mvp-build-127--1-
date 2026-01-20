@@ -4,7 +4,7 @@ import { Resend } from "resend"
 import { v4 as uuidv4 } from "uuid"
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-const FROM_EMAIL = "noreplycustomers@storelib.com"
+const FROM_EMAIL = "noreply@storelib.com"
 
 function getBaseUrl() {
   const envUrl =

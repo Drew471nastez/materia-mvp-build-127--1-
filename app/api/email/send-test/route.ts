@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
       .replace(/\{\{my_username\}\}/g, profile.username || "username")
 
     await resend.emails.send({
-      from: `${senderName} <noreplycustomers@storelib.com>`,
+      from: `${senderName} <noreply@storelib.com>`,
       to: test_email,
       subject: `[TEST] ${personalizedSubject}`,
       html: personalizedHtml,

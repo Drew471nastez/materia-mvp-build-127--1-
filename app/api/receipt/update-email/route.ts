@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     console.log("[v0] Sending email to new address:", newEmail, "with Reply-To:", sellerReplyTo)
 
     const response = await resend.emails.send({
-      from: "Materia <noreplycustomers@storelib.com>",
+      from: "Storelib <noreply@storelib.com>",
       to: newEmail,
       replyTo: sellerReplyTo,
       subject: `Your download is ready - ${order.product.title}`,

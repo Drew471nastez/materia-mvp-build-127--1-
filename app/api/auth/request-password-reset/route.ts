@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     if (resend) {
       try {
         await resend.emails.send({
-          from: "Materia <noreply@storelib.com>",
+          from: "Storelib <noreply@storelib.com>",
           to: cleanEmail,
           subject: "Reset your password",
           html: `
