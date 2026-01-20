@@ -3885,6 +3885,10 @@ function ButtonsSection() {
         updates.button_text_color = lightButtonTextColor
       }
     }
+    // If selecting filled (solid) style, use white text color for better contrast
+    else if (style === "filled") {
+      updates.button_text_color = "#ffffff"
+    }
 
     updateTheme(updates)
   }

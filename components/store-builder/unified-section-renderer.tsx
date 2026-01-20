@@ -544,8 +544,8 @@ function UnifiedAboutSection({
     <SectionContainer isMobile={isMobile}>
       <div
         className={cn(
-          "w-full py-6 px-4 md:py-12",
-          isMobile && "!py-6 !px-4"
+          "w-full py-6 px-2 md:py-12 md:px-2",
+          isMobile && "!py-6 !px-2"
         )}
         style={{
           paddingTop: spacing?.paddingTop,
@@ -1023,8 +1023,8 @@ export function ProductAboutSection({
     <SectionContainer isMobile={isMobile}>
       <div
         className={cn(
-          "w-full py-6 px-4 md:py-12",
-          isMobile && "!py-6 !px-4"
+          "w-full py-6 px-2 md:py-12 md:px-2",
+          isMobile && "!py-6 !px-2"
         )}
         style={{ backgroundColor: backgroundColor || "transparent" }}
       >

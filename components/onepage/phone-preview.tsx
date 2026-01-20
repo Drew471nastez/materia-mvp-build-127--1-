@@ -111,6 +111,21 @@ function NotificationBell({
       buttonSubmitBg: "bg-white/30 hover:bg-white/40",
       dotColor: "bg-white/60",
     },
+    // glassmorphism maps to glass style
+    glassmorphism: {
+      buttonBg: "rgba(255, 255, 255, 0.15)",
+      buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
+      panelBg: "rgba(255, 255, 255, 0.2)",
+      panelBorder: "1px solid rgba(255, 255, 255, 0.3)",
+      iconColor: "text-white/80",
+      textColor: "text-white/90",
+      inputBg: "bg-white/20",
+      inputBorder: "border-white/30",
+      inputText: "text-white",
+      inputPlaceholder: "placeholder-white/50",
+      buttonSubmitBg: "bg-white/30 hover:bg-white/40",
+      dotColor: "bg-white/60",
+    },
     white: {
       buttonBg: "rgba(255, 255, 255, 0.9)",
       buttonBorder: "1px solid rgba(255, 255, 255, 0.95)",
@@ -141,7 +156,8 @@ function NotificationBell({
     },
   }
 
-  const s = styles[style]
+  // Fallback to glass if style is not defined
+  const s = styles[style as keyof typeof styles] || styles.glass
 
   // Keep visible when modal is open
   const shouldShow = isVisible || isOpen
@@ -308,6 +324,12 @@ function ShareButtonPreview({
       buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
       iconColor: "text-white/80",
     },
+    // glassmorphism maps to glass style
+    glassmorphism: {
+      buttonBg: "rgba(255, 255, 255, 0.15)",
+      buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
+      iconColor: "text-white/80",
+    },
     white: {
       buttonBg: "rgba(255, 255, 255, 0.9)",
       buttonBorder: "1px solid rgba(255, 255, 255, 0.95)",
@@ -320,7 +342,8 @@ function ShareButtonPreview({
     },
   }
 
-  const s = styles[style]
+  // Fallback to glass if style is not defined
+  const s = styles[style as keyof typeof styles] || styles.glass
 
   const copyLink = () => {
     navigator.clipboard.writeText(pageUrl)

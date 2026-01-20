@@ -251,6 +251,22 @@ function NotificationBell({
       dotColor: "bg-white/60",
       shadow: "0 0 8px rgba(255, 255, 255, 0.6)",
     },
+    // glassmorphism maps to glass style
+    glassmorphism: {
+      buttonBg: "rgba(255, 255, 255, 0.15)",
+      buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
+      panelBg: "rgba(255, 255, 255, 0.2)",
+      panelBorder: "1px solid rgba(255, 255, 255, 0.3)",
+      iconColor: "text-white/80",
+      textColor: "text-white/90",
+      inputBg: "bg-white/20",
+      inputBorder: "border-white/30",
+      inputText: "text-white",
+      inputPlaceholder: "placeholder-white/50",
+      buttonSubmitBg: "bg-white/30 hover:bg-white/40",
+      dotColor: "bg-white/60",
+      shadow: "0 0 8px rgba(255, 255, 255, 0.6)",
+    },
     white: {
       buttonBg: "rgba(255, 255, 255, 0.95)",
       buttonBorder: "1px solid rgba(0, 0, 0, 0.1)",
@@ -283,7 +299,8 @@ function NotificationBell({
     },
   }
 
-  const s = styles[style]
+  // Fallback to glass if style is not defined
+  const s = styles[style as keyof typeof styles] || styles.glass
   const bellVisible = isOpen || isBellVisible
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -501,6 +518,13 @@ function ShareButton({
       panelBg: "rgba(255, 255, 255, 0.98)",
       iconColor: "text-white/80",
     },
+    // glassmorphism maps to glass style
+    glassmorphism: {
+      buttonBg: "rgba(255, 255, 255, 0.15)",
+      buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
+      panelBg: "rgba(255, 255, 255, 0.98)",
+      iconColor: "text-white/80",
+    },
     white: {
       buttonBg: "rgba(255, 255, 255, 0.95)",
       buttonBorder: "1px solid rgba(0, 0, 0, 0.1)",
@@ -515,7 +539,8 @@ function ShareButton({
     },
   }
 
-  const s = styles[style]
+  // Fallback to glass if style is not defined
+  const s = styles[style as keyof typeof styles] || styles.glass
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(pageUrl)
