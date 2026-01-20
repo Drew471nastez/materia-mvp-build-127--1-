@@ -1,23 +1,21 @@
-import { Resend } from "resend"
-
 /**
- * Email sending via Resend
+ * Email sending via Amazon SES SMTP (nodemailer)
  * ✅ Stable links (SITE_URL / APP_URL)
  * ✅ Safe URL building (no double slashes)
  * ✅ Plain-text fallback (deliverability)
  * ✅ From name = creator/store name (dynamic)
- * ✅ Reply-To priority: creator support_email → creator profile email → platform support
- * ✅ Keeps old export resolveSellerEmail for backwards compatibility (fixes your build error)
+ * ✅ Reply-To for purchase emails = seller's email (so buyers can contact sellers)
+ * ✅ Reply-To priority: seller email (for purchases) → creator support_email → creator profile email → platform support
  */
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
 
-// MUST be a real mailbox on your verified domain in Resend
-const FROM_EMAIL = "noreply@storelib.com"
+// MUST be a real mailbox on your verified domain in Amazon SES
+const FROM_EMAIL = EMAIL_FROM
 
 // Platform fallback support
-const DEFAULT_SUPPORT = "support@storelib.com"
-const PLATFORM_BRAND_NAME = "Materia Builder"
+const DEFAULT_SUPPORT = EMAIL_REPLY_TO
+const PLATFORM_BRAND_NAME = "Storelib"
 
 // Retry configuration
 const MAX_RETRIES = 3
@@ -98,7 +96,7 @@ function safeName(name?: string) {
   return safeText(name || "").replace(/[<>]/g, "")
 }
 
-function buildFromHeader(displayName?: string) {
+function buildFromHeaderLocal(displayName?: string) {
   const name = safeName(displayName) || PLATFORM_BRAND_NAME
   return `${name} <${FROM_EMAIL}>`
 }
@@ -153,7 +151,7 @@ export async function logEmailAttempt(admin: any, data: EmailLogData): Promise<s
         status: data.status,
         attempt: data.attempt,
         error_message: data.errorMessage || null,
-        provider: "resend",
+        provider: "ses",
       })
       .select("id")
       .single()
@@ -414,7 +412,7 @@ function buyerEmailHtml(params: {
                 </tr>
               </table>
 
-              <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">If the button doesn’t work, copy this link:</p>
+              <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">If the button doesn't work, copy this link:</p>
               <p style="margin:0 0 24px 0;font-size:12px;color:#4f46e5;word-break:break-all;">${receiptLink}</p>
 
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;" />
@@ -599,8 +597,8 @@ export async function sendBuyerDownloadEmail(
     attempt,
   })
 
-  if (!resend) {
-    const error = "Email service not configured (RESEND_API_KEY missing)"
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
     if (logId) await updateEmailLog(admin, logId, "failed", error)
     await updateOrderEmailStatus(admin, orderId, "buyer", false, error)
     return { success: false, error, logId: logId || undefined }
@@ -609,11 +607,13 @@ export async function sendBuyerDownloadEmail(
   const identity = creatorId ? await resolveCreatorIdentity(admin, creatorId) : null
   const fromName = identity?.fromName || PLATFORM_BRAND_NAME
 
-  // Reply-To priority:
-  // 1) sellerReplyTo param
-  // 2) creator support_email / profile email
-  // 3) platform support
-  const replyTo = normalizeEmail(sellerReplyTo || "") || identity?.replyTo || DEFAULT_SUPPORT
+  // Reply-To priority for buyer emails (purchases):
+  // 1) sellerReplyTo param (explicitly passed seller email)
+  // 2) identity.sellerEmail (resolved from creator)
+  // 3) identity.replyTo (support email)
+  // 4) platform support
+  // This ensures buyers can reply directly to the seller!
+  const replyTo = normalizeEmail(sellerReplyTo || "") || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
 
   const receiptLink = buildUrl(`/receipt/${encodeURIComponent(receiptToken)}`, baseUrl)
   const customerEmail = normalizeEmail(buyerEmail)
@@ -621,17 +621,16 @@ export async function sendBuyerDownloadEmail(
 
   try {
     console.log("[email] 📧 Attempting to send buyer email:", {
-      from: buildFromHeader(fromName),
+      from: buildFromHeaderLocal(fromName),
       to: customerEmail,
       replyTo,
       subject,
-      hasResend: !!resend,
     })
 
-    const response = await withRetry(
+    const result = await withRetry(
       async () => {
-        const result = await resend.emails.send({
-          from: buildFromHeader(fromName),
+        const response = await sendEmail({
+          from: buildFromHeaderLocal(fromName),
           to: customerEmail,
           replyTo,
           subject,
@@ -645,26 +644,17 @@ export async function sendBuyerDownloadEmail(
           text: buyerEmailText({ buyerFirstName, productTitle, receiptLink }),
         })
 
-        console.log("[email] Resend API response for buyer:", JSON.stringify(result))
-
-        // Resend returns { data, error } format
-        if (result?.error) {
-          const errorMsg = result.error?.message || result.error?.name || JSON.stringify(result.error)
-          throw new Error(errorMsg)
+        if (!response.success) {
+          throw new Error(response.error || "Failed to send email")
         }
 
-        // Also check if data is missing (shouldn't happen on success)
-        if (!result?.data?.id) {
-          console.warn("[email] No email ID returned from Resend, but no error either")
-        }
-
-        return result
+        return response
       },
       MAX_RETRIES,
       `buyer email to ${customerEmail}`,
     )
 
-    console.log("[email] ✅ Buyer email sent successfully to:", customerEmail, "ID:", response?.data?.id)
+    console.log("[email] ✅ Buyer email sent successfully to:", customerEmail, "ID:", result.messageId)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "buyer", true)
     return { success: true, logId: logId || undefined }
@@ -718,8 +708,8 @@ export async function sendSellerNotificationEmail(
     attempt,
   })
 
-  if (!resend) {
-    const error = "Email service not configured (RESEND_API_KEY missing)"
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
     console.error("[email] ❌ Seller notification failed:", error)
     if (logId) await updateEmailLog(admin, logId, "failed", error)
     await updateOrderEmailStatus(admin, orderId, "seller", false, error)
@@ -741,18 +731,17 @@ export async function sendSellerNotificationEmail(
   const subject = `New sale: ${safeText(productTitle)}`
 
   console.log("[email] 📧 Attempting to send seller notification:", {
-    from: buildFromHeader(fromName),
+    from: buildFromHeaderLocal(fromName),
     to: finalSellerEmail,
     replyTo,
     subject,
-    hasResend: !!resend,
   })
 
   try {
-    const response = await withRetry(
+    const result = await withRetry(
       async () => {
-        const result = await resend.emails.send({
-          from: buildFromHeader(fromName),
+        const response = await sendEmail({
+          from: buildFromHeaderLocal(fromName),
           to: finalSellerEmail,
           replyTo,
           subject,
@@ -777,26 +766,17 @@ export async function sendSellerNotificationEmail(
           }),
         })
 
-        console.log("[email] Resend API response for seller:", JSON.stringify(result))
-
-        // Resend returns { data, error } format
-        if (result?.error) {
-          const errorMsg = result.error?.message || result.error?.name || JSON.stringify(result.error)
-          throw new Error(errorMsg)
+        if (!response.success) {
+          throw new Error(response.error || "Failed to send email")
         }
 
-        // Also check if data is missing (shouldn't happen on success)
-        if (!result?.data?.id) {
-          console.warn("[email] No email ID returned from Resend for seller, but no error either")
-        }
-
-        return result
+        return response
       },
       MAX_RETRIES,
       `seller notification to ${finalSellerEmail}`,
     )
 
-    console.log("[email] ✅ Seller notification sent successfully to:", finalSellerEmail, "ID:", response?.data?.id)
+    console.log("[email] ✅ Seller notification sent successfully to:", finalSellerEmail, "ID:", result.messageId)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "seller", true)
     return { success: true, logId: logId || undefined }
@@ -843,13 +823,12 @@ export async function sendOrderEmails(
     buyerEmail,
     productTitle,
     amountCents,
-    hasResendKey: !!process.env.RESEND_API_KEY,
-    resendInitialized: !!resend,
+    smtpConfigured: isSmtpConfigured(),
   })
 
-  // Check if Resend is configured
-  if (!resend) {
-    const error = "Email service not configured (RESEND_API_KEY missing)"
+  // Check if SMTP is configured
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
     console.error("[sendOrderEmails] ❌", error)
     await updateOrderEmailStatus(admin, orderId, "buyer", false, error)
     await updateOrderEmailStatus(admin, orderId, "seller", false, error)
@@ -859,7 +838,11 @@ export async function sendOrderEmails(
   let buyerResult: { success: boolean; error?: string } = { success: false, error: "Not attempted" }
   let sellerResult: { success: boolean; error?: string } = { success: false, error: "Not attempted" }
 
-  // Send buyer email first
+  // Get seller email first so we can use it as reply-to for buyer email
+  const sellerEmail = await resolveSellerEmail(admin, creatorId)
+  console.log("[sendOrderEmails] Resolved seller email for reply-to:", sellerEmail)
+
+  // Send buyer email first (with seller email as reply-to so buyer can contact seller)
   try {
     buyerResult = await sendBuyerDownloadEmail(admin, {
       orderId,
@@ -868,6 +851,7 @@ export async function sendOrderEmails(
       buyerFirstName,
       productTitle,
       receiptToken,
+      sellerReplyTo: sellerEmail, // Buyer can reply to seller!
       baseUrl,
     })
     console.log("[sendOrderEmails] Buyer email result:", buyerResult.success ? "✅ sent" : "❌ failed", buyerResult.error || "")
@@ -879,10 +863,6 @@ export async function sendOrderEmails(
 
   // ALWAYS try to send seller email, regardless of buyer email result
   try {
-    // Get seller email - resolve from creator
-    const sellerEmail = await resolveSellerEmail(admin, creatorId)
-    console.log("[sendOrderEmails] Resolved seller email:", sellerEmail)
-
     // Send seller notification email
     sellerResult = await sendSellerNotificationEmail(admin, {
       orderId,
@@ -1050,14 +1030,13 @@ export async function sendLeadMagnetEmail(
     productTitle,
     productFileUrl: productFileUrl ? productFileUrl.substring(0, 50) + "..." : "none",
     creatorId,
-    hasResendKey: !!process.env.RESEND_API_KEY,
-    resendInitialized: !!resend,
+    smtpConfigured: isSmtpConfigured(),
     customSubject,
     customHeading,
   })
 
-  if (!resend) {
-    const error = "Email service not configured (RESEND_API_KEY missing)"
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
     console.error("[email] ❌ Lead magnet email failed:", error)
     return { success: false, error }
   }
@@ -1068,7 +1047,7 @@ export async function sendLeadMagnetEmail(
 
   const customerEmail = normalizeEmail(recipientEmail)
   const subject = customSubject || `Your download is ready - ${safeText(productTitle)}`
-  const fromHeader = buildFromHeader(fromName)
+  const fromHeader = buildFromHeaderLocal(fromName)
 
   console.log("[email] 📧 Sending lead magnet email:", {
     from: fromHeader,
@@ -1080,9 +1059,9 @@ export async function sendLeadMagnetEmail(
   })
 
   try {
-    const response = await withRetry(
+    const result = await withRetry(
       async () => {
-        const result = await resend.emails.send({
+        const response = await sendEmail({
           from: fromHeader,
           to: customerEmail,
           replyTo,
@@ -1098,25 +1077,17 @@ export async function sendLeadMagnetEmail(
           text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
         })
 
-        console.log("[email] 📨 Resend API response for lead magnet:", JSON.stringify(result))
-
-        // Resend returns { data, error } format
-        if (result?.error) {
-          const errorMsg = result.error?.message || result.error?.name || JSON.stringify(result.error)
-          throw new Error(errorMsg)
+        if (!response.success) {
+          throw new Error(response.error || "Failed to send email")
         }
 
-        if (!result?.data?.id) {
-          console.warn("[email] No email ID returned from Resend for lead magnet, but no error either")
-        }
-
-        return result
+        return response
       },
       MAX_RETRIES,
       `lead magnet email to ${customerEmail}`,
     )
 
-    console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail, "ID:", response?.data?.id)
+    console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail, "ID:", result.messageId)
     return { success: true }
   } catch (err: any) {
     const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
@@ -1201,14 +1172,13 @@ export async function sendWelcomeEmail(
   console.log("[email] 🔍 sendWelcomeEmail called with:", {
     recipientEmail,
     creatorId,
-    hasResendKey: !!process.env.RESEND_API_KEY,
-    resendInitialized: !!resend,
+    smtpConfigured: isSmtpConfigured(),
     customSubject,
     customHeading,
   })
 
-  if (!resend) {
-    const error = "Email service not configured (RESEND_API_KEY missing)"
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
     console.error("[email] ❌ Welcome email failed:", error)
     return { success: false, error }
   }
@@ -1221,7 +1191,7 @@ export async function sendWelcomeEmail(
   const subject = customSubject || "Thanks for subscribing!"
   const heading = customHeading || "Welcome!"
   const bodyText = customBody || "Thanks for joining our newsletter. We're excited to have you!"
-  const fromHeader = buildFromHeader(fromName)
+  const fromHeader = buildFromHeaderLocal(fromName)
 
   console.log("[email] 📧 Sending welcome email:", {
     from: fromHeader,
@@ -1232,9 +1202,9 @@ export async function sendWelcomeEmail(
   })
 
   try {
-    const response = await withRetry(
+    const result = await withRetry(
       async () => {
-        const result = await resend.emails.send({
+        const response = await sendEmail({
           from: fromHeader,
           to: customerEmail,
           replyTo,
@@ -1248,25 +1218,17 @@ export async function sendWelcomeEmail(
           text: welcomeEmailText({ heading, bodyText }),
         })
 
-        console.log("[email] 📨 Resend API response for welcome:", JSON.stringify(result))
-
-        // Resend returns { data, error } format
-        if (result?.error) {
-          const errorMsg = result.error?.message || result.error?.name || JSON.stringify(result.error)
-          throw new Error(errorMsg)
+        if (!response.success) {
+          throw new Error(response.error || "Failed to send email")
         }
 
-        if (!result?.data?.id) {
-          console.warn("[email] No email ID returned from Resend for welcome, but no error either")
-        }
-
-        return result
+        return response
       },
       MAX_RETRIES,
       `welcome email to ${customerEmail}`,
     )
 
-    console.log("[email] ✅ Welcome email sent successfully to:", customerEmail, "ID:", response?.data?.id)
+    console.log("[email] ✅ Welcome email sent successfully to:", customerEmail, "ID:", result.messageId)
     return { success: true }
   } catch (err: any) {
     const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"

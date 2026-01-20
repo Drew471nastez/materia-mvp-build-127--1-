@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { Resend } from "resend"
+import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 export async function POST(request: Request) {
   try {
@@ -21,9 +19,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User ID and email are required" }, { status: 400 })
     }
 
-    if (!resend) {
-      console.error("[verify-email] RESEND_API_KEY is not configured")
-      return NextResponse.json({ error: "Email service not configured. Please add RESEND_API_KEY to environment variables." }, { status: 500 })
+    if (!isSmtpConfigured()) {
+      console.error("[verify-email] SMTP is not configured")
+      return NextResponse.json({ error: "Email service not configured. Please add SMTP credentials to environment variables." }, { status: 500 })
     }
 
     const admin = createAdminClient()
@@ -66,13 +64,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to generate verification code" }, { status: 500 })
     }
 
-    console.log("[verify-email] Verification code saved to database, sending email via Resend...")
+    console.log("[verify-email] Verification code saved to database, sending email via SMTP...")
 
     // Format the code with spaces for better readability
     const formattedCode = code.split("").join(" ")
 
     try {
-      const result = await resend.emails.send({
+      const result = await sendEmail({
         from: "Storelib <noreply@storelib.com>",
         to: email,
         subject: `${code} is your Storelib verification code`,
@@ -112,7 +110,7 @@ export async function POST(request: Request) {
               <span style="font-size: 28px; font-weight: 700; color: #10b981; letter-spacing: -0.5px;">Storelib*</span>
             </td>
           </tr>
-          
+
           <!-- Content -->
           <tr>
             <td style="padding: 0 40px;">
@@ -124,7 +122,7 @@ export async function POST(request: Request) {
               </p>
             </td>
           </tr>
-          
+
           <!-- Code Box -->
           <tr>
             <td style="padding: 0 40px;">
@@ -142,7 +140,7 @@ export async function POST(request: Request) {
               </table>
             </td>
           </tr>
-          
+
           <!-- Copy instruction -->
           <tr>
             <td align="center" style="padding: 16px 40px 0 40px;">
@@ -151,7 +149,7 @@ export async function POST(request: Request) {
               </p>
             </td>
           </tr>
-          
+
           <!-- Expiry Note -->
           <tr>
             <td align="center" style="padding: 8px 40px 0 40px;">
@@ -160,7 +158,7 @@ export async function POST(request: Request) {
               </p>
             </td>
           </tr>
-          
+
           <!-- Footer -->
           <tr>
             <td style="padding: 32px 40px 40px 40px;">
@@ -170,7 +168,7 @@ export async function POST(request: Request) {
             </td>
           </tr>
         </table>
-        
+
         <!-- Bottom text -->
         <p style="margin: 24px 0 0 0; font-size: 12px; color: #a3a3a3; text-align: center;">
           Sent by Storelib • Build your digital storefront
@@ -192,21 +190,21 @@ If you didn't create a Storelib account, you can safely ignore this email.
 Sent by Storelib`,
       })
 
-      console.log("[verify-email] Resend API result:", JSON.stringify(result))
+      console.log("[verify-email] SMTP result:", JSON.stringify(result))
 
-      if ("error" in result && result.error) {
-        console.error("[verify-email] Resend API error:", result.error)
-        return NextResponse.json({ 
-          error: `Failed to send email: ${result.error.message || "Unknown error"}` 
+      if (!result.success) {
+        console.error("[verify-email] SMTP error:", result.error)
+        return NextResponse.json({
+          error: `Failed to send email: ${result.error || "Unknown error"}`
         }, { status: 500 })
       }
 
-      console.log("[verify-email] Verification email sent successfully to:", email, "ID:", result.data?.id)
+      console.log("[verify-email] Verification email sent successfully to:", email, "ID:", result.messageId)
 
       return NextResponse.json({
         success: true,
         message: "Verification code sent to your email",
-        emailId: result.data?.id,
+        emailId: result.messageId,
       })
     } catch (emailError) {
       console.error("[verify-email] Error sending verification email:", emailError)

@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { Resend } from "resend"
+import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 // POST - Send verification code to new email address
 export async function POST(request: Request) {
@@ -91,9 +89,9 @@ export async function POST(request: Request) {
     }
 
     // Send verification email to NEW email address
-    if (resend) {
+    if (isSmtpConfigured()) {
       try {
-        await resend.emails.send({
+        const result = await sendEmail({
           from: "Storelib <noreply@storelib.com>",
           to: cleanEmail,
           subject: "Verify your new email address",
@@ -101,7 +99,7 @@ export async function POST(request: Request) {
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 16px;">Verify your new email address</h1>
               <p style="color: #666; margin-bottom: 24px;">
-                You requested to change your email address on Materia. Enter this code to confirm:
+                You requested to change your email address on Storelib. Enter this code to confirm:
               </p>
 
               <div style="background: #f5f5f5; border-radius: 8px; padding: 24px; margin-bottom: 24px; text-align: center;">
@@ -119,7 +117,21 @@ export async function POST(request: Request) {
               </p>
             </div>
           `,
+          text: `Verify your new email address
+
+You requested to change your email address on Storelib. Enter this code to confirm:
+
+${code}
+
+This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.
+
+If you didn't request this change, please ignore this email. Your account email will remain unchanged.`,
         })
+
+        if (!result.success) {
+          console.error("Error sending verification email:", result.error)
+          return NextResponse.json({ error: "Failed to send verification email" }, { status: 500 })
+        }
       } catch (emailError) {
         console.error("Error sending verification email:", emailError)
         return NextResponse.json({ error: "Failed to send verification email" }, { status: 500 })

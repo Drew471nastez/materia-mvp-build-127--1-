@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { Resend } from "resend"
-import { nanoid } from "nanoid"
 import { createAdminClient } from "@/lib/supabase/admin"
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+import { sendEmail, isSmtpConfigured } from "@/lib/mail"
+import { nanoid } from "nanoid"
 
 // POST - Send password reset email
 export async function POST(request: Request) {
@@ -58,9 +56,9 @@ export async function POST(request: Request) {
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`
 
     // Send password reset email
-    if (resend) {
+    if (isSmtpConfigured()) {
       try {
-        await resend.emails.send({
+        const result = await sendEmail({
           from: "Storelib <noreply@storelib.com>",
           to: user.email,
           subject: "Reset your password",
@@ -68,7 +66,7 @@ export async function POST(request: Request) {
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 16px;">Reset your password</h1>
               <p style="color: #666; margin-bottom: 24px;">
-                You requested to reset your password on Materia. Click the button below to set a new password:
+                You requested to reset your password on Storelib. Click the button below to set a new password:
               </p>
 
               <div style="text-align: center; margin-bottom: 24px;">
@@ -89,7 +87,19 @@ export async function POST(request: Request) {
               </p>
             </div>
           `,
+          text: `Reset your password
+
+You requested to reset your password on Storelib. Click the link below to set a new password:
+
+${resetUrl}
+
+This link expires in 1 hour. If you didn't request this, please ignore this email.`,
         })
+
+        if (!result.success) {
+          console.error("Error sending reset email:", result.error)
+          return NextResponse.json({ error: "Failed to send reset email" }, { status: 500 })
+        }
       } catch (emailError) {
         console.error("Error sending reset email:", emailError)
         return NextResponse.json({ error: "Failed to send reset email" }, { status: 500 })

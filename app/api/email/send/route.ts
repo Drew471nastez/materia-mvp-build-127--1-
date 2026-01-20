@@ -1,9 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { Resend } from "resend"
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 
 // POST - Send an email campaign
 export async function POST(request: NextRequest) {
@@ -87,8 +85,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    if (!resend) {
-      return NextResponse.json({ error: "Email service not configured (RESEND_API_KEY missing)" }, { status: 500 })
+    if (!isSmtpConfigured()) {
+      return NextResponse.json({ error: "Email service not configured (SMTP credentials missing)" }, { status: 500 })
     }
 
     // Get subscribers based on audience type
@@ -174,7 +172,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Build the base URL for tracking
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://materia.so"
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
     // Process email content with personalization and tracking
     const senderName = campaign.from_name || profile.display_name || profile.username || "Creator"
@@ -226,7 +224,7 @@ export async function POST(request: NextRequest) {
         // Generate unique message ID for tracking
         const messageId = `${send.id}-${Date.now()}@storelib.com`
 
-        const result = await resend.emails.send({
+        const result = await sendEmail({
           from: `${senderName} <noreply@storelib.com>`,
           to: subscriber.email,
           subject: campaign.subject,
@@ -240,15 +238,11 @@ export async function POST(request: NextRequest) {
             "X-Priority": "3",
             "Precedence": "bulk",
           },
-          tags: [
-            { name: "campaign_id", value: campaign_id },
-            { name: "creator_id", value: creator.id },
-          ],
         })
 
         // Check for errors in the response
-        if ((result as any)?.error) {
-          throw new Error((result as any).error.message || "Resend API error")
+        if (!result.success) {
+          throw new Error(result.error || "SMTP send error")
         }
 
         // Update send record with success
@@ -257,7 +251,7 @@ export async function POST(request: NextRequest) {
           .update({
             status: "sent",
             sent_at: new Date().toISOString(),
-            resend_id: (result as any).id || null,
+            resend_id: result.messageId || null,
           })
           .eq("id", send.id)
 

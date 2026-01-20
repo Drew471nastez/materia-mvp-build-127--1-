@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { Resend } from "resend"
+import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 // Create admin client that bypasses RLS
 function getAdminClient() {
@@ -232,8 +230,8 @@ export async function POST(request: Request) {
     }
 
     // Send verification email
-    if (!resend) {
-      console.error("[verify-email] Email service not configured - RESEND_API_KEY missing")
+    if (!isSmtpConfigured()) {
+      console.error("[verify-email] Email service not configured - SMTP credentials missing")
       return NextResponse.json({
         error: "Email service not available. Please contact support.",
         details: "email_service_not_configured"
@@ -245,7 +243,7 @@ export async function POST(request: Request) {
     try {
       console.log("[verify-email] Sending verification email to:", email)
 
-      await resend.emails.send({
+      const result = await sendEmail({
         from: "Storelib Security <noreply@storelib.com>",
         to: email,
         subject: "Verify your device to download",
@@ -271,13 +269,28 @@ export async function POST(request: Request) {
             </p>
           </div>
         `,
+        text: `Verify your device
+
+We noticed you're trying to access your download for "${productTitle}" from a new device.
+
+Your verification code: ${code}
+
+This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.
+
+If you didn't request this code, someone may have your download link. Your purchase is secure and only accessible after verification.`,
       })
+
+      if (!result.success) {
+        console.error("[verify-email] Error sending verification email:", result.error)
+        return NextResponse.json({
+          error: "Failed to send verification email. Please try again."
+        }, { status: 500 })
+      }
 
       console.log("[verify-email] ✅ Verification code email sent successfully to:", email)
     } catch (emailError: any) {
       console.error("[verify-email] Error sending verification email:", {
         message: emailError?.message || emailError,
-        statusCode: emailError?.statusCode,
       })
       return NextResponse.json({
         error: "Failed to send verification email. Please try again."
