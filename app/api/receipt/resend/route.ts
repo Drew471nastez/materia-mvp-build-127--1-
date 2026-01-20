@@ -67,11 +67,19 @@ export async function POST(request: NextRequest) {
 
     // Send buyer email (always, or if resendType is "buyer" or "both")
     if (resendType === "buyer" || resendType === "both" || resendType === "all") {
-      // Clear previous error status before resending
+      // Clear previous error status and email logs before resending
       await admin.from("orders").update({
         buyer_email_last_error: null,
         buyer_notified_at: null,
       }).eq("id", orderId)
+
+      // Clear previous email_logs to allow resend (they check for "sent" status)
+      await admin.from("email_logs")
+        .delete()
+        .eq("order_id", orderId)
+        .eq("email_type", "buyer_download")
+
+      console.log("[receipt/resend] Sending buyer email to:", order.buyer_email)
 
       buyerResult = await sendBuyerDownloadEmail(admin, {
         orderId: order.id,
@@ -84,18 +92,24 @@ export async function POST(request: NextRequest) {
         baseUrl,
       })
 
-      if (!buyerResult.success) {
-        console.error("[receipt/resend] Buyer email send error:", buyerResult.error)
-      }
+      console.log("[receipt/resend] Buyer email result:", buyerResult.success ? "success" : "failed", buyerResult.error || "")
     }
 
     // Send seller notification if requested or if it previously failed
     if (resendType === "seller" || resendType === "both" || resendType === "all") {
-      // Clear previous error status before resending
+      // Clear previous error status and email logs before resending
       await admin.from("orders").update({
         seller_email_last_error: null,
         seller_notified_at: null,
       }).eq("id", orderId)
+
+      // Clear previous email_logs to allow resend (they check for "sent" status)
+      await admin.from("email_logs")
+        .delete()
+        .eq("order_id", orderId)
+        .eq("email_type", "seller_notification")
+
+      console.log("[receipt/resend] Sending seller email to:", sellerReplyTo)
 
       sellerResult = await sendSellerNotificationEmail(admin, {
         orderId: order.id,
@@ -110,9 +124,7 @@ export async function POST(request: NextRequest) {
         baseUrl,
       })
 
-      if (!sellerResult.success) {
-        console.error("[receipt/resend] Seller email send error:", sellerResult.error)
-      }
+      console.log("[receipt/resend] Seller email result:", sellerResult.success ? "success" : "failed", sellerResult.error || "")
     }
 
     // Log the resend event

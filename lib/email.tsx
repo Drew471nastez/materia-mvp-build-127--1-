@@ -39,10 +39,17 @@ async function withRetry<T>(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await fn()
+      const result = await fn()
+      return result
     } catch (err: any) {
       lastError = err
-      console.error(`[email] ${context} attempt ${attempt + 1}/${maxRetries + 1} failed:`, err?.message || err)
+      const errorMessage = err?.message || err?.error?.message || JSON.stringify(err)
+      console.error(`[email] ${context} attempt ${attempt + 1}/${maxRetries + 1} failed:`, errorMessage)
+
+      // Don't retry on certain errors (invalid email, etc.)
+      if (errorMessage?.includes("invalid") || errorMessage?.includes("not verified")) {
+        throw err
+      }
 
       // Don't retry on the last attempt
       if (attempt < maxRetries) {
@@ -613,6 +620,14 @@ export async function sendBuyerDownloadEmail(
   const subject = `Your download is ready - ${safeText(productTitle)}`
 
   try {
+    console.log("[email] 📧 Attempting to send buyer email:", {
+      from: buildFromHeader(fromName),
+      to: customerEmail,
+      replyTo,
+      subject,
+      hasResend: !!resend,
+    })
+
     const response = await withRetry(
       async () => {
         const result = await resend.emails.send({
@@ -630,8 +645,17 @@ export async function sendBuyerDownloadEmail(
           text: buyerEmailText({ buyerFirstName, productTitle, receiptLink }),
         })
 
-        if ((result as any)?.error) {
-          throw new Error((result as any).error.message || "Resend API error")
+        console.log("[email] Resend API response for buyer:", JSON.stringify(result))
+
+        // Resend returns { data, error } format
+        if (result?.error) {
+          const errorMsg = result.error?.message || result.error?.name || JSON.stringify(result.error)
+          throw new Error(errorMsg)
+        }
+
+        // Also check if data is missing (shouldn't happen on success)
+        if (!result?.data?.id) {
+          console.warn("[email] No email ID returned from Resend, but no error either")
         }
 
         return result
@@ -640,13 +664,13 @@ export async function sendBuyerDownloadEmail(
       `buyer email to ${customerEmail}`,
     )
 
-    console.log("[email] ✅ Buyer email sent successfully to:", customerEmail)
+    console.log("[email] ✅ Buyer email sent successfully to:", customerEmail, "ID:", response?.data?.id)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "buyer", true)
     return { success: true, logId: logId || undefined }
   } catch (err: any) {
-    const errorMessage = err?.message || "Unknown error sending email"
-    console.error("[email] ❌ Buyer email failed after retries:", errorMessage)
+    const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
+    console.error("[email] ❌ Buyer email failed after retries:", errorMessage, err)
     if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
     await updateOrderEmailStatus(admin, orderId, "buyer", false, errorMessage)
     return { success: false, error: errorMessage, logId: logId || undefined }
@@ -716,7 +740,13 @@ export async function sendSellerNotificationEmail(
   const ordersLink = buildUrl("/app/orders", baseUrl)
   const subject = `New sale: ${safeText(productTitle)}`
 
-  console.log("[email] Sending seller notification to:", finalSellerEmail, "Subject:", subject)
+  console.log("[email] 📧 Attempting to send seller notification:", {
+    from: buildFromHeader(fromName),
+    to: finalSellerEmail,
+    replyTo,
+    subject,
+    hasResend: !!resend,
+  })
 
   try {
     const response = await withRetry(
@@ -747,8 +777,17 @@ export async function sendSellerNotificationEmail(
           }),
         })
 
-        if ((result as any)?.error) {
-          throw new Error((result as any).error.message || "Resend API error")
+        console.log("[email] Resend API response for seller:", JSON.stringify(result))
+
+        // Resend returns { data, error } format
+        if (result?.error) {
+          const errorMsg = result.error?.message || result.error?.name || JSON.stringify(result.error)
+          throw new Error(errorMsg)
+        }
+
+        // Also check if data is missing (shouldn't happen on success)
+        if (!result?.data?.id) {
+          console.warn("[email] No email ID returned from Resend for seller, but no error either")
         }
 
         return result
@@ -757,13 +796,13 @@ export async function sendSellerNotificationEmail(
       `seller notification to ${finalSellerEmail}`,
     )
 
-    console.log("[email] ✅ Seller notification sent successfully to:", finalSellerEmail)
+    console.log("[email] ✅ Seller notification sent successfully to:", finalSellerEmail, "ID:", response?.data?.id)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "seller", true)
     return { success: true, logId: logId || undefined }
   } catch (err: any) {
-    const errorMessage = err?.message || "Unknown error sending email"
-    console.error("[email] ❌ Seller notification failed after retries:", errorMessage)
+    const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
+    console.error("[email] ❌ Seller notification failed after retries:", errorMessage, err)
     if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
     await updateOrderEmailStatus(admin, orderId, "seller", false, errorMessage)
     return { success: false, error: errorMessage, logId: logId || undefined }
@@ -785,30 +824,44 @@ export async function sendOrderEmails(
     baseUrl?: string
   },
 ): Promise<{ buyerSuccess: boolean; sellerSuccess: boolean }> {
+  const {
+    orderId,
+    creatorId,
+    buyerEmail,
+    buyerFirstName,
+    buyerLastName,
+    productTitle,
+    receiptToken,
+    amountCents,
+    feeCents,
+    baseUrl,
+  } = params
+
+  console.log("[sendOrderEmails] 📧 Processing order emails:", {
+    orderId,
+    creatorId,
+    buyerEmail,
+    productTitle,
+    amountCents,
+    hasResendKey: !!process.env.RESEND_API_KEY,
+    resendInitialized: !!resend,
+  })
+
+  // Check if Resend is configured
+  if (!resend) {
+    const error = "Email service not configured (RESEND_API_KEY missing)"
+    console.error("[sendOrderEmails] ❌", error)
+    await updateOrderEmailStatus(admin, orderId, "buyer", false, error)
+    await updateOrderEmailStatus(admin, orderId, "seller", false, error)
+    return { buyerSuccess: false, sellerSuccess: false }
+  }
+
+  let buyerResult: { success: boolean; error?: string } = { success: false, error: "Not attempted" }
+  let sellerResult: { success: boolean; error?: string } = { success: false, error: "Not attempted" }
+
+  // Send buyer email first
   try {
-    const {
-      orderId,
-      creatorId,
-      buyerEmail,
-      buyerFirstName,
-      buyerLastName,
-      productTitle,
-      receiptToken,
-      amountCents,
-      feeCents,
-      baseUrl,
-    } = params
-
-    console.log("[sendOrderEmails] 📧 Processing order emails:", {
-      orderId,
-      creatorId,
-      buyerEmail,
-      productTitle,
-      amountCents,
-    })
-
-    // Send buyer email
-    const buyerResult = await sendBuyerDownloadEmail(admin, {
+    buyerResult = await sendBuyerDownloadEmail(admin, {
       orderId,
       creatorId,
       buyerEmail,
@@ -817,15 +870,21 @@ export async function sendOrderEmails(
       receiptToken,
       baseUrl,
     })
-
     console.log("[sendOrderEmails] Buyer email result:", buyerResult.success ? "✅ sent" : "❌ failed", buyerResult.error || "")
+  } catch (buyerErr: any) {
+    console.error("[sendOrderEmails] ❌ Buyer email error (caught):", buyerErr)
+    buyerResult = { success: false, error: buyerErr?.message || "Unknown error" }
+    await updateOrderEmailStatus(admin, orderId, "buyer", false, buyerResult.error)
+  }
 
+  // ALWAYS try to send seller email, regardless of buyer email result
+  try {
     // Get seller email - resolve from creator
     const sellerEmail = await resolveSellerEmail(admin, creatorId)
     console.log("[sendOrderEmails] Resolved seller email:", sellerEmail)
 
-    // Send seller notification email IMMEDIATELY
-    const sellerResult = await sendSellerNotificationEmail(admin, {
+    // Send seller notification email
+    sellerResult = await sendSellerNotificationEmail(admin, {
       orderId,
       creatorId,
       sellerEmail,
@@ -837,21 +896,24 @@ export async function sendOrderEmails(
       feeCents,
       baseUrl,
     })
-
     console.log("[sendOrderEmails] Seller email result:", sellerResult.success ? "✅ sent" : "❌ failed", sellerResult.error || "")
-    console.log("[sendOrderEmails] 📧 Order emails complete:", {
-      orderId,
-      buyerSuccess: buyerResult.success,
-      sellerSuccess: sellerResult.success,
-    })
+  } catch (sellerErr: any) {
+    console.error("[sendOrderEmails] ❌ Seller email error (caught):", sellerErr)
+    sellerResult = { success: false, error: sellerErr?.message || "Unknown error" }
+    await updateOrderEmailStatus(admin, orderId, "seller", false, sellerResult.error)
+  }
 
-    return {
-      buyerSuccess: buyerResult.success,
-      sellerSuccess: sellerResult.success,
-    }
-  } catch (err: any) {
-    console.error("[sendOrderEmails] ❌ Error:", err)
-    return { buyerSuccess: false, sellerSuccess: false }
+  console.log("[sendOrderEmails] 📧 Order emails complete:", {
+    orderId,
+    buyerSuccess: buyerResult.success,
+    sellerSuccess: sellerResult.success,
+    buyerError: buyerResult.error,
+    sellerError: sellerResult.error,
+  })
+
+  return {
+    buyerSuccess: buyerResult.success,
+    sellerSuccess: sellerResult.success,
   }
 }
 
@@ -1036,10 +1098,16 @@ export async function sendLeadMagnetEmail(
           text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
         })
 
-        console.log("[email] 📨 Resend API response:", JSON.stringify(result))
+        console.log("[email] 📨 Resend API response for lead magnet:", JSON.stringify(result))
 
-        if ((result as any)?.error) {
-          throw new Error((result as any).error.message || "Resend API error")
+        // Resend returns { data, error } format
+        if (result?.error) {
+          const errorMsg = result.error?.message || result.error?.name || JSON.stringify(result.error)
+          throw new Error(errorMsg)
+        }
+
+        if (!result?.data?.id) {
+          console.warn("[email] No email ID returned from Resend for lead magnet, but no error either")
         }
 
         return result
@@ -1048,10 +1116,10 @@ export async function sendLeadMagnetEmail(
       `lead magnet email to ${customerEmail}`,
     )
 
-    console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail)
+    console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail, "ID:", response?.data?.id)
     return { success: true }
   } catch (err: any) {
-    const errorMessage = err?.message || "Unknown error sending email"
+    const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
     console.error("[email] ❌ Lead magnet email failed after retries:", errorMessage, err)
     return { success: false, error: errorMessage }
   }
@@ -1180,10 +1248,16 @@ export async function sendWelcomeEmail(
           text: welcomeEmailText({ heading, bodyText }),
         })
 
-        console.log("[email] 📨 Resend API response:", JSON.stringify(result))
+        console.log("[email] 📨 Resend API response for welcome:", JSON.stringify(result))
 
-        if ((result as any)?.error) {
-          throw new Error((result as any).error.message || "Resend API error")
+        // Resend returns { data, error } format
+        if (result?.error) {
+          const errorMsg = result.error?.message || result.error?.name || JSON.stringify(result.error)
+          throw new Error(errorMsg)
+        }
+
+        if (!result?.data?.id) {
+          console.warn("[email] No email ID returned from Resend for welcome, but no error either")
         }
 
         return result
@@ -1192,10 +1266,10 @@ export async function sendWelcomeEmail(
       `welcome email to ${customerEmail}`,
     )
 
-    console.log("[email] ✅ Welcome email sent successfully to:", customerEmail)
+    console.log("[email] ✅ Welcome email sent successfully to:", customerEmail, "ID:", response?.data?.id)
     return { success: true }
   } catch (err: any) {
-    const errorMessage = err?.message || "Unknown error sending email"
+    const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
     console.error("[email] ❌ Welcome email failed after retries:", errorMessage, err)
     return { success: false, error: errorMessage }
   }
