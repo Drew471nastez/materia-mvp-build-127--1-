@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
     try {
       const result = await resend.emails.send({
-        from: "Storelib <noreply@materiabuilder.store>",
+        from: "Storelib <noreply@storelib.com>",
         to: email,
         subject: `${code} is your Storelib verification code`,
         headers: {

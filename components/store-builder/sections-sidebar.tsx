@@ -2101,7 +2101,7 @@ function ProductHeaderSettingsForm({
       {productId && (
         <div className="space-y-3">
           <a
-            href={`https://www.materiabuilder.store/app/products/${productId}`}
+            href={`https://www.storelib.com/app/products/${productId}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-sm font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 transition-colors"

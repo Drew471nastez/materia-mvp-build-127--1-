@@ -13,10 +13,10 @@ import { Resend } from "resend"
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 // MUST be a real mailbox on your verified domain in Resend
-const FROM_EMAIL = "noreplycustomers@materiabuilder.store"
+const FROM_EMAIL = "noreplycustomers@storelib.com"
 
 // Platform fallback support
-const DEFAULT_SUPPORT = "support@materiabuilder.store"
+const DEFAULT_SUPPORT = "support@storelib.com"
 const PLATFORM_BRAND_NAME = "Materia Builder"
 
 // -------------------------
@@ -31,7 +31,7 @@ function getStableBaseUrl(fallback?: string) {
     ""
 
   const raw = (envUrl || fallback || "").trim()
-  if (!raw) return "https://materiabuilder.store"
+  if (!raw) return "https://storelib.com"
 
   const withScheme = raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`
   return withScheme.replace(/\/+$/, "")

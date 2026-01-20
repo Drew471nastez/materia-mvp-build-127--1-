@@ -57,10 +57,10 @@ export async function POST(request: NextRequest) {
     }
 
     const creatorId = order?.product?.creator?.id
-const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://materiabuilder.store"
+const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://storelib.com"
 
     // Get seller email for reply-to
-    const sellerReplyTo = creatorId ? await resolveSellerEmail(admin, creatorId) : "support@materiabuilder.store"
+    const sellerReplyTo = creatorId ? await resolveSellerEmail(admin, creatorId) : "support@storelib.com"
 
     const result = await sendBuyerDownloadEmail(admin, {
       orderId: order.id,

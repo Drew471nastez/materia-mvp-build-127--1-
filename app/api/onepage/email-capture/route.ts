@@ -4,7 +4,7 @@ import { Resend } from "resend"
 import { v4 as uuidv4 } from "uuid"
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-const FROM_EMAIL = "noreplycustomers@materiabuilder.store"
+const FROM_EMAIL = "noreplycustomers@storelib.com"
 
 function getBaseUrl() {
   const envUrl =
@@ -14,7 +14,7 @@ function getBaseUrl() {
     process.env.NEXT_PUBLIC_APP_URL ||
     ""
   const raw = (envUrl || "").trim()
-  if (!raw) return "https://materiabuilder.store"
+  if (!raw) return "https://storelib.com"
   const withScheme = raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`
   return withScheme.replace(/\/+$/, "")
 }

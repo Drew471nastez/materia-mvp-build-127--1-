@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient()
-  const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://materiabuilder.store"
+  const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://storelib.com"
 
     // Get order details
     const { data: order, error: orderError } = await admin

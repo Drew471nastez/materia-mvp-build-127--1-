@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     if (resend) {
       try {
         await resend.emails.send({
-          from: "Materia <noreply@materiabuilder.store>",
+          from: "Materia <noreply@storelib.com>",
           to: cleanEmail,
           subject: "Verify your new email address",
           html: `

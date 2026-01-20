@@ -65,14 +65,14 @@ export async function POST(request: Request) {
     }
 
     // Generate reset URL
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://materiabuilder.store"
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://storelib.com"
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`
 
     // Send password reset email
     if (resend) {
       try {
         await resend.emails.send({
-          from: "Materia <noreply@materiabuilder.store>",
+          from: "Materia <noreply@storelib.com>",
           to: cleanEmail,
           subject: "Reset your password",
           html: `

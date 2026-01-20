@@ -19,7 +19,7 @@ async function resolveSellerEmail(admin: any, creatorId: string): Promise<string
     }
   }
 
-  return "support@materiabuilder.store"
+  return "support@storelib.com"
 }
 
 export async function POST(request: NextRequest) {
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     console.log("[v0] Sending email to new address:", newEmail, "with Reply-To:", sellerReplyTo)
 
     const response = await resend.emails.send({
-      from: "Materia <noreplycustomers@materiabuilder.store>",
+      from: "Materia <noreplycustomers@storelib.com>",
       to: newEmail,
       replyTo: sellerReplyTo,
       subject: `Your download is ready - ${order.product.title}`,

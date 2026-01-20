@@ -246,7 +246,7 @@ export async function POST(request: Request) {
       console.log("[verify-email] Sending verification email to:", email)
 
       await resend.emails.send({
-        from: "Materia Security <noreplycustomers@materiabuilder.store>",
+        from: "Materia Security <noreplycustomers@storelib.com>",
         to: email,
         subject: "Verify your device to download",
         html: `

@@ -224,10 +224,10 @@ export async function POST(request: NextRequest) {
           .replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl)
 
         // Generate unique message ID for tracking
-        const messageId = `${send.id}-${Date.now()}@materiabuilder.store`
+        const messageId = `${send.id}-${Date.now()}@storelib.com`
 
         const result = await resend.emails.send({
-          from: `${senderName} <noreplycustomers@materiabuilder.store>`,
+          from: `${senderName} <noreplycustomers@storelib.com>`,
           to: subscriber.email,
           subject: campaign.subject,
           html: personalizedBody,
