@@ -41,16 +41,20 @@ function getTransporter(): nodemailer.Transporter | null {
     transporter = nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
-      secure: false, // Use TLS (STARTTLS)
+      secure: false, // Use STARTTLS on port 587
       auth: {
         user: SMTP_USER,
         pass: SMTP_PASS,
       },
       tls: {
-        // Required for Amazon SES
-        ciphers: "SSLv3",
+        // Amazon SES requires TLS 1.2+
+        minVersion: "TLSv1.2",
         rejectUnauthorized: true,
       },
+      // Connection settings
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 60000, // 60 seconds for sending
     })
     console.log("[mail] SMTP transporter created for:", SMTP_HOST)
   }
@@ -75,6 +79,21 @@ export interface SendEmailResult {
   success: boolean
   messageId?: string
   error?: string
+}
+
+/**
+ * Reset the transporter (useful after connection errors)
+ */
+export function resetTransporter(): void {
+  if (transporter) {
+    try {
+      transporter.close()
+    } catch (e) {
+      // Ignore close errors
+    }
+    transporter = null
+    console.log("[mail] Transporter reset")
+  }
 }
 
 /**
@@ -108,6 +127,8 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
       to: options.to,
       subject: options.subject,
       replyTo: options.replyTo || "none",
+      host: SMTP_HOST,
+      port: SMTP_PORT,
     })
 
     const info = await transport.sendMail(mailOptions)
@@ -115,6 +136,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     console.log("[mail] Email sent successfully:", {
       messageId: info.messageId,
       to: options.to,
+      response: info.response,
     })
 
     return {
@@ -122,16 +144,37 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
       messageId: info.messageId,
     }
   } catch (error: any) {
+    // Extract detailed error information
+    const errorCode = error?.code || error?.responseCode || ""
     const errorMessage = error?.message || "Unknown error sending email"
+    const errorResponse = error?.response || ""
+
     console.error("[mail] Failed to send email:", {
       error: errorMessage,
+      code: errorCode,
+      response: errorResponse,
       to: options.to,
       subject: options.subject,
+      host: SMTP_HOST,
+      port: SMTP_PORT,
     })
+
+    // Reset transporter on connection errors to allow retry with fresh connection
+    if (
+      errorCode === "ECONNECTION" ||
+      errorCode === "ECONNREFUSED" ||
+      errorCode === "ETIMEDOUT" ||
+      errorCode === "ESOCKET" ||
+      errorMessage.includes("connection") ||
+      errorMessage.includes("timeout") ||
+      errorMessage.includes("socket")
+    ) {
+      resetTransporter()
+    }
 
     return {
       success: false,
-      error: errorMessage,
+      error: `${errorMessage}${errorCode ? ` (${errorCode})` : ""}`,
     }
   }
 }
