@@ -243,6 +243,7 @@ const THEME_TEMPLATES = [
       card_width: "standard" as const,
       header_layout: "classic",
       background_pattern: "none",
+      laser_glow_enabled: false,
     },
     profile_layout: "classic" as const,
     skipLayoutDialog: true,
@@ -335,11 +336,13 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 0,
       button_border_color: "#ffffff",
-      button_shadow: "strong",
+      button_shadow: "hard",
+      button_shadow_color: "#f0a3ff",
       font_family: "'Poppins', sans-serif",
       title_font: "'Poppins', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#ffffff",
+      social_icon_style: "filled",
       spacing: "normal" as const,
       card_width: "standard" as const,
       // Blocks theme: laser glow off, grid pattern with low opacity
@@ -352,6 +355,9 @@ const THEME_TEMPLATES = [
     solid_button_text_color: "#7c3aed",
     outline_button_text_color: "#ffffff",
     glass_button_text_color: "#ffffff",
+    // Blocks theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "ocean",
@@ -453,8 +459,11 @@ const THEME_TEMPLATES = [
       header_layout: "hero",
       laser_glow_enabled: false,
       button_hover_animation: "zoom",
-      // Midnight only allows stars pattern
+      // Midnight only allows stars pattern - stars enabled by default with white color
       allowed_patterns: ["none", "stars"],
+      background_pattern: "stars",
+      pattern_color: "#ffffff",
+      pattern_opacity: "medium",
     },
     profile_layout: "hero" as const,
     // Midnight theme uses glassmorphism for share/subscribe buttons
@@ -481,39 +490,60 @@ const THEME_TEMPLATES = [
       button_shadow: "none",
       font_family: "'Lora', serif",
       title_font: "'Playfair Display', serif",
-      title_color: "#1c1917",
+      title_color: "#362f2b",
       social_icon_color: "#78716c",
+      social_icon_style: "filled",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "zigzag",
+      pattern_color: "#e2dc9c90",
+      pattern_opacity: "low",
     },
+    profile_layout: "classic" as const,
+    // Cream theme uses black share/subscribe button styles
+    share_style: "black",
+    subscribe_style: "black",
+    // Button text colors for different styles
+    outline_button_text_color: "#393832",
+    solid_button_text_color: "#fffcf0",
+    glass_button_text_color: "#37342a",
   },
   {
-    id: "glass",
-    name: "Glass",
+    id: "space",
+    name: "Space",
     category: "dark",
     theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#1e1b4b",
-      background_gradient: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+      background_type: "solid" as const,
+      background_color: "#000000",
+      background_gradient: "",
       background_image_url: "",
-      text_color: "#e0e7ff",
-      secondary_text_color: "#a5b4fc",
+      text_color: "#ffffff",
+      secondary_text_color: "#a1a1aa",
       button_color: "rgba(255, 255, 255, 0.1)",
-      button_text_color: "#e0e7ff",
+      button_text_color: "#ffffff",
       button_style: "glass" as const,
       button_border_radius: 12,
       button_border_width: 1,
       button_border_color: "rgba(255, 255, 255, 0.2)",
       button_shadow: "none",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Raleway', sans-serif",
-      title_color: "#e0e7ff",
-      social_icon_color: "#a5b4fc",
-      background_pattern: "dots",
-      pattern_color: "#ffffff90",
+      font_family: "'Space Grotesk', sans-serif",
+      title_font: "'Space Grotesk', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#ffffff",
+      social_icon_style: "filled",
+      background_pattern: "stars",
+      pattern_color: "#ffffff",
+      pattern_opacity: "high",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      header_layout: "classic",
     },
+    profile_layout: "classic" as const,
+    // Space theme uses black share/subscribe button styles
+    share_style: "black",
+    subscribe_style: "black",
   },
   {
     id: "aurora",
@@ -557,11 +587,12 @@ const THEME_TEMPLATES = [
       secondary_text_color: "#a1a1aa",
       button_color: "#18181b",
       button_text_color: "#22d3ee",
-      button_style: "filled" as const,
-      button_border_radius: 8,
+      button_style: "glass" as const,
+      button_border_radius: 10,
       button_border_width: 1,
       button_border_color: "#22d3ee",
-      button_shadow: "hard",
+      button_shadow: "strong",
+      button_shadow_color: "#ffffff",
       font_family: "'JetBrains Mono', monospace",
       title_font: "'Orbitron', sans-serif",
       title_color: "#22d3ee",
@@ -569,7 +600,12 @@ const THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "hero",
+      background_pattern: "none",
     },
+    profile_layout: "hero" as const,
+    // Neon theme uses glassmorphism for share/subscribe buttons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
   {
     id: "nature",
@@ -2415,13 +2451,38 @@ function ThemeSection() {
             )
           }
 
+          // Check if this theme uses hero layout
+          const isHeroLayout = (template as any).profile_layout === "hero" || (config as any).header_layout === "hero"
+          // Check if theme has a pattern
+          const hasPattern = (config as any).background_pattern && (config as any).background_pattern !== "none"
+          const patternColor = (config as any).pattern_color || "#ffffff90"
+          const patternId = (config as any).background_pattern
+
           return (
             <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group", isSelected ? "ring-2 ring-violet-500 ring-offset-2" : "hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
               <div className="absolute inset-0" style={bgStyle} />
+              {/* Pattern overlay for themes with patterns */}
+              {hasPattern && (
+                <div className="absolute inset-0 opacity-60">
+                  <PatternPreview pattern={patternId} color={patternColor} />
+                </div>
+              )}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3">
-                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full" style={{ backgroundColor: `${config.text_color}30` }} />
-                <div className="w-12 md:w-16 h-1.5 md:h-2 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
-                <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
+                {isHeroLayout ? (
+                  /* Hero layout: wide banner-style header */
+                  <>
+                    <div className="w-full h-8 md:h-10 rounded-lg" style={{ backgroundColor: `${config.text_color}20` }} />
+                    <div className="w-12 md:w-16 h-1.5 md:h-2 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
+                    <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
+                  </>
+                ) : (
+                  /* Classic layout: circle avatar */
+                  <>
+                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full" style={{ backgroundColor: `${config.text_color}30` }} />
+                    <div className="w-12 md:w-16 h-1.5 md:h-2 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
+                    <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
+                  </>
+                )}
                 <div className="w-full max-w-[60px] md:max-w-[80px] h-5 md:h-6 rounded-md mt-2" style={{ backgroundColor: config.button_color, borderWidth: config.button_border_width, borderColor: config.button_border_color, borderRadius: `${config.button_border_radius}px` }} />
               </div>
               {isSelected && <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center bg-ring"><Check className="h-3 w-3 text-white" /></div>}
