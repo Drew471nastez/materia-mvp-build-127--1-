@@ -10,6 +10,7 @@ import {
   UnifiedSectionRenderer,
   UnifiedShopHeader,
   UnifiedProductPage,
+  ProductAboutSection,
   type ProductData,
   type CreatorData,
   type ProfileData,
@@ -618,6 +619,13 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   globalSettings={draftConfig.globalSettings}
                 />
               ))}
+
+            {/* About section with payment methods for product pages */}
+            <ProductAboutSection
+              isMobile={isMobile}
+              textColor={(draftConfig.headerSettings as any)?.colors?.textColor}
+              backgroundColor={draftConfig.globalColors?.backgroundColor}
+            />
 
             <SellerFooter isMobile={isMobile} />
 

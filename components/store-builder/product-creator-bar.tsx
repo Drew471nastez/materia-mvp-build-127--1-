@@ -193,8 +193,7 @@ export function ProductCreatorBar({
   isSelected,
   onSelect,
 }: ProductCreatorBarProps) {
-  if (!settings.visible) return null
-
+  // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
   const [subscribedEmail, setSubscribedEmail] = useState<string>("")
   const [email, setEmail] = useState("")
@@ -204,14 +203,6 @@ export function ProductCreatorBar({
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
-
-  const initials =
-    creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?"
 
   const creatorHref = useMemo(
     () => getCreatorHref(creatorUsername, creatorId, creatorName),
@@ -248,6 +239,17 @@ export function ProductCreatorBar({
       setSubscribed(true)
     }
   }, [email, subscribedEmail])
+
+  // Early return AFTER all hooks
+  if (!settings.visible) return null
+
+  const initials =
+    creatorName
+      ?.split(" ")
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase() || "?"
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   const buttonText = getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
@@ -569,8 +571,7 @@ export function LiveProductCreatorBar({
   creatorUsername,
   avatarUrl,
 }: LiveProductCreatorBarProps) {
-  if (!settings.visible) return null
-
+  // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
   const [subscribedEmail, setSubscribedEmail] = useState<string>("")
   const [email, setEmail] = useState("")
@@ -581,14 +582,6 @@ export function LiveProductCreatorBar({
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
-
-  const initials =
-    creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?"
 
   const creatorHref = useMemo(
     () => getCreatorHref(creatorUsername, creatorId, creatorName),
@@ -626,6 +619,17 @@ export function LiveProductCreatorBar({
       setSubscribed(true)
     }
   }, [email, subscribedEmail])
+
+  // Early return AFTER all hooks
+  if (!settings.visible) return null
+
+  const initials =
+    creatorName
+      ?.split(" ")
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase() || "?"
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   const buttonText = getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
