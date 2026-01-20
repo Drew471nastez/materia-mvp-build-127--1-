@@ -668,6 +668,7 @@ export function LinksTab() {
   const sortedBlocks = [...draft_blocks].sort((a, b) => a.sort_order - b.sort_order)
 
   // Sync social_links to all social_row blocks for instant preview updates
+  // Also runs when blocks change (new block added) to ensure immediate sync
   useEffect(() => {
     sortedBlocks.forEach(block => {
       if (block.type === "social_row") {
@@ -681,7 +682,10 @@ export function LinksTab() {
         const hasNewPlatforms = activeSocials.some(s => !currentPlatforms.has(s.platform))
         const hasRemovedPlatforms = (data.platforms || []).some(p => !activePlatformSet.has(p.platform as keyof OnePageSocialLinks))
 
-        if (hasNewPlatforms || hasRemovedPlatforms) {
+        // Also sync if platforms is empty but there are active social links
+        const needsInitialSync = (data.platforms || []).length === 0 && activeSocials.length > 0
+
+        if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync) {
           const existingOrder = (data.platforms || []).filter(p => social_links?.[p.platform as keyof typeof social_links])
           const existingPlatforms = new Set(existingOrder.map(p => p.platform))
           const newPlatforms = activeSocials.filter(s => !existingPlatforms.has(s.platform))
@@ -695,7 +699,7 @@ export function LinksTab() {
         }
       }
     })
-  }, [social_links])
+  }, [social_links, draft_blocks])
 
   // Icon library paths for thumbnails
   const THUMBNAIL_ICON_PATHS: Record<string, string> = {
@@ -4448,25 +4452,28 @@ function BlockEditor({
     }
   }, [showCtaDropdown, showProductDropdown])
 
-  // Sync block platforms when socialLinks change
+  // Sync block platforms when socialLinks change or on initial mount
   useEffect(() => {
     if (block.type === "social_row") {
       const data = block.data as SocialRowBlockData
       const activeSocials = Object.entries(socialLinks || {})
         .filter(([_, url]) => url)
         .map(([platform, url]) => ({ platform: platform as keyof OnePageSocialLinks, url: url as string }))
-      
+
       // Only update if there are new platforms not in the current order
       const currentPlatforms = new Set((data.platforms || []).map(p => p.platform))
       const hasNewPlatforms = activeSocials.some(s => !currentPlatforms.has(s.platform))
       const hasRemovedPlatforms = (data.platforms || []).some(p => !socialLinks?.[p.platform as keyof typeof socialLinks])
-      
-      if (hasNewPlatforms || hasRemovedPlatforms) {
+
+      // Also sync if platforms is empty but there are active social links (initial mount fix)
+      const needsInitialSync = (data.platforms || []).length === 0 && activeSocials.length > 0
+
+      if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync) {
         // Preserve existing order, add new ones at end, remove deleted ones
         const existingOrder = (data.platforms || []).filter(p => socialLinks?.[p.platform as keyof typeof socialLinks])
         const existingPlatforms = new Set(existingOrder.map(p => p.platform))
         const newPlatforms = activeSocials.filter(s => !existingPlatforms.has(s.platform))
-        
+
         updateBlock(block.id, {
           data: {
             ...block.data,
@@ -4475,7 +4482,7 @@ function BlockEditor({
         })
       }
     }
-  }, [socialLinks, block.type])
+  }, [socialLinks, block.type, block.id])
 
   const updateData = (updates: Partial<OnePageBlock["data"]>) => {
     updateBlock(block.id, { data: { ...block.data, ...updates } })
