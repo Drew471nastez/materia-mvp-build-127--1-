@@ -337,7 +337,7 @@ const THEME_TEMPLATES = [
       button_border_width: 0,
       button_border_color: "#ffffff",
       button_shadow: "hard",
-      button_shadow_color: "#f0a3ff",
+      button_shadow_color: "#6a197b",
       font_family: "'Poppins', sans-serif",
       title_font: "'Poppins', sans-serif",
       title_color: "#ffffff",
@@ -506,7 +506,7 @@ const THEME_TEMPLATES = [
     share_style: "black",
     subscribe_style: "black",
     // Button text colors for different styles
-    outline_button_text_color: "#393832",
+    outline_button_text_color: "#363221",
     solid_button_text_color: "#fffcf0",
     glass_button_text_color: "#37342a",
   },
@@ -631,6 +631,10 @@ const THEME_TEMPLATES = [
       social_icon_color: "#d1fae5",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Wallpaper settings: 40% brightness and 30% noise strength
+      image_brightness: 40,
+      image_noise: true,
+      noise_strength: 30,
     },
   },
 ]
