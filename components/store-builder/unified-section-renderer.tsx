@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type {
   Section,
@@ -2092,9 +2091,6 @@ function UnifiedFeaturedProductsSection({
   const [sortBy, setSortBy] = useState<"recent" | "oldest" | "price-low" | "price-high" | "popular">("recent")
   const [isAnimating, setIsAnimating] = useState(false)
   const [runtimeIsMobile, setRuntimeIsMobile] = useState(false)
-  const [navigatingProductId, setNavigatingProductId] = useState<string | null>(null)
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
   const sortTouch = useRef({
     startX: 0,
     startY: 0,
@@ -2606,29 +2602,14 @@ function UnifiedFeaturedProductsSection({
               }
 
               const productHref = getProductHref(product)
-              const isNavigating = navigatingProductId === product.id || isPending
-
-              const handleProductClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-                // Allow cmd/ctrl+click for new tab
-                if (e.metaKey || e.ctrlKey || e.shiftKey) return
-
-                e.preventDefault()
-                setNavigatingProductId(product.id)
-
-                // Use startTransition for smoother navigation
-                startTransition(() => {
-                  router.push(productHref)
-                })
-              }
 
               return (
                 <Link
                   key={product.id}
                   href={productHref}
                   prefetch={false}
-                  onClick={handleProductClick}
                   className={cn(
-                    "group overflow-hidden rounded-lg border transition-shadow hover:shadow-lg touch-manipulation",
+                    "group overflow-hidden rounded-lg border transition-all hover:shadow-lg active:opacity-80 touch-manipulation",
                     !cardBgColor && "bg-card border-border",
                   )}
                   style={{
@@ -2637,7 +2618,6 @@ function UnifiedFeaturedProductsSection({
                     boxShadow: cardBgColor && cardBgColor.includes("rgba")
                       ? "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
                       : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
-                    opacity: isNavigating ? 0.7 : 1,
                   }}
                 >
                   {content}

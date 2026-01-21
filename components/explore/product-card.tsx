@@ -1,10 +1,6 @@
-"use client"
-
 import Link from "next/link"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
-import { useCallback, useState, useTransition } from "react"
 
 interface ProductCardProps {
   product: {
@@ -30,10 +26,6 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-  const [isNavigating, setIsNavigating] = useState(false)
-
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -44,27 +36,11 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
   const creatorName = product.creator?.profile?.display_name || "Creator"
   const productUrl = `/p/${product.slug}${srcParam}`
 
-  // Handle click with immediate navigation feedback
-  const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
-    // Allow cmd/ctrl+click for new tab
-    if (e.metaKey || e.ctrlKey || e.shiftKey) return
-
-    e.preventDefault()
-    setIsNavigating(true)
-
-    // Use startTransition for smoother navigation
-    startTransition(() => {
-      router.push(productUrl)
-    })
-  }, [router, productUrl])
-
   return (
     <Link
       href={productUrl}
       prefetch={false}
-      onClick={handleClick}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-colors hover:border-border touch-manipulation"
-      style={{ opacity: isNavigating || isPending ? 0.7 : 1 }}
+      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all hover:border-border active:opacity-80 touch-manipulation"
     >
       <div className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (
