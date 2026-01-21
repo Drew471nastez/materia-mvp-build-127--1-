@@ -21,6 +21,7 @@ import {
   Zap,
   ShoppingCart,
 } from "lucide-react"
+import { getStoreUrl, getStoreUrlDisplay, getStoreInternalPath } from "@/lib/url-helpers"
 
 export const dynamic = "force-dynamic"
 
@@ -170,8 +171,10 @@ export default async function AppDashboard() {
   const hasProducts = (products?.length || 0) > 0
   const storeUsername = profile?.username || creator.slug
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://v0-materia-mvp-build.vercel.app"
-  const storeUrl = storeUsername ? `${baseUrl}/u/${storeUsername}` : `${baseUrl}/app/settings`
+  // Use subdomain-based URLs
+  const storeUrl = storeUsername ? getStoreUrl(storeUsername) : "/app/settings"
+  const storeUrlDisplay = storeUsername ? getStoreUrlDisplay(storeUsername) : ""
+  const storeInternalPath = storeUsername ? getStoreInternalPath(storeUsername) : "/app/settings"
 
   const gettingStartedCards = [
     {
@@ -228,7 +231,7 @@ export default async function AppDashboard() {
       description: "Share your products",
       icon: Share2,
       completed: false,
-      href: storeUsername ? `/u/${storeUsername}` : "/app/settings",
+      href: storeInternalPath,
     },
     {
       id: "smart",
@@ -351,7 +354,7 @@ export default async function AppDashboard() {
               <h3 className="text-lg font-semibold text-foreground">Your store is live!</h3>
               <p className="text-muted-foreground">Share your store link with your audience</p>
 
-              <p className="mt-2 font-mono text-sm text-blue-600 break-all">{storeUrl}</p>
+              <p className="mt-2 font-mono text-sm text-blue-600 break-all">{storeUrlDisplay}</p>
             </div>
 
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">

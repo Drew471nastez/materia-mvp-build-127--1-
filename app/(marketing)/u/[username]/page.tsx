@@ -8,8 +8,8 @@ import Image from "next/image"
 import { TrackView } from "@/components/analytics/track-view"
 import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
-import type { ShopHeaderSettings } from "@/lib/store-builder/types"
-import { defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
+import type { ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
+import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
@@ -105,7 +105,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       <div className="min-h-screen bg-background overflow-x-hidden">
         <div className="mx-auto max-w-4xl px-4 py-12">
           <div className="flex flex-col items-center text-center">
-            <Avatar className="h-24 w-24 border-4 border-background shadow-lg">
+            <Avatar
+              className="h-24 w-24 shadow-lg"
+              style={{
+                borderWidth: "1.3px",
+                borderStyle: "solid",
+                borderColor: "#e5e7eb",
+              }}
+            >
               <AvatarImage src={profile.avatar_url || undefined} alt={profile.display_name || ""} />
               <AvatarFallback className="text-2xl">
                 {profile.display_name
@@ -199,6 +206,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         buttonTextColor: savedSettings.buttonTextColor || "#ffffff",
         style: savedSettings.style || "style1",
         enableStickyBar: savedSettings.enableStickyBar ?? false,
+        enableStickyOnScrollUp: savedSettings.enableStickyOnScrollUp ?? false,
         buttonStyle: savedSettings.buttonStyle || "style1",
       }
     }
@@ -220,6 +228,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       buttonTextColor: "#ffffff",
       style: "style1" as const,
       enableStickyBar: false,
+      enableStickyOnScrollUp: false,
       buttonStyle: "style1" as const,
     }
   }
@@ -227,10 +236,133 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   // Use published config if it exists and has sections
   if (publishedConfig && publishedConfig.sections && publishedConfig.sections.length > 0) {
     const headerSettings = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
+    const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings)
+    // Get theme colors from published config
+    const pageBackgroundColor = publishedConfig.globalColors?.backgroundColor
+    const pageTextColor = headerSettings?.colors?.textColor
+    // Calculate total sales for About section
+    const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
+    // Calculate products count for About section
+    const productsCount = products?.length || 0
+
+    // Get theme preset and config
+    const themePreset = globalSettings?.themePreset || "default"
+    const themeConfig = themePresets[themePreset as keyof typeof themePresets]
+
+    // Apply theme colors to all sections from the shop page config
+    // This ensures sections always reflect the current theme preset
+    const applySectionThemeColors = (sections: Section[]): Section[] => {
+      if (!themeConfig) return sections
+
+      return sections.map((section) => {
+        const newSection = { ...section, settings: { ...section.settings } }
+
+        // Apply featured-products section colors from theme
+        if (section.type === "featured-products") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.sections?.featuredProductsBackgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.sections?.featuredProductsTextColor || themeConfig.colors?.foreground || newSection.settings.colors?.textColor,
+            },
+            productCardColors: {
+              backgroundColor: themeConfig.productCard?.backgroundColor,
+              textColor: themeConfig.productCard?.textColor,
+              priceColor: themeConfig.productCard?.priceColor,
+              borderColor: themeConfig.productCard?.borderColor,
+            },
+            categoryFilterColors: {
+              textColor: themeConfig.categoryFilter?.textColor,
+              activeTextColor: themeConfig.categoryFilter?.activeTextColor,
+              borderColor: themeConfig.categoryFilter?.borderColor,
+            },
+          }
+        }
+
+        // Apply about section colors from theme
+        if (section.type === "about") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.about?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.about?.textColor || newSection.settings.colors?.textColor,
+            },
+            mutedTextColor: themeConfig.about?.mutedTextColor,
+          }
+        }
+
+        // Apply text block colors from theme
+        if (section.type === "text-block") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.textBlock?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.textBlock?.headlineColor || newSection.settings.colors?.textColor,
+            },
+            headlineColor: themeConfig.textBlock?.headlineColor,
+            contentColor: themeConfig.textBlock?.contentColor,
+          }
+        }
+
+        // Apply image-text section colors from theme
+        if (section.type === "image-text") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.imageText?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.imageText?.textColor || newSection.settings.colors?.textColor,
+            },
+            buttonColor: themeConfig.imageText?.buttonColor,
+            buttonTextColor: themeConfig.imageText?.buttonTextColor,
+            buttonBorderRadius: themeConfig.buttonBorderRadius,
+          }
+        }
+
+        // Apply benefits section colors from theme
+        if (section.type === "benefits") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.benefits?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.benefits?.textColor || newSection.settings.colors?.textColor,
+            },
+            iconColor: themeConfig.benefits?.iconColor,
+          }
+        }
+
+        // Apply announcement bar colors from theme
+        if (section.type === "announcement-bar") {
+          newSection.settings = {
+            ...newSection.settings,
+            colors: {
+              ...newSection.settings.colors,
+              backgroundColor: themeConfig.announcementBar?.backgroundColor || newSection.settings.colors?.backgroundColor,
+              textColor: themeConfig.announcementBar?.textColor || newSection.settings.colors?.textColor,
+            },
+          }
+        }
+
+        return newSection
+      })
+    }
+
+    // Apply theme colors to all sections
+    const themedSections = applySectionThemeColors(publishedConfig.sections)
 
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
+      <div
+        className="min-h-screen overflow-x-hidden"
+        style={{
+          background: pageBackgroundColor || "var(--background)",
+          color: pageTextColor || "var(--foreground)",
+        }}
+      >
         <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
         <TrackView type="store" creatorId={creator.id} />
 
@@ -242,13 +374,44 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           profile={profile}
           products={products || []}
           productCount={products?.length || 0}
+          globalSettings={globalSettings}
         />
 
-        {publishedConfig.sections
-          .sort((a, b) => a.order - b.order)
-          .map((section) => (
-            <SectionRenderer key={section.id} section={section} products={productsData} />
-          ))}
+        {(() => {
+          // Separate About section to render last
+          const regularSections = themedSections
+            .filter((s) => s.type !== "about")
+            .sort((a, b) => a.order - b.order)
+          const aboutSection = themedSections.find((s) => s.type === "about")
+
+          return (
+            <>
+              {regularSections.map((section) => (
+                <SectionRenderer
+                  key={section.id}
+                  section={section}
+                  products={productsData}
+                  globalSettings={globalSettings}
+                  creatorName={profile.display_name || undefined}
+                />
+              ))}
+
+              {/* About section - always rendered last */}
+              {aboutSection && (
+                <SectionRenderer
+                  key={aboutSection.id}
+                  section={aboutSection}
+                  products={productsData}
+                  globalSettings={globalSettings}
+                  creatorName={profile.display_name || undefined}
+                  sellerMemberSince={profile.created_at}
+                  sellerTotalSales={totalSales}
+                  sellerProductsCount={productsCount}
+                />
+              )}
+            </>
+          )
+        })()}
 
         <SellerFooter />
       </div>

@@ -14,6 +14,8 @@ export interface StickyAddToCartSettings {
   buttonTextColor: string
   buttonStyle: "add_to_cart" | "grab_it" | "grab_me" | "download" | "get_it"
   borderRadius: number
+  borderColor?: string
+  textColor?: string
 }
 
 interface ProductData {
@@ -55,7 +57,13 @@ export function EditorStickyAddToCart({
   onSelect,
   scrollY = 0,
 }: StickyAddToCartProps) {
+  // If settings say not visible, don't render
   if (!settings.visible) return null
+
+  // In editor preview mode, parent controls visibility via showSticky state
+  // So we always show here when rendered - the parent handles scroll-based visibility
+  // This fixes the issue where the bar wasn't showing in the editor preview
+  const shouldShow = true
 
   const buttonText = getButtonText(settings.buttonStyle)
   const reviewsCount = product.reviews_count || 0
@@ -92,6 +100,15 @@ export function EditorStickyAddToCart({
     </span>
   )
 
+  const isDarkBg = settings.backgroundColor && (
+    settings.backgroundColor.startsWith("#0") ||
+    settings.backgroundColor.startsWith("#1") ||
+    settings.backgroundColor.startsWith("#2")
+  )
+
+  // Use textColor from settings if available, otherwise derive from background
+  const contentTextColor = settings.textColor || (isDarkBg ? "#ffffff" : undefined)
+
   const StarsDisplay = () => {
     if (!hasReviews) return null
     return (
@@ -101,11 +118,19 @@ export function EditorStickyAddToCart({
             key={star}
             className={cn(
               "h-4 w-4",
-              star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300",
+              star <= Math.round(reviewsAverage)
+                ? isDarkBg ? "fill-current text-white" : "fill-current text-black"
+                : isDarkBg ? "text-gray-500" : "text-gray-300",
             )}
+            style={star <= Math.round(reviewsAverage) && contentTextColor ? { color: contentTextColor } : undefined}
           />
         ))}
-        <span className="text-sm text-muted-foreground ml-1">{reviewsCount}</span>
+        <span
+          className="text-sm ml-1"
+          style={{ color: contentTextColor ? `${contentTextColor}b3` : undefined }}
+        >
+          {reviewsCount}
+        </span>
       </div>
     )
   }
@@ -114,14 +139,20 @@ export function EditorStickyAddToCart({
     <div
       onClick={handleWrapperClick}
       className={cn(
-        "sticky bottom-0 w-full z-30 border-t shadow-lg",
+        "sticky bottom-0 w-full z-30 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
         isMobile ? "py-3 px-[7px]" : "py-3.5 px-[15px]",
         onSelect && "cursor-pointer",
         isSelected && "ring-2 ring-sky-500 ring-inset",
+        !settings.borderColor && "border-gray-200",
+        shouldShow ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none",
       )}
-      style={{ backgroundColor: settings.backgroundColor || "#ffffff" }}
+      style={{
+        backgroundColor: settings.backgroundColor || "#ffffff",
+        backdropFilter: "none",
+        borderColor: settings.borderColor || undefined,
+      }}
     >
-      <div 
+      <div
         className={cn(
           "mx-auto w-full flex items-center justify-between",
           isMobile ? "max-w-[calc(100%-10px)] gap-4" : "max-w-[1150px] gap-5"
@@ -129,7 +160,12 @@ export function EditorStickyAddToCart({
       >
         <div className={cn("flex items-center min-w-0 flex-1", isMobile ? "gap-3" : "gap-4")}>
           <PriceBadge />
-          <p className={cn("font-medium truncate", isMobile ? "text-sm" : "text-[15px]")}>{product.title}</p>
+          <p
+            className={cn("font-medium truncate", isMobile ? "text-sm" : "text-[15px]")}
+            style={{ color: contentTextColor }}
+          >
+            {product.title}
+          </p>
         </div>
 
         <div className={cn("flex items-center shrink-0", isMobile ? "gap-4" : "gap-5")}>
@@ -163,6 +199,7 @@ export function LiveStickyAddToCart({
   creatorId,
   onAddToCart,
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
+  // Start hidden - only show after scrolling past product content area
   const [isVisible, setIsVisible] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
@@ -172,7 +209,7 @@ export function LiveStickyAddToCart({
     setIsMounted(true)
   }, [])
 
-  // Handle scroll visibility
+  // Handle scroll visibility - show when reaching description section, hide near footer
   useEffect(() => {
     if (!isMounted) return
 
@@ -193,8 +230,50 @@ export function LiveStickyAddToCart({
       const currentBottom = scrollY + windowHeight
       const nearFooter = currentBottom > footerTop - 100
 
-      // Show after scrolling 200px down, hide when near footer
-      const shouldShow = scrollY > 200 && !nearFooter
+      // Try to find description section as the trigger point (primary)
+      // Look for the description heading or container
+      // Note: :contains() is jQuery syntax, not valid CSS - removed to prevent errors
+      const descriptionSection = document.querySelector('[data-description-section]') ||
+                                 document.querySelector('.description-section')
+
+      // Fallback: find any h2 with "Description" text
+      let descriptionHeading: Element | null = null
+      if (!descriptionSection) {
+        const allH2s = document.querySelectorAll('h2')
+        allH2s.forEach(h2 => {
+          if (h2.textContent?.toLowerCase().includes('description')) {
+            descriptionHeading = h2
+          }
+        })
+      }
+
+      // Secondary fallback: FAQ section
+      const faqSection = document.querySelector('[data-faq-section]') ||
+                         document.querySelector('.faq-section')
+
+      let pastDescriptionStart = false
+
+      // Priority 1: Description section
+      const targetSection = descriptionSection || descriptionHeading
+      if (targetSection) {
+        const rect = targetSection.getBoundingClientRect()
+        const sectionTop = rect.top + scrollY
+        // Show when the description section starts entering the viewport (top 70%)
+        pastDescriptionStart = scrollY > sectionTop - windowHeight * 0.7
+      } else if (faqSection) {
+        // Priority 2: FAQ section fallback
+        const faqRect = faqSection.getBoundingClientRect()
+        const faqTop = faqRect.top + scrollY
+        pastDescriptionStart = scrollY > faqTop - windowHeight * 0.5
+      } else {
+        // Priority 3: Percentage fallback (30% of page - earlier than before)
+        const scrollableHeight = documentHeight - windowHeight
+        const scrollPercentage = scrollableHeight > 0 ? (scrollY / scrollableHeight) * 100 : 0
+        pastDescriptionStart = scrollPercentage >= 30
+      }
+
+      // Show only after reaching description area and not near footer
+      const shouldShow = pastDescriptionStart && !nearFooter
       setIsVisible(shouldShow)
     }
 
@@ -243,6 +322,15 @@ export function LiveStickyAddToCart({
     </span>
   )
 
+  const isDarkBg = settings.backgroundColor && (
+    settings.backgroundColor.startsWith("#0") ||
+    settings.backgroundColor.startsWith("#1") ||
+    settings.backgroundColor.startsWith("#2")
+  )
+
+  // Use textColor from settings if available, otherwise derive from background
+  const contentTextColor = settings.textColor || (isDarkBg ? "#ffffff" : undefined)
+
   const StarsDisplay = () => {
     if (!hasReviews) return null
     return (
@@ -252,11 +340,19 @@ export function LiveStickyAddToCart({
             key={star}
             className={cn(
               "h-4 w-4",
-              star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300",
+              star <= Math.round(reviewsAverage)
+                ? isDarkBg ? "fill-current text-white" : "fill-current text-black"
+                : isDarkBg ? "text-gray-500" : "text-gray-300",
             )}
+            style={star <= Math.round(reviewsAverage) && contentTextColor ? { color: contentTextColor } : undefined}
           />
         ))}
-        <span className="text-sm text-muted-foreground ml-1">{reviewsCount}</span>
+        <span
+          className="text-sm ml-1"
+          style={{ color: contentTextColor ? `${contentTextColor}b3` : undefined }}
+        >
+          {reviewsCount}
+        </span>
       </div>
     )
   }
@@ -265,17 +361,27 @@ export function LiveStickyAddToCart({
     <div
       ref={barRef}
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 border-t shadow-lg transition-all duration-300",
+        "fixed bottom-0 left-0 right-0 z-50 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none",
+        !settings.borderColor && "border-gray-200",
       )}
-      style={{ backgroundColor: settings.backgroundColor || "#ffffff" }}
+      style={{
+        backgroundColor: settings.backgroundColor || "#ffffff",
+        backdropFilter: "none",
+        borderColor: settings.borderColor || undefined,
+      }}
     >
       {/* Mobile version - NO STARS */}
       <div className="sm:hidden py-3 px-[7px]">
         <div className="mx-auto w-full max-w-[calc(100%-10px)] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <PriceBadge />
-            <p className="text-sm font-medium truncate">{product.title}</p>
+            <p
+              className="text-sm font-medium truncate"
+              style={{ color: contentTextColor }}
+            >
+              {product.title}
+            </p>
           </div>
           <Button
             size="sm"
@@ -297,7 +403,12 @@ export function LiveStickyAddToCart({
         <div className="mx-auto w-full max-w-[1150px] flex items-center justify-between gap-5">
           <div className="flex items-center gap-4 min-w-0 flex-1">
             <PriceBadge isDesktop />
-            <p className="text-[15px] font-semibold truncate">{product.title}</p>
+            <p
+              className="text-[15px] font-semibold truncate"
+              style={{ color: contentTextColor }}
+            >
+              {product.title}
+            </p>
           </div>
           <div className="flex items-center gap-5 shrink-0">
             <StarsDisplay />

@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { getStoreInternalPath } from "@/lib/url-helpers"
 
 interface CreatorCardProps {
   creator: {
@@ -29,7 +30,7 @@ export function CreatorCard({ creator }: CreatorCardProps) {
 
   return (
     <Link
-      href={`/u/${username}?src=platform`}
+      href={`${getStoreInternalPath(username)}?src=platform`}
       className="group flex flex-col rounded-lg border border-border/60 bg-card p-6 transition-colors hover:border-border"
     >
       <div className="flex items-start gap-4">

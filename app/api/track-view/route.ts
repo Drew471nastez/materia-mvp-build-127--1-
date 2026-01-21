@@ -1,5 +1,5 @@
 // app/api/track-view/route.ts
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Product view requires productId" }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const cookieStore = await cookies()
 
     // ---- visitor identity (ONE source of truth)

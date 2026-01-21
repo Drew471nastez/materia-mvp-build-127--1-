@@ -15,11 +15,15 @@ import type {
   SocialRowBlockData,
   GroupBlockData,
   ProductBlockData,
+  PDFDocumentBlockData,
+  FoodMenuBlockData,
+  CalendlyBlockData,
 } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Globe, Bell, X, Send, Check, Link2, ExternalLink } from "lucide-react"
-import { useState, useRef, useCallback, createContext, useContext } from "react"
+import { Globe, Bell, X, Send, Check, Link2, ExternalLink, Calendar } from "lucide-react"
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
+import { getLinksUrl } from "@/lib/url-helpers"
 
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
@@ -42,6 +46,26 @@ interface AppleMusicModalContextType {
   }) => void
 }
 const AppleMusicModalContext = createContext<AppleMusicModalContextType | null>(null)
+
+// PDF Modal Context - allows PDF preview modals to render at root level
+interface PDFModalContextType {
+  openPDFModal: (data: {
+    title: string
+    description?: string
+    pdfUrl: string
+    buttonText?: string
+  }) => void
+}
+const PDFModalContext = createContext<PDFModalContextType | null>(null)
+
+// Calendly Modal Context - allows Calendly embed modals to render at root level
+interface CalendlyModalContextType {
+  openCalendlyModal: (data: {
+    title: string
+    calendlyUrl: string
+  }) => void
+}
+const CalendlyModalContext = createContext<CalendlyModalContextType | null>(null)
 
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
@@ -88,6 +112,21 @@ function NotificationBell({
       buttonSubmitBg: "bg-white/30 hover:bg-white/40",
       dotColor: "bg-white/60",
     },
+    // glassmorphism maps to glass style
+    glassmorphism: {
+      buttonBg: "rgba(255, 255, 255, 0.15)",
+      buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
+      panelBg: "rgba(255, 255, 255, 0.2)",
+      panelBorder: "1px solid rgba(255, 255, 255, 0.3)",
+      iconColor: "text-white/80",
+      textColor: "text-white/90",
+      inputBg: "bg-white/20",
+      inputBorder: "border-white/30",
+      inputText: "text-white",
+      inputPlaceholder: "placeholder-white/50",
+      buttonSubmitBg: "bg-white/30 hover:bg-white/40",
+      dotColor: "bg-white/60",
+    },
     white: {
       buttonBg: "rgba(255, 255, 255, 0.9)",
       buttonBorder: "1px solid rgba(255, 255, 255, 0.95)",
@@ -118,7 +157,8 @@ function NotificationBell({
     },
   }
 
-  const s = styles[style]
+  // Fallback to glass if style is not defined
+  const s = styles[style as keyof typeof styles] || styles.glass
 
   // Keep visible when modal is open
   const shouldShow = isVisible || isOpen
@@ -241,6 +281,9 @@ function ShareButtonPreview({
   showSubscribe = true,
   accentColor,
   isVisible = true,
+  themeBackgroundType,
+  themeBackgroundColor,
+  themeBackgroundGradient,
 }: {
   sellerName: string
   avatarUrl?: string | null
@@ -250,6 +293,9 @@ function ShareButtonPreview({
   showSubscribe?: boolean
   accentColor?: string
   isVisible?: boolean
+  themeBackgroundType?: "solid" | "gradient" | "image" | "video"
+  themeBackgroundColor?: string
+  themeBackgroundGradient?: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -259,11 +305,28 @@ function ShareButtonPreview({
 
   const size = scale === "small" ? { btn: 28, icon: 10, panel: 180 } : { btn: 36, icon: 14, panel: 220 }
 
-  // Generate gradient colors based on accent color or use default
-  const gradientColor = accentColor || "#8B5CF6"
+  // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
+  const getPopupHeaderBackground = () => {
+    if (themeBackgroundType === "gradient" && themeBackgroundGradient) {
+      return themeBackgroundGradient
+    }
+    if (themeBackgroundType === "solid" && themeBackgroundColor && themeBackgroundColor !== "#ffffff") {
+      return themeBackgroundColor
+    }
+    // For image/video or white backgrounds, use accent color
+    return accentColor || "#8B5CF6"
+  }
+
+  const popupHeaderBackground = getPopupHeaderBackground()
 
   const styles = {
     glass: {
+      buttonBg: "rgba(255, 255, 255, 0.15)",
+      buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
+      iconColor: "text-white/80",
+    },
+    // glassmorphism maps to glass style
+    glassmorphism: {
       buttonBg: "rgba(255, 255, 255, 0.15)",
       buttonBorder: "1px solid rgba(255, 255, 255, 0.2)",
       iconColor: "text-white/80",
@@ -280,7 +343,8 @@ function ShareButtonPreview({
     },
   }
 
-  const s = styles[style]
+  // Fallback to glass if style is not defined
+  const s = styles[style as keyof typeof styles] || styles.glass
 
   const copyLink = () => {
     navigator.clipboard.writeText(pageUrl)
@@ -343,11 +407,13 @@ function ShareButtonPreview({
               boxShadow: "0 20px 60px rgba(0, 0, 0, 0.2)",
             }}
           >
-            {/* Profile preview card with gradient background based on OnePage accent color */}
+            {/* Profile preview card with background adapted to OnePage theme */}
             <div
               className="relative px-3 pt-4 pb-5"
               style={{
-                background: `linear-gradient(135deg, ${gradientColor} 0%, ${gradientColor} 100%)`,
+                background: popupHeaderBackground.includes('gradient') || popupHeaderBackground.includes('linear')
+                  ? popupHeaderBackground
+                  : `linear-gradient(135deg, ${popupHeaderBackground} 0%, ${popupHeaderBackground} 100%)`,
               }}
             >
               {/* Close button */}
@@ -636,20 +702,6 @@ function BackgroundPattern({
         <rect width="100%" height="100%" fill={`url(#bg-zigzag-${pattern})`} />
       </svg>
     ),
-    cross: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <pattern id={`bg-cross-${pattern}`} width="16" height="16" patternUnits="userSpaceOnUse">
-            <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={color} strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-cross-${pattern})`} />
-      </svg>
-    ),
     diagonal: (
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -741,6 +793,133 @@ function BackgroundPattern({
         <rect width="100%" height="100%" fill={`url(#bg-organic-${pattern})`} />
       </svg>
     ),
+    flowmaze: (
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ zIndex: 1, opacity: opacityValue }}
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 400 400"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <defs>
+          <pattern id={`bg-flowmaze-${pattern}`} width="400" height="400" patternUnits="userSpaceOnUse">
+            <path d="M20 50 Q60 20, 100 50 Q140 80, 120 130 Q100 180, 60 170 Q20 160, 30 120 Q40 80, 80 90 Q120 100, 140 140 Q160 180, 130 220 Q100 260, 60 240 Q20 220, 40 180" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.5" />
+            <path d="M180 30 Q220 10, 260 40 Q300 70, 280 120 Q260 170, 220 150 Q180 130, 200 90 Q220 50, 260 70 Q300 90, 320 140 Q340 190, 300 230 Q260 270, 220 250 Q180 230, 200 190 Q220 150, 270 170 Q320 190, 340 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.45" />
+            <path d="M350 50 Q390 30, 400 80 Q395 130, 360 120 Q320 110, 340 70 Q360 30, 400 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
+            <path d="M30 280 Q70 250, 110 280 Q150 310, 130 360 Q110 400, 70 380 Q30 360, 50 320 Q70 280, 110 300 Q150 320, 160 370" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.48" />
+            <path d="M200 290 Q240 260, 280 290 Q320 320, 300 370 Q280 400, 240 385 Q200 370, 220 330 Q240 290, 290 310 Q340 330, 360 380 Q380 400, 370 400" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.42" />
+            <path d="M60 350 Q100 370, 90 400 M160 260 Q200 240, 180 200 Q160 160, 120 180 Q80 200, 100 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.38" />
+            <path d="M320 10 Q360 30, 350 70 Q340 110, 300 100 Q260 90, 280 50 Q300 10, 340 20" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.35" />
+            <path d="M380 280 Q400 320, 380 360 Q360 400, 320 380 Q280 360, 310 320 Q340 280, 380 300" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-flowmaze-${pattern})`} />
+      </svg>
+    ),
+    topographic: (
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ zIndex: 1, opacity: opacityValue }}
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 300 300"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <defs>
+          <pattern id={`bg-topographic-${pattern}`} width="300" height="300" patternUnits="userSpaceOnUse">
+            <ellipse cx="100" cy="100" rx="90" ry="80" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
+            <ellipse cx="100" cy="100" rx="70" ry="62" fill="none" stroke={color} strokeWidth="1.5" opacity="0.35" />
+            <ellipse cx="100" cy="100" rx="50" ry="44" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
+            <ellipse cx="100" cy="100" rx="30" ry="26" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
+            <ellipse cx="100" cy="100" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.5" />
+            <ellipse cx="220" cy="200" rx="75" ry="90" fill="none" stroke={color} strokeWidth="1.5" opacity="0.28" />
+            <ellipse cx="220" cy="200" rx="55" ry="70" fill="none" stroke={color} strokeWidth="1.5" opacity="0.33" />
+            <ellipse cx="220" cy="200" rx="35" ry="50" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
+            <ellipse cx="220" cy="200" rx="18" ry="30" fill="none" stroke={color} strokeWidth="1.5" opacity="0.43" />
+            <ellipse cx="50" cy="250" rx="45" ry="40" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
+            <ellipse cx="50" cy="250" rx="28" ry="25" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
+            <ellipse cx="50" cy="250" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
+            <ellipse cx="250" cy="50" rx="40" ry="45" fill="none" stroke={color} strokeWidth="1.5" opacity="0.32" />
+            <ellipse cx="250" cy="50" rx="22" ry="28" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
+            <ellipse cx="250" cy="50" rx="8" ry="12" fill="none" stroke={color} strokeWidth="1.5" opacity="0.48" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#bg-topographic-${pattern})`} />
+      </svg>
+    ),
+    stars: (
+      <div
+        className="absolute inset-0 pointer-events-none overflow-hidden"
+        style={{ zIndex: 1, opacity: opacityValue * 0.8 }}
+      >
+        <style>{`
+          @keyframes starTwinkle1 {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.8; }
+          }
+          @keyframes starTwinkle2 {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+          }
+          @keyframes starTwinkle3 {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+          }
+          .preview-star-dot {
+            position: absolute;
+            border-radius: 50%;
+            background: ${color};
+          }
+          .preview-star-1 { animation: starTwinkle1 3s ease-in-out infinite; }
+          .preview-star-2 { animation: starTwinkle2 4s ease-in-out infinite; animation-delay: 0.5s; }
+          .preview-star-3 { animation: starTwinkle3 5s ease-in-out infinite; animation-delay: 1s; }
+          .preview-star-4 { animation: starTwinkle1 4.5s ease-in-out infinite; animation-delay: 1.5s; }
+          .preview-star-5 { animation: starTwinkle2 3.5s ease-in-out infinite; animation-delay: 2s; }
+        `}</style>
+        {/* Generate subtle star dots across the screen */}
+        <div className="preview-star-dot preview-star-1" style={{ width: '2px', height: '2px', top: '5%', left: '10%' }} />
+        <div className="preview-star-dot preview-star-2" style={{ width: '1.5px', height: '1.5px', top: '12%', left: '25%' }} />
+        <div className="preview-star-dot preview-star-3" style={{ width: '2px', height: '2px', top: '8%', left: '45%' }} />
+        <div className="preview-star-dot preview-star-4" style={{ width: '1px', height: '1px', top: '15%', left: '60%' }} />
+        <div className="preview-star-dot preview-star-5" style={{ width: '2px', height: '2px', top: '3%', left: '75%' }} />
+        <div className="preview-star-dot preview-star-1" style={{ width: '1.5px', height: '1.5px', top: '18%', left: '88%' }} />
+        <div className="preview-star-dot preview-star-2" style={{ width: '1px', height: '1px', top: '25%', left: '5%' }} />
+        <div className="preview-star-dot preview-star-3" style={{ width: '2px', height: '2px', top: '22%', left: '35%' }} />
+        <div className="preview-star-dot preview-star-4" style={{ width: '1.5px', height: '1.5px', top: '28%', left: '55%' }} />
+        <div className="preview-star-dot preview-star-5" style={{ width: '1px', height: '1px', top: '20%', left: '70%' }} />
+        <div className="preview-star-dot preview-star-1" style={{ width: '2px', height: '2px', top: '30%', left: '92%' }} />
+        <div className="preview-star-dot preview-star-2" style={{ width: '1.5px', height: '1.5px', top: '35%', left: '15%' }} />
+        <div className="preview-star-dot preview-star-3" style={{ width: '1px', height: '1px', top: '38%', left: '40%' }} />
+        <div className="preview-star-dot preview-star-4" style={{ width: '2px', height: '2px', top: '32%', left: '65%' }} />
+        <div className="preview-star-dot preview-star-5" style={{ width: '1.5px', height: '1.5px', top: '40%', left: '82%' }} />
+        <div className="preview-star-dot preview-star-1" style={{ width: '1px', height: '1px', top: '45%', left: '8%' }} />
+        <div className="preview-star-dot preview-star-2" style={{ width: '2px', height: '2px', top: '42%', left: '28%' }} />
+        <div className="preview-star-dot preview-star-3" style={{ width: '1.5px', height: '1.5px', top: '48%', left: '50%' }} />
+        <div className="preview-star-dot preview-star-4" style={{ width: '1px', height: '1px', top: '50%', left: '72%' }} />
+        <div className="preview-star-dot preview-star-5" style={{ width: '2px', height: '2px', top: '44%', left: '95%' }} />
+        <div className="preview-star-dot preview-star-1" style={{ width: '1.5px', height: '1.5px', top: '55%', left: '18%' }} />
+        <div className="preview-star-dot preview-star-2" style={{ width: '1px', height: '1px', top: '58%', left: '38%' }} />
+        <div className="preview-star-dot preview-star-3" style={{ width: '2px', height: '2px', top: '52%', left: '58%' }} />
+        <div className="preview-star-dot preview-star-4" style={{ width: '1.5px', height: '1.5px', top: '60%', left: '78%' }} />
+        <div className="preview-star-dot preview-star-5" style={{ width: '1px', height: '1px', top: '56%', left: '3%' }} />
+        <div className="preview-star-dot preview-star-1" style={{ width: '2px', height: '2px', top: '65%', left: '22%' }} />
+        <div className="preview-star-dot preview-star-2" style={{ width: '1.5px', height: '1.5px', top: '68%', left: '48%' }} />
+        <div className="preview-star-dot preview-star-3" style={{ width: '1px', height: '1px', top: '62%', left: '68%' }} />
+        <div className="preview-star-dot preview-star-4" style={{ width: '2px', height: '2px', top: '70%', left: '85%' }} />
+        <div className="preview-star-dot preview-star-5" style={{ width: '1.5px', height: '1.5px', top: '66%', left: '12%' }} />
+        <div className="preview-star-dot preview-star-1" style={{ width: '1px', height: '1px', top: '75%', left: '32%' }} />
+        <div className="preview-star-dot preview-star-2" style={{ width: '2px', height: '2px', top: '78%', left: '52%' }} />
+        <div className="preview-star-dot preview-star-3" style={{ width: '1.5px', height: '1.5px', top: '72%', left: '75%' }} />
+        <div className="preview-star-dot preview-star-4" style={{ width: '1px', height: '1px', top: '80%', left: '90%' }} />
+        <div className="preview-star-dot preview-star-5" style={{ width: '2px', height: '2px', top: '76%', left: '6%' }} />
+        <div className="preview-star-dot preview-star-1" style={{ width: '1.5px', height: '1.5px', top: '85%', left: '42%' }} />
+        <div className="preview-star-dot preview-star-2" style={{ width: '1px', height: '1px', top: '88%', left: '62%' }} />
+        <div className="preview-star-dot preview-star-3" style={{ width: '2px', height: '2px', top: '82%', left: '80%' }} />
+        <div className="preview-star-dot preview-star-4" style={{ width: '1.5px', height: '1.5px', top: '90%', left: '20%' }} />
+        <div className="preview-star-dot preview-star-5" style={{ width: '1px', height: '1px', top: '92%', left: '55%' }} />
+        <div className="preview-star-dot preview-star-1" style={{ width: '2px', height: '2px', top: '95%', left: '35%' }} />
+        <div className="preview-star-dot preview-star-2" style={{ width: '1.5px', height: '1.5px', top: '97%', left: '70%' }} />
+      </div>
+    ),
   }
 
   return patternSVGs[pattern] || null
@@ -797,6 +976,140 @@ export function PhonePreview({ className }: PhonePreviewProps) {
   }, [])
 
   const appleMusicModalContextValue = { openAppleMusicModal }
+
+  // PDF modal state
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
+  const [pdfModalData, setPdfModalData] = useState<{
+    title: string
+    description?: string
+    pdfUrl: string
+    buttonText?: string
+  } | null>(null)
+  const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
+  const [pdfTotalPages, setPdfTotalPages] = useState(1)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfPages, setPdfPages] = useState<string[]>([])
+  const pdfScrollRef = useRef<HTMLDivElement>(null)
+
+  // Load PDF.js and render pages when modal opens
+  useEffect(() => {
+    if (pdfModalOpen && pdfModalData?.pdfUrl) {
+      setPdfLoading(true)
+      setPdfTotalPages(1)
+      setPdfCurrentPage(1)
+      setPdfPages([])
+
+      const loadPdfJs = async () => {
+        try {
+          if (!(window as any).pdfjsLib) {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+            script.async = true
+            await new Promise((resolve, reject) => {
+              script.onload = resolve
+              script.onerror = reject
+              document.head.appendChild(script)
+            })
+          }
+
+          const pdfjsLib = (window as any).pdfjsLib
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+
+          const loadingTask = pdfjsLib.getDocument(pdfModalData.pdfUrl)
+          const pdf = await loadingTask.promise
+          setPdfTotalPages(pdf.numPages)
+
+          const pageImages: string[] = []
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i)
+            const scale = 2
+            const viewport = page.getViewport({ scale })
+
+            const canvas = document.createElement('canvas')
+            const context = canvas.getContext('2d')
+            canvas.height = viewport.height
+            canvas.width = viewport.width
+
+            await page.render({
+              canvasContext: context,
+              viewport: viewport
+            }).promise
+
+            pageImages.push(canvas.toDataURL('image/jpeg', 0.9))
+          }
+
+          setPdfPages(pageImages)
+          setPdfLoading(false)
+        } catch (error) {
+          console.error('PDF loading error:', error)
+          setPdfLoading(false)
+          try {
+            const response = await fetch(pdfModalData.pdfUrl)
+            const buffer = await response.arrayBuffer()
+            const bytes = new Uint8Array(buffer)
+            const text = new TextDecoder('latin1').decode(bytes)
+            const countMatch = text.match(/\/Count\s+(\d+)/g)
+            if (countMatch) {
+              const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
+              setPdfTotalPages(Math.max(...counts))
+            }
+          } catch {
+            setPdfTotalPages(1)
+          }
+        }
+      }
+
+      loadPdfJs()
+    }
+  }, [pdfModalOpen, pdfModalData?.pdfUrl])
+
+  // Handle scroll to update current page
+  const handlePdfScroll = useCallback(() => {
+    const container = pdfScrollRef.current
+    if (!container || pdfTotalPages <= 1 || pdfPages.length === 0) return
+
+    const scrollTop = container.scrollTop
+    const containerHeight = container.clientHeight
+    const pageHeight = container.scrollHeight / pdfTotalPages
+
+    const currentPageIndex = Math.floor((scrollTop + containerHeight / 2) / pageHeight)
+    const newPage = Math.min(pdfTotalPages, Math.max(1, currentPageIndex + 1))
+
+    if (newPage !== pdfCurrentPage) {
+      setPdfCurrentPage(newPage)
+    }
+  }, [pdfTotalPages, pdfPages.length, pdfCurrentPage])
+
+  const openPDFModal = useCallback((data: {
+    title: string
+    description?: string
+    pdfUrl: string
+    buttonText?: string
+  }) => {
+    setPdfModalData(data)
+    setPdfCurrentPage(1)
+    setPdfTotalPages(1)
+    setPdfModalOpen(true)
+  }, [])
+
+  const pdfModalContextValue = { openPDFModal }
+
+  // Calendly modal state
+  const [calendlyModalOpen, setCalendlyModalOpen] = useState(false)
+  const [calendlyModalData, setCalendlyModalData] = useState<{
+    title: string
+    calendlyUrl: string
+  } | null>(null)
+
+  const openCalendlyModal = useCallback((data: {
+    title: string
+    calendlyUrl: string
+  }) => {
+    setCalendlyModalData(data)
+    setCalendlyModalOpen(true)
+  }, [])
+
+  const calendlyModalContextValue = { openCalendlyModal }
 
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
@@ -855,6 +1168,8 @@ export function PhonePreview({ className }: PhonePreviewProps) {
   return (
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
+    <PDFModalContext.Provider value={pdfModalContextValue}>
+    <CalendlyModalContext.Provider value={calendlyModalContextValue}>
       <div
         className={cn("relative flex-shrink-0", className)}
         style={{
@@ -864,6 +1179,8 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           height: "580px",
           minHeight: "580px",
           maxHeight: "580px",
+          overflow: "hidden",
+          borderRadius: "44px",
         }}
       >
         {/* Animation keyframes - subtle animation */}
@@ -889,6 +1206,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           borderRadius: "44px",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
           padding: "10px",
+          overflow: "hidden",
         }}
       >
         <div
@@ -946,6 +1264,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             backgroundColor: "#000",
           }}
         >
+          {/* Dynamic Island */}
           <div
             style={{
               position: "absolute",
@@ -956,10 +1275,115 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               height: "25px",
               backgroundColor: "#000",
               borderRadius: "9999px",
-              zIndex: 20,
+              zIndex: 50,
             }}
           />
 
+          {/* Background base layer - stays fixed while content scrolls */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                theme.background_type === "gradient" && theme.background_gradient
+                  ? theme.background_gradient
+                  : theme.background_color,
+              backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
+              animation: isAnimatedGradient ? "gradientShiftPreview 10s ease-in-out infinite" : undefined,
+              zIndex: 0,
+            }}
+          />
+
+          {/* Background image - fixed position covering entire phone screen */}
+          {theme.background_type === "image" && theme.background_image_url && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-30px",
+                left: "-30px",
+                right: "-30px",
+                bottom: "-30px",
+                backgroundImage: `url(${theme.background_image_url})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundAttachment: "scroll",
+                zIndex: 1,
+                filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`,
+              }}
+            />
+          )}
+
+          {/* Video background - fixed position covering entire phone screen */}
+          {theme.background_type === "video" && (theme as any).background_video_url && (
+            <video
+              src={(theme as any).background_video_url}
+              style={{
+                position: "absolute",
+                top: "-30px",
+                left: "-30px",
+                right: "-30px",
+                bottom: "-30px",
+                width: "calc(100% + 60px)",
+                height: "calc(100% + 60px)",
+                objectFit: "cover",
+                zIndex: 1,
+                filter: `brightness(${(theme as any).video_brightness || 100}%)`,
+              }}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          )}
+
+          {/* Noise overlay for gradient backgrounds - fixed position */}
+          {theme.background_type === "gradient" && (theme as any).gradient_noise && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{
+                mixBlendMode: "overlay",
+                zIndex: 2,
+                opacity: (((theme as any).noise_strength || 15) / 100) * 2,
+              }}
+            >
+              <filter id="phone-noise-gradient">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#phone-noise-gradient)" />
+            </svg>
+          )}
+
+          {/* Noise overlay for image backgrounds - fixed position */}
+          {theme.background_type === "image" && (theme as any).image_noise && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{
+                mixBlendMode: "overlay",
+                zIndex: 2,
+                opacity: (((theme as any).noise_strength || 15) / 100) * 2,
+              }}
+            >
+              <filter id="phone-noise-image">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#phone-noise-image)" />
+            </svg>
+          )}
+
+          {/* Pattern overlay - fixed position */}
+          {(theme.background_type === "solid" || theme.background_type === "gradient") &&
+            (theme as any).background_pattern &&
+            (theme as any).background_pattern !== "none" && (
+              <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
+                <BackgroundPattern
+                  pattern={(theme as any).background_pattern}
+                  color={(theme as any).pattern_color || "#00000090"}
+                  opacity={(theme as any).pattern_opacity || "medium"}
+                />
+              </div>
+            )}
+
+          {/* Scrollable content container */}
           <div
             key={animationKey}
             className="phone-screen-scroll"
@@ -971,116 +1395,28 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               bottom: "0",
               overflowY: "auto",
               overflowX: "hidden",
-              background:
-                theme.background_type === "gradient" && theme.background_gradient
-                  ? theme.background_gradient
-                  : theme.background_color,
               fontFamily: theme.font_family || "Inter",
               scrollbarWidth: "thin",
               scrollbarColor: `${theme.text_color}30 transparent`,
-              backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-              animation: isAnimatedGradient ? "gradientShiftPreview 10s ease-in-out infinite" : undefined,
+              zIndex: 10,
             }}
           >
             <style>{`.phone-screen-scroll::-webkit-scrollbar { width: 3px; } .phone-screen-scroll::-webkit-scrollbar-track { background: transparent; margin: 10px 0; } .phone-screen-scroll::-webkit-scrollbar-thumb { background: ${theme.text_color}30; border-radius: 3px; } .phone-screen-scroll::-webkit-scrollbar-thumb:hover { background: ${theme.text_color}50; }`}</style>
-
-            {theme.background_type === "image" && theme.background_image_url && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "-30px",
-                  left: "-30px",
-                  right: "-30px",
-                  bottom: "-30px",
-                  backgroundImage: `url(${theme.background_image_url})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  zIndex: 0,
-                  filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`,
-                }}
-              />
-            )}
-
-            {/* Video background */}
-            {theme.background_type === "video" && (theme as any).background_video_url && (
-              <video
-                src={(theme as any).background_video_url}
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  minWidth: "100%",
-                  minHeight: "100%",
-                  width: "auto",
-                  height: "auto",
-                  objectFit: "cover",
-                  zIndex: 0,
-                  filter: `brightness(${(theme as any).video_brightness || 100}%)`,
-                }}
-                autoPlay
-                loop
-                muted
-                playsInline
-              />
-            )}
-
-            {/* Noise overlay for gradient backgrounds */}
-            {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-              <svg
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{
-                  mixBlendMode: "overlay",
-                  zIndex: 1,
-                  opacity: (((theme as any).noise_strength || 15) / 100) * 2,
-                }}
-              >
-                <filter id="phone-noise-gradient">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-                </filter>
-                <rect width="100%" height="100%" filter="url(#phone-noise-gradient)" />
-              </svg>
-            )}
-
-            {/* Noise overlay for image backgrounds */}
-            {theme.background_type === "image" && (theme as any).image_noise && (
-              <svg
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{
-                  mixBlendMode: "overlay",
-                  zIndex: 1,
-                  opacity: (((theme as any).noise_strength || 15) / 100) * 2,
-                }}
-              >
-                <filter id="phone-noise-image">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-                </filter>
-                <rect width="100%" height="100%" filter="url(#phone-noise-image)" />
-              </svg>
-            )}
-
-            {/* Pattern overlay */}
-            {(theme.background_type === "solid" || theme.background_type === "gradient") &&
-              (theme as any).background_pattern &&
-              (theme as any).background_pattern !== "none" && (
-                <BackgroundPattern
-                  pattern={(theme as any).background_pattern}
-                  color={(theme as any).pattern_color || "#00000090"}
-                  opacity={(theme as any).pattern_opacity || "medium"}
-                />
-              )}
 
             {/* Share Button - conditionally rendered based on share settings */}
             {settings?.share_enabled !== false && (
               <ShareButtonPreview
                 sellerName={sellerName}
                 avatarUrl={avatar_url}
-                pageUrl={`https://storelib.co/l/${(onepage as any).slug || "preview"}`}
+                pageUrl={getLinksUrl((onepage as any).slug || "preview")}
                 scale="small"
                 style={(settings as any)?.share_style || "white"}
                 showSubscribe={settings?.subscribe_enabled !== false}
                 accentColor={theme.button_color}
                 isVisible={buttonsVisible}
+                themeBackgroundType={theme.background_type}
+                themeBackgroundColor={theme.background_color}
+                themeBackgroundGradient={theme.background_gradient}
               />
             )}
 
@@ -1120,22 +1456,27 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 {draft_blocks
                   .filter((b) => b.enabled)
                   .sort((a, b) => a.sort_order - b.sort_order)
-                  .map((block) => (
-                    <BlockRenderer
+                  .map((block, index) => (
+                    <div
                       key={block.id}
-                      block={block}
-                      theme={theme}
-                      profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
-                      scale="small"
-                      settings={settings}
-                    />
+                      className="w-full animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <BlockRenderer
+                        block={block}
+                        theme={theme}
+                        profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
+                        scale="small"
+                        settings={settings}
+                      />
+                    </div>
                   ))}
               </div>
               {/* Footer - pushed to bottom */}
               <div style={{ marginTop: "auto", paddingTop: "20px" }}>
                 {settings.show_branding && (
                   <div className="text-center mb-2">
-                    <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[9px] font-medium bg-white text-gray-900">
+                    <span className="inline-flex items-center justify-center px-3 pt-1.5 pb-[8px] rounded-full text-[9px] font-medium bg-white text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
                       {sellerName} on Storelib
                     </span>
                   </div>
@@ -1179,11 +1520,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
+          style={{ borderRadius: "34px" }}
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1271,11 +1613,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
+          style={{ borderRadius: "34px" }}
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1331,7 +1674,145 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           </div>
         </div>
       )}
+
+      {/* PDF Preview Modal */}
+      {pdfModalOpen && pdfModalData && (
+        <div
+          className="absolute inset-[10px] z-50 flex items-center justify-center bg-black/50 animate-in fade-in duration-200"
+          style={{ borderRadius: "34px" }}
+          onClick={() => setPdfModalOpen(false)}
+        >
+          <div
+            className="relative w-[230px] max-h-[440px] bg-white rounded-2xl flex flex-col shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-2.5 py-2 border-b shrink-0">
+              <button
+                onClick={() => setPdfModalOpen(false)}
+                className="p-1 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-[11px] font-semibold text-gray-900 truncate flex-1 text-center px-1">
+                {pdfModalData.title || "PDF Document"}
+              </h3>
+              <button
+                onClick={() => setPdfModalOpen(false)}
+                className="p-1 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Preview Area */}
+            <div className="flex-1 flex flex-col items-center justify-center p-2 overflow-hidden min-h-0">
+              {/* PDF Preview Frame */}
+              <div className="relative w-full max-w-[160px] bg-gray-50 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                {/* Page Counter */}
+                <div className="absolute top-1 left-1 z-10 px-1.5 py-0.5 bg-white/95 backdrop-blur-sm rounded text-[8px] font-medium text-gray-600 shadow-sm">
+                  {pdfLoading ? "..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
+                </div>
+                <div
+                  ref={pdfScrollRef}
+                  className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
+                  onScroll={handlePdfScroll}
+                >
+                  {pdfLoading ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="animate-spin w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+                    </div>
+                  ) : pdfPages.length > 0 ? (
+                    <div className="flex flex-col">
+                      {pdfPages.map((pageImg, index) => (
+                        <img
+                          key={index}
+                          src={pageImg}
+                          alt={`Page ${index + 1}`}
+                          className="w-full h-auto"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <iframe
+                      src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                      className="w-full h-full border-0"
+                      title={pdfModalData.title || "PDF Document"}
+                    />
+                  )}
+                </div>
+              </div>
+              {pdfModalData.description && (
+                <p className="mt-1.5 text-[8px] text-gray-500 text-center max-w-[150px] line-clamp-2">{pdfModalData.description}</p>
+              )}
+            </div>
+
+            {/* Bottom View Button */}
+            <div className="px-2 pb-2 pt-1 shrink-0">
+              <a
+                href={pdfModalData.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-full py-1.5 bg-gray-900 hover:bg-gray-800 text-white text-[10px] font-semibold rounded-lg transition-colors"
+              >
+                {pdfModalData.buttonText || "View full PDF"}
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Calendly Modal */}
+      {calendlyModalOpen && calendlyModalData && (
+        <div
+          className="absolute inset-0 z-[100] flex items-center justify-center bg-black/50 animate-in fade-in duration-200"
+          onClick={() => setCalendlyModalOpen(false)}
+        >
+          <div
+            className="relative w-full h-full max-w-[260px] max-h-[520px] bg-white rounded-2xl flex flex-col shadow-xl animate-in slide-in-from-bottom-2 duration-200 mx-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-2 py-2 border-b shrink-0">
+              <button
+                onClick={() => setCalendlyModalOpen(false)}
+                className="p-1 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-[11px] font-semibold text-gray-900 truncate flex-1 text-center px-1">
+                {calendlyModalData.title || "Book a Meeting"}
+              </h3>
+              <button
+                onClick={() => setCalendlyModalOpen(false)}
+                className="p-1 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Calendly Embed Area */}
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={calendlyModalData.calendlyUrl}
+                className="w-full h-full border-0"
+                title={calendlyModalData.title || "Calendly"}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    </CalendlyModalContext.Provider>
+    </PDFModalContext.Provider>
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
   )
@@ -1384,6 +1865,140 @@ export function MobilePreviewContent() {
   }, [])
 
   const appleMusicModalContextValue = { openAppleMusicModal }
+
+  // PDF modal state
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
+  const [pdfModalData, setPdfModalData] = useState<{
+    title: string
+    description?: string
+    pdfUrl: string
+    buttonText?: string
+  } | null>(null)
+  const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
+  const [pdfTotalPages, setPdfTotalPages] = useState(1)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfPages, setPdfPages] = useState<string[]>([])
+  const pdfScrollRef = useRef<HTMLDivElement>(null)
+
+  // Load PDF.js and render pages when modal opens
+  useEffect(() => {
+    if (pdfModalOpen && pdfModalData?.pdfUrl) {
+      setPdfLoading(true)
+      setPdfTotalPages(1)
+      setPdfCurrentPage(1)
+      setPdfPages([])
+
+      const loadPdfJs = async () => {
+        try {
+          if (!(window as any).pdfjsLib) {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+            script.async = true
+            await new Promise((resolve, reject) => {
+              script.onload = resolve
+              script.onerror = reject
+              document.head.appendChild(script)
+            })
+          }
+
+          const pdfjsLib = (window as any).pdfjsLib
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+
+          const loadingTask = pdfjsLib.getDocument(pdfModalData.pdfUrl)
+          const pdf = await loadingTask.promise
+          setPdfTotalPages(pdf.numPages)
+
+          const pageImages: string[] = []
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i)
+            const scale = 2
+            const viewport = page.getViewport({ scale })
+
+            const canvas = document.createElement('canvas')
+            const context = canvas.getContext('2d')
+            canvas.height = viewport.height
+            canvas.width = viewport.width
+
+            await page.render({
+              canvasContext: context,
+              viewport: viewport
+            }).promise
+
+            pageImages.push(canvas.toDataURL('image/jpeg', 0.9))
+          }
+
+          setPdfPages(pageImages)
+          setPdfLoading(false)
+        } catch (error) {
+          console.error('PDF loading error:', error)
+          setPdfLoading(false)
+          try {
+            const response = await fetch(pdfModalData.pdfUrl)
+            const buffer = await response.arrayBuffer()
+            const bytes = new Uint8Array(buffer)
+            const text = new TextDecoder('latin1').decode(bytes)
+            const countMatch = text.match(/\/Count\s+(\d+)/g)
+            if (countMatch) {
+              const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
+              setPdfTotalPages(Math.max(...counts))
+            }
+          } catch {
+            setPdfTotalPages(1)
+          }
+        }
+      }
+
+      loadPdfJs()
+    }
+  }, [pdfModalOpen, pdfModalData?.pdfUrl])
+
+  // Handle scroll to update current page
+  const handlePdfScroll = useCallback(() => {
+    const container = pdfScrollRef.current
+    if (!container || pdfTotalPages <= 1 || pdfPages.length === 0) return
+
+    const scrollTop = container.scrollTop
+    const containerHeight = container.clientHeight
+    const pageHeight = container.scrollHeight / pdfTotalPages
+
+    const currentPageIndex = Math.floor((scrollTop + containerHeight / 2) / pageHeight)
+    const newPage = Math.min(pdfTotalPages, Math.max(1, currentPageIndex + 1))
+
+    if (newPage !== pdfCurrentPage) {
+      setPdfCurrentPage(newPage)
+    }
+  }, [pdfTotalPages, pdfPages.length, pdfCurrentPage])
+
+  const openPDFModal = useCallback((data: {
+    title: string
+    description?: string
+    pdfUrl: string
+    buttonText?: string
+  }) => {
+    setPdfModalData(data)
+    setPdfCurrentPage(1)
+    setPdfTotalPages(1)
+    setPdfModalOpen(true)
+  }, [])
+
+  const pdfModalContextValue = { openPDFModal }
+
+  // Calendly modal state
+  const [calendlyModalOpen, setCalendlyModalOpen] = useState(false)
+  const [calendlyModalData, setCalendlyModalData] = useState<{
+    title: string
+    calendlyUrl: string
+  } | null>(null)
+
+  const openCalendlyModal = useCallback((data: {
+    title: string
+    calendlyUrl: string
+  }) => {
+    setCalendlyModalData(data)
+    setCalendlyModalOpen(true)
+  }, [])
+
+  const calendlyModalContextValue = { openCalendlyModal }
 
   // Handle scroll for button visibility
   const handleScroll = useCallback(() => {
@@ -1442,6 +2057,8 @@ export function MobilePreviewContent() {
   return (
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
+    <PDFModalContext.Provider value={pdfModalContextValue}>
+    <CalendlyModalContext.Provider value={calendlyModalContextValue}>
       {/* Animation keyframes */}
       <style
         dangerouslySetInnerHTML={{
@@ -1493,13 +2110,12 @@ export function MobilePreviewContent() {
             src={(theme as any).background_video_url}
             style={{
               position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              minWidth: "100%",
-              minHeight: "100%",
-              width: "auto",
-              height: "auto",
+              top: "-50px",
+              left: "-50px",
+              right: "-50px",
+              bottom: "-50px",
+              width: "calc(100% + 100px)",
+              height: "calc(100% + 100px)",
               objectFit: "cover",
               zIndex: 0,
               pointerEvents: "none",
@@ -1564,22 +2180,27 @@ export function MobilePreviewContent() {
             {draft_blocks
               .filter((b) => b.enabled)
               .sort((a, b) => a.sort_order - b.sort_order)
-              .map((block) => (
-                <BlockRenderer
+              .map((block, index) => (
+                <div
                   key={block.id}
-                  block={block}
-                  theme={theme}
-                  profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
-                  scale="normal"
-                  settings={settings}
-                />
+                  className="w-full animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <BlockRenderer
+                    block={block}
+                    theme={theme}
+                    profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
+                    scale="normal"
+                    settings={settings}
+                  />
+                </div>
               ))}
           </div>
           {/* Footer - pushed to bottom */}
           <div className="mt-auto pt-8">
             {settings.show_branding && (
               <div className="text-center mb-4">
-                <span className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900">
+                <span className="inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
                   {sellerName} on Storelib
                 </span>
               </div>
@@ -1621,11 +2242,12 @@ export function MobilePreviewContent() {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
+          style={{ borderRadius: "34px" }}
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1702,11 +2324,12 @@ export function MobilePreviewContent() {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[50] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm rounded-[32px]"
+          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
+          style={{ borderRadius: "34px" }}
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[280px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1762,6 +2385,145 @@ export function MobilePreviewContent() {
           </div>
         </div>
       )}
+
+      {/* PDF Preview Modal */}
+      {pdfModalOpen && pdfModalData && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 animate-in fade-in duration-200"
+          onClick={() => setPdfModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-md bg-white rounded-t-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300"
+            style={{ maxHeight: "90vh", minHeight: "70vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
+              <button
+                onClick={() => setPdfModalOpen(false)}
+                className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
+                {pdfModalData.title || "PDF Document"}
+              </h3>
+              <button
+                onClick={() => setPdfModalOpen(false)}
+                className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Preview Area */}
+            <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
+              {/* PDF Preview Frame */}
+              <div className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                {/* Page Counter */}
+                <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
+                  {pdfLoading ? "Loading..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
+                </div>
+                <div
+                  ref={pdfScrollRef}
+                  className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
+                  onScroll={handlePdfScroll}
+                >
+                  {pdfLoading ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+                    </div>
+                  ) : pdfPages.length > 0 ? (
+                    <div className="flex flex-col">
+                      {pdfPages.map((pageImg, index) => (
+                        <img
+                          key={index}
+                          src={pageImg}
+                          alt={`Page ${index + 1}`}
+                          className="w-full h-auto"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <iframe
+                      src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                      className="w-full h-full border-0"
+                      title={pdfModalData.title || "PDF Document"}
+                    />
+                  )}
+                </div>
+              </div>
+              {pdfModalData.description && (
+                <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">{pdfModalData.description}</p>
+              )}
+            </div>
+
+            {/* Bottom View Button */}
+            <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
+              <a
+                href={pdfModalData.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
+              >
+                {pdfModalData.buttonText || "View full PDF"}
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Calendly Modal */}
+      {calendlyModalOpen && calendlyModalData && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 bg-black/60 sm:bg-black/50 animate-in fade-in duration-300 ease-out"
+          onClick={() => setCalendlyModalOpen(false)}
+        >
+          <div
+            className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b shrink-0">
+              <button
+                onClick={() => setCalendlyModalOpen(false)}
+                className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
+                {calendlyModalData.title || "Book a Meeting"}
+              </h3>
+              <button
+                onClick={() => setCalendlyModalOpen(false)}
+                className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Calendly Embed Area */}
+            <div className="flex-1 overflow-hidden min-h-0">
+              <iframe
+                src={calendlyModalData.calendlyUrl}
+                className="w-full h-full border-0"
+                style={{ minHeight: '500px' }}
+                title={calendlyModalData.title || "Calendly"}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </CalendlyModalContext.Provider>
+    </PDFModalContext.Provider>
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
   )
@@ -1781,6 +2543,7 @@ interface BlockRendererProps {
   scale?: "small" | "normal"
   settings?: any
   isInsideCarousel?: boolean
+  isInsideGroup?: boolean
 }
 
 // Verified Badge Component with tooltip
@@ -1973,7 +2736,7 @@ function GroupBlockPreview({
                 style={itemStyle}
               >
                 <div className="w-full">
-                  <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} isInsideCarousel={true} />
+                  <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} isInsideCarousel={true} isInsideGroup={true} />
                 </div>
               </div>
             ))}
@@ -2012,7 +2775,7 @@ function GroupBlockPreview({
     <div className="w-full flex flex-col gap-2 px-1">
       {enabledChildren.map((child) => (
         <div key={child.id} className="w-full py-0.5">
-          <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} />
+          <BlockRenderer block={child} theme={theme} profile={profile} scale={scale} settings={settings} isInsideGroup={true} />
         </div>
       ))}
     </div>
@@ -2038,14 +2801,256 @@ function GroupBlockPreview({
   )
 }
 
-function BlockRenderer({ block, theme, profile, scale = "small", settings, isInsideCarousel = false }: BlockRendererProps) {
+// Image Carousel Component with navigation dots and smooth scroll
+function ImageCarousel({
+  images,
+  renderImage,
+  borderRadius,
+  autoplay,
+  theme,
+}: {
+  images: { id: string; image_url: string; alt_text?: string; title?: string; link_url?: string | null }[]
+  renderImage: (img: typeof images[0], index: number) => React.ReactNode
+  borderRadius: string
+  autoplay?: boolean
+  theme: OnePageTheme
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [isHovered, setIsHovered] = useState(false)
+  const isScrollingRef = useRef(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const autoplayPausedRef = useRef(false)
+
+  // Auto-advance slides if autoplay is enabled
+  useEffect(() => {
+    if (!autoplay || isHovered || autoplayPausedRef.current || images.length <= 1) return
+    const interval = setInterval(() => {
+      if (!autoplayPausedRef.current) {
+        goToSlide((currentIndex + 1) % images.length)
+      }
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [autoplay, isHovered, images.length, currentIndex])
+
+  // Scroll to specific index with smooth animation
+  const scrollToIndex = useCallback((index: number) => {
+    if (!scrollRef.current) return
+    const container = scrollRef.current
+    const itemWidth = container.scrollWidth / images.length
+    isScrollingRef.current = true
+
+    container.scrollTo({
+      left: itemWidth * index,
+      behavior: 'smooth'
+    })
+
+    // Clear any existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
+    }
+
+    // Reset scrolling flag after animation completes
+    scrollTimeoutRef.current = setTimeout(() => {
+      isScrollingRef.current = false
+    }, 400)
+  }, [images.length])
+
+  // Handle scroll events to update currentIndex (only when user is manually scrolling)
+  const handleScroll = useCallback(() => {
+    // Don't update index if we're doing a programmatic scroll
+    if (isScrollingRef.current) return
+
+    if (scrollRef.current) {
+      const container = scrollRef.current
+      const itemWidth = container.scrollWidth / images.length
+      const newIndex = Math.round(container.scrollLeft / itemWidth)
+      if (newIndex >= 0 && newIndex < images.length && newIndex !== currentIndex) {
+        setCurrentIndex(newIndex)
+      }
+    }
+  }, [images.length, currentIndex])
+
+  // Touch event handlers for smooth swipe
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now()
+    }
+    autoplayPausedRef.current = true
+  }, [])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current || !scrollRef.current) {
+      autoplayPausedRef.current = false
+      return
+    }
+
+    const touchEnd = {
+      x: e.changedTouches[0].clientX,
+      y: e.changedTouches[0].clientY,
+      time: Date.now()
+    }
+
+    const deltaX = touchEnd.x - touchStartRef.current.x
+    const deltaY = touchEnd.y - touchStartRef.current.y
+    const deltaTime = touchEnd.time - touchStartRef.current.time
+
+    // Only handle horizontal swipes
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+      const velocity = Math.abs(deltaX) / deltaTime
+
+      // Fast swipe or significant distance
+      if (velocity > 0.3 || Math.abs(deltaX) > 80) {
+        if (deltaX > 0 && currentIndex > 0) {
+          // Swipe right - go to previous
+          goToSlide(currentIndex - 1)
+        } else if (deltaX < 0 && currentIndex < images.length - 1) {
+          // Swipe left - go to next
+          goToSlide(currentIndex + 1)
+        } else {
+          // Snap back to current
+          scrollToIndex(currentIndex)
+        }
+      } else {
+        // Snap back to current
+        scrollToIndex(currentIndex)
+      }
+    }
+
+    touchStartRef.current = null
+    // Resume autoplay after a short delay
+    setTimeout(() => {
+      autoplayPausedRef.current = false
+    }, 500)
+  }, [currentIndex, images.length, scrollToIndex])
+
+  const goToSlide = useCallback((index: number) => {
+    const clampedIndex = Math.max(0, Math.min(index, images.length - 1))
+    setCurrentIndex(clampedIndex)
+    scrollToIndex(clampedIndex)
+  }, [images.length, scrollToIndex])
+
+  const goToPrev = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newIndex = currentIndex === 0 ? images.length - 1 : currentIndex - 1
+    goToSlide(newIndex)
+  }, [currentIndex, images.length, goToSlide])
+
+  const goToNext = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newIndex = currentIndex === images.length - 1 ? 0 : currentIndex + 1
+    goToSlide(newIndex)
+  }, [currentIndex, images.length, goToSlide])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  if (images.length === 0) return null
+
+  return (
+    <div
+      className="relative w-full group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Carousel Container */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+        style={{
+          scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'smooth'
+        }}
+      >
+        <div className="flex" style={{ width: `${images.length * 100}%` }}>
+          {images.map((img, idx) => (
+            <div
+              key={img.id || idx}
+              className="w-full shrink-0 snap-center px-1"
+              style={{ width: `${100 / images.length}%` }}
+            >
+              {renderImage(img, idx)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Navigation Arrows - visible on hover */}
+      {images.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={goToPrev}
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm hover:bg-black/60 z-10"
+            aria-label="Previous image"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={goToNext}
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm hover:bg-black/60 z-10"
+            aria-label="Next image"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
+      )}
+
+      {/* Navigation Dots */}
+      {images.length > 1 && (
+        <div className="flex justify-center gap-1.5 mt-2">
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); goToSlide(idx) }}
+              className={cn(
+                "w-1.5 h-1.5 rounded-full transition-all duration-200",
+                idx === currentIndex
+                  ? "w-4 bg-current"
+                  : "bg-current opacity-40 hover:opacity-60"
+              )}
+              style={{ color: theme.text_color }}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BlockRenderer({ block, theme, profile, scale = "small", settings, isInsideCarousel = false, isInsideGroup = false }: BlockRendererProps) {
   const [emailSubmitted, setEmailSubmitted] = useState(false)
 
   // Use context for Spotify modal - renders at root level to prevent clipping
   const spotifyModalContext = useContext(SpotifyModalContext)
-  
+
   // Use context for Apple Music modal - renders at root level to prevent clipping
   const appleMusicModalContext = useContext(AppleMusicModalContext)
+
+  // Use context for PDF modal - renders at root level to prevent clipping
+  const pdfModalContext = useContext(PDFModalContext)
 
   // Button hover animation - based on theme setting, disabled inside carousel
   const buttonHoverAnimation = (theme as any).button_hover_animation || "default"
@@ -2550,21 +3555,39 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         'linkedin': 'M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z',
         'twitch': 'M21 2H3v16h5v4l4-4h5l4-4V2zm-10 9V7m5 4V7',
         'discord': 'M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z',
-        'telegram': 'M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 7.5a2.25 2.25 0 0 0 .126 4.303l3.2 1.067 1.493 4.8a1.5 1.5 0 0 0 2.368.671l2.441-1.953 4.195 3.209a2.25 2.25 0 0 0 3.541-1.332l3-15A2.25 2.25 0 0 0 21.198 2.433zM6.988 13.678l7.25-4.812-5.5 5.562-.75 3z',
+        'telegram': 'M23.1117 4.49449C23.4296 2.94472 21.9074 1.65683 20.4317 2.227L2.3425 9.21601C0.694517 9.85273 0.621087 12.1572 2.22518 12.8975L6.1645 14.7157L8.03849 21.2746C8.13583 21.6153 8.40618 21.8791 8.74917 21.968C9.09216 22.0568 9.45658 21.9576 9.70712 21.707L12.5938 18.8203L16.6375 21.8531C17.8113 22.7334 19.5019 22.0922 19.7967 20.6549L23.1117 4.49449ZM3.0633 11.0816L21.1525 4.0926L17.8375 20.2531L13.1 16.6999C12.7019 16.4013 12.1448 16.4409 11.7929 16.7928L10.5565 18.0292L10.928 15.9861L18.2071 8.70703C18.5614 8.35278 18.5988 7.79106 18.2947 7.39293C17.9906 6.99479 17.4389 6.88312 17.0039 7.13168L6.95124 12.876L3.0633 11.0816ZM8.17695 14.4791L8.78333 16.6015L9.01614 15.321C9.05253 15.1209 9.14908 14.9366 9.29291 14.7928L11.5128 12.573L8.17695 14.4791Z',
         'whatsapp': 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z',
         'pinterest': 'M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z',
         'snapchat': 'M11.99 2.75c-1.494-.011-3.017.567-4.003 1.714-.874.926-1.204 2.238-1.16 3.483-.004.64.004 1.28.006 1.92-.613-.152-1.234-.578-1.882-.367-.553.164-.783.886-.45 1.349.36.47.918.738 1.385 1.089.229.188.538.321.71.562 0 .577-.303 1.112-.59 1.599-.7 1.099-1.786 1.93-2.956 2.509-.3.129-.572.518-.309.812.485.453 1.167.598 1.77.811.256.08.635.168.608.507.042.365.276.758.687.76.982.114 2.036.065 2.918.59.868.501 1.756 1.059 2.777 1.117 1.02.1 2.08-.111 2.958-.663.654-.36 1.292-.81 2.06-.883.645-.15 1.338-.015 1.96-.26.4-.17.35-.66.51-.984.32-.22.72-.243 1.07-.388.46-.183 1.04-.332 1.27-.802.14-.38-.29-.586-.56-.734-1.42-.734-2.7-1.87-3.27-3.4-.06-.24-.29-.6.01-.78.62-.52 1.43-.82 1.94-1.46.39-.488.12-1.318-.52-1.418-.618-.098-1.19.24-1.77.391-.051-1.068.063-2.152-.102-3.218-.304-1.726-1.69-3.145-3.35-3.64-.565-.18-1.158-.25-1.746-.25z',
         'github': 'M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12',
         'apple-music': 'M8.5 7.5l10-1.75m-10 1.75v11.375m0-11.375V5.09a1 1 0 0 1 .83-.99l8-1.4a1.17 1.17 0 0 1 1.17.99V5.75m0 0v11.125m-12.31.154l-1.06.19a1.97 1.97 0 0 0-1.63 1.81c0 1.22 1.1 2.15 2.31 1.94l1.06-.19a1.97 1.97 0 0 0 1.63-1.81c0-1.22-1.1-2.15-2.31-1.94zm10-2l-1.06.19a1.97 1.97 0 0 0-1.63 1.81c0 1.22 1.1 2.15 2.31 1.94l1.06-.19a1.97 1.97 0 0 0 1.63-1.81c0-1.22-1.1-2.15-2.31-1.94z',
+        'vimeo': 'M22.396 7.164c-.093 2.026-1.507 4.799-4.245 8.32C15.322 19.161 12.928 21 10.97 21c-1.214 0-2.24-1.119-3.08-3.357L6.16 11.088c-.56-2.238-1.16-3.357-1.8-3.357-.14 0-.628.294-1.464.88l-.88-1.132c.92-.809 1.83-1.618 2.72-2.428 1.226-1.06 2.146-1.618 2.76-1.672 1.45-.14 2.342.852 2.675 2.976.36 2.292.612 3.719.754 4.28.42 1.906.88 2.858 1.38 2.858.39 0 .976-.617 1.76-1.85.783-1.232 1.203-2.17 1.26-2.813.112-1.06-.307-1.591-1.26-1.591-.448 0-.91.103-1.386.307.92-3.015 2.68-4.48 5.282-4.4 1.93.053 2.841 1.307 2.735 3.762z',
       }
-      const iconPath = data.icon ? ICON_PATHS[data.icon] : null
       // Icons that should be rendered with fill instead of stroke
       const FILLED_ICONS = new Set([
         'instagram', 'twitter', 'youtube', 'tiktok', 'spotify', 'facebook', 'linkedin',
         'twitch', 'discord', 'telegram', 'whatsapp', 'pinterest', 'snapchat',
-        'github', 'apple-music'
+        'github', 'apple-music', 'vimeo'
       ])
-      const isFilledIcon = data.icon ? FILLED_ICONS.has(data.icon) : false
+
+      // Auto-detect icon from URL for WhatsApp, Telegram, and Vimeo
+      const getIconFromUrl = (url: string): string | null => {
+        const lowerUrl = url.toLowerCase()
+        if (lowerUrl.includes('wa.me') || lowerUrl.includes('whatsapp.com') || lowerUrl.includes('api.whatsapp.com')) {
+          return 'whatsapp'
+        }
+        if (lowerUrl.includes('t.me') || lowerUrl.includes('telegram.me') || lowerUrl.includes('telegram.org')) {
+          return 'telegram'
+        }
+        if (lowerUrl.includes('vimeo.com')) {
+          return 'vimeo'
+        }
+        return null
+      }
+
+      const detectedIcon = data.icon || getIconFromUrl(data.url)
+      const iconPath = detectedIcon ? ICON_PATHS[detectedIcon] : null
+      const isFilledIcon = detectedIcon ? FILLED_ICONS.has(detectedIcon) : false
       // Icon color should match button text color
       const iconColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
 
@@ -3209,19 +4232,103 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
     case "image": {
       const data = block.data as ImageBlockData
-      if (!data.image_url) return null
+      // Get images array (support both legacy single image and new multi-image)
+      const images = data.images || (data.image_url ? [{ id: '1', image_url: data.image_url, alt_text: data.alt_text, title: '', link_url: data.link_url }] : [])
+      if (images.length === 0 || !images[0]?.image_url) return null
+
+      // Get border radius value
+      const borderRadiusMap: Record<string, string> = {
+        'none': '0',
+        'sm': '4px',
+        'md': '8px',
+        'lg': '16px',
+        'full': '9999px',
+      }
+      const borderRadius = borderRadiusMap[data.border_radius || 'md'] || `${theme.button_border_radius}px`
+
+      // Get aspect ratio class
       const aspectClass =
-        data.aspect_ratio === "square" ? "aspect-square" : data.aspect_ratio === "video" ? "aspect-video" : ""
-      return (
-        <div className="w-full">
-          <img
-            src={data.image_url || "/placeholder.svg"}
-            alt={data.alt_text || ""}
-            className={cn("w-full object-cover", aspectClass)}
-            style={{ borderRadius: `${theme.button_border_radius}px`, imageRendering: "auto" }}
-          />
-        </div>
-      )
+        data.aspect_ratio === "square" ? "aspect-square" :
+        data.aspect_ratio === "portrait" ? "aspect-[3/4]" :
+        data.aspect_ratio === "landscape" ? "aspect-[4/3]" :
+        data.aspect_ratio === "video" ? "aspect-video" :
+        data.aspect_ratio === "wide" ? "aspect-[2/1]" : ""
+
+      // Render single image
+      const renderImage = (img: typeof images[0], index: number) => {
+        const imageContent = (
+          <div className="relative w-full">
+            <img
+              src={img.image_url || "/placeholder.svg"}
+              alt={img.alt_text || ""}
+              className={cn(
+                "w-full",
+                aspectClass,
+                data.image_fit === 'contain' ? 'object-contain' : 'object-cover'
+              )}
+              style={{ borderRadius, imageRendering: "auto" }}
+            />
+            {data.show_captions && img.title && (
+              <p
+                className="text-center text-xs mt-1.5 opacity-70"
+                style={{ color: theme.text_color }}
+              >
+                {img.title}
+              </p>
+            )}
+          </div>
+        )
+
+        if (data.clickable && img.link_url) {
+          return (
+            <a key={img.id || index} href={img.link_url} target="_blank" rel="noopener noreferrer" className="block w-full">
+              {imageContent}
+            </a>
+          )
+        }
+        return <div key={img.id || index} className="w-full">{imageContent}</div>
+      }
+
+      // Single display or only one image
+      if (data.display_style === 'single' || images.length === 1) {
+        return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
+      }
+
+      // Grid display
+      if (data.display_style === 'grid') {
+        const cols = data.grid_columns || 2
+        return (
+          <div
+            className="w-full grid gap-2 py-px"
+            style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+          >
+            {images.map((img, idx) => renderImage(img, idx))}
+          </div>
+        )
+      }
+
+      // Carousel display with navigation dots and smooth scroll (disabled inside group blocks)
+      if (data.display_style === 'carousel' && !isInsideGroup) {
+        return (
+          <div className="w-full py-px">
+            <ImageCarousel
+              images={images}
+              renderImage={renderImage}
+              borderRadius={borderRadius}
+              autoplay={data.carousel_autoplay}
+              theme={theme}
+            />
+          </div>
+        )
+      }
+
+      // If carousel is requested but inside group, show single image instead
+      if (data.display_style === 'carousel' && isInsideGroup) {
+        return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
+      }
+
+      // Default: single image
+      return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
     }
 
     case "divider": {
@@ -3288,6 +4395,18 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const layoutImage = data.product_image || data.digital_product_thumbnail
       const showThumbnail = isPro && layoutImage
 
+      // Get animation class for email capture blocks
+      const getEmailAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
       // Get button text from custom or preset
       const getButtonText = () => {
         if (emailSubmitted) {
@@ -3315,7 +4434,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
         return (
           <div
-            className="w-full rounded-xl overflow-hidden"
+            className={cn("w-full rounded-xl overflow-hidden", getEmailAnimationClass(data.animation_type))}
             style={{ backgroundColor: `${theme.text_color}08` }}
           >
             <div className="p-3 space-y-2">
@@ -3343,36 +4462,59 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 </div>
               </div>
               {/* Input row - responsive layout */}
-              <div className={cn(
-                "gap-1.5",
-                isShortButton ? "flex flex-row" : "flex flex-col"
-              )}>
-                <input
-                  type="email"
-                  placeholder={data.placeholder || "Enter your email"}
-                  className={cn(
-                    s.input,
-                    "rounded-lg bg-white/90 border-0 outline-none",
-                    emailSubmitted && "opacity-70",
-                    isShortButton ? "flex-1 min-w-0" : "w-full"
-                  )}
-                  style={{ color: "#000" }}
-                  disabled={emailSubmitted}
-                />
-                <button
-                  onClick={() => setEmailSubmitted(true)}
-                  disabled={emailSubmitted}
-                  className={cn(
-                    s.inputBtn,
-                    "font-medium whitespace-nowrap",
-                    emailSubmitted && "opacity-70",
-                    isShortButton ? "shrink-0 px-3" : "w-full"
-                  )}
-                  style={buttonStyles}
-                >
-                  {buttonText}
-                </button>
-              </div>
+              {isShortButton ? (
+                <div className="flex flex-row gap-1.5 items-stretch">
+                  <input
+                    type="email"
+                    placeholder={data.placeholder || "Enter your email"}
+                    className={cn(
+                      s.input,
+                      "rounded-lg bg-white/90 border-0 outline-none flex-1 min-w-0",
+                      emailSubmitted && "opacity-70"
+                    )}
+                    style={{ color: "#000", width: '60%' }}
+                    disabled={emailSubmitted}
+                  />
+                  <button
+                    onClick={() => setEmailSubmitted(true)}
+                    disabled={emailSubmitted}
+                    className={cn(
+                      s.inputBtn,
+                      "font-medium whitespace-nowrap rounded-lg shrink-0",
+                      emailSubmitted && "opacity-70"
+                    )}
+                    style={buttonStyles}
+                  >
+                    {buttonText}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <input
+                    type="email"
+                    placeholder={data.placeholder || "Enter your email"}
+                    className={cn(
+                      s.input,
+                      "rounded-lg bg-white/90 border-0 outline-none w-full",
+                      emailSubmitted && "opacity-70"
+                    )}
+                    style={{ color: "#000" }}
+                    disabled={emailSubmitted}
+                  />
+                  <button
+                    onClick={() => setEmailSubmitted(true)}
+                    disabled={emailSubmitted}
+                    className={cn(
+                      s.inputBtn,
+                      "font-medium whitespace-nowrap rounded-lg w-full",
+                      emailSubmitted && "opacity-70"
+                    )}
+                    style={buttonStyles}
+                  >
+                    {buttonText}
+                  </button>
+                </div>
+              )}
             </div>
             {emailSubmitted && (
               <div className="px-3 pb-2">
@@ -3390,7 +4532,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const isShortButton = buttonText.length <= 12
 
       return (
-        <div className="w-full space-y-2">
+        <div className={cn("w-full space-y-2", getEmailAnimationClass(data.animation_type))}>
           {data.headline && (
             <h3 className={cn(s.headline, "font-semibold text-center")} style={{ color: theme.text_color }}>
               {data.headline}
@@ -3405,36 +4547,59 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             </p>
           )}
           {/* Responsive layout based on button text length */}
-          <div className={cn(
-            "gap-1.5",
-            isShortButton ? "flex flex-row" : "flex flex-col"
-          )}>
-            <input
-              type="email"
-              placeholder={data.placeholder || "Enter your email"}
-              className={cn(
-                s.input,
-                "rounded-lg bg-white/10 border-0 outline-none",
-                emailSubmitted && "opacity-70",
-                isShortButton ? "flex-[2] min-w-0" : "w-full"
-              )}
-              style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
-              disabled={emailSubmitted}
-            />
-            <button
-              onClick={() => setEmailSubmitted(true)}
-              disabled={emailSubmitted}
-              className={cn(
-                s.inputBtn,
-                "font-medium whitespace-nowrap",
-                emailSubmitted && "opacity-70",
-                isShortButton ? "shrink-0 flex-1 px-2" : "w-full"
-              )}
-              style={buttonStyles}
-            >
-              {buttonText}
-            </button>
-          </div>
+          {isShortButton ? (
+            <div className="flex flex-row gap-1.5 items-stretch">
+              <input
+                type="email"
+                placeholder={data.placeholder || "Enter your email"}
+                className={cn(
+                  s.input,
+                  "rounded-lg bg-white/10 border-0 outline-none flex-1 min-w-0",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10`, width: '60%' }}
+                disabled={emailSubmitted}
+              />
+              <button
+                onClick={() => setEmailSubmitted(true)}
+                disabled={emailSubmitted}
+                className={cn(
+                  s.inputBtn,
+                  "font-medium whitespace-nowrap rounded-lg shrink-0",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={buttonStyles}
+              >
+                {buttonText}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <input
+                type="email"
+                placeholder={data.placeholder || "Enter your email"}
+                className={cn(
+                  s.input,
+                  "rounded-lg bg-white/10 border-0 outline-none w-full",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={{ color: theme.text_color, backgroundColor: `${theme.text_color}10` }}
+                disabled={emailSubmitted}
+              />
+              <button
+                onClick={() => setEmailSubmitted(true)}
+                disabled={emailSubmitted}
+                className={cn(
+                  s.inputBtn,
+                  "font-medium whitespace-nowrap rounded-lg w-full",
+                  emailSubmitted && "opacity-70"
+                )}
+                style={buttonStyles}
+              >
+                {buttonText}
+              </button>
+            </div>
+          )}
           {emailSubmitted && (
             <p className="text-[9px] text-center opacity-70" style={{ color: theme.text_color }}>
               {data.success_message || "Thanks for subscribing!"}
@@ -3695,18 +4860,50 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
     case "social_row": {
       const data = block.data as SocialRowBlockData
-      const platforms = data.platforms || []
+      let platforms = data.platforms || []
+
+      // Fallback to profile.social_links if platforms is empty (auto-sync for instant preview)
+      if (platforms.length === 0 && profile.social_links) {
+        const defaultLinks: Array<{ platform: string; url: string }> = []
+        if (profile.social_links.instagram) defaultLinks.push({ platform: "instagram", url: profile.social_links.instagram })
+        if (profile.social_links.tiktok) defaultLinks.push({ platform: "tiktok", url: profile.social_links.tiktok })
+        if (profile.social_links.youtube) defaultLinks.push({ platform: "youtube", url: profile.social_links.youtube })
+        if (profile.social_links.twitter) defaultLinks.push({ platform: "twitter", url: profile.social_links.twitter })
+        if (profile.social_links.spotify) defaultLinks.push({ platform: "spotify", url: profile.social_links.spotify })
+        if (profile.social_links.threads) defaultLinks.push({ platform: "threads", url: profile.social_links.threads })
+        if (profile.social_links.facebook) defaultLinks.push({ platform: "facebook", url: profile.social_links.facebook })
+        if (profile.social_links.linkedin) defaultLinks.push({ platform: "linkedin", url: profile.social_links.linkedin })
+        if (profile.social_links.github) defaultLinks.push({ platform: "github", url: profile.social_links.github })
+        if (profile.social_links.twitch) defaultLinks.push({ platform: "twitch", url: profile.social_links.twitch })
+        if (profile.social_links.discord) defaultLinks.push({ platform: "discord", url: profile.social_links.discord })
+        if (profile.social_links.whatsapp) defaultLinks.push({ platform: "whatsapp", url: profile.social_links.whatsapp })
+        if (profile.social_links.snapchat) defaultLinks.push({ platform: "snapchat", url: profile.social_links.snapchat })
+        if (profile.social_links.telegram) defaultLinks.push({ platform: "telegram", url: profile.social_links.telegram })
+        if (profile.social_links.pinterest) defaultLinks.push({ platform: "pinterest", url: profile.social_links.pinterest })
+        if (profile.social_links.soundcloud) defaultLinks.push({ platform: "soundcloud", url: profile.social_links.soundcloud })
+        if (profile.social_links.kick) defaultLinks.push({ platform: "kick", url: profile.social_links.kick })
+        if (profile.social_links.patreon) defaultLinks.push({ platform: "patreon", url: profile.social_links.patreon })
+        if (profile.social_links.website) defaultLinks.push({ platform: "website", url: profile.social_links.website })
+        if (profile.social_links.email) defaultLinks.push({ platform: "email", url: profile.social_links.email })
+        platforms = defaultLinks
+      }
+
       if (platforms.length === 0) return null
 
       const headerLayout = (theme as any).header_layout || "classic"
       const isHeroLayout = headerLayout === "hero"
-      // Hero layout: move icons up, Classic: add 2px padding top/bottom
-      const layoutStyles = isHeroLayout ? "mt-[-6px] mb-[2px]" : "mt-[2px] mb-[2px]"
+      // Hero layout: move icons up, Classic: add 4px top and 3px bottom padding
+      // Apply custom padding if set, otherwise use default layout styles
+      const paddingTop = data.padding_top ?? (isHeroLayout ? -4 : 4)
+      const paddingBottom = data.padding_bottom ?? (isHeroLayout ? 2 : 3)
 
       return (
         <div
-          className={cn("w-full flex justify-center flex-wrap", s.socialGap, layoutStyles)}
-          style={{ marginBottom: isHeroLayout ? "2px" : undefined }}
+          className={cn("w-full flex justify-center flex-wrap", s.socialGap)}
+          style={{
+            marginTop: `${paddingTop}px`,
+            marginBottom: `${paddingBottom}px`
+          }}
         >
           {platforms.map((platform, idx) => {
             const IconComponent = SocialIconsSVG[platform.platform]
@@ -3758,6 +4955,477 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           settings={settings}
           BlockRenderer={BlockRenderer}
         />
+      )
+    }
+
+    case "pdf_document": {
+      const data = block.data as PDFDocumentBlockData
+      const isPro = data.layout_type === "pro"
+      const thumbnailUrl = data.thumbnail_url
+      const pdfUrl = data.pdf_file_url
+
+      // Get animation class
+      const getAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
+      // Handle click based on settings
+      const handlePDFClick = () => {
+        if (!pdfUrl) return
+
+        // If open_directly is enabled, open PDF in new tab
+        if (data.open_directly) {
+          window.open(pdfUrl, '_blank')
+          return
+        }
+
+        // If enable_preview is enabled (or default), show modal
+        if (data.enable_preview !== false && pdfModalContext) {
+          pdfModalContext.openPDFModal({
+            title: data.title || "PDF Document",
+            description: data.description,
+            pdfUrl: pdfUrl,
+            buttonText: data.preview_button_text || "View full PDF",
+          })
+        }
+      }
+
+      // Featured (Pro) layout with thumbnail
+      if (isPro) {
+        return (
+          <button
+            onClick={handlePDFClick}
+            className={cn(
+              "w-full overflow-hidden font-medium transition-all cursor-pointer",
+              hoverEffect,
+              getAnimationClass(data.animation_type)
+            )}
+            style={{
+              ...buttonStyles,
+              padding: 0,
+            }}
+          >
+            <div className="flex items-center gap-3 p-2.5">
+              {/* Thumbnail/Preview */}
+              <div
+                className="shrink-0 flex items-center justify-center bg-gray-100"
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: Math.max(0, theme.button_border_radius - 4),
+                }}
+              >
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
+                  />
+                ) : (
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-red-500"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14,2 14,8 20,8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <line x1="10" y1="9" x2="8" y2="9" />
+                  </svg>
+                )}
+              </div>
+              {/* Content - Title and Description vertically aligned */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <span
+                  className="text-[11px] font-semibold leading-tight truncate block"
+                  style={{ color: theme.button_text_color }}
+                >
+                  {data.title || "PDF Document"}
+                </span>
+                {data.description && (
+                  <span
+                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate block"
+                    style={{ color: theme.button_text_color }}
+                  >
+                    {data.description}
+                  </span>
+                )}
+              </div>
+              {/* Arrow icon - properly aligned */}
+              <div className="shrink-0 flex items-center justify-center pr-1">
+                <ExternalLink className="w-4 h-4 opacity-50" style={{ color: theme.button_text_color }} />
+              </div>
+            </div>
+          </button>
+        )
+      }
+
+      // Default layout - Title on top, button text below with icon
+      return (
+        <button
+          onClick={handlePDFClick}
+          className={cn(
+            "w-full flex flex-col items-center justify-center font-medium transition-all cursor-pointer py-2.5 px-3",
+            hoverEffect,
+            getAnimationClass(data.animation_type)
+          )}
+          style={buttonStyles}
+        >
+          {/* Title */}
+          <span
+            className="text-[11px] font-semibold truncate w-full text-center"
+            style={{ color: theme.button_text_color }}
+          >
+            {data.title || "PDF Document"}
+          </span>
+          {/* Button text with PDF icon */}
+          <div className="flex items-center justify-center gap-1 opacity-70">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="shrink-0"
+              style={{ color: theme.button_text_color }}
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14,2 14,8 20,8" />
+            </svg>
+            <span
+              className="text-[10px] truncate"
+              style={{ color: theme.button_text_color }}
+            >
+              {data.button_text || "View PDF"}
+            </span>
+          </div>
+        </button>
+      )
+    }
+
+    case "food_menu": {
+      const data = block.data as FoodMenuBlockData
+      const isPro = data.layout_type === "pro"
+      const thumbnailUrl = data.thumbnail_url
+      const pdfUrl = data.pdf_file_url
+
+      // Get animation class
+      const getAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
+      // Handle click based on settings
+      const handleMenuClick = () => {
+        if (!pdfUrl) return
+
+        // If open_directly is enabled, open PDF in new tab
+        if (data.open_directly) {
+          window.open(pdfUrl, '_blank')
+          return
+        }
+
+        // If enable_preview is enabled (or default), show modal
+        if (data.enable_preview !== false && pdfModalContext) {
+          pdfModalContext.openPDFModal({
+            title: data.title || "Menu",
+            description: data.description,
+            pdfUrl: pdfUrl,
+            buttonText: data.preview_button_text || "View Menu",
+          })
+        }
+      }
+
+      // Featured (Pro) layout with thumbnail
+      if (isPro) {
+        return (
+          <button
+            onClick={handleMenuClick}
+            className={cn(
+              "w-full overflow-hidden font-medium transition-all cursor-pointer",
+              hoverEffect,
+              getAnimationClass(data.animation_type)
+            )}
+            style={{
+              ...buttonStyles,
+              padding: 0,
+            }}
+          >
+            <div className="flex items-center gap-3 p-2.5">
+              {/* Thumbnail/Preview */}
+              <div
+                className="shrink-0 flex items-center justify-center bg-gray-100"
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: Math.max(0, theme.button_border_radius - 4),
+                }}
+              >
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
+                  />
+                ) : (
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-orange-500"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14,2 14,8 20,8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <line x1="10" y1="9" x2="8" y2="9" />
+                  </svg>
+                )}
+              </div>
+              {/* Content - Title and Description vertically aligned */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <span
+                  className="text-[11px] font-semibold leading-tight truncate block"
+                  style={{ color: theme.button_text_color }}
+                >
+                  {data.title || "Menu"}
+                </span>
+                {data.description && (
+                  <span
+                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate block"
+                    style={{ color: theme.button_text_color }}
+                  >
+                    {data.description}
+                  </span>
+                )}
+              </div>
+              {/* Arrow icon - properly aligned */}
+              <div className="shrink-0 flex items-center justify-center pr-1">
+                <ExternalLink className="w-4 h-4 opacity-50" style={{ color: theme.button_text_color }} />
+              </div>
+            </div>
+          </button>
+        )
+      }
+
+      // Default layout - Title on top, button text below with icon
+      return (
+        <button
+          onClick={handleMenuClick}
+          className={cn(
+            "w-full flex flex-col items-center justify-center font-medium transition-all cursor-pointer py-2.5 px-3",
+            hoverEffect,
+            getAnimationClass(data.animation_type)
+          )}
+          style={buttonStyles}
+        >
+          {/* Title */}
+          <span
+            className="text-[11px] font-semibold truncate w-full text-center"
+            style={{ color: theme.button_text_color }}
+          >
+            {data.title || "Menu"}
+          </span>
+          {/* Button text with menu icon */}
+          <div className="flex items-center justify-center gap-1 opacity-70">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="shrink-0"
+              style={{ color: theme.button_text_color }}
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14,2 14,8 20,8" />
+            </svg>
+            <span
+              className="text-[10px] truncate"
+              style={{ color: theme.button_text_color }}
+            >
+              {data.button_text || "View Menu"}
+            </span>
+          </div>
+        </button>
+      )
+    }
+
+    case "calendly": {
+      const data = block.data as CalendlyBlockData
+      const isPro = data.layout_type === "pro"
+      const thumbnailUrl = data.thumbnail_url
+      const calendlyUrl = data.calendly_url
+      const calendlyModalContext = useContext(CalendlyModalContext)
+
+      // Get animation class
+      const getAnimationClass = (animationType?: string) => {
+        switch (animationType) {
+          case 'pulse': return 'animate-onepage-pulse'
+          case 'bounce': return 'animate-onepage-bounce'
+          case 'shake': return 'animate-onepage-shake'
+          case 'glow': return 'animate-onepage-glow'
+          case 'swipe': return 'animate-onepage-swipe'
+          default: return ''
+        }
+      }
+
+      // Handle click based on settings
+      const handleCalendlyClick = () => {
+        if (!calendlyUrl) return
+
+        // If direct_link mode, open in new tab
+        if (data.embed_mode === 'direct_link') {
+          window.open(calendlyUrl, '_blank')
+          return
+        }
+
+        // If embedded mode with modal, open modal
+        if (data.embed_mode === 'embedded' && (data.embed_type === 'modal' || !data.embed_type)) {
+          if (calendlyModalContext) {
+            calendlyModalContext.openCalendlyModal({
+              title: data.title || "Book a Meeting",
+              calendlyUrl: calendlyUrl,
+            })
+          }
+          return
+        }
+
+        // If embedded mode with inline, the embed is shown directly (no click action needed)
+        // But for preview, we can open in new tab
+        window.open(calendlyUrl, '_blank')
+      }
+
+      // For inline embed mode, show the embed directly
+      if (data.embed_mode === 'embedded' && data.embed_type === 'inline' && calendlyUrl) {
+        return (
+          <div className="w-full rounded-lg overflow-hidden" style={{ minHeight: 300 }}>
+            <iframe
+              src={calendlyUrl}
+              className="w-full h-full border-0"
+              style={{ minHeight: 300 }}
+              title={data.title || "Calendly"}
+            />
+          </div>
+        )
+      }
+
+      // Featured (Pro) layout with thumbnail
+      if (isPro) {
+        return (
+          <button
+            onClick={handleCalendlyClick}
+            className={cn(
+              "w-full overflow-hidden font-medium transition-all cursor-pointer",
+              hoverEffect,
+              getAnimationClass(data.animation_type)
+            )}
+            style={{
+              ...buttonStyles,
+              padding: 0,
+            }}
+          >
+            <div className="flex items-center gap-3 p-2.5">
+              {/* Thumbnail/Preview */}
+              <div
+                className="shrink-0 flex items-center justify-center bg-gray-100"
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: Math.max(0, theme.button_border_radius - 4),
+                }}
+              >
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
+                  />
+                ) : (
+                  <Calendar className="w-5 h-5 text-blue-500" />
+                )}
+              </div>
+              {/* Content - Title and Description vertically aligned */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <span
+                  className="text-[11px] font-semibold leading-tight truncate block"
+                  style={{ color: theme.button_text_color }}
+                >
+                  {data.title || "Book a Meeting"}
+                </span>
+                {data.description && (
+                  <span
+                    className="text-[9px] leading-tight mt-0.5 opacity-70 truncate block"
+                    style={{ color: theme.button_text_color }}
+                  >
+                    {data.description}
+                  </span>
+                )}
+              </div>
+              {/* Arrow icon - properly aligned */}
+              <div className="shrink-0 flex items-center justify-center pr-1">
+                <ExternalLink className="w-4 h-4 opacity-50" style={{ color: theme.button_text_color }} />
+              </div>
+            </div>
+          </button>
+        )
+      }
+
+      // Default layout - Title on top, button text below with icon
+      return (
+        <button
+          onClick={handleCalendlyClick}
+          className={cn(
+            "w-full flex flex-col items-center justify-center font-medium transition-all cursor-pointer py-2.5 px-3",
+            hoverEffect,
+            getAnimationClass(data.animation_type)
+          )}
+          style={buttonStyles}
+        >
+          {/* Title */}
+          <span
+            className="text-[11px] font-semibold truncate w-full text-center"
+            style={{ color: theme.button_text_color }}
+          >
+            {data.title || "Book a Meeting"}
+          </span>
+          {/* Button text with calendar icon */}
+          <div className="flex items-center justify-center gap-1 opacity-70">
+            <Calendar className="w-3 h-3 shrink-0" style={{ color: theme.button_text_color }} />
+            <span
+              className="text-[10px] truncate"
+              style={{ color: theme.button_text_color }}
+            >
+              {data.button_text || "Schedule Now"}
+            </span>
+          </div>
+        </button>
       )
     }
 

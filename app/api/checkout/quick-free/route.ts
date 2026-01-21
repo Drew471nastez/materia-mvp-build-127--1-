@@ -6,6 +6,8 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails } from "@/lib/email"
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -188,7 +190,7 @@ export async function POST(request: Request) {
     console.log("[quick-free] Found", assets?.length || 0, "digital assets")
 
     // Send emails immediately and await to ensure they're sent
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://materia.app"
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
     console.log("[quick-free] Sending order emails...")
 

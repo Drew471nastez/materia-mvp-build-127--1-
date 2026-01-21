@@ -14,6 +14,7 @@ import { useState, useEffect } from "react"
 import { X, ArrowRight, ArrowLeft, Check, AlertCircle, Loader2 } from "lucide-react"
 import { ImageUpload } from "@/components/app/image-upload"
 import { isValidUsername } from "@/lib/reserved-words"
+import { getStoreUrlDisplay } from "@/lib/url-helpers"
 
 const NICHE_OPTIONS = [
   "Design",
@@ -368,24 +369,26 @@ export default function OnboardingPage() {
               <CardContent className="flex flex-col gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="username">Username</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground truncate max-w-[140px]">{baseUrl}/u/</span>
-                    <div className="relative flex-1">
-                      <Input
-                        id="username"
-                        placeholder="yourname"
-                        value={username}
-                        onChange={(e) => validateUsername(e.target.value)}
-                        className={usernameError ? "border-destructive" : ""}
-                      />
-                      {checkingUsername && (
-                        <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                      )}
-                      {!checkingUsername && !usernameError && username.length >= 3 && (
-                        <Check className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-green-500" />
-                      )}
-                    </div>
+                  <div className="relative">
+                    <Input
+                      id="username"
+                      placeholder="yourname"
+                      value={username}
+                      onChange={(e) => validateUsername(e.target.value)}
+                      className={usernameError ? "border-destructive" : ""}
+                    />
+                    {checkingUsername && (
+                      <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                    )}
+                    {!checkingUsername && !usernameError && username.length >= 3 && (
+                      <Check className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-green-500" />
+                    )}
                   </div>
+                  {username && !usernameError && (
+                    <p className="text-sm text-muted-foreground">
+                      Your store URL: <span className="font-mono">{getStoreUrlDisplay(username)}</span>
+                    </p>
+                  )}
                   {usernameError && (
                     <p className="flex items-center gap-1 text-sm text-destructive">
                       <AlertCircle className="h-3 w-3" />

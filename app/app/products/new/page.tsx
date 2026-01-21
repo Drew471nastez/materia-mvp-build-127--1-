@@ -12,7 +12,20 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertTriangle } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { AlertTriangle, HelpCircle } from "lucide-react"
 import Link from "next/link"
 import { ImageUpload } from "@/components/app/image-upload"
 import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
@@ -30,6 +43,7 @@ import {
   FileIcon,
   Loader2,
 } from "lucide-react"
+import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
 
 const STEPS = [
   { id: 1, name: "Basics", description: "Name and type" },
@@ -39,6 +53,14 @@ const STEPS = [
 ]
 
 const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
+
+const REFUND_POLICY_OPTIONS = [
+  { value: 'no_refunds', label: 'No refunds allowed' },
+  { value: '7_day', label: '7-day money back guarantee' },
+  { value: '14_day', label: '14-day money back guarantee' },
+  { value: '30_day', label: '30-day money back guarantee' },
+  { value: '6_month', label: '6-month money back guarantee' },
+]
 
 interface UploadedFile {
   id?: string
@@ -71,6 +93,11 @@ export default function NewProductWizard() {
   const [whatsIncluded, setWhatsIncluded] = useState<string[]>([...DEFAULT_WHATS_INCLUDED])
   const [newIncludeItem, setNewIncludeItem] = useState("")
   const [showSalesBadge, setShowSalesBadge] = useState(true)
+
+  // Refund policy (Step 2)
+  const [refundPolicyEnabled, setRefundPolicyEnabled] = useState(false)
+  const [refundPolicyType, setRefundPolicyType] = useState('7_day')
+  const [refundPolicyFinePrint, setRefundPolicyFinePrint] = useState('')
 
   // Step 3: Media & Pricing
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
@@ -143,6 +170,10 @@ export default function NewProductWizard() {
         price_cents: 0,
         show_sales_badge: showSalesBadge,
         whats_included: whatsIncluded,
+        refund_policy_enabled: refundPolicyEnabled,
+        refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
+        refund_policy_fine_print: refundPolicyEnabled ? refundPolicyFinePrint || null : null,
+        refund_policy_updated_at: refundPolicyEnabled ? new Date().toISOString() : null,
       })
       .select()
       .single()
@@ -183,6 +214,10 @@ export default function NewProductWizard() {
         gallery_urls: galleryUrls.length > 0 ? galleryUrls : null,
         whats_included: whatsIncluded,
         show_sales_badge: showSalesBadge,
+        refund_policy_enabled: refundPolicyEnabled,
+        refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
+        refund_policy_fine_print: refundPolicyEnabled ? refundPolicyFinePrint || null : null,
+        refund_policy_updated_at: refundPolicyEnabled ? new Date().toISOString() : null,
       })
       .eq("id", productId)
 
@@ -525,11 +560,10 @@ export default function NewProductWizard() {
                 <CardDescription>Tell potential customers what they&apos;re getting</CardDescription>
               </CardHeader>
               <CardContent>
-                <Textarea
-                  placeholder="Describe your product in detail. What problems does it solve? Who is it for?"
+                <DescriptionRichEditor
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={6}
+                  onChange={setDescription}
+                  className="min-h-[200px]"
                 />
               </CardContent>
             </Card>
@@ -631,6 +665,65 @@ export default function NewProductWizard() {
                       </li>
                     ))}
                   </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Refund Policy</CardTitle>
+                <CardDescription>Set your refund policy to build customer trust</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <p className="font-medium">Enable refund policy</p>
+                    <p className="text-sm text-muted-foreground">Show refund policy on product page</p>
+                  </div>
+                  <Switch checked={refundPolicyEnabled} onCheckedChange={setRefundPolicyEnabled} />
+                </div>
+
+                {refundPolicyEnabled && (
+                  <>
+                    <div className="grid gap-2">
+                      <Label htmlFor="refundPolicyType">Refund policy</Label>
+                      <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
+                        <SelectTrigger id="refundPolicyType">
+                          <SelectValue placeholder="Select a refund policy" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {REFUND_POLICY_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="refundFinePrint">Fine print (optional)</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>Extra conditions or details about refunds. Shown to customers in a popup when they click on the refund policy.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <Textarea
+                        id="refundFinePrint"
+                        value={refundPolicyFinePrint}
+                        onChange={(e) => setRefundPolicyFinePrint(e.target.value)}
+                        placeholder="e.g. Refunds are only available for unused products. Contact support within the refund period."
+                        rows={3}
+                      />
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
 
+export const runtime = "nodejs"
+
 const MAX_RETRIES = 3
 const RETRY_DELAYS = [5000, 15000, 30000] // 5s, 15s, 30s
 
@@ -14,7 +16,7 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient()
-  const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://materiabuilder.store"
+  const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://storelib.com"
 
     // Get order details
     const { data: order, error: orderError } = await admin
@@ -43,6 +45,8 @@ export async function POST(request: Request) {
 
     const results: { buyer?: boolean; seller?: boolean } = {}
 
+    const creatorId = order.product?.creator_id
+
     // Retry buyer email if needed
     if (needsBuyerEmail && buyerAttempts < MAX_RETRIES) {
       const delay = RETRY_DELAYS[buyerAttempts - 1] || RETRY_DELAYS[RETRY_DELAYS.length - 1]
@@ -50,18 +54,22 @@ export async function POST(request: Request) {
       // Wait before retry
       await new Promise((resolve) => setTimeout(resolve, delay))
 
-      // Update attempt count
+      // Clear previous error status
       await admin
         .from("orders")
-        .update({ buyer_email_attempt_count: buyerAttempts + 1 })
+        .update({
+          buyer_email_attempt_count: buyerAttempts + 1,
+          buyer_email_last_error: null,
+        })
         .eq("id", orderId)
 
-      const sellerEmail = await resolveSellerEmail(admin, order.product?.creator_id)
+      const sellerEmail = await resolveSellerEmail(admin, creatorId)
 
       const result = await sendBuyerDownloadEmail(
         admin,
         {
           orderId,
+          creatorId,
           buyerEmail: order.buyer_email,
           buyerFirstName: order.buyer_first_name || "",
           productTitle: order.product?.title || "Your purchase",
@@ -73,7 +81,7 @@ export async function POST(request: Request) {
       )
 
       results.buyer = result.success
-      console.log("[email/retry] Buyer email retry attempt", buyerAttempts + 1, "result:", result.success)
+      console.log("[email/retry] Buyer email retry attempt", buyerAttempts + 1, "result:", result.success, result.error || "")
     }
 
     // Retry seller email if needed
@@ -85,18 +93,22 @@ export async function POST(request: Request) {
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
 
-      // Update attempt count
+      // Clear previous error status
       await admin
         .from("orders")
-        .update({ seller_email_attempt_count: sellerAttempts + 1 })
+        .update({
+          seller_email_attempt_count: sellerAttempts + 1,
+          seller_email_last_error: null,
+        })
         .eq("id", orderId)
 
-      const sellerEmail = await resolveSellerEmail(admin, order.product?.creator_id)
+      const sellerEmail = await resolveSellerEmail(admin, creatorId)
 
       const result = await sendSellerNotificationEmail(
         admin,
         {
           orderId,
+          creatorId,
           sellerEmail,
           productTitle: order.product?.title || "Product",
           buyerFirstName: order.buyer_first_name || "",
@@ -110,7 +122,7 @@ export async function POST(request: Request) {
       )
 
       results.seller = result.success
-      console.log("[email/retry] Seller email retry attempt", sellerAttempts + 1, "result:", result.success)
+      console.log("[email/retry] Seller email retry attempt", sellerAttempts + 1, "result:", result.success, result.error || "")
     }
 
     // Schedule another retry if still needed

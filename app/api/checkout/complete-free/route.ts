@@ -6,13 +6,15 @@ import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 import { nanoid } from "nanoid"
 
+export const runtime = "nodejs"
+
 function isValidEmail(email: string) {
   return typeof email === "string" && email.includes("@") && email.length <= 254
 }
 
 function getBaseUrl() {
   return (
-    process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://v0-materia-mvp-build.vercel.app"
+    process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
   )
 }
 

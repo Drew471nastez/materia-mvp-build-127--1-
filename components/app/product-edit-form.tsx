@@ -12,6 +12,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   ArrowLeft,
   Trash2,
   ExternalLink,
@@ -23,6 +36,7 @@ import {
   X,
   Lock,
   GripVertical,
+  HelpCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { CategoriesSelector } from "@/components/app/categories-selector"
@@ -30,16 +44,29 @@ import type { Product, DigitalAsset } from "@/lib/types"
 import { FileUpload } from "@/components/app/file-upload"
 import { ImageUpload } from "@/components/app/image-upload"
 import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
+import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
 
 interface ProductEditFormProps {
   product: Product & {
     gallery_urls?: string[]
     whats_included?: string[]
     show_sales_badge?: boolean
+    refund_policy_enabled?: boolean
+    refund_policy_type?: string | null
+    refund_policy_fine_print?: string | null
+    refund_policy_updated_at?: string | null
   }
   assets: DigitalAsset[]
   creatorId: string
 }
+
+const REFUND_POLICY_OPTIONS = [
+  { value: 'no_refunds', label: 'No refunds allowed' },
+  { value: '7_day', label: '7-day money back guarantee' },
+  { value: '14_day', label: '14-day money back guarantee' },
+  { value: '30_day', label: '30-day money back guarantee' },
+  { value: '6_month', label: '6-month money back guarantee' },
+]
 
 const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
 
@@ -65,6 +92,16 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId }: P
   const [whatsIncluded, setWhatsIncluded] = useState<string[]>(initialWhatsIncluded)
   const [newIncludeItem, setNewIncludeItem] = useState("")
   const [showSalesBadge, setShowSalesBadge] = useState(product.show_sales_badge !== false)
+
+  // Refund policy state
+  const [refundPolicyEnabled, setRefundPolicyEnabled] = useState(product.refund_policy_enabled || false)
+  const [refundPolicyType, setRefundPolicyType] = useState(product.refund_policy_type || '7_day')
+  const [refundPolicyFinePrint, setRefundPolicyFinePrint] = useState(product.refund_policy_fine_print || '')
+  const [initialRefundPolicy, setInitialRefundPolicy] = useState({
+    enabled: product.refund_policy_enabled || false,
+    type: product.refund_policy_type || '7_day',
+    finePrint: product.refund_policy_fine_print || ''
+  })
 
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
@@ -93,6 +130,12 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId }: P
     const supabase = createClient()
 
     try {
+      // Check if refund policy has changed
+      const refundPolicyChanged =
+        refundPolicyEnabled !== initialRefundPolicy.enabled ||
+        refundPolicyType !== initialRefundPolicy.type ||
+        refundPolicyFinePrint !== initialRefundPolicy.finePrint
+
       const { error: updateError } = await supabase
         .from("products")
         .update({
@@ -105,6 +148,10 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId }: P
           status,
           whats_included: whatsIncluded,
           show_sales_badge: showSalesBadge,
+          refund_policy_enabled: refundPolicyEnabled,
+          refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
+          refund_policy_fine_print: refundPolicyEnabled ? refundPolicyFinePrint || null : null,
+          refund_policy_updated_at: refundPolicyChanged ? new Date().toISOString() : product.refund_policy_updated_at,
         })
         .eq("id", product.id)
 
@@ -294,12 +341,10 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId }: P
             </div>
             <div className="grid gap-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
+              <DescriptionRichEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                placeholder="Describe what's included in this product..."
+                onChange={setDescription}
+                className="min-h-[200px]"
               />
             </div>
             <div className="grid gap-2">
@@ -406,6 +451,65 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId }: P
               </div>
               <Switch checked={showSalesBadge} onCheckedChange={setShowSalesBadge} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle>Refund Policy</CardTitle>
+            <CardDescription>Set your refund policy to build customer trust</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div>
+                <p className="font-medium">Enable refund policy</p>
+                <p className="text-sm text-muted-foreground">Show refund policy on product page</p>
+              </div>
+              <Switch checked={refundPolicyEnabled} onCheckedChange={setRefundPolicyEnabled} />
+            </div>
+
+            {refundPolicyEnabled && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="refundPolicyType">Refund policy</Label>
+                  <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
+                    <SelectTrigger id="refundPolicyType">
+                      <SelectValue placeholder="Select a refund policy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REFUND_POLICY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="refundFinePrint">Fine print (optional)</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Extra conditions or details about refunds. Shown to customers in a popup when they click on the refund policy.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Textarea
+                    id="refundFinePrint"
+                    value={refundPolicyFinePrint}
+                    onChange={(e) => setRefundPolicyFinePrint(e.target.value)}
+                    placeholder="e.g. Refunds are only available for unused products. Contact support within the refund period."
+                    rows={3}
+                  />
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

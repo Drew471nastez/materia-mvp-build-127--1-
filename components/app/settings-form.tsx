@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { X, Copy, Check, ExternalLink, Globe, Loader2, AlertCircle, Mail, Lock } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
+import { getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
 
 const NICHE_OPTIONS = [
   "Design",
@@ -72,7 +73,8 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
   const [passwordResetSent, setPasswordResetSent] = useState(false)
   const [passwordResetError, setPasswordResetError] = useState<string | null>(null)
 
-  const storeUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/u/${username}`
+  const storeUrl = getStoreUrl(username)
+  const storeUrlDisplay = getStoreUrlDisplay(username)
 
   const validateUsername = (value: string) => {
     const cleanValue = value.toLowerCase().replace(/[^a-z0-9-]/g, "")
@@ -359,7 +361,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
                   {usernameError}
                 </p>
               ) : (
-                <p className="text-xs text-muted-foreground">Your unique URL: {storeUrl}</p>
+                <p className="text-xs text-muted-foreground">Your unique URL: {storeUrlDisplay}</p>
               )}
             </div>
             <div className="grid gap-2">
@@ -405,7 +407,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2">
-              <Input value={storeUrl} readOnly className="bg-muted font-mono text-sm" />
+              <Input value={storeUrlDisplay} readOnly className="bg-muted font-mono text-sm" />
               <Button type="button" variant="outline" size="icon" onClick={copyStoreLink}>
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>

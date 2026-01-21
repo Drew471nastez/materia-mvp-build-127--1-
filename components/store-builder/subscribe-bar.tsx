@@ -29,12 +29,18 @@ export interface SubscribeBarSettings {
   textColor?: string
   buttonColor?: string
   buttonTextColor?: string
+  buttonBorderRadius?: number
+  inputBorderColor?: string
+  inputTextColor?: string
+  inputPlaceholderColor?: string
+  inputBackgroundColor?: string
   showAvatar?: boolean
   avatarUrl?: string
   creatorName?: string
   style?: "style1" | "style2" | "style3"
   customCtaText?: string
   enableStickyBar?: boolean
+  enableStickyOnScrollUp?: boolean
   buttonStyle?: ButtonStylePreset
   // Allow colors object for compatibility with store builder config
   colors?: {
@@ -107,14 +113,90 @@ function isDarkHex(bg?: string): boolean {
   return luminance < 150
 }
 
-/** Shared input classes */
-function getAdaptiveInputClass(isDarkBackground: boolean) {
+/**
+ * Check if color is vibrant (saturated and not too dark/light)
+ */
+function isVibrantColor(hex?: string): boolean {
+  if (!hex) return false
+  const clean = hex.replace("#", "")
+  if (clean.length !== 6 && clean.length !== 3) return false
+
+  const full = clean.length === 3
+    ? clean.split("").map((c) => c + c).join("")
+    : clean
+
+  const r = parseInt(full.slice(0, 2), 16)
+  const g = parseInt(full.slice(2, 4), 16)
+  const b = parseInt(full.slice(4, 6), 16)
+
+  if ([r, g, b].some((n) => Number.isNaN(n))) return false
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const lightness = (max + min) / 2 / 255
+  const delta = max - min
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1)) / 255
+
+  return saturation > 0.4 && lightness > 0.2 && lightness < 0.8
+}
+
+/** Shared input classes - adaptive to background color */
+function getAdaptiveInputClass(isDarkBackground: boolean, backgroundColor?: string, hasCustomColors?: boolean) {
+  const isVibrant = isVibrantColor(backgroundColor)
+
+  // If custom colors are provided via theme, use minimal styling and let inline styles take over
+  if (hasCustomColors) {
+    return cn(
+      "w-full rounded-md border outline-none transition-colors bg-transparent px-3",
+    )
+  }
+
   return cn(
     "w-full rounded-md border outline-none transition-colors bg-transparent px-3",
-    isDarkBackground
-      ? "text-white placeholder:text-white/70 focus:placeholder:text-white/40 border-white/30 focus:border-white/60"
-      : "text-gray-900 placeholder:text-gray-500 focus:placeholder:text-gray-400 border-black/20 focus:border-black/40",
+    isDarkBackground || isVibrant
+      ? "text-white placeholder:text-white/80 focus:placeholder:text-white/50 border-white/40 focus:border-white/70"
+      : "text-gray-900 placeholder:text-gray-500 focus:placeholder:text-gray-400 border-gray-300 focus:border-gray-400",
   )
+}
+
+/** Generate input style object with theme colors */
+function getInputStyle(settings: SubscribeBarSettings) {
+  const style: React.CSSProperties = {}
+
+  if (settings.inputBorderColor) {
+    style.borderColor = settings.inputBorderColor
+  }
+  if (settings.inputTextColor) {
+    style.color = settings.inputTextColor
+  }
+  if (settings.inputBackgroundColor) {
+    style.backgroundColor = settings.inputBackgroundColor
+  }
+
+  return style
+}
+
+/** Check if custom input colors are provided by theme */
+function hasThemeInputColors(settings: SubscribeBarSettings): boolean {
+  return Boolean(
+    settings.inputTextColor ||
+    settings.inputPlaceholderColor ||
+    settings.inputBorderColor ||
+    settings.inputBackgroundColor
+  )
+}
+
+/** Generate placeholder CSS for themed inputs */
+function getPlaceholderStyle(placeholderColor?: string): string {
+  if (!placeholderColor) return ''
+  return `
+    .subscribe-input-themed::placeholder {
+      color: ${placeholderColor} !important;
+    }
+    .subscribe-input-themed:focus::placeholder {
+      opacity: 0.7;
+    }
+  `
 }
 
 /**
@@ -127,9 +209,41 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   const [subscribed, setSubscribed] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string>("")
   const [isHydrated, setIsHydrated] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
+  const lastScrollY = useRef(0)
 
-  const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
-  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground), [isDarkBackground])
+  // Extract solid color first, then check if dark
+  const computedSolidBgColor = useMemo(() => extractSolidColor(settings.backgroundColor), [settings.backgroundColor])
+  const isDarkBackground = useMemo(() => isDarkHex(computedSolidBgColor), [computedSolidBgColor])
+  const hasCustomInputColors = useMemo(() => hasThemeInputColors(settings), [settings.inputTextColor, settings.inputPlaceholderColor, settings.inputBorderColor, settings.inputBackgroundColor])
+  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor, hasCustomInputColors), [isDarkBackground, settings.backgroundColor, hasCustomInputColors])
+  const inputStyle = useMemo(() => getInputStyle(settings), [settings.inputBorderColor, settings.inputTextColor, settings.inputBackgroundColor])
+  const placeholderStyleCSS = useMemo(() => getPlaceholderStyle(settings.inputPlaceholderColor), [settings.inputPlaceholderColor])
+
+  // Sticky on scroll up behavior
+  useEffect(() => {
+    if (!settings.enableStickyBar || !settings.enableStickyOnScrollUp) {
+      setIsVisible(true)
+      return
+    }
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+
+      // Show when scrolling up or at top
+      if (currentScrollY < lastScrollY.current || currentScrollY < 50) {
+        setIsVisible(true)
+      } else {
+        // Hide when scrolling down
+        setIsVisible(false)
+      }
+
+      lastScrollY.current = currentScrollY
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [settings.enableStickyBar, settings.enableStickyOnScrollUp])
 
   /**
    * FIX: prevent “type 1 character then input blurs” on some pages where
@@ -211,6 +325,41 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
     return () => clearTimeout(timer)
   }, [successMessage])
 
+  // IMPORTANT: All useMemo hooks must be called BEFORE any early returns to avoid React error #310
+  const initials = useMemo(() =>
+    settings.creatorName
+      ?.split(" ")
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase() || "?",
+    [settings.creatorName]
+  )
+
+  // Memoize avatar elements to prevent re-renders when email changes
+  const mobileAvatar = useMemo(() => (
+    settings.showAvatar ? (
+      <Avatar className="h-6 w-6 shrink-0">
+        {settings.avatarUrl ? (
+          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+        ) : null}
+        <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+      </Avatar>
+    ) : null
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
+
+  const desktopAvatar = useMemo(() => (
+    settings.showAvatar ? (
+      <Avatar className="h-8 w-8 shrink-0">
+        {settings.avatarUrl ? (
+          <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
+        ) : null}
+        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+      </Avatar>
+    ) : null
+  ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, initials])
+
+  // Early return AFTER all hooks
   if (!settings.visible || !isHydrated) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -243,33 +392,25 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
     if (subscribed) setSubscribed(false)
   }
 
-  const initials =
-    settings.creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?"
-
   const displayText = getDisplayText(settings, settings.creatorName)
   const buttonText = loading ? "..." : getButtonText(settings, subscribed)
 
   const isSticky = settings.enableStickyBar
 
-  // Bar content component
-  const BarContent = () => (
+  // Always use solid color for live subscriber bar (no gradients)
+  const solidBackgroundColor = extractSolidColor(settings.backgroundColor)
+
+  // Render bar content directly (not as a component) to prevent remounting
+  // Avatar elements are memoized separately to prevent re-renders
+  const barContent = (
     <>
+      {/* Custom placeholder color styles */}
+      {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
+
       {/* MOBILE */}
       <div className="sm:hidden flex flex-col items-center gap-2">
         <div className="flex items-center gap-2 justify-center">
-          {settings.showAvatar && (
-            <Avatar className="h-6 w-6 shrink-0">
-              {settings.avatarUrl ? (
-                <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
-              ) : null}
-              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-            </Avatar>
-          )}
+          {mobileAvatar}
           <p className="text-xs font-medium">{displayText}</p>
         </div>
 
@@ -286,7 +427,11 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             onBlur={handleInputBlur}
             required
             disabled={loading}
-            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs")}
+            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs", hasCustomInputColors && "subscribe-input-themed")}
+            style={{
+              ...inputStyle,
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+            }}
           />
           <Button
             size="sm"
@@ -296,6 +441,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           >
             {buttonText}
@@ -306,14 +452,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
       {/* DESKTOP */}
       <div className="hidden sm:flex items-center justify-between gap-4 max-w-[1150px] mx-auto">
         <div className="flex items-center gap-2 shrink-0">
-          {settings.showAvatar && (
-            <Avatar className="h-8 w-8 shrink-0">
-              {settings.avatarUrl ? (
-                <AvatarImage src={settings.avatarUrl} alt={settings.creatorName || ""} />
-              ) : null}
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-            </Avatar>
-          )}
+          {desktopAvatar}
           <p className="text-sm font-medium">{displayText}</p>
           {successMessage && (
             <p className={cn("text-xs ml-2", isDarkBackground ? "text-white/80" : "text-green-600")}>{successMessage}</p>
@@ -331,7 +470,11 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             onBlur={handleInputBlur}
             required
             disabled={loading}
-            className={cn(adaptiveInputClass, "h-9 w-48 text-sm")}
+            className={cn(adaptiveInputClass, "h-9 w-48 text-sm", hasCustomInputColors && "subscribe-input-themed")}
+            style={{
+              ...inputStyle,
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+            }}
           />
           <Button
             size="sm"
@@ -341,6 +484,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           >
             {buttonText}
@@ -356,13 +500,18 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
       <>
         {/* Fixed bar at top of viewport */}
         <div
-          className="fixed top-0 left-0 right-0 z-50 w-full py-2.5 px-3 sm:py-3 sm:px-4"
+          className={cn(
+            "fixed top-0 left-0 right-0 z-50 w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-transform duration-300 ease-out",
+            isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",
+            !isVisible && settings.enableStickyOnScrollUp && "-translate-y-full"
+          )}
           style={{
-            backgroundColor: settings.backgroundColor || "#ffffff",
+            // Always use solid background color (no gradients) on live published pages
+            backgroundColor: solidBackgroundColor,
             color: settings.textColor || "#000000",
           }}
         >
-          <BarContent />
+          {barContent}
         </div>
         {/* Spacer to prevent content from hiding behind fixed bar */}
         <div className="h-[76px] sm:h-[52px]" />
@@ -373,13 +522,17 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   // NON-STICKY: Normal document flow
   return (
     <div
-      className="w-full py-2.5 px-3 sm:py-3 sm:px-4"
+      className={cn(
+        "w-full py-2.5 px-3 sm:py-3 sm:px-4",
+        isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border"
+      )}
       style={{
-        backgroundColor: settings.backgroundColor || "#ffffff",
+        // Always use solid background color (no gradients) on live published pages
+        backgroundColor: solidBackgroundColor,
         color: settings.textColor || "#000000",
       }}
     >
-      <BarContent />
+      {barContent}
     </div>
   )
 }
@@ -392,17 +545,77 @@ interface EditorSubscribeBarProps {
   isMobile?: boolean
   isSelected?: boolean
   onSelect?: () => void
+  scrollContainerRef?: React.RefObject<HTMLElement | null>
 }
 
-export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMobile, isSelected, onSelect }: EditorSubscribeBarProps) {
-  if (!settings.visible) return null
+/**
+ * Extract solid color from gradient or return the color as-is
+ * This ensures subscriber bar only uses solid background colors (no gradients)
+ */
+function extractSolidColor(color: string | undefined): string {
+  if (!color) return "#ffffff"
+
+  // If it's a gradient, extract the first color
+  if (color.includes("gradient")) {
+    // Match hex colors in gradient like "#ffffff" or "#e2e8f0"
+    const hexMatch = color.match(/#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}/)
+    if (hexMatch) {
+      return hexMatch[0]
+    }
+    // Fallback to white if no hex found
+    return "#ffffff"
+  }
+
+  return color
+}
+
+export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMobile, isSelected, onSelect, scrollContainerRef }: EditorSubscribeBarProps) {
+  const [isVisible, setIsVisible] = useState(true)
+  const lastScrollY = useRef(0)
 
   // Extract colors from either top level or nested colors object
-  const backgroundColor = settings.backgroundColor || settings.colors?.backgroundColor || "#ffffff"
+  // IMPORTANT: Always use solid colors for subscriber bar (no gradients)
+  const rawBackgroundColor = settings.backgroundColor || settings.colors?.backgroundColor || "#ffffff"
+  const backgroundColor = extractSolidColor(rawBackgroundColor)
   const textColor = settings.textColor || settings.colors?.textColor || "#000000"
 
+  // Hooks must be called before early return to avoid React error #300
   const isDarkBackground = useMemo(() => isDarkHex(backgroundColor), [backgroundColor])
-  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground), [isDarkBackground])
+  const hasCustomInputColors = useMemo(() => hasThemeInputColors(settings), [settings.inputTextColor, settings.inputPlaceholderColor, settings.inputBorderColor, settings.inputBackgroundColor])
+  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, backgroundColor, hasCustomInputColors), [isDarkBackground, backgroundColor, hasCustomInputColors])
+  const inputStyle = useMemo(() => getInputStyle(settings), [settings.inputBorderColor, settings.inputTextColor, settings.inputBackgroundColor])
+  const placeholderStyleCSS = useMemo(() => getPlaceholderStyle(settings.inputPlaceholderColor), [settings.inputPlaceholderColor])
+
+  // Scroll up sticky behavior for editor preview
+  useEffect(() => {
+    if (!settings.enableStickyBar || !settings.enableStickyOnScrollUp) {
+      setIsVisible(true)
+      return
+    }
+
+    const scrollContainer = scrollContainerRef?.current
+    if (!scrollContainer) return
+
+    const handleScroll = () => {
+      const currentScrollY = scrollContainer.scrollTop
+
+      // Show when scrolling up or at top
+      if (currentScrollY < lastScrollY.current || currentScrollY < 50) {
+        setIsVisible(true)
+      } else {
+        // Hide when scrolling down
+        setIsVisible(false)
+      }
+
+      lastScrollY.current = currentScrollY
+    }
+
+    scrollContainer.addEventListener("scroll", handleScroll, { passive: true })
+    return () => scrollContainer.removeEventListener("scroll", handleScroll)
+  }, [settings.enableStickyBar, settings.enableStickyOnScrollUp, scrollContainerRef])
+
+  // Early return AFTER all hooks have been called
+  if (!settings.visible) return null
 
   const initials =
     settings.creatorName
@@ -430,6 +643,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   // Mobile layout content
   const MobileContent = () => (
     <div className="flex flex-col items-center gap-2">
+      {/* Custom placeholder color styles */}
+      {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
+
       <div className="flex items-center gap-2 justify-center">
         {settings.showAvatar && (
           <Avatar className="h-6 w-6 shrink-0">
@@ -446,7 +662,11 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
         <Input
           type="email"
           placeholder={settings.placeholder || "Enter your email"}
-          className={cn(adaptiveInputClass, "h-8 flex-1 text-xs")}
+          className={cn(adaptiveInputClass, "h-8 flex-1 text-xs", hasCustomInputColors && "subscribe-input-themed")}
+          style={{
+            ...inputStyle,
+            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+          }}
         />
         <Button
           size="sm"
@@ -455,6 +675,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
           style={{
             backgroundColor: settings.buttonColor || "#2563eb",
             color: settings.buttonTextColor || "#ffffff",
+            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
           }}
         >
           {buttonText}
@@ -466,6 +687,9 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   // Desktop layout content
   const DesktopContent = () => (
     <>
+      {/* Custom placeholder color styles */}
+      {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
+
       <div className="flex sm:hidden flex-col items-center gap-2">
         <div className="flex items-center gap-2 justify-center">
           {settings.showAvatar && (
@@ -483,7 +707,11 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
           <Input
             type="email"
             placeholder={settings.placeholder || "Enter your email"}
-            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs")}
+            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs", hasCustomInputColors && "subscribe-input-themed")}
+            style={{
+              ...inputStyle,
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+            }}
           />
           <Button
             size="sm"
@@ -492,6 +720,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           >
             {buttonText}
@@ -516,7 +745,11 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
           <Input
             type="email"
             placeholder={settings.placeholder || "Enter your email"}
-            className={cn(adaptiveInputClass, "h-9 w-48 text-sm")}
+            className={cn(adaptiveInputClass, "h-9 w-48 text-sm", hasCustomInputColors && "subscribe-input-themed")}
+            style={{
+              ...inputStyle,
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+            }}
           />
           <Button
             size="sm"
@@ -525,6 +758,7 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
             }}
           >
             {buttonText}
@@ -539,12 +773,15 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
     <div
       onClick={handleWrapperClick}
       className={cn(
-        "w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-all",
+        "w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-all duration-300 ease-out",
         settings.enableStickyBar && "sticky top-0 z-20",
+        settings.enableStickyBar && settings.enableStickyOnScrollUp && !isVisible && "-translate-y-full opacity-0",
         onSelect && "cursor-pointer",
-        isSelected && "ring-2 ring-sky-500 ring-inset",
+        isSelected && "ring-2 ring-purple-500 ring-inset",
+        isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",
       )}
       style={{
+        // Always use solid backgroundColor - gradients are converted to solid colors
         backgroundColor: backgroundColor,
         color: textColor,
       }}

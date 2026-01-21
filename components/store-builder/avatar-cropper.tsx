@@ -53,12 +53,12 @@ export function AvatarCropper({
   }, [zoom])
 
   // ✅ responsive crop circle size (safe on mobile, never overflow)
-  const [containerSize, setContainerSize] = useState(280)
+  const [containerSize, setContainerSize] = useState(240)
   useEffect(() => {
     const update = () => {
       const w = typeof window !== "undefined" ? window.innerWidth : 1024
-      // padding around dialog + keep it comfy on tiny screens
-      const next = Math.max(200, Math.min(320, w - 80))
+      // padding around dialog + keep it comfy on tiny screens - more compact
+      const next = Math.max(180, Math.min(260, w - 100))
       setContainerSize(next)
     }
     update()
@@ -331,23 +331,23 @@ export function AvatarCropper({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          // ✅ responsive width for all screens
-          "p-0 gap-0 overflow-hidden w-[calc(100vw-24px)] sm:w-full",
-          "max-w-[520px] md:max-w-[600px] lg:max-w-[680px]",
-          // ✅ responsive height + proper internal scrolling
-          "max-h-[calc(100dvh-24px)]",
-          "flex flex-col",
+          // ✅ More compact and responsive
+          "p-0 gap-0 overflow-hidden w-[calc(100vw-32px)] sm:w-full",
+          "max-w-[420px] sm:max-w-[460px]",
+          // ✅ responsive height
+          "max-h-[calc(100dvh-32px)]",
+          "flex flex-col rounded-2xl",
         )}
       >
-        <DialogHeader className="px-6 py-4 border-b shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+        <DialogHeader className="px-5 py-3 border-b shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <User className="h-4 w-4" />
             Edit Profile Picture
           </DialogTitle>
         </DialogHeader>
 
         {/* ✅ body scrolls on short screens (mobile landscape etc.) */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
           <div className="flex justify-center">
             <div
               className={cn(
@@ -459,20 +459,24 @@ export function AvatarCropper({
         </div>
 
         {/* ✅ footer stays visible and clean on all sizes */}
-        <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t bg-muted/30">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            <X className="h-4 w-4 mr-2" />
+        <div className="shrink-0 flex items-center justify-end gap-2 px-5 py-3 border-t bg-muted/30">
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={cropAndUpload} disabled={!imageUrl || saving}>
+          <Button
+            size="sm"
+            onClick={cropAndUpload}
+            disabled={!imageUrl || saving}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
             {saving ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5" />
                 Saving...
               </>
             ) : (
               <>
-                <Check className="h-4 w-4 mr-2" />
+                <Check className="h-3.5 w-3.5 mr-1.5" />
                 Apply
               </>
             )}
