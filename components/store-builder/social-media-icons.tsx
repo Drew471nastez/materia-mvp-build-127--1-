@@ -7,6 +7,7 @@ import type { SocialLinksConfig } from "@/lib/store-builder/types"
 interface SocialMediaIconsProps {
   socialLinks?: SocialLinksConfig
   iconColor?: string
+  iconStyle?: "default" | "filled" | "outlined"
   className?: string
   isPreviewMode?: boolean
   isMobile?: boolean
@@ -61,6 +62,7 @@ const SpotifyIcon = ({ color = "#ffffff", size = 24 }: { color?: string; size?: 
 export function SocialMediaIcons({
   socialLinks,
   iconColor = "#ffffff",
+  iconStyle = "default",
   className,
   isPreviewMode = false,
   isMobile = false,
@@ -85,6 +87,45 @@ export function SocialMediaIcons({
 
   if (enabledPlatforms.length === 0) return null
 
+  // Get container styles based on icon style
+  const getContainerStyle = () => {
+    switch (iconStyle) {
+      case "filled":
+        return {
+          className: cn(
+            "p-2 rounded-full transition-all",
+            "hover:opacity-80 hover:scale-110",
+            "flex items-center justify-center",
+          ),
+          style: { backgroundColor: iconColor, backdropFilter: "blur(4px)" as const },
+          iconColor: iconColor === "#ffffff" ? "#000000" : "#ffffff", // Contrast color for icon
+        }
+      case "outlined":
+        return {
+          className: cn(
+            "p-2 rounded-full transition-all",
+            "hover:bg-white/20 hover:scale-110",
+            "flex items-center justify-center",
+            "border-2",
+          ),
+          style: { borderColor: iconColor, backdropFilter: "blur(4px)" as const },
+          iconColor: iconColor,
+        }
+      default:
+        return {
+          className: cn(
+            "p-2 rounded-full transition-all",
+            "hover:bg-white/20 hover:scale-110",
+            "flex items-center justify-center",
+          ),
+          style: { backdropFilter: "blur(4px)" as const },
+          iconColor: iconColor,
+        }
+    }
+  }
+
+  const containerConfig = getContainerStyle()
+
   return (
     <div className={cn("flex items-center gap-0.5 flex-wrap", className)}>
       {enabledPlatforms.map(({ key, Icon }) => {
@@ -93,14 +134,10 @@ export function SocialMediaIcons({
 
         const content = (
           <div
-            className={cn(
-              "p-2 rounded-full transition-all",
-              "hover:bg-white/20 hover:scale-110",
-              "flex items-center justify-center",
-            )}
-            style={{ backdropFilter: "blur(4px)" }}
+            className={containerConfig.className}
+            style={containerConfig.style}
           >
-            <Icon color={iconColor} size={iconSize} />
+            <Icon color={containerConfig.iconColor} size={iconSize} />
           </div>
         )
 

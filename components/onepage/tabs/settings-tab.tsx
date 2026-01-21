@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { getLinksUrl, getLinksUrlDisplay } from "@/lib/url-helpers"
 
 // Toggle component using theme-checkbox (same as Links tab)
 function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
@@ -113,8 +114,9 @@ export function SettingsTab() {
 
   if (!onepage) return null
 
-  const pageUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/l/${onepage.slug}`
-  const hostUrl = typeof window !== "undefined" ? window.location.host : ""
+  // Use subdomain-based URLs for the links page
+  const pageUrl = getLinksUrl(onepage.slug)
+  const pageUrlDisplay = getLinksUrlDisplay(onepage.slug)
 
   const copyUrl = async () => {
     await navigator.clipboard.writeText(pageUrl)
@@ -295,9 +297,9 @@ export function SettingsTab() {
       <button
         onClick={() => setActiveSection(section.id)}
         className={cn(
-          "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left",
+          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left",
           isActive
-            ? "bg-gray-100 text-gray-900"
+            ? "bg-white text-gray-900 shadow-sm border border-gray-200"
             : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
         )}
       >
@@ -335,23 +337,28 @@ export function SettingsTab() {
         />
       </div>
 
-      {/* Public URL / Slug - Fixed with truncation */}
+      {/* Page Slug */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-700">Page Slug</Label>
+        <Input
+          value={pageSlug}
+          onChange={(e) => setPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+          placeholder="your-page"
+          className="h-10 rounded-lg border-gray-200 focus:border-gray-400 focus:ring-gray-400"
+        />
+      </div>
+
+      {/* Public URL Display */}
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-700">Public URL</Label>
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center bg-gray-50 rounded-lg border border-gray-200 h-10 min-w-0 overflow-hidden">
+          <div className="flex-1 flex items-center bg-gray-50 rounded-lg border border-gray-200 h-10 min-w-0 overflow-hidden px-3">
             <span
-              className="text-sm text-gray-500 pl-3 flex-shrink-0 truncate max-w-[120px]"
-              title={`${hostUrl}/l/`}
+              className="text-sm text-gray-700 font-mono truncate"
+              title={getLinksUrlDisplay(pageSlug)}
             >
-              {hostUrl}/l/
+              {getLinksUrlDisplay(pageSlug)}
             </span>
-            <Input
-              value={pageSlug}
-              onChange={(e) => setPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-              placeholder="your-page"
-              className="border-0 bg-transparent h-full px-1 focus-visible:ring-0 text-sm font-medium min-w-0 flex-1"
-            />
           </div>
           <button
             onClick={copyUrl}
@@ -365,7 +372,7 @@ export function SettingsTab() {
       <Button
         onClick={handleSaveBasicInfo}
         disabled={isSaving}
-        className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
+        className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
       >
         {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
         {getSaveButtonText()}
@@ -427,7 +434,7 @@ export function SettingsTab() {
         ) : (
           <button
             onClick={() => setShowOgImageModal(true)}
-            className="w-full aspect-video rounded-lg border border-dashed border-gray-300 hover:border-blue-400 transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50 hover:bg-blue-50/50"
+            className="w-full aspect-video rounded-lg border border-dashed border-gray-300 hover:border-violet-400 transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50 hover:bg-violet-50/50"
           >
             <ImageIcon className="h-6 w-6 text-gray-400" />
             <span className="text-sm text-gray-500">Upload image</span>
@@ -459,7 +466,7 @@ export function SettingsTab() {
       <Button
         onClick={handleSaveSeo}
         disabled={isSaving}
-        className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
+        className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
       >
         {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
         {getSaveButtonText()}
@@ -524,7 +531,7 @@ export function SettingsTab() {
                     className={cn(
                       "w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left",
                       subscribeStyle === option.id
-                        ? "border-blue-500 bg-blue-50"
+                        ? "border-violet-500 bg-violet-50"
                         : "border-gray-200 hover:border-gray-300"
                     )}
                   >
@@ -548,9 +555,9 @@ export function SettingsTab() {
                     </div>
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                      subscribeStyle === option.id ? "border-blue-500" : "border-gray-300"
+                      subscribeStyle === option.id ? "border-violet-500" : "border-gray-300"
                     )}>
-                      {subscribeStyle === option.id && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                      {subscribeStyle === option.id && <div className="w-2 h-2 rounded-full bg-violet-500" />}
                     </div>
                   </button>
                 ))}
@@ -570,7 +577,7 @@ export function SettingsTab() {
         <Button
           onClick={handleSaveSubscribe}
           disabled={isSaving}
-          className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
+          className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
         >
           {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {getSaveButtonText()}
@@ -636,7 +643,7 @@ export function SettingsTab() {
                     className={cn(
                       "w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left",
                       shareStyle === option.id
-                        ? "border-blue-500 bg-blue-50"
+                        ? "border-violet-500 bg-violet-50"
                         : "border-gray-200 hover:border-gray-300"
                     )}
                   >
@@ -660,9 +667,9 @@ export function SettingsTab() {
                     </div>
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                      shareStyle === option.id ? "border-blue-500" : "border-gray-300"
+                      shareStyle === option.id ? "border-violet-500" : "border-gray-300"
                     )}>
-                      {shareStyle === option.id && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                      {shareStyle === option.id && <div className="w-2 h-2 rounded-full bg-violet-500" />}
                     </div>
                   </button>
                 ))}
@@ -682,7 +689,7 @@ export function SettingsTab() {
         <Button
           onClick={handleSaveShare}
           disabled={isSaving}
-          className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
+          className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
         >
           {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {getSaveButtonText()}
@@ -788,7 +795,7 @@ export function SettingsTab() {
         <Button
           onClick={handleSaveVerified}
           disabled={isSaving}
-          className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white"
+          className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
         >
           {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {getSaveButtonText()}
@@ -817,8 +824,8 @@ export function SettingsTab() {
       {/* Upgrade Card */}
       <div className="border border-gray-200 rounded-lg p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-blue-600" />
+          <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
+            <Sparkles className="h-4 w-4 text-violet-600" />
           </div>
           <div>
             <p className="font-medium text-sm text-gray-900">Pro Plan</p>
@@ -828,12 +835,12 @@ export function SettingsTab() {
         <ul className="space-y-2 mb-4">
           {["Remove branding", "Custom domain", "Advanced analytics", "Priority support"].map((feature) => (
             <li key={feature} className="flex items-center gap-2 text-sm text-gray-600">
-              <Check className="h-3.5 w-3.5 text-blue-500" />
+              <Check className="h-3.5 w-3.5 text-violet-500" />
               {feature}
             </li>
           ))}
         </ul>
-        <Button className="w-full h-10 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm text-white">
+        <Button className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white">
           Upgrade to Pro
         </Button>
       </div>
@@ -873,10 +880,10 @@ export function SettingsTab() {
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+                  "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
                   activeSection === section.id
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 text-gray-600"
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 )}
               >
                 <Icon className="h-4 w-4" />

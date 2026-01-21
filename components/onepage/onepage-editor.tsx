@@ -16,17 +16,15 @@ import {
   Palette,
   Link2,
   ShoppingBag,
-  Menu,
   Undo2,
   Redo2,
   Save,
   Eye,
   Edit3,
-  Settings,
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { getLinksUrl } from "@/lib/url-helpers"
 import {
   Dialog,
   DialogContent,
@@ -116,6 +114,63 @@ function UnsavedChangesDialog({
   )
 }
 
+// Pro Upgrade Dialog Component - shown when trying to save with Pro features without Pro plan
+function ProUpgradeDialog({
+  open,
+  onClose,
+  onUpgrade,
+  onDiscard,
+  onKeepEditing,
+}: {
+  open: boolean
+  onClose: () => void
+  onUpgrade: () => void
+  onDiscard: () => void
+  onKeepEditing: () => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="w-[calc(100%-32px)] max-w-sm p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+        <div className="p-6 text-center">
+          {/* Pro Badge */}
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
+            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold mb-2">Upgrade to Pro?</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Some of the customizations you're previewing are exclusive to Storelib Pro. Let's get you upgraded so you can save them!
+          </p>
+        </div>
+
+        <div className="px-6 pb-6 space-y-3">
+          <button
+            onClick={onUpgrade}
+            className="w-full py-3 px-4 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-all shadow-md"
+          >
+            Upgrade To Pro
+          </button>
+
+          <button
+            onClick={onDiscard}
+            className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            Discard changes
+          </button>
+
+          <button
+            onClick={onKeepEditing}
+            className="w-full py-3 px-4 bg-white text-gray-500 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            Keep editing
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function EditorLayout() {
   const {
     onepage,
@@ -126,17 +181,61 @@ function EditorLayout() {
     undo,
     redo,
     save,
+    updateSettings,
   } = useOnePage()
 
   const [activeTab, setActiveTab] = useState<TabType>("links")
   const [copied, setCopied] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showMobilePreview, setShowMobilePreview] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isSavingForNav, setIsSavingForNav] = useState(false)
-  
+  const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
+
+  // Check if user has Pro features enabled that require Pro plan
+  const hasProFeaturesEnabled = useCallback(() => {
+    if (!onepage) return false
+    // Hide branding is a Pro feature - check if show_branding is false (meaning branding is hidden)
+    return onepage.settings.show_branding === false
+  }, [onepage])
+
+  // Handle save with Pro plan check
+  const handleSaveWithProCheck = useCallback(async () => {
+    // TODO: Replace this with actual Pro plan check from user's subscription
+    const userHasPro = false // For now, assume user doesn't have Pro
+
+    if (hasProFeaturesEnabled() && !userHasPro) {
+      setShowProUpgradeDialog(true)
+      return
+    }
+
+    // No Pro features or user has Pro, proceed with save
+    await save()
+  }, [hasProFeaturesEnabled, save])
+
+  // Handle upgrading to Pro
+  const handleUpgradeToPro = useCallback(() => {
+    setShowProUpgradeDialog(false)
+    // Redirect to upgrade page
+    window.open('/pricing', '_blank')
+  }, [])
+
+  // Handle discarding Pro changes
+  const handleDiscardProChanges = useCallback(() => {
+    // Reset Pro-only settings to defaults
+    updateSettings({
+      show_branding: true, // Re-enable branding
+      hide_branding_pro_enabled: false,
+    })
+    setShowProUpgradeDialog(false)
+  }, [updateSettings])
+
+  // Handle keep editing
+  const handleKeepEditing = useCallback(() => {
+    setShowProUpgradeDialog(false)
+  }, [])
+
   // Ref to track if we pushed state for back button interception
   const hasSetupBackInterceptionRef = useRef(false)
   const isDirtyRef = useRef(isDirty)
@@ -213,6 +312,15 @@ function EditorLayout() {
   }, [isDirty])
 
   const handleSaveAndNavigate = useCallback(async () => {
+    // TODO: Replace this with actual Pro plan check from user's subscription
+    const userHasPro = false
+
+    if (hasProFeaturesEnabled() && !userHasPro) {
+      setShowUnsavedDialog(false)
+      setShowProUpgradeDialog(true)
+      return
+    }
+
     setIsSavingForNav(true)
     await save()
     setIsSavingForNav(false)
@@ -224,7 +332,7 @@ function EditorLayout() {
       window.history.go(-2) // Go back 2 because we pushed a state
     }
     setPendingNavigation(null)
-  }, [save, pendingNavigation])
+  }, [save, pendingNavigation, hasProFeaturesEnabled])
 
   const handleDiscardAndNavigate = useCallback(() => {
     setShowUnsavedDialog(false)
@@ -245,7 +353,7 @@ function EditorLayout() {
     )
   }
 
-  const pageUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/l/${onepage.slug}`
+  const pageUrl = getLinksUrl(onepage.slug)
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(pageUrl)
@@ -254,7 +362,7 @@ function EditorLayout() {
   }
 
   const viewLive = () => {
-    window.open(`/l/${onepage.slug}`, "_blank")
+    window.open(pageUrl, "_blank")
   }
 
   const tabs = [
@@ -292,23 +400,13 @@ function EditorLayout() {
   const isSaveDisabled = saveState === "saving" || (saveState === "saved" && !isDirty) || !isDirty
 
   return (
-    <div 
-      className="flex flex-col bg-gray-50/50 fixed inset-0 md:left-64 top-14 md:top-0"
+    <div
+      className="flex flex-col bg-gray-50/50 fixed inset-0 md:left-64 top-[68px] md:top-0"
       style={{ zIndex: 10 }}
     >
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          {/* Mobile menu button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden h-9 w-9"
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-
           {/* Undo/Redo Buttons */}
           <div className="flex items-center gap-1">
             <Button
@@ -394,14 +492,14 @@ function EditorLayout() {
 
           {/* Save Button */}
           <Button
-            onClick={save}
+            onClick={handleSaveWithProCheck}
             disabled={isSaveDisabled}
             className={cn(
               "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-all duration-200",
               saveState === "saved" && !isDirty
                 ? "bg-gray-900 hover:bg-gray-900 text-white cursor-default"
                 : isDirty
-                  ? "bg-blue-500 hover:bg-blue-600 text-white"
+                  ? "bg-violet-500 hover:bg-violet-600 text-white"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"
             )}
           >
@@ -421,13 +519,13 @@ function EditorLayout() {
             </button>
           </div>
 
-          {/* Mobile Preview Toggle - Blue button */}
+          {/* Mobile Preview Toggle - Black button */}
           <Button
             variant={showMobilePreview ? "outline" : "default"}
             size="sm"
             className={cn(
               "md:hidden h-8 px-3 rounded-lg",
-              !showMobilePreview && "bg-blue-500 hover:bg-blue-600 text-white"
+              !showMobilePreview && "bg-gray-900 hover:bg-gray-800 text-white"
             )}
             onClick={() => setShowMobilePreview(!showMobilePreview)}
           >
@@ -540,14 +638,31 @@ function EditorLayout() {
 
       {/* Link Modal - Fully Responsive */}
       <Dialog open={showLinkModal} onOpenChange={setShowLinkModal}>
-        <DialogContent className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92vw] sm:w-[420px] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border bg-background shadow-lg z-50">
-          <DialogHeader className="p-4 sm:p-5 border-b bg-background">
+        <DialogContent className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92vw] sm:w-[420px] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border bg-background shadow-lg">
+          <DialogHeader className="p-4 sm:p-5 border-b bg-background relative">
             <DialogTitle className="text-base sm:text-lg font-semibold text-center">Share your OnePage</DialogTitle>
           </DialogHeader>
 
           <div className="p-4 sm:p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-            {/* Preview card */}
-            <div className="bg-gray-900 rounded-xl p-4 sm:p-5 text-center">
+            {/* Preview card - adapts to theme background */}
+            <div
+              className="rounded-xl p-4 sm:p-5 text-center"
+              style={{
+                background: onepage.theme.background_type === "gradient" && onepage.theme.background_gradient
+                  ? onepage.theme.background_gradient
+                  : (() => {
+                      // If background is white or very light, use light gray instead
+                      const bgColor = onepage.theme.background_color || "#1f2937"
+                      const isWhiteOrLight = bgColor.toLowerCase() === "#ffffff" ||
+                        bgColor.toLowerCase() === "#fff" ||
+                        bgColor.toLowerCase() === "white" ||
+                        bgColor.toLowerCase() === "#fafafa" ||
+                        bgColor.toLowerCase() === "#f9fafb" ||
+                        bgColor.toLowerCase() === "#f5f5f5"
+                      return isWhiteOrLight ? "#f3f4f6" : bgColor
+                    })(),
+              }}
+            >
               {onepage.avatar_url ? (
                 <img
                   src={onepage.avatar_url}
@@ -555,14 +670,30 @@ function EditorLayout() {
                   className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 object-cover"
                 />
               ) : (
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 bg-gray-700 flex items-center justify-center">
-                  <span className="text-lg sm:text-xl text-white font-semibold">
+                <div
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 flex items-center justify-center"
+                  style={{ backgroundColor: `${onepage.theme.text_color}20` }}
+                >
+                  <span
+                    className="text-lg sm:text-xl font-semibold"
+                    style={{ color: onepage.theme.text_color }}
+                  >
                     {onepage.title?.charAt(0)?.toUpperCase() || "?"}
                   </span>
                 </div>
               )}
-              <h3 className="text-white font-semibold text-sm">{onepage.title || "Your Name"}</h3>
-              <p className="text-gray-400 text-xs mt-1">✦ /{onepage.slug}</p>
+              <h3
+                className="font-semibold text-sm"
+                style={{ color: onepage.theme.text_color }}
+              >
+                {onepage.title || "Your Name"}
+              </h3>
+              <p
+                className="text-xs mt-1"
+                style={{ color: `${onepage.theme.text_color}80` }}
+              >
+                ✦ /{onepage.slug}
+              </p>
             </div>
 
             {/* URL copy section */}
@@ -592,45 +723,6 @@ function EditorLayout() {
         </DialogContent>
       </Dialog>
 
-      {/* Mobile Navigation Sheet */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-72 p-0">
-          <SheetHeader className="p-4 border-b">
-            <SheetTitle>Menu</SheetTitle>
-          </SheetHeader>
-          <div className="p-3 space-y-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setMobileMenuOpen(false); setShowMobilePreview(false); }}
-                  className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    activeTab === tab.id
-                      ? "bg-gray-100 text-foreground"
-                      : "text-muted-foreground hover:bg-gray-50"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {tab.label}
-                </button>
-              )
-            })}
-          </div>
-          <div className="border-t p-3 space-y-1">
-            <Button variant="ghost" size="sm" onClick={copyLink} className="w-full justify-start h-10 rounded-lg">
-              <Copy className="h-4 w-4 mr-3" />
-              Copy Link
-            </Button>
-            <Button variant="ghost" size="sm" onClick={viewLive} className="w-full justify-start h-10 rounded-lg">
-              <ExternalLink className="h-4 w-4 mr-3" />
-              View Live
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
       {/* Unsaved Changes Dialog */}
       <UnsavedChangesDialog
         open={showUnsavedDialog}
@@ -638,6 +730,15 @@ function EditorLayout() {
         onSave={handleSaveAndNavigate}
         onDiscard={handleDiscardAndNavigate}
         isSaving={isSavingForNav}
+      />
+
+      {/* Pro Upgrade Dialog - shown when trying to save with Pro features */}
+      <ProUpgradeDialog
+        open={showProUpgradeDialog}
+        onClose={() => setShowProUpgradeDialog(false)}
+        onUpgrade={handleUpgradeToPro}
+        onDiscard={handleDiscardProChanges}
+        onKeepEditing={handleKeepEditing}
       />
     </div>
   )

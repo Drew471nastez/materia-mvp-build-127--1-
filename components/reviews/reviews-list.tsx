@@ -28,6 +28,11 @@ interface ReviewsListProps {
   showHeader?: boolean
   isPreview?: boolean
   isMobile?: boolean
+  accentColor?: string
+  textColor?: string
+  starColor?: string
+  cardBackgroundColor?: string
+  cardBorderColor?: string
 }
 
 export function ReviewsList({
@@ -39,6 +44,11 @@ export function ReviewsList({
   showHeader = true,
   isPreview = false,
   isMobile = false,
+  accentColor,
+  textColor,
+  starColor,
+  cardBackgroundColor,
+  cardBorderColor,
 }: ReviewsListProps) {
   const [reviews, setReviews] = useState<Review[]>(initialReviews)
   const [total, setTotal] = useState(initialTotal)
@@ -115,26 +125,46 @@ export function ReviewsList({
             reviewsAverage={reviewsAverage || 5.0}
             starBreakdown={previewBreakdown}
             isMobile={isMobile}
+            accentColor={accentColor}
+            textColor={textColor}
+            starColor={starColor}
           />
-          
+
           {showHeader && (
-            <div className={cn(
-              "flex items-center justify-between border-t",
-              isMobile ? "pt-4" : "pt-6"
-            )}>
-              <h3 className={cn(
-                "font-semibold text-gray-900",
-                isMobile ? "text-base" : "text-lg"
-              )}>
+            <div
+              className={cn(
+                "flex items-center justify-between border-t",
+                isMobile ? "pt-4" : "pt-6"
+              )}
+              style={{ borderColor: cardBorderColor || undefined }}
+            >
+              <h3
+                className={cn(
+                  "font-semibold",
+                  isMobile ? "text-base" : "text-lg"
+                )}
+                style={{ color: textColor || "#111827" }}
+              >
                 Customer Reviews
               </h3>
             </div>
           )}
 
           {reviews.length > 0 && (
-            <div className="divide-y divide-gray-100">
+            <div
+              className="divide-y"
+              style={{ borderColor: cardBorderColor || "rgb(243, 244, 246)" }}
+            >
               {reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} isMobile={isMobile} />
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  isMobile={isMobile}
+                  textColor={textColor}
+                  starColor={starColor}
+                  cardBackgroundColor={cardBackgroundColor}
+                  cardBorderColor={cardBorderColor}
+                />
               ))}
             </div>
           )}
@@ -142,28 +172,48 @@ export function ReviewsList({
       )
     }
 
-    // No reviews in preview mode - show placeholder
+    // No reviews in preview mode - show placeholder with 0 reviews
     return (
       <div className={cn("space-y-4", isMobile ? "space-y-4" : "space-y-6")}>
         <ReviewsRatingBreakdown
-          reviewsCount={23}
-          reviewsAverage={5.0}
+          reviewsCount={0}
+          reviewsAverage={0}
           starBreakdown={{
-            5: 20,
-            4: 2,
-            3: 1,
+            5: 0,
+            4: 0,
+            3: 0,
             2: 0,
             1: 0,
           }}
           isMobile={isMobile}
+          accentColor={accentColor}
+          textColor={textColor}
+          starColor={starColor}
         />
-        <div className={cn(
-          "rounded-xl border border-dashed border-gray-300 bg-gray-50/50 text-center",
-          isMobile ? "p-6" : "p-8"
-        )}>
-          <Star className={cn("mx-auto text-gray-300 mb-3", isMobile ? "h-8 w-8" : "h-10 w-10")} />
-          <p className={cn("text-gray-500 font-medium", isMobile ? "text-sm" : "text-base")}>No reviews yet</p>
-          <p className={cn("text-gray-400 mt-1", isMobile ? "text-xs" : "text-sm")}>
+        <div
+          className={cn(
+            "rounded-xl border border-dashed text-center",
+            isMobile ? "p-6" : "p-8"
+          )}
+          style={{
+            borderColor: cardBorderColor || "rgb(209, 213, 219)",
+            backgroundColor: cardBackgroundColor ? `${cardBackgroundColor}80` : "rgba(249, 250, 251, 0.5)",
+          }}
+        >
+          <Star
+            className={cn("mx-auto mb-3", isMobile ? "h-8 w-8" : "h-10 w-10")}
+            style={{ color: starColor ? `${starColor}50` : "rgb(209, 213, 219)" }}
+          />
+          <p
+            className={cn("font-medium", isMobile ? "text-sm" : "text-base")}
+            style={{ color: textColor ? `${textColor}cc` : "rgb(107, 114, 128)" }}
+          >
+            No reviews yet
+          </p>
+          <p
+            className={cn("mt-1", isMobile ? "text-xs" : "text-sm")}
+            style={{ color: textColor ? `${textColor}99` : "rgb(156, 163, 175)" }}
+          >
             Reviews will appear here once customers leave feedback.
           </p>
         </div>
@@ -185,19 +235,28 @@ export function ReviewsList({
           reviewsAverage={reviewsAverage}
           starBreakdown={starBreakdown}
           isMobile={isMobile}
+          accentColor={accentColor}
+          textColor={textColor}
+          starColor={starColor}
         />
       )}
 
       {/* Reviews Header */}
       {showHeader && reviewsCount > 0 && (
-        <div className={cn(
-          "flex items-center justify-between border-t",
-          isMobile ? "pt-4" : "pt-6"
-        )}>
-          <h3 className={cn(
-            "font-semibold text-gray-900",
-            isMobile ? "text-base" : "text-lg"
-          )}>
+        <div
+          className={cn(
+            "flex items-center justify-between border-t",
+            isMobile ? "pt-4" : "pt-6"
+          )}
+          style={{ borderColor: cardBorderColor || undefined }}
+        >
+          <h3
+            className={cn(
+              "font-semibold",
+              isMobile ? "text-base" : "text-lg"
+            )}
+            style={{ color: textColor || "#111827" }}
+          >
             Customer Reviews
           </h3>
         </div>
@@ -205,20 +264,35 @@ export function ReviewsList({
 
       {/* Individual Reviews */}
       {reviews.length > 0 && (
-        <div className="divide-y divide-gray-100">
+        <div
+          className="divide-y"
+          style={{ borderColor: cardBorderColor || "rgb(243, 244, 246)" }}
+        >
           {reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} isMobile={isMobile} />
+            <ReviewCard
+              key={review.id}
+              review={review}
+              isMobile={isMobile}
+              textColor={textColor}
+              starColor={starColor}
+              cardBackgroundColor={cardBackgroundColor}
+              cardBorderColor={cardBorderColor}
+            />
           ))}
         </div>
       )}
 
       {hasMore && (
         <div className="pt-2">
-          <Button 
-            variant="outline" 
-            onClick={loadMore} 
-            disabled={isLoading} 
+          <Button
+            variant="outline"
+            onClick={loadMore}
+            disabled={isLoading}
             className={cn("w-full bg-transparent", isMobile ? "h-10 text-sm" : "")}
+            style={{
+              borderColor: cardBorderColor || undefined,
+              color: textColor || undefined,
+            }}
           >
             {isLoading ? (
               <>

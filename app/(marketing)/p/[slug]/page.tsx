@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { DownloadButton } from "@/components/download-button"
 import { TrackView } from "@/components/analytics/track-view"
 import { SectionRenderer, type ProductData } from "@/components/store-builder/section-renderer"
+import { ProductAboutSection } from "@/components/store-builder/unified-section-renderer"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { LiveProductCreatorBar } from "@/components/store-builder/product-creator-bar"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
@@ -20,25 +21,36 @@ import {
   defaultMoreFromSellerSettings,
   defaultProductCreatorBarSettings,
   defaultStickyAddToCartSettings,
+  defaultReviewsSettings,
 } from "@/lib/store-builder/defaults"
 import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
+import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
+import { getStoreUrl } from "@/lib/url-helpers"
+import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
+
+import { themePresets } from "@/lib/store-builder/defaults"
 
 // Icon mapping for what's included items
-function getIncludedItemIcon(item: string) {
+function getIncludedItemIcon(item: string, iconColor?: string) {
   const lowerItem = item.toLowerCase()
+  const colorStyle = iconColor ? { color: iconColor } : undefined
+  const defaultClass = iconColor ? "h-4 w-4 mt-0.5 shrink-0" : "h-4 w-4 mt-0.5 shrink-0 text-black"
+
   if (lowerItem.includes("instant") || lowerItem.includes("download")) {
-    return <Download className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+    return <Download className={defaultClass} style={colorStyle} />
   }
   if (lowerItem.includes("files") || lowerItem.includes("included")) {
-    return <Files className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+    return <Files className={defaultClass} style={colorStyle} />
   }
   if (lowerItem.includes("lifetime") || lowerItem.includes("access")) {
-    return <Infinity className="h-4 w-4 mt-0.5 shrink-0 text-black" />
+    return <Infinity className={defaultClass} style={colorStyle} />
   }
-  return <Check className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
+  // For check icon, use iconColor if provided, otherwise default green
+  const checkClass = iconColor ? "h-4 w-4 mt-0.5 shrink-0" : "h-4 w-4 mt-0.5 shrink-0 text-green-600"
+  return <Check className={checkClass} style={colorStyle} />
 }
 
 export const dynamic = "force-dynamic"
@@ -124,8 +136,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // ---------------------------------------------------------------------------
   // Product page config (specific > creator default)
+  // Global settings (creator bar, sticky, buy button, spacing) always come from default template
   // ---------------------------------------------------------------------------
   let productPageConfig: any = null
+
+  // Always fetch the default template for global settings
+  const { data: defaultTemplate } = await supabase
+    .from("store_builder_configs")
+    .select("published_config")
+    .eq("creator_id", product.creator_id)
+    .eq("page_type", "product")
+    .maybeSingle()
+
+  const globalHeaderSettings = defaultTemplate?.published_config?.headerSettings || {}
 
   const { data: specificConfig } = await supabase
     .from("product_page_configs")
@@ -135,18 +158,36 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     .maybeSingle()
 
   if (specificConfig?.published_config) {
-    productPageConfig = specificConfig.published_config
-  } else {
-    const { data: defaultConfig } = await supabase
-      .from("store_builder_configs")
-      .select("published_config")
-      .eq("creator_id", product.creator_id)
-      .eq("page_type", "product")
-      .maybeSingle()
-
-    if (defaultConfig?.published_config) {
-      productPageConfig = defaultConfig.published_config
+    // Merge global settings into product-specific config
+    // IMPORTANT: globalSettings (themePreset) and globalColors ALWAYS come from default template
+    // This ensures that when theme is changed from homepage, ALL product pages update correctly
+    productPageConfig = {
+      ...specificConfig.published_config,
+      // Always use globalSettings from default template (includes themePreset)
+      globalSettings: defaultTemplate?.published_config?.globalSettings || specificConfig.published_config.globalSettings,
+      // Always use globalColors from default template (includes page background)
+      globalColors: defaultTemplate?.published_config?.globalColors || specificConfig.published_config.globalColors,
+      headerSettings: {
+        ...specificConfig.published_config.headerSettings,
+        // Use global settings for these fields (from default template)
+        creatorBar: globalHeaderSettings.creatorBar || specificConfig.published_config.headerSettings?.creatorBar,
+        stickyAddToCart: globalHeaderSettings.stickyAddToCart || specificConfig.published_config.headerSettings?.stickyAddToCart,
+        buyButtonColor: globalHeaderSettings.buyButtonColor || specificConfig.published_config.headerSettings?.buyButtonColor,
+        buyButtonTextColor: globalHeaderSettings.buyButtonTextColor || specificConfig.published_config.headerSettings?.buyButtonTextColor,
+        buttonsBorderRadius: globalHeaderSettings.buttonsBorderRadius || specificConfig.published_config.headerSettings?.buttonsBorderRadius,
+        spacing: globalHeaderSettings.spacing || specificConfig.published_config.headerSettings?.spacing,
+        // Theme-related color settings from global template (always override product-specific)
+        colors: globalHeaderSettings.colors || specificConfig.published_config.headerSettings?.colors,
+        faqColors: globalHeaderSettings.faqColors || specificConfig.published_config.headerSettings?.faqColors,
+        reviewsColors: globalHeaderSettings.reviewsColors || specificConfig.published_config.headerSettings?.reviewsColors,
+        productCardColors: globalHeaderSettings.productCardColors || specificConfig.published_config.headerSettings?.productCardColors,
+        priceContainerColors: globalHeaderSettings.priceContainerColors || specificConfig.published_config.headerSettings?.priceContainerColors,
+        wishlistButtonColors: globalHeaderSettings.wishlistButtonColors || specificConfig.published_config.headerSettings?.wishlistButtonColors,
+        viewInLibraryButtonColors: globalHeaderSettings.viewInLibraryButtonColors || specificConfig.published_config.headerSettings?.viewInLibraryButtonColors,
+      },
     }
+  } else if (defaultTemplate?.published_config) {
+    productPageConfig = defaultTemplate.published_config
   }
 
   // Extract buy button colors from config
@@ -163,6 +204,48 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.showSalesAnnouncement ?? false
   const showRatingNextToSeller =
     (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.showRatingNextToSeller ?? true
+
+  // Extract theme colors from config
+  const headerSettings = productPageConfig?.headerSettings as any
+
+  // Get theme preset from global settings
+  const themePreset = productPageConfig?.globalSettings?.themePreset || "default"
+  const themeConfig = themePresets[themePreset as keyof typeof themePresets]
+
+  // Determine if this is a dark/colorful theme
+  const isColorfulTheme = false // No more colorful themes
+  const isDarkTheme = ["astrid"].includes(themePreset)
+
+  // CRITICAL: Theme colors ALWAYS come from the theme preset to ensure global consistency
+  // This ensures that when a theme preset is applied on any product page, ALL products get the same colors
+  const themeColors = {
+    // Page and text colors - prioritize theme preset, then globalColors, then fallback
+    pageBackground: themeConfig?.sections?.pageBackgroundColor || productPageConfig?.globalColors?.backgroundColor || "var(--background)",
+    textColor: themeConfig?.colors?.foreground || headerSettings?.colors?.textColor || "inherit",
+    // FAQ section colors - ALWAYS from theme preset for global consistency
+    faqTextColor: themeConfig?.faqSection?.textColor || headerSettings?.faqColors?.textColor,
+    faqBorderColor: themeConfig?.faqSection?.borderColor || headerSettings?.faqColors?.borderColor,
+    faqIconColor: themeConfig?.faqSection?.iconColor || headerSettings?.faqColors?.iconColor,
+    // Reviews section colors - ALWAYS from theme preset for global consistency
+    reviewsTextColor: themeConfig?.reviewsSection?.textColor || headerSettings?.reviewsColors?.textColor,
+    reviewsStarColor: themeConfig?.reviewsSection?.starColor || headerSettings?.reviewsColors?.starColor,
+    reviewsCardBackground: themeConfig?.reviewsSection?.cardBackgroundColor || headerSettings?.reviewsColors?.cardBackgroundColor,
+    reviewsCardBorder: themeConfig?.reviewsSection?.cardBorderColor || headerSettings?.reviewsColors?.cardBorderColor,
+    // Product card colors (for price cards, containers) - ALWAYS from theme preset
+    cardBackground: themeConfig?.priceContainer?.backgroundColor || headerSettings?.productCardColors?.backgroundColor,
+    cardTextColor: themeConfig?.priceContainer?.textColor || headerSettings?.productCardColors?.textColor,
+    cardPriceColor: themeConfig?.priceContainer?.mutedTextColor || headerSettings?.productCardColors?.priceColor,
+    cardBorderColor: themeConfig?.priceContainer?.borderColor || headerSettings?.productCardColors?.borderColor,
+    cardIconColor: themeConfig?.priceContainer?.iconColor || headerSettings?.productCardColors?.textColor,
+    // View in Library button colors - ALWAYS from theme preset
+    viewInLibraryBg: themeConfig?.viewInLibraryButton?.backgroundColor,
+    viewInLibraryText: themeConfig?.viewInLibraryButton?.textColor,
+    viewInLibraryBorder: themeConfig?.viewInLibraryButton?.borderColor,
+  }
+
+  // Download button colors - use buyButtonColor if set (custom), otherwise use theme preset colors
+  const downloadButtonBgColor = buyButtonColor || themeConfig?.productHeader?.buyButtonColor || "#2563eb"
+  const downloadButtonTextColor = buyButtonTextColor || themeConfig?.productHeader?.buyButtonTextColor || "#ffffff"
 
   // ---------------------------------------------------------------------------
   // Purchase state
@@ -257,17 +340,181 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       description: p.description,
     })) || []
 
+  // Apply theme colors to all sections from the product page config
+  // This ensures sections always reflect the current theme preset
+  // IMPORTANT: Theme colors ALWAYS override section settings to ensure global theme consistency
+  const applySectionThemeColors = (sections: Section[]): Section[] => {
+    if (!themeConfig) return sections
+
+    return sections.map((section) => {
+      const newSection = { ...section, settings: { ...section.settings } }
+
+      // Apply more-from-seller section colors from theme
+      // Theme colors ALWAYS override - this ensures global theme preset applies correctly
+      if (section.type === "more-from-seller") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.sections?.featuredProductsBackgroundColor,
+            textColor: themeConfig.sections?.featuredProductsTextColor || themeConfig.colors?.foreground,
+          },
+          productCardColors: {
+            backgroundColor: themeConfig.productCard?.backgroundColor,
+            textColor: themeConfig.productCard?.textColor,
+            priceColor: themeConfig.productCard?.priceColor,
+            borderColor: themeConfig.productCard?.borderColor,
+          },
+        }
+      }
+
+      // Apply reviews section colors from theme
+      // Theme colors ALWAYS override - this ensures global theme preset applies correctly
+      if (section.type === "reviews") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.reviewsSection?.backgroundColor,
+            textColor: themeConfig.reviewsSection?.textColor,
+          },
+          reviewsColors: {
+            starColor: themeConfig.reviewsSection?.starColor,
+            cardBackgroundColor: themeConfig.reviewsSection?.cardBackgroundColor,
+            cardBorderColor: themeConfig.reviewsSection?.cardBorderColor,
+          },
+        }
+      }
+
+      // Apply text block colors from theme
+      if (section.type === "text-block") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.textBlock?.backgroundColor,
+            textColor: themeConfig.textBlock?.headlineColor,
+          },
+          headlineColor: themeConfig.textBlock?.headlineColor,
+          contentColor: themeConfig.textBlock?.contentColor,
+        }
+      }
+
+      // Apply image-text section colors from theme
+      if (section.type === "image-text") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.imageText?.backgroundColor,
+            textColor: themeConfig.imageText?.textColor,
+          },
+          buttonColor: themeConfig.imageText?.buttonColor,
+          buttonTextColor: themeConfig.imageText?.buttonTextColor,
+          buttonBorderRadius: themeConfig.buttonBorderRadius,
+        }
+      }
+
+      // Apply benefits section colors from theme
+      if (section.type === "benefits") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.benefits?.backgroundColor,
+            textColor: themeConfig.benefits?.textColor,
+          },
+          iconColor: themeConfig.benefits?.iconColor,
+        }
+      }
+
+      // Apply announcement bar colors from theme
+      if (section.type === "announcement-bar") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.announcementBar?.backgroundColor,
+            textColor: themeConfig.announcementBar?.textColor,
+          },
+        }
+      }
+
+      // Apply featured-products section colors from theme (in case used on product pages)
+      if (section.type === "featured-products") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.sections?.featuredProductsBackgroundColor,
+            textColor: themeConfig.sections?.featuredProductsTextColor || themeConfig.colors?.foreground,
+          },
+          productCardColors: {
+            backgroundColor: themeConfig.productCard?.backgroundColor,
+            textColor: themeConfig.productCard?.textColor,
+            priceColor: themeConfig.productCard?.priceColor,
+            borderColor: themeConfig.productCard?.borderColor,
+          },
+          categoryFilterColors: {
+            textColor: themeConfig.categoryFilter?.textColor,
+            activeTextColor: themeConfig.categoryFilter?.activeTextColor,
+            borderColor: themeConfig.categoryFilter?.borderColor,
+          },
+        }
+      }
+
+      // Apply about section colors from theme
+      if (section.type === "about") {
+        newSection.settings = {
+          ...newSection.settings,
+          colors: {
+            backgroundColor: themeConfig.about?.backgroundColor,
+            textColor: themeConfig.about?.textColor,
+          },
+          mutedTextColor: themeConfig.about?.mutedTextColor,
+        }
+      }
+
+      return newSection
+    })
+  }
+
   // Get more-from-seller section settings from published config, or use defaults
   const publishedMoreFromSellerSection = productPageConfig?.sections?.find(
     (s: Section) => s.type === "more-from-seller",
   )
 
-  const moreFromSellerSection: Section = publishedMoreFromSellerSection || {
+  // Create default more-from-seller section with theme colors applied
+  const moreFromSellerSectionRaw: Section = publishedMoreFromSellerSection || {
     id: "more-from-seller-default",
     type: "more-from-seller",
     settings: { ...defaultMoreFromSellerSettings },
     order: 999,
   }
+
+  // Apply theme colors to the section
+  const moreFromSellerSection = applySectionThemeColors([moreFromSellerSectionRaw])[0]
+
+  // Apply theme colors to all sections in the product page config
+  const themedSections = productPageConfig?.sections ? applySectionThemeColors(productPageConfig.sections) : []
+
+  // Get FAQ section settings for custom FAQs
+  const faqSection = productPageConfig?.sections?.find((s: Section) => s.type === "faq")
+  const customFaqs = ((faqSection?.settings as any)?.customFaqs || [])
+    .filter((faq: any) => faq.question && faq.answer)
+    .map((faq: any) => ({ question: faq.question, answer: faq.answer }))
+
+  // Default FAQs
+  const defaultFaqs = [
+    {
+      question: "How do I access my purchase?",
+      answer: "After you complete checkout, you can download the product immediately on the download page. You'll also receive an email with the download link, so you can access it anytime from your inbox.",
+    },
+    {
+      question: "Is there a refund policy?",
+      answer: "Refund policies are set by individual creators. Please check product info or contact the seller directly if you have questions about refunds.",
+    },
+    {
+      question: "How long do I have access?",
+      answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.",
+    },
+  ]
+
+  // Combine custom FAQs with default FAQs - Custom FAQs appear ABOVE default FAQs
+  const displayFaqs = [...customFaqs, ...defaultFaqs]
 
   const { data: reviews } = await supabase
     .from("reviews")
@@ -354,6 +601,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       whats_included: product.whats_included,
       gallery_urls: product.gallery_urls,
       faqs: product.faqs,
+      refund_policy_enabled: product.refund_policy_enabled,
+      refund_policy_type: product.refund_policy_type,
+      refund_policy_fine_print: product.refund_policy_fine_print,
+      refund_policy_updated_at: product.refund_policy_updated_at,
     },
   ]
 
@@ -372,15 +623,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         </Alert>
       )}
 
-      {already_owned === "true" && (
-        <Alert className="mb-6 border-blue-500/50 bg-blue-50 text-blue-800">
-          <CheckCircle className="h-4 w-4" />
-          <AlertTitle>You already own this</AlertTitle>
-          <AlertDescription>
-            You already have access to this product. Download it below or view it in your library.
-          </AlertDescription>
-        </Alert>
-      )}
     </>
   )
 
@@ -404,11 +646,26 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
         <div className="mt-6 sm:mt-8">
           <div className="flex items-start justify-between gap-3 sm:gap-4">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-foreground break-words flex-1 min-w-0">
+            <h1
+              className="text-2xl sm:text-3xl font-semibold break-words flex-1 min-w-0"
+              style={{ color: themeColors.textColor || "var(--foreground)" }}
+            >
               {product.title}
             </h1>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Badge variant="secondary" className="shrink-0 capitalize">
+              <Badge
+                variant="secondary"
+                className="shrink-0 capitalize"
+                style={isDarkTheme ? {
+                  backgroundColor: "#2a2a2a",
+                  color: "#fafafa",
+                  borderColor: "#3a3a3a"
+                } : themePreset === "cream" ? {
+                  backgroundColor: "#ffffff",
+                  color: "#000000",
+                  borderColor: "#e8dfc9"
+                } : undefined}
+              >
                 {productCategories[0]?.name || product.type}
               </Badge>
             </div>
@@ -418,25 +675,41 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {creator && (
             <div className="hidden lg:flex mt-4 items-center justify-between">
               <div className="flex items-center gap-3 p-2 -ml-2">
-                <Link
-                  href={`/u/${creatorUsername}${srcParam}`}
+                <a
+                  href={getStoreUrl(creatorUsername)}
                   className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src={creatorProfile?.avatar_url || undefined} />
                     <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
                   </Avatar>
-                  <p className="font-medium text-foreground truncate">{creatorProfile?.display_name || "Creator"}</p>
-                </Link>
+                  <p
+                    className="font-medium truncate"
+                    style={{ color: themeColors.textColor || "var(--foreground)" }}
+                  >
+                    {creatorProfile?.display_name || "Creator"}
+                  </p>
+                </a>
                 {showRatingNextToSeller && reviewsCount > 0 && (
                   <div className="flex items-center gap-1 shrink-0">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <Star
                         key={star}
-                        className={`h-4 w-4 ${star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300"}`}
+                        className="h-4 w-4"
+                        style={{
+                          color: star <= Math.round(reviewsAverage)
+                            ? (themeColors.reviewsStarColor || "#000000")
+                            : "rgb(209, 213, 219)",
+                          fill: star <= Math.round(reviewsAverage) ? "currentColor" : "none",
+                        }}
                       />
                     ))}
-                    <span className="text-sm text-muted-foreground ml-1">({reviewsCount})</span>
+                    <span
+                      className="text-sm ml-1"
+                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                    >
+                      ({reviewsCount})
+                    </span>
                   </div>
                 )}
               </div>
@@ -446,14 +719,26 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
           {/* Mobile: Price card and Creator info ABOVE description */}
           <div className="mt-6 lg:hidden">
-            <div className="rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
+            <div
+              className="rounded-xl border p-4 sm:p-6 shadow-sm"
+              style={{
+                backgroundColor: themeColors.cardBackground || "var(--card)",
+                borderColor: themeColors.cardBorderColor || "var(--border)",
+              }}
+            >
               <div className="mb-4">
-                <div className="text-2xl font-bold text-foreground">
+                <div
+                  className="text-2xl font-bold"
+                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                >
                   {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                 </div>
                 {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="text-base text-muted-foreground line-through">
+                    <span
+                      className="text-base line-through"
+                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                    >
                       {formatPrice(product.compare_at_cents)}
                     </span>
                     <Badge variant="destructive">
@@ -466,16 +751,45 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               {hasPurchased ? (
                 <div className="space-y-3">
                   {product.type === "digital" && firstAssetId && (
-                    <DownloadButton assetId={firstAssetId} className="w-full min-h-[44px]" size="default">
+                    <DownloadButton
+                      assetId={firstAssetId}
+                      className="w-full min-h-[44px]"
+                      size="default"
+                      style={{
+                        backgroundColor: downloadButtonBgColor,
+                        color: downloadButtonTextColor,
+                      }}
+                    >
                       Download File
                     </DownloadButton>
                   )}
-                  <Button variant="outline" className="w-full bg-transparent min-h-[44px]" asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full min-h-[44px]"
+                    asChild
+                    style={{
+                      backgroundColor: themeColors.viewInLibraryBg || "transparent",
+                      color: themeColors.viewInLibraryText || "inherit",
+                      borderColor: themeColors.viewInLibraryBorder || "var(--border)",
+                    }}
+                  >
                     <Link href="/library/my-downloads">
                       <ArrowRight className="mr-2 h-4 w-4" />
                       View in Library
                     </Link>
                   </Button>
+
+                  {/* Refund Policy Display - shown after View in Library */}
+                  <RefundPolicyDisplay
+                    enabled={product.refund_policy_enabled}
+                    policyType={product.refund_policy_type}
+                    finePrint={product.refund_policy_fine_print}
+                    updatedAt={product.refund_policy_updated_at}
+                    className="mt-3"
+                    textColor={themeColors.cardTextColor}
+                    themePreset={themePreset}
+                    isDarkTheme={isDarkTheme}
+                  />
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -486,16 +800,47 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     backgroundColor={buyButtonColor}
                     textColor={buyButtonTextColor}
                   />
-                  <WishlistButton productId={product.id} isLoggedIn={!!user} />
+                  <WishlistButton
+                    productId={product.id}
+                    isLoggedIn={!!user}
+                    backgroundColor={themeColors.cardBackground}
+                    textColor={themeColors.cardTextColor}
+                    borderColor={themeColors.cardBorderColor}
+                    iconColor={themeColors.cardIconColor}
+                  />
+
+                  {/* Refund Policy Display */}
+                  <RefundPolicyDisplay
+                    enabled={product.refund_policy_enabled}
+                    policyType={product.refund_policy_type}
+                    finePrint={product.refund_policy_fine_print}
+                    updatedAt={product.refund_policy_updated_at}
+                    className="mt-3"
+                    textColor={themeColors.cardTextColor}
+                    themePreset={themePreset}
+                    isDarkTheme={isDarkTheme}
+                  />
                 </div>
               )}
 
-              <div className="mt-4 border-t border-border pt-4">
-                <h3 className="font-semibold text-foreground">What&apos;s included</h3>
+              <div
+                className="mt-4 border-t pt-4"
+                style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+              >
+                <h3
+                  className="font-semibold"
+                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                >
+                  What&apos;s included
+                </h3>
                 <ul className="mt-3 space-y-2">
-                  {getWhatsIncluded().map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
-                      {getIncludedItemIcon(item)}
+                  {getWhatsIncluded().map((item: string, idx: number) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-2 text-sm"
+                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                    >
+                      {getIncludedItemIcon(item, themeColors.cardIconColor)}
                       <span>{item}</span>
                     </li>
                   ))}
@@ -503,8 +848,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               </div>
 
               {showSalesAnnouncement && product.sales_count > 0 && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <p className="text-sm text-muted-foreground text-center">
+                <div
+                  className="mt-4 pt-4 border-t"
+                  style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+                >
+                  <p
+                    className="text-sm text-center"
+                    style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                  >
                     {product.sales_count} {product.sales_count === 1 ? "person has" : "people have"} purchased this
                   </p>
                 </div>
@@ -513,26 +864,46 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
             {/* Mobile: Creator info OUTSIDE the card with share button */}
             {creator && (
-              <div className="mt-4 flex items-center justify-between p-3 rounded-lg border border-border bg-card">
+              <div
+                className="mt-4 flex items-center justify-between p-3 rounded-lg border"
+                style={{
+                  backgroundColor: themeColors.cardBackground || "var(--card)",
+                  borderColor: themeColors.cardBorderColor || "var(--border)",
+                }}
+              >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <Link href={`/u/${creatorUsername}${srcParam}`} className="flex items-center gap-3">
+                  <a href={getStoreUrl(creatorUsername)} className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorProfile?.avatar_url || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
                     </Avatar>
-                    <p className="font-medium text-foreground truncate text-sm">
+                    <p
+                      className="font-medium truncate text-sm"
+                      style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                    >
                       {creatorProfile?.display_name || "Creator"}
                     </p>
-                  </Link>
+                  </a>
                   {showRatingNextToSeller && reviewsCount > 0 && (
                     <div className="flex items-center gap-0.5 shrink-0">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
                           key={star}
-                          className={`h-3 w-3 ${star <= Math.round(reviewsAverage) ? "fill-current text-black" : "text-gray-300"}`}
+                          className="h-3 w-3"
+                          style={{
+                            color: star <= Math.round(reviewsAverage)
+                              ? (themeColors.reviewsStarColor || "#000000")
+                              : "rgb(209, 213, 219)",
+                            fill: star <= Math.round(reviewsAverage) ? "currentColor" : "none",
+                          }}
                         />
                       ))}
-                      <span className="text-xs text-muted-foreground ml-1">({reviewsCount})</span>
+                      <span
+                        className="text-xs ml-1"
+                        style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                      >
+                        ({reviewsCount})
+                      </span>
                     </div>
                   )}
                 </div>
@@ -547,29 +918,57 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           </div>
 
           {product.description && (
-            <div className="mt-6">
-              <h2 className="mb-3 text-lg font-semibold text-foreground">Description</h2>
-              <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed break-words">
-                {product.description.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
-              </p>
+            <div className="mt-6" data-description-section>
+              <h2
+                className="mb-3 text-lg font-semibold"
+                style={{ color: themeColors.textColor || "var(--foreground)" }}
+              >
+                Description
+              </h2>
+              <RichDescriptionContent
+                html={product.description}
+                textColor={themeColors.textColor ? `${themeColors.textColor}cc` : "var(--muted-foreground)"}
+              />
             </div>
           )}
         </div>
 
         {product.type === "course" && courseModules && courseModules.length > 0 && (
           <div className="mt-8 sm:mt-10">
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Course Curriculum</h2>
+            <h2
+              className="mb-4 text-lg font-semibold"
+              style={{ color: themeColors.textColor || "var(--foreground)" }}
+            >
+              Course Curriculum
+            </h2>
             <div className="space-y-3">
               {courseModules.map((module, idx) => (
-                <div key={module.id} className="rounded-lg border border-border bg-card p-4">
-                  <h3 className="font-medium text-foreground">
+                <div
+                  key={module.id}
+                  className="rounded-lg border p-4"
+                  style={{
+                    backgroundColor: themeColors.cardBackground || "var(--card)",
+                    borderColor: themeColors.cardBorderColor || "var(--border)",
+                  }}
+                >
+                  <h3
+                    className="font-medium"
+                    style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                  >
                     {idx + 1}. {module.title}
                   </h3>
                   {module.lessons && module.lessons.length > 0 && (
                     <ul className="mt-3 space-y-2">
                       {module.lessons.map((lesson) => (
-                        <li key={lesson.id} className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                        <li
+                          key={lesson.id}
+                          className="flex items-center gap-2 text-sm"
+                          style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                        >
+                          <div
+                            className="h-1.5 w-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: themeColors.cardPriceColor ? `${themeColors.cardPriceColor}80` : "var(--muted-foreground)" }}
+                          />
                           <span className="break-words">{lesson.title}</span>
                         </li>
                       ))}
@@ -581,46 +980,60 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           </div>
         )}
 
-        <div className="mt-8 sm:mt-10">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Frequently Asked Questions</h2>
+        <div className="mt-8 sm:mt-10" data-faq-section>
+          <h2
+            className="mb-4 text-lg font-semibold"
+            style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+          >
+            Frequently Asked Questions
+          </h2>
 
-          {/* ✅ Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
+          {/* Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
           <div className="px-2 sm:px-0">
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="item-1">
-                <AccordionTrigger className="min-h-[44px] text-left">How do I access my purchase?</AccordionTrigger>
-                <AccordionContent>
-                  After completing your purchase, you&apos;ll have instant access to your content through your library.
-                  You can access it anytime by logging in to your Materia account.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="item-2">
-                <AccordionTrigger className="min-h-[44px] text-left">Is there a refund policy?</AccordionTrigger>
-                <AccordionContent>
-                  Refund policies are set by individual creators. Please contact the creator directly if you have
-                  questions about refunds.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="item-3">
-                <AccordionTrigger className="min-h-[44px] text-left">How long do I have access?</AccordionTrigger>
-                <AccordionContent>
-                  You have lifetime access to all purchased content. Once you buy, it&apos;s yours forever.
-                </AccordionContent>
-              </AccordionItem>
+              {displayFaqs.map((faq, idx) => (
+                <AccordionItem
+                  key={`faq-${idx}`}
+                  value={`item-${idx}`}
+                  style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}
+                >
+                  <AccordionTrigger
+                    className="min-h-[44px] text-left"
+                    style={{ color: themeColors.faqTextColor || "var(--foreground)" }}
+                  >
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent style={{ color: themeColors.faqTextColor ? `${themeColors.faqTextColor}cc` : "var(--muted-foreground)" }}>
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
             </Accordion>
           </div>
         </div>
       </div>
 
       <div className="hidden lg:block lg:col-span-2">
-        <div className="sticky top-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div
+          className="sticky top-6 rounded-xl border p-6 shadow-sm"
+          style={{
+            backgroundColor: themeColors.cardBackground || "var(--card)",
+            borderColor: themeColors.cardBorderColor || "var(--border)",
+          }}
+        >
           <div className="mb-4">
-            <div className="text-3xl font-bold text-foreground">
+            <div
+              className="text-3xl font-bold"
+              style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+            >
               {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
             </div>
             {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
               <div className="mt-1 flex items-center gap-2">
-                <span className="text-lg text-muted-foreground line-through">
+                <span
+                  className="text-lg line-through"
+                  style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                >
                   {formatPrice(product.compare_at_cents)}
                 </span>
                 <Badge variant="destructive">
@@ -633,16 +1046,45 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {hasPurchased ? (
             <div className="space-y-3">
               {product.type === "digital" && firstAssetId && (
-                <DownloadButton assetId={firstAssetId} className="w-full min-h-[44px]" size="default">
+                <DownloadButton
+                  assetId={firstAssetId}
+                  className="w-full min-h-[44px]"
+                  size="default"
+                  style={{
+                    backgroundColor: downloadButtonBgColor,
+                    color: downloadButtonTextColor,
+                  }}
+                >
                   Download File
                 </DownloadButton>
               )}
-              <Button variant="outline" className="w-full bg-transparent min-h-[44px]" asChild>
+              <Button
+                variant="outline"
+                className="w-full min-h-[44px]"
+                asChild
+                style={{
+                  backgroundColor: themeColors.viewInLibraryBg || "transparent",
+                  color: themeColors.viewInLibraryText || "inherit",
+                  borderColor: themeColors.viewInLibraryBorder || "var(--border)",
+                }}
+              >
                 <Link href="/library/my-downloads">
                   <ArrowRight className="mr-2 h-4 w-4" />
                   View in Library
                 </Link>
               </Button>
+
+              {/* Refund Policy Display - shown after View in Library */}
+              <RefundPolicyDisplay
+                enabled={product.refund_policy_enabled}
+                policyType={product.refund_policy_type}
+                finePrint={product.refund_policy_fine_print}
+                updatedAt={product.refund_policy_updated_at}
+                className="mt-3"
+                textColor={themeColors.cardTextColor}
+                themePreset={themePreset}
+                isDarkTheme={isDarkTheme}
+              />
             </div>
           ) : (
             <div className="space-y-3">
@@ -653,16 +1095,47 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 backgroundColor={buyButtonColor}
                 textColor={buyButtonTextColor}
               />
-              <WishlistButton productId={product.id} isLoggedIn={!!user} />
+              <WishlistButton
+                productId={product.id}
+                isLoggedIn={!!user}
+                backgroundColor={themeColors.cardBackground}
+                textColor={themeColors.cardTextColor}
+                borderColor={themeColors.cardBorderColor}
+                iconColor={themeColors.cardIconColor}
+              />
+
+              {/* Refund Policy Display */}
+              <RefundPolicyDisplay
+                enabled={product.refund_policy_enabled}
+                policyType={product.refund_policy_type}
+                finePrint={product.refund_policy_fine_print}
+                updatedAt={product.refund_policy_updated_at}
+                className="mt-3"
+                textColor={themeColors.cardTextColor}
+                themePreset={themePreset}
+                isDarkTheme={isDarkTheme}
+              />
             </div>
           )}
 
-          <div className="mt-4 border-t border-border pt-4">
-            <h3 className="font-semibold text-foreground">What&apos;s included</h3>
+          <div
+            className="mt-4 border-t pt-4"
+            style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+          >
+            <h3
+              className="font-semibold"
+              style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+            >
+              What&apos;s included
+            </h3>
             <ul className="mt-3 space-y-2">
-              {getWhatsIncluded().map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  {getIncludedItemIcon(item)}
+              {getWhatsIncluded().map((item: string, idx: number) => (
+                <li
+                  key={idx}
+                  className="flex items-start gap-2 text-sm"
+                  style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                >
+                  {getIncludedItemIcon(item, themeColors.cardIconColor)}
                   <span>{item}</span>
                 </li>
               ))}
@@ -670,8 +1143,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           </div>
 
           {showSalesAnnouncement && product.sales_count > 0 && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-sm text-muted-foreground text-center">
+            <div
+              className="mt-4 pt-4 border-t"
+              style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
+            >
+              <p
+                className="text-sm text-center"
+                style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+              >
                 {product.sales_count} {product.sales_count === 1 ? "person has" : "people have"} purchased this
               </p>
             </div>
@@ -684,18 +1163,28 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // Render with custom config if it exists
   // ---------------------------------------------------------------------------
-  if (productPageConfig?.sections && productPageConfig.sections.length > 0) {
+  if (themedSections && themedSections.length > 0 && productPageConfig) {
     // Get creator bar and sticky add to cart settings from published config
-    const headerSettings = productPageConfig.headerSettings as ProductHeaderSettings | undefined
+    // Use optional chaining to prevent server-side exceptions
+    const headerSettings = productPageConfig?.headerSettings as ProductHeaderSettings | undefined
     const creatorBarSettings = headerSettings?.creatorBar || defaultProductCreatorBarSettings
     const stickyAddToCartSettings = headerSettings?.stickyAddToCart || defaultStickyAddToCartSettings
+    // Get theme colors from published config
+    const pageBackgroundColor = productPageConfig?.globalColors?.backgroundColor
+    const pageTextColor = themeColors.textColor
 
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden w-full">
+      <div
+        className="min-h-screen overflow-x-hidden w-full"
+        style={{
+          background: pageBackgroundColor || "var(--background)",
+          color: pageTextColor || "var(--foreground)",
+        }}
+      >
         <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
         <DynamicFavicon
           avatarUrl={creatorProfile?.avatar_url}
-          faviconUrl={productPageConfig.headerSettings?.faviconUrl}
+          faviconUrl={productPageConfig?.headerSettings?.faviconUrl}
         />
 
         {/* Creator Bar - at top */}
@@ -730,19 +1219,62 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {MainProductContent}
         </div>
 
-        {productPageConfig.sections.map((section: any) => (
+        {/* Render sections that are NOT reviews or more-from-seller */}
+        {themedSections
+          .filter((section: any) => section.type !== "reviews" && section.type !== "more-from-seller")
+          .map((section: any) => (
+            <SectionRenderer
+              key={section.id}
+              section={section}
+              products={currentProductData}
+              moreFromSellerProducts={moreProductsData}
+              creatorName={creatorProfile?.display_name || creator?.name || "this creator"}
+              productId={product.id}
+              reviews={reviews || []}
+              reviewsCount={reviewsCount}
+              reviewsAverage={reviewsAverage}
+              globalSettings={productPageConfig?.globalSettings}
+            />
+          ))}
+
+        {/* ALWAYS render More from Seller with fresh theme colors - ensures theme preset is always applied */}
+        {moreProductsData.length > 0 && (
           <SectionRenderer
-            key={section.id}
-            section={section}
+            section={moreFromSellerSection}
             products={currentProductData}
             moreFromSellerProducts={moreProductsData}
             creatorName={creatorProfile?.display_name || creator?.name || "this creator"}
-            productId={product.id}
-            reviews={reviews || []}
-            reviewsCount={reviewsCount}
-            reviewsAverage={reviewsAverage}
           />
-        ))}
+        )}
+
+        {/* ALWAYS render Reviews with fresh theme colors - ensures theme preset is always applied */}
+        {reviewsCount > 0 && (() => {
+          const reviewsSectionRaw: Section = {
+            id: "reviews-themed",
+            type: "reviews",
+            settings: {
+              ...defaultReviewsSettings,
+              visible: true,
+            },
+            order: 998,
+          }
+          const themedReviewsSection = applySectionThemeColors([reviewsSectionRaw])[0]
+          return (
+            <SectionRenderer
+              section={themedReviewsSection}
+              productId={product.id}
+              reviews={reviews || []}
+              reviewsCount={reviewsCount}
+              reviewsAverage={reviewsAverage}
+            />
+          )
+        })()}
+
+        {/* About section with payment methods for product pages */}
+        <ProductAboutSection
+          textColor={pageTextColor}
+          backgroundColor={pageBackgroundColor}
+        />
 
         <SellerFooter />
       </div>
@@ -751,11 +1283,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // ---------------------------------------------------------------------------
   // Default rendering when no custom config
+  // Apply theme colors to page background
   // ---------------------------------------------------------------------------
+  const defaultPageBackgroundColor = themeConfig?.colors?.background || productPageConfig?.globalColors?.backgroundColor
+  const defaultPageTextColor = themeColors.textColor
+
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden w-full">
+    <div
+      className="min-h-screen overflow-x-hidden w-full"
+      style={{
+        background: defaultPageBackgroundColor || "var(--background)",
+        color: defaultPageTextColor || "var(--foreground)",
+      }}
+    >
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
-      <DynamicFavicon url={undefined} />
+      <DynamicFavicon avatarUrl={creatorProfile?.avatar_url} />
 
       {/* Creator Bar - at top */}
       <LiveProductCreatorBar
@@ -796,24 +1338,37 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         />
       )}
 
-      {/* Default reviews section if there are reviews */}
-      {reviewsCount > 0 && (
-        <SectionRenderer
-          section={{
-            id: "default-reviews",
-            type: "reviews",
-            settings: {
-              ...defaultMoreFromSellerSettings,
-              visible: true,
-            },
-            order: 0,
-          }}
-          productId={product.id}
-          reviews={reviews || []}
-          reviewsCount={reviewsCount}
-          reviewsAverage={reviewsAverage}
-        />
-      )}
+      {/* Default reviews section if there are reviews - apply theme colors */}
+      {reviewsCount > 0 && (() => {
+        // Create the reviews section with proper defaults
+        const reviewsSectionRaw: Section = {
+          id: "default-reviews",
+          type: "reviews",
+          settings: {
+            ...defaultReviewsSettings,
+            visible: true,
+          },
+          order: 0,
+        }
+        // Apply theme colors to the reviews section
+        const themedReviewsSection = applySectionThemeColors([reviewsSectionRaw])[0]
+
+        return (
+          <SectionRenderer
+            section={themedReviewsSection}
+            productId={product.id}
+            reviews={reviews || []}
+            reviewsCount={reviewsCount}
+            reviewsAverage={reviewsAverage}
+          />
+        )
+      })()}
+
+      {/* About section with payment methods for product pages */}
+      <ProductAboutSection
+        textColor={defaultPageTextColor}
+        backgroundColor={defaultPageBackgroundColor}
+      />
 
       <SellerFooter />
     </div>

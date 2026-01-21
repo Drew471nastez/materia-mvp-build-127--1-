@@ -127,15 +127,15 @@ export function CoverImageEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle className="flex items-center gap-2">
-            <Move className="h-5 w-5" />
+      <DialogContent className="w-[calc(100vw-32px)] sm:w-full max-w-xl sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl max-h-[calc(100dvh-32px)] flex flex-col">
+        <DialogHeader className="px-5 py-3 border-b shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Move className="h-4 w-4" />
             Adjust Cover Image
           </DialogTitle>
         </DialogHeader>
 
-        <div className="p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
           <div
             ref={containerRef}
             className={cn(
@@ -260,13 +260,17 @@ export function CoverImageEditor({
           />
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-muted/30">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            <X className="h-4 w-4 mr-2" />
+        <div className="shrink-0 flex items-center justify-end gap-2 px-5 py-3 border-t bg-muted/30">
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!imageUrl}>
-            <Check className="h-4 w-4 mr-2" />
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!imageUrl}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <Check className="h-3.5 w-3.5 mr-1.5" />
             Apply
           </Button>
         </div>

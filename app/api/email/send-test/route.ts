@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { Resend } from "resend"
+import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
-    if (!resend) {
+    if (!isSmtpConfigured()) {
       return NextResponse.json({ error: "Email service not configured" }, { status: 500 })
     }
 
@@ -217,13 +217,17 @@ export async function POST(request: NextRequest) {
       .replace(/\{\{my_name\}\}/g, senderName)
       .replace(/\{\{my_username\}\}/g, profile.username || "username")
 
-    await resend.emails.send({
-      from: `${senderName} <noreplycustomers@materiabuilder.store>`,
+    const result = await sendEmail({
+      from: `${senderName} <noreply@storelib.com>`,
       to: test_email,
       subject: `[TEST] ${personalizedSubject}`,
       html: personalizedHtml,
       replyTo: profile.email || undefined,
     })
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || "Failed to send test email" }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true, message: "Test email sent successfully" })
   } catch (error) {

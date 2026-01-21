@@ -45,6 +45,10 @@ const { data: products, error: productsError } = await supabase
     gallery_urls,
     video_url,
     faqs,
+    refund_policy_enabled,
+    refund_policy_type,
+    refund_policy_fine_print,
+    refund_policy_updated_at,
     product_categories (
       category_id,
       category:categories (
@@ -77,6 +81,10 @@ const productsData =
     gallery_urls: p.gallery_urls,
     video_url: p.video_url,
     faqs: p.faqs,
+    refund_policy_enabled: p.refund_policy_enabled,
+    refund_policy_type: p.refund_policy_type,
+    refund_policy_fine_print: p.refund_policy_fine_print,
+    refund_policy_updated_at: p.refund_policy_updated_at,
     categories: p.product_categories?.map((pc: any) => pc.category).filter(Boolean) || [],
   })) || []
 

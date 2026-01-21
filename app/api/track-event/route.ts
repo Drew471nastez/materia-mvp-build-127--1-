@@ -1,7 +1,8 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { type NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 interface TrackEventPayload {
   eventType: "buy_click" | "checkout_start" | "checkout_complete" | "download"
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Missing required fields" }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     // Get country from request headers
     const countryCode = req.headers.get("x-vercel-ip-country") || req.geo?.country || null

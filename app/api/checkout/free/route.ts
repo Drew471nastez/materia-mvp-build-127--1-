@@ -6,6 +6,8 @@ import { generateReceiptToken } from "@/lib/security"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const admin = createAdminClient()
@@ -147,7 +149,7 @@ export async function POST(request: Request) {
     if (analyticsError) console.error("[free] Error recording analytics:", analyticsError)
 
     // Send emails - "Your download is ready" email
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://materia.app"
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
     console.log("[free] Sending order emails...")
 

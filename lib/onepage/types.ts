@@ -11,6 +11,9 @@ export type OnePageBlockType =
   | "email_capture"
   | "header"
   | "group"
+  | "pdf_document"
+  | "food_menu"
+  | "calendly"
 
 export interface OnePageTheme {
   template_id: string
@@ -196,6 +199,9 @@ export interface SocialRowBlockData {
     url: string
   }>
   style: "icons" | "buttons"
+  // Padding options
+  padding_top?: number
+  padding_bottom?: number
 }
 
 export interface TextBlockData {
@@ -203,12 +209,36 @@ export interface TextBlockData {
   alignment: "left" | "center" | "right"
 }
 
+export interface ImageItem {
+  id: string
+  image_url: string
+  alt_text?: string
+  title?: string
+  link_url?: string | null
+}
+
 export interface ImageBlockData {
+  // Legacy single image support
   image_url: string
   alt_text?: string
   link_url?: string | null
-  aspect_ratio?: "auto" | "square" | "video" | "wide"
+  // New multi-image support
+  images?: ImageItem[]
+  // Display options
+  aspect_ratio?: "auto" | "original" | "square" | "portrait" | "landscape" | "video" | "wide"
   layout_type?: BlockLayoutType
+  // Style options
+  display_style?: "single" | "grid" | "carousel"
+  grid_columns?: 2 | 3 | 4
+  // Carousel options
+  carousel_autoplay?: boolean
+  carousel_interval?: number
+  // Image options
+  image_fit?: "cover" | "contain"
+  border_radius?: "none" | "sm" | "md" | "lg" | "full"
+  show_captions?: boolean
+  // Interaction
+  clickable?: boolean
 }
 
 export interface DividerBlockData {
@@ -234,7 +264,69 @@ export interface EmailCaptureBlockData {
   digital_product_file_url?: string | null  // URL to the digital file
   // Layout type (default or pro with thumbnail)
   layout_type?: EmailCaptureLayoutType
-  product_image?: string | null  // Custom image for Pro layout (overrides product thumbnail)
+  product_image?: string | null  // Custom image for Pro layout
+  // Email customization
+  send_welcome_email?: boolean  // Always send welcome email on subscription
+  email_subject?: string  // Custom email subject
+  email_heading?: string  // Custom email heading
+  email_body?: string  // Custom email body text
+  // Animation option
+  animation_type?: BlockAnimationType
+}
+
+// PDF document layout types
+export type PDFDocumentLayoutType = 'default' | 'pro'
+
+export interface PDFDocumentBlockData {
+  title: string
+  description?: string
+  pdf_file_url?: string | null
+  // Layout type (default with button, pro with image/title/description)
+  layout_type?: PDFDocumentLayoutType
+  // Custom thumbnail for Pro layout (defaults to PDF preview if not set)
+  thumbnail_url?: string | null
+  // Button text customization
+  button_text?: string
+  // Preview modal button text (e.g., "View full PDF" or "View Menu")
+  preview_button_text?: string
+  // Enable preview modal when button is clicked
+  enable_preview?: boolean
+  // Open PDF directly instead of showing preview modal
+  open_directly?: boolean
+  // Animation option
+  animation_type?: BlockAnimationType
+}
+
+// Food Menu block data (same structure as PDF Document)
+export interface FoodMenuBlockData {
+  title: string
+  description?: string
+  pdf_file_url?: string | null
+  layout_type?: PDFDocumentLayoutType
+  thumbnail_url?: string | null
+  button_text?: string
+  preview_button_text?: string
+  enable_preview?: boolean
+  open_directly?: boolean
+  animation_type?: BlockAnimationType
+}
+
+// Calendly embed mode types
+export type CalendlyEmbedMode = 'direct_link' | 'embedded'
+export type CalendlyEmbedType = 'inline' | 'modal'
+
+export interface CalendlyBlockData {
+  title: string
+  description?: string
+  calendly_url?: string | null
+  layout_type?: PDFDocumentLayoutType
+  thumbnail_url?: string | null
+  button_text?: string
+  // Embed mode: go directly to link or embed
+  embed_mode?: CalendlyEmbedMode
+  // Embed type: inline (default) or modal popup
+  embed_type?: CalendlyEmbedType
+  animation_type?: BlockAnimationType
 }
 
 export interface HeaderBlockData {
@@ -265,6 +357,9 @@ export type OnePageBlockData =
   | EmailCaptureBlockData
   | HeaderBlockData
   | GroupBlockData
+  | PDFDocumentBlockData
+  | FoodMenuBlockData
+  | CalendlyBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -491,7 +586,11 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           image_url: "",
           alt_text: "",
           link_url: null,
-          aspect_ratio: "auto",
+          aspect_ratio: "square",
+          display_style: "carousel",
+          carousel_autoplay: true,
+          border_radius: "md",
+          image_fit: "cover",
         } as ImageBlockData,
       }
     case "divider":
@@ -521,6 +620,7 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           digital_product_file_url: null,
           layout_type: "default",
           product_image: null,
+          animation_type: "none",
         } as EmailCaptureBlockData,
       }
     case "header":
@@ -540,6 +640,53 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           layout: "stack",
           children: [],
         } as GroupBlockData,
+      }
+    case "pdf_document":
+      return {
+        ...baseBlock,
+        data: {
+          title: "My PDF Document",
+          description: "",
+          pdf_file_url: null,
+          layout_type: "default",
+          thumbnail_url: null,
+          button_text: "View PDF",
+          preview_button_text: "View full PDF",
+          enable_preview: true,
+          open_directly: false,
+          animation_type: "none",
+        } as PDFDocumentBlockData,
+      }
+    case "food_menu":
+      return {
+        ...baseBlock,
+        data: {
+          title: "Menu",
+          description: "",
+          pdf_file_url: null,
+          layout_type: "default",
+          thumbnail_url: null,
+          button_text: "View Menu",
+          preview_button_text: "View Menu",
+          enable_preview: true,
+          open_directly: false,
+          animation_type: "none",
+        } as FoodMenuBlockData,
+      }
+    case "calendly":
+      return {
+        ...baseBlock,
+        data: {
+          title: "Book a Meeting",
+          description: "",
+          calendly_url: null,
+          layout_type: "default",
+          thumbnail_url: null,
+          button_text: "Schedule Now",
+          embed_mode: "embedded",
+          embed_type: "modal",
+          animation_type: "none",
+        } as CalendlyBlockData,
       }
     default:
       return baseBlock as OnePageBlock

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Download, FileIcon, ExternalLink } from "lucide-react"
+import { getStoreUrl } from "@/lib/url-helpers"
 
 interface ProductAccessPageProps {
   params: Promise<{ id: string }>
@@ -79,13 +80,13 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
 
           <div className="mt-6">
             <h1 className="text-2xl font-semibold">{entitlement.product?.title}</h1>
-            <Link
-              href={`/u/${creatorUsername}`}
+            <a
+              href={getStoreUrl(creatorUsername)}
               className="mt-1 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
             >
               by {entitlement.creator?.profile?.display_name || "Creator"}
               <ExternalLink className="ml-1 h-3 w-3" />
-            </Link>
+            </a>
             {entitlement.product?.description && (
               <p className="mt-4 whitespace-pre-wrap text-muted-foreground">{entitlement.product.description}</p>
             )}

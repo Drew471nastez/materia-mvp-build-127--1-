@@ -2,6 +2,13 @@ import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { headers } from "next/headers"
+import crypto from "crypto"
+
+// Hash IP address for privacy (same as track API)
+function hashIP(ip: string): string {
+  return crypto.createHash("sha256").update(ip + process.env.SUPABASE_URL).digest("hex").slice(0, 16)
+}
 
 export const dynamic = "force-dynamic"
 
@@ -14,14 +21,60 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const supabase = createAdminClient()
 
-  const { data: onepage, error } = await supabase
+  // First try to find onepage by slug
+  let { data: onepage, error } = await supabase
     .from("onepages")
     .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title")
     .eq("slug", slug)
     .eq("status", "published")
     .single()
 
+  // If not found by slug, try to find by username (for subdomain routing)
   if (error || !onepage) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .ilike("username", slug)
+      .maybeSingle()
+
+    if (profile) {
+      const { data: creator } = await supabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", profile.id)
+        .maybeSingle()
+
+      if (creator) {
+        const { data: creatorOnepage } = await supabase
+          .from("onepages")
+          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title")
+          .or(`seller_id.eq.${creator.id},creator_id.eq.${creator.id}`)
+          .eq("status", "published")
+          .maybeSingle()
+
+        if (creatorOnepage) {
+          onepage = creatorOnepage
+          error = null
+        }
+      }
+
+      if (!onepage) {
+        const { data: ownerOnepage } = await supabase
+          .from("onepages")
+          .select("published_profile, settings, seller_id, creator_id, owner_id, avatar_url, title")
+          .eq("owner_id", profile.id)
+          .eq("status", "published")
+          .maybeSingle()
+
+        if (ownerOnepage) {
+          onepage = ownerOnepage
+          error = null
+        }
+      }
+    }
+  }
+
+  if (!onepage) {
     return { title: slug ? `${slug} | Storelib` : "Page Not Found" }
   }
 
@@ -88,24 +141,121 @@ export default async function PublicOnePageRoute({ params }: Props) {
 
   const adminSupabase = createAdminClient()
 
-  const { data: onepage, error } = await adminSupabase
+  // First try to find onepage by slug
+  let { data: onepage, error } = await adminSupabase
     .from("onepages")
     .select("*")
     .eq("slug", slug)
     .eq("status", "published")
     .single()
 
+  // If not found by slug, try to find by username (for subdomain routing)
+  // This handles the case where username.storelib.com/links is accessed
+  // and the middleware passes the username as the slug
   if (error || !onepage) {
+    // Look up the user by username
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("id, username")
+      .ilike("username", slug)
+      .maybeSingle()
+
+    if (profile) {
+      // Find the creator for this user
+      const { data: creator } = await adminSupabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", profile.id)
+        .maybeSingle()
+
+      if (creator) {
+        // Try to find onepage by seller_id (creator_id)
+        const { data: creatorOnepage } = await adminSupabase
+          .from("onepages")
+          .select("*")
+          .eq("seller_id", creator.id)
+          .eq("status", "published")
+          .maybeSingle()
+
+        if (creatorOnepage) {
+          onepage = creatorOnepage
+          error = null
+        } else {
+          // Also try by creator_id field
+          const { data: altOnepage } = await adminSupabase
+            .from("onepages")
+            .select("*")
+            .eq("creator_id", creator.id)
+            .eq("status", "published")
+            .maybeSingle()
+
+          if (altOnepage) {
+            onepage = altOnepage
+            error = null
+          }
+        }
+      }
+
+      // If still not found, try by owner_id (user_id)
+      if (!onepage) {
+        const { data: ownerOnepage } = await adminSupabase
+          .from("onepages")
+          .select("*")
+          .eq("owner_id", profile.id)
+          .eq("status", "published")
+          .maybeSingle()
+
+        if (ownerOnepage) {
+          onepage = ownerOnepage
+          error = null
+        }
+      }
+    }
+  }
+
+  if (!onepage) {
     notFound()
   }
 
-  // Track view
+  // Track view with IP/device deduplication (one view per IP per day)
   try {
-    await adminSupabase.from("onepage_views").insert({
-      onepage_id: onepage.id,
-      visitor_id: null,
-      referrer: null,
-    })
+    const headersList = await headers()
+    const forwardedFor = headersList.get("x-forwarded-for")
+    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "unknown"
+    const ipHash = hashIP(ip)
+    const userAgent = headersList.get("user-agent") || ""
+    const referrer = headersList.get("referer") || ""
+
+    // Generate visitor ID from IP hash + user agent (for deduplication)
+    const visitorId = crypto
+      .createHash("sha256")
+      .update(ipHash + userAgent)
+      .digest("hex")
+      .slice(0, 32)
+
+    // Check for duplicate view (same IP within the same calendar day - UTC)
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    const todayStr = today.toISOString()
+
+    const { data: existingView } = await adminSupabase
+      .from("onepage_views")
+      .select("id")
+      .eq("onepage_id", onepage.id)
+      .eq("ip_hash", ipHash)
+      .gte("created_at", todayStr)
+      .maybeSingle()
+
+    // Only insert if no view from this IP today
+    if (!existingView) {
+      await adminSupabase.from("onepage_views").insert({
+        onepage_id: onepage.id,
+        visitor_id: visitorId,
+        referrer,
+        user_agent: userAgent.slice(0, 500),
+        ip_hash: ipHash,
+      })
+    }
   } catch {
     // Ignore
   }

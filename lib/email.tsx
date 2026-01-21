@@ -1,23 +1,65 @@
-import { Resend } from "resend"
-
 /**
- * Email sending via Resend
+ * Email sending via Amazon SES SMTP (nodemailer)
  * ✅ Stable links (SITE_URL / APP_URL)
  * ✅ Safe URL building (no double slashes)
  * ✅ Plain-text fallback (deliverability)
  * ✅ From name = creator/store name (dynamic)
- * ✅ Reply-To priority: creator support_email → creator profile email → platform support
- * ✅ Keeps old export resolveSellerEmail for backwards compatibility (fixes your build error)
+ * ✅ Reply-To for purchase emails = seller's email (so buyers can contact sellers)
+ * ✅ Reply-To priority: seller email (for purchases) → creator support_email → creator profile email → platform support
  */
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
 
-// MUST be a real mailbox on your verified domain in Resend
-const FROM_EMAIL = "noreplycustomers@materiabuilder.store"
+// MUST be a real mailbox on your verified domain in Amazon SES
+const FROM_EMAIL = EMAIL_FROM
 
 // Platform fallback support
-const DEFAULT_SUPPORT = "support@materiabuilder.store"
-const PLATFORM_BRAND_NAME = "Materia Builder"
+const DEFAULT_SUPPORT = EMAIL_REPLY_TO
+const PLATFORM_BRAND_NAME = "Storelib"
+
+// Retry configuration
+const MAX_RETRIES = 3
+const RETRY_DELAYS = [1000, 2000, 4000] // 1s, 2s, 4s exponential backoff
+
+// -------------------------
+// Retry helper with exponential backoff
+// -------------------------
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = MAX_RETRIES,
+  context: string = "operation",
+): Promise<T> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await fn()
+      return result
+    } catch (err: any) {
+      lastError = err
+      const errorMessage = err?.message || err?.error?.message || JSON.stringify(err)
+      console.error(`[email] ${context} attempt ${attempt + 1}/${maxRetries + 1} failed:`, errorMessage)
+
+      // Don't retry on certain errors (invalid email, etc.)
+      if (errorMessage?.includes("invalid") || errorMessage?.includes("not verified")) {
+        throw err
+      }
+
+      // Don't retry on the last attempt
+      if (attempt < maxRetries) {
+        const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1]
+        console.log(`[email] Retrying ${context} in ${delay}ms...`)
+        await sleep(delay)
+      }
+    }
+  }
+
+  throw lastError || new Error(`${context} failed after ${maxRetries + 1} attempts`)
+}
 
 // -------------------------
 // URL + safety helpers
@@ -31,7 +73,7 @@ function getStableBaseUrl(fallback?: string) {
     ""
 
   const raw = (envUrl || fallback || "").trim()
-  if (!raw) return "https://materiabuilder.store"
+  if (!raw) return "https://storelib.com"
 
   const withScheme = raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`
   return withScheme.replace(/\/+$/, "")
@@ -54,7 +96,7 @@ function safeName(name?: string) {
   return safeText(name || "").replace(/[<>]/g, "")
 }
 
-function buildFromHeader(displayName?: string) {
+function buildFromHeaderLocal(displayName?: string) {
   const name = safeName(displayName) || PLATFORM_BRAND_NAME
   return `${name} <${FROM_EMAIL}>`
 }
@@ -109,7 +151,7 @@ export async function logEmailAttempt(admin: any, data: EmailLogData): Promise<s
         status: data.status,
         attempt: data.attempt,
         error_message: data.errorMessage || null,
-        provider: "resend",
+        provider: "ses",
       })
       .select("id")
       .single()
@@ -318,12 +360,15 @@ function buyerEmailHtml(params: {
   receiptLink: string
   supportEmail: string
   footerBrand: string
+  sellerName?: string
 }) {
   const firstName = safeName(params.buyerFirstName) || "there"
   const productTitle = safeText(params.productTitle)
   const receiptLink = params.receiptLink
   const supportEmail = params.supportEmail
   const footerBrand = safeText(params.footerBrand)
+  const sellerName = safeName(params.sellerName) || footerBrand
+  const sellerInitial = sellerName.charAt(0).toUpperCase()
 
   return `<!DOCTYPE html>
 <html>
@@ -339,8 +384,10 @@ function buyerEmailHtml(params: {
         <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
           <tr>
             <td style="padding:44px 36px 30px;text-align:center;background:#111827;">
+              <!-- Seller Avatar Letter -->
+              <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);display:inline-block;text-align:center;line-height:56px;font-size:24px;font-weight:700;color:#fff;margin-bottom:16px;">${sellerInitial}</div>
               <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">Your download is ready</h1>
-              <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.85);">Thanks for your purchase</p>
+              <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.85);">Thanks for your purchase from ${sellerName}</p>
             </td>
           </tr>
 
@@ -370,7 +417,7 @@ function buyerEmailHtml(params: {
                 </tr>
               </table>
 
-              <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">If the button doesn’t work, copy this link:</p>
+              <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">If the button doesn't work, copy this link:</p>
               <p style="margin:0 0 24px 0;font-size:12px;color:#4f46e5;word-break:break-all;">${receiptLink}</p>
 
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;" />
@@ -437,12 +484,18 @@ function sellerEmailHtml(params: {
     day: "numeric",
   })
 
+  const timeStr = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  <title>New sale</title>
+  <title>Cha-Ching! You made a sale</title>
 </head>
 <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
   <table role="presentation" style="width:100%;padding:32px 16px;">
@@ -450,33 +503,68 @@ function sellerEmailHtml(params: {
       <td align="center">
         <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
           <tr>
-            <td style="padding:44px 36px 30px;text-align:center;background:#065f46;">
-              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">New sale</h1>
-              <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.9);">You sold ${productTitle}</p>
+            <td style="padding:44px 36px 30px;text-align:center;background:linear-gradient(135deg, #059669 0%, #047857 100%);">
+              <div style="font-size:48px;margin-bottom:12px;">💰</div>
+              <h1 style="margin:0;font-size:32px;font-weight:800;color:#fff;">Cha-Ching!</h1>
+              <p style="margin:12px 0 0 0;font-size:17px;color:rgba(255,255,255,0.95);font-weight:500;">You just made a sale!</p>
             </td>
           </tr>
 
           <tr>
             <td style="padding:34px 34px 12px;">
-              <table role="presentation" style="width:100%;background:#f3f4f6;border-radius:10px;padding:18px;margin:0 0 18px 0;">
+              <!-- Sale Amount Highlight -->
+              <table role="presentation" style="width:100%;background:linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);border-radius:12px;padding:24px;margin:0 0 24px 0;text-align:center;">
                 <tr>
                   <td>
-                    <p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.9px;font-weight:700;">Customer</p>
-                    <p style="margin:0 0 4px 0;font-size:15px;color:#111827;">${buyerFirstName} ${buyerLastName}</p>
-                    <p style="margin:0 0 14px 0;font-size:13px;color:#6b7280;">${buyerEmail}</p>
+                    <p style="margin:0 0 8px 0;font-size:14px;color:#047857;text-transform:uppercase;letter-spacing:1px;font-weight:700;">${isFree ? "New Customer" : "You Earned"}</p>
+                    <p style="margin:0;font-size:${isFree ? "24px" : "36px"};font-weight:900;color:#065f46;">${isFree ? "Free Download" : formatUSD(earnings)}</p>
+                    ${!isFree ? `<p style="margin:8px 0 0 0;font-size:13px;color:#6b7280;">from ${formatUSD(params.amountCents)} sale</p>` : ""}
+                  </td>
+                </tr>
+              </table>
 
-                    <p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.9px;font-weight:700;">Date</p>
-                    <p style="margin:0 0 14px 0;font-size:13px;color:#374151;">${dateStr}</p>
+              <!-- Product Info -->
+              <table role="presentation" style="width:100%;background:#f9fafb;border-radius:10px;padding:20px;margin:0 0 20px 0;">
+                <tr>
+                  <td>
+                    <p style="margin:0 0 6px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">Product Sold</p>
+                    <p style="margin:0;font-size:18px;font-weight:700;color:#111827;">${productTitle}</p>
+                  </td>
+                </tr>
+              </table>
 
-                    <p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.9px;font-weight:700;">Total</p>
-                    <p style="margin:0 0 12px 0;font-size:20px;font-weight:900;color:#065f46;">${isFree ? "Free" : formatUSD(params.amountCents)}</p>
-
-                    ${
-                      !isFree
-                        ? `<p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.9px;font-weight:700;">Your earnings (after fees)</p>
-                           <p style="margin:0;font-size:16px;font-weight:800;color:#047857;">${formatUSD(earnings)}</p>`
-                        : ""
-                    }
+              <!-- Customer & Order Details -->
+              <table role="presentation" style="width:100%;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:0 0 24px 0;">
+                <tr>
+                  <td style="padding:16px 20px;border-bottom:1px solid #e5e7eb;">
+                    <table role="presentation" style="width:100%;">
+                      <tr>
+                        <td style="width:50%;">
+                          <p style="margin:0 0 4px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Customer</p>
+                          <p style="margin:0;font-size:15px;color:#111827;font-weight:600;">${buyerFirstName} ${buyerLastName}</p>
+                        </td>
+                        <td style="width:50%;text-align:right;">
+                          <p style="margin:0 0 4px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Email</p>
+                          <p style="margin:0;font-size:14px;color:#4f46e5;">${buyerEmail}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 20px;background:#fafafa;">
+                    <table role="presentation" style="width:100%;">
+                      <tr>
+                        <td style="width:50%;">
+                          <p style="margin:0 0 4px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Date</p>
+                          <p style="margin:0;font-size:14px;color:#374151;">${dateStr}</p>
+                        </td>
+                        <td style="width:50%;text-align:right;">
+                          <p style="margin:0 0 4px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Time</p>
+                          <p style="margin:0;font-size:14px;color:#374151;">${timeStr}</p>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -484,23 +572,23 @@ function sellerEmailHtml(params: {
               <table role="presentation" style="width:100%;margin:0 0 8px 0;">
                 <tr>
                   <td align="center">
-                    <a href="${ordersLink}" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:800;">
-                      View orders
+                    <a href="${ordersLink}" style="display:inline-block;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(16, 185, 129, 0.4);">
+                      View All Orders
                     </a>
                   </td>
                 </tr>
               </table>
 
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:18px 0;" />
-              <p style="margin:0;font-size:12px;color:#6b7280;text-align:center;line-height:1.5;">
-                This is a transactional email for your store.
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 18px 0;" />
+              <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.5;">
+                Keep up the great work! Your digital products are making an impact.
               </p>
             </td>
           </tr>
 
           <tr>
-            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-              © ${new Date().getFullYear()} ${footerBrand}
+            <td style="padding:18px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+              © ${new Date().getFullYear()} Storelib · Helping creators sell digital products
             </td>
           </tr>
         </table>
@@ -525,13 +613,16 @@ function sellerEmailText(params: {
   const formatUSD = (cents: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
 
-  return `New sale: ${safeText(params.productTitle)}
+  return `Cha-Ching! You just made a sale!
 
+Product: ${safeText(params.productTitle)}
 Customer: ${safeName(params.buyerFirstName)} ${safeName(params.buyerLastName)} (${safeText(params.buyerEmail)})
-Total: ${isFree ? "Free" : formatUSD(params.amountCents)}
-${isFree ? "" : `Earnings (after fees): ${formatUSD(earnings)}`}
+${isFree ? "Type: Free Download" : `Amount: ${formatUSD(params.amountCents)}\nYour Earnings: ${formatUSD(earnings)}`}
 
-View orders: ${params.ordersLink}`
+View all orders: ${params.ordersLink}
+
+Keep up the great work!
+- Storelib`
 }
 
 // -------------------------
@@ -555,8 +646,8 @@ export async function sendBuyerDownloadEmail(
     attempt,
   })
 
-  if (!resend) {
-    const error = "Email service not configured (RESEND_API_KEY missing)"
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
     if (logId) await updateEmailLog(admin, logId, "failed", error)
     await updateOrderEmailStatus(admin, orderId, "buyer", false, error)
     return { success: false, error, logId: logId || undefined }
@@ -565,39 +656,61 @@ export async function sendBuyerDownloadEmail(
   const identity = creatorId ? await resolveCreatorIdentity(admin, creatorId) : null
   const fromName = identity?.fromName || PLATFORM_BRAND_NAME
 
-  // Reply-To priority:
-  // 1) sellerReplyTo param
-  // 2) creator support_email / profile email
-  // 3) platform support
-  const replyTo = normalizeEmail(sellerReplyTo || "") || identity?.replyTo || DEFAULT_SUPPORT
+  // Reply-To priority for buyer emails (purchases):
+  // 1) sellerReplyTo param (explicitly passed seller email)
+  // 2) identity.sellerEmail (resolved from creator)
+  // 3) identity.replyTo (support email)
+  // 4) platform support
+  // This ensures buyers can reply directly to the seller!
+  const replyTo = normalizeEmail(sellerReplyTo || "") || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
 
   const receiptLink = buildUrl(`/receipt/${encodeURIComponent(receiptToken)}`, baseUrl)
   const customerEmail = normalizeEmail(buyerEmail)
   const subject = `Your download is ready - ${safeText(productTitle)}`
 
   try {
-    const response = await resend.emails.send({
-      from: buildFromHeader(fromName),
+    console.log("[email] 📧 Attempting to send buyer email:", {
+      from: buildFromHeaderLocal(fromName),
       to: customerEmail,
       replyTo,
       subject,
-      html: buyerEmailHtml({
-        buyerFirstName,
-        productTitle,
-        receiptLink,
-        supportEmail: replyTo,
-        footerBrand: fromName,
-      }),
-      text: buyerEmailText({ buyerFirstName, productTitle, receiptLink }),
     })
 
-    if ((response as any)?.error) throw new Error((response as any).error.message || "Resend API error")
+    const result = await withRetry(
+      async () => {
+        const response = await sendEmail({
+          from: buildFromHeaderLocal(fromName),
+          to: customerEmail,
+          replyTo,
+          subject,
+          html: buyerEmailHtml({
+            buyerFirstName,
+            productTitle,
+            receiptLink,
+            supportEmail: replyTo,
+            footerBrand: fromName,
+            sellerName: fromName,
+          }),
+          text: buyerEmailText({ buyerFirstName, productTitle, receiptLink }),
+        })
 
+        if (!response.success) {
+          throw new Error(response.error || "Failed to send email")
+        }
+
+        return response
+      },
+      MAX_RETRIES,
+      `buyer email to ${customerEmail}`,
+    )
+
+    console.log("[email] ✅ Buyer email sent successfully to:", customerEmail, "ID:", result.messageId)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "buyer", true)
     return { success: true, logId: logId || undefined }
   } catch (err: any) {
-    const errorMessage = err?.message || "Unknown error sending email"
+    const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
+    console.error("[email] ❌ Buyer email failed after retries:", errorMessage, err)
     if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
     await updateOrderEmailStatus(admin, orderId, "buyer", false, errorMessage)
     return { success: false, error: errorMessage, logId: logId || undefined }
@@ -645,8 +758,8 @@ export async function sendSellerNotificationEmail(
     attempt,
   })
 
-  if (!resend) {
-    const error = "Email service not configured (RESEND_API_KEY missing)"
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
     console.error("[email] ❌ Seller notification failed:", error)
     if (logId) await updateEmailLog(admin, logId, "failed", error)
     await updateOrderEmailStatus(admin, orderId, "seller", false, error)
@@ -654,7 +767,6 @@ export async function sendSellerNotificationEmail(
   }
 
   const identity = creatorId ? await resolveCreatorIdentity(admin, creatorId) : null
-  const fromName = identity?.fromName || PLATFORM_BRAND_NAME
   const replyTo = identity?.replyTo || DEFAULT_SUPPORT
 
   // Use resolved seller email if provided email is fallback
@@ -665,46 +777,62 @@ export async function sendSellerNotificationEmail(
   }
 
   const ordersLink = buildUrl("/app/orders", baseUrl)
-  const subject = `New sale: ${safeText(productTitle)}`
+  // Seller notification emails are always from Storelib
+  const subject = `Cha-Ching! You sold ${safeText(productTitle)}`
 
-  console.log("[email] Sending seller notification to:", finalSellerEmail, "Subject:", subject)
+  console.log("[email] 📧 Attempting to send seller notification:", {
+    from: buildFromHeaderLocal(PLATFORM_BRAND_NAME),
+    to: finalSellerEmail,
+    replyTo,
+    subject,
+  })
 
   try {
-    const response = await resend.emails.send({
-      from: buildFromHeader(fromName),
-      to: finalSellerEmail,
-      replyTo,
-      subject,
-      html: sellerEmailHtml({
-        productTitle,
-        buyerFirstName,
-        buyerLastName,
-        buyerEmail,
-        amountCents,
-        feeCents,
-        ordersLink,
-        footerBrand: fromName,
-      }),
-      text: sellerEmailText({
-        productTitle,
-        buyerFirstName,
-        buyerLastName,
-        buyerEmail,
-        amountCents,
-        feeCents,
-        ordersLink,
-      }),
-    })
+    const result = await withRetry(
+      async () => {
+        const response = await sendEmail({
+          from: buildFromHeaderLocal(PLATFORM_BRAND_NAME),
+          to: finalSellerEmail,
+          replyTo,
+          subject,
+          html: sellerEmailHtml({
+            productTitle,
+            buyerFirstName,
+            buyerLastName,
+            buyerEmail,
+            amountCents,
+            feeCents,
+            ordersLink,
+            footerBrand: PLATFORM_BRAND_NAME,
+          }),
+          text: sellerEmailText({
+            productTitle,
+            buyerFirstName,
+            buyerLastName,
+            buyerEmail,
+            amountCents,
+            feeCents,
+            ordersLink,
+          }),
+        })
 
-    if ((response as any)?.error) throw new Error((response as any).error.message || "Resend API error")
+        if (!response.success) {
+          throw new Error(response.error || "Failed to send email")
+        }
 
-    console.log("[email] ✅ Seller notification sent successfully to:", finalSellerEmail)
+        return response
+      },
+      MAX_RETRIES,
+      `seller notification to ${finalSellerEmail}`,
+    )
+
+    console.log("[email] ✅ Seller notification sent successfully to:", finalSellerEmail, "ID:", result.messageId)
     if (logId) await updateEmailLog(admin, logId, "sent")
     await updateOrderEmailStatus(admin, orderId, "seller", true)
     return { success: true, logId: logId || undefined }
   } catch (err: any) {
-    const errorMessage = err?.message || "Unknown error sending email"
-    console.error("[email] ❌ Seller notification failed:", errorMessage)
+    const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
+    console.error("[email] ❌ Seller notification failed after retries:", errorMessage, err)
     if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
     await updateOrderEmailStatus(admin, orderId, "seller", false, errorMessage)
     return { success: false, error: errorMessage, logId: logId || undefined }
@@ -726,47 +854,67 @@ export async function sendOrderEmails(
     baseUrl?: string
   },
 ): Promise<{ buyerSuccess: boolean; sellerSuccess: boolean }> {
+  const {
+    orderId,
+    creatorId,
+    buyerEmail,
+    buyerFirstName,
+    buyerLastName,
+    productTitle,
+    receiptToken,
+    amountCents,
+    feeCents,
+    baseUrl,
+  } = params
+
+  console.log("[sendOrderEmails] 📧 Processing order emails:", {
+    orderId,
+    creatorId,
+    buyerEmail,
+    productTitle,
+    amountCents,
+    smtpConfigured: isSmtpConfigured(),
+  })
+
+  // Check if SMTP is configured
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
+    console.error("[sendOrderEmails] ❌", error)
+    await updateOrderEmailStatus(admin, orderId, "buyer", false, error)
+    await updateOrderEmailStatus(admin, orderId, "seller", false, error)
+    return { buyerSuccess: false, sellerSuccess: false }
+  }
+
+  let buyerResult: { success: boolean; error?: string } = { success: false, error: "Not attempted" }
+  let sellerResult: { success: boolean; error?: string } = { success: false, error: "Not attempted" }
+
+  // Get seller email first so we can use it as reply-to for buyer email
+  const sellerEmail = await resolveSellerEmail(admin, creatorId)
+  console.log("[sendOrderEmails] Resolved seller email for reply-to:", sellerEmail)
+
+  // Send buyer email first (with seller email as reply-to so buyer can contact seller)
   try {
-    const {
-      orderId,
-      creatorId,
-      buyerEmail,
-      buyerFirstName,
-      buyerLastName,
-      productTitle,
-      receiptToken,
-      amountCents,
-      feeCents,
-      baseUrl,
-    } = params
-
-    console.log("[sendOrderEmails] 📧 Processing order emails:", {
-      orderId,
-      creatorId,
-      buyerEmail,
-      productTitle,
-      amountCents,
-    })
-
-    // Send buyer email
-    const buyerResult = await sendBuyerDownloadEmail(admin, {
+    buyerResult = await sendBuyerDownloadEmail(admin, {
       orderId,
       creatorId,
       buyerEmail,
       buyerFirstName,
       productTitle,
       receiptToken,
+      sellerReplyTo: sellerEmail, // Buyer can reply to seller!
       baseUrl,
     })
-
     console.log("[sendOrderEmails] Buyer email result:", buyerResult.success ? "✅ sent" : "❌ failed", buyerResult.error || "")
+  } catch (buyerErr: any) {
+    console.error("[sendOrderEmails] ❌ Buyer email error (caught):", buyerErr)
+    buyerResult = { success: false, error: buyerErr?.message || "Unknown error" }
+    await updateOrderEmailStatus(admin, orderId, "buyer", false, buyerResult.error)
+  }
 
-    // Get seller email - resolve from creator
-    const sellerEmail = await resolveSellerEmail(admin, creatorId)
-    console.log("[sendOrderEmails] Resolved seller email:", sellerEmail)
-
-    // Send seller notification email IMMEDIATELY
-    const sellerResult = await sendSellerNotificationEmail(admin, {
+  // ALWAYS try to send seller email, regardless of buyer email result
+  try {
+    // Send seller notification email
+    sellerResult = await sendSellerNotificationEmail(admin, {
       orderId,
       creatorId,
       sellerEmail,
@@ -778,21 +926,24 @@ export async function sendOrderEmails(
       feeCents,
       baseUrl,
     })
-
     console.log("[sendOrderEmails] Seller email result:", sellerResult.success ? "✅ sent" : "❌ failed", sellerResult.error || "")
-    console.log("[sendOrderEmails] 📧 Order emails complete:", {
-      orderId,
-      buyerSuccess: buyerResult.success,
-      sellerSuccess: sellerResult.success,
-    })
+  } catch (sellerErr: any) {
+    console.error("[sendOrderEmails] ❌ Seller email error (caught):", sellerErr)
+    sellerResult = { success: false, error: sellerErr?.message || "Unknown error" }
+    await updateOrderEmailStatus(admin, orderId, "seller", false, sellerResult.error)
+  }
 
-    return {
-      buyerSuccess: buyerResult.success,
-      sellerSuccess: sellerResult.success,
-    }
-  } catch (err: any) {
-    console.error("[sendOrderEmails] ❌ Error:", err)
-    return { buyerSuccess: false, sellerSuccess: false }
+  console.log("[sendOrderEmails] 📧 Order emails complete:", {
+    orderId,
+    buyerSuccess: buyerResult.success,
+    sellerSuccess: sellerResult.success,
+    buyerError: buyerResult.error,
+    sellerError: sellerResult.error,
+  })
+
+  return {
+    buyerSuccess: buyerResult.success,
+    sellerSuccess: sellerResult.success,
   }
 }
 
@@ -806,6 +957,20 @@ export interface SendLeadMagnetEmailParams {
   creatorId?: string
   onepageId?: string
   baseUrl?: string
+  // Custom email content
+  customSubject?: string
+  customHeading?: string
+  customBody?: string
+}
+
+export interface SendWelcomeEmailParams {
+  recipientEmail: string
+  creatorId?: string
+  onepageId?: string
+  baseUrl?: string
+  customSubject?: string
+  customHeading?: string
+  customBody?: string
 }
 
 function leadMagnetEmailHtml(params: {
@@ -813,11 +978,18 @@ function leadMagnetEmailHtml(params: {
   downloadLink: string
   supportEmail: string
   footerBrand: string
+  customHeading?: string
+  customBody?: string
+  sellerName?: string
 }) {
   const productTitle = safeText(params.productTitle)
   const downloadLink = params.downloadLink
   const supportEmail = params.supportEmail
   const footerBrand = safeText(params.footerBrand)
+  const heading = params.customHeading ? safeText(params.customHeading) : "Thank you for joining!"
+  const bodyText = params.customBody ? safeText(params.customBody) : `Thanks for subscribing! As promised, here's your free digital download: <strong>${productTitle}</strong>`
+  const sellerName = safeName(params.sellerName) || footerBrand
+  const sellerInitial = sellerName.charAt(0).toUpperCase()
 
   return `<!DOCTYPE html>
 <html>
@@ -833,15 +1005,17 @@ function leadMagnetEmailHtml(params: {
         <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
           <tr>
             <td style="padding:44px 36px 30px;text-align:center;background:#7c3aed;">
-              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">Thank you for joining!</h1>
-              <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.9);">Here's your free download</p>
+              <!-- Seller Avatar Letter -->
+              <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);display:inline-block;text-align:center;line-height:56px;font-size:24px;font-weight:700;color:#fff;margin-bottom:16px;">${sellerInitial}</div>
+              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">${heading}</h1>
+              <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.9);">Here's your free download from ${sellerName}</p>
             </td>
           </tr>
 
           <tr>
             <td style="padding:34px 34px 12px;">
               <p style="margin:0 0 18px 0;font-size:15px;color:#374151;line-height:1.55;">
-                Thanks for subscribing! As promised, here's your free digital download: <strong>${productTitle}</strong>
+                ${bodyText}
               </p>
 
               <table role="presentation" style="width:100%;background:#f3f4f6;border-radius:10px;padding:18px;margin:0 0 22px 0;">
@@ -904,10 +1078,20 @@ export async function sendLeadMagnetEmail(
   admin: any,
   params: SendLeadMagnetEmailParams,
 ): Promise<{ success: boolean; error?: string }> {
-  const { recipientEmail, productTitle, productFileUrl, creatorId } = params
+  const { recipientEmail, productTitle, productFileUrl, creatorId, customSubject, customHeading, customBody } = params
 
-  if (!resend) {
-    const error = "Email service not configured (RESEND_API_KEY missing)"
+  console.log("[email] 🔍 sendLeadMagnetEmail called with:", {
+    recipientEmail,
+    productTitle,
+    productFileUrl: productFileUrl ? productFileUrl.substring(0, 50) + "..." : "none",
+    creatorId,
+    smtpConfigured: isSmtpConfigured(),
+    customSubject,
+    customHeading,
+  })
+
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
     console.error("[email] ❌ Lead magnet email failed:", error)
     return { success: false, error }
   }
@@ -917,36 +1101,194 @@ export async function sendLeadMagnetEmail(
   const replyTo = identity?.replyTo || DEFAULT_SUPPORT
 
   const customerEmail = normalizeEmail(recipientEmail)
-  const subject = `Your download is ready - ${safeText(productTitle)}`
+  const subject = customSubject || `Your download is ready - ${safeText(productTitle)}`
+  const fromHeader = buildFromHeaderLocal(fromName)
 
   console.log("[email] 📧 Sending lead magnet email:", {
+    from: fromHeader,
     to: customerEmail,
+    replyTo,
+    subject,
     productTitle,
-    fromName,
+    downloadLink: productFileUrl,
   })
 
   try {
-    const response = await resend.emails.send({
-      from: buildFromHeader(fromName),
-      to: customerEmail,
-      replyTo,
-      subject,
-      html: leadMagnetEmailHtml({
-        productTitle,
-        downloadLink: productFileUrl,
-        supportEmail: replyTo,
-        footerBrand: fromName,
-      }),
-      text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
-    })
+    const result = await withRetry(
+      async () => {
+        const response = await sendEmail({
+          from: fromHeader,
+          to: customerEmail,
+          replyTo,
+          subject,
+          html: leadMagnetEmailHtml({
+            productTitle,
+            downloadLink: productFileUrl,
+            supportEmail: replyTo,
+            footerBrand: fromName,
+            customHeading,
+            customBody,
+            sellerName: fromName,
+          }),
+          text: leadMagnetEmailText({ productTitle, downloadLink: productFileUrl }),
+        })
 
-    if ((response as any)?.error) throw new Error((response as any).error.message || "Resend API error")
+        if (!response.success) {
+          throw new Error(response.error || "Failed to send email")
+        }
 
-    console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail)
+        return response
+      },
+      MAX_RETRIES,
+      `lead magnet email to ${customerEmail}`,
+    )
+
+    console.log("[email] ✅ Lead magnet email sent successfully to:", customerEmail, "ID:", result.messageId)
     return { success: true }
   } catch (err: any) {
-    const errorMessage = err?.message || "Unknown error sending email"
-    console.error("[email] ❌ Lead magnet email failed:", errorMessage)
+    const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
+    console.error("[email] ❌ Lead magnet email failed after retries:", errorMessage, err)
+    return { success: false, error: errorMessage }
+  }
+}
+
+// -------------------------
+// Welcome Email (no download)
+// -------------------------
+function welcomeEmailHtml(params: {
+  heading: string
+  bodyText: string
+  supportEmail: string
+  footerBrand: string
+}) {
+  const heading = safeText(params.heading)
+  const bodyText = safeText(params.bodyText)
+  const supportEmail = params.supportEmail
+  const footerBrand = safeText(params.footerBrand)
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>${heading}</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
+  <table role="presentation" style="width:100%;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="padding:44px 36px 30px;text-align:center;background:#7c3aed;">
+              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">${heading}</h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:34px 34px 12px;">
+              <p style="margin:0 0 24px 0;font-size:15px;color:#374151;line-height:1.55;">
+                ${bodyText}
+              </p>
+
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;" />
+
+              <p style="margin:0;font-size:12px;color:#6b7280;text-align:center;line-height:1.5;">
+                Need help? Contact <a href="mailto:${supportEmail}" style="color:#7c3aed;text-decoration:none;">${supportEmail}</a>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+              © ${new Date().getFullYear()} ${footerBrand}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+function welcomeEmailText(params: { heading: string; bodyText: string }) {
+  return `${params.heading}
+
+${params.bodyText}
+
+If you need help, reply to this email.`
+}
+
+export async function sendWelcomeEmail(
+  admin: any,
+  params: SendWelcomeEmailParams,
+): Promise<{ success: boolean; error?: string }> {
+  const { recipientEmail, creatorId, customSubject, customHeading, customBody } = params
+
+  console.log("[email] 🔍 sendWelcomeEmail called with:", {
+    recipientEmail,
+    creatorId,
+    smtpConfigured: isSmtpConfigured(),
+    customSubject,
+    customHeading,
+  })
+
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
+    console.error("[email] ❌ Welcome email failed:", error)
+    return { success: false, error }
+  }
+
+  const identity = creatorId ? await resolveCreatorIdentity(admin, creatorId) : null
+  const fromName = identity?.fromName || PLATFORM_BRAND_NAME
+  const replyTo = identity?.replyTo || DEFAULT_SUPPORT
+
+  const customerEmail = normalizeEmail(recipientEmail)
+  const subject = customSubject || "Thanks for subscribing!"
+  const heading = customHeading || "Welcome!"
+  const bodyText = customBody || "Thanks for joining our newsletter. We're excited to have you!"
+  const fromHeader = buildFromHeaderLocal(fromName)
+
+  console.log("[email] 📧 Sending welcome email:", {
+    from: fromHeader,
+    to: customerEmail,
+    replyTo,
+    subject,
+    heading,
+  })
+
+  try {
+    const result = await withRetry(
+      async () => {
+        const response = await sendEmail({
+          from: fromHeader,
+          to: customerEmail,
+          replyTo,
+          subject,
+          html: welcomeEmailHtml({
+            heading,
+            bodyText,
+            supportEmail: replyTo,
+            footerBrand: fromName,
+          }),
+          text: welcomeEmailText({ heading, bodyText }),
+        })
+
+        if (!response.success) {
+          throw new Error(response.error || "Failed to send email")
+        }
+
+        return response
+      },
+      MAX_RETRIES,
+      `welcome email to ${customerEmail}`,
+    )
+
+    console.log("[email] ✅ Welcome email sent successfully to:", customerEmail, "ID:", result.messageId)
+    return { success: true }
+  } catch (err: any) {
+    const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
+    console.error("[email] ❌ Welcome email failed after retries:", errorMessage, err)
     return { success: false, error: errorMessage }
   }
 }

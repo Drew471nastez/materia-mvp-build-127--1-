@@ -9,6 +9,7 @@ import {
   type TextBlockData,
   type EmailCaptureBlockData,
   type ImageBlockData,
+  type ImageItem,
   type DividerBlockData,
   type HeaderBlockData,
   type SocialRowBlockData,
@@ -25,6 +26,12 @@ import {
   type ProductButtonStyle,
   type EmailCaptureButtonPreset,
   type EmailCaptureLayoutType,
+  type PDFDocumentBlockData,
+  type PDFDocumentLayoutType,
+  type FoodMenuBlockData,
+  type CalendlyBlockData,
+  type CalendlyEmbedMode,
+  type CalendlyEmbedType,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,6 +45,18 @@ function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChang
       checked={checked}
       onChange={(e) => onCheckedChange(e.target.checked)}
       className="theme-checkbox"
+    />
+  )
+}
+
+// Block enable toggle - purple when checked (same style as theme-checkbox but purple)
+function BlockToggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox-purple"
     />
   )
 }
@@ -92,6 +111,8 @@ import {
   ArrowUpRight,
   Palette,
   Check,
+  Calendar,
+  Info,
 } from "lucide-react"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -231,7 +252,13 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
   ),
   telegram: ({ size = 20, color = "currentColor", className }) => (
     <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+      <path fillRule="evenodd" clipRule="evenodd" d="M23.1117 4.49449C23.4296 2.94472 21.9074 1.65683 20.4317 2.227L2.3425 9.21601C0.694517 9.85273 0.621087 12.1572 2.22518 12.8975L6.1645 14.7157L8.03849 21.2746C8.13583 21.6153 8.40618 21.8791 8.74917 21.968C9.09216 22.0568 9.45658 21.9576 9.70712 21.707L12.5938 18.8203L16.6375 21.8531C17.8113 22.7334 19.5019 22.0922 19.7967 20.6549L23.1117 4.49449ZM3.0633 11.0816L21.1525 4.0926L17.8375 20.2531L13.1 16.6999C12.7019 16.4013 12.1448 16.4409 11.7929 16.7928L10.5565 18.0292L10.928 15.9861L18.2071 8.70703C18.5614 8.35278 18.5988 7.79106 18.2947 7.39293C17.9906 6.99479 17.4389 6.88312 17.0039 7.13168L6.95124 12.876L3.0633 11.0816ZM8.17695 14.4791L8.78333 16.6015L9.01614 15.321C9.05253 15.1209 9.14908 14.9366 9.29291 14.7928L11.5128 12.573L8.17695 14.4791Z"/>
+    </svg>
+  ),
+  discord: ({ size = 20, color = "currentColor", className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <path d="M2 11.6C2 8.23969 2 6.55953 2.65396 5.27606C3.2292 4.14708 4.14708 3.2292 5.27606 2.65396C6.55953 2 8.23969 2 11.6 2H20.4C23.7603 2 25.4405 2 26.7239 2.65396C27.8529 3.2292 28.7708 4.14708 29.346 5.27606C30 6.55953 30 8.23969 30 11.6V20.4C30 23.7603 30 25.4405 29.346 26.7239C28.7708 27.8529 27.8529 28.7708 26.7239 29.346C25.4405 30 23.7603 30 20.4 30H11.6C8.23969 30 6.55953 30 5.27606 29.346C4.14708 28.7708 3.2292 27.8529 2.65396 26.7239C2 25.4405 2 23.7603 2 20.4V11.6Z" fill="white"/>
+      <path d="M23.6361 9.33998C22.212 8.71399 20.6892 8.25903 19.0973 8C18.9018 8.33209 18.6734 8.77875 18.5159 9.13408C16.8236 8.89498 15.1469 8.89498 13.4857 9.13408C13.3283 8.77875 13.0946 8.33209 12.8974 8C11.3037 8.25903 9.77927 8.71565 8.35518 9.3433C5.48276 13.4213 4.70409 17.3981 5.09342 21.3184C6.99856 22.6551 8.84487 23.467 10.66 23.9983C11.1082 23.4189 11.5079 22.8029 11.8523 22.1536C11.1964 21.9195 10.5683 21.6306 9.9748 21.2951C10.1323 21.1856 10.2863 21.071 10.4351 20.9531C14.0551 22.5438 17.9881 22.5438 21.5649 20.9531C21.7154 21.071 21.8694 21.1856 22.0251 21.2951C21.4299 21.6322 20.8 21.9211 20.1442 22.1553C20.4885 22.8029 20.8865 23.4205 21.3364 24C23.1533 23.4687 25.0013 22.6567 26.9065 21.3184C27.3633 16.7738 26.1261 12.8335 23.6361 9.33998ZM12.3454 18.9075C11.2587 18.9075 10.3676 17.9543 10.3676 16.7937C10.3676 15.6331 11.2397 14.6783 12.3454 14.6783C13.4511 14.6783 14.3422 15.6314 14.3232 16.7937C14.325 17.9543 13.4511 18.9075 12.3454 18.9075ZM19.6545 18.9075C18.5678 18.9075 17.6767 17.9543 17.6767 16.7937C17.6767 15.6331 18.5488 14.6783 19.6545 14.6783C20.7602 14.6783 21.6514 15.6314 21.6323 16.7937C21.6323 17.9543 20.7602 18.9075 19.6545 18.9075Z" fill="#5865F2"/>
     </svg>
   ),
   whatsapp: ({ size = 20, color = "currentColor", className }) => (
@@ -247,6 +274,14 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
   soundcloud: ({ size = 20, color = "currentColor", className }) => (
     <svg className={className} width={size} height={size} viewBox="-143 145 512 512" fill={color}>
       <path d="M113,145c-141.4,0-256,114.6-256,256s114.6,256,256,256s256-114.6,256-256S254.4,145,113,145z M-11.1,432.9 c-0.1,0.6-0.5,1-1,1s-1-0.4-1-1l-1.9-14l1.9-14.2c0.1-0.6,0.5-1,1-1s0.9,0.4,1,1l2.2,14.2L-11.1,432.9z M-1.6,441.4 c-0.1,0.6-0.5,1-1.1,1c-0.5,0-1-0.4-1.1-1l-2.5-22.5l2.5-23c0.1-0.6,0.5-1,1.1-1c0.5,0,1,0.4,1.1,1l2.9,23L-1.6,441.4z M8.7,445.3 c-0.1,0.7-0.6,1.2-1.3,1.2c-0.7,0-1.2-0.5-1.3-1.3l-2.4-26.3l2.4-27.3c0.1-0.7,0.6-1.3,1.3-1.3c0.7,0,1.2,0.5,1.3,1.3l2.7,27.3 L8.7,445.3z M19.1,446.1c-0.1,0.8-0.7,1.5-1.5,1.5c-0.8,0-1.4-0.6-1.5-1.5L13.8,419l2.3-28c0.1-0.9,0.7-1.5,1.5-1.5 c0.8,0,1.4,0.6,1.5,1.5l2.6,28L19.1,446.1z M29.5,446.3c-0.1,1-0.8,1.7-1.7,1.7c-0.9,0-1.7-0.7-1.7-1.7L24,419l2.1-26 c0.1-1,0.8-1.7,1.7-1.7c0.9,0,1.6,0.7,1.7,1.7l2.4,26L29.5,446.3z M40,446.3c-0.1,1.1-0.9,1.9-1.9,1.9s-1.9-0.8-1.9-1.9l-2-27.3 l2-42.3c0.1-1.1,0.9-1.9,1.9-1.9s1.9,0.8,1.9,1.9l2.3,42.3L40,446.3z M50.6,446.2c-0.1,1.2-1,2.1-2.2,2.1s-2.1-0.9-2.2-2.1L44.3,419 l1.9-52c0.1-1.2,1-2.1,2.2-2.1s2.1,0.9,2.2,2.1l2.1,52L50.6,446.2z M61.3,445.9c-0.1,1.3-1.1,2.3-2.4,2.3s-2.3-1-2.4-2.3L54.7,419 l1.8-56.3c0-1.3,1.1-2.4,2.4-2.4s2.3,1,2.4,2.4l2,56.3L61.3,445.9z M72.1,445.7c-0.1,1.4-1.2,2.6-2.6,2.6c-1.4,0-2.5-1.1-2.6-2.6 L65.3,419l1.6-58.2c0-1.4,1.2-2.6,2.6-2.6s2.5,1.1,2.6,2.6l1.8,58.2L72.1,445.7z M82.9,445.5c0,1.5-1.3,2.8-2.8,2.8 s-2.8-1.2-2.8-2.8L75.8,419l1.5-56.7c0-1.6,1.3-2.8,2.8-2.8s2.8,1.2,2.8,2.8l1.7,56.7L82.9,445.5z M93.9,445.3c0,1.7-1.4,3-3,3 c-1.7,0-3-1.3-3-3L86.5,419l1.4-54.7c0-1.7,1.4-3,3-3c1.7,0,3,1.3,3,3l1.5,54.7L93.9,445.3z M104.9,445.1c0,1.8-1.5,3.2-3.2,3.2 c-1.8,0-3.2-1.5-3.2-3.2L97.3,419l1.2-65c0-1.8,1.5-3.2,3.2-3.2c1.8,0,3.2,1.4,3.2,3.2l1.4,65L104.9,445.1z M115.9,444.8 c0,1.9-1.6,3.4-3.5,3.4c-1.9,0-3.4-1.6-3.5-3.4l-1.4-25.7l1.4-70.9c0-1.9,1.6-3.5,3.5-3.5c1.9,0,3.4,1.6,3.5,3.5l1.5,70.9 L115.9,444.8z M209.5,448.4c-0.6,0-87.2,0-87.3,0c-1.9-0.2-3.4-1.8-3.4-3.7v-99.9c0-1.8,0.7-2.8,3-3.7c6.1-2.4,13-3.8,20.1-3.8 c29,0,52.8,22.3,55.3,50.6c3.7-1.6,7.9-2.4,12.2-2.4c17.4,0,31.5,14.1,31.5,31.5C241,434.3,226.9,448.4,209.5,448.4z"/>
+    </svg>
+  ),
+  calendly: ({ size = 20, className }) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 525.8 535.73" fill="none">
+      <path fill="#006bff" d="M360.4,347.4c-17,15.09-38.21,33.87-76.78,33.87h-23c-27.88,0-53.23-10.12-71.37-28.49-17.72-17.94-27.48-42.5-27.48-69.16V252.11c0-26.66,9.76-51.22,27.48-69.16,18.14-18.37,43.49-28.49,71.37-28.49h23c38.57,0,59.76,18.78,76.78,33.87,17.65,15.65,32.9,29.16,73.52,29.16a116.05,116.05,0,0,0,18.5-1.48c0-.12-.08-.23-.13-.35a139.23,139.23,0,0,0-8.55-17.55l-27.16-47.05A139.53,139.53,0,0,0,295.76,81.3H241.43a139.53,139.53,0,0,0-120.82,69.76L93.45,198.11a139.52,139.52,0,0,0,0,139.51l27.16,47.05a139.52,139.52,0,0,0,120.82,69.75h54.33a139.52,139.52,0,0,0,120.82-69.75l27.16-47.05a139.23,139.23,0,0,0,8.55-17.55c0-.12.09-.23.13-.35a116.05,116.05,0,0,0-18.5-1.48C393.3,318.24,378.05,331.75,360.4,347.4Z"/>
+      <path fill="#006bff" d="M283.62,183h-23c-42.42,0-70.3,30.3-70.3,69.09v31.51c0,38.79,27.88,69.09,70.3,69.09h23c61.82,0,57-63,150.3-63a144.19,144.19,0,0,1,26.37,2.41,139.36,139.36,0,0,0,0-48.46,143.32,143.32,0,0,1-26.37,2.42C340.59,246.05,345.44,183,283.62,183Z"/>
+      <path fill="#006bff" d="M513.91,315.13a130.21,130.21,0,0,0-53.62-23c0,.16-.05.32-.08.47a138.46,138.46,0,0,1-7.79,27.16A102.15,102.15,0,0,1,496.75,338c0,.14-.08.28-.13.43A237.8,237.8,0,0,1,463.33,406a240.67,240.67,0,0,1-52,53.48A239.3,239.3,0,0,1,98.65,98.65a239.43,239.43,0,0,1,398,98.69c.05.15.09.29.13.43A102.15,102.15,0,0,1,452.42,216a139.36,139.36,0,0,1,7.8,27.18c0,.15,0,.3.07.44a129.94,129.94,0,0,0,53.62-23c15.29-11.31,12.33-24.09,10-31.65C490.22,79.52,388.33,0,267.86,0,119.93,0,0,119.93,0,267.86S119.93,535.73,267.86,535.73c120.47,0,222.36-79.52,256-188.94C526.24,339.23,529.2,326.45,513.91,315.13Z"/>
+      <path fill="#0ae9ef" d="M452.42,216a116.05,116.05,0,0,1-18.5,1.48c-40.62,0-55.87-13.51-73.52-29.16-17-15.09-38.21-33.87-76.78-33.87h-23c-27.88,0-53.23,10.12-71.37,28.49-17.72,17.94-27.48,42.5-27.48,69.16v31.51c0,26.66,9.76,51.22,27.48,69.16,18.14,18.37,43.49,28.49,71.37,28.49h23c38.57,0,59.76-18.78,76.78-33.87,17.65-15.65,32.9-29.16,73.52-29.16a116.05,116.05,0,0,1,18.5,1.48,138.46,138.46,0,0,0,7.79-27.16c0-.15.06-.31.08-.47a144.19,144.19,0,0,0-26.37-2.41c-93.33,0-88.48,63-150.3,63h-23c-42.42,0-70.3-30.3-70.3-69.09V252.11c0-38.79,27.88-69.09,70.3-69.09h23c61.82,0,57,63,150.3,63a143.32,143.32,0,0,0,26.37-2.42c0-.14,0-.29-.07-.44A139.36,139.36,0,0,0,452.42,216Z"/>
     </svg>
   ),
   applemusic: ({ size = 20, color = "currentColor", className }) => (
@@ -324,6 +359,7 @@ const SOCIAL_PLATFORMS = [
   { id: "telegram", label: "Telegram", placeholder: "https://t.me/username", color: "#0088CC" },
   { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF" },
   { id: "website", label: "Website", placeholder: "https://yourwebsite.com", color: "#6366F1" },
+  { id: "calendly", label: "Calendly", placeholder: "https://calendly.com/username", color: "#006BFF" },
 ]
 
 // Default background images library
@@ -350,8 +386,10 @@ const blockCategories = [
     icon: Heart,
     blocks: [
       { type: "product" as const, label: "Digital Product", description: "Sell a digital product on your page", icon: ShoppingBag },
+      { type: "email_capture" as const, label: "Email Signup", description: "Collect emails from visitors", icon: Mail },
       { type: "link_button" as const, label: "YouTube", description: "Link to YouTube", icon: Video, preset: { label: "Subscribe on YouTube", url: "https://youtube.com/@" } },
-      { type: "link_button" as const, label: "X (Twitter)", description: "Link to X", icon: Share2, preset: { label: "Follow on X", url: "https://x.com/" } },
+      { type: "link_button" as const, label: "Spotify", description: "Share your music", icon: Share2, preset: { label: "Listen on Spotify", url: "https://open.spotify.com/" } },
+      { type: "link_button" as const, label: "TikTok", description: "Link to TikTok", icon: Share2, preset: { label: "Follow on TikTok", url: "https://tiktok.com/@" } },
       { type: "link_button" as const, label: "Instagram", description: "Link to Instagram", icon: Share2, preset: { label: "Follow on Instagram", url: "https://instagram.com/" } },
     ],
   },
@@ -361,7 +399,11 @@ const blockCategories = [
     icon: ShoppingBag,
     blocks: [
       { type: "product" as const, label: "Digital Product", description: "Sell a digital product", icon: ShoppingBag },
+      { type: "email_capture" as const, label: "Email Signup", description: "Collect emails from visitors", icon: Mail },
+      { type: "link_button" as const, label: "My Link", description: "Add a simple link", icon: Link, preset: { label: "My Link", url: "" } },
       { type: "link_button" as const, label: "Store Link", description: "Link to your store", icon: ShoppingBag, preset: { label: "Shop Now", url: "" } },
+      { type: "link_button" as const, label: "eCourse", description: "Sell online courses", icon: Video, comingSoon: true, preset: { label: "View Course", url: "" } },
+      { type: "link_button" as const, label: "Coaching", description: "Offer coaching sessions", icon: User, comingSoon: true, preset: { label: "Book Coaching", url: "" } },
     ],
   },
   {
@@ -394,7 +436,8 @@ const blockCategories = [
     label: "Documents",
     icon: FileText,
     blocks: [
-      { type: "link_button" as const, label: "PDF", description: "Link to a PDF file", icon: FileText, preset: { label: "View Document", url: "" } },
+      { type: "pdf_document" as const, label: "PDF Document", description: "Share a PDF with preview", icon: FileText },
+      { type: "food_menu" as const, label: "Food & Drinks Menu", description: "Share your restaurant menu", icon: FileText },
       { type: "link_button" as const, label: "Google Docs", description: "Link to Google Docs", icon: FileText, preset: { label: "View Document", url: "https://docs.google.com/" } },
       { type: "link_button" as const, label: "Notion", description: "Link to Notion page", icon: FileText, preset: { label: "View Page", url: "https://notion.so/" } },
     ],
@@ -416,9 +459,11 @@ const blockCategories = [
     icon: MessageSquare,
     blocks: [
       { type: "email_capture" as const, label: "Email Signup", description: "Collect emails", icon: Mail },
-      { type: "link_button" as const, label: "Contact Form", description: "Link to form", icon: FileText, preset: { label: "Contact Me", url: "" } },
+      { type: "calendly" as const, label: "Calendly", description: "Book meetings with Calendly", icon: Calendar },
+      { type: "link_button" as const, label: "Contact Form", description: "Link to form", icon: FileText, comingSoon: true, preset: { label: "Contact Me", url: "" } },
       { type: "link_button" as const, label: "WhatsApp", description: "Link to WhatsApp", icon: MessageSquare, preset: { label: "Message on WhatsApp", url: "https://wa.me/" } },
       { type: "link_button" as const, label: "Telegram", description: "Link to Telegram", icon: MessageSquare, preset: { label: "Message on Telegram", url: "https://t.me/" } },
+      { type: "link_button" as const, label: "Discord", description: "Link to Discord", icon: MessageSquare, preset: { label: "Join Discord", url: "https://discord.gg/" } },
     ],
   },
   {
@@ -475,6 +520,18 @@ function getBlockPreviewData(block: OnePageBlock) {
       const data = block.data as GroupBlockData
       const childCount = data.children?.length || 0
       return { title: data.title || "Group", subtitle: `${childCount} item${childCount !== 1 ? 's' : ''} · ${data.layout}`, icon: Layers }
+    }
+    case "pdf_document": {
+      const data = block.data as PDFDocumentBlockData
+      return { title: data.title || "PDF Document", subtitle: data.pdf_file_url ? "PDF uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+    }
+    case "food_menu": {
+      const data = block.data as FoodMenuBlockData
+      return { title: data.title || "Menu", subtitle: data.pdf_file_url ? "Menu uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+    }
+    case "calendly": {
+      const data = block.data as CalendlyBlockData
+      return { title: data.title || "Book a Meeting", subtitle: data.calendly_url ? "Calendly connected" : "Add Calendly URL", icon: Calendar, thumbnail_url: data.thumbnail_url }
     }
     default:
       return { title: block.type, subtitle: "", icon: Link }
@@ -533,6 +590,7 @@ export function LinksTab() {
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
   const [imageFieldType, setImageFieldType] = useState<string | null>(null)
+  const [imageUploading, setImageUploading] = useState(false)
   const [showArchiveView, setShowArchiveView] = useState(false)
 
   // Thumbnail modal state
@@ -552,6 +610,7 @@ export function LinksTab() {
   const [streamingUrlError, setStreamingUrlError] = useState<string | null>(null)
   const [streamingBlockData, setStreamingBlockData] = useState<LinkButtonBlockData | null>(null)
   const [streamingBlockUpdateFn, setStreamingBlockUpdateFn] = useState<((data: Partial<LinkButtonBlockData>) => void) | null>(null)
+
 
   // Track which blocks have had auto-fetch attempted to avoid repeated requests
   const autoFetchedBlocksRef = useRef<Set<string>>(new Set())
@@ -609,6 +668,7 @@ export function LinksTab() {
   const sortedBlocks = [...draft_blocks].sort((a, b) => a.sort_order - b.sort_order)
 
   // Sync social_links to all social_row blocks for instant preview updates
+  // Also runs when blocks change (new block added) to ensure immediate sync
   useEffect(() => {
     sortedBlocks.forEach(block => {
       if (block.type === "social_row") {
@@ -622,7 +682,10 @@ export function LinksTab() {
         const hasNewPlatforms = activeSocials.some(s => !currentPlatforms.has(s.platform))
         const hasRemovedPlatforms = (data.platforms || []).some(p => !activePlatformSet.has(p.platform as keyof OnePageSocialLinks))
 
-        if (hasNewPlatforms || hasRemovedPlatforms) {
+        // Also sync if platforms is empty but there are active social links
+        const needsInitialSync = (data.platforms || []).length === 0 && activeSocials.length > 0
+
+        if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync) {
           const existingOrder = (data.platforms || []).filter(p => social_links?.[p.platform as keyof typeof social_links])
           const existingPlatforms = new Set(existingOrder.map(p => p.platform))
           const newPlatforms = activeSocials.filter(s => !existingPlatforms.has(s.platform))
@@ -636,7 +699,7 @@ export function LinksTab() {
         }
       }
     })
-  }, [social_links])
+  }, [social_links, draft_blocks])
 
   // Icon library paths for thumbnails
   const THUMBNAIL_ICON_PATHS: Record<string, string> = {
@@ -798,7 +861,7 @@ export function LinksTab() {
     'linkedin': 'M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2zM4 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',
     'twitch': 'M21 2H3v16h5v4l4-4h5l4-4V2zm-10 9V7m5 4V7',
     'discord': 'M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z',
-    'telegram': 'M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 7.5a2.25 2.25 0 0 0 .126 4.303l3.2 1.067 1.493 4.8a1.5 1.5 0 0 0 2.368.671l2.441-1.953 4.195 3.209a2.25 2.25 0 0 0 3.541-1.332l3-15A2.25 2.25 0 0 0 21.198 2.433zM6.988 13.678l7.25-4.812-5.5 5.562-.75 3z',
+    'telegram': 'M23.1117 4.49449C23.4296 2.94472 21.9074 1.65683 20.4317 2.227L2.3425 9.21601C0.694517 9.85273 0.621087 12.1572 2.22518 12.8975L6.1645 14.7157L8.03849 21.2746C8.13583 21.6153 8.40618 21.8791 8.74917 21.968C9.09216 22.0568 9.45658 21.9576 9.70712 21.707L12.5938 18.8203L16.6375 21.8531C17.8113 22.7334 19.5019 22.0922 19.7967 20.6549L23.1117 4.49449ZM3.0633 11.0816L21.1525 4.0926L17.8375 20.2531L13.1 16.6999C12.7019 16.4013 12.1448 16.4409 11.7929 16.7928L10.5565 18.0292L10.928 15.9861L18.2071 8.70703C18.5614 8.35278 18.5988 7.79106 18.2947 7.39293C17.9906 6.99479 17.4389 6.88312 17.0039 7.13168L6.95124 12.876L3.0633 11.0816ZM8.17695 14.4791L8.78333 16.6015L9.01614 15.321C9.05253 15.1209 9.14908 14.9366 9.29291 14.7928L11.5128 12.573L8.17695 14.4791Z',
     'whatsapp': 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z',
     'pinterest': 'M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z',
     'snapchat': 'M11.99 2.75c-1.494-.011-3.017.567-4.003 1.714-.874.926-1.204 2.238-1.16 3.483-.004.64.004 1.28.006 1.92-.613-.152-1.234-.578-1.882-.367-.553.164-.783.886-.45 1.349.36.47.918.738 1.385 1.089.229.188.538.321.71.562 0 .577-.303 1.112-.59 1.599-.7 1.099-1.786 1.93-2.956 2.509-.3.129-.572.518-.309.812.485.453 1.167.598 1.77.811.256.08.635.168.608.507.042.365.276.758.687.76.982.114 2.036.065 2.918.59.868.501 1.756 1.059 2.777 1.117 1.02.1 2.08-.111 2.958-.663.654-.36 1.292-.81 2.06-.883.645-.15 1.338-.015 1.96-.26.4-.17.35-.66.51-.984.32-.22.72-.243 1.07-.388.46-.183 1.04-.332 1.27-.802.14-.38-.29-.586-.56-.734-1.42-.734-2.7-1.87-3.27-3.4-.06-.24-.29-.6.01-.78.62-.52 1.43-.82 1.94-1.46.39-.488.12-1.318-.52-1.418-.618-.098-1.19.24-1.77.391-.051-1.068.063-2.152-.102-3.218-.304-1.726-1.69-3.145-3.35-3.64-.565-.18-1.158-.25-1.746-.25z',
@@ -1240,7 +1303,7 @@ export function LinksTab() {
     // If adding to a group, handle differently
     if (addToGroupId) {
       // Don't allow adding these types to a group
-      if (type === "header" || type === "group" || type === "social_row" || type === "product") {
+      if (type === "header" || type === "group" || type === "social_row" || type === "product" || type === "email_capture" || type === "text" || type === "divider") {
         setShowAddModal(false)
         setSearchQuery("")
         setAddToGroupId(null)
@@ -1253,6 +1316,12 @@ export function LinksTab() {
         // Use createDefaultBlock to get proper default data for any block type
         const newBlock = createDefaultBlock(type)
         newBlock.sort_order = groupData.children?.length || 0
+
+        // Override Image block defaults when added to a Group (use single instead of carousel)
+        if (type === "image") {
+          (newBlock.data as ImageBlockData).display_style = "single"
+          ;(newBlock.data as ImageBlockData).carousel_autoplay = false
+        }
 
         // Apply preset if provided (for link_button presets)
         if (preset && type === "link_button") {
@@ -1267,6 +1336,10 @@ export function LinksTab() {
           else if (preset.url.includes('threads.net')) defaultIcon = 'threads'
           else if (preset.url.includes('spotify.com')) defaultIcon = 'spotify'
           else if (preset.url.includes('music.apple.com')) defaultIcon = 'apple-music'
+          else if (preset.url.includes('wa.me') || preset.url.includes('whatsapp.com')) defaultIcon = 'whatsapp'
+          else if (preset.url.includes('t.me') || preset.url.includes('telegram.')) defaultIcon = 'telegram'
+          else if (preset.url.includes('vimeo.com')) defaultIcon = 'vimeo'
+          else if (preset.url.includes('discord.gg') || preset.url.includes('discord.com')) defaultIcon = 'discord'
 
           (newBlock.data as LinkButtonBlockData).label = preset.label
           ;(newBlock.data as LinkButtonBlockData).url = preset.url
@@ -1300,6 +1373,10 @@ export function LinksTab() {
       else if (preset.url.includes('threads.net')) defaultIcon = 'threads'
       else if (preset.url.includes('spotify.com')) defaultIcon = 'spotify'
       else if (preset.url.includes('music.apple.com')) defaultIcon = 'apple-music'
+      else if (preset.url.includes('wa.me') || preset.url.includes('whatsapp.com')) defaultIcon = 'whatsapp'
+      else if (preset.url.includes('t.me') || preset.url.includes('telegram.')) defaultIcon = 'telegram'
+      else if (preset.url.includes('vimeo.com')) defaultIcon = 'vimeo'
+      else if (preset.url.includes('discord.gg') || preset.url.includes('discord.com')) defaultIcon = 'discord'
 
       updateBlock(newBlock.id, {
         data: {
@@ -1458,7 +1535,7 @@ export function LinksTab() {
   const hasHeaderBlock = sortedBlocks.some(b => b.type === "header")
 
   // Block types that can't be added to a group
-  const blockedInGroup = ["header", "group", "social_row", "product"]
+  const blockedInGroup = ["header", "group", "social_row", "product", "email_capture", "text", "divider"]
 
   const activeCategoryBlocks = (searchQuery
     ? filteredCategories.flatMap(c => c.blocks)
@@ -1574,7 +1651,7 @@ export function LinksTab() {
           setTimeout(() => setAddButtonClicked(false), 300)
           setShowAddModal(true)
         }}
-        className="w-full h-11 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group"
+        className="w-full h-11 bg-violet-500 hover:bg-violet-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group"
       >
         <Plus
           className={cn(
@@ -1738,7 +1815,7 @@ export function LinksTab() {
                 >
                   <span className="absolute inset-x-2 h-px bg-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:translate-y-[0.5px] group-focus-within/add-divider:translate-y-[0.5px]" />
                   <span className="absolute inset-x-3 h-px bg-gray-200 rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:-translate-y-[0.5px] group-focus-within/add-divider:-translate-y-[0.5px]" />
-                  <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-blue-600 shadow-sm transition-all duration-200 ease-out opacity-0 scale-90 group-hover/add-divider:opacity-100 group-hover/add-divider:shadow-lg group-hover/add-divider:scale-105 group-focus-within/add-divider:opacity-100 group-focus-within/add-divider:shadow-lg group-focus-within/add-divider:scale-105">
+                  <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-violet-600 shadow-sm transition-all duration-200 ease-out opacity-0 scale-90 group-hover/add-divider:opacity-100 group-hover/add-divider:shadow-lg group-hover/add-divider:scale-105 group-focus-within/add-divider:opacity-100 group-focus-within/add-divider:shadow-lg group-focus-within/add-divider:scale-105">
                     <Plus className="h-4 w-4 transition-transform duration-200 ease-out group-hover/add-divider:rotate-90 group-focus-within/add-divider:rotate-90" />
                   </span>
                 </button>
@@ -1821,11 +1898,10 @@ export function LinksTab() {
 
             {/* Quick action buttons for group - simplified */}
             {!searchQuery && addToGroupId && (
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-5">
                 {[
                   { label: "Link", icon: Link, type: "link_button" as const },
-                  { label: "Text", icon: Type, type: "text" as const },
-                  { label: "Form", icon: Mail, type: "email_capture" as const },
+                  { label: "Image", icon: ImageIcon, type: "image" as const },
                 ].map((item) => {
                   const Icon = item.icon
                   return (
@@ -1849,7 +1925,7 @@ export function LinksTab() {
                   .filter(cat => {
                     // Filter out categories with no allowed blocks when adding to group
                     if (addToGroupId) {
-                      const allowedTypes = ["link_button", "text", "image", "divider", "email_capture"]
+                      const allowedTypes = ["link_button", "image"]
                       return cat.blocks.some(b => allowedTypes.includes(b.type))
                     }
                     return true
@@ -1857,7 +1933,7 @@ export function LinksTab() {
                   .map((category) => {
                     // Filter blocks for group if needed
                     const blocksToShow = addToGroupId
-                      ? category.blocks.filter(b => ["link_button", "text", "image", "divider", "email_capture"].includes(b.type))
+                      ? category.blocks.filter(b => ["link_button", "image"].includes(b.type))
                       : category.blocks
 
                     if (blocksToShow.length === 0) return null
@@ -1874,18 +1950,19 @@ export function LinksTab() {
                           {blocksToShow.map((block, idx) => {
                             const Icon = block.icon
                             const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("xtwitter", "twitter")
-                            const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram"].includes(socialId)
+                            const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram", "discord", "calendly"].includes(socialId)
                             const atLimit = isBlockTypeAtLimit(block.type)
                             const currentCount = getBlockTypeCount(block.type)
+                            const isComingSoon = (block as any).comingSoon === true
 
                             return (
                               <button
                                 key={`${category.id}-${block.type}-${block.label}-${idx}`}
-                                onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
-                                disabled={atLimit}
+                                onClick={() => !atLimit && !isComingSoon && handleAddBlock(block.type, (block as any).preset)}
+                                disabled={atLimit || isComingSoon}
                                 className={cn(
                                   "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
-                                  atLimit
+                                  (atLimit || isComingSoon)
                                     ? "opacity-50 cursor-not-allowed bg-gray-50"
                                     : "hover:bg-gray-50 active:bg-gray-100"
                                 )}
@@ -1914,7 +1991,9 @@ export function LinksTab() {
                                     {atLimit ? `Already added (${currentCount}/2)` : block.description}
                                   </p>
                                 </div>
-                                {atLimit ? (
+                                {isComingSoon ? (
+                                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Coming Soon</span>
+                                ) : atLimit ? (
                                   <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
                                 ) : (
                                   <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
@@ -1934,18 +2013,19 @@ export function LinksTab() {
                   activeCategoryBlocks.map((block, idx) => {
                     const Icon = block.icon
                     const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("xtwitter", "twitter")
-                    const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram"].includes(socialId)
+                    const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram", "discord", "calendly"].includes(socialId)
                     const atLimit = isBlockTypeAtLimit(block.type)
                     const currentCount = getBlockTypeCount(block.type)
+                    const isComingSoon = (block as any).comingSoon === true
 
                     return (
                       <button
                         key={`search-${block.type}-${block.label}-${idx}`}
-                        onClick={() => !atLimit && handleAddBlock(block.type, (block as any).preset)}
-                        disabled={atLimit}
+                        onClick={() => !atLimit && !isComingSoon && handleAddBlock(block.type, (block as any).preset)}
+                        disabled={atLimit || isComingSoon}
                         className={cn(
                           "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
-                          atLimit
+                          (atLimit || isComingSoon)
                             ? "opacity-50 cursor-not-allowed bg-gray-50"
                             : "hover:bg-gray-50 active:bg-gray-100"
                         )}
@@ -1974,7 +2054,9 @@ export function LinksTab() {
                             {atLimit ? `Already added (${currentCount}/2)` : block.description}
                           </p>
                         </div>
-                        {atLimit ? (
+                        {isComingSoon ? (
+                          <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Coming Soon</span>
+                        ) : atLimit ? (
                           <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">Added</span>
                         ) : (
                           <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
@@ -2670,26 +2752,37 @@ export function LinksTab() {
         <DialogContent className="w-[calc(100%-32px)] max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
           <DialogHeader className="p-4 sm:p-5 border-b">
             <DialogTitle className="text-base sm:text-lg font-semibold">
-              {imageFieldType === 'digital_product_file' ? 'Upload Digital File' : imageFieldType === 'product_image' ? 'Product Image' : 'Choose an Image'}
+              {imageFieldType === 'digital_product_file' ? 'Upload Digital File'
+                : imageFieldType === 'product_image' ? 'Product Image'
+                : imageFieldType === 'pdf_file' ? 'Upload PDF File'
+                : imageFieldType === 'thumbnail_url' ? 'Upload Thumbnail'
+                : 'Choose an Image'}
             </DialogTitle>
           </DialogHeader>
           <div className="p-4 sm:p-5 max-h-[60vh] overflow-y-auto">
-            {/* File Upload Section for digital product file or product image */}
-            {(imageFieldType === 'digital_product_file' || imageFieldType === 'product_image') && (
+            {/* File Upload Section for digital product file, product image, PDF file, or thumbnail */}
+            {(imageFieldType === 'digital_product_file' || imageFieldType === 'product_image' || imageFieldType === 'pdf_file' || imageFieldType === 'thumbnail_url') && (
               <div className="mb-4">
                 <input
                   type="file"
                   id="file-upload-input"
-                  accept={imageFieldType === 'digital_product_file' ? '*/*' : 'image/*'}
+                  accept={
+                    imageFieldType === 'digital_product_file' ? '*/*'
+                    : imageFieldType === 'pdf_file' ? '.pdf,application/pdf'
+                    : 'image/*'
+                  }
+                  disabled={imageUploading}
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file || !imageBlockId) return
 
+                    setImageUploading(true)
                     try {
                       const formData = new FormData()
                       formData.append('file', file)
+                      formData.append('type', (imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file') ? 'digital' : 'image')
 
-                      const response = await fetch('/api/onepage/seller-avatar', {
+                      const response = await fetch('/api/onepage/upload-file', {
                         method: 'POST',
                         body: formData,
                       })
@@ -2704,6 +2797,7 @@ export function LinksTab() {
                                 ...block.data,
                                 digital_product_file_url: url,
                                 digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
+                                enable_digital_product: true, // Enable digital product delivery when file is uploaded
                               }
                             })
                           } else if (imageFieldType === 'product_image') {
@@ -2713,14 +2807,36 @@ export function LinksTab() {
                                 product_image: url,
                               }
                             })
+                          } else if (imageFieldType === 'pdf_file') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                pdf_file_url: url,
+                                title: block.data.title || file.name.replace(/\.[^/.]+$/, ""),
+                              }
+                            })
+                          } else if (imageFieldType === 'thumbnail_url') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                thumbnail_url: url,
+                              }
+                            })
                           }
                         }
                         setShowImageLibrary(false)
                         setImageBlockId(null)
                         setImageFieldType(null)
+                      } else {
+                        const errorData = await response.json()
+                        console.error('Upload failed:', errorData.error)
+                        alert('Upload failed: ' + (errorData.error || 'Unknown error'))
                       }
                     } catch (error) {
                       console.error('Upload failed:', error)
+                      alert('Upload failed. Please try again.')
+                    } finally {
+                      setImageUploading(false)
                     }
                     e.target.value = ''
                   }}
@@ -2728,15 +2844,33 @@ export function LinksTab() {
                 />
                 <label
                   htmlFor="file-upload-input"
-                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-violet-400 cursor-pointer transition-colors"
+                  className={cn(
+                    "flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-300 transition-colors",
+                    imageUploading ? "opacity-50 cursor-wait" : "hover:border-violet-400 cursor-pointer"
+                  )}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center">
-                    <Upload className="h-6 w-6 text-violet-600" />
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center",
+                    imageFieldType === 'pdf_file' ? "bg-red-100" : "bg-violet-100"
+                  )}>
+                    {imageUploading ? (
+                      <Loader2 className={cn("h-6 w-6 animate-spin", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
+                    ) : (
+                      <Upload className={cn("h-6 w-6", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
+                    )}
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="font-medium">Upload {imageFieldType === 'digital_product_file' ? 'file' : 'image'}</p>
+                    <p className="font-medium">
+                      {imageUploading ? 'Uploading...'
+                        : imageFieldType === 'digital_product_file' ? 'Upload file'
+                        : imageFieldType === 'pdf_file' ? 'Upload PDF'
+                        : imageFieldType === 'thumbnail_url' ? 'Upload thumbnail'
+                        : 'Upload image'}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      {imageFieldType === 'digital_product_file' ? 'PDF, ZIP, or any file type' : 'JPG, PNG, GIF up to 5MB'}
+                      {imageFieldType === 'digital_product_file' ? 'PDF, ZIP, or any file type'
+                        : imageFieldType === 'pdf_file' ? 'PDF files only'
+                        : 'JPG, PNG, GIF up to 5MB'}
                     </p>
                   </div>
                 </label>
@@ -2745,8 +2879,11 @@ export function LinksTab() {
                 {imageBlockId && (() => {
                   const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
                   if (!block) return null
-                  const data = block.data as EmailCaptureBlockData
-                  const hasFile = imageFieldType === 'digital_product_file' ? data.digital_product_file_url : data.product_image
+                  const data = block.data as any
+                  const hasFile = imageFieldType === 'digital_product_file' ? data.digital_product_file_url
+                    : imageFieldType === 'pdf_file' ? data.pdf_file_url
+                    : imageFieldType === 'thumbnail_url' ? data.thumbnail_url
+                    : data.product_image
                   if (!hasFile) return null
 
                   return (
@@ -2755,12 +2892,20 @@ export function LinksTab() {
                         <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
                           <FileText className="h-5 w-5 text-violet-600" />
                         </div>
+                      ) : imageFieldType === 'pdf_file' ? (
+                        <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                          <FileText className="h-5 w-5 text-red-600" />
+                        </div>
+                      ) : imageFieldType === 'thumbnail_url' ? (
+                        <img src={data.thumbnail_url || ''} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                       ) : (
                         <img src={data.product_image || ''} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {imageFieldType === 'digital_product_file' ? (data.digital_product_title || 'Current file') : 'Current image'}
+                          {imageFieldType === 'digital_product_file' ? (data.digital_product_title || 'Current file')
+                            : imageFieldType === 'pdf_file' ? (data.title || 'PDF file')
+                            : 'Current image'}
                         </p>
                       </div>
                       <button
@@ -2772,6 +2917,21 @@ export function LinksTab() {
                                 ...block.data,
                                 digital_product_file_url: null,
                                 digital_product_title: null,
+                                enable_digital_product: false, // Disable when file is removed
+                              }
+                            })
+                          } else if (imageFieldType === 'pdf_file') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                pdf_file_url: null,
+                              }
+                            })
+                          } else if (imageFieldType === 'thumbnail_url') {
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                thumbnail_url: null,
                               }
                             })
                           } else {
@@ -2796,36 +2956,46 @@ export function LinksTab() {
               </div>
             )}
 
-            {/* Show image library only for regular image selection (not file upload) */}
-            {imageFieldType !== 'digital_product_file' && (
-              <>
-                {imageFieldType === 'product_image' && <div className="border-t my-4" />}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {IMAGE_LIBRARY.map((img) => (
-                    <button
-                      key={img.id}
-                      onClick={() => {
-                        if (imageBlockId) {
-                          const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
-                          if (block) {
-                            if (imageFieldType === 'product_image') {
-                              updateBlock(imageBlockId, { data: { ...block.data, product_image: img.url } })
-                            } else {
-                              updateBlock(imageBlockId, { data: { ...block.data, image_url: img.url } })
-                            }
+            {/* Show image library only for regular image blocks (not product_image or digital_product_file) */}
+            {(!imageFieldType || imageFieldType.startsWith('image_item_')) && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {IMAGE_LIBRARY.map((img) => (
+                  <button
+                    key={img.id}
+                    onClick={() => {
+                      if (imageBlockId) {
+                        const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                        if (block) {
+                          // Handle image_item_${id} field type for multi-image blocks
+                          if (imageFieldType && imageFieldType.startsWith('image_item_')) {
+                            const imageItemId = imageFieldType.replace('image_item_', '')
+                            const blockData = block.data as ImageBlockData
+                            const images = blockData.images || (blockData.image_url ? [{ id: '1', image_url: blockData.image_url }] : [])
+                            const newImages = images.map(image =>
+                              image.id === imageItemId ? { ...image, image_url: img.url } : image
+                            )
+                            updateBlock(imageBlockId, {
+                              data: {
+                                ...block.data,
+                                images: newImages,
+                                image_url: newImages[0]?.image_url || ''
+                              }
+                            })
+                          } else {
+                            updateBlock(imageBlockId, { data: { ...block.data, image_url: img.url } })
                           }
                         }
-                        setShowImageLibrary(false)
-                        setImageBlockId(null)
-                        setImageFieldType(null)
-                      }}
-                      className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-violet-500 transition-all group"
-                    >
-                      <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    </button>
-                  ))}
-                </div>
-              </>
+                      }
+                      setShowImageLibrary(false)
+                      setImageBlockId(null)
+                      setImageFieldType(null)
+                    }}
+                    className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-violet-500 transition-all group"
+                  >
+                    <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </DialogContent>
@@ -3658,7 +3828,7 @@ function BlockItem({
         return { title: data.content?.slice(0, 30) || "Text block", subtitle: "Text", icon: Type }
       }
       case "image":
-        return { title: "Image", subtitle: "Image block", icon: Image }
+        return { title: "Image", subtitle: "Image block", icon: ImageIcon }
       case "divider":
         return { title: "Divider", subtitle: "Spacing", icon: Minus }
       case "email_capture": {
@@ -3676,6 +3846,18 @@ function BlockItem({
         const childCount = data.children?.length || 0
         return { title: data.title || "Group", subtitle: `${childCount} item${childCount !== 1 ? 's' : ''} · ${data.layout}`, icon: Layers }
       }
+      case "pdf_document": {
+        const data = block.data as PDFDocumentBlockData
+        return { title: data.title || "PDF Document", subtitle: data.pdf_file_url ? "PDF uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+      }
+      case "food_menu": {
+        const data = block.data as FoodMenuBlockData
+        return { title: data.title || "Menu", subtitle: data.pdf_file_url ? "Menu uploaded" : "No file", icon: FileText, thumbnail_url: data.thumbnail_url }
+      }
+      case "calendly": {
+        const data = block.data as CalendlyBlockData
+        return { title: data.title || "Book a Meeting", subtitle: data.calendly_url ? "Calendly connected" : "Add Calendly URL", icon: Calendar, thumbnail_url: data.thumbnail_url }
+      }
       default:
         return { title: block.type, subtitle: "", icon: Link }
     }
@@ -3689,8 +3871,12 @@ function BlockItem({
   const isEmailCapture = block.type === "email_capture"
   const isGroup = block.type === "group"
   const isProduct = block.type === "product"
-  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct
-  const hasAnimation = isLinkButton || isProduct
+  const isPDFDocument = block.type === "pdf_document"
+  const isFoodMenu = block.type === "food_menu"
+  const isCalendly = block.type === "calendly"
+  const isImage = block.type === "image"
+  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument || isFoodMenu || isCalendly || isImage
+  const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument || isFoodMenu || isCalendly
   const hasThumbnail = (preview as any).thumbnail_url || ((preview as any).iconId && iconPaths[(preview as any).iconId])
 
   // Check if this group block can accept the dragged block
@@ -3731,8 +3917,8 @@ function BlockItem({
           </div>
         )}
 
-        {/* Clickable thumbnail for link buttons and product blocks */}
-        {(isLinkButton || isProduct) && onOpenThumbnailModal ? (
+        {/* Clickable thumbnail for link buttons, product blocks, and calendly */}
+        {(isLinkButton || isProduct || isCalendly) && onOpenThumbnailModal ? (
           <button
             type="button"
             onClick={(e) => {
@@ -3812,6 +3998,30 @@ function BlockItem({
           </div>
         )}
 
+        {/* Info icon for social_row blocks not positioned correctly */}
+        {block.type === "social_row" && (() => {
+          const blocks = onepage?.draft_blocks || []
+          const headerIndex = blocks.findIndex(b => b.type === "header")
+          const socialRowIndex = blocks.findIndex(b => b.id === block.id)
+          const isAtBottom = socialRowIndex === blocks.length - 1
+          const isRightAfterHeader = headerIndex !== -1 && socialRowIndex === headerIndex + 1
+          const isPositionedCorrectly = isAtBottom || isRightAfterHeader
+
+          if (!isPositionedCorrectly) {
+            return (
+              <div className="relative group/info">
+                <div className="p-1 cursor-help">
+                  <Info className="h-4 w-4 text-blue-400" />
+                </div>
+                <div className="absolute right-0 top-full mt-1 w-64 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all z-50 shadow-lg">
+                  Position this block under the Header block or at the bottom for better look
+                </div>
+              </div>
+            )
+          }
+          return null
+        })()}
+
         {/* Animation control for link buttons and product blocks */}
         {hasAnimation && (
           <div className="relative" ref={animationMenuRef}>
@@ -3874,70 +4084,6 @@ function BlockItem({
           </div>
         )}
 
-        {/* Button Text selector for email capture blocks */}
-        {isEmailCapture && (
-          <div className="relative" ref={buttonTextMenuRef}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowButtonTextMenu(!showButtonTextMenu)
-              }}
-              className={cn(
-                "p-1.5 rounded-lg transition-colors",
-                (block.data as EmailCaptureBlockData).button_preset && (block.data as EmailCaptureBlockData).button_preset !== 'subscribe'
-                  ? "text-violet-600 bg-violet-50 hover:bg-violet-100"
-                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              )}
-              title="Button Text"
-            >
-              <Type className="h-4 w-4" />
-            </button>
-
-            {/* Button text dropdown menu */}
-            {showButtonTextMenu && (
-              <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                {[
-                  { id: 'subscribe', label: 'Subscribe' },
-                  { id: 'join', label: 'Join Now' },
-                  { id: 'get_access', label: 'Get Access' },
-                  { id: 'download', label: 'Download' },
-                  { id: 'sign_up', label: 'Sign Up' },
-                  { id: 'unlock', label: 'Unlock Now' },
-                ].map((preset) => {
-                  const currentPreset = (block.data as EmailCaptureBlockData).button_preset || 'subscribe'
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        updateBlock(block.id, {
-                          data: {
-                            ...block.data,
-                            button_preset: preset.id as EmailCaptureButtonPreset,
-                            custom_button_text: preset.label
-                          }
-                        })
-                        setShowButtonTextMenu(false)
-                      }}
-                      className={cn(
-                        "w-full px-3 py-1.5 text-left text-sm transition-colors flex items-center justify-between",
-                        currentPreset === preset.id
-                          ? "bg-violet-50 text-violet-700 font-medium"
-                          : "text-gray-700 hover:bg-gray-50"
-                      )}
-                    >
-                      <span>{preset.label}</span>
-                      {currentPreset === preset.id && <Check className="h-3.5 w-3.5" />}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Stats control for link buttons and email capture */}
         {hasStats && (
           <>
@@ -3961,7 +4107,7 @@ function BlockItem({
             <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
               <DialogContent className="w-[calc(100%-32px)] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
                 <DialogHeader className="p-4 border-b">
-                  <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : "Link Stats"}</DialogTitle>
+                  <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}</DialogTitle>
                 </DialogHeader>
 
                 <div className="p-4">
@@ -4023,7 +4169,7 @@ function BlockItem({
                         </div>
                         <div className="p-3 bg-violet-50 rounded-xl">
                           <div className="text-2xl font-bold text-violet-900">{statsData.total_clicks || 0}</div>
-                          <div className="text-xs text-violet-600 font-medium">{isEmailCapture ? "Submissions" : "Clicks"}</div>
+                          <div className="text-xs text-violet-600 font-medium">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</div>
                         </div>
                       </div>
 
@@ -4056,7 +4202,7 @@ function BlockItem({
                                   <div className="font-medium">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                                   <div className="flex gap-3 mt-0.5">
                                     <span className="text-blue-300">{day.views || 0} views</span>
-                                    <span className="text-violet-300">{day.clicks} {isEmailCapture ? "submissions" : "clicks"}</span>
+                                    <span className="text-violet-300">{day.clicks} {isEmailCapture ? "submissions" : isPDFDocument ? "opens" : "clicks"}</span>
                                   </div>
                                 </div>
                               </div>
@@ -4075,7 +4221,7 @@ function BlockItem({
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-sm bg-violet-400" />
-                            <span className="text-xs text-gray-600">Clicks</span>
+                            <span className="text-xs text-gray-600">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</span>
                           </div>
                         </div>
                       </div>
@@ -4084,7 +4230,7 @@ function BlockItem({
                     <div className="text-center py-8 text-sm text-muted-foreground">
                       <BarChart2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
                       <p>No data yet</p>
-                      <p className="text-xs mt-1">Stats will appear once visitors interact with your link</p>
+                      <p className="text-xs mt-1">Stats will appear once visitors interact with this block</p>
                     </div>
                   )}
                 </div>
@@ -4093,7 +4239,7 @@ function BlockItem({
           </>
         )}
 
-        <Toggle checked={block.enabled} onCheckedChange={onToggle} />
+        <BlockToggle checked={block.enabled} onCheckedChange={onToggle} />
       </div>
 
       {isSelected && (
@@ -4268,6 +4414,11 @@ function BlockEditor({
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
+  // Image block upload state
+  const [imageUploading, setImageUploading] = useState<string | null>(null) // stores image item id being uploaded
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [currentImageItemId, setCurrentImageItemId] = useState<string | null>(null)
+
   // Drag state for social icons reordering
   const [draggedSocialId, setDraggedSocialId] = useState<string | null>(null)
   const [dragOverSocialId, setDragOverSocialId] = useState<string | null>(null)
@@ -4301,25 +4452,28 @@ function BlockEditor({
     }
   }, [showCtaDropdown, showProductDropdown])
 
-  // Sync block platforms when socialLinks change
+  // Sync block platforms when socialLinks change or on initial mount
   useEffect(() => {
     if (block.type === "social_row") {
       const data = block.data as SocialRowBlockData
       const activeSocials = Object.entries(socialLinks || {})
         .filter(([_, url]) => url)
         .map(([platform, url]) => ({ platform: platform as keyof OnePageSocialLinks, url: url as string }))
-      
+
       // Only update if there are new platforms not in the current order
       const currentPlatforms = new Set((data.platforms || []).map(p => p.platform))
       const hasNewPlatforms = activeSocials.some(s => !currentPlatforms.has(s.platform))
       const hasRemovedPlatforms = (data.platforms || []).some(p => !socialLinks?.[p.platform as keyof typeof socialLinks])
-      
-      if (hasNewPlatforms || hasRemovedPlatforms) {
+
+      // Also sync if platforms is empty but there are active social links (initial mount fix)
+      const needsInitialSync = (data.platforms || []).length === 0 && activeSocials.length > 0
+
+      if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync) {
         // Preserve existing order, add new ones at end, remove deleted ones
         const existingOrder = (data.platforms || []).filter(p => socialLinks?.[p.platform as keyof typeof socialLinks])
         const existingPlatforms = new Set(existingOrder.map(p => p.platform))
         const newPlatforms = activeSocials.filter(s => !existingPlatforms.has(s.platform))
-        
+
         updateBlock(block.id, {
           data: {
             ...block.data,
@@ -4328,7 +4482,7 @@ function BlockEditor({
         })
       }
     }
-  }, [socialLinks, block.type])
+  }, [socialLinks, block.type, block.id])
 
   const updateData = (updates: Partial<OnePageBlock["data"]>) => {
     updateBlock(block.id, { data: { ...block.data, ...updates } })
@@ -4367,6 +4521,50 @@ function BlockEditor({
     }
   }
 
+  // Handle image upload for Image block
+  const handleImageBlockUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !currentImageItemId) return
+
+    setImageUploading(currentImageItemId)
+    try {
+      const supabase = createClient()
+      const fileExt = file.name.split('.').pop()
+      const fileName = `image_${block.id}_${currentImageItemId}_${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('onepage-assets')
+        .upload(fileName, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('onepage-assets')
+        .getPublicUrl(fileName)
+
+      // Update the specific image in the images array
+      const data = block.data as ImageBlockData
+      const images = data.images || (data.image_url ? [{ id: '1', image_url: data.image_url, alt_text: data.alt_text, link_url: data.link_url }] : [])
+      const newImages = images.map(img =>
+        img.id === currentImageItemId
+          ? { ...img, image_url: publicUrl }
+          : img
+      )
+      updateData({
+        images: newImages,
+        image_url: newImages[0]?.image_url || ''
+      })
+    } catch (error) {
+      console.error('Error uploading image:', error)
+    } finally {
+      setImageUploading(null)
+      setCurrentImageItemId(null)
+      if (imageInputRef.current) {
+        imageInputRef.current.value = ''
+      }
+    }
+  }
+
   // Icon library - simple, clean icons
   const THUMBNAIL_ICONS = [
     { id: 'link', name: 'Link', path: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71' },
@@ -4399,7 +4597,7 @@ function BlockEditor({
     { id: 'linkedin', name: 'LinkedIn', path: 'M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2zM4 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z' },
     { id: 'twitch', name: 'Twitch', path: 'M21 2H3v16h5v4l4-4h5l4-4V2zm-10 9V7m5 4V7' },
     { id: 'discord', name: 'Discord', path: 'M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z' },
-    { id: 'telegram', name: 'Telegram', path: 'M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 7.5a2.25 2.25 0 0 0 .126 4.303l3.2 1.067 1.493 4.8a1.5 1.5 0 0 0 2.368.671l2.441-1.953 4.195 3.209a2.25 2.25 0 0 0 3.541-1.332l3-15A2.25 2.25 0 0 0 21.198 2.433zM6.988 13.678l7.25-4.812-5.5 5.562-.75 3z' },
+    { id: 'telegram', name: 'Telegram', path: 'M23.1117 4.49449C23.4296 2.94472 21.9074 1.65683 20.4317 2.227L2.3425 9.21601C0.694517 9.85273 0.621087 12.1572 2.22518 12.8975L6.1645 14.7157L8.03849 21.2746C8.13583 21.6153 8.40618 21.8791 8.74917 21.968C9.09216 22.0568 9.45658 21.9576 9.70712 21.707L12.5938 18.8203L16.6375 21.8531C17.8113 22.7334 19.5019 22.0922 19.7967 20.6549L23.1117 4.49449ZM3.0633 11.0816L21.1525 4.0926L17.8375 20.2531L13.1 16.6999C12.7019 16.4013 12.1448 16.4409 11.7929 16.7928L10.5565 18.0292L10.928 15.9861L18.2071 8.70703C18.5614 8.35278 18.5988 7.79106 18.2947 7.39293C17.9906 6.99479 17.4389 6.88312 17.0039 7.13168L6.95124 12.876L3.0633 11.0816ZM8.17695 14.4791L8.78333 16.6015L9.01614 15.321C9.05253 15.1209 9.14908 14.9366 9.29291 14.7928L11.5128 12.573L8.17695 14.4791Z' },
     { id: 'whatsapp', name: 'WhatsApp', path: 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z' },
     { id: 'pinterest', name: 'Pinterest', path: 'M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z' },
     { id: 'snapchat', name: 'Snapchat', path: 'M11.99 2.75c-1.494-.011-3.017.567-4.003 1.714-.874.926-1.204 2.238-1.16 3.483-.004.64.004 1.28.006 1.92-.613-.152-1.234-.578-1.882-.367-.553.164-.783.886-.45 1.349.36.47.918.738 1.385 1.089.229.188.538.321.71.562 0 .577-.303 1.112-.59 1.599-.7 1.099-1.786 1.93-2.956 2.509-.3.129-.572.518-.309.812.485.453 1.167.598 1.77.811.256.08.635.168.608.507.042.365.276.758.687.76.982.114 2.036.065 2.918.59.868.501 1.756 1.059 2.777 1.117 1.02.1 2.08-.111 2.958-.663.654-.36 1.292-.81 2.06-.883.645-.15 1.338-.015 1.96-.26.4-.17.35-.66.51-.984.32-.22.72-.243 1.07-.388.46-.183 1.04-.332 1.27-.802.14-.38-.29-.586-.56-.734-1.42-.734-2.7-1.87-3.27-3.4-.06-.24-.29-.6.01-.78.62-.52 1.43-.82 1.94-1.46.39-.488.12-1.318-.52-1.418-.618-.098-1.19.24-1.77.391-.051-1.068.063-2.152-.102-3.218-.304-1.726-1.69-3.145-3.35-3.64-.565-.18-1.158-.25-1.746-.25z' },
@@ -4473,7 +4671,7 @@ function BlockEditor({
   }
 
   // Determine if this block type supports layout options
-  const supportsLayout = ["link_button", "image", "product"].includes(block.type)
+  const supportsLayout = ["link_button", "product"].includes(block.type)
 
   // Get current layout type from block data
   const currentLayoutType = (block.data as any).layout_type || 'default'
@@ -4808,87 +5006,89 @@ function BlockEditor({
 
     // Default layout content for link_button and image blocks
     return (
-      <div className="space-y-4">
-        <p className="text-xs text-muted-foreground">Choose how this block displays on your page</p>
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
 
-        {/* Default Layout Option */}
-        <button
-          type="button"
-          onClick={() => updateData({ layout_type: 'default' })}
-          className={cn(
-            "w-full p-3 rounded-xl border-2 text-left transition-all",
-            currentLayoutType === 'default'
-              ? "border-violet-500 bg-violet-50"
-              : "border-gray-200 hover:border-gray-300 bg-white"
-          )}
-        >
-          <div className="flex items-start gap-3">
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-              currentLayoutType === 'default' ? "border-violet-500" : "border-gray-300"
-            )}>
-              {currentLayoutType === 'default' && (
-                <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm">Default</div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Standard display for your link
-              </p>
-            </div>
-          </div>
-        </button>
-
-        {/* Pro Layout Option */}
-        <button
-          type="button"
-          onClick={() => updateData({ layout_type: 'pro' })}
-          className={cn(
-            "w-full p-3 rounded-xl border-2 text-left transition-all",
-            currentLayoutType === 'pro'
-              ? "border-violet-500 bg-violet-50"
-              : "border-gray-200 hover:border-gray-300 bg-white"
-          )}
-        >
-          <div className="flex items-start gap-3">
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-              currentLayoutType === 'pro' ? "border-violet-500" : "border-gray-300"
-            )}>
-              {currentLayoutType === 'pro' && (
-                <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-sm">Pro Layout</span>
-                <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+        {/* Layout Options Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Default Layout Option */}
+          <button
+            type="button"
+            onClick={() => updateData({ layout_type: 'default' })}
+            className={cn(
+              "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+              currentLayoutType === 'default'
+                ? "border-violet-500 bg-violet-50/50"
+                : "border-gray-200 hover:border-gray-300 bg-white"
+            )}
+          >
+            {/* Visual Preview */}
+            <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+              <div className="w-full h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center gap-2 px-3">
+                <div className="w-5 h-5 rounded bg-gray-200" />
+                <div className="flex-1 h-2.5 bg-gray-200 rounded" />
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {block.type === "link_button"
-                  ? "Make your link stand out with a larger, more attractive display featuring your thumbnail prominently"
-                  : "Make your content stand out with enhanced display and interactions"}
-              </p>
-              {/* Preview mockup */}
-              <div className="mt-2.5 p-2 bg-gray-100 rounded-lg">
+            </div>
+            
+            {/* Label */}
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                currentLayoutType === 'default' ? "border-violet-500" : "border-gray-300"
+              )}>
+                {currentLayoutType === 'default' && (
+                  <div className="w-2 h-2 rounded-full bg-violet-500" />
+                )}
+              </div>
+              <span className="font-medium text-sm">Default</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1 ml-6">Standard button</p>
+          </button>
+
+          {/* Pro Layout Option */}
+          <button
+            type="button"
+            onClick={() => updateData({ layout_type: 'pro' })}
+            className={cn(
+              "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+              currentLayoutType === 'pro'
+                ? "border-violet-500 bg-violet-50/50"
+                : "border-gray-200 hover:border-gray-300 bg-white"
+            )}
+          >
+            {/* Visual Preview */}
+            <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+              <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
-                    <ImageIcon className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="h-2 w-16 bg-gray-300 rounded" />
-                    <div className="h-1.5 w-10 bg-gray-200 rounded mt-1.5" />
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-200 to-violet-300 shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-2.5 w-full bg-gray-200 rounded" />
+                    <div className="h-2 w-2/3 bg-gray-100 rounded" />
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </button>
+            
+            {/* Label */}
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                currentLayoutType === 'pro' ? "border-violet-500" : "border-gray-300"
+              )}>
+                {currentLayoutType === 'pro' && (
+                  <div className="w-2 h-2 rounded-full bg-violet-500" />
+                )}
+              </div>
+              <span className="font-medium text-sm">Featured</span>
+              <Sparkles className="w-3 h-3 text-violet-500" />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1 ml-6">With thumbnail</p>
+          </button>
+        </div>
 
         {/* Display Mode Options - Only shown when Pro Layout is selected and NOT YouTube */}
         {currentLayoutType === 'pro' && block.type === 'link_button' && !isYouTubeUrl((block.data as LinkButtonBlockData).url) && (
-          <div className="pt-3 mt-3 border-t space-y-2">
+          <div className="pt-3 mt-1 border-t space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Display Mode</Label>
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -4989,6 +5189,19 @@ function BlockEditor({
                 className="h-9"
               />
             </div>
+
+            {/* WhatsApp Group URL - Only shown for WhatsApp URLs */}
+            {(data.url?.includes('wa.me') || data.url?.includes('whatsapp.com')) && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">WhatsApp Group URL</Label>
+                <Input
+                  value={(data as any).whatsapp_group_url || ""}
+                  onChange={(e) => updateData({ whatsapp_group_url: e.target.value })}
+                  placeholder="https://chat.whatsapp.com/..."
+                  className="h-9"
+                />
+              </div>
+            )}
 
             {/* YouTube Settings - Only shown for YouTube URLs */}
             {isYouTubeUrl(data.url) && (
@@ -5514,37 +5727,35 @@ function BlockEditor({
         // Button text presets
         const buttonTextPresets = [
           { id: 'subscribe', label: 'Subscribe', text: 'Subscribe' },
-          { id: 'join', label: 'Join', text: 'Join Now' },
+          { id: 'join', label: 'Join Now', text: 'Join Now' },
           { id: 'get_access', label: 'Get Access', text: 'Get Access' },
-          { id: 'download', label: 'Download', text: 'Download Free' },
-          { id: 'unlock', label: 'Unlock', text: 'Unlock Now' },
-          { id: 'custom', label: 'Custom', text: data.button_text || 'Subscribe' },
+          { id: 'download', label: 'Download', text: 'Download' },
+          { id: 'sign_up', label: 'Sign Up', text: 'Sign Up' },
+          { id: 'unlock', label: 'Unlock Now', text: 'Unlock Now' },
         ] as const
 
-        // Handle preset change
+        // Handle preset change - clear custom text when selecting a preset
         const handlePresetChange = (presetId: EmailCaptureButtonPreset) => {
           const preset = buttonTextPresets.find(p => p.id === presetId)
-          if (preset && presetId !== 'custom') {
-            updateData({ button_preset: presetId, button_text: preset.text })
-          } else {
-            updateData({ button_preset: presetId })
+          if (preset) {
+            updateData({ button_preset: presetId, button_text: preset.text, custom_button_text: '' })
           }
         }
 
         // Layout options
         const layoutOptions = [
           { id: 'default', label: 'Default', description: 'Classic email form' },
-          { id: 'pro', label: 'Pro', description: 'With product image' },
+          { id: 'pro', label: 'Pro', description: 'Compact with image' },
         ] as const
 
         return (
           <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
-              <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -5555,7 +5766,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">Headline</Label>
                 <Input
-                  value={data.headline}
+                  value={data.headline || "Join my newsletter"}
                   onChange={(e) => updateData({ headline: e.target.value })}
                   className="h-9"
                   placeholder="Join my newsletter"
@@ -5566,40 +5777,73 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">Description</Label>
                 <Input
-                  value={data.description || ""}
+                  value={data.description || "Get updates and exclusive content"}
                   onChange={(e) => updateData({ description: e.target.value })}
                   className="h-9"
                   placeholder="Get updates and exclusive content"
                 />
               </div>
 
-              {/* Button Text Preset Selector */}
+              {/* Button Text Selector - Dropdown like Animation */}
               <div className="space-y-1.5">
                 <Label className="text-xs">Button Text</Label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {buttonTextPresets.map((preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => handlePresetChange(preset.id as EmailCaptureButtonPreset)}
-                      className={cn(
-                        "px-2 py-1.5 rounded-lg border text-xs font-medium transition-all",
-                        (data.button_preset || 'subscribe') === preset.id
-                          ? "border-violet-500 bg-violet-50 text-violet-700"
-                          : "border-gray-200 hover:border-gray-300 bg-white text-gray-700"
-                      )}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const dropdown = e.currentTarget.nextElementSibling as HTMLElement
+                      if (dropdown) {
+                        dropdown.classList.toggle('hidden')
+                      }
+                    }}
+                    className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  >
+                    <span>{buttonTextPresets.find(p => p.id === (data.button_preset || 'subscribe'))?.label || 'Subscribe'}</span>
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  </button>
+                  <div className="hidden absolute left-0 top-full mt-1 w-full bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {buttonTextPresets.map((preset) => {
+                      const isSelected = (data.button_preset || 'subscribe') === preset.id
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={(e) => {
+                            handlePresetChange(preset.id as EmailCaptureButtonPreset)
+                            const dropdown = e.currentTarget.parentElement as HTMLElement
+                            if (dropdown) dropdown.classList.add('hidden')
+                          }}
+                          className={cn(
+                            "w-full px-3 py-1.5 text-left text-sm transition-colors flex items-center justify-between",
+                            isSelected
+                              ? "bg-violet-50 text-violet-700 font-medium"
+                              : "text-gray-700 hover:bg-gray-50"
+                          )}
+                        >
+                          <span>{preset.label}</span>
+                          {isSelected && <Check className="h-3.5 w-3.5" />}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
 
-              {/* Custom Button Text Input */}
+              {/* Custom Button Text Input - Always visible */}
               <div className="space-y-1.5">
                 <Label className="text-xs">Custom Text</Label>
                 <Input
-                  value={data.button_text}
-                  onChange={(e) => updateData({ button_text: e.target.value, button_preset: 'custom' })}
+                  value={data.custom_button_text || ""}
+                  onChange={(e) => {
+                    const customText = e.target.value
+                    if (customText.trim()) {
+                      // When custom text is entered, set preset to 'custom'
+                      updateData({ custom_button_text: customText, button_preset: 'custom' })
+                    } else {
+                      // When cleared, fall back to default
+                      updateData({ custom_button_text: '', button_preset: 'subscribe' })
+                    }
+                  }}
                   className="h-9"
                   placeholder="Enter custom button text"
                 />
@@ -5609,11 +5853,48 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">Success Message</Label>
                 <Input
-                  value={data.success_message}
+                  value={data.success_message || "Thanks for subscribing!"}
                   onChange={(e) => updateData({ success_message: e.target.value })}
                   className="h-9"
                   placeholder="Thanks for subscribing!"
                 />
+              </div>
+
+              {/* Product Image Picker - Always show in settings */}
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-xs">Product Image</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Display an image with your email form (used in Pro layout)
+                </p>
+                <div className="flex gap-2 items-center">
+                  {data.product_image ? (
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                      <img src={data.product_image} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => updateData({ product_image: null })}
+                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => onOpenImageLibrary(block.id, 'product_image')}
+                      className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                    >
+                      <Upload className="w-5 h-5 text-gray-400" />
+                    </button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenImageLibrary(block.id, 'product_image')}
+                    className="h-8 text-xs"
+                  >
+                    <Upload className="w-3 h-3 mr-1.5" />
+                    {data.product_image ? 'Change' : 'Upload'}
+                  </Button>
+                </div>
               </div>
 
               {/* Enable Digital Product Toggle */}
@@ -5621,7 +5902,7 @@ function BlockEditor({
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-xs">Enable Digital Product</Label>
-                    <p className="text-[10px] text-muted-foreground">Send a free product on signup</p>
+                    <p className="text-[10px] text-muted-foreground">Allow subscribers get a free product on signup</p>
                   </div>
                   <Toggle
                     checked={data.enable_digital_product || false}
@@ -5631,36 +5912,6 @@ function BlockEditor({
 
                 {data.enable_digital_product && (
                   <div className="space-y-3 pt-2">
-                    {/* Product Image Picker */}
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Product Image</Label>
-                      <div className="flex gap-2 items-center">
-                        {data.product_image ? (
-                          <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
-                            <img src={data.product_image} alt="" className="w-full h-full object-cover" />
-                            <button
-                              onClick={() => updateData({ product_image: null })}
-                              className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => onOpenImageLibrary(block.id, 'product_image')}
-                            className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
-                          >
-                            <Upload className="w-5 h-5 text-gray-400" />
-                          </button>
-                        )}
-                        <div className="flex-1">
-                          <p className="text-[10px] text-muted-foreground">
-                            Upload an image to display with your email form
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
                     {/* Digital Product File Picker */}
                     <div className="space-y-1.5">
                       <Label className="text-xs">Digital Product File</Label>
@@ -5693,7 +5944,7 @@ function BlockEditor({
 
                       {data.digital_product_file_url && (
                         <div className="space-y-1.5 mt-2">
-                          <Label className="text-[10px]">File Name (shown in email)</Label>
+                          <Label className="text-[10px]">File Name</Label>
                           <Input
                             value={data.digital_product_title || ""}
                             onChange={(e) => updateData({ digital_product_title: e.target.value })}
@@ -5706,110 +5957,112 @@ function BlockEditor({
 
                     {data.digital_product_file_url && (
                       <p className="text-[10px] text-muted-foreground bg-violet-50 p-2 rounded-lg">
-                        When visitors subscribe, they'll receive "{data.digital_product_title || 'your file'}" via email with a download button.
+                        When visitors subscribe, they can download "{data.digital_product_title || 'your file'}" directly on this page.
                       </p>
                     )}
                   </div>
                 )}
               </div>
+
+              {/* See Subscribers Link */}
+              <div className="pt-3 border-t">
+                <a
+                  href="/app/emails"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors"
+                >
+                  <Mail className="w-4 h-4" />
+                  See subscribers
+                </a>
+              </div>
             </TabsContent>
 
-            <TabsContent value="layout" className="mt-0 space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Layout Style</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {layoutOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => updateData({ layout_type: option.id as EmailCaptureLayoutType })}
-                      className={cn(
-                        "flex flex-col items-center gap-2 p-3 rounded-xl border transition-all",
-                        (data.layout_type || 'default') === option.id
-                          ? "border-violet-500 bg-violet-50"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                      )}
-                    >
-                      {/* Layout Preview */}
-                      <div className="w-full aspect-[4/3] rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-                        {option.id === 'default' ? (
-                          <div className="w-full p-2 flex flex-col items-center gap-1">
-                            <div className="w-3/4 h-2 bg-gray-300 rounded" />
-                            <div className="w-1/2 h-1.5 bg-gray-200 rounded" />
-                            <div className="w-full h-3 bg-white rounded border border-gray-200 mt-1" />
-                            <div className="w-1/2 h-3 bg-violet-400 rounded mt-0.5" />
-                          </div>
-                        ) : (
-                          <div className="w-full p-1.5 flex gap-1.5">
-                            <div className="w-1/3 aspect-square bg-gray-300 rounded" />
-                            <div className="flex-1 flex flex-col gap-1 justify-center">
-                              <div className="w-full h-1.5 bg-gray-300 rounded" />
-                              <div className="w-3/4 h-1 bg-gray-200 rounded" />
-                              <div className="w-full h-2 bg-white rounded border border-gray-200" />
-                              <div className="w-full h-2 bg-violet-400 rounded" />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-center">
-                        <span className={cn(
-                          "text-xs font-medium",
-                          (data.layout_type || 'default') === option.id ? "text-violet-700" : "text-gray-700"
-                        )}>
-                          {option.label}
-                        </span>
-                        <p className="text-[10px] text-muted-foreground">{option.description}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <TabsContent value="layout" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
 
-              {/* Pro Layout Image Picker */}
-              {(data.layout_type === 'pro') && (
-                <div className="space-y-1.5 pt-2 border-t">
-                  <Label className="text-xs">Layout Image</Label>
-                  <p className="text-[10px] text-muted-foreground mb-2">
-                    {data.enable_digital_product && data.digital_product_thumbnail
-                      ? "Using product image. Upload custom to override."
-                      : "Add an image to display with your email form"}
-                  </p>
-                  <div className="flex gap-2 items-center">
-                    {(data.product_image || (data.enable_digital_product && data.digital_product_thumbnail)) ? (
-                      <div className="relative w-20 h-20 rounded-lg overflow-hidden border">
-                        <img
-                          src={data.product_image || data.digital_product_thumbnail || ''}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                        {data.product_image && (
-                          <button
-                            onClick={() => updateData({ product_image: null })}
-                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
+              {/* Layout Options Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Default Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'default' as EmailCaptureLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    (data.layout_type || 'default') === 'default'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden p-2">
+                    <div className="w-full space-y-1.5">
+                      <div className="h-2.5 w-3/4 bg-gray-300 rounded mx-auto" />
+                      <div className="h-1.5 w-1/2 bg-gray-200 rounded mx-auto" />
+                      <div className="flex gap-1.5 mt-2">
+                        <div className="flex-1 h-7 bg-white rounded border border-gray-200" />
+                        <div className="w-14 h-7 bg-gray-800 rounded" />
                       </div>
-                    ) : (
-                      <button
-                        onClick={() => onOpenImageLibrary(block.id, 'product_image')}
-                        className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
-                      >
-                        <Upload className="w-6 h-6 text-gray-400" />
-                      </button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onOpenImageLibrary(block.id, 'product_image')}
-                      className="h-8 text-xs"
-                    >
-                      <Upload className="w-3 h-3 mr-1.5" />
-                      {data.product_image ? 'Change' : 'Upload'}
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              )}
+                  
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {(data.layout_type || 'default') === 'default' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Default</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Classic centered form</p>
+                </button>
+
+                {/* Pro Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'pro' as EmailCaptureLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    data.layout_type === 'pro'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-200 to-violet-300 shrink-0" />
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-full bg-gray-200 rounded" />
+                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                      <div className="flex gap-1 mt-2">
+                        <div className="flex-1 h-5 bg-gray-50 rounded border border-gray-100" />
+                        <div className="w-10 h-5 bg-gray-800 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {data.layout_type === 'pro' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Featured</span>
+                    <Sparkles className="w-3 h-3 text-violet-500" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Compact with image</p>
+                </button>
+              </div>
             </TabsContent>
           </Tabs>
         )
@@ -5895,6 +6148,38 @@ function BlockEditor({
               <Plus className="h-4 w-4 mr-2" />
               Add Social Link
             </Button>
+
+            {/* Padding Controls */}
+            <div className="space-y-4 pt-4 border-t border-gray-100">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Top Padding</Label>
+                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_top ?? 0}px</span>
+                </div>
+                <Slider
+                  value={[(block.data as SocialRowBlockData).padding_top ?? 0]}
+                  onValueChange={([value]) => updateData({ padding_top: value })}
+                  min={0}
+                  max={48}
+                  step={4}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Bottom Padding</Label>
+                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_bottom ?? 0}px</span>
+                </div>
+                <Slider
+                  value={[(block.data as SocialRowBlockData).padding_bottom ?? 0]}
+                  onValueChange={([value]) => updateData({ padding_bottom: value })}
+                  min={0}
+                  max={48}
+                  step={4}
+                  className="w-full"
+                />
+              </div>
+            </div>
           </div>
         )
       }
@@ -5971,25 +6256,1093 @@ function BlockEditor({
 
       case "image": {
         const data = block.data as ImageBlockData
+        const images = data.images || (data.image_url ? [{ id: '1', image_url: data.image_url, alt_text: data.alt_text, link_url: data.link_url }] : [])
+
+        const addImage = () => {
+          const newImage: ImageItem = {
+            id: Date.now().toString(),
+            image_url: '',
+            alt_text: '',
+            title: '',
+            link_url: null
+          }
+          const newImages = [...images, newImage]
+          updateData({ images: newImages, image_url: newImages[0]?.image_url || '' })
+        }
+
+        const removeImage = (id: string) => {
+          const newImages = images.filter(img => img.id !== id)
+          updateData({
+            images: newImages,
+            image_url: newImages[0]?.image_url || ''
+          })
+        }
+
+        const updateImage = (id: string, updates: Partial<ImageItem>) => {
+          const newImages = images.map(img => img.id === id ? { ...img, ...updates } : img)
+          updateData({
+            images: newImages,
+            image_url: newImages[0]?.image_url || ''
+          })
+        }
+
+        const aspectRatios: { id: string; label: string }[] = [
+          { id: 'original', label: 'Original' },
+          { id: 'square', label: 'Square' },
+          { id: 'portrait', label: 'Portrait' },
+          { id: 'landscape', label: 'Landscape' },
+          { id: 'wide', label: 'Wide' },
+        ]
+
+        const displayStyles: { id: string; label: string; desc: string }[] = [
+          { id: 'single', label: 'Single', desc: 'One image at a time' },
+          { id: 'grid', label: 'Grid', desc: 'Multiple images in grid' },
+          { id: 'carousel', label: 'Carousel', desc: 'Swipeable slideshow' },
+        ]
+
+        const borderRadiusOptions: { id: string; label: string }[] = [
+          { id: 'none', label: 'None' },
+          { id: 'sm', label: 'Small' },
+          { id: 'md', label: 'Medium' },
+          { id: 'lg', label: 'Large' },
+          { id: 'full', label: 'Full' },
+        ]
+
         return (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Image URL</Label>
-              <Input value={data.image_url} onChange={(e) => updateData({ image_url: e.target.value })} className="h-9" />
-            </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => onOpenImageLibrary(block.id)}
-            >
-              <ImageIcon className="h-4 w-4 mr-2" />
-              Choose from Library
-            </Button>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Link URL (optional)</Label>
-              <Input value={data.link_url || ""} onChange={(e) => updateData({ link_url: e.target.value || null })} className="h-9" />
-            </div>
-          </div>
+          <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <Settings className="w-3.5 h-3.5" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Layout
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="mt-0 space-y-4">
+              {/* Images List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Images</Label>
+                  <span className="text-xs text-muted-foreground">{images.length} image{images.length !== 1 ? 's' : ''}</span>
+                </div>
+
+                {images.map((img, index) => (
+                  <div key={img.id} className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500">#{index + 1}</span>
+                      {images.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeImage(img.id)}
+                          className="ml-auto text-xs text-red-500 hover:text-red-600"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Image Preview or Upload */}
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentImageItemId(img.id)
+                          imageInputRef.current?.click()
+                        }}
+                        disabled={imageUploading === img.id}
+                        className="group relative w-full aspect-video rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-white disabled:opacity-60"
+                      >
+                        {imageUploading === img.id ? (
+                          <div className="flex flex-col items-center gap-2 text-gray-400">
+                            <div className="w-8 h-8 border-2 border-gray-300 border-t-violet-500 rounded-full animate-spin" />
+                            <span className="text-xs font-medium">Uploading...</span>
+                          </div>
+                        ) : img.image_url ? (
+                          <img src={img.image_url} alt={img.alt_text || ''} className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-gray-400">
+                            <ImageIcon className="w-8 h-8" />
+                            <span className="text-xs font-medium">Click to upload</span>
+                          </div>
+                        )}
+                        {!imageUploading && (
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                            <Upload className="w-6 h-6 text-white" />
+                          </div>
+                        )}
+                      </button>
+
+                      <Input
+                        value={img.title || ''}
+                        onChange={(e) => updateImage(img.id, { title: e.target.value })}
+                        placeholder="Caption (optional)"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+
+                    {/* Link URL for this image */}
+                    {data.clickable && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Link URL</Label>
+                        <Input
+                          value={img.link_url || ''}
+                          onChange={(e) => updateImage(img.id, { link_url: e.target.value || null })}
+                          placeholder="https://..."
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Add Image Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-9 text-xs"
+                  onClick={addImage}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Add Image
+                </Button>
+              </div>
+
+              <div className="border-t border-gray-100" />
+
+              {/* Make Clickable Toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-medium">Make clickable</Label>
+                  <p className="text-[10px] text-muted-foreground">Add links to images</p>
+                </div>
+                <Toggle
+                  checked={data.clickable || false}
+                  onCheckedChange={(checked) => updateData({ clickable: checked })}
+                />
+              </div>
+
+              {/* Show Captions Toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-medium">Show captions</Label>
+                  <p className="text-[10px] text-muted-foreground">Display image titles</p>
+                </div>
+                <Toggle
+                  checked={data.show_captions || false}
+                  onCheckedChange={(checked) => updateData({ show_captions: checked })}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="layout" className="mt-0 space-y-4">
+              {/* Display Style */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Display Style</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {displayStyles.map((style) => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => updateData({ display_style: style.id as any })}
+                      className={cn(
+                        "p-2.5 rounded-xl border-2 text-center transition-all",
+                        (data.display_style || 'single') === style.id
+                          ? "border-gray-900 bg-white"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      )}
+                    >
+                      <div className="text-xs font-medium">{style.label}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Grid Columns - only show for grid style */}
+              {data.display_style === 'grid' && (
+                <>
+                  <div className="border-t border-gray-100" />
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Grid Columns</Label>
+                    <div className="flex gap-2">
+                      {[2, 3, 4].map((cols) => (
+                        <button
+                          key={cols}
+                          type="button"
+                          onClick={() => updateData({ grid_columns: cols as any })}
+                          className={cn(
+                            "flex-1 py-2.5 rounded-xl border-2 text-xs font-medium transition-all",
+                            (data.grid_columns || 2) === cols
+                              ? "border-gray-900 bg-white"
+                              : "border-gray-200 hover:border-gray-300 bg-white"
+                          )}
+                        >
+                          {cols}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Carousel Options - only show for carousel style */}
+              {data.display_style === 'carousel' && (
+                <>
+                  <div className="border-t border-gray-100" />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-medium">Autoplay</Label>
+                      <p className="text-[10px] text-muted-foreground">Auto-advance slides</p>
+                    </div>
+                    <Toggle
+                      checked={data.carousel_autoplay || false}
+                      onCheckedChange={(checked) => updateData({ carousel_autoplay: checked })}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="border-t border-gray-100" />
+
+              {/* Aspect Ratio */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Aspect Ratio</Label>
+                <div className="flex flex-wrap gap-2">
+                  {aspectRatios.map((ratio) => (
+                    <button
+                      key={ratio.id}
+                      type="button"
+                      onClick={() => updateData({ aspect_ratio: ratio.id as any })}
+                      className={cn(
+                        "px-3 py-2 rounded-xl border-2 text-xs font-medium transition-all",
+                        (data.aspect_ratio || 'original') === ratio.id
+                          ? "border-gray-900 bg-white"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      )}
+                    >
+                      {ratio.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100" />
+
+              {/* Border Radius */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Corner Radius</Label>
+                <div className="flex flex-wrap gap-2">
+                  {borderRadiusOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => updateData({ border_radius: option.id as any })}
+                      className={cn(
+                        "px-3 py-2 rounded-xl border-2 text-xs font-medium transition-all",
+                        (data.border_radius || 'md') === option.id
+                          ? "border-gray-900 bg-white"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100" />
+
+              {/* Image Fit */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Image Fit</Label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateData({ image_fit: 'cover' })}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl border-2 text-xs font-medium transition-all",
+                      (data.image_fit || 'cover') === 'cover'
+                        ? "border-gray-900 bg-white"
+                        : "border-gray-200 hover:border-gray-300 bg-white"
+                    )}
+                  >
+                    Cover
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateData({ image_fit: 'contain' })}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl border-2 text-xs font-medium transition-all",
+                      data.image_fit === 'contain'
+                        ? "border-gray-900 bg-white"
+                        : "border-gray-200 hover:border-gray-300 bg-white"
+                    )}
+                  >
+                    Contain
+                  </button>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Hidden file input for image upload */}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageBlockUpload}
+              className="hidden"
+            />
+          </Tabs>
+        )
+      }
+
+      case "pdf_document": {
+        const data = block.data as PDFDocumentBlockData
+
+        // Layout options for PDF document
+        const layoutOptions = [
+          { id: 'default', label: 'Default', description: 'Button with document icon' },
+          { id: 'pro', label: 'Pro', description: 'Image, title, description & button' },
+        ] as const
+
+        return (
+          <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <Settings className="w-3.5 h-3.5" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Layout
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="mt-0 space-y-4">
+              {/* Title */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Title</Label>
+                <Input
+                  value={data.title || ""}
+                  onChange={(e) => updateData({ title: e.target.value })}
+                  className="h-9"
+                  placeholder="My PDF Document"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Description</Label>
+                <Textarea
+                  value={data.description || ""}
+                  onChange={(e) => updateData({ description: e.target.value })}
+                  className="min-h-[60px] resize-none"
+                  placeholder="A brief description of your PDF..."
+                />
+              </div>
+
+              {/* PDF File Upload */}
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-xs">PDF File</Label>
+                <button
+                  type="button"
+                  onClick={() => onOpenImageLibrary(block.id, 'pdf_file')}
+                  className="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  {data.pdf_file_url ? (
+                    <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-red-600" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {data.pdf_file_url ? data.title || "PDF File" : "Upload PDF"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {data.pdf_file_url
+                        ? "Click to change file"
+                        : "Select a PDF from your device"}
+                    </p>
+                  </div>
+                  {data.pdf_file_url ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        updateData({ pdf_file_url: null })
+                      }}
+                      className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                    </button>
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                  )}
+                </button>
+              </div>
+
+              {/* Button Text */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <Input
+                  value={data.button_text || "View PDF"}
+                  onChange={(e) => updateData({ button_text: e.target.value })}
+                  className="h-9"
+                  placeholder="View PDF"
+                />
+              </div>
+
+              {/* Preview Button Text */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Preview Modal Button Text</Label>
+                <Input
+                  value={data.preview_button_text || "View full PDF"}
+                  onChange={(e) => updateData({ preview_button_text: e.target.value })}
+                  className="h-9"
+                  placeholder="View full PDF"
+                />
+              </div>
+
+              {/* Enable Preview Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">Enable Preview</Label>
+                  <p className="text-[10px] text-muted-foreground">Show PDF preview modal when clicked</p>
+                </div>
+                <Toggle
+                  checked={data.enable_preview !== false}
+                  onCheckedChange={(checked) => {
+                    updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
+                  }}
+                />
+              </div>
+
+              {/* Open Directly Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">Open Directly</Label>
+                  <p className="text-[10px] text-muted-foreground">Open PDF file directly in new tab</p>
+                </div>
+                <Toggle
+                  checked={data.open_directly === true}
+                  onCheckedChange={(checked) => {
+                    updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
+                  }}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="layout" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+
+              {/* Layout Options Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Default Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    (data.layout_type || 'default') === 'default'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
+                      <FileText className="w-5 h-5 text-red-500" />
+                      <div className="h-2.5 w-16 bg-gray-300 rounded" />
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {(data.layout_type || 'default') === 'default' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Default</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Button with icon</p>
+                </button>
+
+                {/* Pro Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    data.layout_type === 'pro'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-100 to-red-200 shrink-0 flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-red-500" />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-full bg-gray-200 rounded" />
+                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {data.layout_type === 'pro' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Featured</span>
+                    <Sparkles className="w-3 h-3 text-violet-500" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
+                </button>
+              </div>
+
+              {/* Custom Thumbnail - Only show for Pro layout */}
+              {data.layout_type === 'pro' && (
+                <div className="space-y-2 pt-3 border-t">
+                  <Label className="text-xs">Thumbnail Image</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Display an image with your PDF (used in Featured layout)
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    {data.thumbnail_url ? (
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                        <img src={data.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => updateData({ thumbnail_url: null })}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                      >
+                        <Upload className="w-5 h-5 text-gray-400" />
+                      </button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                      className="h-8 text-xs"
+                    >
+                      <Upload className="w-3 h-3 mr-1.5" />
+                      {data.thumbnail_url ? 'Change' : 'Upload'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        )
+      }
+
+      case "food_menu": {
+        const data = block.data as FoodMenuBlockData
+
+        // Layout options for food menu
+        const layoutOptions = [
+          { id: 'default', label: 'Default', description: 'Button with menu icon' },
+          { id: 'pro', label: 'Pro', description: 'Image, title, description & button' },
+        ] as const
+
+        return (
+          <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <Settings className="w-3.5 h-3.5" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Layout
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="mt-0 space-y-4">
+              {/* Title */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Title</Label>
+                <Input
+                  value={data.title || ""}
+                  onChange={(e) => updateData({ title: e.target.value })}
+                  className="h-9"
+                  placeholder="Menu"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Description</Label>
+                <Textarea
+                  value={data.description || ""}
+                  onChange={(e) => updateData({ description: e.target.value })}
+                  className="min-h-[60px] resize-none"
+                  placeholder="A brief description of your menu..."
+                />
+              </div>
+
+              {/* PDF File Upload */}
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-xs">Menu PDF File</Label>
+                <button
+                  type="button"
+                  onClick={() => onOpenImageLibrary(block.id, 'pdf_file')}
+                  className="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  {data.pdf_file_url ? (
+                    <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-red-600" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {data.pdf_file_url ? data.title || "Menu PDF" : "Upload Menu PDF"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {data.pdf_file_url
+                        ? "Click to change file"
+                        : "Select a PDF from your device"}
+                    </p>
+                  </div>
+                  {data.pdf_file_url ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        updateData({ pdf_file_url: null })
+                      }}
+                      className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                    </button>
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                  )}
+                </button>
+              </div>
+
+              {/* Button Text */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <Input
+                  value={data.button_text || "View Menu"}
+                  onChange={(e) => updateData({ button_text: e.target.value })}
+                  className="h-9"
+                  placeholder="View Menu"
+                />
+              </div>
+
+              {/* Preview Button Text */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Preview Modal Button Text</Label>
+                <Input
+                  value={data.preview_button_text || "View Menu"}
+                  onChange={(e) => updateData({ preview_button_text: e.target.value })}
+                  className="h-9"
+                  placeholder="View Menu"
+                />
+              </div>
+
+              {/* Enable Preview Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">Enable Preview</Label>
+                  <p className="text-[10px] text-muted-foreground">Show menu preview modal when clicked</p>
+                </div>
+                <Toggle
+                  checked={data.enable_preview !== false}
+                  onCheckedChange={(checked) => {
+                    updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
+                  }}
+                />
+              </div>
+
+              {/* Open Directly Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">Open Directly</Label>
+                  <p className="text-[10px] text-muted-foreground">Open menu PDF directly in new tab</p>
+                </div>
+                <Toggle
+                  checked={data.open_directly === true}
+                  onCheckedChange={(checked) => {
+                    updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
+                  }}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="layout" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+
+              {/* Layout Options Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Default Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    (data.layout_type || 'default') === 'default'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
+                      <FileText className="w-5 h-5 text-red-500" />
+                      <div className="h-2.5 w-16 bg-gray-300 rounded" />
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {(data.layout_type || 'default') === 'default' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Default</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Button with icon</p>
+                </button>
+
+                {/* Pro Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    data.layout_type === 'pro'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-100 to-red-200 shrink-0 flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-red-500" />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-full bg-gray-200 rounded" />
+                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {data.layout_type === 'pro' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Featured</span>
+                    <Sparkles className="w-3 h-3 text-violet-500" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
+                </button>
+              </div>
+
+              {/* Custom Thumbnail - Only show for Pro layout */}
+              {data.layout_type === 'pro' && (
+                <div className="space-y-2 pt-3 border-t">
+                  <Label className="text-xs">Thumbnail Image</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Display an image with your menu (used in Featured layout)
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    {data.thumbnail_url ? (
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                        <img src={data.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => updateData({ thumbnail_url: null })}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                      >
+                        <Upload className="w-5 h-5 text-gray-400" />
+                      </button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                      className="h-8 text-xs"
+                    >
+                      <Upload className="w-3 h-3 mr-1.5" />
+                      {data.thumbnail_url ? 'Change' : 'Upload'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        )
+      }
+
+      case "calendly": {
+        const data = block.data as CalendlyBlockData
+
+        // Layout options for Calendly
+        const layoutOptions = [
+          { id: 'default', label: 'Default', description: 'Button with calendar icon' },
+          { id: 'pro', label: 'Pro', description: 'Image, title, description & button' },
+        ] as const
+
+        return (
+          <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <Settings className="w-3.5 h-3.5" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Layout
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="mt-0 space-y-4">
+              {/* Title */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Title</Label>
+                <Input
+                  value={data.title || ""}
+                  onChange={(e) => updateData({ title: e.target.value })}
+                  className="h-9"
+                  placeholder="Book a Meeting"
+                />
+              </div>
+
+              {/* Calendly URL */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Calendly URL</Label>
+                <Input
+                  value={data.calendly_url || ""}
+                  onChange={(e) => updateData({ calendly_url: e.target.value })}
+                  className="h-9"
+                  placeholder="https://calendly.com/your-username/30min"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Paste your Calendly event link here
+                </p>
+              </div>
+
+              {/* Button Text */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <Input
+                  value={data.button_text || "Schedule Now"}
+                  onChange={(e) => updateData({ button_text: e.target.value })}
+                  className="h-9"
+                  placeholder="Schedule Now"
+                />
+              </div>
+
+              {/* Embed Mode Options */}
+              <div className="space-y-3 pt-3 border-t">
+                <Label className="text-xs font-medium">Behavior</Label>
+
+                {/* Go Directly To Link */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-medium">Go Directly To Link</Label>
+                    <p className="text-[10px] text-muted-foreground">Open Calendly page in new tab</p>
+                  </div>
+                  <Toggle
+                    checked={data.embed_mode === 'direct_link'}
+                    onCheckedChange={(checked) => {
+                      updateData({ embed_mode: checked ? 'direct_link' : 'embedded' })
+                    }}
+                  />
+                </div>
+
+                {/* Embedded Calendar (Modal) */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-medium">Embedded Calendar</Label>
+                    <p className="text-[10px] text-muted-foreground">Show calendar in popup modal</p>
+                  </div>
+                  <Toggle
+                    checked={data.embed_mode === 'embedded'}
+                    onCheckedChange={(checked) => {
+                      updateData({ embed_mode: checked ? 'embedded' : 'direct_link', embed_type: 'modal' })
+                    }}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="layout" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+
+              {/* Layout Options Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Default Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    (data.layout_type || 'default') === 'default'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
+                      <Calendar className="w-5 h-5 text-blue-500" />
+                      <div className="h-2.5 w-16 bg-gray-300 rounded" />
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {(data.layout_type || 'default') === 'default' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Default</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">Button with icon</p>
+                </button>
+
+                {/* Pro Layout Option */}
+                <button
+                  type="button"
+                  onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                    data.layout_type === 'pro'
+                      ? "border-violet-500 bg-violet-50/50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  )}
+                >
+                  {/* Visual Preview */}
+                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
+                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 shrink-0 flex items-center justify-center">
+                          <Calendar className="w-4 h-4 text-blue-500" />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-full bg-gray-200 rounded" />
+                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                    )}>
+                      {data.layout_type === 'pro' && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">Featured</span>
+                    <Sparkles className="w-3 h-3 text-violet-500" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
+                </button>
+              </div>
+
+              {/* Custom Thumbnail - Only show for Pro layout */}
+              {data.layout_type === 'pro' && (
+                <div className="space-y-2 pt-3 border-t">
+                  <Label className="text-xs">Thumbnail Image</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Display an image with your Calendly block (used in Featured layout)
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    {data.thumbnail_url ? (
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                        <img src={data.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => updateData({ thumbnail_url: null })}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                      >
+                        <Upload className="w-5 h-5 text-gray-400" />
+                      </button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
+                      className="h-8 text-xs"
+                    >
+                      <Upload className="w-3 h-3 mr-1.5" />
+                      {data.thumbnail_url ? 'Change' : 'Upload'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         )
       }
 
@@ -6361,12 +7714,12 @@ function BlockEditor({
 
     return (
       <Tabs defaultValue="links" className="w-full">
-        <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
-          <TabsTrigger value="links" className="flex-1 text-xs h-8 gap-1.5">
+        <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+          <TabsTrigger value="links" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
             <Link className="w-3.5 h-3.5" />
             Links
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
             <LayoutGrid className="w-3.5 h-3.5" />
             Layout
           </TabsTrigger>
@@ -6456,7 +7809,7 @@ function BlockEditor({
                           }}
                           className={cn(
                             "w-8 h-5 rounded-full transition-colors relative",
-                            child.enabled ? "bg-violet-500" : "bg-gray-300"
+                            child.enabled ? "bg-gray-900" : "bg-gray-300"
                           )}
                         >
                           <div className={cn(
@@ -6538,53 +7891,81 @@ function BlockEditor({
 
         </TabsContent>
 
-        <TabsContent value="layout" className="mt-0 space-y-4">
-          <p className="text-xs text-muted-foreground">Choose how blocks are arranged in this group</p>
+        <TabsContent value="layout" className="mt-0 space-y-3">
+          <p className="text-xs text-muted-foreground mb-2">Choose how blocks are arranged in this group</p>
 
-          {/* Layout Options */}
-          <div className="space-y-2">
-            {([
-              { id: "stack" as const, label: "Stack", desc: "Vertical list of blocks", icon: "↓" },
-              { id: "carousel" as const, label: "Carousel", desc: "Horizontal scrollable", icon: "↔" },
-            ]).map((layout) => (
-              <button
-                key={layout.id}
-                type="button"
-                onClick={() => updateData({ layout: layout.id })}
-                className={cn(
-                  "w-full p-3 rounded-xl border-2 text-left transition-all",
-                  groupData.layout === layout.id
-                    ? "border-violet-500 bg-violet-50"
-                    : "border-gray-200 hover:border-gray-300 bg-white"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
-                    groupData.layout === layout.id ? "bg-violet-100 text-violet-600" : "bg-gray-100 text-gray-500"
-                  )}>
-                    {layout.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{layout.label}</div>
-                    <p className="text-xs text-muted-foreground">{layout.desc}</p>
-                  </div>
-                  <div className={cn(
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center",
-                    groupData.layout === layout.id ? "border-violet-500" : "border-gray-300"
-                  )}>
-                    {groupData.layout === layout.id && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-                    )}
-                  </div>
+          {/* Layout Options Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Stack Layout */}
+            <button
+              type="button"
+              onClick={() => updateData({ layout: "stack" as const })}
+              className={cn(
+                "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                groupData.layout === "stack"
+                  ? "border-violet-500 bg-violet-50/50"
+                  : "border-gray-200 hover:border-gray-300 bg-white"
+              )}
+            >
+              {/* Visual Preview */}
+              <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden p-2 gap-1.5">
+                <div className="w-full h-6 bg-white rounded border border-gray-200" />
+                <div className="w-full h-6 bg-white rounded border border-gray-200" />
+                <div className="w-full h-6 bg-white rounded border border-gray-200" />
+              </div>
+              
+              {/* Label */}
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                  groupData.layout === "stack" ? "border-violet-500" : "border-gray-300"
+                )}>
+                  {groupData.layout === "stack" && (
+                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                  )}
                 </div>
-              </button>
-            ))}
+                <span className="font-medium text-sm">Stack</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-6">Vertical list</p>
+            </button>
+
+            {/* Carousel Layout */}
+            <button
+              type="button"
+              onClick={() => updateData({ layout: "carousel" as const })}
+              className={cn(
+                "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
+                groupData.layout === "carousel"
+                  ? "border-violet-500 bg-violet-50/50"
+                  : "border-gray-200 hover:border-gray-300 bg-white"
+              )}
+            >
+              {/* Visual Preview */}
+              <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2 gap-1.5">
+                <div className="w-[40%] h-full bg-white rounded border border-gray-200 shrink-0" />
+                <div className="w-[40%] h-full bg-white rounded border border-gray-200 shrink-0" />
+                <div className="w-[20%] h-full bg-white/50 rounded border border-gray-100 shrink-0" />
+              </div>
+              
+              {/* Label */}
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                  groupData.layout === "carousel" ? "border-violet-500" : "border-gray-300"
+                )}>
+                  {groupData.layout === "carousel" && (
+                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                  )}
+                </div>
+                <span className="font-medium text-sm">Carousel</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-6">Swipe horizontal</p>
+            </button>
           </div>
 
           {/* Carousel Options - shown when carousel layout is selected */}
           {groupData.layout === "carousel" && (
-            <div className="space-y-4 pt-2 border-t">
+            <div className="space-y-4 pt-3 border-t">
               <div className="space-y-2">
                 <Label className="text-xs">Carousel View</Label>
                 <div className="flex gap-2">
@@ -6621,12 +8002,12 @@ function BlockEditor({
   if (supportsLayout) {
     return (
       <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="w-full mb-3 bg-gray-100/80 p-0.5 h-9">
-          <TabsTrigger value="settings" className="flex-1 text-xs h-8 gap-1.5">
+        <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+          <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
             <Settings className="w-3.5 h-3.5" />
             Settings
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 text-xs h-8 gap-1.5">
+          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
             <LayoutGrid className="w-3.5 h-3.5" />
             Layout
           </TabsTrigger>

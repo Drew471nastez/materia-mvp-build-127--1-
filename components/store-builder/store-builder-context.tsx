@@ -20,6 +20,8 @@ import {
   defaultMoreFromSellerSettings,
   defaultReviewsSettings,
   defaultSubscribeBarSettings,
+  defaultAboutSettings,
+  defaultFAQSettings,
   generateSectionId,
 } from "@/lib/store-builder/defaults"
 
@@ -27,6 +29,8 @@ interface HistoryState {
   config: PageConfig
   timestamp: number
 }
+
+import type { GlobalStoreSettings, ThemePreset } from "@/lib/store-builder/types"
 
 interface StoreBuilderContextType {
   // Current state
@@ -40,7 +44,7 @@ interface StoreBuilderContextType {
   addSectionModalOpen: boolean
   canUndo: boolean
   canRedo: boolean
-  sidebarMode: "sections" | "settings"
+  sidebarMode: "sections" | "settings" | "global-settings"
   selectedProductId: string | null
   products: Array<{ id: string; title: string; thumbnail_url?: string }>
   saveState: SaveState
@@ -64,6 +68,8 @@ interface StoreBuilderContextType {
   removeSection: (sectionId: string) => void
   reorderSections: (sections: Section[]) => void
   updateHeaderSettings: (settings: any) => void
+  updateGlobalSettings: (settings: Partial<GlobalStoreSettings>) => void
+  applyTheme: (themePreset: ThemePreset) => void
   save: () => Promise<void>
   publish: () => Promise<void>
   discardChanges: () => void
@@ -72,10 +78,11 @@ interface StoreBuilderContextType {
   closeAddSectionModal: () => void
   undo: () => void
   redo: () => void
-  setSidebarMode: (mode: "sections" | "settings") => void
+  setSidebarMode: (mode: "sections" | "settings" | "global-settings") => void
   goBackToSections: () => void
   setSelectedProductId: (id: string | null) => void
   setProducts: (products: Array<{ id: string; title: string; thumbnail_url?: string }>) => void
+  openGlobalSettings: () => void
 
   // Template actions
   saveAsTemplate: (name: string) => Promise<void>
@@ -129,6 +136,25 @@ function ensureReviewsSection(sections: Section[]): Section[] {
 }
 
 /**
+ * Ensures FAQ section exists on product pages and is locked
+ */
+function ensureFAQSection(sections: Section[]): Section[] {
+  const hasFaq = sections.some((s) => s.type === "faq")
+  if (!hasFaq) {
+    const faqSection: Section = {
+      id: generateSectionId(),
+      type: "faq",
+      settings: defaultFAQSettings,
+      order: sections.length,
+      locked: true, // Cannot be deleted
+    }
+    return [...sections, faqSection]
+  }
+  // Make sure existing FAQ section is locked
+  return sections.map((s) => (s.type === "faq" ? { ...s, locked: true } : s))
+}
+
+/**
  * Ensures mandatory sections exist on product pages
  */
 function ensureMandatoryProductSections(config: PageConfig): PageConfig {
@@ -140,7 +166,13 @@ function ensureMandatoryProductSections(config: PageConfig): PageConfig {
     sections: ensureReviewsSection(next.sections),
   }
 
-  // Ensure More from Seller section exists
+  // Ensure FAQ section exists and is locked (always after Product Content)
+  next = {
+    ...next,
+    sections: ensureFAQSection(next.sections),
+  }
+
+  // Ensure More from Seller section exists and is locked
   const hasMoreFromSeller = next.sections.some((s) => s.type === "more-from-seller")
   if (!hasMoreFromSeller) {
     const moreFromSellerSection: Section = {
@@ -148,11 +180,17 @@ function ensureMandatoryProductSections(config: PageConfig): PageConfig {
       type: "more-from-seller",
       settings: defaultMoreFromSellerSettings,
       order: next.sections.length,
-      locked: false,
+      locked: true, // Locked so it can only be hidden, not deleted
     }
     next = {
       ...next,
       sections: [...next.sections, moreFromSellerSection],
+    }
+  } else {
+    // Make sure existing more-from-seller section is locked
+    next = {
+      ...next,
+      sections: next.sections.map((s) => (s.type === "more-from-seller" ? { ...s, locked: true } : s)),
     }
   }
 
@@ -183,7 +221,7 @@ export function StoreBuilderProvider({
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("desktop")
   const [isLoading, setIsLoading] = useState(true)
   const [addSectionModalOpen, setAddSectionModalOpen] = useState(false)
-  const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
+  const [sidebarMode, setSidebarMode] = useState<"sections" | "settings" | "global-settings">("sections")
   const [selectedProductId, setSelectedProductIdState] = useState<string | null>(initialProductId)
   const [products, setProducts] =
     useState<Array<{ id: string; title: string; thumbnail_url?: string }>>(initialProducts)
@@ -295,9 +333,133 @@ export function StoreBuilderProvider({
               sections: loadedDraft.sections.map((s) => (s.type === "featured-products" ? { ...s, locked: true } : s)),
             }
           }
+
+          // Ensure About section exists for shop pages (locked section that can be hidden but not deleted)
+          const hasAboutSection = loadedDraft.sections.some((s) => s.type === "about")
+          if (!hasAboutSection) {
+            const aboutSection: Section = {
+              id: generateSectionId(),
+              type: "about",
+              settings: defaultAboutSettings,
+              order: 0, // About section should be first (order 0)
+              locked: true,
+            }
+            // Shift other sections' order to make room for About at position 0
+            loadedDraft = {
+              ...loadedDraft,
+              sections: [
+                aboutSection,
+                ...loadedDraft.sections.map((s) => ({ ...s, order: s.order + 1 })),
+              ],
+            }
+          } else {
+            // Ensure existing About section is locked
+            loadedDraft = {
+              ...loadedDraft,
+              sections: loadedDraft.sections.map((s) => (s.type === "about" ? { ...s, locked: true } : s)),
+            }
+          }
+
+          // Apply same logic to published config
+          const hasPublishedAbout = loadedPublished.sections.some((s) => s.type === "about")
+          if (!hasPublishedAbout) {
+            const aboutSection: Section = {
+              id: generateSectionId(),
+              type: "about",
+              settings: defaultAboutSettings,
+              order: 0,
+              locked: true,
+            }
+            loadedPublished = {
+              ...loadedPublished,
+              sections: [
+                aboutSection,
+                ...loadedPublished.sections.map((s) => ({ ...s, order: s.order + 1 })),
+              ],
+            }
+          } else {
+            loadedPublished = {
+              ...loadedPublished,
+              sections: loadedPublished.sections.map((s) => (s.type === "about" ? { ...s, locked: true } : s)),
+            }
+          }
         }
 
         if (pageType === "product") {
+          // Load global settings from default template and merge into product config
+          // Global settings: creator bar, sticky add to cart, buy button colors, spacing
+          if (productId) {
+            try {
+              const globalResponse = await fetch(`/api/store-builder?pageType=product`)
+              if (globalResponse.ok) {
+                const globalData = await globalResponse.json()
+                const globalHeader = globalData.draft_config?.headerSettings || {}
+
+                // Merge global settings into loaded config
+                // IMPORTANT: globalSettings, globalColors, and theme colors ALWAYS come from global template
+                // This ensures that when theme is changed from homepage, ALL product pages update correctly
+                const productHeader = loadedDraft.headerSettings as any
+                loadedDraft = {
+                  ...loadedDraft,
+                  // Always use globalSettings from global template (includes themePreset)
+                  globalSettings: globalData.draft_config?.globalSettings || loadedDraft.globalSettings,
+                  // Always use globalColors from global template (includes page background)
+                  globalColors: globalData.draft_config?.globalColors || loadedDraft.globalColors,
+                  headerSettings: {
+                    ...loadedDraft.headerSettings,
+                    // Use global settings for these fields (fallback to loaded values if global not set)
+                    creatorBar: globalHeader.creatorBar || productHeader.creatorBar,
+                    stickyAddToCart: globalHeader.stickyAddToCart || productHeader.stickyAddToCart,
+                    buyButtonColor: globalHeader.buyButtonColor || productHeader.buyButtonColor,
+                    buyButtonTextColor: globalHeader.buyButtonTextColor || productHeader.buyButtonTextColor,
+                    buttonsBorderRadius: globalHeader.buttonsBorderRadius || productHeader.buttonsBorderRadius,
+                    spacing: globalHeader.spacing || productHeader.spacing,
+                    // Theme-related color settings (always from global template)
+                    colors: globalHeader.colors || productHeader.colors,
+                    faqColors: globalHeader.faqColors || productHeader.faqColors,
+                    reviewsColors: globalHeader.reviewsColors || productHeader.reviewsColors,
+                    productCardColors: globalHeader.productCardColors || productHeader.productCardColors,
+                    priceContainerColors: globalHeader.priceContainerColors || productHeader.priceContainerColors,
+                    wishlistButtonColors: globalHeader.wishlistButtonColors || productHeader.wishlistButtonColors,
+                    viewInLibraryButtonColors: globalHeader.viewInLibraryButtonColors || productHeader.viewInLibraryButtonColors,
+                  },
+                }
+
+                // Also merge for published config
+                // IMPORTANT: globalSettings, globalColors, and theme colors ALWAYS come from global template
+                // This ensures that when theme is changed from homepage, ALL product pages update correctly
+                const globalPublishedHeader = globalData.published_config?.headerSettings || {}
+                const publishedProductHeader = loadedPublished.headerSettings as any
+                loadedPublished = {
+                  ...loadedPublished,
+                  globalSettings: globalData.published_config?.globalSettings || loadedPublished.globalSettings,
+                  globalColors: globalData.published_config?.globalColors || loadedPublished.globalColors,
+                  headerSettings: {
+                    ...loadedPublished.headerSettings,
+                    creatorBar: globalPublishedHeader.creatorBar || publishedProductHeader.creatorBar,
+                    stickyAddToCart: globalPublishedHeader.stickyAddToCart || publishedProductHeader.stickyAddToCart,
+                    buyButtonColor: globalPublishedHeader.buyButtonColor || publishedProductHeader.buyButtonColor,
+                    buyButtonTextColor: globalPublishedHeader.buyButtonTextColor || publishedProductHeader.buyButtonTextColor,
+                    buttonsBorderRadius: globalPublishedHeader.buttonsBorderRadius || publishedProductHeader.buttonsBorderRadius,
+                    spacing: globalPublishedHeader.spacing || publishedProductHeader.spacing,
+                    // Theme-related color settings (always from global template)
+                    colors: globalPublishedHeader.colors || publishedProductHeader.colors,
+                    faqColors: globalPublishedHeader.faqColors || publishedProductHeader.faqColors,
+                    reviewsColors: globalPublishedHeader.reviewsColors || publishedProductHeader.reviewsColors,
+                    productCardColors: globalPublishedHeader.productCardColors || publishedProductHeader.productCardColors,
+                    priceContainerColors: globalPublishedHeader.priceContainerColors || publishedProductHeader.priceContainerColors,
+                    wishlistButtonColors: globalPublishedHeader.wishlistButtonColors || publishedProductHeader.wishlistButtonColors,
+                    viewInLibraryButtonColors: globalPublishedHeader.viewInLibraryButtonColors || publishedProductHeader.viewInLibraryButtonColors,
+                  },
+                }
+
+                console.log("[v0] Merged global product settings into product config")
+              }
+            } catch (err) {
+              console.error("[v0] Failed to load global product settings:", err)
+            }
+          }
+
           loadedDraft = ensureMandatoryProductSections(loadedDraft)
           loadedPublished = ensureMandatoryProductSections(loadedPublished)
         }
@@ -321,9 +483,18 @@ export function StoreBuilderProvider({
       let configWithDefaults: PageConfig = defaultConfig
 
       if (pageType === "shop") {
+        // Create About section (locked, at order 0)
+        const aboutSection: Section = {
+          id: generateSectionId(),
+          type: "about",
+          settings: defaultAboutSettings,
+          order: 0,
+          locked: true,
+        }
+
         const featuredProductsLibraryItem = sectionLibrary.find((item) => item.type === "featured-products")
         if (featuredProductsLibraryItem) {
-          const featuredProductsSection = createSectionFromLibrary(featuredProductsLibraryItem, 0)
+          const featuredProductsSection = createSectionFromLibrary(featuredProductsLibraryItem, 1) // Order 1 after About
           featuredProductsSection.locked = true
           configWithDefaults = {
             ...defaultConfig,
@@ -331,7 +502,16 @@ export function StoreBuilderProvider({
               ...defaultConfig.headerSettings,
               subscribeBar: defaultSubscribeBarSettings,
             },
-            sections: [featuredProductsSection],
+            sections: [aboutSection, featuredProductsSection],
+          }
+        } else {
+          configWithDefaults = {
+            ...defaultConfig,
+            headerSettings: {
+              ...defaultConfig.headerSettings,
+              subscribeBar: defaultSubscribeBarSettings,
+            },
+            sections: [aboutSection],
           }
         }
       }
@@ -499,6 +679,757 @@ export function StoreBuilderProvider({
     [addToHistory, markUnsaved],
   )
 
+  const updateGlobalSettings = useCallback(
+    (settings: Partial<GlobalStoreSettings>) => {
+      setDraftConfig((prev) => {
+        const newConfig: PageConfig = {
+          ...prev,
+          globalSettings: { ...prev.globalSettings, ...settings } as GlobalStoreSettings,
+        }
+        addToHistory(newConfig)
+        return newConfig
+      })
+      markUnsaved()
+    },
+    [addToHistory, markUnsaved],
+  )
+
+  const applyTheme = useCallback(
+    (themePreset: ThemePreset) => {
+      // Import theme presets dynamically to avoid circular dependencies
+      import("@/lib/store-builder/defaults").then(({ themePresets, defaultGlobalStoreSettings }) => {
+        const theme = themePresets[themePreset]
+        if (!theme) return
+
+        setDraftConfig((prev) => {
+          // Update global settings with theme preset
+          const newGlobalSettings: GlobalStoreSettings = {
+            ...(prev.globalSettings || defaultGlobalStoreSettings),
+            themePreset,
+            themeColors: theme.colors,
+            themeBorderRadius: theme.borderRadius,
+          }
+
+          // Apply theme to subscribe bar (shop pages)
+          let newHeaderSettings = { ...prev.headerSettings }
+          if (prev.pageType === "shop") {
+            const shopHeader = newHeaderSettings as any
+            // Always initialize subscribeBar if it doesn't exist, then apply theme
+            const existingSubscribeBar = shopHeader.subscribeBar || {}
+            shopHeader.subscribeBar = {
+              ...existingSubscribeBar,
+              // Ensure visibility defaults
+              visible: existingSubscribeBar.visible ?? true,
+              // Button styling from theme
+              buttonColor: theme.subscribeBar.buttonColor,
+              buttonTextColor: theme.subscribeBar.buttonTextColor,
+              buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
+              // Input styling from theme
+              inputBorderColor: theme.subscribeBar.inputBorderColor ?? theme.colors.border,
+              inputTextColor: theme.subscribeBar.inputTextColor ?? theme.colors.foreground,
+              inputPlaceholderColor: theme.subscribeBar.inputPlaceholderColor ?? theme.colors.muted,
+              inputBackgroundColor: theme.subscribeBar.inputBackgroundColor ?? "transparent",
+              // Background and text colors (both nested and top level for compatibility)
+              colors: {
+                ...(existingSubscribeBar.colors || {}),
+                backgroundColor: theme.subscribeBar.backgroundColor,
+                textColor: theme.subscribeBar.textColor,
+              },
+              backgroundColor: theme.subscribeBar.backgroundColor,
+              textColor: theme.subscribeBar.textColor,
+            }
+            // Apply header colors from theme sections config
+            shopHeader.colors = {
+              ...shopHeader.colors,
+              backgroundColor: theme.sections.headerBackgroundColor,
+              textColor: theme.sections.headerTextColor || theme.colors.foreground,
+            }
+            // Apply profile image border color from theme
+            shopHeader.profileImageBorderColor = theme.profileImageBorderColor
+          }
+
+          // Apply theme to product page components
+          if (prev.pageType === "product") {
+            const productHeader = newHeaderSettings as any
+            if (productHeader.creatorBar) {
+              productHeader.creatorBar = {
+                ...productHeader.creatorBar,
+                backgroundColor: theme.creatorBar.backgroundColor,
+                textColor: theme.creatorBar.textColor,
+                buttonColor: theme.creatorBar.buttonColor,
+                buttonTextColor: theme.creatorBar.buttonTextColor,
+                buttonBorderRadius: theme.creatorBar.buttonBorderRadius,
+              }
+            }
+            if (productHeader.stickyAddToCart) {
+              // Calculate border color based on background - dark backgrounds get lighter borders
+              const bgColor = theme.stickyAddToCart.backgroundColor
+              const isDarkBg = bgColor && (bgColor.startsWith("#0") || bgColor.startsWith("#1") || bgColor.startsWith("#2"))
+              const borderColor = isDarkBg ? `${theme.colors.foreground}20` : theme.colors.border || "#e5e7eb"
+
+              productHeader.stickyAddToCart = {
+                ...productHeader.stickyAddToCart,
+                backgroundColor: theme.stickyAddToCart.backgroundColor,
+                buttonColor: theme.stickyAddToCart.buttonColor,
+                buttonTextColor: theme.stickyAddToCart.buttonTextColor,
+                borderRadius: theme.stickyAddToCart.borderRadius,
+                borderColor: borderColor,
+                textColor: theme.stickyAddToCart.textColor || theme.colors.foreground,
+              }
+            }
+            // Apply buy button colors and border radius
+            productHeader.buyButtonColor = theme.productHeader.buyButtonColor
+            productHeader.buyButtonTextColor = theme.productHeader.buyButtonTextColor
+            productHeader.buttonsBorderRadius = theme.productHeader.buttonsBorderRadius ?? theme.buttonBorderRadius
+            // Apply page background and text colors for product page
+            productHeader.colors = {
+              ...productHeader.colors,
+              backgroundColor: theme.sections.pageBackgroundColor,
+              textColor: theme.colors.foreground,
+            }
+            // Apply FAQ section colors
+            productHeader.faqColors = {
+              textColor: theme.faqSection.textColor,
+              borderColor: theme.faqSection.borderColor,
+              iconColor: theme.faqSection.iconColor,
+            }
+            // Apply reviews section colors for product page
+            productHeader.reviewsColors = {
+              textColor: theme.reviewsSection.textColor,
+              starColor: theme.reviewsSection.starColor,
+              cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+              cardBorderColor: theme.reviewsSection.cardBorderColor,
+            }
+            // Apply product card colors for price display etc.
+            productHeader.productCardColors = {
+              textColor: theme.productCard.textColor,
+              priceColor: theme.productCard.priceColor,
+              backgroundColor: theme.productCard.backgroundColor,
+              borderColor: theme.productCard.borderColor,
+            }
+            // Apply price container colors
+            productHeader.priceContainerColors = {
+              backgroundColor: theme.priceContainer.backgroundColor,
+              textColor: theme.priceContainer.textColor,
+              mutedTextColor: theme.priceContainer.mutedTextColor,
+              borderColor: theme.priceContainer.borderColor,
+              iconColor: theme.priceContainer.iconColor,
+            }
+            // Apply wishlist button colors
+            productHeader.wishlistButtonColors = {
+              backgroundColor: theme.wishlistButton.backgroundColor,
+              textColor: theme.wishlistButton.textColor,
+              borderColor: theme.wishlistButton.borderColor,
+            }
+            // Apply view in library button colors
+            productHeader.viewInLibraryButtonColors = {
+              backgroundColor: theme.viewInLibraryButton.backgroundColor,
+              textColor: theme.viewInLibraryButton.textColor,
+              borderColor: theme.viewInLibraryButton.borderColor,
+            }
+          }
+
+          // Apply theme to all sections
+          const newSections = prev.sections.map((section) => {
+            const newSection = { ...section, settings: { ...section.settings } }
+
+            // Apply featured products section colors (including product card and category filter colors)
+            // Theme colors ALWAYS override to ensure global consistency
+            if (section.type === "featured-products") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                  textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                },
+                productCardColors: {
+                  backgroundColor: theme.productCard.backgroundColor,
+                  textColor: theme.productCard.textColor,
+                  priceColor: theme.productCard.priceColor,
+                  borderColor: theme.productCard.borderColor,
+                },
+                categoryFilterColors: {
+                  textColor: theme.categoryFilter.textColor,
+                  activeTextColor: theme.categoryFilter.activeTextColor,
+                  borderColor: theme.categoryFilter.borderColor,
+                },
+              }
+            }
+
+            // Apply more-from-seller section colors (including product card colors)
+            // Theme colors ALWAYS override to ensure global consistency
+            if (section.type === "more-from-seller") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                  textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                },
+                productCardColors: {
+                  backgroundColor: theme.productCard.backgroundColor,
+                  textColor: theme.productCard.textColor,
+                  priceColor: theme.productCard.priceColor,
+                  borderColor: theme.productCard.borderColor,
+                },
+              }
+            }
+
+            // Apply text block colors - use section-specific theme colors
+            // Theme colors ALWAYS override to ensure global consistency
+            if (section.type === "text-block") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  backgroundColor: theme.textBlock.backgroundColor,
+                  textColor: theme.textBlock.headlineColor,
+                },
+                // Store headline and content colors separately
+                headlineColor: theme.textBlock.headlineColor,
+                contentColor: theme.textBlock.contentColor,
+              }
+            }
+
+            // Apply image-text section colors with button styling
+            // Theme colors ALWAYS override to ensure global consistency
+            if (section.type === "image-text") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  backgroundColor: theme.imageText.backgroundColor,
+                  textColor: theme.imageText.textColor,
+                },
+                buttonColor: theme.imageText.buttonColor,
+                buttonTextColor: theme.imageText.buttonTextColor,
+                buttonBorderRadius: theme.buttonBorderRadius,
+              }
+            }
+
+            // Apply benefits section colors
+            // Theme colors ALWAYS override to ensure global consistency
+            if (section.type === "benefits") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  backgroundColor: theme.benefits.backgroundColor,
+                  textColor: theme.benefits.textColor,
+                },
+                iconColor: theme.benefits.iconColor,
+              }
+            }
+
+            // Apply announcement bar colors from section-specific theme
+            // Theme colors ALWAYS override to ensure global consistency
+            if (section.type === "announcement-bar") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  backgroundColor: theme.announcementBar.backgroundColor,
+                  textColor: theme.announcementBar.textColor,
+                },
+              }
+            }
+
+            // Apply about section colors from section-specific theme
+            // Theme colors ALWAYS override to ensure global consistency
+            if (section.type === "about") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  backgroundColor: theme.about.backgroundColor,
+                  textColor: theme.about.textColor,
+                },
+                mutedTextColor: theme.about.mutedTextColor,
+              }
+            }
+
+            // Apply reviews section colors
+            // Theme colors ALWAYS override to ensure global consistency
+            if (section.type === "reviews") {
+              newSection.settings = {
+                ...newSection.settings,
+                colors: {
+                  backgroundColor: theme.reviewsSection.backgroundColor,
+                  textColor: theme.reviewsSection.textColor,
+                },
+                reviewsColors: {
+                  starColor: theme.reviewsSection.starColor,
+                  cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+                  cardBorderColor: theme.reviewsSection.cardBorderColor,
+                },
+              }
+            }
+
+            return newSection
+          })
+
+          // Update global colors for page background
+          const newGlobalColors = {
+            ...prev.globalColors,
+            backgroundColor: theme.sections.pageBackgroundColor,
+          }
+
+          const newConfig: PageConfig = {
+            ...prev,
+            globalSettings: newGlobalSettings,
+            globalColors: newGlobalColors,
+            headerSettings: newHeaderSettings,
+            sections: newSections,
+          }
+
+          addToHistory(newConfig)
+
+          // When applying theme from EITHER shop page OR product page, also update the global product template
+          // This ensures all product pages inherit the same theme colors consistently
+          if (prev.pageType === "shop" || prev.pageType === "product") {
+            // Calculate border color for sticky add to cart
+            const stickyBgColor = theme.stickyAddToCart.backgroundColor
+            const isDarkBg = stickyBgColor && (stickyBgColor.startsWith("#0") || stickyBgColor.startsWith("#1") || stickyBgColor.startsWith("#2"))
+            const stickyBorderColor = isDarkBg ? `${theme.colors.foreground}20` : theme.colors.border || "#e5e7eb"
+
+            // Build product page header settings with theme applied
+            const productHeaderSettings = {
+              // Page background and text colors - CRITICAL for theme propagation
+              colors: {
+                backgroundColor: theme.sections.pageBackgroundColor,
+                textColor: theme.colors.foreground,
+              },
+              creatorBar: {
+                visible: true,
+                backgroundColor: theme.creatorBar.backgroundColor,
+                textColor: theme.creatorBar.textColor,
+                buttonColor: theme.creatorBar.buttonColor,
+                buttonTextColor: theme.creatorBar.buttonTextColor,
+                buttonBorderRadius: theme.creatorBar.buttonBorderRadius,
+                buttonStyle: "style4",
+              },
+              stickyAddToCart: {
+                visible: true,
+                backgroundColor: theme.stickyAddToCart.backgroundColor,
+                buttonColor: theme.stickyAddToCart.buttonColor,
+                buttonTextColor: theme.stickyAddToCart.buttonTextColor,
+                borderRadius: theme.stickyAddToCart.borderRadius,
+                borderColor: stickyBorderColor,
+                textColor: theme.stickyAddToCart.textColor || theme.colors.foreground,
+                buttonStyle: "add_to_cart",
+              },
+              buyButtonColor: theme.productHeader.buyButtonColor,
+              buyButtonTextColor: theme.productHeader.buyButtonTextColor,
+              buttonsBorderRadius: theme.productHeader.buttonsBorderRadius ?? theme.buttonBorderRadius,
+              faqColors: {
+                textColor: theme.faqSection.textColor,
+                borderColor: theme.faqSection.borderColor,
+                iconColor: theme.faqSection.iconColor,
+              },
+              reviewsColors: {
+                textColor: theme.reviewsSection.textColor,
+                starColor: theme.reviewsSection.starColor,
+                cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+                cardBorderColor: theme.reviewsSection.cardBorderColor,
+              },
+              productCardColors: {
+                textColor: theme.productCard.textColor,
+                priceColor: theme.productCard.priceColor,
+                backgroundColor: theme.productCard.backgroundColor,
+                borderColor: theme.productCard.borderColor,
+              },
+              priceContainerColors: {
+                backgroundColor: theme.priceContainer.backgroundColor,
+                textColor: theme.priceContainer.textColor,
+                mutedTextColor: theme.priceContainer.mutedTextColor,
+                borderColor: theme.priceContainer.borderColor,
+                iconColor: theme.priceContainer.iconColor,
+              },
+              wishlistButtonColors: {
+                backgroundColor: theme.wishlistButton.backgroundColor,
+                textColor: theme.wishlistButton.textColor,
+                borderColor: theme.wishlistButton.borderColor,
+              },
+              viewInLibraryButtonColors: {
+                backgroundColor: theme.viewInLibraryButton.backgroundColor,
+                textColor: theme.viewInLibraryButton.textColor,
+                borderColor: theme.viewInLibraryButton.borderColor,
+              },
+            }
+
+            // Helper function to apply theme colors to all sections
+            const applyThemeToSections = (sections: Section[]) => {
+              return sections.map((section: Section) => {
+                const newSection = { ...section, settings: { ...section.settings } }
+
+                // Apply more-from-seller section colors
+                if (section.type === "more-from-seller") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                      textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                    },
+                    productCardColors: {
+                      backgroundColor: theme.productCard.backgroundColor,
+                      textColor: theme.productCard.textColor,
+                      priceColor: theme.productCard.priceColor,
+                      borderColor: theme.productCard.borderColor,
+                    },
+                  }
+                }
+
+                // Apply reviews section colors
+                if (section.type === "reviews") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.reviewsSection.backgroundColor,
+                      textColor: theme.reviewsSection.textColor,
+                    },
+                    reviewsColors: {
+                      starColor: theme.reviewsSection.starColor,
+                      cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+                      cardBorderColor: theme.reviewsSection.cardBorderColor,
+                    },
+                  }
+                }
+
+                // Apply text-block section colors
+                if (section.type === "text-block") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.textBlock.backgroundColor,
+                      textColor: theme.textBlock.headlineColor,
+                    },
+                    headlineColor: theme.textBlock.headlineColor,
+                    contentColor: theme.textBlock.contentColor,
+                  }
+                }
+
+                // Apply image-text section colors
+                if (section.type === "image-text") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.imageText.backgroundColor,
+                      textColor: theme.imageText.textColor,
+                    },
+                    buttonColor: theme.imageText.buttonColor,
+                    buttonTextColor: theme.imageText.buttonTextColor,
+                    buttonBorderRadius: theme.buttonBorderRadius,
+                  }
+                }
+
+                // Apply benefits section colors
+                if (section.type === "benefits") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.benefits.backgroundColor,
+                      textColor: theme.benefits.textColor,
+                    },
+                    iconColor: theme.benefits.iconColor,
+                  }
+                }
+
+                // Apply announcement bar colors
+                if (section.type === "announcement-bar") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.announcementBar.backgroundColor,
+                      textColor: theme.announcementBar.textColor,
+                    },
+                  }
+                }
+
+                // Apply about section colors
+                if (section.type === "about") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.about.backgroundColor,
+                      textColor: theme.about.textColor,
+                    },
+                    mutedTextColor: theme.about.mutedTextColor,
+                  }
+                }
+
+                // Apply featured-products section colors
+                if (section.type === "featured-products") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                      textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                    },
+                    productCardColors: {
+                      backgroundColor: theme.productCard.backgroundColor,
+                      textColor: theme.productCard.textColor,
+                      priceColor: theme.productCard.priceColor,
+                      borderColor: theme.productCard.borderColor,
+                    },
+                    categoryFilterColors: {
+                      textColor: theme.categoryFilter.textColor,
+                      activeTextColor: theme.categoryFilter.activeTextColor,
+                      borderColor: theme.categoryFilter.borderColor,
+                    },
+                  }
+                }
+
+                return newSection
+              })
+            }
+
+            // Save product theme settings to global template asynchronously
+            fetch("/api/store-builder?pageType=product")
+              .then((res) => res.ok ? res.json() : Promise.reject("Failed to load"))
+              .then((data) => {
+                const existingConfig = data.draft_config || { pageType: "product", sections: [], headerSettings: {} }
+
+                // Ensure mandatory sections exist in the global template before applying theme
+                let existingSections = existingConfig.sections || []
+
+                // Ensure reviews section exists
+                const hasReviews = existingSections.some((s: Section) => s.type === "reviews")
+                if (!hasReviews) {
+                  existingSections = [...existingSections, {
+                    id: `reviews-${Date.now()}`,
+                    type: "reviews",
+                    settings: defaultReviewsSettings,
+                    order: existingSections.length,
+                    locked: true,
+                  }]
+                }
+
+                // Ensure more-from-seller section exists
+                const hasMoreFromSeller = existingSections.some((s: Section) => s.type === "more-from-seller")
+                if (!hasMoreFromSeller) {
+                  existingSections = [...existingSections, {
+                    id: `more-from-seller-${Date.now()}`,
+                    type: "more-from-seller",
+                    settings: defaultMoreFromSellerSettings,
+                    order: existingSections.length,
+                    locked: true,
+                  }]
+                }
+
+                // Apply theme colors to all sections in the global template
+                const themedSections = applyThemeToSections(existingSections)
+
+                const updatedConfig = {
+                  ...existingConfig,
+                  globalSettings: newGlobalSettings,
+                  // CRITICAL: Include globalColors for page background
+                  globalColors: newGlobalColors,
+                  headerSettings: {
+                    ...existingConfig.headerSettings,
+                    ...productHeaderSettings,
+                  },
+                  sections: themedSections,
+                }
+                return fetch("/api/store-builder", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ pageType: "product", config: updatedConfig }),
+                })
+              })
+              .then(() => {
+                console.log("[v0] Global product template draft saved, now publishing...")
+                // CRITICAL: Also publish the global product template so live product pages update
+                return fetch("/api/store-builder", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ pageType: "product" }),
+                })
+              })
+              .then(() => {
+                console.log("[v0] Global product template updated and PUBLISHED with theme")
+                // CRITICAL: Also update ALL existing product-specific configs with the new theme
+                // This ensures ALL products get the new theme, not just new ones
+                return fetch("/api/store-builder/apply-theme-globally", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    themePreset,
+                    globalSettings: newGlobalSettings,
+                    globalColors: newGlobalColors,
+                    headerSettings: productHeaderSettings,
+                  }),
+                })
+              })
+              .then(() => console.log("[v0] Theme applied to ALL product configs globally"))
+              .catch((err) => console.error("[v0] Failed to update global product template:", err))
+
+            // If applying theme from product page, also update the shop page with matching theme
+            if (prev.pageType === "product") {
+              fetch("/api/store-builder?pageType=shop")
+                .then((res) => res.ok ? res.json() : Promise.reject("Failed to load"))
+                .then((data) => {
+                  const existingShopConfig = data.draft_config || { pageType: "shop", sections: [], headerSettings: {} }
+                  const shopHeader = existingShopConfig.headerSettings || {}
+
+                  // Apply theme to shop sections
+                  const existingShopSections = existingShopConfig.sections || []
+                  const themedShopSections = existingShopSections.map((section: Section) => {
+                    const newSection = { ...section, settings: { ...section.settings } }
+
+                    // Apply featured products section colors
+                    if (section.type === "featured-products") {
+                      newSection.settings = {
+                        ...newSection.settings,
+                        colors: {
+                          ...newSection.settings.colors,
+                          backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                          textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                        },
+                        productCardColors: {
+                          backgroundColor: theme.productCard.backgroundColor,
+                          textColor: theme.productCard.textColor,
+                          priceColor: theme.productCard.priceColor,
+                          borderColor: theme.productCard.borderColor,
+                        },
+                        categoryFilterColors: {
+                          textColor: theme.categoryFilter.textColor,
+                          activeTextColor: theme.categoryFilter.activeTextColor,
+                          borderColor: theme.categoryFilter.borderColor,
+                        },
+                      }
+                    }
+
+                    // Apply about section colors
+                    if (section.type === "about") {
+                      newSection.settings = {
+                        ...newSection.settings,
+                        colors: {
+                          ...newSection.settings.colors,
+                          backgroundColor: theme.about.backgroundColor,
+                          textColor: theme.about.textColor,
+                        },
+                        mutedTextColor: theme.about.mutedTextColor,
+                      }
+                    }
+
+                    // Apply text block colors
+                    if (section.type === "text-block") {
+                      newSection.settings = {
+                        ...newSection.settings,
+                        colors: {
+                          ...newSection.settings.colors,
+                          backgroundColor: theme.textBlock.backgroundColor,
+                          textColor: theme.textBlock.headlineColor,
+                        },
+                        headlineColor: theme.textBlock.headlineColor,
+                        contentColor: theme.textBlock.contentColor,
+                      }
+                    }
+
+                    // Apply image-text section colors
+                    if (section.type === "image-text") {
+                      newSection.settings = {
+                        ...newSection.settings,
+                        colors: {
+                          ...newSection.settings.colors,
+                          backgroundColor: theme.imageText.backgroundColor,
+                          textColor: theme.imageText.textColor,
+                        },
+                        buttonColor: theme.imageText.buttonColor,
+                        buttonTextColor: theme.imageText.buttonTextColor,
+                        buttonBorderRadius: theme.buttonBorderRadius,
+                      }
+                    }
+
+                    // Apply benefits section colors
+                    if (section.type === "benefits") {
+                      newSection.settings = {
+                        ...newSection.settings,
+                        colors: {
+                          ...newSection.settings.colors,
+                          backgroundColor: theme.benefits.backgroundColor,
+                          textColor: theme.benefits.textColor,
+                        },
+                        iconColor: theme.benefits.iconColor,
+                      }
+                    }
+
+                    // Apply announcement bar colors
+                    if (section.type === "announcement-bar") {
+                      newSection.settings = {
+                        ...newSection.settings,
+                        colors: {
+                          ...newSection.settings.colors,
+                          backgroundColor: theme.announcementBar.backgroundColor,
+                          textColor: theme.announcementBar.textColor,
+                        },
+                      }
+                    }
+
+                    return newSection
+                  })
+
+                  const updatedShopConfig = {
+                    ...existingShopConfig,
+                    globalSettings: newGlobalSettings,
+                    globalColors: newGlobalColors,
+                    headerSettings: {
+                      ...shopHeader,
+                      subscribeBar: {
+                        ...shopHeader.subscribeBar,
+                        visible: shopHeader.subscribeBar?.visible ?? true,
+                        buttonColor: theme.subscribeBar.buttonColor,
+                        buttonTextColor: theme.subscribeBar.buttonTextColor,
+                        buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
+                        inputBorderColor: theme.subscribeBar.inputBorderColor ?? theme.colors.border,
+                        inputTextColor: theme.subscribeBar.inputTextColor ?? theme.colors.foreground,
+                        inputPlaceholderColor: theme.subscribeBar.inputPlaceholderColor ?? theme.colors.muted,
+                        inputBackgroundColor: theme.subscribeBar.inputBackgroundColor ?? "transparent",
+                        colors: {
+                          ...(shopHeader.subscribeBar?.colors || {}),
+                          backgroundColor: theme.subscribeBar.backgroundColor,
+                          textColor: theme.subscribeBar.textColor,
+                        },
+                        backgroundColor: theme.subscribeBar.backgroundColor,
+                        textColor: theme.subscribeBar.textColor,
+                      },
+                      colors: {
+                        ...shopHeader.colors,
+                        backgroundColor: theme.sections.headerBackgroundColor,
+                        textColor: theme.sections.headerTextColor || theme.colors.foreground,
+                      },
+                      profileImageBorderColor: theme.profileImageBorderColor,
+                    },
+                    sections: themedShopSections,
+                  }
+
+                  return fetch("/api/store-builder", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pageType: "shop", config: updatedShopConfig }),
+                  })
+                })
+                .then(() => {
+                  console.log("[v0] Shop page draft saved, now publishing...")
+                  // CRITICAL: Also publish the shop page so live homepage updates
+                  return fetch("/api/store-builder", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pageType: "shop" }),
+                  })
+                })
+                .then(() => console.log("[v0] Shop page updated and PUBLISHED with theme from product page"))
+                .catch((err) => console.error("[v0] Failed to update shop page:", err))
+            }
+          }
+
+          return newConfig
+        })
+        markUnsaved()
+      })
+    },
+    [addToHistory, markUnsaved],
+  )
+
+  const openGlobalSettings = useCallback(() => {
+    setSelectedSectionId(null)
+    setSidebarMode("global-settings")
+  }, [])
+
   const save = useCallback(async () => {
     console.log("[v0] Save initiated", { currentPageType, selectedProductId })
     setSaveState("saving")
@@ -511,6 +1442,166 @@ export function StoreBuilderProvider({
           productId: selectedProductId,
           sections: draftConfig.sections.length,
         })
+
+        // ALSO save global settings (creator bar, sticky, buy button, spacing, theme colors) to default product template
+        // These settings should apply to ALL product pages
+        const productHeader = draftConfig.headerSettings as any
+
+        // First, get the current global template to preserve existing sections but update with theme colors
+        try {
+          const globalTemplateRes = await fetch("/api/store-builder?pageType=product")
+          const globalTemplateData = globalTemplateRes.ok ? await globalTemplateRes.json() : { draft_config: {} }
+          const existingGlobalConfig = globalTemplateData.draft_config || { sections: [] }
+
+          // Copy sections from current config to global template with theme colors preserved
+          // This ensures all new product pages get the themed sections
+          const themedGlobalSections = draftConfig.sections.map((section: Section) => ({
+            ...section,
+            // Keep section settings which include theme colors applied by applyTheme
+          }))
+
+          const globalProductSettings = {
+            pageType: "product",
+            config: {
+              ...defaultProductPageConfig,
+              globalSettings: draftConfig.globalSettings,
+              // CRITICAL: Include globalColors for page background
+              globalColors: draftConfig.globalColors,
+              headerSettings: {
+                ...defaultProductPageConfig.headerSettings,
+                // Page background and text colors - CRITICAL for theme propagation
+                colors: productHeader.colors,
+                creatorBar: productHeader.creatorBar,
+                stickyAddToCart: productHeader.stickyAddToCart,
+                buyButtonColor: productHeader.buyButtonColor,
+                buyButtonTextColor: productHeader.buyButtonTextColor,
+                buttonsBorderRadius: productHeader.buttonsBorderRadius,
+                spacing: productHeader.spacing,
+                // Theme-related color settings
+                faqColors: productHeader.faqColors,
+                reviewsColors: productHeader.reviewsColors,
+                productCardColors: productHeader.productCardColors,
+                priceContainerColors: productHeader.priceContainerColors,
+                wishlistButtonColors: productHeader.wishlistButtonColors,
+                viewInLibraryButtonColors: productHeader.viewInLibraryButtonColors,
+              },
+              // CRITICAL: Include sections with theme colors for new product pages
+              sections: themedGlobalSections,
+            },
+          }
+
+          // Save global settings to default template (without productId)
+          console.log("[v0] Also saving global product settings to default template with themed sections")
+          const globalResponse = await fetch("/api/store-builder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(globalProductSettings),
+          })
+
+          if (!globalResponse.ok) {
+            console.error("[v0] Failed to save global product settings, continuing...")
+          } else {
+            console.log("[v0] Global product settings saved successfully")
+          }
+
+          // Also update shop page with theme colors if we have theme settings
+          if (draftConfig.globalSettings?.themePreset) {
+            const themePreset = draftConfig.globalSettings.themePreset
+            import("@/lib/store-builder/defaults").then(({ themePresets }) => {
+              const theme = themePresets[themePreset]
+              if (!theme) return
+
+              fetch("/api/store-builder?pageType=shop")
+                .then((res) => res.ok ? res.json() : Promise.reject("Failed to load"))
+                .then((shopData) => {
+                  const existingShopConfig = shopData.draft_config || { pageType: "shop", sections: [], headerSettings: {} }
+                  const shopHeader = existingShopConfig.headerSettings || {}
+
+                  // Apply theme to shop sections
+                  const existingShopSections = existingShopConfig.sections || []
+                  const themedShopSections = existingShopSections.map((section: Section) => {
+                    const newSection = { ...section, settings: { ...section.settings } }
+
+                    if (section.type === "featured-products") {
+                      newSection.settings = {
+                        ...newSection.settings,
+                        colors: {
+                          ...newSection.settings.colors,
+                          backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                          textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                        },
+                        productCardColors: {
+                          backgroundColor: theme.productCard.backgroundColor,
+                          textColor: theme.productCard.textColor,
+                          priceColor: theme.productCard.priceColor,
+                          borderColor: theme.productCard.borderColor,
+                        },
+                        categoryFilterColors: {
+                          textColor: theme.categoryFilter.textColor,
+                          activeTextColor: theme.categoryFilter.activeTextColor,
+                          borderColor: theme.categoryFilter.borderColor,
+                        },
+                      }
+                    }
+
+                    if (section.type === "about") {
+                      newSection.settings = {
+                        ...newSection.settings,
+                        colors: {
+                          ...newSection.settings.colors,
+                          backgroundColor: theme.about.backgroundColor,
+                          textColor: theme.about.textColor,
+                        },
+                        mutedTextColor: theme.about.mutedTextColor,
+                      }
+                    }
+
+                    return newSection
+                  })
+
+                  const updatedShopConfig = {
+                    ...existingShopConfig,
+                    globalSettings: draftConfig.globalSettings,
+                    globalColors: draftConfig.globalColors,
+                    headerSettings: {
+                      ...shopHeader,
+                      subscribeBar: {
+                        ...shopHeader.subscribeBar,
+                        visible: shopHeader.subscribeBar?.visible ?? true,
+                        buttonColor: theme.subscribeBar.buttonColor,
+                        buttonTextColor: theme.subscribeBar.buttonTextColor,
+                        buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
+                        colors: {
+                          ...(shopHeader.subscribeBar?.colors || {}),
+                          backgroundColor: theme.subscribeBar.backgroundColor,
+                          textColor: theme.subscribeBar.textColor,
+                        },
+                        backgroundColor: theme.subscribeBar.backgroundColor,
+                        textColor: theme.subscribeBar.textColor,
+                      },
+                      colors: {
+                        ...shopHeader.colors,
+                        backgroundColor: theme.sections.headerBackgroundColor,
+                        textColor: theme.sections.headerTextColor || theme.colors.foreground,
+                      },
+                      profileImageBorderColor: theme.profileImageBorderColor,
+                    },
+                    sections: themedShopSections,
+                  }
+
+                  return fetch("/api/store-builder", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pageType: "shop", config: updatedShopConfig }),
+                  })
+                })
+                .then(() => console.log("[v0] Shop page updated with theme from product page save"))
+                .catch((err) => console.error("[v0] Failed to update shop page:", err))
+            })
+          }
+        } catch (err) {
+          console.error("[v0] Failed to save global product settings:", err)
+        }
       } else {
         console.log("[v0] Saving default template", { sections: draftConfig.sections.length })
       }
@@ -552,8 +1643,332 @@ export function StoreBuilderProvider({
           productId: selectedProductId,
           sections: draftConfig.sections.length,
         })
+
+        // ALSO save and publish global settings (creator bar, sticky, buy button, spacing, theme colors) to default product template
+        const productHeader = draftConfig.headerSettings as any
+
+        // Copy sections from current config to global template with theme colors preserved
+        const themedGlobalSections = draftConfig.sections.map((section: Section) => ({
+          ...section,
+        }))
+
+        const globalProductSettings = {
+          pageType: "product",
+          config: {
+            ...defaultProductPageConfig,
+            globalSettings: draftConfig.globalSettings,
+            // CRITICAL: Include globalColors for page background
+            globalColors: draftConfig.globalColors,
+            headerSettings: {
+              ...defaultProductPageConfig.headerSettings,
+              // Page background and text colors - CRITICAL for theme propagation
+              colors: productHeader.colors,
+              creatorBar: productHeader.creatorBar,
+              stickyAddToCart: productHeader.stickyAddToCart,
+              buyButtonColor: productHeader.buyButtonColor,
+              buyButtonTextColor: productHeader.buyButtonTextColor,
+              buttonsBorderRadius: productHeader.buttonsBorderRadius,
+              spacing: productHeader.spacing,
+              // Theme-related color settings
+              faqColors: productHeader.faqColors,
+              reviewsColors: productHeader.reviewsColors,
+              productCardColors: productHeader.productCardColors,
+              priceContainerColors: productHeader.priceContainerColors,
+              wishlistButtonColors: productHeader.wishlistButtonColors,
+              viewInLibraryButtonColors: productHeader.viewInLibraryButtonColors,
+            },
+            // CRITICAL: Include sections with theme colors for all product pages
+            sections: themedGlobalSections,
+          },
+        }
+
+        // Save global settings to default template (without productId)
+        console.log("[v0] Also saving global product settings to default template with themed sections")
+        await fetch("/api/store-builder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(globalProductSettings),
+        })
+
+        // Also publish the default template
+        await fetch("/api/store-builder", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageType: "product" }),
+        })
+        console.log("[v0] Global product settings published")
+
+        // Also update and publish shop page with theme colors if we have theme settings
+        if (draftConfig.globalSettings?.themePreset) {
+          const themePreset = draftConfig.globalSettings.themePreset
+          const { themePresets } = await import("@/lib/store-builder/defaults")
+          const theme = themePresets[themePreset]
+          if (theme) {
+            try {
+              const shopRes = await fetch("/api/store-builder?pageType=shop")
+              if (shopRes.ok) {
+                const shopData = await shopRes.json()
+                const existingShopConfig = shopData.draft_config || { pageType: "shop", sections: [], headerSettings: {} }
+                const shopHeader = existingShopConfig.headerSettings || {}
+
+                // Apply theme to shop sections
+                const existingShopSections = existingShopConfig.sections || []
+                const themedShopSections = existingShopSections.map((section: Section) => {
+                  const newSection = { ...section, settings: { ...section.settings } }
+
+                  if (section.type === "featured-products") {
+                    newSection.settings = {
+                      ...newSection.settings,
+                      colors: {
+                        ...newSection.settings.colors,
+                        backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                        textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                      },
+                      productCardColors: {
+                        backgroundColor: theme.productCard.backgroundColor,
+                        textColor: theme.productCard.textColor,
+                        priceColor: theme.productCard.priceColor,
+                        borderColor: theme.productCard.borderColor,
+                      },
+                      categoryFilterColors: {
+                        textColor: theme.categoryFilter.textColor,
+                        activeTextColor: theme.categoryFilter.activeTextColor,
+                        borderColor: theme.categoryFilter.borderColor,
+                      },
+                    }
+                  }
+
+                  if (section.type === "about") {
+                    newSection.settings = {
+                      ...newSection.settings,
+                      colors: {
+                        ...newSection.settings.colors,
+                        backgroundColor: theme.about.backgroundColor,
+                        textColor: theme.about.textColor,
+                      },
+                      mutedTextColor: theme.about.mutedTextColor,
+                    }
+                  }
+
+                  return newSection
+                })
+
+                const updatedShopConfig = {
+                  ...existingShopConfig,
+                  globalSettings: draftConfig.globalSettings,
+                  globalColors: draftConfig.globalColors,
+                  headerSettings: {
+                    ...shopHeader,
+                    subscribeBar: {
+                      ...shopHeader.subscribeBar,
+                      visible: shopHeader.subscribeBar?.visible ?? true,
+                      buttonColor: theme.subscribeBar.buttonColor,
+                      buttonTextColor: theme.subscribeBar.buttonTextColor,
+                      buttonBorderRadius: theme.subscribeBar.buttonBorderRadius ?? theme.buttonBorderRadius,
+                      colors: {
+                        ...(shopHeader.subscribeBar?.colors || {}),
+                        backgroundColor: theme.subscribeBar.backgroundColor,
+                        textColor: theme.subscribeBar.textColor,
+                      },
+                      backgroundColor: theme.subscribeBar.backgroundColor,
+                      textColor: theme.subscribeBar.textColor,
+                    },
+                    colors: {
+                      ...shopHeader.colors,
+                      backgroundColor: theme.sections.headerBackgroundColor,
+                      textColor: theme.sections.headerTextColor || theme.colors.foreground,
+                    },
+                    profileImageBorderColor: theme.profileImageBorderColor,
+                  },
+                  sections: themedShopSections,
+                }
+
+                await fetch("/api/store-builder", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ pageType: "shop", config: updatedShopConfig }),
+                })
+
+                // Also publish the shop page
+                await fetch("/api/store-builder", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ pageType: "shop" }),
+                })
+                console.log("[v0] Shop page updated and published with theme from product page publish")
+              }
+            } catch (err) {
+              console.error("[v0] Failed to update shop page during publish:", err)
+            }
+          }
+        }
       } else {
         console.log("[v0] Publishing default template", { sections: draftConfig.sections.length })
+
+        // When publishing from shop page, also update and publish global product template with theme
+        // This ensures product pages get the updated theme preset
+        if (currentPageType === "shop" && draftConfig.globalSettings?.themePreset) {
+          const themePreset = draftConfig.globalSettings.themePreset
+          const { themePresets, defaultReviewsSettings, defaultMoreFromSellerSettings, defaultProductPageConfig } = await import("@/lib/store-builder/defaults")
+          const theme = themePresets[themePreset]
+          if (theme) {
+            try {
+              // Fetch existing global product template
+              const productRes = await fetch("/api/store-builder?pageType=product")
+              const productData = productRes.ok ? await productRes.json() : { draft_config: {} }
+              const existingProductConfig = productData.draft_config || { sections: [], headerSettings: {} }
+              const existingSections = existingProductConfig.sections || []
+
+              // Ensure mandatory sections exist
+              let themedSections = [...existingSections]
+              if (!themedSections.some((s: Section) => s.type === "reviews")) {
+                themedSections.push({
+                  id: `reviews-${Date.now()}`,
+                  type: "reviews",
+                  settings: defaultReviewsSettings,
+                  order: themedSections.length,
+                  locked: true,
+                })
+              }
+              if (!themedSections.some((s: Section) => s.type === "more-from-seller")) {
+                themedSections.push({
+                  id: `more-from-seller-${Date.now()}`,
+                  type: "more-from-seller",
+                  settings: defaultMoreFromSellerSettings,
+                  order: themedSections.length,
+                  locked: true,
+                })
+              }
+
+              // Apply theme colors to all sections
+              themedSections = themedSections.map((section: Section) => {
+                const newSection = { ...section, settings: { ...section.settings } }
+                if (section.type === "more-from-seller") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.sections.featuredProductsBackgroundColor,
+                      textColor: theme.sections.featuredProductsTextColor || theme.colors.foreground,
+                    },
+                    productCardColors: {
+                      backgroundColor: theme.productCard.backgroundColor,
+                      textColor: theme.productCard.textColor,
+                      priceColor: theme.productCard.priceColor,
+                      borderColor: theme.productCard.borderColor,
+                    },
+                  }
+                }
+                if (section.type === "reviews") {
+                  newSection.settings = {
+                    ...newSection.settings,
+                    colors: {
+                      backgroundColor: theme.reviewsSection.backgroundColor,
+                      textColor: theme.reviewsSection.textColor,
+                    },
+                    reviewsColors: {
+                      starColor: theme.reviewsSection.starColor,
+                      cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+                      cardBorderColor: theme.reviewsSection.cardBorderColor,
+                    },
+                  }
+                }
+                return newSection
+              })
+
+              // Calculate border color for sticky add to cart
+              const stickyBgColor = theme.stickyAddToCart.backgroundColor
+              const isDarkBg = stickyBgColor && (stickyBgColor.startsWith("#0") || stickyBgColor.startsWith("#1") || stickyBgColor.startsWith("#2"))
+              const stickyBorderColor = isDarkBg ? `${theme.colors.foreground}20` : theme.colors.border || "#e5e7eb"
+
+              const updatedProductConfig = {
+                ...existingProductConfig,
+                globalSettings: draftConfig.globalSettings,
+                globalColors: draftConfig.globalColors,
+                headerSettings: {
+                  ...existingProductConfig.headerSettings,
+                  colors: {
+                    backgroundColor: theme.sections.pageBackgroundColor,
+                    textColor: theme.colors.foreground,
+                  },
+                  creatorBar: {
+                    visible: true,
+                    backgroundColor: theme.creatorBar.backgroundColor,
+                    textColor: theme.creatorBar.textColor,
+                    buttonColor: theme.creatorBar.buttonColor,
+                    buttonTextColor: theme.creatorBar.buttonTextColor,
+                    buttonBorderRadius: theme.creatorBar.buttonBorderRadius,
+                    buttonStyle: "style4",
+                  },
+                  stickyAddToCart: {
+                    visible: true,
+                    backgroundColor: theme.stickyAddToCart.backgroundColor,
+                    buttonColor: theme.stickyAddToCart.buttonColor,
+                    buttonTextColor: theme.stickyAddToCart.buttonTextColor,
+                    borderRadius: theme.stickyAddToCart.borderRadius,
+                    borderColor: stickyBorderColor,
+                    textColor: theme.stickyAddToCart.textColor || theme.colors.foreground,
+                    buttonStyle: "add_to_cart",
+                  },
+                  buyButtonColor: theme.productHeader.buyButtonColor,
+                  buyButtonTextColor: theme.productHeader.buyButtonTextColor,
+                  buttonsBorderRadius: theme.productHeader.buttonsBorderRadius ?? theme.buttonBorderRadius,
+                  faqColors: {
+                    textColor: theme.faqSection.textColor,
+                    borderColor: theme.faqSection.borderColor,
+                    iconColor: theme.faqSection.iconColor,
+                  },
+                  reviewsColors: {
+                    textColor: theme.reviewsSection.textColor,
+                    starColor: theme.reviewsSection.starColor,
+                    cardBackgroundColor: theme.reviewsSection.cardBackgroundColor,
+                    cardBorderColor: theme.reviewsSection.cardBorderColor,
+                  },
+                  productCardColors: {
+                    textColor: theme.productCard.textColor,
+                    priceColor: theme.productCard.priceColor,
+                    backgroundColor: theme.productCard.backgroundColor,
+                    borderColor: theme.productCard.borderColor,
+                  },
+                  priceContainerColors: {
+                    backgroundColor: theme.priceContainer.backgroundColor,
+                    textColor: theme.priceContainer.textColor,
+                    mutedTextColor: theme.priceContainer.mutedTextColor,
+                    borderColor: theme.priceContainer.borderColor,
+                    iconColor: theme.priceContainer.iconColor,
+                  },
+                  wishlistButtonColors: {
+                    backgroundColor: theme.wishlistButton.backgroundColor,
+                    textColor: theme.wishlistButton.textColor,
+                    borderColor: theme.wishlistButton.borderColor,
+                  },
+                  viewInLibraryButtonColors: {
+                    backgroundColor: theme.viewInLibraryButton.backgroundColor,
+                    textColor: theme.viewInLibraryButton.textColor,
+                    borderColor: theme.viewInLibraryButton.borderColor,
+                  },
+                },
+                sections: themedSections,
+              }
+
+              // Save global product template
+              await fetch("/api/store-builder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pageType: "product", config: updatedProductConfig }),
+              })
+
+              // Publish global product template
+              await fetch("/api/store-builder", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pageType: "product" }),
+              })
+              console.log("[v0] Global product template updated and published with theme from shop page publish")
+            } catch (err) {
+              console.error("[v0] Failed to update global product template during shop page publish:", err)
+            }
+          }
+        }
       }
 
       console.log("[v0] Saving draft before publish", saveBody)
@@ -733,6 +2148,9 @@ export function StoreBuilderProvider({
         removeSection,
         reorderSections,
         updateHeaderSettings,
+        updateGlobalSettings,
+        applyTheme,
+        openGlobalSettings,
         save,
         publish,
         discardChanges,

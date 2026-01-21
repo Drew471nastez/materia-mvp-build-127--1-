@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { useStoreBuilder } from "./store-builder-context"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -38,6 +38,24 @@ import {
   AlertCircle,
   ShoppingCart,
   Star,
+  Settings,
+  Palette,
+  Globe,
+  BadgeCheck,
+  Info,
+  Share2,
+  Circle,
+  Square,
+  Hexagon,
+  CheckCircle,
+  Check,
+  Heart,
+  Download,
+  Upload,
+  Sparkles,
+  Image as ImageLucide,
+  HelpCircle,
+  ExternalLink,
 } from "lucide-react"
 import type {
   Section,
@@ -58,6 +76,13 @@ import type {
   ProductCreatorBarSettings,
   StickyAddToCartSettings,
   ReviewsSettings,
+  AboutSettings,
+  AboutMediaItem,
+  GlobalStoreSettings,
+  FAQSettings,
+  FAQItem,
+  ThemePreset,
+  VerifiedBadgeType,
 } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import {
@@ -83,11 +108,178 @@ import {
   avatarSizeMap,
   defaultProductCreatorBarSettings,
   defaultStickyAddToCartSettings,
+  defaultGlobalStoreSettings,
+  themePresets,
+  verifiedBadgeLabels,
 } from "@/lib/store-builder/defaults"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Check, ChevronDown } from "lucide-react"
+import { Search, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+
+// Custom Toggle Component with theme-style design (purple when ON)
+function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onCheckedChange(e.target.checked)}
+      className="theme-checkbox-purple"
+    />
+  )
+}
+
+// Custom Slider Component with premium minimal styling (matches Onepage)
+function PremiumSlider({ value, onValueChange, min = 0, max = 100, step = 1, showValue = false, unit = "px" }: {
+  value: number[];
+  onValueChange: (value: number[]) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  showValue?: boolean;
+  unit?: string;
+}) {
+  const percentage = ((value[0] - min) / (max - min)) * 100
+  const numTicks = 5
+  const ticks = Array.from({ length: numTicks }, (_, i) => (i / (numTicks - 1)) * 100)
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative flex-1 h-6 flex items-center">
+        {/* Track */}
+        <div className="relative w-full h-[4px] bg-[#f0f0f0] rounded-full">
+          {/* Tick markers */}
+          {ticks.map((pos, i) => (
+            <div
+              key={i}
+              className="absolute w-[6px] h-[6px] bg-[#e0e0e0] rounded-full -translate-y-1/2 top-1/2"
+              style={{ left: `calc(${pos}% - 3px)` }}
+            />
+          ))}
+          {/* Hidden input for interaction */}
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={value[0]}
+            onChange={(e) => onValueChange([Number(e.target.value)])}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+          {/* Thumb */}
+          <div
+            className="absolute w-[21px] h-[21px] bg-white rounded-full -translate-y-1/2 top-1/2 pointer-events-none"
+            style={{
+              left: `calc(${percentage}% - 10.5px)`,
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)'
+            }}
+          />
+        </div>
+      </div>
+      {showValue && (
+        <span className="text-sm text-muted-foreground w-12 text-right">{value[0]}{unit}</span>
+      )}
+    </div>
+  )
+}
+
+// Onepage-style Color Picker with preset colors
+function ColorPicker({
+  label,
+  value,
+  onChange,
+  presetColors = ['#000000', '#374151', '#3b82f6', '#10b981', '#f59e0b'],
+}: {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  presetColors?: string[];
+}) {
+  // Ensure only 5 preset colors are shown
+  const displayColors = presetColors.slice(0, 5)
+
+  return (
+    <div className="space-y-2">
+      {label && <Label className="text-sm font-medium">{label}</Label>}
+      <div className="flex items-center gap-3">
+        <div className="relative">
+          <input
+            type="color"
+            value={value || "#ffffff"}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+          <div
+            className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
+            style={{ backgroundColor: value || "#ffffff" }}
+          />
+        </div>
+        <Input
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="#000000"
+          className="h-12 rounded-xl flex-1 font-mono text-sm"
+        />
+      </div>
+      {/* Suggested Colors - 5 perfectly round circles */}
+      <div className="flex gap-2 pt-1">
+        {displayColors.map((color) => (
+          <button
+            key={color}
+            onClick={() => onChange(color)}
+            className={cn(
+              "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 flex-shrink-0 aspect-square",
+              value === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+            )}
+            style={{ backgroundColor: color }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Segmented Button Selector (matches Onepage Design tab style)
+function SegmentedSelect<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  label?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      {label && <Label className="text-sm font-medium">{label}</Label>}
+      <div className="flex gap-2">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "flex-1 py-2.5 px-4 text-sm font-medium rounded-xl border-2 transition-all",
+              value === option.value
+                ? "bg-white border-gray-900 text-gray-900 shadow-sm"
+                : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const sectionIcons: Record<
   | SectionType
@@ -112,6 +304,8 @@ const sectionIcons: Record<
   "featured-products": <Grid className="h-5 w-5" />,
   "custom-html": <FileText className="h-5 w-5" />,
   reviews: <Star className="h-5 w-5" />,
+  about: <Info className="h-5 w-5" />,
+  faq: <HelpCircle className="h-5 w-5" />,
 }
 
 const sectionNames: Record<
@@ -137,6 +331,8 @@ const sectionNames: Record<
   "featured-products": "Featured Products",
   "custom-html": "Custom HTML",
   reviews: "Reviews",
+  about: "About",
+  faq: "FAQ",
 }
 
 interface SortableSectionItemProps {
@@ -154,7 +350,14 @@ function SortableSectionItem({
   onToggleVisibility,
   onDelete,
 }: SortableSectionItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id })
+  // About and FAQ sections are not draggable - always fixed positions
+  const isAboutSection = section.type === "about"
+  const isFaqSection = section.type === "faq"
+  const isFixedSection = isAboutSection || isFaqSection
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: section.id,
+    disabled: isFixedSection,
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -169,19 +372,24 @@ function SortableSectionItem({
         "group flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 transition-all cursor-pointer",
         isSelected ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20" : "border-transparent hover:bg-muted/50",
         isDragging && "opacity-50 shadow-lg",
-        !section.settings.visible && section.type !== "reviews" && "opacity-50",
+        !section.settings.visible && section.type !== "reviews" && section.type !== "about" && section.type !== "faq" && "opacity-50",
       )}
       onClick={onSelect}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
-        aria-label="Drag to reorder"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
+      {/* Only show drag handle for non-fixed sections (About and FAQ are fixed) */}
+      {!isFixedSection ? (
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+          aria-label="Drag to reorder"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      ) : (
+        <div className="w-4" /> // Placeholder for spacing
+      )}
 
       <span
         className={cn(
@@ -194,9 +402,14 @@ function SortableSectionItem({
 
       <span className="flex-1 truncate text-sm font-medium">{sectionNames[section.type]}</span>
 
+      {/* Fixed sections (About, FAQ) - show "Locked" indicator */}
+      {isFaqSection && (
+        <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded">Locked</span>
+      )}
+
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* Reviews must always be present (cannot be hidden) */}
-        {section.type !== "reviews" && (
+        {/* Reviews, About, and FAQ must always be present (cannot be hidden) */}
+        {section.type !== "reviews" && section.type !== "about" && section.type !== "faq" && (
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -209,7 +422,8 @@ function SortableSectionItem({
           </button>
         )}
 
-        {!section.locked && (
+        {/* FAQ sections cannot be deleted */}
+        {!section.locked && section.type !== "faq" && (
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -226,7 +440,20 @@ function SortableSectionItem({
   )
 }
 
-export function SectionsSidebar({ creatorId }: { creatorId: string }) {
+interface SectionsSidebarProps {
+  creatorId: string
+  profile?: {
+    display_name?: string | null
+    avatar_url?: string | null
+    username?: string | null
+  }
+  creator?: {
+    headline?: string | null
+    bio?: string | null
+  }
+}
+
+export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebarProps) {
   const router = useRouter()
   const {
     currentPageType,
@@ -235,6 +462,9 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
     setSelectedSectionId,
     updateSectionSettings,
     updateHeaderSettings,
+    updateGlobalSettings,
+    applyTheme,
+    openGlobalSettings,
     removeSection,
     reorderSections,
     openAddSectionModal,
@@ -250,6 +480,7 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
 
   const [showProductSelector, setShowProductSelector] = useState(false)
   const [productSearchQuery, setProductSearchQuery] = useState("")
+  const [settingsTab, setSettingsTab] = useState<"basic" | "seo" | "badge" | "theme" | "social">("basic")
 
   // ✅ Safety: if old configs ever saved Reviews as hidden, force it back on.
   useEffect(() => {
@@ -333,6 +564,548 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
       : null
 
   const headerSettings = draftConfig.headerSettings
+  const globalSettings = draftConfig.globalSettings || defaultGlobalStoreSettings
+
+  // Global Settings Panel
+  if (sidebarMode === "global-settings") {
+    // Theme tab is only shown for shop pages, not product pages
+    const allSettingsTabs = [
+      { id: "basic" as const, label: "Basic Info", icon: Info },
+      { id: "theme" as const, label: "Theme Presets", icon: Palette },
+      { id: "social" as const, label: "Social Media", icon: Share2 },
+      { id: "seo" as const, label: "SEO", icon: Globe },
+      { id: "badge" as const, label: "Verified Badge", icon: BadgeCheck },
+    ]
+
+    // Theme tab is available for all page types (shop and product)
+    const settingsTabs = allSettingsTabs
+
+    return (
+      <div className="w-80 border-r border-border bg-background overflow-hidden flex flex-col h-full">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3 shrink-0 bg-background">
+          <button onClick={goBackToSections} className="rounded p-1.5 hover:bg-muted transition-colors">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <h3 className="font-semibold">General Settings</h3>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {/* Vertical Tab Navigation - like sections list */}
+          <div className="p-3 space-y-1 border-b border-border">
+            {settingsTabs.map((tab) => {
+              const Icon = tab.icon
+              // Show tooltip for Theme Presets tab on product pages
+              const showTooltip = tab.id === "theme" && currentPageType === "product"
+
+              const tabButton = (
+                <button
+                  onClick={() => setSettingsTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-2 w-full rounded-lg px-3 py-2.5 transition-all text-left",
+                    settingsTab === tab.id
+                      ? "bg-purple-50 border border-purple-500 dark:bg-purple-950/20"
+                      : "hover:bg-muted/50 border border-transparent"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+                      settingsTab === tab.id
+                        ? "bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className={cn(
+                    "text-sm font-medium",
+                    settingsTab === tab.id ? "text-foreground" : "text-muted-foreground"
+                  )}>
+                    {tab.label}
+                  </span>
+                </button>
+              )
+
+              if (showTooltip) {
+                return (
+                  <Tooltip key={tab.id}>
+                    <TooltipTrigger asChild>
+                      {tabButton}
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8} className="max-w-[200px]">
+                      The theme styles for the product pages apply only for product pages
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              }
+
+              return <React.Fragment key={tab.id}>{tabButton}</React.Fragment>
+            })}
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-4 space-y-4">
+            {/* Basic Info Content */}
+            {settingsTab === "basic" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="store-name">Store Name</Label>
+                  <Input
+                    id="store-name"
+                    value={globalSettings.storeName || (profile?.display_name || "")}
+                    onChange={(e) => updateGlobalSettings({ storeName: e.target.value })}
+                    placeholder={profile?.display_name || "My Store"}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This appears as your store's title
+                    {profile?.display_name && !globalSettings.storeName && (
+                      <span className="block text-purple-600 mt-1">Uses "{profile.display_name}" if left empty</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="store-tagline">Tagline</Label>
+                  <Input
+                    id="store-tagline"
+                    value={globalSettings.storeTagline || (creator?.headline || "")}
+                    onChange={(e) => updateGlobalSettings({ storeTagline: e.target.value })}
+                    placeholder={creator?.headline || "Your store's tagline"}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    A short description of your store
+                    {creator?.headline && !globalSettings.storeTagline && (
+                      <span className="block text-purple-600 mt-1">Uses "{creator.headline}" if left empty</span>
+                    )}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* SEO Content */}
+            {settingsTab === "seo" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="seo-title">Store Title</Label>
+                  <Input
+                    id="seo-title"
+                    value={globalSettings.seoTitle || (profile?.display_name ? `${profile.display_name} | Storelib` : "")}
+                    onChange={(e) => updateGlobalSettings({ seoTitle: e.target.value })}
+                    placeholder={profile?.display_name ? `${profile.display_name} | Storelib` : "Store Title for Search Engines"}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Appears in search results and browser tabs
+                    {profile?.display_name && !globalSettings.seoTitle && (
+                      <span className="block text-purple-600 mt-1">Uses "{profile.display_name} | Storelib" if left empty</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="meta-description">Meta Description</Label>
+                  <Textarea
+                    id="meta-description"
+                    value={globalSettings.seoDescription || (creator?.headline || creator?.bio || "")}
+                    onChange={(e) => updateGlobalSettings({ seoDescription: e.target.value })}
+                    placeholder={creator?.headline || creator?.bio || "Describe your store for search engines..."}
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {(globalSettings.seoDescription || creator?.headline || creator?.bio || "").length}/160 characters recommended
+                    {(creator?.headline || creator?.bio) && !globalSettings.seoDescription && (
+                      <span className="block text-purple-600 mt-1">Uses your bio/headline if left empty</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Social Image</Label>
+                  <ImageUpload
+                    bucket="store-builder-images"
+                    value={globalSettings.socialImageUrl || ""}
+                    onChange={(url) => updateGlobalSettings({ socialImageUrl: url || "" })}
+                    folder={`social`}
+                    aspectRatio="video"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used when your store is shared on social media (1200x630 recommended)
+                    {profile?.avatar_url && !globalSettings.socialImageUrl && (
+                      <span className="block text-purple-600 mt-1">Uses your profile avatar by default</span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Social Image Preview - show avatar as default if no custom image */}
+                <div className="space-y-2">
+                  <Label>Social Image Preview</Label>
+                  <div className="rounded-lg border border-border overflow-hidden aspect-[1200/630] bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center">
+                    {globalSettings.socialImageUrl ? (
+                      <img
+                        src={globalSettings.socialImageUrl}
+                        alt="Social preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : profile?.avatar_url ? (
+                      <div className="text-center">
+                        <img
+                          src={profile.avatar_url}
+                          alt="Default social preview"
+                          className="w-20 h-20 rounded-full mx-auto mb-2 border-2 border-white shadow-lg object-cover"
+                        />
+                        <p className="text-sm font-medium text-gray-700">{profile?.display_name || "Your Store"}</p>
+                        <p className="text-xs text-gray-500 mt-1">Default preview using profile avatar</p>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-400">
+                        <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No image set</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Social Media Content */}
+            {settingsTab === "social" && (
+              <>
+                <div className="space-y-2">
+                  <h4 className="font-medium">Social Media Links</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Configure your social media links. These will appear on your store header and can be shown across all pages.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5 flex-1 pr-4">
+                      <Label className="text-sm font-medium">Enable Social Media</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Show social icons on your cover image
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={(headerSettings as ShopHeaderSettings).showSocialMedia ?? false}
+                      onCheckedChange={(checked) => updateHeaderSettings({ showSocialMedia: checked })}
+                    />
+                  </div>
+
+                  {(headerSettings as ShopHeaderSettings).showSocialMedia && (
+                    <div className="space-y-4 pt-2 border-t border-border">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5 flex-1 pr-4">
+                          <Label className="text-sm font-medium text-muted-foreground">Show on Mobile</Label>
+                          <p className="text-xs text-muted-foreground">Display icons on mobile devices</p>
+                        </div>
+                        <Toggle
+                          checked={(headerSettings as ShopHeaderSettings).showSocialIconsOnMobile ?? true}
+                          onCheckedChange={(checked) => updateHeaderSettings({ showSocialIconsOnMobile: checked })}
+                        />
+                      </div>
+
+                      <ColorPicker
+                        label="Icon Color"
+                        value={(headerSettings as ShopHeaderSettings).socialMediaIconColor || "#ffffff"}
+                        onChange={(value) => updateHeaderSettings({ socialMediaIconColor: value })}
+                      />
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Icon Style</Label>
+                        <div className="flex gap-2">
+                          {[
+                            { id: "default" as const, label: "Default" },
+                            { id: "filled" as const, label: "Filled" },
+                            { id: "outlined" as const, label: "Outlined" },
+                          ].map((style) => (
+                            <button
+                              key={style.id}
+                              onClick={() => updateHeaderSettings({ socialMediaIconStyle: style.id })}
+                              className={cn(
+                                "flex-1 py-2.5 px-2 text-xs font-medium rounded-xl border-2 transition-all",
+                                (headerSettings as ShopHeaderSettings).socialMediaIconStyle === style.id
+                                  ? "bg-white border-gray-900 text-gray-900 shadow-sm"
+                                  : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200"
+                              )}
+                            >
+                              {style.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Choose how your social media icons appear
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {(headerSettings as ShopHeaderSettings).showSocialMedia && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Social Platforms</Label>
+                    {(["instagram", "tiktok", "youtube", "twitter", "spotify"] as const).map((platform) => {
+                      const platformNames: Record<typeof platform, string> = {
+                        instagram: "Instagram",
+                        tiktok: "TikTok",
+                        youtube: "YouTube",
+                        twitter: "X (Twitter)",
+                        spotify: "Spotify",
+                      }
+                      const shopHeader = headerSettings as ShopHeaderSettings
+                      const socialLinks = shopHeader.socialLinks || {
+                        instagram: { enabled: true, url: "" },
+                        tiktok: { enabled: true, url: "" },
+                        youtube: { enabled: true, url: "" },
+                        twitter: { enabled: true, url: "" },
+                        spotify: { enabled: false, url: "" },
+                      }
+
+                      return (
+                        <div key={platform} className="space-y-2 rounded-lg border border-border p-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-normal">{platformNames[platform]}</Label>
+                            <Toggle
+                              checked={socialLinks[platform].enabled}
+                              onCheckedChange={(checked) => {
+                                const newSocialLinks = {
+                                  ...socialLinks,
+                                  [platform]: { ...socialLinks[platform], enabled: checked },
+                                }
+                                updateHeaderSettings({ socialLinks: newSocialLinks })
+                              }}
+                            />
+                          </div>
+                          {socialLinks[platform].enabled && (
+                            <Input
+                              value={socialLinks[platform].url}
+                              onChange={(e) => {
+                                const newSocialLinks = {
+                                  ...socialLinks,
+                                  [platform]: { ...socialLinks[platform], url: e.target.value },
+                                }
+                                updateHeaderSettings({ socialLinks: newSocialLinks })
+                              }}
+                              placeholder={`https://${platform === "twitter" ? "x" : platform}.com/...`}
+                              className="h-8 text-sm"
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Verified Badge Content */}
+            {settingsTab === "badge" && (
+              <>
+                <div className="rounded-lg border border-border p-4 space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="font-medium">Verified Badge</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Show a verification badge next to your name
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5 flex-1 pr-4">
+                      <Label htmlFor="badge-enabled" className="text-sm font-medium">Enable Verified Badge</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Display a blue checkmark next to your page name
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={globalSettings.verifiedBadgeEnabled}
+                      onCheckedChange={(checked) => updateGlobalSettings({ verifiedBadgeEnabled: checked })}
+                    />
+                  </div>
+                </div>
+
+                {globalSettings.verifiedBadgeEnabled && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Badge Type</Label>
+                      <Select
+                        value={globalSettings.verifiedBadgeType}
+                        onValueChange={(value) => updateGlobalSettings({ verifiedBadgeType: value as VerifiedBadgeType })}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(verifiedBadgeLabels) as VerifiedBadgeType[]).map((type) => (
+                            <SelectItem key={type} value={type}>
+                              <div className="flex items-center gap-2">
+                                <BadgeCheck className={cn(
+                                  "h-4 w-4",
+                                  type === globalSettings.verifiedBadgeType ? "text-blue-500" : "text-muted-foreground"
+                                )} />
+                                {verifiedBadgeLabels[type]}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        This text appears when hovering over the badge
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-gray-50 p-4 space-y-2">
+                      <Label className="text-xs text-muted-foreground">Preview</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-lg text-gray-900">{globalSettings.storeName || profile?.display_name || "Your Store"}</span>
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-pointer">
+                                <svg viewBox="0 0 22 22" className="h-5 w-5">
+                                  {/* Blue badge background */}
+                                  <path
+                                    fill="#3b82f6"
+                                    d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816z"
+                                  />
+                                  {/* White checkmark */}
+                                  <path
+                                    fill="#ffffff"
+                                    d="M9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"
+                                  />
+                                </svg>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="bg-gray-900 text-white px-3 py-2">
+                              <p className="font-medium">{verifiedBadgeLabels[globalSettings.verifiedBadgeType]}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">Hover over the badge to see the tooltip</p>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Theme Content */}
+            {settingsTab === "theme" && (
+              <>
+              <div className="space-y-2">
+                <Label>Theme Preset</Label>
+                <p className="text-xs text-muted-foreground">
+                  Choose a theme to change colors across your entire store
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.keys(themePresets) as ThemePreset[]).map((preset) => {
+                  const theme = themePresets[preset]
+                  const isSelected = globalSettings.themePreset === preset
+
+                  // Determine if this is a dark/gradient theme based on background or foreground color
+                  const isDarkOrGradientTheme =
+                    preset === "astrid" ||
+                    preset === "royal" ||
+                    preset === "ocean" ||
+                    preset === "sunset" ||
+                    theme.colors.foreground === "#ffffff" ||
+                    theme.colors.foreground === "#fafafa"
+
+                  // Check if background is a gradient
+                  const isGradient = theme.colors.background.includes("gradient")
+
+                  return (
+                    <button
+                      key={preset}
+                      onClick={() => applyTheme(preset)}
+                      className={cn(
+                        "relative rounded-xl border-2 text-left transition-all overflow-hidden flex flex-col",
+                        isSelected
+                          ? "border-purple-500 ring-2 ring-purple-200"
+                          : "border-border hover:border-purple-300"
+                      )}
+                    >
+                      {/* Selected checkmark badge */}
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 z-10 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center shadow-md">
+                          <Check className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+
+                      {/* Theme thumbnail preview - Onepage style */}
+                      <div
+                        className="aspect-[4/5] flex flex-col items-center justify-center p-3"
+                        style={{
+                          background: isGradient ? theme.colors.background : undefined,
+                          backgroundColor: !isGradient ? theme.colors.background : undefined,
+                        }}
+                      >
+                        {/* Avatar circle */}
+                        <div
+                          className="w-8 h-8 rounded-full mb-2"
+                          style={{
+                            backgroundColor: isDarkOrGradientTheme
+                              ? "rgba(255,255,255,0.2)"
+                              : "rgba(0,0,0,0.1)"
+                          }}
+                        />
+
+                        {/* Text lines */}
+                        <div
+                          className="w-12 h-1.5 rounded-full mb-1"
+                          style={{
+                            backgroundColor: isDarkOrGradientTheme
+                              ? "rgba(255,255,255,0.4)"
+                              : "rgba(0,0,0,0.2)"
+                          }}
+                        />
+                        <div
+                          className="w-8 h-1 rounded-full mb-3"
+                          style={{
+                            backgroundColor: isDarkOrGradientTheme
+                              ? "rgba(255,255,255,0.25)"
+                              : "rgba(0,0,0,0.1)"
+                          }}
+                        />
+
+                        {/* Button preview */}
+                        <div
+                          className="w-14 h-4 rounded flex items-center justify-center"
+                          style={{
+                            // For Bubble theme, use purple in thumbnail since white button is not visible on white background
+                            // For Blacks theme, use light gray in thumbnail since the actual button is white on the black subscribe bar
+                            backgroundColor: preset === "bubble" ? "#8b5cf6" : preset === "blacks" ? "#9ca3af" : theme.subscribeBar.buttonColor,
+                            borderRadius: `${Math.min(theme.buttonBorderRadius || theme.borderRadius, 12)}px`
+                          }}
+                        />
+                      </div>
+
+                      {/* Theme name below preview thumbnail */}
+                      <div className="py-1.5 text-center text-[10px] font-medium text-foreground bg-muted/50 border-t border-border">
+                        {theme.name}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 mt-4">
+                <div className="flex gap-2">
+                  <Info className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-purple-800">
+                    <p className="font-medium">Note about custom colors</p>
+                    <p className="mt-1">
+                      Theme colors apply globally, but any custom colors you set on individual sections will override the theme.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (sidebarMode === "settings" && selectedSectionId) {
     return (
@@ -395,6 +1168,7 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
                 settings={draftConfig.headerSettings as ShopHeaderSettings}
                 onChange={updateHeaderSettings}
                 creatorId={creatorId}
+                creator={creator}
               />
             ) : selectedSectionId === "product-content" && currentPageType === "product" ? (
               <ProductHeaderSettingsForm
@@ -411,6 +1185,12 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
               <ReviewsSettingsForm
                 settings={selectedSection.settings as ReviewsSettings}
                 onChange={(settings) => updateSectionSettings(selectedSectionId, settings)}
+              />
+            ) : selectedSectionType === "faq" && selectedSection ? (
+              <FAQSettingsForm
+                settings={selectedSection.settings as FAQSettings}
+                onChange={(settings) => updateSectionSettings(selectedSectionId, settings)}
+                productId={selectedProductId}
               />
             ) : selectedSection ? (
               <SectionSettingsForm
@@ -431,9 +1211,27 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
   return (
     <div className="w-80 border-r border-border bg-background overflow-hidden flex flex-col h-full">
       <div className="border-b border-border px-4 py-3 shrink-0 bg-background">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Home className="h-3.5 w-3.5" />
-          <span className="uppercase tracking-wider">{pageTitle}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Home className="h-3.5 w-3.5" />
+            <span className="uppercase tracking-wider">{pageTitle}</span>
+          </div>
+          {/* Settings Button - icon only with tooltip and animation */}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={openGlobalSettings}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <Settings className="h-4 w-4 settings-gear-animated" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>General Settings</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {/* Product page: show product name with switcher button */}
         {currentPageType === "product" ? (
@@ -701,25 +1499,89 @@ export function SectionsSidebar({ creatorId }: { creatorId: string }) {
                 <span className="text-xs text-muted-foreground">Locked</span>
               </div>
 
-              {/* ✅ REMOVED: old fake "reviews-section" locked card */}
+              {/* FAQ Section - always positioned under Product Content, locked */}
+              {(() => {
+                const faqSection = draftConfig.sections.find((s) => s.type === "faq")
+                if (!faqSection) return null
+                return (
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 cursor-pointer transition-all",
+                      selectedSectionId === faqSection.id
+                        ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
+                        : "border-transparent hover:bg-muted/50",
+                    )}
+                    onClick={() => setSelectedSectionId(faqSection.id)}
+                  >
+                    <div className="w-4" /> {/* Placeholder for drag handle spacing */}
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+                        selectedSectionId === faqSection.id
+                          ? "bg-sky-100 text-sky-600 dark:bg-sky-900 dark:text-sky-400"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      <HelpCircle className="h-5 w-5" />
+                    </span>
+                    <span className="flex-1 text-sm font-medium">FAQ</span>
+                    <span className="text-xs text-muted-foreground">Locked</span>
+                  </div>
+                )
+              })()}
             </>
           )}
 
           {/* Real draggable sections list (Reviews lives here like a normal section) */}
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={draftConfig.sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-              {draftConfig.sections.map((section) => (
-                <SortableSectionItem
-                  key={section.id}
-                  section={section}
-                  isSelected={selectedSectionId === section.id}
-                  onSelect={() => setSelectedSectionId(section.id)}
-                  onToggleVisibility={() => handleToggleVisibility(section)}
-                  onDelete={() => removeSection(section.id)}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+          {/* About and FAQ sections are excluded and rendered separately (FAQ after Product Content, About at bottom) */}
+          {(() => {
+            const sortableSections = draftConfig.sections.filter((s) => s.type !== "about" && s.type !== "faq")
+            const aboutSection = draftConfig.sections.find((s) => s.type === "about")
+
+            return (
+              <>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={sortableSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                    {sortableSections.map((section) => (
+                      <SortableSectionItem
+                        key={section.id}
+                        section={section}
+                        isSelected={selectedSectionId === section.id}
+                        onSelect={() => setSelectedSectionId(section.id)}
+                        onToggleVisibility={() => handleToggleVisibility(section)}
+                        onDelete={() => removeSection(section.id)}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+
+                {/* About section - always at bottom, dedicated bar like Header */}
+                {aboutSection && (
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 cursor-pointer transition-all",
+                      selectedSectionId === aboutSection.id
+                        ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
+                        : "border-transparent hover:bg-muted/50",
+                    )}
+                    onClick={() => setSelectedSectionId(aboutSection.id)}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+                        selectedSectionId === aboutSection.id
+                          ? "bg-sky-100 text-sky-600 dark:bg-sky-900 dark:text-sky-400"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      <Info className="h-5 w-5" />
+                    </span>
+                    <span className="flex-1 text-sm font-medium">About</span>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </div>
       </div>
 
@@ -794,10 +1656,15 @@ function ShopHeaderSettingsForm({
   settings,
   onChange,
   creatorId,
+  creator,
 }: {
   settings: ShopHeaderSettings
   onChange: (settings: Partial<ShopHeaderSettings>) => void
   creatorId: string
+  creator?: {
+    headline?: string | null
+    bio?: string | null
+  }
 }) {
   const [coverEditorOpen, setCoverEditorOpen] = useState(false)
   const [avatarCropperOpen, setAvatarCropperOpen] = useState(false)
@@ -880,6 +1747,15 @@ function ShopHeaderSettingsForm({
 
   return (
     <div className="space-y-6">
+      {/* Edit Settings Link */}
+      <a
+        href="/app/settings"
+        className="flex items-center justify-start gap-1.5 text-purple-600 hover:text-purple-700 text-sm font-medium transition-colors"
+      >
+        <Settings className="h-3.5 w-3.5" />
+        Edit Settings
+      </a>
+
       <div className="space-y-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cover Image</h4>
 
@@ -909,18 +1785,17 @@ function ShopHeaderSettingsForm({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs">Brightness</Label>
+                <Label className="text-sm font-normal">Brightness</Label>
                 <span className="text-xs text-muted-foreground">
                   {Math.round((settings.coverBrightness ?? 1.0) * 100)}%
                 </span>
               </div>
-              <Slider
+              <PremiumSlider
                 value={[(settings.coverBrightness ?? 1.0) * 100]}
                 onValueChange={([value]) => onChange({ coverBrightness: value / 100 })}
                 min={70}
                 max={130}
                 step={5}
-                className="w-full"
               />
             </div>
 
@@ -1023,17 +1898,17 @@ function ShopHeaderSettingsForm({
 
         <div className="space-y-3">
           <div className="space-y-2">
-            <Label className="text-sm font-normal">Desktop Size</Label>
-            <div className="flex gap-1">
-              {(["small", "medium", "large"] as AvatarSizeChoice[]).map((size) => (
+            <Label className="text-sm font-medium">Desktop Size</Label>
+            <div className="flex gap-2">
+              {(["small", "large"] as AvatarSizeChoice[]).map((size) => (
                 <button
                   key={size}
                   onClick={() => handleAvatarSizeChoice(size, false)}
                   className={cn(
-                    "flex-1 py-2 px-3 text-sm font-medium rounded-md border transition-colors capitalize",
-                    (settings.avatarSizeChoice || "medium") === size
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border hover:bg-muted",
+                    "flex-1 py-2.5 px-4 text-sm font-medium rounded-xl border-2 transition-all capitalize",
+                    (settings.avatarSizeChoice === size || (settings.avatarSizeChoice === "medium" && size === "large") || (!settings.avatarSizeChoice && size === "large"))
+                      ? "bg-white border-gray-900 text-gray-900 shadow-sm"
+                      : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200",
                   )}
                 >
                   {size}
@@ -1043,17 +1918,17 @@ function ShopHeaderSettingsForm({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-normal">Mobile Size</Label>
-            <div className="flex gap-1">
-              {(["small", "medium", "large"] as AvatarSizeChoice[]).map((size) => (
+            <Label className="text-sm font-medium">Mobile Size</Label>
+            <div className="flex gap-2">
+              {(["small", "large"] as AvatarSizeChoice[]).map((size) => (
                 <button
                   key={size}
                   onClick={() => handleAvatarSizeChoice(size, true)}
                   className={cn(
-                    "flex-1 py-2 px-3 text-sm font-medium rounded-md border transition-colors capitalize",
-                    (settings.mobileAvatarSizeChoice || "medium") === size
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border hover:bg-muted",
+                    "flex-1 py-2.5 px-4 text-sm font-medium rounded-xl border-2 transition-all capitalize",
+                    (settings.mobileAvatarSizeChoice === size || (settings.mobileAvatarSizeChoice === "medium" && size === "large") || (!settings.mobileAvatarSizeChoice && size === "large"))
+                      ? "bg-white border-gray-900 text-gray-900 shadow-sm"
+                      : "bg-gray-100 border-transparent text-gray-600 hover:bg-gray-200",
                   )}
                 >
                   {size}
@@ -1061,6 +1936,54 @@ function ShopHeaderSettingsForm({
               ))}
             </div>
           </div>
+
+          <div className="space-y-2 pt-2">
+            <ColorPicker
+              label="Profile Image Border"
+              value={settings.profileImageBorderColor || "#e5e7eb"}
+              onChange={(value) => onChange({ profileImageBorderColor: value })}
+              description="Border color for the profile image circle"
+            />
+          </div>
+
+          <div className="space-y-2 pt-3" id="sidebar-bio-section">
+            <Label className="text-sm font-medium">Bio</Label>
+            <Textarea
+              id="sidebar-bio-input"
+              value={settings.bio ?? creator?.bio ?? ""}
+              onChange={(e) => onChange({ bio: e.target.value })}
+              placeholder="Enter your bio description..."
+              rows={3}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              Your bio description shown below your profile picture
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Header Background</h4>
+        <div className="space-y-2">
+          <ColorPicker
+            label="Background Color"
+            value={settings.colors?.backgroundColor || "#ffffff"}
+            onChange={(value) => onChange({ colors: { ...settings.colors, backgroundColor: value } })}
+            description="Background color for the header section"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stats & Badges</h4>
+        <div className="space-y-3">
+          <ToggleField label="Stats" checked={settings.showStats} onChange={(checked) => onChange({ showStats: checked })} />
+          <ToggleField
+            label="Sales Badge"
+            checked={settings.showTotalSalesBadge}
+            onChange={(checked) => onChange({ showTotalSalesBadge: checked })}
+          />
         </div>
       </div>
 
@@ -1083,23 +2006,11 @@ function ShopHeaderSettingsForm({
               description="Show social media icons on mobile devices"
             />
 
-            <div className="space-y-2">
-              <Label className="text-sm font-normal">Icon Color</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={settings.socialMediaIconColor || "#ffffff"}
-                  onChange={(e) => onChange({ socialMediaIconColor: e.target.value })}
-                  className="w-12 h-8 p-1 cursor-pointer"
-                />
-                <Input
-                  value={settings.socialMediaIconColor || "#ffffff"}
-                  onChange={(e) => onChange({ socialMediaIconColor: e.target.value })}
-                  placeholder="#ffffff"
-                  className="flex-1 h-8 text-xs"
-                />
-              </div>
-            </div>
+            <ColorPicker
+              label="Icon Color"
+              value={settings.socialMediaIconColor || "#ffffff"}
+              onChange={(value) => onChange({ socialMediaIconColor: value })}
+            />
 
             <div className="space-y-3">
               {(["instagram", "tiktok", "youtube", "twitter", "spotify"] as const).map((platform) => {
@@ -1116,7 +2027,7 @@ function ShopHeaderSettingsForm({
                   <div key={platform} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-normal">{platformNames[platform]}</Label>
-                      <Switch
+                      <Toggle
                         checked={socialLinks[platform].enabled}
                         onCheckedChange={(checked) => handleSocialLinkChange(platform, "enabled", checked)}
                       />
@@ -1146,15 +2057,13 @@ function ShopHeaderSettingsForm({
       </div>
 
       <div className="space-y-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stats & Badges</h4>
-        <div className="space-y-3">
-          <ToggleField label="Stats" checked={settings.showStats} onChange={(checked) => onChange({ showStats: checked })} />
-          <ToggleField
-            label="Sales Badge"
-            checked={settings.showTotalSalesBadge}
-            onChange={(checked) => onChange({ showTotalSalesBadge: checked })}
-          />
-        </div>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colors</h4>
+        <ColorPicker
+          label="Texts Color"
+          value={settings.textsColor || ""}
+          onChange={(value) => onChange({ textsColor: value })}
+          description="Color for stats, icons, seller name, and bio"
+        />
       </div>
 
       <CoverImageEditor
@@ -1192,7 +2101,7 @@ function ProductHeaderSettingsForm({
       {productId && (
         <div className="space-y-3">
           <a
-            href={`https://www.materiabuilder.store/app/products/${productId}`}
+            href={`https://www.storelib.com/app/products/${productId}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-sm font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 transition-colors"
@@ -1244,40 +2153,29 @@ function ProductHeaderSettingsForm({
 
       <div className="space-y-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Buy Button</h4>
-        <div className="space-y-3">
-          <Label>Button Background Color</Label>
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={settings.buyButtonColor || "#2563eb"}
-              onChange={(e) => onChange({ buyButtonColor: e.target.value })}
-              className="w-12 h-9 p-1 cursor-pointer"
-            />
-            <Input
-              value={settings.buyButtonColor || "#2563eb"}
-              onChange={(e) => onChange({ buyButtonColor: e.target.value })}
-              placeholder="#2563eb"
-              className="flex-1 h-9 text-xs"
-            />
+        <ColorPicker
+          label="Button Background Color"
+          value={settings.buyButtonColor || "#2563eb"}
+          onChange={(value) => onChange({ buyButtonColor: value })}
+        />
+        <ColorPicker
+          label="Button Text Color"
+          value={settings.buyButtonTextColor || "#ffffff"}
+          onChange={(value) => onChange({ buyButtonTextColor: value })}
+        />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Buttons Border Radius</Label>
+            <span className="text-xs text-muted-foreground">{settings.buttonsBorderRadius ?? 8}px</span>
           </div>
-        </div>
-
-        <div className="space-y-3">
-          <Label>Button Text Color</Label>
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={settings.buyButtonTextColor || "#ffffff"}
-              onChange={(e) => onChange({ buyButtonTextColor: e.target.value })}
-              className="w-12 h-9 p-1 cursor-pointer"
-            />
-            <Input
-              value={settings.buyButtonTextColor || "#ffffff"}
-              onChange={(e) => onChange({ buyButtonTextColor: e.target.value })}
-              placeholder="#ffffff"
-              className="flex-1 h-9 text-xs"
-            />
-          </div>
+          <Slider
+            min={0}
+            max={32}
+            step={1}
+            value={[settings.buttonsBorderRadius ?? 8]}
+            onValueChange={([value]) => onChange({ buttonsBorderRadius: value })}
+          />
+          <p className="text-xs text-muted-foreground">Affects Add to Cart, Buy, and Wishlist buttons</p>
         </div>
       </div>
 
@@ -1302,11 +2200,11 @@ function ToggleField({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <div>
+      <div className="flex-1 pr-4">
         <Label className="text-sm font-normal">{label}</Label>
         {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <Toggle checked={checked} onCheckedChange={onChange} />
     </div>
   )
 }
@@ -1318,26 +2216,37 @@ function ProductSpacingSettings({
   spacing: SpacingConfig
   onChange: (spacing: SpacingConfig) => void
 }) {
+  const paddingTop = spacing.paddingTop ?? 0
+  const paddingBottom = spacing.paddingBottom ?? 0
+
   return (
     <div className="space-y-4">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Spacing</h4>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-xs">Top</Label>
-          <Input
-            type="number"
-            value={spacing.paddingTop}
-            onChange={(e) => onChange({ ...spacing, paddingTop: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Top</Label>
+            <span className="text-xs text-muted-foreground">{paddingTop}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingTop]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingTop: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Bottom</Label>
-          <Input
-            type="number"
-            value={spacing.paddingBottom}
-            onChange={(e) => onChange({ ...spacing, paddingBottom: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Bottom</Label>
+            <span className="text-xs text-muted-foreground">{paddingBottom}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingBottom]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingBottom: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
       </div>
@@ -1352,44 +2261,65 @@ function SpacingSettings({
   spacing: SpacingConfig
   onChange: (spacing: SpacingConfig) => void
 }) {
+  const paddingTop = spacing.paddingTop ?? 0
+  const paddingBottom = spacing.paddingBottom ?? 0
+  const paddingLeft = spacing.paddingLeft ?? 0
+  const paddingRight = spacing.paddingRight ?? 0
+
   return (
     <div className="space-y-4">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Spacing</h4>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-xs">Top</Label>
-          <Input
-            type="number"
-            value={spacing.paddingTop}
-            onChange={(e) => onChange({ ...spacing, paddingTop: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Top</Label>
+            <span className="text-xs text-muted-foreground">{paddingTop}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingTop]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingTop: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Bottom</Label>
-          <Input
-            type="number"
-            value={spacing.paddingBottom}
-            onChange={(e) => onChange({ ...spacing, paddingBottom: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Bottom</Label>
+            <span className="text-xs text-muted-foreground">{paddingBottom}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingBottom]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingBottom: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Left</Label>
-          <Input
-            type="number"
-            value={spacing.paddingLeft}
-            onChange={(e) => onChange({ ...spacing, paddingLeft: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Left</Label>
+            <span className="text-xs text-muted-foreground">{paddingLeft}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingLeft]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingLeft: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Right</Label>
-          <Input
-            type="number"
-            value={spacing.paddingRight}
-            onChange={(e) => onChange({ ...spacing, paddingRight: Number(e.target.value) })}
-            className="h-8"
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Right</Label>
+            <span className="text-xs text-muted-foreground">{paddingRight}px</span>
+          </div>
+          <PremiumSlider
+            value={[paddingRight]}
+            onValueChange={([value]) => onChange({ ...spacing, paddingRight: value })}
+            min={0}
+            max={96}
+            step={4}
           />
         </div>
       </div>
@@ -1407,41 +2337,17 @@ function ColorSettings({
   return (
     <div className="space-y-4">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colors</h4>
-      <div className="space-y-3">
-        <div className="space-y-2">
-          <Label className="text-xs">Background</Label>
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={colors.backgroundColor || "#ffffff"}
-              onChange={(e) => onChange({ ...colors, backgroundColor: e.target.value })}
-              className="w-12 h-8 p-1 cursor-pointer"
-            />
-            <Input
-              value={colors.backgroundColor || ""}
-              onChange={(e) => onChange({ ...colors, backgroundColor: e.target.value })}
-              placeholder="transparent"
-              className="flex-1 h-8 text-xs"
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs">Text</Label>
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={colors.textColor || "#000000"}
-              onChange={(e) => onChange({ ...colors, textColor: e.target.value })}
-              className="w-12 h-8 p-1 cursor-pointer"
-            />
-            <Input
-              value={colors.textColor || ""}
-              onChange={(e) => onChange({ ...colors, textColor: e.target.value })}
-              placeholder="inherit"
-              className="flex-1 h-8 text-xs"
-            />
-          </div>
-        </div>
+      <div className="space-y-4">
+        <ColorPicker
+          label="Background"
+          value={colors.backgroundColor || "#ffffff"}
+          onChange={(value) => onChange({ ...colors, backgroundColor: value })}
+        />
+        <ColorPicker
+          label="Text"
+          value={colors.textColor || "#000000"}
+          onChange={(value) => onChange({ ...colors, textColor: value })}
+        />
       </div>
     </div>
   )
@@ -1476,7 +2382,7 @@ function SectionSettingsForm({
         </div>
       )}
 
-      {section.type === "image-text" && <ImageTextSettingsForm settings={settings as ImageTextSettings} onChange={onChange} />}
+      {section.type === "image-text" && <ImageTextSettingsForm settings={settings as ImageTextSettings} onChange={onChange} products={products} />}
       {section.type === "benefits" && <BenefitsSettingsForm settings={settings as BenefitsSettings} onChange={onChange} />}
       {section.type === "text-block" && <TextBlockSettingsForm settings={settings as TextBlockSettings} onChange={onChange} />}
       {section.type === "announcement-bar" && (
@@ -1495,6 +2401,8 @@ function SectionSettingsForm({
 
       {section.type === "reviews" && <ReviewsSettingsForm settings={settings as ReviewsSettings} onChange={onChange} />}
 
+      {section.type === "about" && <AboutSettingsForm settings={settings as AboutSettings} onChange={onChange} />}
+
       <SpacingSettings spacing={settings.spacing} onChange={(spacing) => onChange({ spacing })} />
       <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
     </div>
@@ -1504,10 +2412,28 @@ function SectionSettingsForm({
 function ImageTextSettingsForm({
   settings,
   onChange,
+  products = [],
 }: {
   settings: ImageTextSettings
   onChange: (settings: Partial<ImageTextSettings>) => void
+  products?: Array<{ id: string; title: string; slug?: string; thumbnail_url?: string }>
 }) {
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false)
+  const [productSearchQuery, setProductSearchQuery] = useState("")
+
+  // Determine current link mode
+  const buttonLinkType = settings.buttonLinkType || (settings.buttonProductSlug ? "product" : "custom")
+
+  // Find selected product for display
+  const selectedProduct = products.find(
+    (p) => p.slug === settings.buttonProductSlug || p.id === settings.buttonProductId
+  )
+
+  // Filter products for search
+  const filteredProducts = products.filter((p) =>
+    p.title.toLowerCase().includes(productSearchQuery.toLowerCase())
+  )
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -1545,7 +2471,7 @@ function ImageTextSettingsForm({
         <Textarea value={settings.body} onChange={(e) => onChange({ body: e.target.value })} rows={4} className="resize-none" />
       </div>
 
-      <ToggleField label="Show Button" checked={settings.showButton} onChange={(checked) => onChange({ showButton: checked })} />
+      <ToggleField label="Enable Button" checked={settings.showButton} onChange={(checked) => onChange({ showButton: checked })} />
 
       {settings.showButton && (
         <>
@@ -1554,18 +2480,556 @@ function ImageTextSettingsForm({
             <Input value={settings.buttonText || ""} onChange={(e) => onChange({ buttonText: e.target.value })} className="h-9" />
           </div>
 
+          {/* Button Link Type Selector */}
+          <div className="space-y-3">
+            <Label className="text-sm font-normal">Button Link</Label>
+            <Select
+              value={buttonLinkType}
+              onValueChange={(value: "product" | "custom") => {
+                onChange({
+                  buttonLinkType: value,
+                  // Clear the other type's values when switching
+                  ...(value === "product"
+                    ? { buttonUrl: undefined }
+                    : { buttonProductId: undefined, buttonProductSlug: undefined }),
+                })
+              }}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="product">Link to product</SelectItem>
+                <SelectItem value="custom">Custom URL</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Product Selector - shows when "Link to product" is selected */}
+          {buttonLinkType === "product" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-normal">Select Product</Label>
+              <Dialog open={isProductModalOpen} onOpenChange={setIsProductModalOpen}>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left"
+                  >
+                    {selectedProduct ? (
+                      <>
+                        <div className="w-10 h-10 rounded-md bg-muted overflow-hidden flex-shrink-0">
+                          {selectedProduct.thumbnail_url ? (
+                            <img
+                              src={selectedProduct.thumbnail_url}
+                              alt={selectedProduct.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{selectedProduct.title}</p>
+                          <p className="text-xs text-muted-foreground">Click to change</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                          <Package className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-muted-foreground">Select a product...</p>
+                        </div>
+                      </>
+                    )}
+                    <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="w-[calc(100vw-32px)] max-w-md sm:max-w-lg max-h-[85vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-0 gap-0 rounded-2xl">
+                  <div className="px-4 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-border/50">
+                    <DialogHeader className="space-y-1">
+                      <DialogTitle className="text-lg sm:text-xl font-semibold">Select Product</DialogTitle>
+                      <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
+                        Choose a product to link the button to
+                      </DialogDescription>
+                    </DialogHeader>
+                  </div>
+
+                  <div className="flex-1 overflow-hidden flex flex-col px-4 pb-4 sm:px-6 sm:pb-6">
+                    {/* Search input */}
+                    <div className="my-4">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search products..."
+                          value={productSearchQuery}
+                          onChange={(e) => setProductSearchQuery(e.target.value)}
+                          className="pl-9 h-10 sm:h-11 text-sm rounded-xl bg-muted/50 border-0 focus-visible:ring-1"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Products list */}
+                    <div className="flex-1 overflow-y-auto -mx-1 px-1" style={{ maxHeight: "calc(85vh - 220px)" }}>
+                      <div className="space-y-2 pb-2">
+                        {filteredProducts.length > 0 ? (
+                          filteredProducts.map((product) => {
+                            const isSelected = product.slug === settings.buttonProductSlug || product.id === settings.buttonProductId
+                            return (
+                              <button
+                                key={product.id}
+                                type="button"
+                                onClick={() => {
+                                  onChange({
+                                    buttonLinkType: "product",
+                                    buttonProductId: product.id,
+                                    buttonProductSlug: product.slug || product.id,
+                                    buttonUrl: undefined,
+                                  })
+                                  setIsProductModalOpen(false)
+                                  setProductSearchQuery("")
+                                }}
+                                className={cn(
+                                  "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left",
+                                  isSelected
+                                    ? "bg-primary/10 border-2 border-primary"
+                                    : "bg-muted/50 border-2 border-transparent hover:bg-muted"
+                                )}
+                              >
+                                <div className="w-12 h-12 rounded-lg bg-background overflow-hidden flex-shrink-0">
+                                  {product.thumbnail_url ? (
+                                    <img
+                                      src={product.thumbnail_url}
+                                      alt={product.title}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Package className="w-6 h-6 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{product.title}</p>
+                                </div>
+                                {isSelected && (
+                                  <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                                )}
+                              </button>
+                            )
+                          })
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                            <Package className="w-10 h-10 mb-3 opacity-40" />
+                            <p className="text-sm">
+                              {productSearchQuery ? `No products found for "${productSearchQuery}"` : "No products available"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
+          {/* Custom URL Input - shows when "Custom URL" is selected */}
+          {buttonLinkType === "custom" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-normal">Custom URL</Label>
+              <Input
+                value={settings.buttonUrl || ""}
+                onChange={(e) =>
+                  onChange({
+                    buttonUrl: e.target.value,
+                    buttonProductId: undefined,
+                    buttonProductSlug: undefined,
+                  })
+                }
+                className="h-9"
+                placeholder="https://"
+              />
+              <p className="text-xs text-muted-foreground">Opens in a new tab when clicked</p>
+            </div>
+          )}
+
+          {/* Button Color Customizer */}
           <div className="space-y-2">
-            <Label className="text-sm font-normal">Button URL</Label>
-            <Input
-              value={settings.buttonUrl || ""}
-              onChange={(e) => onChange({ buttonUrl: e.target.value })}
-              className="h-9"
-              placeholder="https://"
+            <Label className="text-sm font-normal">Button Color</Label>
+            <ColorPicker
+              value={settings.buttonColor || "#374151"}
+              onChange={(value) => onChange({ buttonColor: value })}
+              presetColors={["#374151", "#000000", "#3b82f6", "#10b981", "#f59e0b"]}
+            />
+          </div>
+
+          {/* Button Text Color Customizer */}
+          <div className="space-y-2">
+            <Label className="text-sm font-normal">Button Text Color</Label>
+            <ColorPicker
+              value={settings.buttonTextColor || "#ffffff"}
+              onChange={(value) => onChange({ buttonTextColor: value })}
+              presetColors={["#ffffff", "#000000", "#374151", "#3b82f6", "#10b981"]}
             />
           </div>
         </>
       )}
     </div>
+  )
+}
+
+// Available icons for benefits section - comprehensive library with diverse icons
+const BENEFIT_ICONS = [
+  // Success & Verification
+  "check-circle", "check", "check-square", "verified", "badge-check", "circle-check",
+  // Rating & Recognition
+  "star", "star-half", "award", "trophy", "medal", "crown", "ribbon", "badge",
+  // Emotions & Social
+  "heart", "thumbs-up", "smile", "laugh", "party-popper", "hand-heart", "handshake",
+  // Security & Trust
+  "shield", "shield-check", "lock", "key", "fingerprint", "scan", "eye", "eye-off",
+  // Energy & Speed
+  "zap", "bolt", "rocket", "flame", "sparkles", "wand", "magic", "flash",
+  // Target & Goals
+  "target", "crosshair", "focus", "bullseye", "compass", "navigation",
+  // Gift & Rewards
+  "gift", "present", "box", "package", "shopping-bag", "shopping-cart",
+  // Time & Schedule
+  "clock", "timer", "calendar", "alarm", "hourglass", "watch", "history",
+  // Communication
+  "mail", "message-circle", "message-square", "phone", "video", "mic", "megaphone", "bell",
+  // Location & Travel
+  "globe", "map-pin", "map", "plane", "car", "truck", "ship", "train",
+  // Money & Business
+  "credit-card", "wallet", "dollar-sign", "percent", "tag", "receipt", "coins", "piggy-bank", "trending-up", "chart-bar", "bar-chart",
+  // Bookmarks & Notes
+  "bookmark", "flag", "pin", "paperclip", "link", "link-2",
+  // Media & Sound
+  "headphones", "speaker", "volume-2", "music", "radio", "podcast",
+  // Visual & Image
+  "camera", "image", "film", "palette", "brush", "pen-tool", "dropper",
+  // Files & Data
+  "download", "upload", "cloud", "cloud-download", "cloud-upload", "server", "database", "hard-drive",
+  // Devices
+  "cpu", "monitor", "smartphone", "laptop", "tablet", "tv", "printer",
+  // Network & Connectivity
+  "wifi", "bluetooth", "signal", "satellite", "rss", "share", "share-2",
+  // Power & Settings
+  "power", "settings", "sliders", "toggle-left", "toggle-right",
+  // Tools
+  "wrench", "hammer", "screwdriver", "tool", "scissors", "ruler",
+  // Writing & Edit
+  "pen", "pencil", "edit", "edit-2", "edit-3", "type", "text-cursor",
+  // Copy & Clipboard
+  "copy", "clipboard", "clipboard-check", "clipboard-list",
+  // Files & Folders
+  "file", "file-text", "file-plus", "folder", "folder-open", "archive", "inbox",
+  // Commerce & Store
+  "store", "storefront", "building", "building-2", "warehouse",
+  // Nature
+  "tree", "leaf", "flower", "sun", "moon", "cloud-sun", "rainbow", "umbrella",
+  // Health & Wellness
+  "droplet", "activity", "heart-pulse", "heartbeat", "thermometer", "stethoscope",
+  // Fitness
+  "dumbbell", "bicep", "running", "bike", "hiking",
+  // Food & Drink
+  "apple", "coffee", "cup", "utensils", "pizza", "cake",
+  // Education
+  "book", "book-open", "graduation-cap", "school", "library", "bookmark-check",
+  // Brain & Ideas
+  "brain", "lightbulb", "lamp", "idea", "bulb",
+  // Games & Fun
+  "puzzle", "gamepad", "dice", "joystick", "game-controller",
+  // Premium & Luxury
+  "gem", "diamond", "sparkle", "shine", "glow",
+  // Math & Symbols
+  "infinity", "plus", "minus", "x", "divide", "equal", "hash",
+  // People & Users
+  "users", "user", "user-check", "user-plus", "user-star", "people", "group", "team",
+  // Arrows & Direction
+  "arrow-right", "arrow-up", "arrow-down", "chevron-right", "trending-up", "move",
+  // Interface
+  "menu", "grid", "list", "layout", "columns", "rows", "table",
+  // Misc Useful
+  "refresh", "repeat", "sync", "rotate", "undo", "redo",
+  "help-circle", "info", "alert-circle", "alert-triangle", "x-circle", "x-octagon",
+  "thumbtack", "magnet", "layers", "stack", "component", "puzzle-piece",
+  "calendar-check", "calendar-star", "shield-star", "user-shield"
+] as const
+
+// Icon Picker Component for Benefits
+function BenefitIconPicker({
+  selectedIcon,
+  customImageUrl,
+  iconType,
+  onSelectIcon,
+  onUploadImage,
+}: {
+  selectedIcon: string
+  customImageUrl?: string
+  iconType?: "preset" | "custom"
+  onSelectIcon: (icon: string, type: "preset" | "custom", customUrl?: string) => void
+  onUploadImage: (url: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState<"icons" | "upload">(iconType === "custom" ? "upload" : "icons")
+
+  const filteredIcons = BENEFIT_ICONS.filter((icon) =>
+    icon.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Import all icons dynamically for the comprehensive icon library
+  const LucideIcons = require("lucide-react")
+
+  // Get icon component for preview - comprehensive map for all icons
+  const getIconComponent = (iconName: string) => {
+    // Convert kebab-case to PascalCase for lucide-react
+    const toPascalCase = (str: string) => {
+      return str.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('')
+    }
+
+    // Manual mappings for icons that don't follow standard naming
+    const specialMappings: Record<string, string> = {
+      "check-circle": "CheckCircle",
+      "check-square": "CheckSquare",
+      "badge-check": "BadgeCheck",
+      "circle-check": "CircleCheck",
+      "star-half": "StarHalf",
+      "party-popper": "PartyPopper",
+      "hand-heart": "HeartHandshake",
+      "handshake": "Handshake",
+      "shield-check": "ShieldCheck",
+      "eye-off": "EyeOff",
+      "thumbs-up": "ThumbsUp",
+      "message-circle": "MessageCircle",
+      "message-square": "MessageSquare",
+      "map-pin": "MapPin",
+      "dollar-sign": "DollarSign",
+      "piggy-bank": "PiggyBank",
+      "trending-up": "TrendingUp",
+      "chart-bar": "BarChart",
+      "bar-chart": "BarChart",
+      "link-2": "Link2",
+      "volume-2": "Volume2",
+      "pen-tool": "PenTool",
+      "cloud-download": "CloudDownload",
+      "cloud-upload": "CloudUpload",
+      "hard-drive": "HardDrive",
+      "toggle-left": "ToggleLeft",
+      "toggle-right": "ToggleRight",
+      "edit-2": "Edit2",
+      "edit-3": "Edit3",
+      "text-cursor": "TextCursor",
+      "clipboard-check": "ClipboardCheck",
+      "clipboard-list": "ClipboardList",
+      "file-text": "FileText",
+      "file-plus": "FilePlus",
+      "folder-open": "FolderOpen",
+      "building-2": "Building2",
+      "cloud-sun": "CloudSun",
+      "heart-pulse": "HeartPulse",
+      "book-open": "BookOpen",
+      "graduation-cap": "GraduationCap",
+      "game-controller": "Gamepad2",
+      "user-check": "UserCheck",
+      "user-plus": "UserPlus",
+      "user-star": "UserCircle",
+      "user-shield": "ShieldCheck",
+      "arrow-right": "ArrowRight",
+      "arrow-up": "ArrowUp",
+      "arrow-down": "ArrowDown",
+      "chevron-right": "ChevronRight",
+      "help-circle": "HelpCircle",
+      "alert-circle": "AlertCircle",
+      "alert-triangle": "AlertTriangle",
+      "x-circle": "XCircle",
+      "x-octagon": "XOctagon",
+      "puzzle-piece": "Puzzle",
+      "calendar-check": "CalendarCheck",
+      "calendar-star": "CalendarDays",
+      "shield-star": "ShieldCheck",
+      "credit-card": "CreditCard",
+      "shopping-cart": "ShoppingCart",
+      "shopping-bag": "ShoppingBag",
+      "share-2": "Share2",
+    }
+
+    const iconKey = specialMappings[iconName] || toPascalCase(iconName)
+    return LucideIcons[iconKey] || LucideIcons.CheckCircle || CheckCircle
+  }
+
+  const IconComponent = getIconComponent(selectedIcon)
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-2 p-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors"
+        >
+          <div className="w-8 h-8 rounded-full bg-violet-500/10 flex items-center justify-center overflow-hidden">
+            {iconType === "custom" && customImageUrl ? (
+              <img src={customImageUrl} alt="Custom icon" className="w-full h-full object-cover" />
+            ) : (
+              <IconComponent className="w-4 h-4 text-violet-500" />
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground">Change icon</span>
+        </button>
+      </DialogTrigger>
+      <DialogContent className="w-[calc(100vw-24px)] max-w-[420px] sm:max-w-lg overflow-hidden flex flex-col p-0 gap-0 rounded-xl sm:rounded-2xl mx-auto">
+        {/* Header */}
+        <div className="px-4 pt-4 pb-2 sm:px-5 sm:pt-5 sm:pb-3 border-b border-border/50 flex-shrink-0">
+          <DialogHeader className="space-y-0.5">
+            <DialogTitle className="text-base sm:text-lg font-semibold">Choose Icon</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Select an icon or upload your own
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <div className="flex-shrink-0 overflow-x-hidden">
+          <div className="px-4 py-3 sm:px-5 sm:py-4">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "icons" | "upload")} className="space-y-3">
+              {/* Tab buttons - compact */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("icons")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 p-2.5 sm:p-3 rounded-lg border-2 transition-all",
+                    activeTab === "icons"
+                      ? "border-violet-500 bg-violet-500/5"
+                      : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
+                  )}
+                >
+                  <Sparkles className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "icons" ? "text-violet-500" : "text-muted-foreground")} />
+                  <span className={cn("text-sm font-medium", activeTab === "icons" ? "text-foreground" : "text-muted-foreground")}>
+                    Icons
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("upload")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 p-2.5 sm:p-3 rounded-lg border-2 transition-all",
+                    activeTab === "upload"
+                      ? "border-violet-500 bg-violet-500/5"
+                      : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
+                  )}
+                >
+                  <ImageLucide className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "upload" ? "text-violet-500" : "text-muted-foreground")} />
+                  <span className={cn("text-sm font-medium", activeTab === "upload" ? "text-foreground" : "text-muted-foreground")}>
+                    Upload
+                  </span>
+                </button>
+              </div>
+
+              <TabsContent value="icons" className="mt-0 space-y-2 data-[state=inactive]:hidden">
+                {/* Search input */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search icons..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-9 text-sm rounded-lg bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-violet-500"
+                  />
+                </div>
+
+                {/* Icons grid - compact height */}
+                <div className="max-h-[240px] sm:max-h-[280px] overflow-y-auto rounded-lg">
+                  <div className="grid grid-cols-6 sm:grid-cols-7 gap-1 p-0.5">
+                    {filteredIcons.map((iconName) => {
+                      const Icon = getIconComponent(iconName)
+                      const isSelected = selectedIcon === iconName && iconType !== "custom"
+                      return (
+                        <button
+                          key={iconName}
+                          type="button"
+                          onClick={() => {
+                            onSelectIcon(iconName, "preset")
+                            setIsOpen(false)
+                          }}
+                          className={cn(
+                            "aspect-square w-full flex items-center justify-center rounded-md transition-all touch-manipulation",
+                            "min-h-[36px] sm:min-h-[40px]",
+                            isSelected
+                              ? "bg-violet-500 text-white shadow-md"
+                              : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95"
+                          )}
+                          title={iconName.replace(/-/g, ' ')}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {filteredIcons.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                      <Search className="w-6 h-6 mb-2 opacity-40" />
+                      <p className="text-xs">No icons found for "{searchQuery}"</p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="upload" className="mt-0 space-y-3 data-[state=inactive]:hidden">
+                <p className="text-xs text-muted-foreground">
+                  Upload a custom image to use as the icon.
+                </p>
+
+                {/* Current custom icon with remove button */}
+                {customImageUrl ? (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
+                    <div className="w-14 h-14 rounded-full bg-violet-500/10 overflow-hidden ring-2 ring-violet-500/20 flex-shrink-0">
+                      <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-foreground block">Current icon</span>
+                      <span className="text-xs text-muted-foreground">Custom image uploaded</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectIcon("check-circle", "preset")
+                        onUploadImage("")
+                      }}
+                      className="flex-shrink-0 p-2 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+                      title="Remove custom image"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : null}
+
+                {/* Image upload area */}
+                <div className="rounded-lg border-2 border-dashed border-border p-3 bg-muted/20">
+                  <ImageUpload
+                    bucket="store-builder-images"
+                    folder="benefit-icons"
+                    value=""
+                    onChange={(url) => {
+                      if (url) {
+                        onUploadImage(url)
+                        onSelectIcon(selectedIcon, "custom", url)
+                        setIsOpen(false)
+                      }
+                    }}
+                    aspectRatio="compact"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -1576,9 +3040,20 @@ function BenefitsSettingsForm({
   settings: BenefitsSettings
   onChange: (settings: Partial<BenefitsSettings>) => void
 }) {
-  const updateBenefit = (index: number, field: string, value: string) => {
+  const updateBenefit = (index: number, field: string, value: any) => {
     const newBenefits = [...settings.benefits]
     newBenefits[index] = { ...newBenefits[index], [field]: value }
+    onChange({ benefits: newBenefits })
+  }
+
+  const updateBenefitIcon = (index: number, icon: string, iconType: "preset" | "custom", customUrl?: string) => {
+    const newBenefits = [...settings.benefits]
+    newBenefits[index] = {
+      ...newBenefits[index],
+      icon,
+      iconType,
+      customImageUrl: iconType === "custom" ? customUrl : undefined,
+    }
     onChange({ benefits: newBenefits })
   }
 
@@ -1586,7 +3061,13 @@ function BenefitsSettingsForm({
     onChange({
       benefits: [
         ...settings.benefits,
-        { id: `benefit_${Date.now()}`, icon: "check-circle", title: "New Benefit", description: "Description here" },
+        {
+          id: `benefit_${Date.now()}`,
+          icon: "check-circle",
+          iconType: "preset" as const,
+          title: "New Benefit",
+          description: "Description here",
+        },
       ],
     })
   }
@@ -1602,8 +3083,35 @@ function BenefitsSettingsForm({
         <Input value={settings.headline} onChange={(e) => onChange({ headline: e.target.value })} className="h-9" />
       </div>
 
+      {/* Carousel Toggle - Mobile Only */}
+      <div className="flex items-center justify-between py-2">
+        <div className="space-y-0.5">
+          <Label className="text-sm font-normal">Enable Carousel (Mobile)</Label>
+          <p className="text-xs text-muted-foreground">Display benefits in a sliding carousel on mobile devices with swipe support</p>
+        </div>
+        <Switch
+          checked={settings.enableCarousel ?? false}
+          onCheckedChange={(checked) => onChange({ enableCarousel: checked })}
+        />
+      </div>
+
+      {/* Autoplay Toggle - only show when carousel is enabled */}
+      {settings.enableCarousel && (
+        <div className="flex items-center justify-between py-2 pl-4 border-l-2 border-primary/20">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-normal">Autoplay</Label>
+            <p className="text-xs text-muted-foreground">Automatically cycle through benefits</p>
+          </div>
+          <Switch
+            checked={settings.autoplay ?? false}
+            onCheckedChange={(checked) => onChange({ autoplay: checked })}
+          />
+        </div>
+      )}
+
+      {/* Columns - always show since it's for desktop layout */}
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Columns</Label>
+        <Label className="text-sm font-normal">Columns (Desktop)</Label>
         <Select value={String(settings.columns)} onValueChange={(value) => onChange({ columns: Number(value) as 2 | 3 | 4 })}>
           <SelectTrigger className="h-9">
             <SelectValue />
@@ -1614,6 +3122,39 @@ function BenefitsSettingsForm({
             <SelectItem value="4">4 Columns</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Gap Settings */}
+      <div className="space-y-4 pt-2">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Horizontal Gap</Label>
+            <span className="text-xs text-muted-foreground">{settings.horizontalGap ?? 24}px</span>
+          </div>
+          <Slider
+            value={[settings.horizontalGap ?? 24]}
+            onValueChange={([value]) => onChange({ horizontalGap: value })}
+            min={0}
+            max={64}
+            step={4}
+            className="py-1"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-normal">Vertical Gap</Label>
+            <span className="text-xs text-muted-foreground">{settings.verticalGap ?? 24}px</span>
+          </div>
+          <Slider
+            value={[settings.verticalGap ?? 24]}
+            onValueChange={([value]) => onChange({ verticalGap: value })}
+            min={0}
+            max={64}
+            step={4}
+            className="py-1"
+          />
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -1632,7 +3173,19 @@ function BenefitsSettingsForm({
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
 
-            <div className="space-y-2 pr-8">
+            <div className="space-y-3 pr-8">
+              {/* Icon Picker */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Icon</Label>
+                <BenefitIconPicker
+                  selectedIcon={benefit.icon}
+                  customImageUrl={benefit.customImageUrl}
+                  iconType={benefit.iconType}
+                  onSelectIcon={(icon, type, customUrl) => updateBenefitIcon(index, icon, type, customUrl)}
+                  onUploadImage={(url) => updateBenefit(index, "customImageUrl", url)}
+                />
+              </div>
+
               <Input
                 value={benefit.title}
                 onChange={(e) => updateBenefit(index, "title", e.target.value)}
@@ -1743,7 +3296,7 @@ function AnnouncementBarSettingsForm({
           <Label className="text-sm font-normal">Text Size</Label>
           <span className="text-xs text-muted-foreground">{settings.textSize || 14}px</span>
         </div>
-        <Slider
+        <PremiumSlider
           value={[settings.textSize || 14]}
           onValueChange={([value]) => onChange({ textSize: value })}
           min={12}
@@ -1957,33 +3510,31 @@ function MoreFromSellerSettingsForm({
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Top Padding</Label>
-        <div className="flex items-center gap-3">
-          <Slider
-            value={[spacing.paddingTop ?? 48]}
-            onValueChange={([value]) => onChange({ spacing: { ...spacing, paddingTop: value } })}
-            min={0}
-            max={96}
-            step={4}
-            className="flex-1"
-          />
-          <span className="text-sm text-muted-foreground w-12 text-right">{spacing.paddingTop ?? 48}px</span>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-normal">Top Padding</Label>
+          <span className="text-xs text-muted-foreground">{spacing.paddingTop ?? 48}px</span>
         </div>
+        <PremiumSlider
+          value={[spacing.paddingTop ?? 48]}
+          onValueChange={([value]) => onChange({ spacing: { ...spacing, paddingTop: value } })}
+          min={0}
+          max={96}
+          step={4}
+        />
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Bottom Padding</Label>
-        <div className="flex items-center gap-3">
-          <Slider
-            value={[spacing.paddingBottom ?? 48]}
-            onValueChange={([value]) => onChange({ spacing: { ...spacing, paddingBottom: value } })}
-            min={0}
-            max={96}
-            step={4}
-            className="flex-1"
-          />
-          <span className="text-sm text-muted-foreground w-12 text-right">{spacing.paddingBottom ?? 48}px</span>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-normal">Bottom Padding</Label>
+          <span className="text-xs text-muted-foreground">{spacing.paddingBottom ?? 48}px</span>
         </div>
+        <PremiumSlider
+          value={[spacing.paddingBottom ?? 48]}
+          onValueChange={([value]) => onChange({ spacing: { ...spacing, paddingBottom: value } })}
+          min={0}
+          max={96}
+          step={4}
+        />
       </div>
 
       <ToggleField label="Show Price" checked={settings.showPrice} onChange={(checked) => onChange({ showPrice: checked })} />
@@ -2058,8 +3609,17 @@ function SubscribeBarSettingsForm({
         label="Enable Sticky Bar"
         checked={safeSettings.enableStickyBar ?? false}
         onChange={(checked) => onChange({ enableStickyBar: checked })}
-        description="Bar sticks to top when scrolling. Preview available on live website. "
+        description="Bar sticks to top when scrolling"
       />
+
+      {safeSettings.enableStickyBar && (
+        <ToggleField
+          label="Enable Sticky on Scroll Up"
+          checked={safeSettings.enableStickyOnScrollUp ?? false}
+          onChange={(checked) => onChange({ enableStickyOnScrollUp: checked })}
+          description="Bar smoothly appears when scrolling up, hides when scrolling down"
+        />
+      )}
 
       <div className="space-y-3">
         <Label>Bar Style</Label>
@@ -2108,41 +3668,17 @@ function SubscribeBarSettingsForm({
         <p className="text-xs text-muted-foreground">Changes button text before/after subscribe</p>
       </div>
 
-      <div className="space-y-3">
-        <Label>Button Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonColor || "#2563eb"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonColor || "#2563eb"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            placeholder="#2563eb"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Color"
+        value={safeSettings.buttonColor || "#2563eb"}
+        onChange={(value) => onChange({ buttonColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Text Color"
+        value={safeSettings.buttonTextColor || "#ffffff"}
+        onChange={(value) => onChange({ buttonTextColor: value })}
+      />
 
       <ToggleField
         label="Show Avatar"
@@ -2151,41 +3687,23 @@ function SubscribeBarSettingsForm({
         description="Display your profile picture in the bar"
       />
 
-      <div className="space-y-3">
-        <Label>Background Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.colors?.backgroundColor || "#ffffff"}
-            onChange={(e) => onChange({ colors: { ...safeSettings.colors, backgroundColor: e.target.value } })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.colors?.backgroundColor || "#ffffff"}
-            onChange={(e) => onChange({ colors: { ...safeSettings.colors, backgroundColor: e.target.value } })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Background Color"
+        value={safeSettings.backgroundColor || safeSettings.colors?.backgroundColor || "#ffffff"}
+        onChange={(value) => onChange({
+          backgroundColor: value,
+          colors: { ...safeSettings.colors, backgroundColor: value }
+        })}
+      />
 
-      <div className="space-y-3">
-        <Label>Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.colors?.textColor || "#000000"}
-            onChange={(e) => onChange({ colors: { ...safeSettings.colors, textColor: e.target.value } })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.colors?.textColor || "#000000"}
-            onChange={(e) => onChange({ colors: { ...safeSettings.colors, textColor: e.target.value } })}
-            placeholder="#000000"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Text Color"
+        value={safeSettings.textColor || safeSettings.colors?.textColor || "#000000"}
+        onChange={(value) => onChange({
+          textColor: value,
+          colors: { ...safeSettings.colors, textColor: value }
+        })}
+      />
     </div>
   )
 }
@@ -2227,76 +3745,42 @@ function ProductCreatorBarSettingsForm({
         </Select>
       </div>
 
-      <div className="space-y-3">
-        <Label>Background Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.backgroundColor || "#1a1a1a"}
-            onChange={(e) => onChange({ backgroundColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.backgroundColor || "#1a1a1a"}
-            onChange={(e) => onChange({ backgroundColor: e.target.value })}
-            placeholder="#1a1a1a"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Background Color"
+        value={safeSettings.backgroundColor || "#1a1a1a"}
+        onChange={(value) => onChange({ backgroundColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.textColor || "#ffffff"}
-            onChange={(e) => onChange({ textColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.textColor || "#ffffff"}
-            onChange={(e) => onChange({ textColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Text Color"
+        value={safeSettings.textColor || "#ffffff"}
+        onChange={(value) => onChange({ textColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Background Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonColor || "#4b5563"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonColor || "#4b5563"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            placeholder="#4b5563"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Background Color"
+        value={safeSettings.buttonColor || "#4b5563"}
+        onChange={(value) => onChange({ buttonColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
+      <ColorPicker
+        label="Button Text Color"
+        value={safeSettings.buttonTextColor || "#ffffff"}
+        onChange={(value) => onChange({ buttonTextColor: value })}
+      />
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-normal">Button Border Radius</Label>
+          <span className="text-xs text-muted-foreground">{safeSettings.buttonBorderRadius ?? 8}px</span>
         </div>
+        <PremiumSlider
+          value={[safeSettings.buttonBorderRadius ?? 8]}
+          onValueChange={([value]) => onChange({ buttonBorderRadius: value })}
+          min={0}
+          max={24}
+          step={2}
+        />
       </div>
     </div>
   )
@@ -2353,74 +3837,37 @@ function StickyAddToCartSettingsForm({
         </Select>
       </div>
 
-      <div className="space-y-3">
-        <Label>Border Radius</Label>
-        <div className="flex items-center gap-3">
-          <Slider
-            value={[safeSettings.borderRadius ?? 8]}
-            onValueChange={([value]) => onChange({ borderRadius: value })}
-            min={0}
-            max={24}
-            step={2}
-            className="flex-1"
-          />
-          <span className="text-sm text-muted-foreground w-12 text-right">{safeSettings.borderRadius ?? 8}px</span>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-normal">Border Radius</Label>
+          <span className="text-xs text-muted-foreground">{safeSettings.borderRadius ?? 8}px</span>
         </div>
+        <PremiumSlider
+          value={[safeSettings.borderRadius ?? 8]}
+          onValueChange={([value]) => onChange({ borderRadius: value })}
+          min={0}
+          max={24}
+          step={2}
+        />
       </div>
 
-      <div className="space-y-3">
-        <Label>Background Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.backgroundColor || "#ffffff"}
-            onChange={(e) => onChange({ backgroundColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.backgroundColor || "#ffffff"}
-            onChange={(e) => onChange({ backgroundColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Background Color"
+        value={safeSettings.backgroundColor || "#ffffff"}
+        onChange={(value) => onChange({ backgroundColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonColor || "#2563eb"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonColor || "#2563eb"}
-            onChange={(e) => onChange({ buttonColor: e.target.value })}
-            placeholder="#2563eb"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Color"
+        value={safeSettings.buttonColor || "#2563eb"}
+        onChange={(value) => onChange({ buttonColor: value })}
+      />
 
-      <div className="space-y-3">
-        <Label>Button Text Color</Label>
-        <div className="flex gap-2">
-          <Input
-            type="color"
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            className="w-12 h-9 p-1 cursor-pointer"
-          />
-          <Input
-            value={safeSettings.buttonTextColor || "#ffffff"}
-            onChange={(e) => onChange({ buttonTextColor: e.target.value })}
-            placeholder="#ffffff"
-            className="flex-1 h-9 text-xs"
-          />
-        </div>
-      </div>
+      <ColorPicker
+        label="Button Text Color"
+        value={safeSettings.buttonTextColor || "#ffffff"}
+        onChange={(value) => onChange({ buttonTextColor: value })}
+      />
     </div>
   )
 }
@@ -2436,6 +3883,666 @@ function ReviewsSettingsForm({
     <div className="space-y-4">
       <SpacingSettings spacing={settings.spacing} onChange={(spacing) => onChange({ spacing })} />
       <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
+    </div>
+  )
+}
+
+// Helper function to extract YouTube video ID
+function extractYouTubeIdForThumbnail(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /^([a-zA-Z0-9_-]{11})$/, // Direct video ID
+  ]
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match) return match[1]
+  }
+  return null
+}
+
+// Sortable Media Item Component
+function SortableMediaItem({
+  item,
+  onRemove,
+  onUpdateCaption,
+}: {
+  item: AboutMediaItem
+  onRemove: (id: string) => void
+  onUpdateCaption: (id: string, caption: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  // Get YouTube thumbnail URL
+  const getYouTubeThumbnail = (url: string) => {
+    const videoId = extractYouTubeIdForThumbnail(url)
+    return videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "border rounded-lg p-2 space-y-2 bg-background",
+        isDragging && "opacity-50 shadow-lg z-50"
+      )}
+    >
+      <div className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="absolute top-1 left-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center z-10 cursor-grab touch-none"
+          aria-label="Drag to reorder"
+        >
+          <GripVertical className="w-3 h-3 text-white" />
+        </button>
+
+        {item.type === "image" ? (
+          <img
+            src={item.url}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          // Show YouTube thumbnail preview
+          (() => {
+            const thumbnailUrl = getYouTubeThumbnail(item.url)
+            return thumbnailUrl ? (
+              <div className="relative w-full h-full">
+                <img
+                  src={thumbnailUrl}
+                  alt="YouTube video thumbnail"
+                  className="w-full h-full object-cover"
+                />
+                {/* YouTube play button overlay */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+                    <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1" />
+                  </div>
+                </div>
+                <div className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium">
+                  YouTube
+                </div>
+              </div>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-red-100">
+                <div className="text-center">
+                  <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-1">
+                    <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
+                  </div>
+                  <p className="text-[10px] text-red-600">YouTube</p>
+                </div>
+              </div>
+            )
+          })()
+        )}
+        <button
+          type="button"
+          onClick={() => onRemove(item.id)}
+          className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        >
+          <X className="w-3 h-3 text-white" />
+        </button>
+      </div>
+      {/* Caption Input */}
+      <Input
+        value={item.caption || ""}
+        onChange={(e) => onUpdateCaption(item.id, e.target.value)}
+        placeholder="Add caption (optional)"
+        className="h-8 text-xs"
+      />
+    </div>
+  )
+}
+
+// Media Items List with Drag and Drop
+function MediaItemsList({
+  mediaItems,
+  onRemove,
+  onReorder,
+  onUpdateCaption,
+}: {
+  mediaItems: AboutMediaItem[]
+  onRemove: (id: string) => void
+  onReorder: (items: AboutMediaItem[]) => void
+  onUpdateCaption: (id: string, caption: string) => void
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const oldIndex = mediaItems.findIndex((item) => item.id === active.id)
+      const newIndex = mediaItems.findIndex((item) => item.id === over.id)
+      const newItems = arrayMove(mediaItems, oldIndex, newIndex)
+      onReorder(newItems)
+    }
+  }
+
+  return (
+    <div className="space-y-3 pt-2">
+      <Label className="text-xs text-muted-foreground">Added Media ({mediaItems.length})</Label>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={mediaItems.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-3">
+            {mediaItems.map((item) => (
+              <SortableMediaItem
+                key={item.id}
+                item={item}
+                onRemove={onRemove}
+                onUpdateCaption={onUpdateCaption}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
+  )
+}
+
+function AboutSettingsForm({
+  settings,
+  onChange,
+}: {
+  settings: AboutSettings
+  onChange: (settings: Partial<AboutSettings>) => void
+}) {
+  const [youtubeUrl, setYoutubeUrl] = useState("")
+
+  const addMediaItem = (type: "image" | "youtube", url: string) => {
+    const newItem: AboutMediaItem = {
+      id: `media_${Date.now()}`,
+      type,
+      url,
+    }
+    onChange({
+      mediaItems: [...(settings.mediaItems || []), newItem],
+    })
+  }
+
+  const removeMediaItem = (id: string) => {
+    onChange({
+      mediaItems: (settings.mediaItems || []).filter((item) => item.id !== id),
+    })
+  }
+
+  const handleAddYoutubeVideo = () => {
+    if (youtubeUrl.trim()) {
+      addMediaItem("youtube", youtubeUrl.trim())
+      setYoutubeUrl("")
+    }
+  }
+
+  // About section only has top/bottom padding (left/right fixed at 0)
+  const paddingTop = settings.spacing?.paddingTop ?? 48
+  const paddingBottom = settings.spacing?.paddingBottom ?? 48
+
+  return (
+    <div className="space-y-4">
+      {/* Show Sales Stats Toggle */}
+      <ToggleField
+        label="Show Sales Stats"
+        description="Display sales count (joined year is always shown)"
+        checked={settings.showSalesStats}
+        onChange={(checked) => onChange({ showSalesStats: checked })}
+      />
+
+      {/* Show Products Stats Toggle */}
+      <ToggleField
+        label="Enable Products Stats"
+        description="Display number of products in your shop"
+        checked={settings.showProductsStats !== false}
+        onChange={(checked) => onChange({ showProductsStats: checked })}
+      />
+
+      {/* Headline */}
+      <div className="space-y-2">
+        <Label className="text-sm font-normal">Headline</Label>
+        <Input
+          value={settings.headline || ""}
+          onChange={(e) => onChange({ headline: e.target.value })}
+          placeholder="e.g., About my shop"
+          className="h-9"
+        />
+        <p className="text-xs text-muted-foreground">
+          You can also click the placeholder in the preview to edit
+        </p>
+      </div>
+
+      {/* About Content */}
+      <div className="space-y-2">
+        <Label className="text-sm font-normal">About Content</Label>
+        <Textarea
+          value={settings.aboutContent || ""}
+          onChange={(e) => onChange({ aboutContent: e.target.value })}
+          placeholder="Tell visitors about your shop, your story, what makes you unique..."
+          rows={6}
+          className="resize-none"
+        />
+        <p className="text-xs text-muted-foreground">
+          You can also click the placeholder in the preview to edit
+        </p>
+      </div>
+
+      {/* Spacing - only top/bottom */}
+      <div className="space-y-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Spacing</h4>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-normal">Top</Label>
+              <span className="text-xs text-muted-foreground">{paddingTop}px</span>
+            </div>
+            <PremiumSlider
+              value={[paddingTop]}
+              onValueChange={([value]) => onChange({ spacing: { ...settings.spacing, paddingTop: value, paddingLeft: 0, paddingRight: 0 } })}
+              min={0}
+              max={96}
+              step={4}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-normal">Bottom</Label>
+              <span className="text-xs text-muted-foreground">{paddingBottom}px</span>
+            </div>
+            <PremiumSlider
+              value={[paddingBottom]}
+              onValueChange={([value]) => onChange({ spacing: { ...settings.spacing, paddingBottom: value, paddingLeft: 0, paddingRight: 0 } })}
+              min={0}
+              max={96}
+              step={4}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Colors */}
+      <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
+
+      {/* Payment Methods - hidden from settings, always displayed in section */}
+
+      {/* Media Section */}
+      <div className="space-y-3 pt-2">
+        <Label className="text-sm font-normal">Media</Label>
+        <p className="text-xs text-muted-foreground">
+          Add up to 5 images and 5 YouTube videos to showcase your shop. Drag to reorder.
+        </p>
+
+        {/* Count current media */}
+        {(() => {
+          const imageCount = (settings.mediaItems || []).filter(m => m.type === "image").length
+          const youtubeCount = (settings.mediaItems || []).filter(m => m.type === "youtube").length
+          const hasMaxYouTube = youtubeCount >= 5
+          const hasMaxImages = imageCount >= 5
+
+          return (
+            <>
+              {/* Image Upload - only if less than 5 images */}
+              {!hasMaxImages && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Add Image ({imageCount}/5)</Label>
+                  <ImageUpload
+                    bucket="store-builder-images"
+                    folder="about-media"
+                    value=""
+                    onChange={(url) => {
+                      if (url) addMediaItem("image", url)
+                    }}
+                    aspectRatio="video"
+                    maxSizeMB={10}
+                  />
+                </div>
+              )}
+
+              {/* YouTube URL Input - only if less than 5 YouTube videos */}
+              {!hasMaxYouTube && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Add YouTube Video ({youtubeCount}/5)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder="https://youtube.com/watch?v=..."
+                      className="h-9 flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddYoutubeVideo}
+                      disabled={!youtubeUrl.trim()}
+                      className="h-9"
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {hasMaxYouTube && (
+                <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                  YouTube video limit reached (5/5). Remove a video to add a new one.
+                </p>
+              )}
+
+              {hasMaxImages && (
+                <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                  Image limit reached (5/5). Remove an image to add a new one.
+                </p>
+              )}
+            </>
+          )
+        })()}
+
+        {/* Media Items List with Captions - Drag and Drop Enabled */}
+        {settings.mediaItems && settings.mediaItems.length > 0 && (
+          <MediaItemsList
+            mediaItems={settings.mediaItems}
+            onRemove={removeMediaItem}
+            onReorder={(newItems) => onChange({ mediaItems: newItems })}
+            onUpdateCaption={(id, caption) => {
+              const updatedItems = (settings.mediaItems || []).map(item =>
+                item.id === id ? { ...item, caption } : item
+              )
+              onChange({ mediaItems: updatedItems })
+            }}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Sortable FAQ Item component for drag and drop - supports both default and custom FAQs
+function SortableFAQItem({
+  faq,
+  index,
+  onUpdate,
+  onRemove,
+  isDefault,
+}: {
+  faq: FAQItem
+  index: number
+  onUpdate: (id: string, updates: Partial<FAQItem>) => void
+  onRemove: (id: string) => void
+  isDefault?: boolean
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: faq.id,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "p-3 border rounded-lg space-y-3",
+        isDefault ? "bg-muted/30 border-border/50" : "bg-background border-border",
+        isDragging && "opacity-50 shadow-lg"
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="p-1 rounded hover:bg-muted text-muted-foreground cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+          <span className={cn("text-xs font-medium", isDefault ? "text-muted-foreground/70" : "text-muted-foreground")}>
+            FAQ {index + 1}
+            {isDefault && <span className="ml-1 text-[10px] opacity-70">(default)</span>}
+          </span>
+        </div>
+        {!isDefault && (
+          <button
+            onClick={() => onRemove(faq.id)}
+            className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      {isDefault ? (
+        <p className="text-sm text-muted-foreground pl-1">
+          {faq.question}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <Input
+            placeholder="Question"
+            value={faq.question}
+            onChange={(e) => onUpdate(faq.id, { question: e.target.value })}
+            className="text-sm"
+          />
+          <Textarea
+            placeholder="Answer"
+            value={faq.answer}
+            onChange={(e) => onUpdate(faq.id, { answer: e.target.value })}
+            rows={2}
+            className="text-sm resize-none"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// FAQ Settings Form for product pages - ALL FAQs (default + custom) can be reordered together
+function FAQSettingsForm({
+  settings,
+  onChange,
+  productId,
+}: {
+  settings: FAQSettings
+  onChange: (settings: Partial<FAQSettings>) => void
+  productId?: string
+}) {
+  const router = useRouter()
+
+  // Default FAQs that cannot be deleted (3 total)
+  const defaultFaqTemplates: FAQItem[] = [
+    {
+      id: "default-1",
+      question: "How do I access my purchase?",
+      answer: "After you complete checkout, you can download the product immediately on the download page. You'll also receive an email with the download link, so you can access it anytime from your inbox.",
+      isDefault: true,
+    },
+    {
+      id: "default-2",
+      question: "Is there a refund policy?",
+      answer: "Refund policies are set by individual creators. Please check product info or contact the seller directly if you have questions about refunds.",
+      isDefault: true,
+    },
+    {
+      id: "default-3",
+      question: "How long do I have access?",
+      answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.",
+      isDefault: true,
+    },
+  ]
+
+  // Get all FAQs in order - if allFaqs is set, use it; otherwise initialize with defaults then custom
+  const getAllFaqs = (): FAQItem[] => {
+    if (settings.allFaqs && settings.allFaqs.length > 0) {
+      // Use stored order, but ensure all defaults are present
+      const storedIds = new Set(settings.allFaqs.map(f => f.id))
+      const missingDefaults = defaultFaqTemplates.filter(d => !storedIds.has(d.id))
+      // If any defaults are missing, add them at the start
+      if (missingDefaults.length > 0) {
+        return [...missingDefaults, ...settings.allFaqs]
+      }
+      return settings.allFaqs
+    }
+    // Initialize with defaults first, then any custom FAQs
+    const customFaqs = (settings.customFaqs || []).map(faq => ({ ...faq, isDefault: false }))
+    return [...defaultFaqTemplates, ...customFaqs]
+  }
+
+  const allFaqs = getAllFaqs()
+  const customFaqsCount = allFaqs.filter(f => !f.isDefault).length
+  const maxCustomFaqs = 4
+  const canAddMore = customFaqsCount < maxCustomFaqs
+
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // Add new custom FAQ at the END (below all existing FAQs including defaults)
+  const addCustomFaq = () => {
+    if (!canAddMore) return
+    const newFaq: FAQItem = {
+      id: `custom-${Date.now()}`,
+      question: "",
+      answer: "",
+      isDefault: false,
+    }
+    const updatedAllFaqs = [...allFaqs, newFaq]
+    const updatedCustomFaqs = updatedAllFaqs.filter(f => !f.isDefault)
+    onChange({
+      allFaqs: updatedAllFaqs,
+      customFaqs: updatedCustomFaqs
+    })
+  }
+
+  const updateFaq = (id: string, updates: Partial<FAQItem>) => {
+    const updated = allFaqs.map(faq =>
+      faq.id === id ? { ...faq, ...updates } : faq
+    )
+    const updatedCustomFaqs = updated.filter(f => !f.isDefault)
+    onChange({
+      allFaqs: updated,
+      customFaqs: updatedCustomFaqs
+    })
+  }
+
+  const removeFaq = (id: string) => {
+    // Only allow removing custom FAQs
+    const faq = allFaqs.find(f => f.id === id)
+    if (faq?.isDefault) return
+
+    const updated = allFaqs.filter(faq => faq.id !== id)
+    const updatedCustomFaqs = updated.filter(f => !f.isDefault)
+    onChange({
+      allFaqs: updated,
+      customFaqs: updatedCustomFaqs
+    })
+  }
+
+  const handleFaqDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      const oldIndex = allFaqs.findIndex((faq) => faq.id === active.id)
+      const newIndex = allFaqs.findIndex((faq) => faq.id === over.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(allFaqs, oldIndex, newIndex)
+        const reorderedCustomFaqs = reordered.filter(f => !f.isDefault)
+        onChange({
+          allFaqs: reordered,
+          customFaqs: reorderedCustomFaqs
+        })
+      }
+    }
+  }
+
+  const handleEditProductFaqs = () => {
+    if (productId) {
+      window.open(`/app/products/${productId}`, '_blank')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Edit FAQs Link */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          To edit FAQs, edit the product directly.
+        </p>
+        <button
+          onClick={handleEditProductFaqs}
+          disabled={!productId}
+          className="text-xs text-purple-600 hover:text-purple-700 hover:underline disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
+        >
+          Edit
+          <ExternalLink className="h-3 w-3" />
+        </button>
+      </div>
+
+      {/* All FAQs with drag and drop - defaults + custom together */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">FAQs ({allFaqs.length})</Label>
+          <span className="text-xs text-muted-foreground">
+            {customFaqsCount}/{maxCustomFaqs} custom
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Drag to reorder all FAQs. Default FAQs cannot be deleted.
+        </p>
+
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFaqDragEnd}>
+          <SortableContext items={allFaqs.map(faq => faq.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {allFaqs.map((faq, index) => (
+                <SortableFAQItem
+                  key={faq.id}
+                  faq={faq}
+                  index={index}
+                  onUpdate={updateFaq}
+                  onRemove={removeFaq}
+                  isDefault={faq.isDefault}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+
+        {canAddMore && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2"
+            onClick={addCustomFaq}
+          >
+            <Plus className="h-4 w-4" />
+            Add FAQ
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
