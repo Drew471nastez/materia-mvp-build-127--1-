@@ -692,6 +692,12 @@ export async function sendBuyerDownloadEmail(
             sellerName: fromName,
           }),
           text: buyerEmailText({ buyerFirstName, productTitle, receiptLink }),
+          // Add tracking tags for better deliverability monitoring
+          tags: [
+            { name: "buyer-download", value: "true" },
+            { name: "order", value: orderId },
+            { name: "transactional", value: "true" },
+          ],
         })
 
         if (!response.success) {

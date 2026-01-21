@@ -40,7 +40,7 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
   const router = useRouter()
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
-  const [email, setEmail] = useState(userEmail || "")
+  const [email, setEmail] = useState("")
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [tipAmount, setTipAmount] = useState(0)
   const [isGift, setIsGift] = useState(false)
@@ -347,7 +347,6 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      disabled={!!userEmail}
                       className="min-h-[44px]"
                       required
                     />

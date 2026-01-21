@@ -518,21 +518,15 @@ function ShareButtonPreview({
                 <div className="flex items-center gap-2">
                   <div
                     className={cn(
-                      "rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0",
+                      "rounded-md overflow-hidden shrink-0",
                       scale === "small" ? "w-6 h-6" : "w-7 h-7",
                     )}
                   >
-                    <svg
-                      className={scale === "small" ? "w-3 h-3" : "w-3.5 h-3.5"}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                    </svg>
+                    <img
+                      src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
+                      alt="Storelib"
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={cn("font-semibold text-gray-900", scale === "small" ? "text-[7px]" : "text-[8px]")}>
@@ -3405,8 +3399,10 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <div className="absolute inset-0">
                 {hasVideo ? (
                   <div
-                    className={cn(s.avatar, "rounded-full overflow-hidden border-2 shadow-lg w-full h-full")}
+                    className={cn(s.avatar, "rounded-full overflow-hidden shadow-lg w-full h-full")}
                     style={{
+                      borderWidth: "2.5px",
+                      borderStyle: "solid",
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
@@ -3437,8 +3433,10 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   </div>
                 ) : (
                   <Avatar
-                    className={cn(s.avatar, "border-2 shadow-lg w-full h-full")}
+                    className={cn(s.avatar, "shadow-lg w-full h-full")}
                     style={{
+                      borderWidth: "2.5px",
+                      borderStyle: "solid",
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
