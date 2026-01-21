@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Check, ArrowRight, CheckCircle, Download, Files, Infinity, Star, Heart } from "lucide-react"
 import { BuyButton } from "@/components/checkout/buy-button"
+import { PurchaseStatusWrapper } from "@/components/checkout/purchase-status-wrapper"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { DownloadButton } from "@/components/download-button"
@@ -748,80 +749,69 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 )}
               </div>
 
-              {hasPurchased ? (
-                <div className="space-y-3">
-                  {product.type === "digital" && firstAssetId && (
-                    <DownloadButton
-                      assetId={firstAssetId}
+              <PurchaseStatusWrapper
+                productId={product.id}
+                productType={product.type}
+                priceCents={product.price_cents}
+                creatorId={product.creator_id}
+                serverHasPurchased={hasPurchased}
+                serverAssetId={firstAssetId}
+                buyButtonBgColor={buyButtonColor}
+                buyButtonTextColor={buyButtonTextColor}
+                downloadButtonBgColor={downloadButtonBgColor}
+                downloadButtonTextColor={downloadButtonTextColor}
+                purchasedExtraContent={
+                  <>
+                    <Button
+                      variant="outline"
                       className="w-full min-h-[44px]"
-                      size="default"
+                      asChild
                       style={{
-                        backgroundColor: downloadButtonBgColor,
-                        color: downloadButtonTextColor,
+                        backgroundColor: themeColors.viewInLibraryBg || "transparent",
+                        color: themeColors.viewInLibraryText || "inherit",
+                        borderColor: themeColors.viewInLibraryBorder || "var(--border)",
                       }}
                     >
-                      Download File
-                    </DownloadButton>
-                  )}
-                  <Button
-                    variant="outline"
-                    className="w-full min-h-[44px]"
-                    asChild
-                    style={{
-                      backgroundColor: themeColors.viewInLibraryBg || "transparent",
-                      color: themeColors.viewInLibraryText || "inherit",
-                      borderColor: themeColors.viewInLibraryBorder || "var(--border)",
-                    }}
-                  >
-                    <Link href="/library/my-downloads">
-                      <ArrowRight className="mr-2 h-4 w-4" />
-                      View in Library
-                    </Link>
-                  </Button>
-
-                  {/* Refund Policy Display - shown after View in Library */}
-                  <RefundPolicyDisplay
-                    enabled={product.refund_policy_enabled}
-                    policyType={product.refund_policy_type}
-                    finePrint={product.refund_policy_fine_print}
-                    updatedAt={product.refund_policy_updated_at}
-                    className="mt-3"
-                    textColor={themeColors.cardTextColor}
-                    themePreset={themePreset}
-                    isDarkTheme={isDarkTheme}
-                  />
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <BuyButton
-                    productId={product.id}
-                    price={product.price_cents}
-                    creatorId={product.creator_id}
-                    backgroundColor={buyButtonColor}
-                    textColor={buyButtonTextColor}
-                  />
-                  <WishlistButton
-                    productId={product.id}
-                    isLoggedIn={!!user}
-                    backgroundColor={themeColors.cardBackground}
-                    textColor={themeColors.cardTextColor}
-                    borderColor={themeColors.cardBorderColor}
-                    iconColor={themeColors.cardIconColor}
-                  />
-
-                  {/* Refund Policy Display */}
-                  <RefundPolicyDisplay
-                    enabled={product.refund_policy_enabled}
-                    policyType={product.refund_policy_type}
-                    finePrint={product.refund_policy_fine_print}
-                    updatedAt={product.refund_policy_updated_at}
-                    className="mt-3"
-                    textColor={themeColors.cardTextColor}
-                    themePreset={themePreset}
-                    isDarkTheme={isDarkTheme}
-                  />
-                </div>
-              )}
+                      <Link href="/library/my-downloads">
+                        <ArrowRight className="mr-2 h-4 w-4" />
+                        View in Library
+                      </Link>
+                    </Button>
+                    <RefundPolicyDisplay
+                      enabled={product.refund_policy_enabled}
+                      policyType={product.refund_policy_type}
+                      finePrint={product.refund_policy_fine_print}
+                      updatedAt={product.refund_policy_updated_at}
+                      className="mt-3"
+                      textColor={themeColors.cardTextColor}
+                      themePreset={themePreset}
+                      isDarkTheme={isDarkTheme}
+                    />
+                  </>
+                }
+                notPurchasedExtraContent={
+                  <>
+                    <WishlistButton
+                      productId={product.id}
+                      isLoggedIn={!!user}
+                      backgroundColor={themeColors.cardBackground}
+                      textColor={themeColors.cardTextColor}
+                      borderColor={themeColors.cardBorderColor}
+                      iconColor={themeColors.cardIconColor}
+                    />
+                    <RefundPolicyDisplay
+                      enabled={product.refund_policy_enabled}
+                      policyType={product.refund_policy_type}
+                      finePrint={product.refund_policy_fine_print}
+                      updatedAt={product.refund_policy_updated_at}
+                      className="mt-3"
+                      textColor={themeColors.cardTextColor}
+                      themePreset={themePreset}
+                      isDarkTheme={isDarkTheme}
+                    />
+                  </>
+                }
+              />
 
               <div
                 className="mt-4 border-t pt-4"
@@ -1043,80 +1033,69 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             )}
           </div>
 
-          {hasPurchased ? (
-            <div className="space-y-3">
-              {product.type === "digital" && firstAssetId && (
-                <DownloadButton
-                  assetId={firstAssetId}
+          <PurchaseStatusWrapper
+            productId={product.id}
+            productType={product.type}
+            priceCents={product.price_cents}
+            creatorId={product.creator_id}
+            serverHasPurchased={hasPurchased}
+            serverAssetId={firstAssetId}
+            buyButtonBgColor={buyButtonColor}
+            buyButtonTextColor={buyButtonTextColor}
+            downloadButtonBgColor={downloadButtonBgColor}
+            downloadButtonTextColor={downloadButtonTextColor}
+            purchasedExtraContent={
+              <>
+                <Button
+                  variant="outline"
                   className="w-full min-h-[44px]"
-                  size="default"
+                  asChild
                   style={{
-                    backgroundColor: downloadButtonBgColor,
-                    color: downloadButtonTextColor,
+                    backgroundColor: themeColors.viewInLibraryBg || "transparent",
+                    color: themeColors.viewInLibraryText || "inherit",
+                    borderColor: themeColors.viewInLibraryBorder || "var(--border)",
                   }}
                 >
-                  Download File
-                </DownloadButton>
-              )}
-              <Button
-                variant="outline"
-                className="w-full min-h-[44px]"
-                asChild
-                style={{
-                  backgroundColor: themeColors.viewInLibraryBg || "transparent",
-                  color: themeColors.viewInLibraryText || "inherit",
-                  borderColor: themeColors.viewInLibraryBorder || "var(--border)",
-                }}
-              >
-                <Link href="/library/my-downloads">
-                  <ArrowRight className="mr-2 h-4 w-4" />
-                  View in Library
-                </Link>
-              </Button>
-
-              {/* Refund Policy Display - shown after View in Library */}
-              <RefundPolicyDisplay
-                enabled={product.refund_policy_enabled}
-                policyType={product.refund_policy_type}
-                finePrint={product.refund_policy_fine_print}
-                updatedAt={product.refund_policy_updated_at}
-                className="mt-3"
-                textColor={themeColors.cardTextColor}
-                themePreset={themePreset}
-                isDarkTheme={isDarkTheme}
-              />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <BuyButton
-                productId={product.id}
-                price={product.price_cents}
-                creatorId={product.creator_id}
-                backgroundColor={buyButtonColor}
-                textColor={buyButtonTextColor}
-              />
-              <WishlistButton
-                productId={product.id}
-                isLoggedIn={!!user}
-                backgroundColor={themeColors.cardBackground}
-                textColor={themeColors.cardTextColor}
-                borderColor={themeColors.cardBorderColor}
-                iconColor={themeColors.cardIconColor}
-              />
-
-              {/* Refund Policy Display */}
-              <RefundPolicyDisplay
-                enabled={product.refund_policy_enabled}
-                policyType={product.refund_policy_type}
-                finePrint={product.refund_policy_fine_print}
-                updatedAt={product.refund_policy_updated_at}
-                className="mt-3"
-                textColor={themeColors.cardTextColor}
-                themePreset={themePreset}
-                isDarkTheme={isDarkTheme}
-              />
-            </div>
-          )}
+                  <Link href="/library/my-downloads">
+                    <ArrowRight className="mr-2 h-4 w-4" />
+                    View in Library
+                  </Link>
+                </Button>
+                <RefundPolicyDisplay
+                  enabled={product.refund_policy_enabled}
+                  policyType={product.refund_policy_type}
+                  finePrint={product.refund_policy_fine_print}
+                  updatedAt={product.refund_policy_updated_at}
+                  className="mt-3"
+                  textColor={themeColors.cardTextColor}
+                  themePreset={themePreset}
+                  isDarkTheme={isDarkTheme}
+                />
+              </>
+            }
+            notPurchasedExtraContent={
+              <>
+                <WishlistButton
+                  productId={product.id}
+                  isLoggedIn={!!user}
+                  backgroundColor={themeColors.cardBackground}
+                  textColor={themeColors.cardTextColor}
+                  borderColor={themeColors.cardBorderColor}
+                  iconColor={themeColors.cardIconColor}
+                />
+                <RefundPolicyDisplay
+                  enabled={product.refund_policy_enabled}
+                  policyType={product.refund_policy_type}
+                  finePrint={product.refund_policy_fine_print}
+                  updatedAt={product.refund_policy_updated_at}
+                  className="mt-3"
+                  textColor={themeColors.cardTextColor}
+                  themePreset={themePreset}
+                  isDarkTheme={isDarkTheme}
+                />
+              </>
+            }
+          />
 
           <div
             className="mt-4 border-t pt-4"

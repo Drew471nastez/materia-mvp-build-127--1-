@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Heart, Loader2, ChevronRight, Check } from "lucide-react"
-import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 interface WishlistButtonProps {
@@ -164,9 +163,14 @@ export function WishlistButton({
     const checkBadgeBg = backgroundColor ? (textColor || "rgba(255,255,255,0.2)") : "#e5e7eb"
     const checkIconColor = backgroundColor ? backgroundColor : "#6b7280"
 
+    const handleWishlistClick = () => {
+      // Use window.location.href for reliable navigation (works across subdomains)
+      window.location.href = wishlistHref
+    }
+
     return (
-      <Link
-        href={wishlistHref}
+      <button
+        onClick={handleWishlistClick}
         className={cn(
           "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[44px] hover:opacity-80 transition-colors cursor-pointer",
           className
@@ -185,7 +189,7 @@ export function WishlistButton({
         </div>
         <span className="text-sm font-medium">In your wishlist</span>
         <ChevronRight className="h-4 w-4 ml-1" style={iconStyle} />
-      </Link>
+      </button>
     )
   }
 
