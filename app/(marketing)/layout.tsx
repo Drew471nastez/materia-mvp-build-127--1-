@@ -11,7 +11,7 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="flex min-h-svh flex-col">
-      {/* Apply rounded favicon (8px border radius) to all marketing pages */}
+      {/* Apply rounded favicon (5px border radius) to all marketing pages */}
       <DynamicFavicon />
 
       <Suspense fallback={null}>

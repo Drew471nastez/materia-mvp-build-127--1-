@@ -5,8 +5,8 @@ import { useEffect } from "react"
 // Platform default favicon URL
 const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
 
-// Border radius for favicon (8px on a 32x32 icon)
-const FAVICON_BORDER_RADIUS = 8
+// Border radius for favicon (5px on a 32x32 icon)
+const FAVICON_BORDER_RADIUS = 5
 
 interface DynamicFaviconProps {
   avatarUrl?: string | null
@@ -17,7 +17,7 @@ interface DynamicFaviconProps {
  * Creates a rounded favicon using canvas
  * @param imageUrl - URL of the image to use as favicon
  * @param size - Size of the favicon (default 32)
- * @param borderRadius - Border radius (default 8)
+ * @param borderRadius - Border radius (default 5)
  * @returns Promise<string> - Data URL of the rounded favicon
  */
 async function createRoundedFavicon(imageUrl: string, size = 32, borderRadius = FAVICON_BORDER_RADIUS): Promise<string> {
@@ -82,7 +82,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
     let isMounted = true
 
     const setFavicon = async () => {
-      // Create rounded favicon with 8px border radius
+      // Create rounded favicon with 5px border radius
       const roundedIconUrl = await createRoundedFavicon(iconUrl)
 
       if (!isMounted) return

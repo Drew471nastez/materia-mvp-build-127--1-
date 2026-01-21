@@ -25,6 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl } from "@/lib/url-helpers"
+import { createRoundedFavicon, PLATFORM_FAVICON_URL } from "@/components/store-builder/dynamic-favicon"
 
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
@@ -866,39 +867,54 @@ function OnePageDynamicFavicon({ avatarUrl, videoUrl, sellerId }: OnePageDynamic
   // Determine which URL to use for favicon
   const faviconUrl = avatarUrl || videoFrameUrl || storeAvatarUrl
 
-  // Apply favicon
+  // Apply favicon with rounded corners (5px border radius)
   useEffect(() => {
     if (!faviconUrl) return
 
-    // Find existing favicon links
-    const existingLinks = document.querySelectorAll("link[rel*='icon']")
+    let isMounted = true
 
-    // Remove existing favicons
-    existingLinks.forEach((link) => link.remove())
+    const setFavicon = async () => {
+      // Create rounded favicon with 5px border radius (same as platform favicon)
+      const roundedIconUrl = await createRoundedFavicon(faviconUrl)
 
-    // Create new favicon link
-    const link = document.createElement("link")
-    link.rel = "icon"
-    link.href = faviconUrl
-    link.type = faviconUrl.startsWith("data:") ? "image/png" : "image/x-icon"
-    document.head.appendChild(link)
+      if (!isMounted) return
 
-    // Also add apple-touch-icon for iOS
-    const appleLink = document.createElement("link")
-    appleLink.rel = "apple-touch-icon"
-    appleLink.href = faviconUrl
-    document.head.appendChild(appleLink)
+      // Find existing favicon links
+      const existingLinks = document.querySelectorAll("link[rel*='icon']")
 
-    // Cleanup on unmount - restore platform default favicon
+      // Remove existing favicons
+      existingLinks.forEach((link) => link.remove())
+
+      // Create new favicon link
+      const link = document.createElement("link")
+      link.rel = "icon"
+      link.href = roundedIconUrl
+      link.type = "image/png"
+      document.head.appendChild(link)
+
+      // Also add apple-touch-icon for iOS
+      const appleLink = document.createElement("link")
+      appleLink.rel = "apple-touch-icon"
+      appleLink.href = roundedIconUrl
+      document.head.appendChild(appleLink)
+    }
+
+    setFavicon()
+
+    // Cleanup on unmount - restore platform default favicon with rounded corners
     return () => {
+      isMounted = false
       const addedLinks = document.querySelectorAll("link[rel*='icon']")
       addedLinks.forEach((link) => link.remove())
 
-      // Restore platform default favicon
-      const defaultLink = document.createElement("link")
-      defaultLink.rel = "icon"
-      defaultLink.href = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
-      document.head.appendChild(defaultLink)
+      // Restore platform default favicon with rounded corners
+      createRoundedFavicon(PLATFORM_FAVICON_URL).then((roundedUrl) => {
+        const defaultLink = document.createElement("link")
+        defaultLink.rel = "icon"
+        defaultLink.href = roundedUrl
+        defaultLink.type = "image/png"
+        document.head.appendChild(defaultLink)
+      })
     }
   }, [faviconUrl])
 
