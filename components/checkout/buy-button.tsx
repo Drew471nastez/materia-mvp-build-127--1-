@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 
@@ -15,7 +14,6 @@ interface BuyButtonProps {
 }
 
 export function BuyButton({ productId, price, disabled, creatorId, backgroundColor, textColor }: BuyButtonProps) {
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
 
   const formatPrice = (cents: number) => {
@@ -45,7 +43,8 @@ export function BuyButton({ productId, price, disabled, creatorId, backgroundCol
       }
     }
 
-    router.push(`/checkout?productId=${productId}`)
+    // Use window.location.href for reliable navigation (works across subdomains)
+    window.location.href = `/checkout?productId=${productId}`
   }
 
   return (
