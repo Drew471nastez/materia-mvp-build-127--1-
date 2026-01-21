@@ -625,8 +625,6 @@ export default function ReceiptContent({
                   sellerUsername ? (
                     <a
                       href={getStoreUrl(sellerUsername)}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="mt-1 inline-block text-sm text-gray-500 hover:text-gray-700 hover:underline transition-colors"
                     >
                       by {sellerName}

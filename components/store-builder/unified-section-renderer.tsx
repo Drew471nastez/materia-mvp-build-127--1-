@@ -2605,8 +2605,9 @@ function UnifiedFeaturedProductsSection({
                 <Link
                   key={product.id}
                   href={getProductHref(product)}
+                  prefetch={false}
                   className={cn(
-                    "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
+                    "group overflow-hidden rounded-lg border transition-shadow hover:shadow-lg touch-manipulation",
                     !cardBgColor && "bg-card border-border",
                   )}
                   style={{
@@ -4054,7 +4055,8 @@ export function UnifiedProductsGrid({
             <Link
               key={product.id}
               href={`/p/${product.slug || product.id}`}
-              className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
+              prefetch={false}
+              className="group overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-md touch-manipulation"
             >
               {content}
             </Link>
@@ -4266,8 +4268,9 @@ function UnifiedMoreFromSellerSection({
             <Link
               key={product.id}
               href={`/p/${product.slug || product.id}`}
+              prefetch={false}
               className={cn(
-                "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
+                "group overflow-hidden rounded-lg border transition-shadow hover:shadow-lg touch-manipulation",
                 !cardBgColor && "bg-card border-border",
               )}
               style={{

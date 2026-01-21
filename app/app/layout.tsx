@@ -2,6 +2,7 @@ import type React from "react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { AppSidebar } from "@/components/app/sidebar"
+import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 
 export default async function AppLayout({
   children,
@@ -60,6 +61,8 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-white">
+      {/* Apply rounded favicon (8px border radius) */}
+      <DynamicFavicon />
       <AppSidebar
         creatorSlug={creator.slug}
         storePublished={creator.store_published}

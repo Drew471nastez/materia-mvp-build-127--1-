@@ -38,7 +38,8 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
   return (
     <Link
       href={`/p/${product.slug}${srcParam}`}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-colors hover:border-border"
+      prefetch={false}
+      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-colors hover:border-border touch-manipulation"
     >
       <div className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (

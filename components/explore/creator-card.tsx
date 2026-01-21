@@ -31,7 +31,8 @@ export function CreatorCard({ creator }: CreatorCardProps) {
   return (
     <Link
       href={`${getStoreInternalPath(username)}?src=platform`}
-      className="group flex flex-col rounded-lg border border-border/60 bg-card p-6 transition-colors hover:border-border"
+      prefetch={false}
+      className="group flex flex-col rounded-lg border border-border/60 bg-card p-6 transition-colors hover:border-border touch-manipulation"
     >
       <div className="flex items-start gap-4">
         <Avatar className="h-14 w-14">

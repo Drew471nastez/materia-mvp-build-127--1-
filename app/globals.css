@@ -265,6 +265,27 @@
   .snap-start {
     scroll-snap-align: start;
   }
+
+  /* Touch manipulation for better click responsiveness */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Global link and button optimizations for better click behavior */
+@layer base {
+  /* Ensure links and buttons respond immediately to clicks */
+  a, button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent 300ms delay on mobile by removing double-tap-to-zoom */
+  a:active, button:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
 }
 
 /* Responsive table styling - simplified to avoid Tailwind v4 issues */

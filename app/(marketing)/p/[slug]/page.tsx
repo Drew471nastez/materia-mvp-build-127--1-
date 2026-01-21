@@ -579,11 +579,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   const srcParam = src === "platform" ? "?src=platform" : ""
 
-  // When coming from platform, use subdomain URL (sellername.storelib.com)
-  // Otherwise use internal path for same-site navigation
-  const sellerProfileUrl = src === "platform"
-    ? getStoreUrl(creatorUsername)
-    : getStoreInternalPath(creatorUsername)
+  // Always use subdomain URL format (sellername.storelib.com) for seller profile
+  // This provides consistent branding and better SEO
+  const sellerProfileUrl = getStoreUrl(creatorUsername)
 
   const stickyBarSettings = {
     visible: true,
@@ -684,8 +682,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               <div className="flex items-center gap-3 p-2 -ml-2">
                 <Link
                   href={sellerProfileUrl}
-                  target={src === "platform" ? "_blank" : undefined}
-                  rel={src === "platform" ? "noopener noreferrer" : undefined}
                   className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
@@ -883,8 +879,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <Link
                     href={sellerProfileUrl}
-                    target={src === "platform" ? "_blank" : undefined}
-                    rel={src === "platform" ? "noopener noreferrer" : undefined}
                     className="flex items-center gap-3"
                   >
                     <Avatar className="h-8 w-8 shrink-0">
