@@ -7,15 +7,18 @@ interface DynamicFaviconProps {
   faviconUrl?: string | null
 }
 
+// Platform favicon URL from Supabase storage
+const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
+
 /**
  * DynamicFavicon - Dynamically sets the page favicon
  * - On seller pages: Uses the seller's profile avatar with border-radius 8px
- * - Falls back to platform favicon (icon.svg) when no avatar is provided
+ * - On platform pages: Uses platform favicon (logostorelib.svg) with border-radius 8px
+ * - Seller favicons are NOT overridden by platform favicon
  */
 export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
   useEffect(() => {
     const iconUrl = avatarUrl || faviconUrl
-    const platformFavicon = "/icon.svg"
 
     // Function to create rounded favicon from image URL
     const createRoundedFavicon = (imageUrl: string): Promise<string> => {
@@ -33,8 +36,8 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
             return
           }
 
-          // Draw rounded rectangle clip path (border-radius 8px equivalent)
-          const radius = 8 * (size / 32) // Scale radius to canvas size
+          // Draw rounded rectangle clip path (border-radius 8px)
+          const radius = 8 * (size / 32) // Scale radius to canvas size (8px at 32px display)
           ctx.beginPath()
           ctx.moveTo(radius, 0)
           ctx.lineTo(size - radius, 0)
@@ -81,21 +84,30 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
 
     // Set favicon based on whether we have a seller avatar or not
     if (iconUrl) {
-      // Seller page - use seller's avatar with rounded corners
+      // Seller page - use seller's avatar with rounded corners (8px border-radius)
       createRoundedFavicon(iconUrl)
         .then((dataUrl) => {
           setFavicon(dataUrl, "image/png")
         })
         .catch(() => {
           // Fallback to platform favicon on error
-          setFavicon(platformFavicon, "image/svg+xml")
+          createRoundedFavicon(PLATFORM_FAVICON_URL)
+            .then((dataUrl) => setFavicon(dataUrl, "image/png"))
+            .catch(() => setFavicon(PLATFORM_FAVICON_URL, "image/svg+xml"))
         })
     } else {
-      // Platform page - use platform favicon
-      setFavicon(platformFavicon, "image/svg+xml")
+      // Platform page - use platform favicon with rounded corners (8px border-radius)
+      createRoundedFavicon(PLATFORM_FAVICON_URL)
+        .then((dataUrl) => {
+          setFavicon(dataUrl, "image/png")
+        })
+        .catch(() => {
+          // Fallback to direct SVG if canvas fails
+          setFavicon(PLATFORM_FAVICON_URL, "image/svg+xml")
+        })
     }
 
-    // Cleanup on unmount - restore default favicon
+    // Cleanup on unmount - restore default platform favicon
     return () => {
       const addedLinks = document.querySelectorAll("link[rel*='icon']")
       addedLinks.forEach((link) => link.remove())
@@ -103,7 +115,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
       // Restore default favicon
       const defaultLink = document.createElement("link")
       defaultLink.rel = "icon"
-      defaultLink.href = "/icon.svg"
+      defaultLink.href = PLATFORM_FAVICON_URL
       defaultLink.type = "image/svg+xml"
       document.head.appendChild(defaultLink)
     }
