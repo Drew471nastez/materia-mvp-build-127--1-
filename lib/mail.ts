@@ -1,25 +1,25 @@
 /**
- * Email sending via Amazon SES SMTP (nodemailer)
+ * Email sending via Mailgun SMTP (nodemailer)
  *
  * Environment variables required:
- * - SMTP_HOST: email-smtp.us-east-1.amazonaws.com
+ * - SMTP_HOST: smtp.eu.mailgun.org
  * - SMTP_PORT: 587
- * - SMTP_USER: Your SES SMTP username (AKIAVYC4QXXFBT5IB74A)
- * - SMTP_PASS: Your SES SMTP password
- * - EMAIL_FROM: noreply@storelib.com
+ * - SMTP_USER: noreplyto@storelib.com
+ * - SMTP_PASS: Your Mailgun SMTP password
+ * - EMAIL_FROM: noreplyto@storelib.com
  * - EMAIL_REPLY_TO: support@storelib.com (default fallback)
  */
 
 import * as nodemailer from "nodemailer"
 
 // SMTP Configuration from environment variables
-const SMTP_HOST = process.env.SMTP_HOST || "email-smtp.us-east-1.amazonaws.com"
+const SMTP_HOST = process.env.SMTP_HOST || "smtp.eu.mailgun.org"
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587", 10)
 const SMTP_USER = process.env.SMTP_USER
 const SMTP_PASS = process.env.SMTP_PASS
 
 // Email defaults
-export const EMAIL_FROM = process.env.EMAIL_FROM || "noreply@storelib.com"
+export const EMAIL_FROM = process.env.EMAIL_FROM || "noreplyto@storelib.com"
 export const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || "support@storelib.com"
 export const PLATFORM_BRAND = "Storelib"
 
@@ -47,7 +47,7 @@ function getTransporter(): nodemailer.Transporter | null {
         pass: SMTP_PASS,
       },
       tls: {
-        // Amazon SES requires TLS 1.2+
+        // Mailgun requires TLS 1.2+
         minVersion: "TLSv1.2",
         rejectUnauthorized: true,
       },
@@ -97,7 +97,7 @@ export function resetTransporter(): void {
 }
 
 /**
- * Send an email via Amazon SES SMTP
+ * Send an email via Mailgun SMTP
  */
 export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   const transport = getTransporter()
