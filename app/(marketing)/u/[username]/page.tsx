@@ -40,29 +40,14 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     return { title: "Creator Not Found | Materia" }
   }
 
-  // Fetch creator to get published config for favicon
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", (await supabase.from("profiles").select("id").eq("username", username).single()).data?.id)
-    .maybeSingle()
-
-  let faviconUrl: string | undefined
-  if (creator) {
-    const publishedConfig = await getPublishedConfig(creator.id, "shop")
-    const headerSettings = publishedConfig?.headerSettings as ShopHeaderSettings | undefined
-    faviconUrl = headerSettings?.faviconUrl || undefined
-  }
-
+  // Use platform favicon
   return {
     title: `${profile.display_name || profile.username || "Creator"} | Materia`,
     description: `Check out ${profile.display_name || profile.username}'s products on Materia`,
-    ...(faviconUrl && {
-      icons: {
-        icon: faviconUrl,
-        apple: faviconUrl,
-      },
-    }),
+    icons: {
+      icon: "/icon.svg",
+      apple: "/icon.svg",
+    },
   }
 }
 

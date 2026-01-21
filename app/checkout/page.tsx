@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import CheckoutPageClient from "./checkout-client"
+import { getProductUrl } from "@/lib/url-helpers"
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string }>
@@ -29,16 +30,20 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
 
   const { data: creator } = await supabase.from("creators").select("*").eq("id", product.creator_id).single()
 
-  let creatorProfile = null
+  let creatorProfile: { display_name: string | null; avatar_url: string | null; username: string | null } | null = null
   if (creator) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("display_name, avatar_url")
+      .select("display_name, avatar_url, username")
       .eq("id", creator.user_id)
       .single()
 
     creatorProfile = profile
   }
+
+  // Build product URL with subdomain
+  const creatorUsername = creatorProfile?.username
+  const productUrl = creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`
 
   // Check if user is logged in and already owns the product
   const {
@@ -54,7 +59,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       .maybeSingle()
 
     if (existingEntitlement) {
-      redirect(`/p/${product.slug}?already_owned=true`)
+      redirect(productUrl)
     }
   }
 
@@ -73,6 +78,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         id: creator?.id || "",
         name: creatorProfile?.display_name || "Creator",
         avatar_url: creatorProfile?.avatar_url || null,
+        username: creatorUsername || null,
       }}
       userEmail={user?.email || null}
       isLoggedIn={!!user}

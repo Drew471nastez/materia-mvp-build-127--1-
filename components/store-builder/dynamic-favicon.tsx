@@ -9,9 +9,8 @@ interface DynamicFaviconProps {
 
 export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
   useEffect(() => {
-    const iconUrl = avatarUrl || faviconUrl
-
-    if (!iconUrl) return
+    // Always use platform favicon (/icon.svg) with border-radius 8px
+    const iconUrl = "/icon.svg"
 
     // Find existing favicon links
     const existingLinks = document.querySelectorAll("link[rel*='icon']")
@@ -23,7 +22,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
     const link = document.createElement("link")
     link.rel = "icon"
     link.href = iconUrl
-    link.type = "image/x-icon"
+    link.type = "image/svg+xml"
     document.head.appendChild(link)
 
     // Also add apple-touch-icon for iOS
@@ -40,10 +39,10 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
       // Restore default favicon
       const defaultLink = document.createElement("link")
       defaultLink.rel = "icon"
-      defaultLink.href = "/favicon.ico"
+      defaultLink.href = "/icon.svg"
       document.head.appendChild(defaultLink)
     }
-  }, [avatarUrl, faviconUrl])
+  }, [])
 
   return null
 }

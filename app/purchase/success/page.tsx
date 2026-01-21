@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
+import { getProductUrl } from "@/lib/url-helpers"
 
 interface PurchaseSuccessPageProps {
   searchParams: Promise<{ session_id?: string }>
@@ -16,6 +17,7 @@ async function PurchaseSuccessContent({ searchParams }: PurchaseSuccessPageProps
 
   let productTitle = "your product"
   let productSlug: string | null = null
+  let productUrl: string | null = null
   let isLoggedIn = false
   let customerEmail: string | null = null
   let orderId: string | null = null
@@ -31,11 +33,36 @@ async function PurchaseSuccessContent({ searchParams }: PurchaseSuccessPageProps
 
       if (productId) {
         const supabase = await createClient()
-        const { data: product } = await supabase.from("products").select("title, slug").eq("id", productId).single()
+        const { data: product } = await supabase
+          .from("products")
+          .select("title, slug, creator_id")
+          .eq("id", productId)
+          .single()
 
         if (product) {
           productTitle = product.title
           productSlug = productSlug || product.slug
+
+          // Get creator username for subdomain URL
+          if (product.creator_id) {
+            const { data: creator } = await supabase
+              .from("creators")
+              .select("user_id")
+              .eq("id", product.creator_id)
+              .single()
+
+            if (creator?.user_id) {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("username")
+                .eq("id", creator.user_id)
+                .single()
+
+              if (profile?.username && productSlug) {
+                productUrl = getProductUrl(profile.username, productSlug)
+              }
+            }
+          }
         }
 
         const {
@@ -55,7 +82,9 @@ async function PurchaseSuccessContent({ searchParams }: PurchaseSuccessPageProps
           }
         }
 
-        if (user && productSlug) {
+        if (user && productUrl) {
+          redirect(`${productUrl}?purchase=success`)
+        } else if (user && productSlug) {
           redirect(`/p/${productSlug}?purchase=success`)
         }
       }
@@ -85,12 +114,12 @@ async function PurchaseSuccessContent({ searchParams }: PurchaseSuccessPageProps
                 <Package className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">Your purchase is ready! Access it from your library.</p>
               </div>
-              {productSlug ? (
+              {productUrl || productSlug ? (
                 <Button asChild className="w-full">
-                  <Link href={`/p/${productSlug}`}>
+                  <a href={productUrl || `/p/${productSlug}`}>
                     <Download className="mr-2 h-4 w-4" />
                     Go to Product
-                  </Link>
+                  </a>
                 </Button>
               ) : (
                 <Button asChild className="w-full">

@@ -21,7 +21,7 @@ import {
   Zap,
   ShoppingCart,
 } from "lucide-react"
-import { getStoreUrl, getStoreUrlDisplay, getStoreInternalPath } from "@/lib/url-helpers"
+import { getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
 
 export const dynamic = "force-dynamic"
 
@@ -174,7 +174,6 @@ export default async function AppDashboard() {
   // Use subdomain-based URLs
   const storeUrl = storeUsername ? getStoreUrl(storeUsername) : "/app/settings"
   const storeUrlDisplay = storeUsername ? getStoreUrlDisplay(storeUsername) : ""
-  const storeInternalPath = storeUsername ? getStoreInternalPath(storeUsername) : "/app/settings"
 
   const gettingStartedCards = [
     {
@@ -231,7 +230,7 @@ export default async function AppDashboard() {
       description: "Share your products",
       icon: Share2,
       completed: false,
-      href: storeInternalPath,
+      href: storeUrl,
     },
     {
       id: "smart",
