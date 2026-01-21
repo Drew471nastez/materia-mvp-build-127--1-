@@ -2791,11 +2791,13 @@ export function UnifiedShopHeader({
           >
             <Avatar
               key={avatarKey}
-              className="border-4 shadow-lg shrink-0"
+              className="shadow-lg shrink-0"
               style={{
                 width: `${avatarSize}px`,
                 height: `${avatarSize}px`,
-                borderColor: settings.profileImageBorderColor || "hsl(var(--background))",
+                borderWidth: "0.3px",
+                borderStyle: "solid",
+                borderColor: settings.profileImageBorderColor || "#e5e7eb",
               }}
             >
               {avatarImageUrl ? (

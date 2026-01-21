@@ -105,7 +105,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       <div className="min-h-screen bg-background overflow-x-hidden">
         <div className="mx-auto max-w-4xl px-4 py-12">
           <div className="flex flex-col items-center text-center">
-            <Avatar className="h-24 w-24 border-4 border-background shadow-lg">
+            <Avatar
+              className="h-24 w-24 shadow-lg"
+              style={{
+                borderWidth: "0.3px",
+                borderStyle: "solid",
+                borderColor: "#e5e7eb",
+              }}
+            >
               <AvatarImage src={profile.avatar_url || undefined} alt={profile.display_name || ""} />
               <AvatarFallback className="text-2xl">
                 {profile.display_name
