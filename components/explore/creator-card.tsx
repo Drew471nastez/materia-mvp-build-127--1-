@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { getStoreUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/ui/smart-link"
 
 interface CreatorCardProps {
   creator: {
@@ -28,7 +29,7 @@ export function CreatorCard({ creator }: CreatorCardProps) {
   const username = creator.profile?.username || creator.slug
 
   return (
-    <a
+    <SmartLink
       href={`${getStoreUrl(username)}?src=platform`}
       className="group flex flex-col rounded-lg border border-border/60 bg-card p-6 transition-colors hover:border-border"
     >
@@ -61,6 +62,6 @@ export function CreatorCard({ creator }: CreatorCardProps) {
       <div className="mt-4 text-xs text-muted-foreground">
         {creator.products_count || 0} {creator.products_count === 1 ? "product" : "products"}
       </div>
-    </a>
+    </SmartLink>
   )
 }

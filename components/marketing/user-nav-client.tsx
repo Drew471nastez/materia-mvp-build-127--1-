@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { getStoreUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/ui/smart-link"
 
 interface UserNavClientProps {
   user: SupabaseUser
@@ -68,10 +69,10 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
         {isCreator && storeUsername && (
           <>
             <DropdownMenuItem asChild>
-              <a href={`${getStoreUrl(storeUsername)}?src=platform`} className="cursor-pointer">
+              <SmartLink href={`${getStoreUrl(storeUsername)}?src=platform`} className="cursor-pointer">
                 <Store className="mr-2 h-4 w-4" />
                 <span>My Store</span>
-              </a>
+              </SmartLink>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/store-builder" className="cursor-pointer">

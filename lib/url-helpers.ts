@@ -220,3 +220,24 @@ export function isLinksPage(pathname: string, host?: string): boolean {
   // Check path-based route
   return pathname.startsWith("/l/")
 }
+
+/**
+ * Check if we're on a seller subdomain (not the main platform)
+ * @param host - Current host (e.g., from window.location.host)
+ * @returns true if on a seller subdomain
+ */
+export function isSellerSubdomain(host?: string): boolean {
+  if (!host) {
+    if (typeof window !== "undefined") {
+      host = window.location.host
+    } else {
+      return false
+    }
+  }
+  return extractUsernameFromHost(host) !== null
+}
+
+// Aliases for clarity
+export const sellerProfileUrl = getStoreUrl
+export const sellerProductUrl = getProductUrl
+export const sellerLinksUrl = getLinksUrl

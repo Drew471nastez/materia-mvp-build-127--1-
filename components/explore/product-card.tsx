@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/ui/smart-link"
 
 interface ProductCardProps {
   product: {
@@ -41,7 +42,7 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
     : `/p/${product.slug}${srcParam}`
 
   return (
-    <a
+    <SmartLink
       href={productUrl}
       className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-colors hover:border-border"
     >
@@ -84,6 +85,6 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
           )}
         </div>
       </div>
-    </a>
+    </SmartLink>
   )
 }

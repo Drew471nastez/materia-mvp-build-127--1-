@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Package, Loader2, Gift, Heart, Tag } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { getProductUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/ui/smart-link"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -216,13 +217,13 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <header className="border-b border-border bg-background pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-6xl items-center px-4">
-          <a
+          <SmartLink
             href={productUrl}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground min-h-[44px]"
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />
             <span className="truncate">Back to product</span>
-          </a>
+          </SmartLink>
         </div>
       </header>
 

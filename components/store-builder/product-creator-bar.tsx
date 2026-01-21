@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -9,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Mail, ArrowRight, Check } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/ui/smart-link"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -315,11 +315,11 @@ export function ProductCreatorBar({
   const EditorMobileLayout = () => (
     <div className="w-full py-4 px-3">
       <div className="flex items-center gap-2 w-full">
-        <Link
+        <SmartLink
           href={creatorHref}
           className="flex items-center gap-1.5 shrink-0"
           aria-label={`Go to ${creatorName}'s shop`}
-          onClick={(e) => {
+          onClick={(e: React.MouseEvent) => {
             if (isEditorPreview) {
               e.preventDefault()
             }
@@ -335,7 +335,7 @@ export function ProductCreatorBar({
           <span className="text-[13px] font-medium truncate max-w-[70px]" style={{ color: settings.textColor || "#ffffff" }}>
             {creatorName}
           </span>
-        </Link>
+        </SmartLink>
 
         <form onSubmit={handleSubmit} className="flex gap-1.5 items-center flex-1 min-w-0">
           <Input
@@ -381,11 +381,11 @@ export function ProductCreatorBar({
   const CompactMobileLayout = () => (
     <form onSubmit={handleSubmit} className="w-full px-3 py-3.5">
       <div className="flex items-center gap-2 w-full justify-center">
-        <Link
+        <SmartLink
           href={creatorHref}
           className="shrink-0 flex items-center justify-center"
           aria-label={`Go to ${creatorName}'s shop`}
-          onClick={(e) => {
+          onClick={(e: React.MouseEvent) => {
             if (isEditorPreview) {
               e.preventDefault()
             }
@@ -398,7 +398,7 @@ export function ProductCreatorBar({
               <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
             </Avatar>
           </div>
-        </Link>
+        </SmartLink>
 
         {/* Input fits remaining space */}
         <Input
@@ -447,11 +447,11 @@ export function ProductCreatorBar({
     <div className={cn("py-[calc(0.625rem+5px)] px-4 sm:px-5")}>
       <div className={cn("mx-auto w-full", EDITOR_DESKTOP_MAX_W)}>
         <div className="w-full flex items-center justify-between gap-4">
-          <Link
+          <SmartLink
             href={creatorHref}
             className="flex items-center gap-2 shrink-0 group"
             aria-label={`Go to ${creatorName}'s shop`}
-            onClick={(e) => {
+            onClick={(e: React.MouseEvent) => {
               if (isEditorPreview) {
                 e.preventDefault()
               }
@@ -464,7 +464,7 @@ export function ProductCreatorBar({
             <p className="text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
               {creatorName}
             </p>
-          </Link>
+          </SmartLink>
 
           <form onSubmit={handleSubmit} className="flex gap-2 items-center shrink-0">
             <Input
@@ -691,12 +691,12 @@ export function LiveProductCreatorBar({
       {/* Mobile: Responsive layout using CSS */}
       <form onSubmit={handleSubmit} className="sm:hidden w-full px-4 py-2.5">
         <div className="flex items-center gap-2 w-full">
-          <Link href={creatorHref} className="shrink-0" aria-label={`Go to ${creatorName}'s shop`}>
+          <SmartLink href={creatorHref} className="shrink-0" aria-label={`Go to ${creatorName}'s shop`}>
             <Avatar className="h-7 w-7 shrink-0">
               {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
               <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
             </Avatar>
-          </Link>
+          </SmartLink>
 
           <Input
             type="email"
@@ -744,7 +744,7 @@ export function LiveProductCreatorBar({
       <div className={cn("hidden sm:block py-[calc(0.625rem+5px)] px-4 sm:px-5")}>
         <div className={cn("mx-auto w-full", LIVE_DESKTOP_MAX_W)}>
           <div className="w-full flex items-center justify-between gap-4">
-            <Link
+            <SmartLink
               href={creatorHref}
               className="flex items-center gap-2 shrink-0 group"
               aria-label={`Go to ${creatorName}'s shop`}
@@ -756,7 +756,7 @@ export function LiveProductCreatorBar({
               <p className="text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
                 {creatorName}
               </p>
-            </Link>
+            </SmartLink>
 
             <form onSubmit={handleSubmit} className="flex gap-2 items-center shrink-0">
               <Input

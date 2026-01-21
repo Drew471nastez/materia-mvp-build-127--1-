@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Heart, Trash2, Loader2, ShoppingBag, RefreshCw } from "lucide-react"
 import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/ui/smart-link"
 
 interface WishlistItem {
   id: string
@@ -201,7 +202,7 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
             <Card key={item.id} className="overflow-hidden border-gray-200 hover:shadow-md transition-shadow">
               <CardContent className="p-0">
                 <div className="flex gap-4 p-4">
-                  <a href={creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`} className="shrink-0">
+                  <SmartLink href={creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`} className="shrink-0">
                     <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden bg-gray-100">
                       {product.thumbnail_url ? (
                         <Image
@@ -216,22 +217,22 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
                         </div>
                       )}
                     </div>
-                  </a>
+                  </SmartLink>
 
                   <div className="flex-1 min-w-0 flex flex-col">
-                    <a href={creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`}>
+                    <SmartLink href={creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`}>
                       <h3 className="font-semibold text-gray-900 hover:text-blue-600 truncate transition-colors">
                         {product.title}
                       </h3>
-                    </a>
+                    </SmartLink>
 
                     {creatorUsername && (
-                      <a
+                      <SmartLink
                         href={getStoreUrl(creatorUsername)}
                         className="text-sm text-gray-500 hover:text-gray-700 transition-colors mt-0.5"
                       >
                         by {creatorName}
-                      </a>
+                      </SmartLink>
                     )}
 
                     <div className="mt-2 flex items-center gap-2">
@@ -247,9 +248,9 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
 
                     <div className="mt-auto pt-3 flex gap-2">
                       <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
-                        <a href={creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`}>
+                        <SmartLink href={creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`}>
                           View Product
-                        </a>
+                        </SmartLink>
                       </Button>
                       <Button
                         variant="outline"

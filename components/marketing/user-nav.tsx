@@ -16,6 +16,7 @@ import {
 import { LayoutDashboard, Settings, LogOut, ShoppingBag, Store } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
 import { getStoreUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/ui/smart-link"
 
 interface UserNavProps {
   user: User
@@ -86,10 +87,10 @@ export function UserNav({ user, profile, isCreator, creatorSlug }: UserNavProps)
             </DropdownMenuItem>
             {storeUsername && (
               <DropdownMenuItem asChild>
-                <a href={getStoreUrl(storeUsername)} className="cursor-pointer">
+                <SmartLink href={getStoreUrl(storeUsername)} className="cursor-pointer">
                   <Store className="mr-2 h-4 w-4" />
                   View My Store
-                </a>
+                </SmartLink>
               </DropdownMenuItem>
             )}
             <DropdownMenuItem asChild>
