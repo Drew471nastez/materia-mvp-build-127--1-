@@ -384,19 +384,23 @@ export function PlatformHeaderClient() {
 
                       <DropdownMenuSeparator className="bg-gray-200" />
 
-                      <DropdownMenuItem onClick={() => router.push(dashboardHref)} className="focus:bg-gray-100">
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
+                      <DropdownMenuItem asChild className="focus:bg-gray-100 cursor-pointer">
+                        <Link href={dashboardHref}>
+                          <LayoutDashboard className="h-4 w-4" />
+                          Dashboard
+                        </Link>
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem onClick={() => router.push("/settings")} className="focus:bg-gray-100">
-                        <Settings className="h-4 w-4" />
-                        Settings
+                      <DropdownMenuItem asChild className="focus:bg-gray-100 cursor-pointer">
+                        <Link href="/settings">
+                          <Settings className="h-4 w-4" />
+                          Settings
+                        </Link>
                       </DropdownMenuItem>
 
                       <DropdownMenuSeparator className="bg-gray-200" />
 
-                      <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:bg-gray-100">
+                      <DropdownMenuItem onSelect={handleLogout} className="text-red-600 focus:bg-gray-100 cursor-pointer">
                         <LogOut className="h-4 w-4" />
                         Log out
                       </DropdownMenuItem>
