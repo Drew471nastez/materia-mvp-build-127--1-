@@ -1,6 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
+import { getProductUrl } from "@/lib/url-helpers"
 
 interface ProductCardProps {
   product: {
@@ -19,6 +20,7 @@ interface ProductCardProps {
       profile?: {
         display_name?: string | null
         avatar_url?: string | null
+        username?: string | null
       } | null
     } | null
   }
@@ -34,7 +36,8 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
   }
 
   const creatorName = product.creator?.profile?.display_name || "Creator"
-  const productUrl = `/p/${product.slug}${srcParam}`
+  const creatorUsername = product.creator?.profile?.username || product.creator?.slug || ""
+  const productUrl = `${getProductUrl(creatorUsername, product.slug)}${srcParam}`
 
   return (
     <Link

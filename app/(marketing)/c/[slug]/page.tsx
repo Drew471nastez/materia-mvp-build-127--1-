@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { getStoreUrl } from "@/lib/url-helpers"
 
 interface CreatorPageProps {
   params: Promise<{ slug: string }>
@@ -36,12 +37,14 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
     .eq("slug", slug)
     .single()
 
-  if (creator?.profile?.username) {
-    redirect(`/u/${creator.profile.username}`)
+  // Handle Supabase's relation return (could be object or array)
+  const profile = creator?.profile as { username?: string | null } | null
+  if (profile?.username) {
+    redirect(getStoreUrl(profile.username))
   }
 
   // Fallback to the slug as username
-  redirect(`/u/${slug}`)
+  redirect(getStoreUrl(slug))
 
   // Fetch creator with profile
   // const { data: creator } = await supabase

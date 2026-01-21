@@ -8,28 +8,34 @@ import {
   DialogContent,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { getProductUrl } from "@/lib/url-helpers"
 
 interface ShareButtonProps {
   productTitle: string
   productSlug: string
+  creatorUsername?: string
   className?: string
   size?: "default" | "sm" | "lg" | "icon"
   iconSize?: string
 }
 
-export function ShareButton({ 
-  productTitle, 
-  productSlug, 
+export function ShareButton({
+  productTitle,
+  productSlug,
+  creatorUsername,
   className,
   size = "icon",
   iconSize = "h-5 w-5"
 }: ShareButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  
-  const shareUrl = typeof window !== "undefined" 
-    ? `${window.location.origin}/p/${productSlug}` 
-    : `/p/${productSlug}`
+
+  // Use subdomain URL if creator username is available, otherwise fall back to current origin
+  const shareUrl = creatorUsername
+    ? getProductUrl(creatorUsername, productSlug)
+    : typeof window !== "undefined"
+      ? `${window.location.origin}/p/${productSlug}`
+      : `/p/${productSlug}`
   
   const shareText = `Check out ${productTitle}`
 

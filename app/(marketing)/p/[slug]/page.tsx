@@ -718,7 +718,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   </div>
                 )}
               </div>
-              <ShareButton productTitle={product.title} productSlug={product.slug} className="shrink-0" />
+              <ShareButton productTitle={product.title} productSlug={product.slug} creatorUsername={creatorUsername} className="shrink-0" />
             </div>
           )}
 
@@ -918,6 +918,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 <ShareButton
                   productTitle={product.title}
                   productSlug={product.slug}
+                  creatorUsername={creatorUsername}
                   className="shrink-0 h-8 w-8"
                   iconSize="h-4 w-4"
                 />
