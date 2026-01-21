@@ -6,6 +6,8 @@ import { generateReceiptToken } from "@/lib/security"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const admin = createAdminClient()

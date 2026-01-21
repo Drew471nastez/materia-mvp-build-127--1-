@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => null)

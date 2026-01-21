@@ -6,6 +6,8 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails } from "@/lib/email"
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()

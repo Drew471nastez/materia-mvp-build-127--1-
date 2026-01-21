@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 
+export const runtime = "nodejs"
+
 async function resolveSellerEmail(admin: any, creatorId: string): Promise<string> {
   const { data: creator } = await admin.from("creators").select("support_email, user_id").eq("id", creatorId).single()
 

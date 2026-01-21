@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 
+export const runtime = "nodejs"
+
 // POST - Send an email campaign
 export async function POST(request: NextRequest) {
   try {

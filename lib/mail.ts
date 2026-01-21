@@ -1,68 +1,37 @@
 /**
- * Email sending via Mailgun SMTP (nodemailer)
+ * Email sending via Mailgun HTTP API
  *
  * Environment variables required:
- * - SMTP_HOST: smtp.eu.mailgun.org
- * - SMTP_PORT: 587
- * - SMTP_USER: noreplyto@storelib.com
- * - SMTP_PASS: Your Mailgun SMTP password
- * - EMAIL_FROM: noreplyto@storelib.com
- * - EMAIL_REPLY_TO: support@storelib.com (default fallback)
+ * - MAILGUN_API_KEY: Your Mailgun API key
+ * - MAILGUN_DOMAIN: storelib.com
+ * - MAILGUN_BASE_URL: https://api.eu.mailgun.net (EU region)
+ * - EMAIL_FROM: "Storelib <noreply@storelib.com>"
+ * - EMAIL_REPLY_TO: "support@storelib.com"
  */
 
-import * as nodemailer from "nodemailer"
+import {
+  sendMailgunEmail,
+  isMailgunConfigured,
+  buildMailgunFromHeader,
+  verifyMailgunConfig,
+  EMAIL_FROM as MAILGUN_EMAIL_FROM,
+  EMAIL_REPLY_TO as MAILGUN_EMAIL_REPLY_TO,
+  PLATFORM_BRAND as MAILGUN_PLATFORM_BRAND,
+} from "./mailgun"
 
-// SMTP Configuration from environment variables
-const SMTP_HOST = process.env.SMTP_HOST || "smtp.eu.mailgun.org"
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587", 10)
-const SMTP_USER = process.env.SMTP_USER
-const SMTP_PASS = process.env.SMTP_PASS
+// Re-export for backward compatibility
+export const EMAIL_FROM = MAILGUN_EMAIL_FROM
+export const EMAIL_REPLY_TO = MAILGUN_EMAIL_REPLY_TO
+export const PLATFORM_BRAND = MAILGUN_PLATFORM_BRAND
 
-// Email defaults
-export const EMAIL_FROM = process.env.EMAIL_FROM || "noreplyto@storelib.com"
-export const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || "support@storelib.com"
-export const PLATFORM_BRAND = "Storelib"
-
-// Check if SMTP is configured
+/**
+ * Check if email sending is configured (Mailgun)
+ */
 export const isSmtpConfigured = (): boolean => {
-  return !!(SMTP_USER && SMTP_PASS)
+  return isMailgunConfigured()
 }
 
-// Create nodemailer transporter
-let transporter: nodemailer.Transporter | null = null
-
-function getTransporter(): nodemailer.Transporter | null {
-  if (!isSmtpConfigured()) {
-    console.error("[mail] SMTP not configured - missing SMTP_USER or SMTP_PASS")
-    return null
-  }
-
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: false, // Use STARTTLS on port 587
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-      },
-      tls: {
-        // Mailgun requires TLS 1.2+
-        minVersion: "TLSv1.2",
-        rejectUnauthorized: true,
-      },
-      // Connection settings
-      connectionTimeout: 30000, // 30 seconds
-      greetingTimeout: 30000,
-      socketTimeout: 60000, // 60 seconds for sending
-    })
-    console.log("[mail] SMTP transporter created for:", SMTP_HOST)
-  }
-
-  return transporter
-}
-
-// Email send options interface
+// Email send options interface (kept for backward compatibility)
 export interface SendEmailOptions {
   to: string
   subject: string
@@ -71,7 +40,7 @@ export interface SendEmailOptions {
   from?: string // "Display Name <email@domain.com>"
   replyTo?: string
   headers?: Record<string, string>
-  tags?: Array<{ name: string; value: string }> // Not used with SMTP, but kept for compatibility
+  tags?: Array<{ name: string; value: string }> // Legacy format, converted for Mailgun
 }
 
 // Email send result
@@ -82,124 +51,73 @@ export interface SendEmailResult {
 }
 
 /**
- * Reset the transporter (useful after connection errors)
+ * Reset transporter (no-op for Mailgun HTTP API, kept for backward compatibility)
  */
 export function resetTransporter(): void {
-  if (transporter) {
-    try {
-      transporter.close()
-    } catch (e) {
-      // Ignore close errors
-    }
-    transporter = null
-    console.log("[mail] Transporter reset")
-  }
+  console.log("[mail] resetTransporter called (no-op for Mailgun HTTP API)")
 }
 
 /**
- * Send an email via Mailgun SMTP
+ * Send an email via Mailgun HTTP API
  */
 export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
-  const transport = getTransporter()
-
-  if (!transport) {
+  if (!isMailgunConfigured()) {
+    console.error("[mail] Mailgun not configured - missing MAILGUN_API_KEY or MAILGUN_DOMAIN")
     return {
       success: false,
-      error: "Email service not configured (SMTP credentials missing)",
+      error: "Email service not configured (Mailgun credentials missing)",
     }
   }
 
   const fromAddress = options.from || `${PLATFORM_BRAND} <${EMAIL_FROM}>`
 
-  try {
-    const mailOptions: nodemailer.SendMailOptions = {
-      from: fromAddress,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      text: options.text,
-      replyTo: options.replyTo,
-      headers: options.headers,
-    }
+  console.log("[mail] Sending email via Mailgun:", {
+    from: fromAddress,
+    to: options.to,
+    subject: options.subject,
+    replyTo: options.replyTo || EMAIL_REPLY_TO,
+  })
 
-    console.log("[mail] Sending email:", {
-      from: fromAddress,
-      to: options.to,
-      subject: options.subject,
-      replyTo: options.replyTo || "none",
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-    })
+  // Convert legacy tags format to Mailgun format
+  const tags = options.tags?.map((t) => t.name) || []
 
-    const info = await transport.sendMail(mailOptions)
+  const result = await sendMailgunEmail({
+    from: fromAddress,
+    to: options.to,
+    subject: options.subject,
+    html: options.html,
+    text: options.text,
+    replyTo: options.replyTo,
+    headers: options.headers,
+    tags,
+  })
 
+  if (result.success) {
     console.log("[mail] Email sent successfully:", {
-      messageId: info.messageId,
+      messageId: result.messageId,
       to: options.to,
-      response: info.response,
     })
-
-    return {
-      success: true,
-      messageId: info.messageId,
-    }
-  } catch (error: any) {
-    // Extract detailed error information
-    const errorCode = error?.code || error?.responseCode || ""
-    const errorMessage = error?.message || "Unknown error sending email"
-    const errorResponse = error?.response || ""
-
+  } else {
     console.error("[mail] Failed to send email:", {
-      error: errorMessage,
-      code: errorCode,
-      response: errorResponse,
+      error: result.error,
       to: options.to,
       subject: options.subject,
-      host: SMTP_HOST,
-      port: SMTP_PORT,
     })
-
-    // Reset transporter on connection errors to allow retry with fresh connection
-    if (
-      errorCode === "ECONNECTION" ||
-      errorCode === "ECONNREFUSED" ||
-      errorCode === "ETIMEDOUT" ||
-      errorCode === "ESOCKET" ||
-      errorMessage.includes("connection") ||
-      errorMessage.includes("timeout") ||
-      errorMessage.includes("socket")
-    ) {
-      resetTransporter()
-    }
-
-    return {
-      success: false,
-      error: `${errorMessage}${errorCode ? ` (${errorCode})` : ""}`,
-    }
   }
+
+  return result
 }
 
 /**
  * Build a "from" header with display name
  */
 export function buildFromHeader(displayName?: string): string {
-  const name = (displayName || PLATFORM_BRAND).replace(/[<>]/g, "")
-  return `${name} <${EMAIL_FROM}>`
+  return buildMailgunFromHeader(displayName)
 }
 
 /**
- * Verify SMTP connection (useful for health checks)
+ * Verify email configuration (Mailgun API access)
  */
 export async function verifySmtpConnection(): Promise<boolean> {
-  const transport = getTransporter()
-  if (!transport) return false
-
-  try {
-    await transport.verify()
-    console.log("[mail] SMTP connection verified")
-    return true
-  } catch (error: any) {
-    console.error("[mail] SMTP verification failed:", error?.message || error)
-    return false
-  }
+  return verifyMailgunConfig()
 }

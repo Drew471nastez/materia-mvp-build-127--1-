@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
 
+export const runtime = "nodejs"
+
 const MAX_RETRIES = 3
 const RETRY_DELAYS = [5000, 15000, 30000] // 5s, 15s, 30s
 

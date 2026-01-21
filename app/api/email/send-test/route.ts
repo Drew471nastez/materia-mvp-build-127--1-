@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 
+export const runtime = "nodejs"
+
 export async function POST(request: NextRequest) {
   try {
     const { subject, body, preview_text, test_email } = await request.json()

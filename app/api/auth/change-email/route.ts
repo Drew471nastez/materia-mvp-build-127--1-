@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
 
+export const runtime = "nodejs"
+
 // POST - Send verification code to new email address
 export async function POST(request: Request) {
   try {

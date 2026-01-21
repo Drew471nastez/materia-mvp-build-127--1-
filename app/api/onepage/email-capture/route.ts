@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendLeadMagnetEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
+export const runtime = "nodejs"
+
 function getBaseUrl() {
   const envUrl =
     process.env.SITE_URL ||

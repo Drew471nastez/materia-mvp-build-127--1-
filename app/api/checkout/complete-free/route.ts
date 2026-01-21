@@ -6,6 +6,8 @@ import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 import { nanoid } from "nanoid"
 
+export const runtime = "nodejs"
+
 function isValidEmail(email: string) {
   return typeof email === "string" && email.includes("@") && email.length <= 254
 }

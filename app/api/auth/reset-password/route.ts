@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { nanoid } from "nanoid"
 
+export const runtime = "nodejs"
+
 // POST - Send password reset email
 export async function POST(request: Request) {
   try {

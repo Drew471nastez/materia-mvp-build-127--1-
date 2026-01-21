@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
 
+export const runtime = "nodejs"
+
 // Create admin client that bypasses RLS
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
