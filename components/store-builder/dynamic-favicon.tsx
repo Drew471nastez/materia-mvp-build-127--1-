@@ -5,8 +5,8 @@ import { useEffect } from "react"
 // Platform default favicon URL
 const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
 
-// Border radius for favicon (5px on a 32x32 icon)
-const FAVICON_BORDER_RADIUS = 5
+// Border radius for favicon (8px on a 32x32 icon)
+const FAVICON_BORDER_RADIUS = 8
 
 interface DynamicFaviconProps {
   avatarUrl?: string | null

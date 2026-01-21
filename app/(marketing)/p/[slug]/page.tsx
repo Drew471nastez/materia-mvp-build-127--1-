@@ -28,7 +28,7 @@ import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
-import { getStoreInternalPath, getStoreUrl } from "@/lib/url-helpers"
+import { getStoreUrl } from "@/lib/url-helpers"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 
 import { themePresets } from "@/lib/store-builder/defaults"
@@ -581,7 +581,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // Always use subdomain URL format (sellername.storelib.com) for seller profile
   // This provides consistent branding and better SEO
-  const sellerProfileUrl = getStoreUrl(creatorUsername)
+  const sellerProfileUrl = `${getStoreUrl(creatorUsername)}${srcParam}`
 
   const stickyBarSettings = {
     visible: true,
