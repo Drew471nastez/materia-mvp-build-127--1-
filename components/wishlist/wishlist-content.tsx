@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Heart, Trash2, Loader2, ShoppingBag, RefreshCw } from "lucide-react"
-import { getStoreInternalPath } from "@/lib/url-helpers"
+import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
 
 interface WishlistItem {
   id: string
@@ -197,11 +197,13 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
           const creatorName = product.creator_profile?.display_name || "Creator"
           const creatorUsername = product.creator_profile?.username || product.creators?.slug
 
+          const productUrl = creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`
+
           return (
             <Card key={item.id} className="overflow-hidden border-gray-200 hover:shadow-md transition-shadow">
               <CardContent className="p-0">
                 <div className="flex gap-4 p-4">
-                  <Link href={`/p/${product.slug}`} className="shrink-0">
+                  <a href={productUrl} className="shrink-0">
                     <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden bg-gray-100">
                       {product.thumbnail_url ? (
                         <Image
@@ -216,22 +218,22 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
                         </div>
                       )}
                     </div>
-                  </Link>
+                  </a>
 
                   <div className="flex-1 min-w-0 flex flex-col">
-                    <Link href={`/p/${product.slug}`}>
+                    <a href={productUrl}>
                       <h3 className="font-semibold text-gray-900 hover:text-blue-600 truncate transition-colors">
                         {product.title}
                       </h3>
-                    </Link>
+                    </a>
 
                     {creatorUsername && (
-                      <Link
-                        href={getStoreInternalPath(creatorUsername)}
+                      <a
+                        href={getStoreUrl(creatorUsername)}
                         className="text-sm text-gray-500 hover:text-gray-700 transition-colors mt-0.5"
                       >
                         by {creatorName}
-                      </Link>
+                      </a>
                     )}
 
                     <div className="mt-2 flex items-center gap-2">
@@ -247,9 +249,9 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
 
                     <div className="mt-auto pt-3 flex gap-2">
                       <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
-                        <Link href={`/p/${product.slug}`}>
+                        <a href={productUrl}>
                           View Product
-                        </Link>
+                        </a>
                       </Button>
                       <Button
                         variant="outline"

@@ -28,7 +28,7 @@ import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
-import { getStoreInternalPath } from "@/lib/url-helpers"
+import { getStoreUrl } from "@/lib/url-helpers"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 
 import { themePresets } from "@/lib/store-builder/defaults"
@@ -623,15 +623,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         </Alert>
       )}
 
-      {already_owned === "true" && (
-        <Alert className="mb-6 border-blue-500/50 bg-blue-50 text-blue-800">
-          <CheckCircle className="h-4 w-4" />
-          <AlertTitle>You already own this</AlertTitle>
-          <AlertDescription>
-            You already have access to this product. Download it below or view it in your library.
-          </AlertDescription>
-        </Alert>
-      )}
     </>
   )
 
@@ -684,8 +675,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {creator && (
             <div className="hidden lg:flex mt-4 items-center justify-between">
               <div className="flex items-center gap-3 p-2 -ml-2">
-                <Link
-                  href={`${getStoreInternalPath(creatorUsername)}${srcParam}`}
+                <a
+                  href={getStoreUrl(creatorUsername)}
                   className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
@@ -698,7 +689,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   >
                     {creatorProfile?.display_name || "Creator"}
                   </p>
-                </Link>
+                </a>
                 {showRatingNextToSeller && reviewsCount > 0 && (
                   <div className="flex items-center gap-1 shrink-0">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -881,7 +872,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <Link href={`${getStoreInternalPath(creatorUsername)}${srcParam}`} className="flex items-center gap-3">
+                  <a href={getStoreUrl(creatorUsername)} className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorProfile?.avatar_url || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
@@ -892,7 +883,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     >
                       {creatorProfile?.display_name || "Creator"}
                     </p>
-                  </Link>
+                  </a>
                   {showRatingNextToSeller && reviewsCount > 0 && (
                     <div className="flex items-center gap-0.5 shrink-0">
                       {[1, 2, 3, 4, 5].map((star) => (
