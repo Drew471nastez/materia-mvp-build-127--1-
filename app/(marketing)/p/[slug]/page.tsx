@@ -680,7 +680,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {creator && (
             <div className="hidden lg:flex mt-4 items-center justify-between">
               <div className="flex items-center gap-3 p-2 -ml-2">
-                <Link
+                <a
                   href={sellerProfileUrl}
                   className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]"
                 >
@@ -694,7 +694,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   >
                     {creatorProfile?.display_name || "Creator"}
                   </p>
-                </Link>
+                </a>
                 {showRatingNextToSeller && reviewsCount > 0 && (
                   <div className="flex items-center gap-1 shrink-0">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -877,7 +877,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <Link
+                  <a
                     href={sellerProfileUrl}
                     className="flex items-center gap-3"
                   >
@@ -891,7 +891,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     >
                       {creatorProfile?.display_name || "Creator"}
                     </p>
-                  </Link>
+                  </a>
                   {showRatingNextToSeller && reviewsCount > 0 && (
                     <div className="flex items-center gap-0.5 shrink-0">
                       {[1, 2, 3, 4, 5].map((star) => (

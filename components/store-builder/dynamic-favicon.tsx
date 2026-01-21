@@ -75,9 +75,9 @@ async function createRoundedFavicon(imageUrl: string, size = 32, borderRadius = 
 
 export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
   useEffect(() => {
-    // Use provided icon URL or fall back to platform favicon
-    // This ensures the platform favicon always has border-radius applied
-    const iconUrl = faviconUrl || avatarUrl || PLATFORM_FAVICON_URL
+    // ALWAYS use platform favicon with 8px border radius
+    // This ensures consistent branding across the platform
+    const iconUrl = PLATFORM_FAVICON_URL
 
     let isMounted = true
 

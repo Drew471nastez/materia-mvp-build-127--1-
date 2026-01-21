@@ -68,10 +68,10 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
         {isCreator && storeUsername && (
           <>
             <DropdownMenuItem asChild>
-              <Link href={`${getStoreUrl(storeUsername)}?src=platform`} className="cursor-pointer">
+              <a href={`${getStoreUrl(storeUsername)}?src=platform`} className="cursor-pointer">
                 <Store className="mr-2 h-4 w-4" />
                 <span>My Store</span>
-              </Link>
+              </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/store-builder" className="cursor-pointer">

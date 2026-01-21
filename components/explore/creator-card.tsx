@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { getStoreUrl } from "@/lib/url-helpers"
@@ -27,11 +26,11 @@ export function CreatorCard({ creator }: CreatorCardProps) {
     .toUpperCase()
 
   const username = creator.profile?.username || creator.slug
+  const storeUrl = `${getStoreUrl(username)}?src=platform`
 
   return (
-    <Link
-      href={`${getStoreUrl(username)}?src=platform`}
-      prefetch={false}
+    <a
+      href={storeUrl}
       className="group flex flex-col rounded-lg border border-border/60 bg-card p-6 transition-colors hover:border-border touch-manipulation"
     >
       <div className="flex items-start gap-4">
@@ -63,6 +62,6 @@ export function CreatorCard({ creator }: CreatorCardProps) {
       <div className="mt-4 text-xs text-muted-foreground">
         {creator.products_count || 0} {creator.products_count === 1 ? "product" : "products"}
       </div>
-    </Link>
+    </a>
   )
 }
