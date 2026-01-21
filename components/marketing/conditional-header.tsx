@@ -30,8 +30,8 @@ export function ConditionalHeader() {
     }
 
     // ✅ Show platform header only on actual platform pages
+    // NOTE: Homepage ("/") has its own navigation in page.tsx, so we exclude it
     const isPlatformPage =
-      pathname === "/" ||
       pathname.startsWith("/feed") ||
       pathname.startsWith("/explore") ||
       pathname.startsWith("/creators") ||

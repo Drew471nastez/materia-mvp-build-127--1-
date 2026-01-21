@@ -3158,10 +3158,10 @@ function PublicBlockRenderer({
                         "font-bold inline-flex items-center justify-center",
                         (theme as any).title_size === "large"
                           ? isDesktop
-                            ? "text-[36px]"
+                            ? "text-[34px]"
                             : "text-[33px] sm:text-[37px]"
                           : isDesktop
-                            ? "text-[31px]"
+                            ? "text-[29px]"
                             : "text-[27px] sm:text-[31px]",
                       )}
                       style={{
@@ -3201,8 +3201,8 @@ function PublicBlockRenderer({
       // Glow intensity settings - reduced spread by 40%
       const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 8 : 6
       const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
-      // Avatar size increased by 3px
-      const avatarSize = isDesktop ? 110 : 103
+      // Avatar size increased by 3px, then +2px for desktop per request
+      const avatarSize = isDesktop ? 112 : 103
 
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")}>
@@ -3357,10 +3357,10 @@ function PublicBlockRenderer({
                     "font-bold text-center inline-flex items-center justify-center",
                     (theme as any).title_size === "large"
                       ? isDesktop
-                        ? "text-[36px]"
+                        ? "text-[34px]"
                         : "text-[33px] sm:text-[37px]"
                       : isDesktop
-                        ? "text-[31px]"
+                        ? "text-[29px]"
                         : "text-[27px] sm:text-[31px]",
                   )}
                   style={{

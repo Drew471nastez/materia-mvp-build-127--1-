@@ -820,6 +820,13 @@ export async function sendSellerNotificationEmail(
             feeCents,
             ordersLink,
           }),
+          // Add tracking tags for better deliverability monitoring
+          tags: [
+            { name: "seller-notification", value: "true" },
+            { name: "sale-alert", value: "true" },
+            { name: "order", value: orderId },
+            { name: "transactional", value: "true" },
+          ],
         })
 
         if (!response.success) {

@@ -93,10 +93,19 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   // MIME-Version header
   formData.append("h:MIME-Version", "1.0")
 
-  // Precedence header - indicates transactional email (not bulk)
-  formData.append("h:X-Priority", "1")
-  formData.append("h:X-MSMail-Priority", "High")
-  formData.append("h:Importance", "High")
+  // Auto-Submitted header - indicates this is automated transactional email (not spam)
+  formData.append("h:Auto-Submitted", "auto-generated")
+
+  // X-Mailer header - identifies the sending application
+  formData.append("h:X-Mailer", "Storelib/1.0")
+
+  // Feedback-ID for Gmail Postmaster Tools - helps track reputation by category
+  // Format: a:b:c:d where d is the sender identifier
+  formData.append("h:Feedback-ID", `transactional:sale-notification:storelib:${MAILGUN_DOMAIN}`)
+
+  // Precedence header - "bulk" is for newsletters, transactional emails should NOT use this
+  // Using "transactional" is non-standard but helpful, removing high-priority flags (they trigger spam filters)
+  formData.append("h:X-Auto-Response-Suppress", "OOF, AutoReply")
 
   // List-Unsubscribe header (helps avoid spam filters even for transactional)
   formData.append("h:List-Unsubscribe", `<mailto:unsubscribe@${MAILGUN_DOMAIN}>`)
