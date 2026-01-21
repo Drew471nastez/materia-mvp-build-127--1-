@@ -79,19 +79,26 @@ export function NotificationsModal({
     if (!open || isMobile) return
 
     function handleClickOutside(event: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement
+      
+      // Don't close if clicking on a link or button - let the navigation happen
+      if (target.closest('a[href]') || target.closest('button')) {
+        return
+      }
+      
+      if (panelRef.current && !panelRef.current.contains(target)) {
         onOpenChange(false)
       }
     }
 
-    // Add slight delay to prevent immediate close on click
+    // Use click instead of mousedown and add slight delay
     const timeoutId = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside)
+      document.addEventListener("click", handleClickOutside)
     }, 100)
 
     return () => {
       clearTimeout(timeoutId)
-      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("click", handleClickOutside)
     }
   }, [open, isMobile, onOpenChange])
 

@@ -87,15 +87,24 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement
+      
+      // Don't close if clicking on a link or button - let the navigation happen
+      if (target.closest('a[href]') || target.closest('button')) {
+        return
+      }
+      
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setProfileDropdownOpen(false)
       }
-      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(event.target as Node)) {
+      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(target)) {
         setMobileProfileDropdownOpen(false)
       }
     }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    
+    // Use click instead of mousedown to allow navigation to complete first
+    document.addEventListener("click", handleClickOutside)
+    return () => document.removeEventListener("click", handleClickOutside)
   }, [])
 
   // Calculate notification count (respecting dismissed notifications)
