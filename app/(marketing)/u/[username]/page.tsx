@@ -108,7 +108,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             <Avatar
               className="h-24 w-24 shadow-lg"
               style={{
-                borderWidth: "0.3px",
+                borderWidth: "1.3px",
                 borderStyle: "solid",
                 borderColor: "#e5e7eb",
               }}
