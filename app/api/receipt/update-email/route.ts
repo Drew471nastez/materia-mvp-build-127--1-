@@ -55,18 +55,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
+    // Allow 2 email change attempts per order
+    const MAX_EMAIL_CHANGES = 2
+
     const { data: emailChangeEvents } = await admin
       .from("security_events")
       .select("id")
       .eq("order_id", orderId)
       .eq("event_type", "email_updated")
 
-    if (emailChangeEvents && emailChangeEvents.length > 0) {
-      console.log("[v0] Email already changed for order:", orderId)
+    const changesCount = emailChangeEvents?.length || 0
+
+    if (changesCount >= MAX_EMAIL_CHANGES) {
+      console.log("[v0] Email already changed", changesCount, "times for order:", orderId)
       return NextResponse.json(
         {
-          error: "Email was already changed once. Contact support if you need further assistance.",
+          error: "Email has been changed the maximum number of times (2). Contact support if you need further assistance.",
           alreadyChanged: true,
+          changesCount,
         },
         { status: 403 },
       )
@@ -98,10 +104,17 @@ export async function POST(request: NextRequest) {
 
     const sellerReplyTo = await resolveSellerEmail(admin, order.product.creator.id)
 
-    console.log("[v0] Sending email to new address:", newEmail, "with Reply-To:", sellerReplyTo)
+    // Use seller name for the email "From" field instead of Storelib
+    const sellerName = creatorProfile?.display_name || "Storelib"
+    const fromHeader = `${sellerName} <noreply@storelib.com>`
+
+    console.log("[v0] Sending email to new address:", newEmail, "with Reply-To:", sellerReplyTo, "from:", fromHeader)
+
+    // Platform logo for email header
+    const platformLogoUrl = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
 
     const result = await sendEmail({
-      from: "Storelib <noreply@storelib.com>",
+      from: fromHeader,
       to: newEmail,
       replyTo: sellerReplyTo,
       subject: `Your download is ready - ${order.product.title}`,
@@ -120,11 +133,12 @@ export async function POST(request: NextRequest) {
 
                   <tr>
                     <td style="padding: 48px 40px 32px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                      <img src="${platformLogoUrl}" alt="${sellerName}" width="48" height="48" style="display: block; margin: 0 auto 16px auto; border-radius: 8px; background: #ffffff; padding: 8px;" />
                       <h1 style="margin: 0; font-size: 32px; font-weight: 700; color: #ffffff;">
                         Your download is ready!
                       </h1>
                       <p style="margin: 12px 0 0 0; font-size: 16px; color: rgba(255,255,255,0.9);">
-                        Thanks for your purchase
+                        Thanks for your purchase from ${sellerName}
                       </p>
                     </td>
                   </tr>

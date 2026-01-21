@@ -75,14 +75,14 @@ async function createRoundedFavicon(imageUrl: string, size = 32, borderRadius = 
 
 export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
   useEffect(() => {
-    const iconUrl = avatarUrl || faviconUrl
-
-    if (!iconUrl) return
+    // Use provided icon URL or fall back to platform favicon
+    // This ensures the platform favicon always has border-radius applied
+    const iconUrl = faviconUrl || avatarUrl || PLATFORM_FAVICON_URL
 
     let isMounted = true
 
     const setFavicon = async () => {
-      // Create rounded favicon
+      // Create rounded favicon with 8px border radius
       const roundedIconUrl = await createRoundedFavicon(iconUrl)
 
       if (!isMounted) return
@@ -109,7 +109,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
 
     setFavicon()
 
-    // Cleanup on unmount - restore platform default favicon
+    // Cleanup on unmount - restore platform default favicon with rounded corners
     return () => {
       isMounted = false
       const addedLinks = document.querySelectorAll("link[rel*='icon']")

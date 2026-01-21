@@ -162,7 +162,8 @@ export default function ReceiptContent({
   const [newEmail, setNewEmail] = useState("")
   const [updateEmailLoading, setUpdateEmailLoading] = useState(false)
   const [updateEmailError, setUpdateEmailError] = useState("")
-  const [emailAlreadyChanged, setEmailAlreadyChanged] = useState(false)
+  const [emailChangesExhausted, setEmailChangesExhausted] = useState(false)
+  const [emailChangesCount, setEmailChangesCount] = useState(0)
 
   const [reviewStatus, setReviewStatus] = useState<{
     canReview: boolean
@@ -421,7 +422,8 @@ export default function ReceiptContent({
       const data = await res.json()
 
       if (res.status === 403 && data.alreadyChanged) {
-        setEmailAlreadyChanged(true)
+        setEmailChangesExhausted(true)
+        setEmailChangesCount(data.changesCount || 2)
         setUpdateEmailError(data.error)
         return
       }
@@ -431,7 +433,10 @@ export default function ReceiptContent({
         return
       }
 
+      // Track successful email change
+      setEmailChangesCount((prev) => prev + 1)
       setResendSuccess(true)
+      setShowSuccessToast(true)
       setShowWrongEmail(false)
       setNewEmail("")
       setTimeout(() => setResendSuccess(false), 5000)
@@ -805,23 +810,28 @@ export default function ReceiptContent({
             </div>
             {resendError && <p className="text-xs text-red-600">{resendError}</p>}
 
-            {/* Wrong email flow */}
+            {/* Wrong email flow - allows 2 email changes */}
             <div className="pt-3 border-t border-gray-200/60">
-              {!showWrongEmail && !emailAlreadyChanged ? (
+              {!showWrongEmail && !emailChangesExhausted ? (
                 <button
                   onClick={() => setShowWrongEmail(true)}
                   className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   Wrong email address?
                 </button>
-              ) : emailAlreadyChanged ? (
-                <p className="text-sm text-gray-500">Email was already updated once for this order.</p>
+              ) : emailChangesExhausted ? (
+                <p className="text-sm text-gray-500">Email has been updated the maximum number of times (2). Contact support if you need further assistance.</p>
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="new-email" className="text-sm font-medium text-gray-700">
-                      New email address
-                    </Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="new-email" className="text-sm font-medium text-gray-700">
+                        New email address
+                      </Label>
+                      <span className="text-xs text-gray-500">
+                        {emailChangesCount === 0 ? "2 changes remaining" : "1 change remaining"}
+                      </span>
+                    </div>
                     <Input
                       id="new-email"
                       type="email"

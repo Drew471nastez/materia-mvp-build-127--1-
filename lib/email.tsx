@@ -16,6 +16,7 @@ const FROM_EMAIL = EMAIL_FROM
 // Platform fallback support
 const DEFAULT_SUPPORT = EMAIL_REPLY_TO
 const PLATFORM_BRAND_NAME = "Storelib"
+const PLATFORM_LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
 
 // Retry configuration
 const MAX_RETRIES = 3
@@ -384,8 +385,8 @@ function buyerEmailHtml(params: {
         <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
           <tr>
             <td style="padding:44px 36px 30px;text-align:center;background:#111827;">
-              <!-- Seller Avatar Letter -->
-              <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);display:inline-block;text-align:center;line-height:56px;font-size:24px;font-weight:700;color:#fff;margin-bottom:16px;">${sellerInitial}</div>
+              <!-- Platform Logo with 8px border-radius -->
+              <img src="${PLATFORM_LOGO_URL}" alt="${sellerName}" width="56" height="56" style="display:block;margin:0 auto 16px auto;border-radius:8px;background:#ffffff;padding:8px;" />
               <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">Your download is ready</h1>
               <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.85);">Thanks for your purchase from ${sellerName}</p>
             </td>
@@ -1018,8 +1019,8 @@ function leadMagnetEmailHtml(params: {
         <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
           <tr>
             <td style="padding:44px 36px 30px;text-align:center;background:#7c3aed;">
-              <!-- Seller Avatar Letter -->
-              <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);display:inline-block;text-align:center;line-height:56px;font-size:24px;font-weight:700;color:#fff;margin-bottom:16px;">${sellerInitial}</div>
+              <!-- Platform Logo with 8px border-radius -->
+              <img src="${PLATFORM_LOGO_URL}" alt="${sellerName}" width="56" height="56" style="display:block;margin:0 auto 16px auto;border-radius:8px;background:#ffffff;padding:8px;" />
               <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">${heading}</h1>
               <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.9);">Here's your free download from ${sellerName}</p>
             </td>
