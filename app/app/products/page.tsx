@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Plus, MoreHorizontal, Package } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { getProductUrl } from "@/lib/url-helpers"
 
 export default async function ProductsPage() {
   const supabase = await createClient()
@@ -14,7 +15,16 @@ export default async function ProductsPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user!.id).single()
+  const { data: creator } = await supabase.from("creators").select("id, slug").eq("user_id", user!.id).single()
+
+  // Fetch creator's profile for username
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", user!.id)
+    .single()
+
+  const creatorUsername = profile?.username || creator?.slug || ""
 
   const { data: products } = await supabase
     .from("products")
@@ -94,9 +104,9 @@ export default async function ProductsPage() {
                         </DropdownMenuItem>
                         {product.status === "published" && (
                           <DropdownMenuItem asChild>
-                            <Link href={`/p/${product.slug}`} target="_blank">
+                            <a href={getProductUrl(creatorUsername, product.slug)} target="_blank" rel="noopener noreferrer">
                               View public page
-                            </Link>
+                            </a>
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -151,9 +161,9 @@ export default async function ProductsPage() {
                             </DropdownMenuItem>
                             {product.status === "published" && (
                               <DropdownMenuItem asChild>
-                                <Link href={`/p/${product.slug}`} target="_blank">
+                                <a href={getProductUrl(creatorUsername, product.slug)} target="_blank" rel="noopener noreferrer">
                                   View public page
-                                </Link>
+                                </a>
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>

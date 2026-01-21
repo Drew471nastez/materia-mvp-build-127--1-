@@ -40,6 +40,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { CategoriesSelector } from "@/components/app/categories-selector"
+import { getProductUrl } from "@/lib/url-helpers"
 import type { Product, DigitalAsset } from "@/lib/types"
 import { FileUpload } from "@/components/app/file-upload"
 import { ImageUpload } from "@/components/app/image-upload"
@@ -58,6 +59,7 @@ interface ProductEditFormProps {
   }
   assets: DigitalAsset[]
   creatorId: string
+  creatorUsername: string
 }
 
 const REFUND_POLICY_OPTIONS = [
@@ -70,7 +72,7 @@ const REFUND_POLICY_OPTIONS = [
 
 const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
 
-export function ProductEditForm({ product, assets: initialAssets, creatorId }: ProductEditFormProps) {
+export function ProductEditForm({ product, assets: initialAssets, creatorId, creatorUsername }: ProductEditFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -267,7 +269,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId }: P
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
                 <Button variant="outline" size="icon" asChild title="View product page">
-                  <a href={`/p/${product.slug}`} target="_blank" rel="noopener noreferrer">
+                  <a href={getProductUrl(creatorUsername, product.slug)} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4" />
                   </a>
                 </Button>

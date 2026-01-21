@@ -40,6 +40,10 @@ export const metadata: Metadata = {
   title: "Materia - Sell your knowledge. All in one place.",
   description: "The all-in-one platform for creators to sell digital products, courses, and paid communities.",
   generator: "Materia",
+  icons: {
+    icon: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg",
+    apple: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg",
+  },
 }
 
 export const viewport: Viewport = {

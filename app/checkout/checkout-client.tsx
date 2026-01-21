@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect } from "react"
 import Image from "next/image"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js"
@@ -14,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Package, Loader2, Gift, Heart, Tag } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { getProductUrl } from "@/lib/url-helpers"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -31,6 +31,7 @@ interface CheckoutPageClientProps {
     id: string
     name: string
     avatar_url: string | null
+    username: string
   }
   userEmail: string | null
   isLoggedIn: boolean
@@ -208,17 +209,19 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
 
   const tipOptions = [0, 1, 3, 5]
 
+  const productUrl = getProductUrl(creator.username, product.slug)
+
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <header className="border-b border-border bg-background pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-6xl items-center px-4">
-          <Link
-            href={`/p/${product.slug}`}
+          <a
+            href={productUrl}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground min-h-[44px]"
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />
             <span className="truncate">Back to product</span>
-          </Link>
+          </a>
         </div>
       </header>
 
