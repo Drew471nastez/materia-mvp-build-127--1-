@@ -229,9 +229,9 @@ export function PlatformHeaderClient() {
   const showCategories = pathname === "/explore" || pathname === "/"
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white border-gray-200">
+    <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4">
+        <div className="flex h-[68px] md:h-16 items-center justify-between gap-4">
           {/* Logo */}
           <Link href="/" className="shrink-0">
             <Image
@@ -384,19 +384,23 @@ export function PlatformHeaderClient() {
 
                       <DropdownMenuSeparator className="bg-gray-200" />
 
-                      <DropdownMenuItem onClick={() => router.push(dashboardHref)} className="focus:bg-gray-100">
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
+                      <DropdownMenuItem asChild className="focus:bg-gray-100 cursor-pointer">
+                        <Link href={dashboardHref}>
+                          <LayoutDashboard className="h-4 w-4" />
+                          Dashboard
+                        </Link>
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem onClick={() => router.push("/settings")} className="focus:bg-gray-100">
-                        <Settings className="h-4 w-4" />
-                        Settings
+                      <DropdownMenuItem asChild className="focus:bg-gray-100 cursor-pointer">
+                        <Link href="/settings">
+                          <Settings className="h-4 w-4" />
+                          Settings
+                        </Link>
                       </DropdownMenuItem>
 
                       <DropdownMenuSeparator className="bg-gray-200" />
 
-                      <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:bg-gray-100">
+                      <DropdownMenuItem onSelect={handleLogout} className="text-red-600 focus:bg-gray-100 cursor-pointer">
                         <LogOut className="h-4 w-4" />
                         Log out
                       </DropdownMenuItem>

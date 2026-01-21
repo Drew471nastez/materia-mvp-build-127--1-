@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 
+export const runtime = "nodejs"
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const sessionId = searchParams.get("session_id")

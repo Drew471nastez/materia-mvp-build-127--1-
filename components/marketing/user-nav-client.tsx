@@ -15,6 +15,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { getStoreUrl } from "@/lib/url-helpers"
 
 interface UserNavClientProps {
   user: SupabaseUser
@@ -67,7 +68,7 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
         {isCreator && storeUsername && (
           <>
             <DropdownMenuItem asChild>
-              <Link href={`/u/${storeUsername}?src=platform`} className="cursor-pointer">
+              <Link href={`${getStoreUrl(storeUsername)}?src=platform`} className="cursor-pointer">
                 <Store className="mr-2 h-4 w-4" />
                 <span>My Store</span>
               </Link>
@@ -106,7 +107,7 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+        <DropdownMenuItem onSelect={handleSignOut} className="cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Sign out</span>
         </DropdownMenuItem>

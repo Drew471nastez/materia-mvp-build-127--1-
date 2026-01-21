@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Inter, Plus_Jakarta_Sans, Space_Grotesk, DM_Sans, Poppins, Montserrat } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css"
 import { LocaleProvider } from "@/components/locale-provider"
 
@@ -36,10 +37,18 @@ const montserrat = Montserrat({
   variable: "--font-montserrat",
 })
 
+// Platform favicon URL - used as default for pages that don't have a custom favicon
+const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
+
 export const metadata: Metadata = {
   title: "Materia - Sell your knowledge. All in one place.",
   description: "The all-in-one platform for creators to sell digital products, courses, and paid communities.",
   generator: "Materia",
+  icons: {
+    icon: PLATFORM_FAVICON_URL,
+    shortcut: PLATFORM_FAVICON_URL,
+    apple: PLATFORM_FAVICON_URL,
+  },
 }
 
 export const viewport: Viewport = {
@@ -61,6 +70,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${montserrat.variable} font-sans antialiased bg-background text-foreground overflow-x-hidden`}>
         <LocaleProvider>{children}</LocaleProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )

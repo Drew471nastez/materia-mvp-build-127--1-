@@ -1,99 +1,180 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { v4 as uuidv4 } from "uuid"
 
 // POST - Submit a lead (public, no auth required)
 export async function POST(request: Request) {
+  console.log("[leads] ========== NEW SUBSCRIPTION REQUEST ==========")
+
   try {
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     const body = await request.json()
-    const { onepage_id, email, name, block_id, referrer, utm_source, utm_medium, utm_campaign } = body
+    const {
+      onepage_id,
+      email,
+      name,
+      block_id,
+      referrer,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      lead_magnet_id,
+      enable_digital_product,
+      digital_product_file_url,
+      digital_product_title,
+    } = body
 
-    if (!onepage_id || !email) {
+    const subscriberEmail = (email || "").toLowerCase().trim()
+
+    console.log("[leads] Request data:", {
+      onepage_id,
+      subscriberEmail,
+      enable_digital_product,
+      has_file_url: !!digital_product_file_url,
+    })
+
+    // Validate
+    if (!onepage_id || !subscriberEmail) {
+      console.log("[leads] Missing required fields")
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(subscriberEmail)) {
+      console.log("[leads] Invalid email format")
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
-    // Verify the onepage exists and is published
+    // Verify onepage exists and is published
     const { data: onepage, error: onepageError } = await supabase
       .from("onepages")
-      .select("id, status")
+      .select("id, status, seller_id, owner_id, creator_id")
       .eq("id", onepage_id)
       .eq("status", "published")
       .single()
 
     if (onepageError || !onepage) {
+      console.log("[leads] OnePage not found or not published")
       return NextResponse.json({ error: "OnePage not found" }, { status: 404 })
     }
 
-    // Check if email already submitted for this page
-    const { data: existingLead } = await supabase
+    console.log("[leads] OnePage found:", onepage.id)
+
+    const fileUrl = digital_product_file_url || null
+    const hasDigitalProduct = enable_digital_product && fileUrl
+
+    // Check for existing subscription
+    const { data: existingLead } = await adminSupabase
       .from("onepage_leads")
       .select("id")
       .eq("onepage_id", onepage_id)
-      .eq("email", email.toLowerCase().trim())
+      .eq("email", subscriberEmail)
       .single()
 
     if (existingLead) {
-      // Return success even if already exists (good UX)
-      return NextResponse.json({ success: true, message: "Already subscribed" })
+      console.log("[leads] Already subscribed, returning success")
+      return NextResponse.json({
+        success: true,
+        message: "Already subscribed",
+        downloadLink: hasDigitalProduct ? fileUrl : null,
+      })
     }
 
     // Insert lead
-    const { data: lead, error: insertError } = await supabase
+    const { data: lead, error: insertError } = await adminSupabase
       .from("onepage_leads")
       .insert({
         onepage_id,
-        email: email.toLowerCase().trim(),
+        email: subscriberEmail,
         name: name || null,
         block_id: block_id || null,
         referrer: referrer || null,
         utm_source: utm_source || null,
         utm_medium: utm_medium || null,
         utm_campaign: utm_campaign || null,
-        delivery_status: "not_applicable", // Change to 'pending' if lead magnet configured
+        lead_magnet_id: lead_magnet_id || null,
+        delivery_status: hasDigitalProduct ? "not_applicable" : "not_applicable",
       })
       .select()
       .single()
 
     if (insertError) {
-      // Handle unique constraint violation gracefully
       if (insertError.code === "23505") {
-        return NextResponse.json({ success: true, message: "Already subscribed" })
+        console.log("[leads] Duplicate entry, returning success")
+        return NextResponse.json({
+          success: true,
+          message: "Already subscribed",
+          downloadLink: hasDigitalProduct ? fileUrl : null,
+        })
       }
-      console.error("Lead insert error:", insertError)
+      console.error("[leads] Insert error:", insertError)
       return NextResponse.json({ error: "Failed to save" }, { status: 500 })
     }
 
-    // TODO: If lead magnet is configured, trigger email delivery
-    // This would be done via an edge function or background job
+    console.log("[leads] Lead saved:", lead.id)
 
-    return NextResponse.json({ success: true, lead_id: lead.id })
+    // Add to subscribers list
+    const creatorId = onepage.creator_id || onepage.seller_id || onepage.owner_id
+    if (creatorId) {
+      const { data: existingSub } = await adminSupabase
+        .from("subscribers")
+        .select("id, status")
+        .eq("creator_id", creatorId)
+        .eq("email", subscriberEmail)
+        .single()
+
+      if (!existingSub) {
+        await adminSupabase.from("subscribers").insert({
+          email: subscriberEmail,
+          name: name || null,
+          source: "onepage",
+          source_id: onepage_id,
+          creator_id: creatorId,
+          status: "subscribed",
+          is_active: true,
+          subscribed_at: new Date().toISOString(),
+          consent_text: "Subscribed via OnePage",
+          consent_timestamp: new Date().toISOString(),
+          unsubscribe_token: uuidv4(),
+        })
+        console.log("[leads] Added to subscribers")
+      } else if (existingSub.status === "unsubscribed") {
+        await adminSupabase
+          .from("subscribers")
+          .update({ status: "subscribed", is_active: true, subscribed_at: new Date().toISOString() })
+          .eq("id", existingSub.id)
+        console.log("[leads] Resubscribed")
+      }
+    }
+
+    // No email sending - download happens directly on the page
+    console.log("[leads] ========== REQUEST COMPLETE ==========")
+
+    return NextResponse.json({
+      success: true,
+      lead_id: lead.id,
+      downloadLink: hasDigitalProduct ? fileUrl : null,
+    })
+
   } catch (error) {
-    console.error("Lead submission error:", error)
+    console.error("[leads] FATAL ERROR:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// GET - Fetch leads for owner (authenticated)
+// GET - Fetch leads for owner
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get user's onepage
     const { data: onepage } = await supabase
       .from("onepages")
       .select("id")
@@ -116,13 +197,11 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1)
 
     if (error) {
-      console.error("Leads fetch error:", error)
       return NextResponse.json({ error: "Failed to fetch leads" }, { status: 500 })
     }
 
     return NextResponse.json({ leads, total: count })
   } catch (error) {
-    console.error("Leads GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

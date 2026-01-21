@@ -151,12 +151,12 @@ export function CommunityFeed({ creatorId, userId, posts: initialPosts, isCreato
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {isCreator && (
-                            <DropdownMenuItem onClick={() => handleTogglePin(post.id, post.pinned)}>
+                            <DropdownMenuItem onSelect={() => handleTogglePin(post.id, post.pinned)}>
                               <Pin className="mr-2 h-4 w-4" />
                               {post.pinned ? "Unpin" : "Pin"}
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(post.id)}>
+                          <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(post.id)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                           </DropdownMenuItem>

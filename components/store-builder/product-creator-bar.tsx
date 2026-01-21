@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Mail, ArrowRight, Check } from "lucide-react"
+import { getStoreUrl } from "@/lib/url-helpers"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -24,6 +25,7 @@ export interface ProductCreatorBarSettings {
   buttonColor: string
   buttonTextColor: string
   buttonStyle: "style1" | "style2" | "style3" | "style4"
+  buttonBorderRadius?: number
 }
 
 interface ProductCreatorBarProps {
@@ -105,12 +107,48 @@ function isDarkHex(bg?: string): boolean {
   return luminance < 150
 }
 
-function getAdaptiveInputClass(isDarkBackground: boolean) {
+/**
+ * Get adaptive input styling based on background color
+ * - Dark backgrounds: white/light borders and text
+ * - Vibrant/powerful colors (purple, blue, orange, etc.): light white/gray borders
+ * - Light/white backgrounds: gray borders
+ */
+function isVibrantColor(hex?: string): boolean {
+  if (!hex) return false
+  const clean = hex.replace("#", "")
+  if (clean.length !== 6 && clean.length !== 3) return false
+
+  const full = clean.length === 3
+    ? clean.split("").map((c) => c + c).join("")
+    : clean
+
+  const r = parseInt(full.slice(0, 2), 16)
+  const g = parseInt(full.slice(2, 4), 16)
+  const b = parseInt(full.slice(4, 6), 16)
+
+  if ([r, g, b].some((n) => Number.isNaN(n))) return false
+
+  // Calculate saturation - vibrant colors have high saturation
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const lightness = (max + min) / 2 / 255
+
+  // Saturation calculation
+  const delta = max - min
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1)) / 255
+
+  // Vibrant = saturated and not too dark/light
+  return saturation > 0.4 && lightness > 0.2 && lightness < 0.8
+}
+
+function getAdaptiveInputClass(isDarkBackground: boolean, backgroundColor?: string) {
+  const isVibrant = isVibrantColor(backgroundColor)
+
   return cn(
     "w-full rounded-md border outline-none transition-colors bg-transparent px-3",
-    isDarkBackground
-      ? "text-white placeholder:text-white/70 focus:placeholder:text-white/40 border-white/30 focus:border-white/60"
-      : "text-gray-900 placeholder:text-gray-500 focus:placeholder:text-gray-400 border-black/20 focus:border-black/40",
+    isDarkBackground || isVibrant
+      ? "text-white placeholder:text-white/80 focus:placeholder:text-white/50 border-white/40 focus:border-white/70"
+      : "text-gray-900 placeholder:text-gray-500 focus:placeholder:text-gray-400 border-gray-300 focus:border-gray-400",
   )
 }
 
@@ -134,8 +172,8 @@ function getInputOpacityClass(isSubscribed: boolean, isFocused: boolean) {
 
 function getCreatorHref(creatorUsername?: string, creatorId?: string, creatorName?: string) {
   const raw = (creatorUsername || creatorId || creatorName || "").toString().trim()
-  if (!raw) return `/u`
-  return `/u/${encodeURIComponent(raw)}`
+  if (!raw) return getStoreUrl("")
+  return getStoreUrl(raw)
 }
 
 /**
@@ -156,8 +194,7 @@ export function ProductCreatorBar({
   isSelected,
   onSelect,
 }: ProductCreatorBarProps) {
-  if (!settings.visible) return null
-
+  // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
   const [subscribedEmail, setSubscribedEmail] = useState<string>("")
   const [email, setEmail] = useState("")
@@ -166,15 +203,7 @@ export function ProductCreatorBar({
   const [loading, setLoading] = useState(false)
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
-  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground), [isDarkBackground])
-
-  const initials =
-    creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?"
+  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
 
   const creatorHref = useMemo(
     () => getCreatorHref(creatorUsername, creatorId, creatorName),
@@ -211,6 +240,17 @@ export function ProductCreatorBar({
       setSubscribed(true)
     }
   }, [email, subscribedEmail])
+
+  // Early return AFTER all hooks
+  if (!settings.visible) return null
+
+  const initials =
+    creatorName
+      ?.split(" ")
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase() || "?"
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   const buttonText = getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
@@ -258,7 +298,9 @@ export function ProductCreatorBar({
   }
 
   const wrapperClass = cn(
-    "w-full overflow-hidden transition-all relative",
+    "w-full transition-all relative",
+    // Use clip-path instead of overflow-hidden to prevent avatar clipping during scroll
+    // while still containing the selection ring
     isSelected && "ring-2 ring-sky-500 ring-inset",
   )
 
@@ -273,11 +315,23 @@ export function ProductCreatorBar({
   const EditorMobileLayout = () => (
     <div className="w-full py-4 px-3">
       <div className="flex items-center gap-2 w-full">
-        <Link href={creatorHref} className="flex items-center gap-1.5 shrink-0" aria-label={`Go to ${creatorName}'s shop`}>
-          <Avatar className="h-7 w-7 shrink-0">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-          </Avatar>
+        <Link
+          href={creatorHref}
+          className="flex items-center gap-1.5 shrink-0"
+          aria-label={`Go to ${creatorName}'s shop`}
+          onClick={(e) => {
+            if (isEditorPreview) {
+              e.preventDefault()
+            }
+          }}
+        >
+          {/* Avatar wrapper with explicit sizing to prevent clipping during scroll */}
+          <div className="relative h-7 w-7 shrink-0">
+            <Avatar className="h-7 w-7 shrink-0 absolute inset-0">
+              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} className="object-cover" /> : null}
+              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+            </Avatar>
+          </div>
           <span className="text-[13px] font-medium truncate max-w-[70px]" style={{ color: settings.textColor || "#ffffff" }}>
             {creatorName}
           </span>
@@ -310,6 +364,7 @@ export function ProductCreatorBar({
             style={{
               backgroundColor: settings.buttonColor || "#4b5563",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
             }}
           >
             {isCurrentEmailSubscribed ? <Check size={14} /> : <Mail size={14} />}
@@ -326,11 +381,23 @@ export function ProductCreatorBar({
   const CompactMobileLayout = () => (
     <form onSubmit={handleSubmit} className="w-full px-3 py-3.5">
       <div className="flex items-center gap-2 w-full justify-center">
-        <Link href={creatorHref} className="shrink-0" aria-label={`Go to ${creatorName}'s shop`}>
-          <Avatar className="h-7 w-7 shrink-0">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
-            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-          </Avatar>
+        <Link
+          href={creatorHref}
+          className="shrink-0 flex items-center justify-center"
+          aria-label={`Go to ${creatorName}'s shop`}
+          onClick={(e) => {
+            if (isEditorPreview) {
+              e.preventDefault()
+            }
+          }}
+        >
+          {/* Avatar wrapper with explicit sizing to prevent clipping during scroll */}
+          <div className="relative h-7 w-7 shrink-0">
+            <Avatar className="h-7 w-7 shrink-0 absolute inset-0">
+              {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} className="object-cover" /> : null}
+              <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+            </Avatar>
+          </div>
         </Link>
 
         {/* Input fits remaining space */}
@@ -344,7 +411,7 @@ export function ProductCreatorBar({
           required
           disabled={loading}
           className={cn(
-            adaptiveInputClass, 
+            adaptiveInputClass,
             "h-9 text-sm flex-1 min-w-0 px-3",
             inputOpacityClass
           )}
@@ -365,6 +432,7 @@ export function ProductCreatorBar({
           style={{
             backgroundColor: settings.buttonColor || "#4b5563",
             color: settings.buttonTextColor || "#ffffff",
+            borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
           }}
         >
           {isCurrentEmailSubscribed ? <Check size={16} /> : <Mail size={16} />}
@@ -383,6 +451,11 @@ export function ProductCreatorBar({
             href={creatorHref}
             className="flex items-center gap-2 shrink-0 group"
             aria-label={`Go to ${creatorName}'s shop`}
+            onClick={(e) => {
+              if (isEditorPreview) {
+                e.preventDefault()
+              }
+            }}
           >
             <Avatar className="h-8 w-8 shrink-0 cursor-pointer">
               {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
@@ -417,6 +490,7 @@ export function ProductCreatorBar({
               style={{
                 backgroundColor: settings.buttonColor || "#4b5563",
                 color: settings.buttonTextColor || "#ffffff",
+                borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
               }}
             >
               {buttonText === "🔥" ? null : isCurrentEmailSubscribed ? (
@@ -498,8 +572,7 @@ export function LiveProductCreatorBar({
   creatorUsername,
   avatarUrl,
 }: LiveProductCreatorBarProps) {
-  if (!settings.visible) return null
-
+  // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
   const [subscribedEmail, setSubscribedEmail] = useState<string>("")
   const [email, setEmail] = useState("")
@@ -509,15 +582,7 @@ export function LiveProductCreatorBar({
   const [isHydrated, setIsHydrated] = useState(false)
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
-  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground), [isDarkBackground])
-
-  const initials =
-    creatorName
-      ?.split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?"
+  const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
 
   const creatorHref = useMemo(
     () => getCreatorHref(creatorUsername, creatorId, creatorName),
@@ -555,6 +620,17 @@ export function LiveProductCreatorBar({
       setSubscribed(true)
     }
   }, [email, subscribedEmail])
+
+  // Early return AFTER all hooks
+  if (!settings.visible) return null
+
+  const initials =
+    creatorName
+      ?.split(" ")
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase() || "?"
 
   const isCurrentEmailSubscribed = subscribed && normalizeEmail(email) === subscribedEmail
   const buttonText = getButtonText(settings.buttonStyle, isCurrentEmailSubscribed)
@@ -648,6 +724,7 @@ export function LiveProductCreatorBar({
             style={{
               backgroundColor: settings.buttonColor || "#4b5563",
               color: settings.buttonTextColor || "#ffffff",
+              borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
             }}
           >
             {buttonText === "🔥" ? null : isCurrentEmailSubscribed ? (
@@ -708,6 +785,7 @@ export function LiveProductCreatorBar({
                 style={{
                   backgroundColor: settings.buttonColor || "#4b5563",
                   color: settings.buttonTextColor || "#ffffff",
+                  borderRadius: `${settings.buttonBorderRadius ?? 8}px`,
                 }}
               >
                 {buttonText === "🔥" ? null : isCurrentEmailSubscribed ? (

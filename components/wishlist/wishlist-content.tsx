@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Heart, Trash2, Loader2, ShoppingBag, RefreshCw } from "lucide-react"
+import { getStoreUrl } from "@/lib/url-helpers"
 
 interface WishlistItem {
   id: string
@@ -226,7 +227,7 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
 
                     {creatorUsername && (
                       <Link
-                        href={`/u/${creatorUsername}`}
+                        href={`${getStoreUrl(creatorUsername)}?src=platform`}
                         className="text-sm text-gray-500 hover:text-gray-700 transition-colors mt-0.5"
                       >
                         by {creatorName}

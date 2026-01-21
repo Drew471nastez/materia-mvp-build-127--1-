@@ -6,13 +6,15 @@ import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 import { nanoid } from "nanoid"
 
+export const runtime = "nodejs"
+
 function isValidEmail(email: string) {
   return typeof email === "string" && email.includes("@") && email.length <= 254
 }
 
 function getBaseUrl() {
   return (
-    process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://v0-materia-mvp-build.vercel.app"
+    process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
   )
 }
 
@@ -114,11 +116,13 @@ export async function POST(req: Request) {
     })
     if (entErr) console.error("[complete-free] entitlementError:", entErr)
 
-    await admin.rpc("increment_product_sales", { p_product_id: product.id }).catch(() => {})
-    await admin
+    const { error: salesError } = await admin.rpc("increment_product_sales", { p_product_id: product.id })
+    if (salesError) console.error("[complete-free] Error incrementing sales:", salesError)
+
+    const { error: analyticsError } = await admin
       .from("analytics_events")
       .insert({ creator_id: product.creator_id, product_id: product.id, event_type: "purchase" })
-      .catch(() => {})
+    if (analyticsError) console.error("[complete-free] Error recording analytics:", analyticsError)
 
     const baseUrl = getBaseUrl()
 

@@ -6,6 +6,8 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails } from "@/lib/email"
 
+export const runtime = "nodejs"
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -156,7 +158,7 @@ export async function POST(request: Request) {
       event_type: "purchase",
     })
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://materia.app"
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
     const emailResults = await sendOrderEmails(admin, {
       orderId: order.id,

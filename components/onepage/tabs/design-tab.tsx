@@ -181,24 +181,25 @@ const FONT_CATEGORIES = [
 ]
 
 const SOCIAL_STYLES = [
-  { id: "filled", label: "Filled", description: "Solid background" },
-  { id: "outline", label: "Outline", description: "Border only" },
-  { id: "minimal", label: "Minimal", description: "No background" },
+  { id: "filled", label: "Solid" },
+  { id: "outline", label: "Outline" },
+  { id: "minimal", label: "Glass" },
 ]
 
 const BACKGROUND_IMAGES = [
-  { id: "gradient1", url: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1920&q=95", label: "Purple Gradient" },
-  { id: "gradient2", url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1920&q=95", label: "Colorful Gradient" },
-  { id: "gradient3", url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=1920&q=95", label: "Blue Gradient" },
-  { id: "abstract1", url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=1920&q=95", label: "Abstract" },
-  { id: "abstract2", url: "https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=1920&q=95", label: "Waves" },
-  { id: "mesh1", url: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=1920&q=95", label: "Mesh" },
-  { id: "dark1", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=95", label: "Dark" },
-  { id: "mountains", url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=95", label: "Mountains" },
-  { id: "marble", url: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=1920&q=95", label: "Marble" },
-  { id: "texture", url: "https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=1920&q=95", label: "Texture" },
-  { id: "ocean", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=95", label: "Ocean" },
-  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", label: "Forest" },
+  // Nature image (kept)
+  { id: "forest", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95", label: "Nature" },
+  // Space image (kept)
+  { id: "space-stars", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=95", label: "Space" },
+  // New Supabase images
+  { id: "blocks-gradient", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/download.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvZG93bmxvYWQucG5nIiwiaWF0IjoxNzY4OTA3NjA3LCJleHAiOjMzMzA0OTA3NjA3fQ.Vt9eh0yu6lOl3hlyq-e_Q1DAZnE3F6SRQmpblm43vAw", label: "Gradient Blocks" },
+  { id: "abstract-pink", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/c78fa2c87ca69f52361687fa7b27b909.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvYzc4ZmEyYzg3Y2E2OWY1MjM2MTY4N2ZhN2IyN2I5MDkuanBnIiwiaWF0IjoxNzY4OTA3NjIxLCJleHAiOjUzMDA5Mzk2MjF9.9BLSE0ZAWodphCHfDfLaPIcWby-1VbznKWyzV3M1U-M", label: "Abstract Pink" },
+  { id: "black-solid", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/black_background.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvYmxhY2tfYmFja2dyb3VuZC5qcGciLCJpYXQiOjE3Njg5MDc2MzYsImV4cCI6Mzg4NDg1OTY1OTYzNn0.gP0xzyavmUb1e_s-3JMarX7TEUEgBCMn7c1-m_fLL7U", label: "Black" },
+  { id: "dark-texture", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/b607af5996db7b6b9af70e1a777aa808.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvYjYwN2FmNTk5NmRiN2I2YjlhZjcwZTFhNzc3YWE4MDguanBnIiwiaWF0IjoxNzY4OTA3NjUyLCJleHAiOjYwMjYyNjc2NTJ9.axmEhvQleebXMWfojRjrou7-p74GKbtSlvbpVGY8mjA", label: "Dark Texture" },
+  { id: "gradient-warm", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/510e061be1f3d8c7a56a9cff56c8ae24.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvNTEwZTA2MWJlMWYzZDhjN2E1NmE5Y2ZmNTZjOGFlMjQuanBnIiwiaWF0IjoxNzY4OTA3NjY3LCJleHAiOjEwNzQ0NjA0MzY2N30.jnvnqbf6FRqvyIDIx0tYz9kOyNWLGHEi-DyiQfRLX0o", label: "Warm Gradient" },
+  { id: "fusion-gradient", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMzUxM2NjYjdjMjYwZmZkM2YzNjYyNzc2Y2E4YWM5ZTAuanBnIiwiaWF0IjoxNzY4OTA3Njc5LCJleHAiOjU2NDc4MzU2Nzl9.mNyFEKqxNOBl82EwxJrGPy_gC4bX31cnczX_zGgRt6k", label: "Fusion" },
+  { id: "blue-texture", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/214ffad10a8306624600af8823503d46.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMjE0ZmZhZDEwYTgzMDY2MjQ2MDBhZjg4MjM1MDNkNDYuanBnIiwiaWF0IjoxNzY4OTA3Njg5LCJleHAiOjYwMjYyNjc2ODl9.iymmMjpCYELdPQqT_BbfAOWDFSngkYtx4ssuE9Pid2g", label: "Blue Texture" },
+  { id: "abstract-dark", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/19fef3f73560866d37752eb95418f4bb.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMTlmZWYzZjczNTYwODY2ZDM3NzUyZWI5NTQxOGY0YmIuanBnIiwiaWF0IjoxNzY4OTA3Njk5LCJleHAiOjM5MzI1NjgxMTY5OX0.ThQFYyEylNyx07kOmK9oBiZ9JqqCNHeFJJ-zZAa_7R8", label: "Abstract Dark" },
 ]
 
 const BACKGROUND_PATTERNS = [
@@ -207,10 +208,12 @@ const BACKGROUND_PATTERNS = [
   { id: "dots", name: "Dots", preview: "dots" },
   { id: "waves", name: "Waves", preview: "waves" },
   { id: "zigzag", name: "Zigzag", preview: "zigzag" },
-  { id: "cross", name: "Cross", preview: "cross" },
   { id: "diagonal", name: "Diagonal", preview: "diagonal" },
   { id: "morph", name: "Morph", preview: "morph" },
   { id: "organic", name: "Organic", preview: "organic" },
+  { id: "flowmaze", name: "Flow Maze", preview: "flowmaze" },
+  { id: "topographic", name: "Topographic", preview: "topographic" },
+  { id: "stars", name: "Stars", preview: "stars" },
 ]
 
 const THEME_TEMPLATES = [
@@ -240,9 +243,16 @@ const THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
+      background_pattern: "none",
+      laser_glow_enabled: false,
     },
     profile_layout: "classic" as const,
     skipLayoutDialog: true,
+    // Default theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
+    // Default theme with light background - use dark button text for outline/glass styles
+    light_button_text_color: "#000000",
   },
   {
     id: "air",
@@ -268,7 +278,15 @@ const THEME_TEMPLATES = [
       social_icon_color: "#64748b",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      laser_glow_enabled: true,
+      laser_glow_color: "#dbdbdb",
+      laser_glow_intensity: "medium",
     },
+    // AIR theme with light background - use dark button text for outline/glass styles
+    light_button_text_color: "#0f172a",
+    // Air theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "astrid",
@@ -294,7 +312,13 @@ const THEME_TEMPLATES = [
       social_icon_color: "#a1a1aa",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      laser_glow_enabled: true,
+      laser_glow_color: "#303030",
+      laser_glow_intensity: "medium",
     },
+    // Astrid theme uses glassmorphism for share/subscribe icons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
   {
     id: "blocks",
@@ -313,14 +337,28 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 0,
       button_border_color: "#ffffff",
-      button_shadow: "strong",
+      button_shadow: "hard",
+      button_shadow_color: "#6a197b",
       font_family: "'Poppins', sans-serif",
       title_font: "'Poppins', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#ffffff",
+      social_icon_style: "filled",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Blocks theme: laser glow off, grid pattern with low opacity
+      laser_glow_enabled: false,
+      background_pattern: "grid",
+      pattern_opacity: "low",
+      pattern_color: "#c9c9c990",
     },
+    // Button text colors for different styles
+    solid_button_text_color: "#7c3aed",
+    outline_button_text_color: "#ffffff",
+    glass_button_text_color: "#ffffff",
+    // Blocks theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "ocean",
@@ -333,20 +371,28 @@ const THEME_TEMPLATES = [
       background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#bae6fd",
-      button_color: "#38bdf8",
-      button_text_color: "#0c4a6e",
-      button_style: "filled" as const,
-      button_border_radius: 12,
-      button_border_width: 0,
-      button_border_color: "#38bdf8",
+      button_color: "rgba(255, 255, 255, 0.15)",
+      button_text_color: "#ffffff",
+      button_style: "glass" as const,
+      button_border_radius: 24,
+      button_border_width: 1,
+      button_border_color: "rgba(255, 255, 255, 0.2)",
       button_shadow: "subtle",
       font_family: "'Nunito', sans-serif",
       title_font: "'Nunito', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#bae6fd",
+      social_icon_style: "outline",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Ocean theme: waves pattern with low opacity
+      background_pattern: "waves",
+      pattern_opacity: "low",
+      pattern_color: "#428ad790",
     },
+    // Ocean theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "sunset",
@@ -370,9 +416,21 @@ const THEME_TEMPLATES = [
       title_font: "'Playfair Display', serif",
       title_color: "#ffffff",
       social_icon_color: "#ffffff",
+      social_icon_style: "filled",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Sunset theme: organic pattern with low opacity
+      background_pattern: "organic",
+      pattern_opacity: "low",
+      pattern_color: "#ffcccc90",
     },
+    // Sunset theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
+    // Button text colors for different styles
+    solid_button_text_color: "#ea580c",
+    outline_button_text_color: "#ffffff",
+    glass_button_text_color: "#ffffff",
   },
   {
     id: "midnight",
@@ -385,12 +443,12 @@ const THEME_TEMPLATES = [
       background_image_url: "",
       text_color: "#f8fafc",
       secondary_text_color: "#94a3b8",
-      button_color: "#3b82f6",
+      button_color: "rgba(255, 255, 255, 0.1)",
       button_text_color: "#ffffff",
-      button_style: "filled" as const,
+      button_style: "glass" as const,
       button_border_radius: 10,
-      button_border_width: 0,
-      button_border_color: "#3b82f6",
+      button_border_width: 1,
+      button_border_color: "#182b49",
       button_shadow: "subtle",
       font_family: "'Inter', sans-serif",
       title_font: "'Oswald', sans-serif",
@@ -398,7 +456,20 @@ const THEME_TEMPLATES = [
       social_icon_color: "#3b82f6",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Midnight theme: hero layout, laser glow off, zoom button animation
+      header_layout: "hero",
+      laser_glow_enabled: false,
+      button_hover_animation: "zoom",
+      // Midnight only allows stars pattern - stars enabled by default with white color
+      allowed_patterns: ["none", "stars"],
+      background_pattern: "stars",
+      pattern_color: "#ffffff",
+      pattern_opacity: "medium",
     },
+    profile_layout: "hero" as const,
+    // Midnight theme uses glassmorphism for share/subscribe buttons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
   {
     id: "cream",
@@ -420,39 +491,60 @@ const THEME_TEMPLATES = [
       button_shadow: "none",
       font_family: "'Lora', serif",
       title_font: "'Playfair Display', serif",
-      title_color: "#1c1917",
+      title_color: "#362f2b",
       social_icon_color: "#78716c",
+      social_icon_style: "filled",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "zigzag",
+      pattern_color: "#e2dc9c90",
+      pattern_opacity: "low",
     },
+    profile_layout: "classic" as const,
+    // Cream theme uses black share/subscribe button styles
+    share_style: "black",
+    subscribe_style: "black",
+    // Button text colors for different styles
+    outline_button_text_color: "#363221",
+    solid_button_text_color: "#fffcf0",
+    glass_button_text_color: "#37342a",
   },
   {
-    id: "glass",
-    name: "Glass",
+    id: "space",
+    name: "Space",
     category: "dark",
     theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#1e1b4b",
-      background_gradient: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+      background_type: "solid" as const,
+      background_color: "#000000",
+      background_gradient: "",
       background_image_url: "",
-      text_color: "#e0e7ff",
-      secondary_text_color: "#a5b4fc",
+      text_color: "#ffffff",
+      secondary_text_color: "#a1a1aa",
       button_color: "rgba(255, 255, 255, 0.1)",
-      button_text_color: "#e0e7ff",
+      button_text_color: "#ffffff",
       button_style: "glass" as const,
       button_border_radius: 12,
       button_border_width: 1,
       button_border_color: "rgba(255, 255, 255, 0.2)",
       button_shadow: "none",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Raleway', sans-serif",
-      title_color: "#e0e7ff",
-      social_icon_color: "#a5b4fc",
-      background_pattern: "dots",
-      pattern_color: "#ffffff90",
+      font_family: "'Space Grotesk', sans-serif",
+      title_font: "'Space Grotesk', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#ffffff",
+      social_icon_style: "filled",
+      background_pattern: "stars",
+      pattern_color: "#ffffff",
+      pattern_opacity: "high",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      header_layout: "classic",
     },
+    profile_layout: "classic" as const,
+    // Space theme uses black share/subscribe button styles
+    share_style: "black",
+    subscribe_style: "black",
   },
   {
     id: "aurora",
@@ -496,11 +588,12 @@ const THEME_TEMPLATES = [
       secondary_text_color: "#a1a1aa",
       button_color: "#18181b",
       button_text_color: "#22d3ee",
-      button_style: "filled" as const,
-      button_border_radius: 8,
+      button_style: "glass" as const,
+      button_border_radius: 10,
       button_border_width: 1,
       button_border_color: "#22d3ee",
-      button_shadow: "hard",
+      button_shadow: "strong",
+      button_shadow_color: "#ffffff",
       font_family: "'JetBrains Mono', monospace",
       title_font: "'Orbitron', sans-serif",
       title_color: "#22d3ee",
@@ -508,7 +601,12 @@ const THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "hero",
+      background_pattern: "none",
     },
+    profile_layout: "hero" as const,
+    // Neon theme uses glassmorphism for share/subscribe buttons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
   {
     id: "nature",
@@ -534,7 +632,47 @@ const THEME_TEMPLATES = [
       social_icon_color: "#d1fae5",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      // Wallpaper settings: 40% brightness and 30% noise strength
+      image_brightness: 40,
+      image_noise: true,
+      noise_strength: 30,
     },
+  },
+  {
+    id: "fusion",
+    name: "Fusion",
+    category: "image",
+    theme_config: {
+      background_type: "image" as const,
+      background_color: "#0f0f1a",
+      background_gradient: "",
+      background_image_url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMzUxM2NjYjdjMjYwZmZkM2YzNjYyNzc2Y2E4YWM5ZTAuanBnIiwiaWF0IjoxNzY4OTA4Mjg2LCJleHAiOjM5NDg1NjIzODAyODZ9.gt2phg6Tkw-z5_Q-F4kqhDchEmd3eOupUWxohGQLmM0",
+      text_color: "#ffffff",
+      secondary_text_color: "#e9d5ff",
+      button_color: "#8b5cf6",
+      button_text_color: "#ffffff",
+      button_style: "filled" as const,
+      button_border_radius: 12,
+      button_border_width: 0,
+      button_border_color: "#8b5cf6",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Space Grotesk', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#e9d5ff",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      // Wallpaper settings: 60% brightness and 40% noise strength
+      image_brightness: 60,
+      image_noise: true,
+      noise_strength: 40,
+    },
+    profile_layout: "classic" as const,
+    // Fusion theme uses glassmorphism for share/subscribe buttons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
 ]
 
@@ -554,6 +692,20 @@ export function DesignTab() {
   useEffect(() => {
     localStorage.setItem('onepage-design-section', activeSection)
   }, [activeSection])
+
+  // Listen for storage events to navigate to specific section (e.g., from "Design Social Icons" button)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'onepage-design-section' && e.newValue) {
+        const validSections = ['header', 'theme', 'wallpaper', 'text', 'buttons', 'socials', 'footer']
+        if (validSections.includes(e.newValue)) {
+          setActiveSection(e.newValue as DesignSection)
+        }
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   const sections = [
     { id: "header" as const, label: "Header", icon: ImageIcon },
@@ -1986,6 +2138,11 @@ function HeaderSection() {
         <Input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder="Your name" className="h-10 rounded-lg" />
       </div>
 
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Bio</Label>
+        <Input value={onepage.bio || ""} onChange={(e) => updateProfile({ bio: e.target.value })} placeholder="A short bio..." className="h-10 rounded-lg" />
+      </div>
+
       {/* Title Style Selector */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title Style</Label>
@@ -2088,6 +2245,8 @@ function HeaderSection() {
         </div>
       )}
 
+      <div className="border-t border-gray-100" />
+
       {/* Title Font Selector */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title Font</Label>
@@ -2141,6 +2300,8 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
+      <div className="border-t border-gray-100" />
+
       {/* Title & Logo Size Selector */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title & Logo size</Label>
@@ -2169,6 +2330,8 @@ function HeaderSection() {
           </button>
         </div>
       </div>
+
+      <div className="border-t border-gray-100" />
 
       {/* Title Color Picker - Simple & Reliable */}
       <div className="space-y-2">
@@ -2218,30 +2381,29 @@ function HeaderSection() {
           ))}
         </div>
       </div>
-
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Bio</Label>
-        <Input value={onepage.bio || ""} onChange={(e) => updateProfile({ bio: e.target.value })} placeholder="A short bio..." className="h-10 rounded-lg" />
-      </div>
     </div>
   )
 }
 
 function ThemeSection() {
-  const { onepage, updateTheme } = useOnePage()
+  const { onepage, updateTheme, updateSettings, updateBlock } = useOnePage()
   const [filter, setFilter] = useState<"all" | "light" | "dark" | "gradient" | "image">("all")
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useState<typeof THEME_TEMPLATES[0] | null>(null)
 
   if (!onepage) return null
-  const { theme } = onepage
+  const { theme, draft_blocks } = onepage
   const currentHeaderLayout = (theme as any).header_layout || "classic"
 
   const handleApplyTemplate = (template: typeof THEME_TEMPLATES[0]) => {
     const config = template.theme_config
     const templateLayout = (template as any).profile_layout
     const skipDialog = (template as any).skipLayoutDialog
-    const needsClassicLayout = config.background_type === "gradient" || config.background_type === "image" || templateLayout === "classic"
+
+    // Template explicitly requests hero layout (like Midnight)
+    const wantsHeroLayout = templateLayout === "hero" || (config as any).header_layout === "hero"
+    // Gradient/image backgrounds require classic layout (unless template explicitly specifies otherwise)
+    const needsClassicLayout = !wantsHeroLayout && (config.background_type === "gradient" || config.background_type === "image" || templateLayout === "classic")
 
     // If current layout is Hero and new template requires classic layout, show dialog (unless skipLayoutDialog is true)
     if (needsClassicLayout && currentHeaderLayout === "hero" && !skipDialog) {
@@ -2250,12 +2412,42 @@ function ThemeSection() {
       return
     }
 
-    // Apply template, ensuring Classic layout for gradient/image backgrounds or if template specifies it
+    // Apply template, ensuring correct layout
     const updatedConfig = { ...config, template_id: template.id }
-    if (needsClassicLayout) {
+    if (wantsHeroLayout) {
+      // Template explicitly wants hero layout (e.g., Midnight)
+      (updatedConfig as any).header_layout = "hero"
+    } else if (needsClassicLayout) {
       (updatedConfig as any).header_layout = "classic"
     }
     updateTheme(updatedConfig)
+
+    // Apply button styles from template if specified (for Default theme white buttons)
+    const templateWithStyles = template as any
+    if (templateWithStyles.share_style || templateWithStyles.subscribe_style) {
+      const settingsUpdate: any = {}
+      if (templateWithStyles.share_style) settingsUpdate.share_style = templateWithStyles.share_style
+      if (templateWithStyles.subscribe_style) settingsUpdate.subscribe_style = templateWithStyles.subscribe_style
+      updateSettings(settingsUpdate)
+    }
+
+    // AIR theme: Set swipe animation on the first link_button block if no blocks have animations
+    if (template.id === "air" && draft_blocks) {
+      // Check if any block already has an animation
+      const hasAnimation = draft_blocks.some(b =>
+        b.type === "link_button" && (b.data as any)?.animation_type && (b.data as any)?.animation_type !== "none"
+      )
+
+      if (!hasAnimation) {
+        // Find the first link_button block and set swipe animation
+        const firstLinkButton = draft_blocks.find(b => b.type === "link_button" && b.enabled)
+        if (firstLinkButton) {
+          updateBlock(firstLinkButton.id, {
+            data: { ...(firstLinkButton.data || {}), animation_type: "swipe" }
+          })
+        }
+      }
+    }
   }
 
   const handleConfirmLayoutChange = () => {
@@ -2293,25 +2485,51 @@ function ThemeSection() {
               <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group border-2", isSelected ? "ring-2 ring-violet-500 ring-offset-2 border-gray-200" : "border-gray-200 hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
                 <div className="absolute inset-0 bg-white" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-[11px] font-medium text-gray-400">Default</span>
+                  <span className="text-[11px] font-medium text-gray-400" style={{ fontFamily: config.font_family }}>Default</span>
                 </div>
                 {isSelected && <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center"><Check className="h-3 w-3 text-white" /></div>}
               </button>
             )
           }
 
+          // Check if this theme uses hero layout
+          const isHeroLayout = (template as any).profile_layout === "hero" || (config as any).header_layout === "hero"
+          // Check if theme has a pattern
+          const hasPattern = (config as any).background_pattern && (config as any).background_pattern !== "none"
+          const patternColor = (config as any).pattern_color || "#ffffff90"
+          const patternId = (config as any).background_pattern
+
           return (
             <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group", isSelected ? "ring-2 ring-violet-500 ring-offset-2" : "hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
               <div className="absolute inset-0" style={bgStyle} />
+              {/* Pattern overlay for themes with patterns */}
+              {hasPattern && (
+                <div className="absolute inset-0 opacity-60">
+                  <PatternPreview pattern={patternId} color={patternColor} />
+                </div>
+              )}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3">
-                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full" style={{ backgroundColor: `${config.text_color}30` }} />
-                <div className="w-12 md:w-16 h-1.5 md:h-2 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
-                <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
+                {isHeroLayout ? (
+                  /* Hero layout: wide banner-style header */
+                  <>
+                    <div className="w-full h-8 md:h-10 rounded-lg" style={{ backgroundColor: `${config.text_color}20` }} />
+                    <div className="w-12 md:w-16 h-1.5 md:h-2 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
+                    <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
+                  </>
+                ) : (
+                  /* Classic layout: circle avatar */
+                  <>
+                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full" style={{ backgroundColor: `${config.text_color}30` }} />
+                    <div className="w-12 md:w-16 h-1.5 md:h-2 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
+                    <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
+                  </>
+                )}
                 <div className="w-full max-w-[60px] md:max-w-[80px] h-5 md:h-6 rounded-md mt-2" style={{ backgroundColor: config.button_color, borderWidth: config.button_border_width, borderColor: config.button_border_color, borderRadius: `${config.button_border_radius}px` }} />
               </div>
               {isSelected && <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center bg-ring"><Check className="h-3 w-3 text-white" /></div>}
+              {/* Theme name with font preview */}
               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/50 to-transparent">
-                <p className="text-[10px] md:text-xs font-medium text-white text-center">{template.name}</p>
+                <p className="text-[10px] md:text-xs font-medium text-white text-center" style={{ fontFamily: config.font_family }}>{template.name}</p>
               </div>
             </button>
           )
@@ -2412,16 +2630,6 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
         <rect width="100%" height="100%" fill={`url(#zigzag-${color})`} />
       </svg>
     ),
-    cross: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id={`cross-${color}`} width="16" height="16" patternUnits="userSpaceOnUse">
-            <path d="M8 0 L8 16 M0 8 L16 8" fill="none" stroke={color} strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#cross-${color})`} />
-      </svg>
-    ),
     diagonal: (
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -2463,6 +2671,77 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={`url(#organic-${color})`} />
+      </svg>
+    ),
+    flowmaze: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`flowmaze-${color}`} width="400" height="400" patternUnits="userSpaceOnUse">
+            {/* Flow Maze - organic flowing continuous maze-like lines */}
+            <path d="M20 50 Q60 20, 100 50 Q140 80, 120 130 Q100 180, 60 170 Q20 160, 30 120 Q40 80, 80 90 Q120 100, 140 140 Q160 180, 130 220 Q100 260, 60 240 Q20 220, 40 180" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.5" />
+            <path d="M180 30 Q220 10, 260 40 Q300 70, 280 120 Q260 170, 220 150 Q180 130, 200 90 Q220 50, 260 70 Q300 90, 320 140 Q340 190, 300 230 Q260 270, 220 250 Q180 230, 200 190 Q220 150, 270 170 Q320 190, 340 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.45" />
+            <path d="M350 50 Q390 30, 400 80 Q395 130, 360 120 Q320 110, 340 70 Q360 30, 400 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
+            <path d="M30 280 Q70 250, 110 280 Q150 310, 130 360 Q110 400, 70 380 Q30 360, 50 320 Q70 280, 110 300 Q150 320, 160 370" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.48" />
+            <path d="M200 290 Q240 260, 280 290 Q320 320, 300 370 Q280 400, 240 385 Q200 370, 220 330 Q240 290, 290 310 Q340 330, 360 380 Q380 400, 370 400" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.42" />
+            <path d="M60 350 Q100 370, 90 400 M160 260 Q200 240, 180 200 Q160 160, 120 180 Q80 200, 100 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.38" />
+            <path d="M320 10 Q360 30, 350 70 Q340 110, 300 100 Q260 90, 280 50 Q300 10, 340 20" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.35" />
+            <path d="M380 280 Q400 320, 380 360 Q360 400, 320 380 Q280 360, 310 320 Q340 280, 380 300" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#flowmaze-${color})`} />
+      </svg>
+    ),
+    topographic: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id={`topographic-${color}`} width="300" height="300" patternUnits="userSpaceOnUse">
+            {/* Topographic - contour lines like elevation maps */}
+            <ellipse cx="100" cy="100" rx="90" ry="80" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
+            <ellipse cx="100" cy="100" rx="70" ry="62" fill="none" stroke={color} strokeWidth="1.5" opacity="0.35" />
+            <ellipse cx="100" cy="100" rx="50" ry="44" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
+            <ellipse cx="100" cy="100" rx="30" ry="26" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
+            <ellipse cx="100" cy="100" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.5" />
+            <ellipse cx="220" cy="200" rx="75" ry="90" fill="none" stroke={color} strokeWidth="1.5" opacity="0.28" />
+            <ellipse cx="220" cy="200" rx="55" ry="70" fill="none" stroke={color} strokeWidth="1.5" opacity="0.33" />
+            <ellipse cx="220" cy="200" rx="35" ry="50" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
+            <ellipse cx="220" cy="200" rx="18" ry="30" fill="none" stroke={color} strokeWidth="1.5" opacity="0.43" />
+            <ellipse cx="50" cy="250" rx="45" ry="40" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
+            <ellipse cx="50" cy="250" rx="28" ry="25" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
+            <ellipse cx="50" cy="250" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
+            <ellipse cx="250" cy="50" rx="40" ry="45" fill="none" stroke={color} strokeWidth="1.5" opacity="0.32" />
+            <ellipse cx="250" cy="50" rx="22" ry="28" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
+            <ellipse cx="250" cy="50" rx="8" ry="12" fill="none" stroke={color} strokeWidth="1.5" opacity="0.48" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#topographic-${color})`} />
+      </svg>
+    ),
+    stars: (
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+        {/* Stars - subtle dots like space stars */}
+        <circle cx="10" cy="15" r="1" fill={color} opacity="0.7" />
+        <circle cx="25" cy="8" r="0.8" fill={color} opacity="0.5" />
+        <circle cx="45" cy="20" r="1.2" fill={color} opacity="0.6" />
+        <circle cx="65" cy="12" r="0.6" fill={color} opacity="0.4" />
+        <circle cx="80" cy="25" r="1" fill={color} opacity="0.7" />
+        <circle cx="90" cy="10" r="0.8" fill={color} opacity="0.5" />
+        <circle cx="15" cy="40" r="0.7" fill={color} opacity="0.4" />
+        <circle cx="35" cy="35" r="1" fill={color} opacity="0.6" />
+        <circle cx="55" cy="45" r="0.9" fill={color} opacity="0.5" />
+        <circle cx="75" cy="38" r="1.1" fill={color} opacity="0.7" />
+        <circle cx="95" cy="42" r="0.6" fill={color} opacity="0.4" />
+        <circle cx="8" cy="60" r="1" fill={color} opacity="0.6" />
+        <circle cx="30" cy="55" r="0.8" fill={color} opacity="0.5" />
+        <circle cx="50" cy="65" r="1.2" fill={color} opacity="0.7" />
+        <circle cx="70" cy="58" r="0.7" fill={color} opacity="0.4" />
+        <circle cx="88" cy="68" r="1" fill={color} opacity="0.6" />
+        <circle cx="20" cy="80" r="0.9" fill={color} opacity="0.5" />
+        <circle cx="42" cy="75" r="1.1" fill={color} opacity="0.7" />
+        <circle cx="62" cy="85" r="0.6" fill={color} opacity="0.4" />
+        <circle cx="82" cy="78" r="1" fill={color} opacity="0.6" />
+        <circle cx="5" cy="92" r="0.8" fill={color} opacity="0.5" />
+        <circle cx="48" cy="95" r="1" fill={color} opacity="0.7" />
+        <circle cx="92" cy="90" r="0.7" fill={color} opacity="0.4" />
       </svg>
     ),
   }
@@ -2801,7 +3080,7 @@ function WallpaperSection() {
         updateAngle(clientX, clientY)
       }
       const handleEnd = () => setIsDragging(false)
-      
+
       if (isDragging) {
         window.addEventListener('mousemove', handleMove)
         window.addEventListener('mouseup', handleEnd)
@@ -2821,7 +3100,7 @@ function WallpaperSection() {
 
     return (
       <div className="flex flex-col items-center gap-2">
-        <div 
+        <div
           ref={dialRef}
           className={cn(
             "w-20 h-20 rounded-full border-2 bg-gradient-to-br from-gray-50 to-gray-100 relative cursor-pointer select-none shadow-inner transition-all",
@@ -2832,10 +3111,10 @@ function WallpaperSection() {
         >
           {/* Tick marks around the dial */}
           {presetAngles.map((angle) => (
-            <div 
+            <div
               key={angle}
               className="absolute w-0.5 h-2 bg-gray-300 rounded-full"
-              style={{ 
+              style={{
                 top: '4px',
                 left: '50%',
                 transformOrigin: '50% 36px',
@@ -2843,15 +3122,15 @@ function WallpaperSection() {
               }}
             />
           ))}
-          
+
           {/* Rotating indicator */}
-          <div 
+          <div
             className="absolute inset-3 rounded-full flex items-start justify-center transition-transform"
             style={{ transform: `rotate(${value}deg)` }}
           >
             <div className="w-2 h-8 bg-gradient-to-b from-violet-500 to-violet-600 rounded-full shadow-md" />
           </div>
-          
+
           {/* Center dot */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-3 h-3 bg-white rounded-full shadow-sm border border-gray-200" />
@@ -3603,29 +3882,31 @@ function TextSection() {
         </button>
       </div>
       <Dialog open={showFontModal} onOpenChange={setShowFontModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-4 border-b">
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
+          <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle className="text-lg font-semibold">Choose Font</DialogTitle>
             <div className="relative mt-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input value={fontSearch} onChange={(e) => setFontSearch(e.target.value)} placeholder="Search fonts..." className="pl-9 h-10" />
             </div>
-            <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+            <div className="flex gap-2 mt-3 overflow-x-auto pb-1 no-scrollbar">
               {FONT_CATEGORIES.map((cat) => (
                 <button key={cat.id} onClick={() => setFontFilter(cat.id as any)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors", fontFilter === cat.id ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>{cat.label}</button>
               ))}
             </div>
           </DialogHeader>
-          <div className="overflow-y-auto max-h-[400px] p-2">
+          <div className="overflow-y-auto flex-1 p-2 pb-[max(8px,env(safe-area-inset-bottom))]">
             {filteredFonts.map((font) => (
-              <button key={font.name} onClick={() => { updateTheme({ font_family: font.value }); setShowFontModal(false) }} className={cn("w-full p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", theme.font_family === font.value && "bg-violet-50")}>
-                <div><p style={{ fontFamily: font.value }} className="text-base">{font.name}</p><p className="text-xs text-muted-foreground">{font.style}</p></div>
-                {theme.font_family === font.value && <Check className="h-5 w-5 text-violet-500" />}
+              <button key={font.name} onClick={() => { updateTheme({ font_family: font.value }); setShowFontModal(false) }} className={cn("w-full p-4 sm:p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", theme.font_family === font.value && "bg-violet-50")}>
+                <div className="flex-1 min-w-0"><p style={{ fontFamily: font.value }} className="text-base truncate">{font.name}</p><p className="text-xs text-muted-foreground">{font.style}</p></div>
+                {theme.font_family === font.value && <Check className="h-5 w-5 text-violet-500 shrink-0 ml-2" />}
               </button>
             ))}
           </div>
         </DialogContent>
       </Dialog>
+
+      <div className="border-t border-gray-100" />
 
       {/* Title Font Selector */}
       <div className="space-y-3">
@@ -3669,6 +3950,8 @@ function TextSection() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <div className="border-t border-gray-100" />
 
       {/* Title & Logo Size Selector */}
       <div className="space-y-2">
@@ -3755,6 +4038,41 @@ function ButtonsSection() {
   if (!onepage) return null
   const { theme } = onepage
 
+  // Helper function to determine if background is light
+  const isLightBackground = (bgColor: string) => {
+    // Convert hex to RGB and calculate luminance
+    const hex = bgColor.replace('#', '')
+    if (hex.length !== 6) return true // Default to light if invalid
+    const r = parseInt(hex.substring(0, 2), 16)
+    const g = parseInt(hex.substring(2, 4), 16)
+    const b = parseInt(hex.substring(4, 6), 16)
+    // Calculate luminance using relative luminance formula
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance > 0.5 // Light if luminance > 0.5
+  }
+
+  // Handler for button style changes - auto-adjusts text color for light backgrounds
+  const handleButtonStyleChange = (style: "filled" | "outline" | "glass") => {
+    const updates: any = { button_style: style }
+
+    // If selecting outline or glass on a light background, use dark text color
+    if ((style === "outline" || style === "glass") && theme.background_type === "solid") {
+      const bgColor = theme.background_color || "#ffffff"
+      if (isLightBackground(bgColor)) {
+        // Find the current template to get its light_button_text_color, or use default dark color
+        const currentTemplate = THEME_TEMPLATES.find(t => t.id === theme.template_id)
+        const lightButtonTextColor = (currentTemplate as any)?.light_button_text_color || "#0f172a"
+        updates.button_text_color = lightButtonTextColor
+      }
+    }
+    // If selecting filled (solid) style, use white text color for better contrast
+    else if (style === "filled") {
+      updates.button_text_color = "#ffffff"
+    }
+
+    updateTheme(updates)
+  }
+
   return (
     <div className="space-y-6 md:space-y-8">
       <h2 className="text-lg md:text-xl font-semibold">Buttons</h2>
@@ -3762,10 +4080,11 @@ function ButtonsSection() {
         <Label className="text-sm font-medium">Style</Label>
         <div className="grid grid-cols-3 gap-2">
           {(["filled", "outline", "glass"] as const).map((style) => (
-            <button key={style} onClick={() => updateTheme({ button_style: style })} className={cn("py-3 md:py-3.5 rounded-xl border-2 text-xs md:text-sm font-medium capitalize transition-colors", theme.button_style === style ? "border-foreground bg-gray-50" : "border-gray-200 hover:border-gray-300")}>{style === "filled" ? "Solid" : style}</button>
+            <button key={style} onClick={() => handleButtonStyleChange(style)} className={cn("py-3 md:py-3.5 rounded-xl border-2 text-xs md:text-sm font-medium capitalize transition-colors", theme.button_style === style ? "border-foreground bg-gray-50" : "border-gray-200 hover:border-gray-300")}>{style === "filled" ? "Solid" : style}</button>
           ))}
         </div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-2">
         <Label className="text-sm font-medium">Button color</Label>
         <div className="flex items-center gap-3">
@@ -3781,6 +4100,7 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-2">
         <Label className="text-sm font-medium">Button text color</Label>
         <div className="flex items-center gap-3">
@@ -3796,6 +4116,7 @@ function ButtonsSection() {
           ))}
         </div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-3">
         <Label className="text-sm font-medium">Shadows</Label>
         <div className="grid grid-cols-4 gap-2">
@@ -3833,15 +4154,18 @@ function ButtonsSection() {
           </div>
         </div>
       )}
+      <div className="border-t border-gray-100" />
       <div className="space-y-3">
         <div className="flex justify-between items-center"><Label className="text-sm font-medium">Corners</Label><span className="text-sm text-muted-foreground">{theme.button_border_radius}px</span></div>
         <Slider value={[theme.button_border_radius]} onValueChange={([value]) => updateTheme({ button_border_radius: value })} min={0} max={24} step={2} />
         <div className="flex justify-between text-xs text-muted-foreground"><span>Square</span><span>Round</span></div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-3">
         <div className="flex justify-between items-center"><Label className="text-sm font-medium">Border width</Label><span className="text-sm text-muted-foreground">{theme.button_border_width}px</span></div>
         <Slider value={[theme.button_border_width]} onValueChange={([value]) => updateTheme({ button_border_width: value })} min={0} max={4} step={1} />
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-2">
         <Label className="text-sm font-medium">Border color</Label>
         <div className="flex items-center gap-3">
@@ -3854,6 +4178,33 @@ function ButtonsSection() {
         <div className="flex gap-2 pt-1">
           {['#000000', '#ffffff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'].map((color) => (
             <button key={color} onClick={() => updateTheme({ button_border_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_border_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+          ))}
+        </div>
+      </div>
+      <div className="border-t border-gray-100" />
+      {/* Button Animations Section */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Button Animations</Label>
+        <p className="text-xs text-muted-foreground -mt-1">Subtle hover effects for buttons</p>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { id: "default", label: "Default", desc: "Scale up" },
+            { id: "fade", label: "Fade", desc: "Opacity" },
+            { id: "zoom", label: "Zoom", desc: "Grow" },
+          ] as const).map((animation) => (
+            <button
+              key={animation.id}
+              onClick={() => updateTheme({ button_hover_animation: animation.id } as any)}
+              className={cn(
+                "py-3 px-2 rounded-xl border-2 text-xs md:text-sm font-medium transition-colors flex flex-col items-center gap-0.5",
+                ((theme as any).button_hover_animation || "default") === animation.id
+                  ? "border-foreground bg-gray-50"
+                  : "border-gray-200 hover:border-gray-300"
+              )}
+            >
+              <span>{animation.label}</span>
+              <span className="text-[10px] text-muted-foreground font-normal">{animation.desc}</span>
+            </button>
           ))}
         </div>
       </div>
@@ -3872,16 +4223,25 @@ function SocialsSection() {
     <div className="space-y-6 md:space-y-8">
       <h2 className="text-lg md:text-xl font-semibold">Social Icons</h2>
       <div className="space-y-3">
-        <Label className="text-sm font-medium">Icon style</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <Label className="text-sm font-medium">Style</Label>
+        <div className="grid grid-cols-3 gap-3">
           {SOCIAL_STYLES.map((style) => (
-            <Button key={style.id} variant={socialStyle === style.id ? "default" : "outline"} onClick={() => updateTheme({ social_icon_style: style.id } as any)} className="h-auto py-3 flex-col gap-1">
-              <span className="text-sm font-medium">{style.label}</span>
-              <span className="text-[10px] opacity-70">{style.description}</span>
-            </Button>
+            <button
+              key={style.id}
+              onClick={() => updateTheme({ social_icon_style: style.id } as any)}
+              className={cn(
+                "py-3 px-4 rounded-2xl text-sm font-medium transition-all",
+                socialStyle === style.id
+                  ? "bg-gray-100 border-2 border-gray-900 text-gray-900"
+                  : "bg-gray-100 border-2 border-transparent text-gray-600 hover:bg-gray-200"
+              )}
+            >
+              {style.label}
+            </button>
           ))}
         </div>
       </div>
+      <div className="border-t border-gray-100" />
       <div className="space-y-2">
         <Label className="text-sm font-medium">Icon color</Label>
         <div className="flex items-center gap-3">
@@ -3928,13 +4288,37 @@ function FooterSection() {
   if (!onepage) return null
   const { settings } = onepage
 
+  // Hide Storelib Branding is the inverse of show_branding
+  // When toggle is ON (hide branding) → show_branding: false
+  // When toggle is OFF (show branding - default) → show_branding: true
+  const hideBrandingEnabled = !settings.show_branding
+
+  const handleHideBrandingChange = (hide: boolean) => {
+    // When user wants to hide branding, set show_branding to false
+    // This will be checked against Pro plan at save time
+    updateSettings({ show_branding: !hide, hide_branding_pro_enabled: hide })
+  }
+
   return (
     <div className="space-y-6 md:space-y-8">
       <h2 className="text-lg md:text-xl font-semibold">Footer</h2>
       <div className="space-y-3 md:space-y-4">
         <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
-          <div><p className="font-medium text-sm">Show Materia branding</p><p className="text-xs text-muted-foreground mt-0.5">Display "Powered by Materia"</p></div>
-          <Toggle checked={settings.show_branding} onCheckedChange={(checked) => updateSettings({ show_branding: checked })} />
+          <div className="flex items-center gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm">Hide Storelib Branding</p>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-gradient-to-r from-violet-500 to-purple-600 text-white">
+                  PRO
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">Remove the "on Storelib" badge from your page</p>
+            </div>
+          </div>
+          <Toggle
+            checked={hideBrandingEnabled}
+            onCheckedChange={handleHideBrandingChange}
+          />
         </div>
         <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
           <div><p className="font-medium text-sm">Analytics</p><p className="text-xs text-muted-foreground mt-0.5">Track page views</p></div>

@@ -32,6 +32,10 @@ export function SectionRenderer({
   reviews,
   reviewsCount,
   reviewsAverage,
+  globalSettings,
+  sellerMemberSince,
+  sellerTotalSales,
+  sellerProductsCount,
 }: {
   section: Section
   products?: ProductData[]
@@ -42,7 +46,16 @@ export function SectionRenderer({
   reviews?: any[]
   reviewsCount?: number
   reviewsAverage?: number
+  globalSettings?: any
+  sellerMemberSince?: string
+  sellerTotalSales?: number
+  sellerProductsCount?: number
 }) {
+  // Defensive check - don't render if section or settings are invalid
+  if (!section || !section.settings) {
+    return null
+  }
+
   return (
     <UnifiedSectionRenderer
       section={section}
@@ -57,13 +70,17 @@ export function SectionRenderer({
       reviews={reviews}
       reviewsCount={reviewsCount}
       reviewsAverage={reviewsAverage}
+      globalSettings={globalSettings}
+      sellerMemberSince={sellerMemberSince}
+      sellerTotalSales={sellerTotalSales}
+      sellerProductsCount={sellerProductsCount}
     />
   )
 }
 
 // ====== SHOP HEADER RENDERER FOR LIVE PAGES ======
 export function ShopHeaderRenderer(props: Omit<UnifiedShopHeaderProps, "isPreviewMode" | "isSelected" | "onSelect">) {
-  return <UnifiedShopHeader {...props} isPreviewMode={true} />
+  return <UnifiedShopHeader {...props} isPreviewMode={false} />
 }
 
 // ====== PRODUCT PAGE RENDERER FOR LIVE PAGES ======

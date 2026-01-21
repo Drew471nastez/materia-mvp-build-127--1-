@@ -28,6 +28,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { ReviewForm } from "@/components/reviews/review-form"
+import { getStoreUrl } from "@/lib/url-helpers"
 
 interface ReceiptContentProps {
   order: any
@@ -161,7 +162,8 @@ export default function ReceiptContent({
   const [newEmail, setNewEmail] = useState("")
   const [updateEmailLoading, setUpdateEmailLoading] = useState(false)
   const [updateEmailError, setUpdateEmailError] = useState("")
-  const [emailAlreadyChanged, setEmailAlreadyChanged] = useState(false)
+  const [emailChangesExhausted, setEmailChangesExhausted] = useState(false)
+  const [emailChangesCount, setEmailChangesCount] = useState(0)
 
   const [reviewStatus, setReviewStatus] = useState<{
     canReview: boolean
@@ -349,11 +351,24 @@ export default function ReceiptContent({
     setResendLoading(true)
     setResendSuccess(false)
     setResendError("")
+    setShowErrorToast(false)
     try {
+      // Determine which emails need to be resent based on status
+      let resendType = "buyer" // Default to buyer only
+      if (emailStatus) {
+        const buyerFailed = !emailStatus.buyerEmailSent || !!emailStatus.buyerEmailError
+        const sellerFailed = !emailStatus.sellerEmailSent || !!emailStatus.sellerEmailError
+        if (buyerFailed && sellerFailed) {
+          resendType = "both"
+        } else if (sellerFailed) {
+          resendType = "both" // Also resend buyer to be safe
+        }
+      }
+
       const res = await fetch("/api/receipt/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, receiptToken }),
+        body: JSON.stringify({ orderId, receiptToken, resendType }),
       })
 
       const data = await res.json()
@@ -364,11 +379,21 @@ export default function ReceiptContent({
         return
       }
 
-      if (res.ok) {
+      if (res.ok && data.success) {
         setResendSuccess(true)
+        setShowSuccessToast(true)
         setTimeout(() => setResendSuccess(false), 5000)
       } else {
-        setResendError(data.error || "Failed to resend email")
+        setResendError(data.error || data.details || "Failed to resend email. Please try again.")
+        if (!data.buyerSuccess || !data.sellerSuccess) {
+          // Show specific failure info
+          const failedParts = []
+          if (!data.buyerSuccess) failedParts.push("receipt email")
+          if (!data.sellerSuccess) failedParts.push("seller notification")
+          if (failedParts.length > 0) {
+            setResendError(`Failed to send: ${failedParts.join(", ")}. Please try again.`)
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to resend receipt:", err)
@@ -397,7 +422,8 @@ export default function ReceiptContent({
       const data = await res.json()
 
       if (res.status === 403 && data.alreadyChanged) {
-        setEmailAlreadyChanged(true)
+        setEmailChangesExhausted(true)
+        setEmailChangesCount(data.changesCount || 2)
         setUpdateEmailError(data.error)
         return
       }
@@ -407,7 +433,10 @@ export default function ReceiptContent({
         return
       }
 
+      // Track successful email change
+      setEmailChangesCount((prev) => prev + 1)
       setResendSuccess(true)
+      setShowSuccessToast(true)
       setShowWrongEmail(false)
       setNewEmail("")
       setTimeout(() => setResendSuccess(false), 5000)
@@ -595,9 +624,7 @@ export default function ReceiptContent({
                 {sellerName ? (
                   sellerUsername ? (
                     <a
-                      href={`/u/${sellerUsername}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={getStoreUrl(sellerUsername)}
                       className="mt-1 inline-block text-sm text-gray-500 hover:text-gray-700 hover:underline transition-colors"
                     >
                       by {sellerName}
@@ -781,23 +808,28 @@ export default function ReceiptContent({
             </div>
             {resendError && <p className="text-xs text-red-600">{resendError}</p>}
 
-            {/* Wrong email flow */}
+            {/* Wrong email flow - allows 2 email changes */}
             <div className="pt-3 border-t border-gray-200/60">
-              {!showWrongEmail && !emailAlreadyChanged ? (
+              {!showWrongEmail && !emailChangesExhausted ? (
                 <button
                   onClick={() => setShowWrongEmail(true)}
                   className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   Wrong email address?
                 </button>
-              ) : emailAlreadyChanged ? (
-                <p className="text-sm text-gray-500">Email was already updated once for this order.</p>
+              ) : emailChangesExhausted ? (
+                <p className="text-sm text-gray-500">Email has been updated the maximum number of times (2). Contact support if you need further assistance.</p>
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="new-email" className="text-sm font-medium text-gray-700">
-                      New email address
-                    </Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="new-email" className="text-sm font-medium text-gray-700">
+                        New email address
+                      </Label>
+                      <span className="text-xs text-gray-500">
+                        {emailChangesCount === 0 ? "2 changes remaining" : "1 change remaining"}
+                      </span>
+                    </div>
                     <Input
                       id="new-email"
                       type="email"

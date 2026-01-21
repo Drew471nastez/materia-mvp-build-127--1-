@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LayoutDashboard, Settings, LogOut, ShoppingBag, Store } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
+import { getStoreUrl } from "@/lib/url-helpers"
 
 interface UserNavProps {
   user: User
@@ -85,7 +86,7 @@ export function UserNav({ user, profile, isCreator, creatorSlug }: UserNavProps)
             </DropdownMenuItem>
             {storeUsername && (
               <DropdownMenuItem asChild>
-                <Link href={`/u/${storeUsername}`} className="cursor-pointer">
+                <Link href={`${getStoreUrl(storeUsername)}?src=platform`} className="cursor-pointer">
                   <Store className="mr-2 h-4 w-4" />
                   View My Store
                 </Link>
@@ -117,7 +118,7 @@ export function UserNav({ user, profile, isCreator, creatorSlug }: UserNavProps)
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="cursor-pointer text-destructive focus:text-destructive"
-          onClick={handleSignOut}
+          onSelect={handleSignOut}
           disabled={isLoading}
         >
           <LogOut className="mr-2 h-4 w-4" />

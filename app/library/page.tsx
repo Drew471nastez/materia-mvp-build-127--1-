@@ -86,13 +86,6 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
         </Alert>
       )}
 
-      {already_owned === "true" && (
-        <Alert className="mb-6 border-blue-500/50 bg-blue-50 text-blue-800">
-          <CheckCircle className="h-4 w-4" />
-          <AlertTitle>Already owned</AlertTitle>
-          <AlertDescription>You already own this product. Access it from your library below.</AlertDescription>
-        </Alert>
-      )}
 
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">My Library</h1>

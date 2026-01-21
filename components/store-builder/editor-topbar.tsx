@@ -26,10 +26,12 @@ import {
   Save,
   PanelLeft,
   ExternalLink,
+  ArrowLeft,
 } from "lucide-react"
 import type { PageType } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog"
+import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
 
 interface EditorTopbarProps {
   creatorSlug: string
@@ -62,20 +64,21 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
   const [isSavingFromDialog, setIsSavingFromDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [pendingBrowserBack, setPendingBrowserBack] = useState(false)
+  const [isNavigatingToDashboard, setIsNavigatingToDashboard] = useState(false)
 
   const hasUnsavedChanges = saveState === "unsaved"
 
-  // Get the live store URL based on current page type
+  // Get the live store URL based on current page type (uses subdomain format)
   const getLiveStoreUrl = () => {
     if (currentPageType === "product" && selectedProductId) {
       const product = products.find((p) => p.id === selectedProductId)
       if (product) {
         // Use slug if available, otherwise use ID
         const productSlug = (product as any).slug || selectedProductId
-        return `/p/${productSlug}`
+        return getProductUrl(creatorSlug, productSlug)
       }
     }
-    return `/u/${creatorSlug}`
+    return getStoreUrl(creatorSlug)
   }
 
   // Handle browser back button with popstate
@@ -98,12 +101,15 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     }
   }, [hasUnsavedChanges])
 
-  const handleNavigationAttempt = (href: string) => {
+  const handleNavigationAttempt = (href: string, isDashboard = false) => {
     if (hasUnsavedChanges) {
       setPendingNavigation(href)
       setPendingBrowserBack(false)
       setShowUnsavedDialog(true)
     } else {
+      if (isDashboard) {
+        setIsNavigatingToDashboard(true)
+      }
       router.push(href)
     }
   }
@@ -121,6 +127,9 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         // Go back after saving
         window.history.back()
       } else if (pendingNavigation) {
+        if (pendingNavigation === "/app") {
+          setIsNavigatingToDashboard(true)
+        }
         router.push(pendingNavigation)
       }
     } catch {
@@ -138,6 +147,9 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
       // Go back after discarding
       window.history.back()
     } else if (pendingNavigation) {
+      if (pendingNavigation === "/app") {
+        setIsNavigatingToDashboard(true)
+      }
       router.push(pendingNavigation)
     }
     setPendingBrowserBack(false)
@@ -174,12 +186,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     switch (saveState) {
       case "unsaved":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-purple-600 text-white hover:bg-purple-700",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             onClick={handleSave}
           >
             {isMobile ? (
@@ -194,12 +206,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "saving":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-purple-600 text-white hover:bg-purple-700",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             disabled
           >
             {isMobile ? (
@@ -214,10 +226,10 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "saved":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-purple-600 text-white hover:bg-purple-700",
               isMobile ? "h-9 px-3" : "h-9"
             )}
             onClick={handlePublish}
@@ -227,12 +239,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "publishing":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-sky-500 text-white hover:bg-sky-600",
+              "bg-purple-600 text-white hover:bg-purple-700",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             disabled
           >
             {isMobile ? (
@@ -247,12 +259,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         )
       case "published":
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className={cn(
-              "bg-green-600/80 text-white hover:bg-green-600/80 cursor-default",
+              "bg-purple-600 text-white hover:bg-purple-600 cursor-default pointer-events-none",
               isMobile ? "h-9 w-9 p-0" : "h-9"
-            )} 
+            )}
             disabled
           >
             {isMobile ? (
@@ -288,11 +300,25 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuItem onClick={() => handleNavigationAttempt("/app")}>
-              Back to Dashboard
+            <DropdownMenuItem
+              onSelect={() => handleNavigationAttempt("/app", true)}
+              disabled={isNavigatingToDashboard}
+              className="flex items-center gap-2"
+            >
+              {isNavigatingToDashboard ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Going to Dashboard...</span>
+                </>
+              ) : (
+                <>
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Dashboard</span>
+                </>
+              )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleViewLiveStore}>
+            <DropdownMenuItem onSelect={handleViewLiveStore}>
               <ExternalLink className="mr-2 h-4 w-4" />
               View Live Store
             </DropdownMenuItem>
@@ -337,7 +363,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             disabled={!canUndo}
             title="Undo (Ctrl+Z)"
           >
-            <Undo2 className={cn("h-4 w-4", !canUndo && "opacity-40")} />
+            <Undo2 className={cn("h-4 w-4", canUndo ? "text-purple-600" : "opacity-40")} />
           </Button>
           <Button
             variant="ghost"
@@ -347,7 +373,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             disabled={!canRedo}
             title="Redo (Ctrl+Shift+Z)"
           >
-            <Redo2 className={cn("h-4 w-4", !canRedo && "opacity-40")} />
+            <Redo2 className={cn("h-4 w-4", canRedo ? "text-purple-600" : "opacity-40")} />
           </Button>
         </div>
       </div>
@@ -379,11 +405,11 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setPreviewDevice("desktop")}>
+            <DropdownMenuItem onSelect={() => setPreviewDevice("desktop")}>
               <Monitor className="mr-2 h-4 w-4" />
               Desktop
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setPreviewDevice("mobile")}>
+            <DropdownMenuItem onSelect={() => setPreviewDevice("mobile")}>
               <Smartphone className="mr-2 h-4 w-4" />
               Mobile
             </DropdownMenuItem>
@@ -391,7 +417,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         </DropdownMenu>
 
         {/* Preview Button - icon only on mobile */}
-        <Button variant="outline" size="sm" className="h-9 bg-transparent" onClick={onPreview}>
+        <Button size="sm" className="h-9 bg-gray-900 text-white hover:bg-gray-800" onClick={onPreview}>
           <span className="hidden sm:inline">Preview</span>
           <Monitor className="h-4 w-4 sm:hidden" />
         </Button>
@@ -407,6 +433,16 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         onDiscard={handleDiscardFromDialog}
         isSaving={isSavingFromDialog}
       />
+
+      {/* Navigation Overlay - shows when navigating to dashboard */}
+      {isNavigatingToDashboard && (
+        <div className="fixed inset-0 z-[100] bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            <p className="text-lg font-medium text-gray-700">Going back to Dashboard...</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

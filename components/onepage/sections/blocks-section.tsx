@@ -83,7 +83,7 @@ export function BlocksSection() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {blockTypes.map(({ type, label, icon: Icon }) => (
-              <DropdownMenuItem key={type} onClick={() => addBlock(type)}>
+              <DropdownMenuItem key={type} onSelect={() => addBlock(type)}>
                 <Icon className="h-4 w-4 mr-2" />
                 {label}
               </DropdownMenuItem>

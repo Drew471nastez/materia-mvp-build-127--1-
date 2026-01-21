@@ -11,7 +11,7 @@ interface CoverImageLibraryModalProps {
   onSelect: (imageUrl: string) => void
 }
 
-// Color & Gradient covers - matching the screenshot style
+// Color & Gradient covers - max 12 options
 const colorGradientCovers = [
   // Solid colors row 1
   { id: "coral", type: "solid", value: "#E07B67" },
@@ -26,66 +26,36 @@ const colorGradientCovers = [
   // Row 3
   { id: "purple-pink", type: "gradient", value: "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)" },
   { id: "warm-sunset", type: "gradient", value: "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)" },
-  { id: "cool-purple", type: "gradient", value: "linear-gradient(135deg, #A855F7 0%, #6366F1 100%)" },
-
-  // + 5 more gradients (new)
-  { id: "ice-mint", type: "gradient", value: "linear-gradient(135deg, #D9F99D 0%, #67E8F9 100%)" },
   { id: "midnight", type: "gradient", value: "linear-gradient(135deg, #0F172A 0%, #312E81 100%)" },
   { id: "peach-rose", type: "gradient", value: "linear-gradient(135deg, #FDBA74 0%, #FB7185 100%)" },
-  { id: "forest", type: "gradient", value: "linear-gradient(135deg, #14532D 0%, #22C55E 100%)" },
-  { id: "slate", type: "gradient", value: "linear-gradient(135deg, #334155 0%, #CBD5E1 100%)" },
 ]
 
-// ✅ FIX 1: remove the first Unsplash image (you said delete it)
-// ✅ FIX 2: stop lag: thumbnails must be SMALL (don’t use /download as thumb)
-// ✅ FIX 3: make images actually display: use source.unsplash.com for thumbs,
-//           and fall back to /download if thumbs fail.
-//
-// Notes:
-// - Thumb: tiny, fast, low bandwidth
-// - url: stable “download” endpoint used only when selecting (or as a fallback)
-const unsplashCovers = [
+// Curated cover images from Pexels and Pinterest
+const curatedCovers = [
   {
-    id: "unsplash-2",
-    photoId: "HhMt_nUAIEc",
-    url: "https://unsplash.com/photos/HhMt_nUAIEc/download?force=true",
-    thumb: "https://source.unsplash.com/HhMt_nUAIEc/600x300",
+    id: "curated-1",
+    url: "https://images.pexels.com/photos/2719301/pexels-photo-2719301.jpeg",
+    thumb: "https://images.pexels.com/photos/2719301/pexels-photo-2719301.jpeg?auto=compress&cs=tinysrgb&w=600",
   },
   {
-    id: "unsplash-3",
-    photoId: "1OtUkD_8svc",
-    url: "https://unsplash.com/photos/1OtUkD_8svc/download?force=true",
-    thumb: "https://source.unsplash.com/1OtUkD_8svc/600x300",
+    id: "curated-2",
+    url: "https://images.pexels.com/photos/3648850/pexels-photo-3648850.jpeg",
+    thumb: "https://images.pexels.com/photos/3648850/pexels-photo-3648850.jpeg?auto=compress&cs=tinysrgb&w=600",
   },
   {
-    id: "unsplash-4",
-    photoId: "XM1YUUVXj64",
-    url: "https://unsplash.com/photos/XM1YUUVXj64/download?force=true",
-    thumb: "https://source.unsplash.com/XM1YUUVXj64/600x300",
+    id: "curated-3",
+    url: "https://images.pexels.com/photos/3297593/pexels-photo-3297593.jpeg",
+    thumb: "https://images.pexels.com/photos/3297593/pexels-photo-3297593.jpeg?auto=compress&cs=tinysrgb&w=600",
   },
   {
-    id: "unsplash-5",
-    photoId: "Q_RBVFFXR_g",
-    url: "https://unsplash.com/photos/Q_RBVFFXR_g/download?force=true",
-    thumb: "https://source.unsplash.com/Q_RBVFFXR_g/600x300",
+    id: "curated-4",
+    url: "https://images.pexels.com/photos/1323550/pexels-photo-1323550.jpeg",
+    thumb: "https://images.pexels.com/photos/1323550/pexels-photo-1323550.jpeg?auto=compress&cs=tinysrgb&w=600",
   },
   {
-    id: "unsplash-6",
-    photoId: "u2IZda2Dn6A",
-    url: "https://unsplash.com/photos/u2IZda2Dn6A/download?force=true",
-    thumb: "https://source.unsplash.com/u2IZda2Dn6A/600x300",
-  },
-  {
-    id: "unsplash-7",
-    photoId: "TGdzZsNgcWU",
-    url: "https://unsplash.com/photos/TGdzZsNgcWU/download?force=true",
-    thumb: "https://source.unsplash.com/TGdzZsNgcWU/600x300",
-  },
-  {
-    id: "unsplash-8",
-    photoId: "_nWaeTF6qo0",
-    url: "https://unsplash.com/photos/_nWaeTF6qo0/download?force=true",
-    thumb: "https://source.unsplash.com/_nWaeTF6qo0/600x300",
+    id: "curated-5",
+    url: "https://i.pinimg.com/1200x/55/af/e5/55afe5923315c9a3fc7d561766e6866b.jpg",
+    thumb: "https://i.pinimg.com/1200x/55/af/e5/55afe5923315c9a3fc7d561766e6866b.jpg",
   },
 ] as const
 
@@ -126,9 +96,9 @@ export function CoverImageLibraryModal({ open, onOpenChange, onSelect }: CoverIm
     onOpenChange(false)
   }
 
-  const handleUnsplashSelect = (cover: (typeof unsplashCovers)[0]) => {
+  const handleCuratedSelect = (cover: (typeof curatedCovers)[0]) => {
     setSelectedId(cover.id)
-    // Use the stable URL when selecting (not the tiny thumb)
+    // Use the full URL when selecting (not the thumbnail)
     onSelect(cover.url)
     onOpenChange(false)
   }
@@ -177,10 +147,10 @@ export function CoverImageLibraryModal({ open, onOpenChange, onSelect }: CoverIm
             <div className="space-y-3">
               <h3 className="text-sm font-medium text-muted-foreground">Curated Images</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                {unsplashCovers.map((cover) => (
+                {curatedCovers.map((cover) => (
                   <button
                     key={cover.id}
-                    onClick={() => handleUnsplashSelect(cover)}
+                    onClick={() => handleCuratedSelect(cover)}
                     className={cn(
                       "aspect-[3/2] rounded-lg overflow-hidden border-2 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                       selectedId === cover.id ? "border-primary ring-2 ring-primary" : "border-transparent",
@@ -197,7 +167,7 @@ export function CoverImageLibraryModal({ open, onOpenChange, onSelect }: CoverIm
                       width={600}
                       height={300}
                       onError={(e) => {
-                        // If thumb fails, fall back to the stable download url.
+                        // If thumb fails, fall back to the full URL.
                         const img = e.currentTarget
                         if (img.dataset.fallbackApplied === "1") return
                         img.dataset.fallbackApplied = "1"

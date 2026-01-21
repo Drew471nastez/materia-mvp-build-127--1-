@@ -34,11 +34,13 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
   }
 
   const creatorName = product.creator?.profile?.display_name || "Creator"
+  const productUrl = `/p/${product.slug}${srcParam}`
 
   return (
     <Link
-      href={`/p/${product.slug}${srcParam}`}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-colors hover:border-border"
+      href={productUrl}
+      prefetch={false}
+      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all hover:border-border active:opacity-80 touch-manipulation"
     >
       <div className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (

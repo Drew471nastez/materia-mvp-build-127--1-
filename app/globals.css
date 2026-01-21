@@ -265,6 +265,27 @@
   .snap-start {
     scroll-snap-align: start;
   }
+
+  /* Touch manipulation for better click responsiveness */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Global link and button optimizations for better click behavior */
+@layer base {
+  /* Ensure links and buttons respond immediately to clicks */
+  a, button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent 300ms delay on mobile by removing double-tap-to-zoom */
+  a:active, button:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
 }
 
 /* Responsive table styling - simplified to avoid Tailwind v4 issues */
@@ -349,4 +370,286 @@
 
 .theme-checkbox:checked {
   background-position: 100%;
+}
+
+/* Purple Theme Toggle for Block Enable/Disable */
+.theme-checkbox-purple {
+  --toggle-size: 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 3.8em;
+  height: 1.9em;
+  background: linear-gradient(to right, #d9d9d9 50%, #8b5cf6 50%);
+  background-size: 205%;
+  background-position: 0;
+  transition: 0.4s;
+  border-radius: 99em;
+  position: relative;
+  cursor: pointer;
+  font-size: var(--toggle-size);
+}
+
+.theme-checkbox-purple::before {
+  content: "";
+  width: 1.4em;
+  height: 1.4em;
+  position: absolute;
+  top: 0.25em;
+  left: 0.25em;
+  background: linear-gradient(to right, #d9d9d9 50%, #ffffff 50%);
+  background-size: 205%;
+  background-position: 100%;
+  border-radius: 50%;
+  transition: 0.4s;
+  font-size: 10px;
+}
+
+.theme-checkbox-purple:checked::before {
+  left: calc(100% - 1.4em - 0.25em);
+  background-position: 0;
+}
+
+.theme-checkbox-purple:checked {
+  background-position: 100%;
+}
+
+/* Settings Gear Icon Animation - subtle rotation */
+@keyframes settingsGearRotate {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(45deg);
+  }
+  50% {
+    transform: rotate(45deg);
+  }
+  75% {
+    transform: rotate(0deg);
+  }
+}
+
+.settings-gear-animated {
+  animation: settingsGearRotate 4s ease-in-out infinite;
+}
+
+.settings-gear-animated:hover {
+  animation-play-state: paused;
+}
+
+/* Subscribe Bar Bottom Border */
+.subscribe-bar-border {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.subscribe-bar-border-dark {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* OnePage Button Animations */
+
+/* Pulse - subtle scale effect (20% more subtle) */
+@keyframes onepage-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+}
+
+/* Bounce - stay down, then bounce up smoothly */
+@keyframes onepage-bounce {
+  0%, 60% {
+    transform: translateY(0);
+  }
+  70% {
+    transform: translateY(-6px);
+  }
+  80% {
+    transform: translateY(-2px);
+  }
+  90% {
+    transform: translateY(-4px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Shake - smooth buzz/vibrate effect with pauses */
+@keyframes onepage-shake {
+  0%, 85% {
+    transform: translateX(0) rotate(0deg);
+  }
+  86% {
+    transform: translateX(-1.5px) rotate(-0.3deg);
+  }
+  87% {
+    transform: translateX(1.5px) rotate(0.3deg);
+  }
+  88% {
+    transform: translateX(-1.5px) rotate(-0.3deg);
+  }
+  89% {
+    transform: translateX(1.5px) rotate(0.3deg);
+  }
+  90% {
+    transform: translateX(-1px) rotate(-0.2deg);
+  }
+  91% {
+    transform: translateX(1px) rotate(0.2deg);
+  }
+  92% {
+    transform: translateX(-1px) rotate(-0.2deg);
+  }
+  93% {
+    transform: translateX(1px) rotate(0.2deg);
+  }
+  94% {
+    transform: translateX(-0.5px) rotate(-0.1deg);
+  }
+  95% {
+    transform: translateX(0.5px) rotate(0.1deg);
+  }
+  96%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+/* Glow - pulsing shadow effect */
+@keyframes onepage-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(147, 51, 234, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(147, 51, 234, 0.6), 0 0 30px rgba(147, 51, 234, 0.4);
+  }
+}
+
+/* Swipe - light sweep effect across button */
+@keyframes onepage-swipe {
+  0% {
+    background-position: -100% 0;
+  }
+  40%, 100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-onepage-pulse {
+  animation: onepage-pulse 2.5s ease-in-out infinite;
+}
+
+.animate-onepage-bounce {
+  animation: onepage-bounce 2.5s ease-in-out infinite;
+}
+
+.animate-onepage-shake {
+  animation: onepage-shake 3.5s ease-in-out infinite;
+}
+
+.animate-onepage-glow {
+  animation: onepage-glow 2s ease-in-out infinite;
+}
+
+.animate-onepage-swipe {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-onepage-swipe::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: onepage-swipe 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Shimmer animation for skeleton loading */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    #e5e7eb 0%,
+    #f3f4f6 50%,
+    #e5e7eb 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Subtle Modal/Popover Animations - Modern UX */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popoverIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes popoverInCentered {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes editorFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-popover-in {
+  animation: popoverIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-popover-in-centered {
+  animation: popoverInCentered 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 150ms ease-out forwards;
+}
+
+.animate-editor-fade-in {
+  animation: editorFadeIn 180ms ease-out forwards;
 }

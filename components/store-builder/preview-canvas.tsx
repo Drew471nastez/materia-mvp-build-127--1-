@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react"
 import { useStoreBuilder } from "./store-builder-context"
+import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import type { ShopHeaderSettings, ProductHeaderSettings } from "@/lib/store-builder/types"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -9,6 +10,7 @@ import {
   UnifiedSectionRenderer,
   UnifiedShopHeader,
   UnifiedProductPage,
+  ProductAboutSection,
   type ProductData,
   type CreatorData,
   type ProfileData,
@@ -22,6 +24,7 @@ import {
   defaultStickyAddToCartSettings,
 } from "@/lib/store-builder/defaults"
 import { SellerFooter } from "@/components/storefront/seller-footer"
+import { CoverImageEditor } from "./cover-image-editor"
 
 interface PreviewCanvasProps {
   creatorId: string
@@ -29,6 +32,7 @@ interface PreviewCanvasProps {
   profile?: ProfileData
   products?: ProductData[]
   isPreviewMode?: boolean
+  isMobileSidebarOpen?: boolean
 }
 
 type Rect = { left: number; width: number; bottom: number }
@@ -47,7 +51,7 @@ function getScrollParent(el: HTMLElement | null): HTMLElement | null {
   return null
 }
 
-export function PreviewCanvas({ creatorId, creator, profile, products, isPreviewMode = false }: PreviewCanvasProps) {
+export function PreviewCanvas({ creatorId, creator, profile, products, isPreviewMode = false, isMobileSidebarOpen = false }: PreviewCanvasProps) {
   const {
     currentPageType,
     draftConfig,
@@ -57,6 +61,8 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     isLoading,
     selectedProductId,
     setSidebarMode,
+    updateHeaderSettings,
+    updateSectionSettings,
   } = useStoreBuilder()
 
   const isMobile = previewDevice === "mobile"
@@ -70,9 +76,46 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     ? products?.filter((p) => p.id !== selectedProductId) || []
     : products || []
 
+  // Calculate total sales from products for About section
+  const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
+  // Calculate products count for About section
+  const productsCount = products?.length || 0
+  // Get member since date from profile or creator
+  const memberSince = profile?.created_at || creator?.created_at
+
+  const [coverEditorOpen, setCoverEditorOpen] = useState(false)
+
   const handleAvatarEdit = () => {
     setSelectedSectionId("header")
     setSidebarMode("settings")
+  }
+
+  const handleBioEdit = () => {
+    setSelectedSectionId("header")
+    setSidebarMode("settings")
+    // Scroll to bio input after sidebar renders
+    setTimeout(() => {
+      const bioSection = document.getElementById("sidebar-bio-section")
+      if (bioSection) {
+        bioSection.scrollIntoView({ behavior: "smooth", block: "center" })
+        // Focus the bio input
+        const bioInput = document.getElementById("sidebar-bio-input") as HTMLTextAreaElement
+        if (bioInput) {
+          bioInput.focus()
+        }
+      }
+    }, 100)
+  }
+
+  const handleCoverEdit = () => {
+    setCoverEditorOpen(true)
+  }
+
+  const handleCoverSave = (imageUrl: string, focalPoint: { x: number; y: number }) => {
+    updateHeaderSettings({
+      coverImageUrl: imageUrl,
+      coverFocalPoint: focalPoint,
+    })
   }
 
   const subscribeBarSettings =
@@ -123,16 +166,37 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     const ro = new ResizeObserver(() => measureCanvas())
     if (canvasRef.current) ro.observe(canvasRef.current)
 
+    // Robust measurement: keep trying until canvasRect is set (for initial load)
+    let attempts = 0
+    const maxAttempts = 10
+    const measureInterval = setInterval(() => {
+      measureCanvas()
+      attempts++
+      if (attempts >= maxAttempts) {
+        clearInterval(measureInterval)
+      }
+    }, 100)
+
     return () => {
       window.removeEventListener("resize", onResize)
       ro.disconnect()
+      clearInterval(measureInterval)
     }
-  }, [])
+  }, [currentPageType, selectedProductId, isMobile])
 
-  const [showSticky, setShowSticky] = useState(false)
+  // In editor mode, start with sticky visible so users can see and customize it
+  // ALWAYS visible in editor mode on all devices (mobile included)
+  const [showSticky, setShowSticky] = useState(true)
   const lastScrollTopRef = useRef(0)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollParentRef = useRef<HTMLElement | null>(null)
+
+  // Ensure sticky is visible by default when in editor mode
+  useEffect(() => {
+    if (isEditorMode && currentPageType === "product") {
+      setShowSticky(true)
+    }
+  }, [isEditorMode, currentPageType, selectedProductId])
 
   useEffect(() => {
     if (currentPageType !== "product") return
@@ -150,21 +214,38 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       const sentinel = footerSentinelRef.current
       if (!sentinel) return false
       const rect = sentinel.getBoundingClientRect()
-      return rect.top < window.innerHeight + 120
+      // Smoother footer detection - hide when footer is about to enter viewport
+      return rect.top < window.innerHeight + 100
     }
 
     const handleScroll = () => {
       const y = getScrollTop()
+      const prevY = lastScrollTopRef.current
       lastScrollTopRef.current = y
 
       measureCanvas()
 
       const nearFooter = isNearFooter()
 
-      // Show if scrolled past 200px and not near footer
-      if (y > 200 && !nearFooter) {
+      // In editor mode, ALWAYS show sticky so users can see and customize it
+      // Hide smoothly when approaching footer
+      if (isEditorMode) {
+        // Always visible in editor unless near footer
+        setShowSticky(!nearFooter)
+        return
+      }
+
+      // Preview/Live mode: show on scroll up OR after initial scroll, hide near footer
+      const scrollThreshold = 200
+      const isScrollingUp = y < prevY
+
+      if (nearFooter) {
+        setShowSticky(false)
+      } else if (y > scrollThreshold) {
+        // Show after passing threshold (either scroll up or down)
         setShowSticky(true)
-      } else {
+      } else if (y <= scrollThreshold && !isScrollingUp) {
+        // Hide when scrolling back to top
         setShowSticky(false)
       }
     }
@@ -176,8 +257,12 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     targets.forEach((t) => t.addEventListener("scroll", handleScroll, { passive: true }))
     window.addEventListener("resize", handleScroll, { passive: true })
 
-    // Initial check
-    handleScroll()
+    // Initial check - in editor mode, always show by default
+    if (isEditorMode) {
+      setShowSticky(true)
+    } else {
+      handleScroll()
+    }
 
     return () => {
       targets.forEach((t) => t.removeEventListener("scroll", handleScroll))
@@ -197,6 +282,47 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
   const [productReviews, setProductReviews] = useState<{ count: number; average: number; reviews: any[] }>({ count: 0, average: 0, reviews: [] })
 
+  // Local product state for description editing
+  const [localProductData, setLocalProductData] = useState<ProductData | null>(null)
+
+  // Update local product data when selected product changes
+  useEffect(() => {
+    if (selectedProduct) {
+      setLocalProductData(selectedProduct)
+    }
+  }, [selectedProduct])
+
+  // Debounced description update to database
+  const descriptionUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const handleDescriptionChange = useCallback(async (newDescription: string) => {
+    if (!selectedProduct?.id) return
+
+    // Update local state immediately for responsive UI
+    setLocalProductData((prev) => prev ? { ...prev, description: newDescription } : null)
+
+    // Debounce the database update
+    if (descriptionUpdateTimeoutRef.current) {
+      clearTimeout(descriptionUpdateTimeoutRef.current)
+    }
+
+    descriptionUpdateTimeoutRef.current = setTimeout(async () => {
+      try {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from("products")
+          .update({ description: newDescription })
+          .eq("id", selectedProduct.id)
+
+        if (error) {
+          console.error("Failed to update product description:", error)
+        }
+      } catch (err) {
+        console.error("Failed to update product description:", err)
+      }
+    }, 500) // Debounce for 500ms
+  }, [selectedProduct?.id])
+
   useEffect(() => {
     if (!selectedProduct?.id) return
 
@@ -205,13 +331,13 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
         // Fetch stats
         const statsRes = await fetch(`/api/reviews/stats?productId=${selectedProduct.id}`)
         const statsData = await statsRes.json()
-        
+
         // Fetch actual reviews
         const reviewsRes = await fetch(`/api/reviews?productId=${selectedProduct.id}&limit=10`)
         const reviewsData = await reviewsRes.json()
-        
-        setProductReviews({ 
-          count: statsData.reviewsCount || 0, 
+
+        setProductReviews({
+          count: statsData.reviewsCount || 0,
           average: statsData.reviewsAverage || 0,
           reviews: reviewsData.reviews || []
         })
@@ -228,26 +354,189 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       ? (draftConfig.headerSettings as ProductHeaderSettings).stickyAddToCart || defaultStickyAddToCartSettings
       : null
 
+  // Don't render sticky add-to-cart when mobile sidebar is open (to avoid overlap)
   const shouldRenderSticky =
-    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible && canvasRect
+    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible && canvasRect && !isMobileSidebarOpen
+
+  // Get theme preset for skeleton loading colors
+  const themePreset = draftConfig.globalSettings?.themePreset || "default"
+  const isDarkTheme = themePreset === "astrid"
 
   if (isLoading) {
+    // Get theme-specific background colors for loading state
+    const getLoadingBackground = () => {
+      switch (themePreset) {
+        case 'astrid':
+          return '#0a0a0a'
+        case 'cream':
+          return '#FAF4E8'
+        case 'bubble':
+          return '#ffffff'
+        case 'pink':
+          return '#ffffff'
+        case 'air':
+          return '#ffffff'
+        default:
+          return 'var(--background)'
+      }
+    }
+
+    const getBorderColor = () => {
+      return themePreset === 'astrid' ? '#2a2a2a' : '#e5e7eb'
+    }
+
+    // Product page skeleton
+    if (currentPageType === "product") {
+      return (
+        <div className={cn("min-h-full flex items-start justify-center bg-muted/30", isMobile ? "p-2" : "p-4 sm:p-6")}>
+          <div
+            className={cn(
+              "shadow-xl overflow-hidden",
+              isMobile ? "w-[375px] min-h-[667px] rounded-[20px]" : "w-full max-w-5xl rounded-[20px] ring-1 ring-border",
+            )}
+            style={{ backgroundColor: getLoadingBackground() }}
+          >
+            {/* Creator Bar Skeleton */}
+            <div
+              className="h-14 border-b flex items-center justify-between px-4"
+              style={{
+                backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground(),
+                borderColor: getBorderColor()
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <Skeleton themePreset={themePreset} className="h-8 w-8 rounded-full" />
+                <Skeleton themePreset={themePreset} className="h-4 w-24" />
+              </div>
+              <Skeleton themePreset={themePreset} className="h-8 w-24 rounded-lg" />
+            </div>
+
+            {/* Main Content */}
+            <div className={cn("p-4", isMobile ? "space-y-4" : "p-6")}>
+              {/* Gallery */}
+              <Skeleton themePreset={themePreset} className="aspect-video w-full rounded-xl" />
+              <div className="flex gap-2 mt-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} themePreset={themePreset} className={cn("rounded-lg", isMobile ? "h-12 w-12" : "h-16 w-16")} />
+                ))}
+              </div>
+
+              {/* Title */}
+              <div className="mt-6 space-y-3">
+                <Skeleton themePreset={themePreset} className="h-8 w-3/4" />
+                <div className="flex items-center gap-3">
+                  <Skeleton themePreset={themePreset} className="h-10 w-10 rounded-full" />
+                  <Skeleton themePreset={themePreset} className="h-5 w-32" />
+                </div>
+              </div>
+
+              {/* Mobile Price Card */}
+              {isMobile && (
+                <div
+                  className="mt-4 rounded-xl border p-4 space-y-3"
+                  style={{ borderColor: getBorderColor(), backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground() }}
+                >
+                  <Skeleton themePreset={themePreset} className="h-8 w-24" />
+                  <Skeleton themePreset={themePreset} className="h-12 w-full rounded-lg" />
+                  <Skeleton themePreset={themePreset} className="h-10 w-full rounded-lg" />
+                </div>
+              )}
+
+              {/* Description */}
+              <div className="mt-6 space-y-2">
+                <Skeleton themePreset={themePreset} className="h-6 w-32 mb-3" />
+                <Skeleton themePreset={themePreset} className="h-4 w-full" />
+                <Skeleton themePreset={themePreset} className="h-4 w-full" />
+                <Skeleton themePreset={themePreset} className="h-4 w-3/4" />
+              </div>
+
+              {/* FAQ */}
+              <div className="mt-8 space-y-3">
+                <Skeleton themePreset={themePreset} className="h-6 w-48 mb-4" />
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} themePreset={themePreset} className="h-12 w-full rounded-lg" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Shop page skeleton (default)
     return (
       <div className={cn("min-h-full flex items-start justify-center bg-muted/30", isMobile ? "p-2" : "p-4 sm:p-6")}>
         <div
           className={cn(
-            "bg-background shadow-xl overflow-hidden",
+            "shadow-xl overflow-hidden",
             isMobile ? "w-[375px] min-h-[667px] rounded-[20px]" : "w-full max-w-5xl rounded-[20px] ring-1 ring-border",
           )}
+          style={{ backgroundColor: getLoadingBackground() }}
         >
-          <Skeleton className={cn("w-full", isMobile ? "h-32" : "h-40")} />
-          <div className="p-6 space-y-6">
-            <Skeleton className="h-24 w-24 rounded-full mx-auto" />
-            <Skeleton className="h-8 w-48 mx-auto" />
-            <Skeleton className="h-4 w-64 mx-auto" />
-            <div className="space-y-2 max-w-xl mx-auto">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
+          {/* Subscribe Bar Skeleton */}
+          <div
+            className={cn("py-3 px-4 flex items-center justify-center gap-4 border-b", isMobile ? "flex-col gap-2" : "")}
+            style={{ borderColor: getBorderColor(), backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground() }}
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton themePreset={themePreset} className="h-8 w-8 rounded-full" />
+              <Skeleton themePreset={themePreset} className={cn("h-4", isMobile ? "w-32" : "w-48")} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton themePreset={themePreset} className={cn("h-10 rounded-lg", isMobile ? "w-40" : "w-48")} />
+              <Skeleton themePreset={themePreset} className="h-10 w-24 rounded-lg" />
+            </div>
+          </div>
+
+          {/* Cover Image */}
+          <Skeleton themePreset={themePreset} className={cn("w-full", isMobile ? "h-32" : "h-48")} />
+
+          {/* Header */}
+          <div className="p-6 space-y-4">
+            <div className="flex flex-col items-center text-center">
+              <Skeleton themePreset={themePreset} className={cn("rounded-full -mt-12", isMobile ? "h-20 w-20" : "h-24 w-24")} />
+              <Skeleton themePreset={themePreset} className="mt-4 h-8 w-48" />
+              <Skeleton themePreset={themePreset} className="mt-2 h-4 w-64" />
+              <div className="mt-4 flex gap-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} themePreset={themePreset} className="h-6 w-20 rounded-full" />
+                ))}
+              </div>
+              <div className="mt-6 w-full max-w-xl space-y-2">
+                <Skeleton themePreset={themePreset} className="h-4 w-full" />
+                <Skeleton themePreset={themePreset} className="h-4 w-3/4 mx-auto" />
+              </div>
+              <div className="mt-6 flex gap-8">
+                <Skeleton themePreset={themePreset} className="h-4 w-24" />
+                <Skeleton themePreset={themePreset} className="h-4 w-24" />
+              </div>
+            </div>
+          </div>
+
+          {/* Featured Products */}
+          <div className="p-6 pt-0">
+            <Skeleton themePreset={themePreset} className="h-7 w-48 mb-4" />
+            <Skeleton themePreset={themePreset} className="h-4 w-64 mb-6" />
+            <div className="flex gap-3 mb-6">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} themePreset={themePreset} className="h-8 w-20 rounded-full" />
+              ))}
+            </div>
+            <div className={cn("grid gap-4", isMobile ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-3")}>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border overflow-hidden"
+                  style={{ borderColor: getBorderColor(), backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground() }}
+                >
+                  <Skeleton themePreset={themePreset} className="aspect-video w-full" />
+                  <div className="p-4 space-y-2">
+                    <Skeleton themePreset={themePreset} className="h-5 w-3/4" />
+                    <Skeleton themePreset={themePreset} className="h-4 w-1/2" />
+                    <Skeleton themePreset={themePreset} className="h-6 w-20 mt-3" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -261,9 +550,13 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       <div
         ref={canvasRef}
         className={cn(
-          "bg-background shadow-xl mx-auto relative flex flex-col rounded-[20px] ring-1 ring-border overflow-hidden",
+          "shadow-xl mx-auto relative flex flex-col rounded-[20px] ring-1 ring-border overflow-hidden",
           isMobile ? "w-[375px]" : "w-full max-w-5xl",
         )}
+        style={{
+          background: draftConfig.globalColors?.backgroundColor || "var(--background)",
+          color: (draftConfig.headerSettings as any)?.colors?.textColor || "var(--foreground)",
+        }}
       >
         {currentPageType === "product" && selectedProduct ? (
           <>
@@ -282,7 +575,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
             <UnifiedProductPage
               settings={draftConfig.headerSettings as ProductHeaderSettings}
-              product={selectedProduct}
+              product={localProductData || selectedProduct}
               creator={creator}
               profile={profile}
               isMobile={isMobile}
@@ -292,6 +585,16 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               reviewsCount={productReviews.count}
               reviewsAverage={productReviews.average}
               reviews={productReviews.reviews}
+              globalSettings={draftConfig.globalSettings}
+              onEditFaqs={() => {
+                // Find the FAQ section and select it to open the sidebar
+                const faqSection = draftConfig.sections.find((s) => s.type === "faq")
+                if (faqSection) {
+                  handleSelectSection(faqSection.id)
+                }
+              }}
+              onDescriptionChange={handleDescriptionChange}
+              faqSettings={draftConfig.sections.find((s) => s.type === "faq")?.settings as { customFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }>; allFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }> } | undefined}
             />
 
             {draftConfig.sections
@@ -312,37 +615,76 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                   reviewsCount={productReviews.count}
                   reviewsAverage={productReviews.average}
                   reviews={productReviews.reviews}
+                  accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                  globalSettings={draftConfig.globalSettings}
                 />
               ))}
 
-            <SellerFooter />
+            {/* About section with payment methods for product pages */}
+            <ProductAboutSection
+              isMobile={isMobile}
+              textColor={(draftConfig.headerSettings as any)?.colors?.textColor}
+              backgroundColor={draftConfig.globalColors?.backgroundColor}
+            />
 
-            {/* Footer sentinel for detecting when to hide sticky */}
-            <div ref={footerSentinelRef} className="h-px w-full" />
+            <SellerFooter isMobile={isMobile} />
+
+            {/* Footer sentinel for detecting when to hide sticky - positioned absolute to avoid layout gap */}
+            <div ref={footerSentinelRef} className="absolute bottom-0 h-px w-full pointer-events-none" />
           </>
         ) : currentPageType === "shop" ? (
           <>
-            {/* Subscribe Bar - MUST be BEFORE header, at absolute top of canvas */}
-            <EditorSubscribeBar
-              settings={
-                {
-                  ...subscribeBarSettings,
-                  // Normalize colors: extract from colors object if not at top level
-                  backgroundColor:
-                    subscribeBarSettings?.backgroundColor || subscribeBarSettings?.colors?.backgroundColor || "#ffffff",
-                  textColor: subscribeBarSettings?.textColor || subscribeBarSettings?.colors?.textColor || "#000000",
-                  // Pass avatar and creator info
-                  showAvatar: subscribeBarSettings?.showAvatar ?? true,
-                  avatarUrl: avatarUrl,
-                  creatorName: profile?.display_name || "Creator",
-                } || defaultSubscribeBarSettings
-              }
-              creatorId={creatorId}
-              isEditorPreview={isEditorMode}
-              isMobile={isMobile}
-              isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
-              onSelect={() => handleSelectSection("subscribe-bar")}
-            />
+            {/* Check if there's an announcement bar at position 0 (top) - render it above everything */}
+            {(() => {
+              const sortedSections = [...draftConfig.sections].sort((a, b) => a.order - b.order)
+              const topAnnouncementBar = sortedSections.length > 0 &&
+                sortedSections[0].type === "announcement-bar" &&
+                sortedSections[0].settings.visible
+                  ? sortedSections[0]
+                  : null
+
+              return topAnnouncementBar ? (
+                <UnifiedSectionRenderer
+                  key={topAnnouncementBar.id}
+                  section={topAnnouncementBar}
+                  products={products}
+                  isMobile={isMobile}
+                  isPreviewMode={sectionsPreviewMode}
+                  isSelected={isEditorMode && selectedSectionId === topAnnouncementBar.id}
+                  onSelect={() => handleSelectSection(topAnnouncementBar.id)}
+                  moreFromSellerProducts={moreFromSellerProducts}
+                  creatorName={profile?.display_name}
+                  accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                  globalSettings={draftConfig.globalSettings}
+                />
+              ) : null
+            })()}
+
+            {/* Subscribe Bar - Always render inside canvas when visible
+                Uses CSS sticky positioning which works within the scrollable canvas */}
+            {subscribeBarSettings?.visible && (
+              <EditorSubscribeBar
+                settings={
+                  {
+                    ...subscribeBarSettings,
+                    // Normalize colors: extract from colors object if not at top level
+                    backgroundColor:
+                      subscribeBarSettings?.backgroundColor || subscribeBarSettings?.colors?.backgroundColor || "#ffffff",
+                    textColor: subscribeBarSettings?.textColor || subscribeBarSettings?.colors?.textColor || "#000000",
+                    // Pass avatar and creator info
+                    showAvatar: subscribeBarSettings?.showAvatar ?? true,
+                    avatarUrl: avatarUrl,
+                    creatorName: profile?.display_name || "Creator",
+                  } || defaultSubscribeBarSettings
+                }
+                creatorId={creatorId}
+                isEditorPreview={isEditorMode}
+                isMobile={isMobile}
+                isSelected={isEditorMode && selectedSectionId === "subscribe-bar"}
+                onSelect={() => handleSelectSection("subscribe-bar")}
+                scrollContainerRef={scrollParentRef}
+              />
+            )}
 
             <UnifiedShopHeader
               settings={draftConfig.headerSettings as ShopHeaderSettings}
@@ -355,26 +697,71 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               isSelected={isEditorMode && selectedSectionId === "header"}
               onSelect={() => handleSelectSection("header")}
               onAvatarEdit={handleAvatarEdit}
+              onCoverEdit={handleCoverEdit}
+              onBioEdit={handleBioEdit}
+              globalSettings={draftConfig.globalSettings}
             />
 
-            {draftConfig.sections
-              .filter((s) => s.settings.visible)
-              .sort((a, b) => a.order - b.order)
-              .map((section) => (
-                <UnifiedSectionRenderer
-                  key={section.id}
-                  section={section}
-                  products={products}
-                  isMobile={isMobile}
-                  isPreviewMode={sectionsPreviewMode}
-                  isSelected={isEditorMode && selectedSectionId === section.id}
-                  onSelect={() => handleSelectSection(section.id)}
-                  moreFromSellerProducts={moreFromSellerProducts}
-                  creatorName={profile?.display_name}
-                />
-              ))}
+            {(() => {
+              // Filter out announcement bar at position 0 (already rendered at top)
+              // Also filter out About section to render it separately at the bottom
+              const sortedSections = [...draftConfig.sections].sort((a, b) => a.order - b.order)
+              const topAnnouncementBarId = sortedSections.length > 0 &&
+                sortedSections[0].type === "announcement-bar" &&
+                sortedSections[0].settings.visible
+                  ? sortedSections[0].id
+                  : null
 
-            <SellerFooter />
+              const regularSections = draftConfig.sections
+                .filter((s) => s.settings.visible && s.id !== topAnnouncementBarId && s.type !== "about")
+                .sort((a, b) => a.order - b.order)
+
+              const aboutSection = draftConfig.sections.find((s) => s.type === "about" && s.settings.visible)
+
+              return (
+                <>
+                  {regularSections.map((section) => (
+                    <UnifiedSectionRenderer
+                      key={section.id}
+                      section={section}
+                      products={products}
+                      isMobile={isMobile}
+                      isPreviewMode={sectionsPreviewMode}
+                      isSelected={isEditorMode && selectedSectionId === section.id}
+                      onSelect={() => handleSelectSection(section.id)}
+                      moreFromSellerProducts={moreFromSellerProducts}
+                      creatorName={profile?.display_name}
+                      accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                      globalSettings={draftConfig.globalSettings}
+                    />
+                  ))}
+
+                  {/* About section - always rendered last (fixed at bottom) */}
+                  {aboutSection && (
+                    <UnifiedSectionRenderer
+                      key={aboutSection.id}
+                      section={aboutSection}
+                      products={products}
+                      isMobile={isMobile}
+                      isPreviewMode={sectionsPreviewMode}
+                      isSelected={isEditorMode && selectedSectionId === aboutSection.id}
+                      onSelect={() => handleSelectSection(aboutSection.id)}
+                      moreFromSellerProducts={moreFromSellerProducts}
+                      creatorName={profile?.display_name}
+                      accentColor={draftConfig.globalSettings?.themeColors?.accent}
+                      globalSettings={draftConfig.globalSettings}
+                      sellerMemberSince={memberSince}
+                      sellerTotalSales={totalSales}
+                      sellerProductsCount={productsCount}
+                      onUpdateAboutSettings={(settings) => updateSectionSettings(aboutSection.id, settings)}
+                      onOpenAboutSidebar={() => handleSelectSection(aboutSection.id)}
+                    />
+                  )}
+                </>
+              )
+            })()}
+
+            <SellerFooter isMobile={isMobile} />
           </>
         ) : null}
       </div>
@@ -412,6 +799,15 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
           />
         </div>
       )}
+
+      {/* Cover Image Editor Popup */}
+      <CoverImageEditor
+        open={coverEditorOpen}
+        onOpenChange={setCoverEditorOpen}
+        currentImageUrl={(draftConfig.headerSettings as ShopHeaderSettings).coverImageUrl}
+        currentFocalPoint={(draftConfig.headerSettings as ShopHeaderSettings).coverFocalPoint}
+        onSave={handleCoverSave}
+      />
     </div>
   )
 }

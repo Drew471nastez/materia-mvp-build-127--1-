@@ -6,6 +6,8 @@ import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails } from "@/lib/email"
 
+export const runtime = "nodejs"
+
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function POST(request: Request) {
@@ -254,7 +256,7 @@ export async function POST(request: Request) {
         process.env.NEXT_PUBLIC_SITE_URL ||
         process.env.NEXT_PUBLIC_APP_URL ||
         process.env.APP_URL ||
-        "https://materiabuilder.store"
+        "https://storelib.com"
 
       const emailResult = await sendOrderEmails(supabaseAdmin, {
         orderId: order.id,

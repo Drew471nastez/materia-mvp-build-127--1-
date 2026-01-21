@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 
@@ -15,7 +14,6 @@ interface BuyButtonProps {
 }
 
 export function BuyButton({ productId, price, disabled, creatorId, backgroundColor, textColor }: BuyButtonProps) {
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
 
   const formatPrice = (cents: number) => {
@@ -26,27 +24,31 @@ export function BuyButton({ productId, price, disabled, creatorId, backgroundCol
     }).format(cents / 100)
   }
 
-  const handleClick = async () => {
+  const handleClick = useCallback(async () => {
+    // Prevent double clicks
+    if (loading) return
+
     setLoading(true)
 
+    // Track analytics in background (don't block navigation)
     if (creatorId) {
-      try {
-        await fetch("/api/track-event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "buy_click",
-            creatorId,
-            productId,
-          }),
-        })
-      } catch (e) {
-        // Don't block checkout on tracking failure
-      }
+      fetch("/api/track-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "buy_click",
+          creatorId,
+          productId,
+        }),
+      }).catch(() => {
+        // Ignore tracking errors
+      })
     }
 
-    router.push(`/checkout?productId=${productId}`)
-  }
+    // Use window.location.href for reliable navigation
+    // This ensures the page navigates even if there are any issues with router
+    window.location.href = `/checkout?productId=${productId}`
+  }, [loading, creatorId, productId])
 
   return (
     <Button

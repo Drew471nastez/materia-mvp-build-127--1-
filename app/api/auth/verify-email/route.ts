@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { Resend } from "resend"
+import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+export const runtime = "nodejs"
 
 export async function POST(request: Request) {
   try {
@@ -14,8 +14,16 @@ export async function POST(request: Request) {
     const userId = typeof userIdRaw === "string" ? userIdRaw.trim() : ""
     const email = typeof emailRaw === "string" ? emailRaw.trim().toLowerCase() : ""
 
+    console.log("[verify-email] API called with:", { userId: userId.slice(0, 8) + "...", email })
+
     if (!userId || !email) {
+      console.log("[verify-email] Missing userId or email")
       return NextResponse.json({ error: "User ID and email are required" }, { status: 400 })
+    }
+
+    if (!isSmtpConfigured()) {
+      console.error("[verify-email] SMTP is not configured")
+      return NextResponse.json({ error: "Email service not configured. Please add SMTP credentials to environment variables." }, { status: 500 })
     }
 
     const admin = createAdminClient()
@@ -28,7 +36,12 @@ export async function POST(request: Request) {
       .eq("user_id", userId)
       .gte("created_at", fifteenMinutesAgo)
 
+    if (recentError) {
+      console.error("[verify-email] Error checking rate limit:", recentError)
+    }
+
     if (!recentError && recentCodes && recentCodes.length >= 3) {
+      console.log("[verify-email] Rate limit exceeded for user:", userId.slice(0, 8) + "...")
       return NextResponse.json(
         { error: "Too many verification attempts. Please try again in 15 minutes." },
         { status: 429 },
@@ -39,6 +52,8 @@ export async function POST(request: Request) {
     const code = generateVerificationCode()
     const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRY_MINUTES * 60 * 1000)
 
+    console.log("[verify-email] Generated verification code, inserting into database...")
+
     const { error: codeError } = await admin.from("verification_codes").insert({
       user_id: userId,
       code,
@@ -47,55 +62,159 @@ export async function POST(request: Request) {
     })
 
     if (codeError) {
-      console.error("[v0] Error creating verification code:", codeError)
+      console.error("[verify-email] Error creating verification code:", codeError)
       return NextResponse.json({ error: "Failed to generate verification code" }, { status: 500 })
     }
 
-    // Send verification email
-    if (resend) {
-      try {
-        await resend.emails.send({
-          from: "Materia <noreply@materiabuilder.store>",
-          to: email,
-          subject: "Verify your Materia account",
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 16px;">Verify your email</h1>
-              <p style="color: #666; margin-bottom: 24px;">
-                Welcome to Materia! Enter the code below to verify your email and complete your signup.
-              </p>
+    console.log("[verify-email] Verification code saved to database, sending email via SMTP...")
 
-              <div style="background: #f5f5f5; border-radius: 8px; padding: 24px; margin-bottom: 24px; text-align: center;">
-                <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Your verification code:</p>
-                <div style="font-size: 32px; font-weight: 700; letter-spacing: 0.1em; color: #000;">
-                  ${code}
-                </div>
-                <p style="margin: 16px 0 0 0; color: #999; font-size: 12px;">
-                  This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes
-                </p>
-              </div>
+    // Format the code with spaces for better readability
+    const formattedCode = code.split("").join(" ")
 
-              <p style="color: #666; font-size: 14px;">
-                If you didn't create this account, please ignore this email.
+    try {
+      const result = await sendEmail({
+        from: "Storelib <noreply@storelib.com>",
+        to: email,
+        subject: `${code} is your Storelib verification code`,
+        headers: {
+          "X-Priority": "1",
+          "X-MSMail-Priority": "High",
+          "Importance": "high",
+        },
+        html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
+  <meta name="x-apple-disable-message-reformatting">
+  <title>Verify your email</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f5f5f5;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 480px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+          <!-- Header -->
+          <tr>
+            <td align="center" style="padding: 40px 40px 24px 40px;">
+              <span style="font-size: 28px; font-weight: 700; color: #10b981; letter-spacing: -0.5px;">Storelib*</span>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 0 40px;">
+              <h1 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #171717; text-align: center;">
+                Verify your email
+              </h1>
+              <p style="margin: 0 0 32px 0; font-size: 15px; color: #737373; text-align: center; line-height: 1.5;">
+                Enter this code to complete your signup
               </p>
-            </div>
-          `,
-        })
-        console.log("[v0] Verification code email sent to:", email)
-      } catch (emailError) {
-        console.error("[v0] Error sending verification email:", emailError)
-        return NextResponse.json({ error: "Failed to send verification email" }, { status: 500 })
+            </td>
+          </tr>
+
+          <!-- Code Box -->
+          <tr>
+            <td style="padding: 0 40px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 24px;">
+                    <p style="margin: 0 0 8px 0; font-size: 13px; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px;">
+                      Your verification code
+                    </p>
+                    <div style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #ffffff; font-family: 'SF Mono', 'Roboto Mono', Consolas, monospace;">
+                      ${code}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Copy instruction -->
+          <tr>
+            <td align="center" style="padding: 16px 40px 0 40px;">
+              <p style="margin: 0; font-size: 13px; color: #737373;">
+                Copy and paste this code in the verification page
+              </p>
+            </td>
+          </tr>
+
+          <!-- Expiry Note -->
+          <tr>
+            <td align="center" style="padding: 8px 40px 0 40px;">
+              <p style="margin: 0; font-size: 13px; color: #a3a3a3;">
+                This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 32px 40px 40px 40px;">
+              <p style="margin: 0; font-size: 13px; color: #a3a3a3; text-align: center; line-height: 1.6;">
+                If you didn't create a Storelib account, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Bottom text -->
+        <p style="margin: 24px 0 0 0; font-size: 12px; color: #a3a3a3; text-align: center;">
+          Sent by Storelib • Build your digital storefront
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+        `,
+        text: `Your Storelib verification code is: ${code}
+
+Copy and paste this code in the verification page.
+
+This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.
+
+If you didn't create a Storelib account, you can safely ignore this email.
+
+Sent by Storelib`,
+      })
+
+      console.log("[verify-email] SMTP result:", JSON.stringify(result))
+
+      if (!result.success) {
+        console.error("[verify-email] SMTP error:", result.error)
+        return NextResponse.json({
+          error: `Failed to send email: ${result.error || "Unknown error"}`
+        }, { status: 500 })
       }
-    } else {
-      return NextResponse.json({ error: "Email service not configured" }, { status: 500 })
-    }
 
-    return NextResponse.json({
-      success: true,
-      message: "Verification code sent to your email",
-    })
+      console.log("[verify-email] Verification email sent successfully to:", email, "ID:", result.messageId)
+
+      return NextResponse.json({
+        success: true,
+        message: "Verification code sent to your email",
+        emailId: result.messageId,
+      })
+    } catch (emailError) {
+      console.error("[verify-email] Error sending verification email:", emailError)
+      const errorMessage = emailError instanceof Error ? emailError.message : "Unknown error"
+      return NextResponse.json({ error: `Failed to send verification email: ${errorMessage}` }, { status: 500 })
+    }
   } catch (error) {
-    console.error("[v0] Error in verify-email:", error)
+    console.error("[verify-email] Error in verify-email:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
