@@ -17,7 +17,7 @@ import type {
   AboutSettings,
   GlobalStoreSettings,
 } from "@/lib/store-builder/types"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage, AvatarSkeleton } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -2673,6 +2673,8 @@ export function UnifiedShopHeader({
   onBioEdit,
   globalSettings,
 }: UnifiedShopHeaderProps) {
+  const [avatarLoadStatus, setAvatarLoadStatus] = useState<"loading" | "loaded" | "error">("loading")
+
   const avatarSizeChoice = isMobile
     ? settings.mobileAvatarSizeChoice || "medium"
     : settings.avatarSizeChoice || "medium"
@@ -2795,13 +2797,33 @@ export function UnifiedShopHeader({
               style={{
                 width: `${avatarSize}px`,
                 height: `${avatarSize}px`,
-                borderWidth: "1.5px",
+                borderWidth: "2.5px",
                 borderStyle: "solid",
                 borderColor: settings.profileImageBorderColor || "#e5e7eb",
               }}
             >
+              {/* Skeleton loading state */}
+              {avatarImageUrl && avatarLoadStatus === "loading" && (
+                <div className="absolute inset-0 rounded-full overflow-hidden">
+                  <div
+                    className="size-full bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"
+                    style={{
+                      backgroundSize: "200% 100%",
+                      animation: "shimmer 1.5s ease-in-out infinite",
+                    }}
+                  />
+                </div>
+              )}
               {avatarImageUrl ? (
-                <AvatarImage src={avatarImageUrl || "/placeholder.svg"} alt={profile?.display_name || ""} />
+                <AvatarImage
+                  src={avatarImageUrl || "/placeholder.svg"}
+                  alt={profile?.display_name || ""}
+                  className={cn(
+                    "transition-opacity duration-300",
+                    avatarLoadStatus === "loaded" ? "opacity-100" : "opacity-0"
+                  )}
+                  onLoadingStatusChange={setAvatarLoadStatus}
+                />
               ) : null}
               <AvatarFallback
                 delayMs={0}

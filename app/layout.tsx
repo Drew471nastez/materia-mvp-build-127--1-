@@ -36,10 +36,18 @@ const montserrat = Montserrat({
   variable: "--font-montserrat",
 })
 
+// Platform favicon URL - used as default for pages that don't have a custom favicon
+const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
+
 export const metadata: Metadata = {
   title: "Materia - Sell your knowledge. All in one place.",
   description: "The all-in-one platform for creators to sell digital products, courses, and paid communities.",
   generator: "Materia",
+  icons: {
+    icon: PLATFORM_FAVICON_URL,
+    shortcut: PLATFORM_FAVICON_URL,
+    apple: PLATFORM_FAVICON_URL,
+  },
 }
 
 export const viewport: Viewport = {

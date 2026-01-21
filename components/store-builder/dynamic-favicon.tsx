@@ -2,6 +2,9 @@
 
 import { useEffect } from "react"
 
+// Platform default favicon URL
+const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
+
 interface DynamicFaviconProps {
   avatarUrl?: string | null
   faviconUrl?: string | null
@@ -32,18 +35,21 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
     appleLink.href = iconUrl
     document.head.appendChild(appleLink)
 
-    // Cleanup on unmount - restore default favicon
+    // Cleanup on unmount - restore platform default favicon
     return () => {
       const addedLinks = document.querySelectorAll("link[rel*='icon']")
       addedLinks.forEach((link) => link.remove())
 
-      // Restore default favicon
+      // Restore platform default favicon
       const defaultLink = document.createElement("link")
       defaultLink.rel = "icon"
-      defaultLink.href = "/favicon.ico"
+      defaultLink.href = PLATFORM_FAVICON_URL
       document.head.appendChild(defaultLink)
     }
   }, [avatarUrl, faviconUrl])
 
   return null
 }
+
+// Export the platform favicon URL for use in other components
+export { PLATFORM_FAVICON_URL }

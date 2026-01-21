@@ -895,15 +895,15 @@ function OnePageDynamicFavicon({ avatarUrl, videoUrl, sellerId }: OnePageDynamic
     appleLink.href = faviconUrl
     document.head.appendChild(appleLink)
 
-    // Cleanup on unmount - restore default favicon
+    // Cleanup on unmount - restore platform default favicon
     return () => {
       const addedLinks = document.querySelectorAll("link[rel*='icon']")
       addedLinks.forEach((link) => link.remove())
 
-      // Restore default favicon
+      // Restore platform default favicon
       const defaultLink = document.createElement("link")
       defaultLink.rel = "icon"
-      defaultLink.href = "/favicon.ico"
+      defaultLink.href = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
       document.head.appendChild(defaultLink)
     }
   }, [faviconUrl])
@@ -2874,6 +2874,9 @@ function PublicBlockRenderer({
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [downloadLink, setDownloadLink] = useState<string | null>(null)
+  const [avatarLoadStatus, setAvatarLoadStatus] = useState<"loading" | "loaded" | "error">(
+    profile.avatar_url ? "loading" : "error"
+  )
   const videoRef = useRef<HTMLVideoElement>(null)
 
   // Load email subscription state from localStorage on mount
@@ -3293,13 +3296,29 @@ function PublicBlockRenderer({
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
                   >
+                    {/* Skeleton loading state */}
+                    {profile.avatar_url && avatarLoadStatus === "loading" && (
+                      <div className="absolute inset-0 rounded-full overflow-hidden">
+                        <div
+                          className="size-full bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"
+                          style={{
+                            backgroundSize: "200% 100%",
+                            animation: "shimmer 1.5s ease-in-out infinite",
+                          }}
+                        />
+                      </div>
+                    )}
                     <AvatarImage
                       src={profile.avatar_url || undefined}
-                      className="object-cover"
+                      className={cn(
+                        "object-cover transition-opacity duration-300",
+                        avatarLoadStatus === "loaded" ? "opacity-100" : "opacity-0"
+                      )}
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
                       }}
+                      onLoadingStatusChange={setAvatarLoadStatus}
                     />
                     <AvatarFallback
                       className="text-2xl sm:text-3xl font-semibold"

@@ -26,6 +26,7 @@ import {
   Save,
   PanelLeft,
   ExternalLink,
+  ArrowLeft,
 } from "lucide-react"
 import type { PageType } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
@@ -63,6 +64,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
   const [isSavingFromDialog, setIsSavingFromDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [pendingBrowserBack, setPendingBrowserBack] = useState(false)
+  const [isNavigatingToDashboard, setIsNavigatingToDashboard] = useState(false)
 
   const hasUnsavedChanges = saveState === "unsaved"
 
@@ -99,12 +101,15 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     }
   }, [hasUnsavedChanges])
 
-  const handleNavigationAttempt = (href: string) => {
+  const handleNavigationAttempt = (href: string, isDashboard = false) => {
     if (hasUnsavedChanges) {
       setPendingNavigation(href)
       setPendingBrowserBack(false)
       setShowUnsavedDialog(true)
     } else {
+      if (isDashboard) {
+        setIsNavigatingToDashboard(true)
+      }
       router.push(href)
     }
   }
@@ -122,6 +127,9 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         // Go back after saving
         window.history.back()
       } else if (pendingNavigation) {
+        if (pendingNavigation === "/app") {
+          setIsNavigatingToDashboard(true)
+        }
         router.push(pendingNavigation)
       }
     } catch {
@@ -139,6 +147,9 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
       // Go back after discarding
       window.history.back()
     } else if (pendingNavigation) {
+      if (pendingNavigation === "/app") {
+        setIsNavigatingToDashboard(true)
+      }
       router.push(pendingNavigation)
     }
     setPendingBrowserBack(false)
@@ -289,8 +300,22 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuItem onClick={() => handleNavigationAttempt("/app")}>
-              Back to Dashboard
+            <DropdownMenuItem
+              onClick={() => handleNavigationAttempt("/app", true)}
+              disabled={isNavigatingToDashboard}
+              className="flex items-center gap-2"
+            >
+              {isNavigatingToDashboard ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Going to Dashboard...</span>
+                </>
+              ) : (
+                <>
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Dashboard</span>
+                </>
+              )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleViewLiveStore}>
@@ -408,6 +433,16 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         onDiscard={handleDiscardFromDialog}
         isSaving={isSavingFromDialog}
       />
+
+      {/* Navigation Overlay - shows when navigating to dashboard */}
+      {isNavigatingToDashboard && (
+        <div className="fixed inset-0 z-[100] bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            <p className="text-lg font-medium text-gray-700">Going back to Dashboard...</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

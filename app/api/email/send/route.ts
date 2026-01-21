@@ -100,11 +100,14 @@ export async function POST(request: NextRequest) {
       .eq("is_active", true)
 
     // Filter by audience type
+    // Note: "all" audience type sends to ALL subscribers (no source filter)
     if (campaign.audience_type === "onepage") {
-      subscribersQuery = subscribersQuery.eq("source", "onepage")
+      // Include both "onepage" and "onepage_email_capture" sources
+      subscribersQuery = subscribersQuery.in("source", ["onepage", "onepage_email_capture"])
     } else if (campaign.audience_type === "store_builder") {
       subscribersQuery = subscribersQuery.eq("source", "store_builder")
     }
+    // When audience_type is "all" or not set, no source filter is applied - sends to all subscribers
 
     // If segment is specified, apply segment filters
     let subscriberIds: string[] | null = null
