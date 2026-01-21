@@ -118,7 +118,7 @@ export function UserNav({ user, profile, isCreator, creatorSlug }: UserNavProps)
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="cursor-pointer text-destructive focus:text-destructive"
-          onClick={handleSignOut}
+          onSelect={handleSignOut}
           disabled={isLoading}
         >
           <LogOut className="mr-2 h-4 w-4" />

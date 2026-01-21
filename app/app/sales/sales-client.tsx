@@ -544,10 +544,10 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleExport("csv")}>
+            <DropdownMenuItem onSelect={() => handleExport("csv")}>
               Export as CSV
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport("json")}>
+            <DropdownMenuItem onSelect={() => handleExport("json")}>
               Export as JSON
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -972,7 +972,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                onClick={() => {
+                                onSelect={() => {
                                   setSelectedOrder(order)
                                   setOrderDetailOpen(true)
                                 }}

@@ -2404,11 +2404,11 @@ function UnifiedFeaturedProductsSection({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setSortBy("recent")}>Most Recent</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("oldest")}>Oldest</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("price-low")}>Price: Low → High</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("price-high")}>Price: High → Low</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("popular")}>Most Popular</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSortBy("recent")}>Most Recent</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSortBy("oldest")}>Oldest</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSortBy("price-low")}>Price: Low → High</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSortBy("price-high")}>Price: High → Low</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSortBy("popular")}>Most Popular</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

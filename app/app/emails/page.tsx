@@ -1073,19 +1073,18 @@ export default function EmailsPage() {
                         <DropdownMenuContent align="end">
                           {activeTab === "published" && (
                             <>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewStats(campaign); }}>
+                              <DropdownMenuItem onSelect={() => handleViewStats(campaign)}>
                                 <BarChart3 className="h-4 w-4 mr-2" />
                                 View Analytics
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleResend(campaign); }} disabled={isSending}>
+                              <DropdownMenuItem onSelect={() => handleResend(campaign)} disabled={isSending}>
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 Resend
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-red-600"
-                                onClick={(e) => {
-                                  e.stopPropagation()
+                                onSelect={() => {
                                   setDeleteTarget({ type: "campaign", id: campaign.id })
                                   setShowDeleteDialog(true)
                                 }}
@@ -1097,15 +1096,14 @@ export default function EmailsPage() {
                           )}
                           {activeTab !== "published" && (
                             <>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditCampaign(campaign); }}>
+                              <DropdownMenuItem onSelect={() => handleEditCampaign(campaign)}>
                                 <Eye className="h-4 w-4 mr-2" />
                                 Edit
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-red-600"
-                                onClick={(e) => {
-                                  e.stopPropagation()
+                                onSelect={() => {
                                   setDeleteTarget({ type: "campaign", id: campaign.id })
                                   setShowDeleteDialog(true)
                                 }}

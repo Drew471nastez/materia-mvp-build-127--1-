@@ -741,7 +741,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                onClick={() => {
+                                onSelect={() => {
                                   setSelectedPayout(payout)
                                   setPayoutDetailOpen(true)
                                 }}

@@ -858,11 +858,11 @@ export function EmailBuilder({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleSend}>
+                  <DropdownMenuItem onSelect={handleSend}>
                     <Send className="h-4 w-4 mr-2" />
                     Send Now
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => document.getElementById("schedule-input")?.focus()}>
+                  <DropdownMenuItem onSelect={() => document.getElementById("schedule-input")?.focus()}>
                     <Clock className="h-4 w-4 mr-2" />
                     Schedule
                   </DropdownMenuItem>

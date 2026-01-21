@@ -301,7 +301,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
             <DropdownMenuItem
-              onClick={() => handleNavigationAttempt("/app", true)}
+              onSelect={() => handleNavigationAttempt("/app", true)}
               disabled={isNavigatingToDashboard}
               className="flex items-center gap-2"
             >
@@ -318,7 +318,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
               )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleViewLiveStore}>
+            <DropdownMenuItem onSelect={handleViewLiveStore}>
               <ExternalLink className="mr-2 h-4 w-4" />
               View Live Store
             </DropdownMenuItem>
@@ -405,11 +405,11 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setPreviewDevice("desktop")}>
+            <DropdownMenuItem onSelect={() => setPreviewDevice("desktop")}>
               <Monitor className="mr-2 h-4 w-4" />
               Desktop
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setPreviewDevice("mobile")}>
+            <DropdownMenuItem onSelect={() => setPreviewDevice("mobile")}>
               <Smartphone className="mr-2 h-4 w-4" />
               Mobile
             </DropdownMenuItem>
