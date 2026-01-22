@@ -65,6 +65,17 @@ interface QuickCheckoutModalContextType {
 }
 const QuickCheckoutModalContext = createContext<QuickCheckoutModalContextType | null>(null)
 
+// PDF Modal Context - allows PDF modals to render at root level instead of inside blocks
+interface PDFModalContextType {
+  openPdfModal: (data: {
+    title: string
+    description?: string
+    pdfUrl: string
+    previewButtonText?: string
+  }) => void
+}
+const PDFModalContext = createContext<PDFModalContextType | null>(null)
+
 // Modal visibility context - to hide buttons when fullscreen modals are open
 interface ModalVisibilityContextType {
   isAnyModalOpen: boolean
@@ -1090,6 +1101,120 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
   const appleMusicModalContextValue = { openAppleMusicModal }
 
+  // PDF modal state - lifted to root level to ensure proper z-index stacking
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
+  const [pdfModalData, setPdfModalData] = useState<{
+    title: string
+    description?: string
+    pdfUrl: string
+    previewButtonText?: string
+  } | null>(null)
+  const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
+  const [pdfTotalPages, setPdfTotalPages] = useState(1)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfPages, setPdfPages] = useState<string[]>([])
+  const pdfContainerRef = useRef<HTMLDivElement>(null)
+  const pdfScrollRef = useRef<HTMLDivElement>(null)
+
+  const openPdfModal = useCallback((data: {
+    title: string
+    description?: string
+    pdfUrl: string
+    previewButtonText?: string
+  }) => {
+    setPdfModalData(data)
+    setPdfModalOpen(true)
+    setPdfLoading(true)
+    setPdfCurrentPage(1)
+    setPdfTotalPages(1)
+    setPdfPages([])
+  }, [])
+
+  const closePdfModal = useCallback(() => {
+    setPdfModalOpen(false)
+  }, [])
+
+  const pdfModalContextValue = { openPdfModal }
+
+  // Load PDF.js and render pages when PDF modal opens
+  useEffect(() => {
+    if (pdfModalOpen && pdfModalData?.pdfUrl) {
+      const loadPdfJs = async () => {
+        try {
+          // Check if already loaded
+          if (!(window as any).pdfjsLib) {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+            script.async = true
+            await new Promise((resolve, reject) => {
+              script.onload = resolve
+              script.onerror = reject
+              document.head.appendChild(script)
+            })
+          }
+
+          const pdfjsLib = (window as any).pdfjsLib
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+
+          // Load the PDF
+          const loadingTask = pdfjsLib.getDocument(pdfModalData.pdfUrl)
+          const pdf = await loadingTask.promise
+          setPdfTotalPages(pdf.numPages)
+
+          // Render each page to canvas and convert to image
+          const pageImages: string[] = []
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i)
+            const scale = 2 // Higher scale for better quality
+            const viewport = page.getViewport({ scale })
+
+            const canvas = document.createElement('canvas')
+            const context = canvas.getContext('2d')
+            canvas.height = viewport.height
+            canvas.width = viewport.width
+
+            await page.render({
+              canvasContext: context,
+              viewport: viewport
+            }).promise
+
+            pageImages.push(canvas.toDataURL('image/png'))
+          }
+
+          setPdfPages(pageImages)
+          setPdfLoading(false)
+        } catch (error) {
+          console.error('PDF loading error:', error)
+          setPdfLoading(false)
+          // Fallback: just count pages from PDF structure
+          try {
+            const response = await fetch(pdfModalData.pdfUrl)
+            const text = await response.text()
+            const pageMatches = text.match(/\/Type\s*\/Page[^s]/g)
+            if (pageMatches) {
+              setPdfTotalPages(pageMatches.length)
+            }
+          } catch {
+            // Ignore fallback errors
+          }
+        }
+      }
+      loadPdfJs()
+    }
+  }, [pdfModalOpen, pdfModalData?.pdfUrl])
+
+  // Handle PDF scroll to track current page
+  const handlePdfScroll = useCallback(() => {
+    if (!pdfScrollRef.current || pdfPages.length === 0) return
+    const container = pdfScrollRef.current
+    const scrollTop = container.scrollTop
+    const containerHeight = container.clientHeight
+    const pageHeight = container.scrollHeight / pdfTotalPages
+
+    const currentPageIndex = Math.floor((scrollTop + containerHeight / 2) / pageHeight)
+    setPdfCurrentPage(Math.min(Math.max(currentPageIndex + 1, 1), pdfTotalPages))
+  }, [pdfPages.length, pdfTotalPages])
+
   // Quick Checkout modal state - for free products
   const [quickCheckoutModalOpen, setQuickCheckoutModalOpen] = useState(false)
   const [quickCheckoutModalData, setQuickCheckoutModalData] = useState<{
@@ -1693,6 +1818,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
     <QuickCheckoutModalContext.Provider value={quickCheckoutModalContextValue}>
+    <PDFModalContext.Provider value={pdfModalContextValue}>
       {/* Dynamic Favicon - uses avatar, video frame, or store builder avatar */}
       <OnePageDynamicFavicon avatarUrl={avatar_url} videoUrl={avatar_video_url} sellerId={seller_id} />
 
@@ -2219,6 +2345,104 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           </div>
         </div>
       )}
+
+      {/* PDF Modal - rendered at root level for proper z-index stacking */}
+      {pdfModalOpen && pdfModalData && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
+          onClick={closePdfModal}
+        >
+          <div
+            className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
+              <button
+                onClick={closePdfModal}
+                className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
+                {pdfModalData.title || "PDF Document"}
+              </h3>
+              <button
+                onClick={closePdfModal}
+                className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Preview Area */}
+            <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
+              {/* PDF Preview Frame */}
+              <div
+                ref={pdfContainerRef}
+                className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
+              >
+                {/* Page Counter */}
+                <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
+                  {pdfLoading ? "Loading..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
+                </div>
+
+                {/* PDF Pages - Scrollable container */}
+                <div
+                  ref={pdfScrollRef}
+                  className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
+                  onScroll={handlePdfScroll}
+                >
+                  {pdfLoading ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+                    </div>
+                  ) : pdfPages.length > 0 ? (
+                    <div className="flex flex-col">
+                      {pdfPages.map((pageImg, index) => (
+                        <img
+                          key={index}
+                          src={pageImg}
+                          alt={`Page ${index + 1}`}
+                          className="w-full h-auto"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <iframe
+                      src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                      className="w-full h-full border-0"
+                      title={pdfModalData.title || "PDF Document"}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Description under preview */}
+              {pdfModalData.description && (
+                <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">
+                  {pdfModalData.description}
+                </p>
+              )}
+            </div>
+
+            {/* Bottom View Button */}
+            <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
+              <a
+                href={pdfModalData.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
+              >
+                {pdfModalData.previewButtonText || "View full PDF"}
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+    </PDFModalContext.Provider>
     </QuickCheckoutModalContext.Provider>
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
@@ -5238,114 +5462,8 @@ function PublicBlockRenderer({
         }
       }
 
-      // State for PDF preview modal and page tracking
-      const [showPdfModal, setShowPdfModal] = useState(false)
-      const [currentPage, setCurrentPage] = useState(1)
-      const [totalPages, setTotalPages] = useState(1)
-      const [pdfLoading, setPdfLoading] = useState(false)
-      const [pdfPages, setPdfPages] = useState<string[]>([])
-      const pdfContainerRef = useRef<HTMLDivElement>(null)
-      const pdfScrollRef = useRef<HTMLDivElement>(null)
-
-      // Dispatch custom event when modal state changes (for mobile button hiding)
-      useEffect(() => {
-        window.dispatchEvent(new CustomEvent('pdfModalStateChange', { detail: { isOpen: showPdfModal } }))
-      }, [showPdfModal])
-
-      // Load PDF.js and render pages when modal opens
-      useEffect(() => {
-        if (showPdfModal && pdfUrl) {
-          setPdfLoading(true)
-          setTotalPages(1)
-          setCurrentPage(1)
-          setPdfPages([])
-
-          // Load PDF.js from CDN
-          const loadPdfJs = async () => {
-            try {
-              // Check if already loaded
-              if (!(window as any).pdfjsLib) {
-                const script = document.createElement('script')
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
-                script.async = true
-                await new Promise((resolve, reject) => {
-                  script.onload = resolve
-                  script.onerror = reject
-                  document.head.appendChild(script)
-                })
-              }
-
-              const pdfjsLib = (window as any).pdfjsLib
-              pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
-
-              // Load the PDF
-              const loadingTask = pdfjsLib.getDocument(pdfUrl)
-              const pdf = await loadingTask.promise
-              setTotalPages(pdf.numPages)
-
-              // Render each page to canvas and convert to image
-              const pageImages: string[] = []
-              for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i)
-                const scale = 2 // Higher scale for better quality
-                const viewport = page.getViewport({ scale })
-
-                const canvas = document.createElement('canvas')
-                const context = canvas.getContext('2d')
-                canvas.height = viewport.height
-                canvas.width = viewport.width
-
-                await page.render({
-                  canvasContext: context,
-                  viewport: viewport
-                }).promise
-
-                pageImages.push(canvas.toDataURL('image/jpeg', 0.9))
-              }
-
-              setPdfPages(pageImages)
-              setPdfLoading(false)
-            } catch (error) {
-              console.error('PDF loading error:', error)
-              setPdfLoading(false)
-              // Fallback: just count pages from PDF structure
-              try {
-                const response = await fetch(pdfUrl)
-                const buffer = await response.arrayBuffer()
-                const bytes = new Uint8Array(buffer)
-                const text = new TextDecoder('latin1').decode(bytes)
-                const countMatch = text.match(/\/Count\s+(\d+)/g)
-                if (countMatch) {
-                  const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
-                  setTotalPages(Math.max(...counts))
-                }
-              } catch {
-                setTotalPages(1)
-              }
-            }
-          }
-
-          loadPdfJs()
-        }
-      }, [showPdfModal, pdfUrl])
-
-      // Handle scroll to update current page
-      const handlePdfScroll = () => {
-        const container = pdfScrollRef.current
-        if (!container || totalPages <= 1 || pdfPages.length === 0) return
-
-        const scrollTop = container.scrollTop
-        const containerHeight = container.clientHeight
-        const pageHeight = container.scrollHeight / totalPages
-
-        // Calculate which page is most visible
-        const currentPageIndex = Math.floor((scrollTop + containerHeight / 2) / pageHeight)
-        const newPage = Math.min(totalPages, Math.max(1, currentPageIndex + 1))
-
-        if (newPage !== currentPage) {
-          setCurrentPage(newPage)
-        }
-      }
+      // Use PDF modal context - modal renders at root level for proper z-index stacking
+      const pdfModalContext = useContext(PDFModalContext)
 
       const handleOpenPdf = () => {
         if (!pdfUrl) return
@@ -5359,15 +5477,15 @@ function PublicBlockRenderer({
           return
         }
 
-        // If enable_preview is enabled (or default), show modal
-        if (data.enable_preview !== false) {
-          setShowPdfModal(true)
-          setCurrentPage(1)
+        // If enable_preview is enabled (or default), show modal via context
+        if (data.enable_preview !== false && pdfModalContext) {
+          pdfModalContext.openPdfModal({
+            title: data.title || "PDF Document",
+            description: data.description,
+            pdfUrl: pdfUrl,
+            previewButtonText: data.preview_button_text,
+          })
         }
-      }
-
-      const handleClosePdf = () => {
-        setShowPdfModal(false)
       }
 
       const textColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
@@ -5376,305 +5494,108 @@ function PublicBlockRenderer({
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
         return (
-          <>
-            <button
-              onClick={handleOpenPdf}
-              className={cn(
-                "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
-                hoverEffect,
-                getAnimationClass(data.animation_type)
-              )}
-              style={{
-                ...pdfButtonStyles,
-                padding: 0,
-              }}
-            >
-              <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
-                {/* Thumbnail/Preview */}
-                <div
-                  className="shrink-0 flex items-center justify-center bg-gray-100"
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: Math.max(0, theme.button_border_radius - 4),
-                  }}
-                >
-                  {thumbnailUrl ? (
-                    <img
-                      src={thumbnailUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
-                    />
-                  ) : (
-                    <svg
-                      width="26"
-                      height="26"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      className="text-red-500"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14,2 14,8 20,8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                      <line x1="10" y1="9" x2="8" y2="9" />
-                    </svg>
-                  )}
-                </div>
-                {/* Content - Title and Description vertically aligned */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }}>
-                    {data.title || "PDF Document"}
-                  </span>
-                  {data.description && (
-                    <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
-                      {data.description}
-                    </span>
-                  )}
-                </div>
-                {/* Arrow icon - properly aligned */}
-                <div className="shrink-0 flex items-center justify-center pr-1">
-                  <ExternalLink className="w-5 h-5 opacity-50" style={{ color: textColor }} />
-                </div>
-              </div>
-            </button>
-
-            {/* PDF Preview Modal - Clean light UI */}
-            {showPdfModal && pdfUrl && (
-              <div
-                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
-                onClick={handleClosePdf}
-              >
-                <div
-                  className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Top Bar */}
-                  <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
-                    <button
-                      onClick={handleClosePdf}
-                      className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M19 12H5M12 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
-                      {data.title || "PDF Document"}
-                    </h3>
-                    <button
-                      onClick={handleClosePdf}
-                      className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Preview Area */}
-                  <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
-                    {/* PDF Preview Frame */}
-                    <div
-                      ref={pdfContainerRef}
-                      className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
-                    >
-                      {/* Page Counter */}
-                      <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                        {pdfLoading ? "Loading..." : `${currentPage} of ${totalPages}`}
-                      </div>
-
-                      {/* PDF Pages - Scrollable container */}
-                      <div
-                        ref={pdfScrollRef}
-                        className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
-                        onScroll={handlePdfScroll}
-                      >
-                        {pdfLoading ? (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
-                          </div>
-                        ) : pdfPages.length > 0 ? (
-                          <div className="flex flex-col">
-                            {pdfPages.map((pageImg, index) => (
-                              <img
-                                key={index}
-                                src={pageImg}
-                                alt={`Page ${index + 1}`}
-                                className="w-full h-auto"
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <iframe
-                            src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                            className="w-full h-full border-0"
-                            title={data.title || "PDF Document"}
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Description under preview */}
-                    {data.description && (
-                      <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">
-                        {data.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Bottom View Button */}
-                  <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
-                    <a
-                      href={pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
-                    >
-                      {data.preview_button_text || "View full PDF"}
-                    </a>
-                  </div>
-                </div>
-              </div>
+          <button
+            onClick={handleOpenPdf}
+            className={cn(
+              "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
+              hoverEffect,
+              getAnimationClass(data.animation_type)
             )}
-          </>
+            style={{
+              ...pdfButtonStyles,
+              padding: 0,
+            }}
+          >
+            <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+              {/* Thumbnail/Preview */}
+              <div
+                className="shrink-0 flex items-center justify-center bg-gray-100"
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: Math.max(0, theme.button_border_radius - 4),
+                }}
+              >
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
+                  />
+                ) : (
+                  <svg
+                    width="26"
+                    height="26"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-red-500"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14,2 14,8 20,8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <line x1="10" y1="9" x2="8" y2="9" />
+                  </svg>
+                )}
+              </div>
+              {/* Content - Title and Description vertically aligned */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }}>
+                  {data.title || "PDF Document"}
+                </span>
+                {data.description && (
+                  <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
+                    {data.description}
+                  </span>
+                )}
+              </div>
+              {/* Arrow icon - properly aligned */}
+              <div className="shrink-0 flex items-center justify-center pr-1">
+                <ExternalLink className="w-5 h-5 opacity-50" style={{ color: textColor }} />
+              </div>
+            </div>
+          </button>
         )
       }
 
       // Default layout - Title on top, button text below with icon
       return (
-        <>
-          <button
-            onClick={handleOpenPdf}
-            className={cn(
-              "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
-              hoverEffect,
-              getAnimationClass(data.animation_type)
-            )}
-            style={pdfButtonStyles}
-          >
-            {/* Title */}
-            <span className="font-semibold truncate w-full text-center" style={{ color: textColor }}>
-              {data.title || "PDF Document"}
-            </span>
-            {/* Button text with PDF icon */}
-            <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="shrink-0"
-                style={{ color: textColor }}
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14,2 14,8 20,8" />
-              </svg>
-              <span className="text-xs sm:text-sm truncate" style={{ color: textColor }}>
-                {data.button_text || "View PDF"}
-              </span>
-            </div>
-          </button>
-
-          {/* PDF Preview Modal - Clean light UI */}
-          {showPdfModal && pdfUrl && (
-            <div
-              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
-              onClick={handleClosePdf}
-            >
-              <div
-                className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Top Bar */}
-                <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
-                  <button
-                    onClick={handleClosePdf}
-                    className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 12H5M12 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
-                    {data.title || "PDF Document"}
-                  </h3>
-                  <button
-                    onClick={handleClosePdf}
-                    className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Preview Area */}
-                <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
-                  {/* PDF Preview Frame */}
-                  <div
-                    className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
-                  >
-                    {/* Page Counter */}
-                    <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                      {pdfLoading ? "Loading..." : `${currentPage} of ${totalPages}`}
-                    </div>
-
-                    {/* PDF Pages - Scrollable container */}
-                    <div
-                      ref={pdfScrollRef}
-                      className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
-                      onScroll={handlePdfScroll}
-                    >
-                      {pdfLoading ? (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
-                        </div>
-                      ) : pdfPages.length > 0 ? (
-                        <div className="flex flex-col">
-                          {pdfPages.map((pageImg, index) => (
-                            <img
-                              key={index}
-                              src={pageImg}
-                              alt={`Page ${index + 1}`}
-                              className="w-full h-auto"
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        <iframe
-                          src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-full border-0"
-                          title={data.title || "PDF Document"}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Description under preview */}
-                  {data.description && (
-                    <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">
-                      {data.description}
-                    </p>
-                  )}
-                </div>
-
-                {/* Bottom View Button */}
-                <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
-                  <a
-                    href={pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
-                  >
-                    {data.preview_button_text || "View full PDF"}
-                  </a>
-                </div>
-              </div>
-            </div>
+        <button
+          onClick={handleOpenPdf}
+          className={cn(
+            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
+            hoverEffect,
+            getAnimationClass(data.animation_type)
           )}
-        </>
+          style={pdfButtonStyles}
+        >
+          {/* Title */}
+          <span className="font-semibold truncate w-full text-center" style={{ color: textColor }}>
+            {data.title || "PDF Document"}
+          </span>
+          {/* Button text with PDF icon */}
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="shrink-0"
+              style={{ color: textColor }}
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14,2 14,8 20,8" />
+            </svg>
+            <span className="text-xs sm:text-sm truncate" style={{ color: textColor }}>
+              {data.button_text || "View PDF"}
+            </span>
+          </div>
+        </button>
       )
     }
 
@@ -5732,114 +5653,8 @@ function PublicBlockRenderer({
         }
       }
 
-      // State for menu preview modal and page tracking
-      const [showMenuModal, setShowMenuModal] = useState(false)
-      const [currentPage, setCurrentPage] = useState(1)
-      const [totalPages, setTotalPages] = useState(1)
-      const [pdfLoading, setPdfLoading] = useState(false)
-      const [pdfPages, setPdfPages] = useState<string[]>([])
-      const menuContainerRef = useRef<HTMLDivElement>(null)
-      const menuScrollRef = useRef<HTMLDivElement>(null)
-
-      // Dispatch custom event when modal state changes (for mobile button hiding)
-      useEffect(() => {
-        window.dispatchEvent(new CustomEvent('pdfModalStateChange', { detail: { isOpen: showMenuModal } }))
-      }, [showMenuModal])
-
-      // Load PDF.js and render pages when modal opens
-      useEffect(() => {
-        if (showMenuModal && pdfUrl) {
-          setPdfLoading(true)
-          setTotalPages(1)
-          setCurrentPage(1)
-          setPdfPages([])
-
-          // Load PDF.js from CDN
-          const loadPdfJs = async () => {
-            try {
-              // Check if already loaded
-              if (!(window as any).pdfjsLib) {
-                const script = document.createElement('script')
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
-                script.async = true
-                await new Promise((resolve, reject) => {
-                  script.onload = resolve
-                  script.onerror = reject
-                  document.head.appendChild(script)
-                })
-              }
-
-              const pdfjsLib = (window as any).pdfjsLib
-              pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
-
-              // Load the PDF
-              const loadingTask = pdfjsLib.getDocument(pdfUrl)
-              const pdf = await loadingTask.promise
-              setTotalPages(pdf.numPages)
-
-              // Render each page to canvas and convert to image
-              const pageImages: string[] = []
-              for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i)
-                const scale = 2 // Higher scale for better quality
-                const viewport = page.getViewport({ scale })
-
-                const canvas = document.createElement('canvas')
-                const context = canvas.getContext('2d')
-                canvas.height = viewport.height
-                canvas.width = viewport.width
-
-                await page.render({
-                  canvasContext: context,
-                  viewport: viewport
-                }).promise
-
-                pageImages.push(canvas.toDataURL('image/jpeg', 0.9))
-              }
-
-              setPdfPages(pageImages)
-              setPdfLoading(false)
-            } catch (error) {
-              console.error('PDF loading error:', error)
-              setPdfLoading(false)
-              // Fallback: just count pages from PDF structure
-              try {
-                const response = await fetch(pdfUrl)
-                const buffer = await response.arrayBuffer()
-                const bytes = new Uint8Array(buffer)
-                const text = new TextDecoder('latin1').decode(bytes)
-                const countMatch = text.match(/\/Count\s+(\d+)/g)
-                if (countMatch) {
-                  const counts = countMatch.map(m => parseInt(m.match(/\d+/)?.[0] || '1'))
-                  setTotalPages(Math.max(...counts))
-                }
-              } catch {
-                setTotalPages(1)
-              }
-            }
-          }
-
-          loadPdfJs()
-        }
-      }, [showMenuModal, pdfUrl])
-
-      // Handle scroll to update current page
-      const handleMenuScroll = () => {
-        const container = menuScrollRef.current
-        if (!container || totalPages <= 1 || pdfPages.length === 0) return
-
-        const scrollTop = container.scrollTop
-        const containerHeight = container.clientHeight
-        const pageHeight = container.scrollHeight / totalPages
-
-        // Calculate which page is most visible
-        const currentPageIndex = Math.floor((scrollTop + containerHeight / 2) / pageHeight)
-        const newPage = Math.min(totalPages, Math.max(1, currentPageIndex + 1))
-
-        if (newPage !== currentPage) {
-          setCurrentPage(newPage)
-        }
-      }
+      // Use PDF modal context - modal renders at root level for proper z-index stacking
+      const pdfModalContext = useContext(PDFModalContext)
 
       const handleOpenMenu = () => {
         if (!pdfUrl) return
@@ -5853,15 +5668,15 @@ function PublicBlockRenderer({
           return
         }
 
-        // If enable_preview is enabled (or default), show modal
-        if (data.enable_preview !== false) {
-          setShowMenuModal(true)
-          setCurrentPage(1)
+        // If enable_preview is enabled (or default), show modal via context
+        if (data.enable_preview !== false && pdfModalContext) {
+          pdfModalContext.openPdfModal({
+            title: data.title || "Menu",
+            description: data.description,
+            pdfUrl: pdfUrl,
+            previewButtonText: data.preview_button_text,
+          })
         }
-      }
-
-      const handleCloseMenu = () => {
-        setShowMenuModal(false)
       }
 
       const textColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
@@ -5870,305 +5685,108 @@ function PublicBlockRenderer({
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
         return (
-          <>
-            <button
-              onClick={handleOpenMenu}
-              className={cn(
-                "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
-                hoverEffect,
-                getAnimationClass(data.animation_type)
-              )}
-              style={{
-                ...menuButtonStyles,
-                padding: 0,
-              }}
-            >
-              <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
-                {/* Thumbnail/Preview */}
-                <div
-                  className="shrink-0 flex items-center justify-center bg-gray-100"
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: Math.max(0, theme.button_border_radius - 4),
-                  }}
-                >
-                  {thumbnailUrl ? (
-                    <img
-                      src={thumbnailUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
-                    />
-                  ) : (
-                    <svg
-                      width="26"
-                      height="26"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      className="text-orange-500"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14,2 14,8 20,8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                      <line x1="10" y1="9" x2="8" y2="9" />
-                    </svg>
-                  )}
-                </div>
-                {/* Content - Title and Description vertically aligned */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }}>
-                    {data.title || "Menu"}
-                  </span>
-                  {data.description && (
-                    <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
-                      {data.description}
-                    </span>
-                  )}
-                </div>
-                {/* Arrow icon - properly aligned */}
-                <div className="shrink-0 flex items-center justify-center pr-1">
-                  <ExternalLink className="w-5 h-5 opacity-50" style={{ color: textColor }} />
-                </div>
-              </div>
-            </button>
-
-            {/* Menu Preview Modal - Clean light UI */}
-            {showMenuModal && pdfUrl && (
-              <div
-                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
-                onClick={handleCloseMenu}
-              >
-                <div
-                  className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Top Bar */}
-                  <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
-                    <button
-                      onClick={handleCloseMenu}
-                      className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M19 12H5M12 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
-                      {data.title || "Menu"}
-                    </h3>
-                    <button
-                      onClick={handleCloseMenu}
-                      className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Preview Area */}
-                  <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
-                    {/* PDF Preview Frame */}
-                    <div
-                      ref={menuContainerRef}
-                      className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
-                    >
-                      {/* Page Counter */}
-                      <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                        {pdfLoading ? "Loading..." : `${currentPage} of ${totalPages}`}
-                      </div>
-
-                      {/* PDF Pages - Scrollable container */}
-                      <div
-                        ref={menuScrollRef}
-                        className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
-                        onScroll={handleMenuScroll}
-                      >
-                        {pdfLoading ? (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
-                          </div>
-                        ) : pdfPages.length > 0 ? (
-                          <div className="flex flex-col">
-                            {pdfPages.map((pageImg, index) => (
-                              <img
-                                key={index}
-                                src={pageImg}
-                                alt={`Page ${index + 1}`}
-                                className="w-full h-auto"
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <iframe
-                            src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                            className="w-full h-full border-0"
-                            title={data.title || "Menu"}
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Description under preview */}
-                    {data.description && (
-                      <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">
-                        {data.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Bottom View Button */}
-                  <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
-                    <a
-                      href={pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
-                    >
-                      {data.preview_button_text || "View Menu"}
-                    </a>
-                  </div>
-                </div>
-              </div>
+          <button
+            onClick={handleOpenMenu}
+            className={cn(
+              "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
+              hoverEffect,
+              getAnimationClass(data.animation_type)
             )}
-          </>
+            style={{
+              ...menuButtonStyles,
+              padding: 0,
+            }}
+          >
+            <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+              {/* Thumbnail/Preview */}
+              <div
+                className="shrink-0 flex items-center justify-center bg-gray-100"
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: Math.max(0, theme.button_border_radius - 4),
+                }}
+              >
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
+                  />
+                ) : (
+                  <svg
+                    width="26"
+                    height="26"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-orange-500"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14,2 14,8 20,8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <line x1="10" y1="9" x2="8" y2="9" />
+                  </svg>
+                )}
+              </div>
+              {/* Content - Title and Description vertically aligned */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }}>
+                  {data.title || "Menu"}
+                </span>
+                {data.description && (
+                  <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
+                    {data.description}
+                  </span>
+                )}
+              </div>
+              {/* Arrow icon - properly aligned */}
+              <div className="shrink-0 flex items-center justify-center pr-1">
+                <ExternalLink className="w-5 h-5 opacity-50" style={{ color: textColor }} />
+              </div>
+            </div>
+          </button>
         )
       }
 
       // Default layout - Title on top, button text below with icon
       return (
-        <>
-          <button
-            onClick={handleOpenMenu}
-            className={cn(
-              "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
-              hoverEffect,
-              getAnimationClass(data.animation_type)
-            )}
-            style={menuButtonStyles}
-          >
-            {/* Title */}
-            <span className="font-semibold truncate w-full text-center" style={{ color: textColor }}>
-              {data.title || "Menu"}
-            </span>
-            {/* Button text with menu icon */}
-            <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="shrink-0"
-                style={{ color: textColor }}
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14,2 14,8 20,8" />
-              </svg>
-              <span className="text-xs sm:text-sm truncate" style={{ color: textColor }}>
-                {data.button_text || "View Menu"}
-              </span>
-            </div>
-          </button>
-
-          {/* Menu Preview Modal - Clean light UI */}
-          {showMenuModal && pdfUrl && (
-            <div
-              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
-              onClick={handleCloseMenu}
-            >
-              <div
-                className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Top Bar */}
-                <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
-                  <button
-                    onClick={handleCloseMenu}
-                    className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 12H5M12 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
-                    {data.title || "Menu"}
-                  </h3>
-                  <button
-                    onClick={handleCloseMenu}
-                    className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Preview Area */}
-                <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
-                  {/* PDF Preview Frame */}
-                  <div
-                    className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
-                  >
-                    {/* Page Counter */}
-                    <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                      {pdfLoading ? "Loading..." : `${currentPage} of ${totalPages}`}
-                    </div>
-
-                    {/* PDF Pages - Scrollable container */}
-                    <div
-                      ref={menuScrollRef}
-                      className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
-                      onScroll={handleMenuScroll}
-                    >
-                      {pdfLoading ? (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
-                        </div>
-                      ) : pdfPages.length > 0 ? (
-                        <div className="flex flex-col">
-                          {pdfPages.map((pageImg, index) => (
-                            <img
-                              key={index}
-                              src={pageImg}
-                              alt={`Page ${index + 1}`}
-                              className="w-full h-auto"
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        <iframe
-                          src={`${pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-full border-0"
-                          title={data.title || "Menu"}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Description under preview */}
-                  {data.description && (
-                    <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">
-                      {data.description}
-                    </p>
-                  )}
-                </div>
-
-                {/* Bottom View Button */}
-                <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
-                  <a
-                    href={pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
-                  >
-                    {data.preview_button_text || "View Menu"}
-                  </a>
-                </div>
-              </div>
-            </div>
+        <button
+          onClick={handleOpenMenu}
+          className={cn(
+            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
+            hoverEffect,
+            getAnimationClass(data.animation_type)
           )}
-        </>
+          style={menuButtonStyles}
+        >
+          {/* Title */}
+          <span className="font-semibold truncate w-full text-center" style={{ color: textColor }}>
+            {data.title || "Menu"}
+          </span>
+          {/* Button text with menu icon */}
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="shrink-0"
+              style={{ color: textColor }}
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14,2 14,8 20,8" />
+            </svg>
+            <span className="text-xs sm:text-sm truncate" style={{ color: textColor }}>
+              {data.button_text || "View Menu"}
+            </span>
+          </div>
+        </button>
       )
     }
 
