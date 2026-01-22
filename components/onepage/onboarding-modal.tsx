@@ -429,40 +429,6 @@ const THEME_TEMPLATES = [
       noise_strength: 30,
     },
   },
-  {
-    id: "fusion",
-    name: "Fusion",
-    category: "image",
-    theme_config: {
-      background_type: "image" as const,
-      background_color: "#0f0f1a",
-      background_gradient: "",
-      background_image_url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMzUxM2NjYjdjMjYwZmZkM2YzNjYyNzc2Y2E4YWM5ZTAuanBnIiwiaWF0IjoxNzY4OTA4Mjg2LCJleHAiOjM5NDg1NjIzODAyODZ9.gt2phg6Tkw-z5_Q-F4kqhDchEmd3eOupUWxohGQLmM0",
-      text_color: "#ffffff",
-      secondary_text_color: "#e9d5ff",
-      button_color: "#8b5cf6",
-      button_text_color: "#ffffff",
-      button_style: "filled" as const,
-      button_border_radius: 12,
-      button_border_width: 0,
-      button_border_color: "#8b5cf6",
-      button_shadow: "subtle",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Space Grotesk', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#e9d5ff",
-      social_icon_style: "filled",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-      image_brightness: 60,
-      image_noise: true,
-      noise_strength: 40,
-    },
-    profile_layout: "classic" as const,
-    share_style: "glassmorphism",
-    subscribe_style: "glassmorphism",
-  },
 ]
 
 // TikTok icon component
@@ -1180,8 +1146,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         >
           <div className="flex flex-col h-full bg-white">
             {/* Progress bar - centered, 8px height, more border radius */}
-            <div className="flex justify-center pt-8">
-              <div className="w-[200px] h-[8px] bg-gray-200 rounded-full overflow-hidden">
+            <div className="flex justify-center pt-6 sm:pt-8">
+              <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-purple-600 transition-all duration-500 ease-out rounded-full"
                   style={{ width: `${progressWidth}%` }}
@@ -1190,24 +1156,24 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             </div>
 
             <div className={cn(
-              "flex-1 overflow-y-auto transition-all duration-200 px-12 pt-6",
+              "flex-1 overflow-y-auto transition-all duration-200 px-4 sm:px-12 pt-4 sm:pt-6",
               isAnimating && slideDirection === "right" && "opacity-0 translate-x-4",
               isAnimating && slideDirection === "left" && "opacity-0 -translate-x-4"
             )}>
               {/* Step 1: Let's get started */}
               {currentStep === 1 && (
                 <div className="flex flex-col items-center">
-                  <div className="text-center mb-8">
-                    <h1 className="text-[42px] font-bold leading-tight">
+                  <div className="text-center mb-6 sm:mb-8">
+                    <h1 className="text-[28px] sm:text-[42px] font-bold leading-tight">
                       Let's get started <span className="inline-block">👋</span>
                     </h1>
-                    <p className="text-gray-500 text-base mt-2">
+                    <p className="text-gray-500 text-sm sm:text-base mt-2">
                       Start with your name — everything can be changed later
                     </p>
                   </div>
 
                   {/* Input fields - centered, max width 600px */}
-                  <div className="w-full max-w-[600px] space-y-4">
+                  <div className="w-full max-w-[600px] space-y-3 sm:space-y-4">
                     {/* Username input */}
                     <div className="relative">
                       <div className={cn(
@@ -1274,16 +1240,16 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {/* Step 2: Goal Selection */}
               {currentStep === 2 && (
                 <div className="flex flex-col items-center">
-                  <div className="text-center mb-6">
-                    <h1 className="text-[42px] font-bold leading-tight">
+                  <div className="text-center mb-4 sm:mb-6">
+                    <h1 className="text-[28px] sm:text-[42px] font-bold leading-tight">
                       What's the goal here?
                     </h1>
-                    <p className="text-gray-500 text-base mt-2">
+                    <p className="text-gray-500 text-sm sm:text-base mt-2">
                       We'll build your OnePage around this
                     </p>
                   </div>
 
-                  <div className="w-full max-w-[600px] grid grid-cols-2 gap-4">
+                  <div className="w-full max-w-[600px] grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {/* General */}
                     <button
                       onClick={() => setSelectedGoal("general")}
@@ -1424,7 +1390,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   {/* None of these option */}
                   <button
                     onClick={() => setSelectedGoal("general")}
-                    className="text-sm text-gray-500 hover:text-gray-700 mt-4 py-2"
+                    className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 mt-3 sm:mt-4 py-2"
                   >
                     None of these
                   </button>
@@ -1434,32 +1400,32 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {/* Step 3: Socials & Profile */}
               {currentStep === 3 && (
                 <div className="flex flex-col items-center">
-                  <div className="text-center mb-8">
-                    <h1 className="text-[42px] font-bold leading-tight">
+                  <div className="text-center mb-4 sm:mb-8">
+                    <h1 className="text-[28px] sm:text-[42px] font-bold leading-tight">
                       Add your socials
                     </h1>
-                    <p className="text-gray-500 text-base mt-2">
+                    <p className="text-gray-500 text-sm sm:text-base mt-2">
                       These will appear on your OnePage
                     </p>
                   </div>
 
-                  <div className="w-full max-w-[600px] flex gap-8">
-                    {/* Avatar section */}
+                  <div className="w-full max-w-[600px] flex flex-col sm:flex-row gap-6 sm:gap-8">
+                    {/* Avatar section - centered on mobile, left on desktop */}
                     <div className="flex flex-col items-center shrink-0">
                       <div
-                        className="w-24 h-24 rounded-full bg-[#F3F3F3] flex items-center justify-center overflow-hidden border-2 border-gray-200"
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#F3F3F3] flex items-center justify-center overflow-hidden border-2 border-gray-200"
                       >
                         {avatarUrl ? (
                           <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <span className="text-3xl font-bold text-gray-400">
+                          <span className="text-2xl sm:text-3xl font-bold text-gray-400">
                             {displayName.charAt(0).toUpperCase() || "A"}
                           </span>
                         )}
                       </div>
                       <button
                         onClick={() => avatarInputRef.current?.click()}
-                        className="mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+                        className="mt-2 sm:mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
                       >
                         <Pencil className="w-4 h-4" />
                         Edit
@@ -1476,38 +1442,38 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     {/* Social inputs */}
                     <div className="flex-1 space-y-3">
                       {/* Instagram */}
-                      <div className="flex items-center gap-3 px-5 h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                      <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
                         <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
                         <input
                           type="text"
                           value={socials.instagram}
                           onChange={(e) => setSocials({ ...socials, instagram: e.target.value })}
                           placeholder="@username"
-                          className="flex-1 text-base outline-none bg-transparent"
+                          className="flex-1 text-sm sm:text-base outline-none bg-transparent"
                         />
                       </div>
 
                       {/* TikTok */}
-                      <div className="flex items-center gap-3 px-5 h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                      <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
                         <TikTokIcon className="w-5 h-5 shrink-0" />
                         <input
                           type="text"
                           value={socials.tiktok}
                           onChange={(e) => setSocials({ ...socials, tiktok: e.target.value })}
                           placeholder="@username"
-                          className="flex-1 text-base outline-none bg-transparent"
+                          className="flex-1 text-sm sm:text-base outline-none bg-transparent"
                         />
                       </div>
 
                       {/* YouTube */}
-                      <div className="flex items-center gap-3 px-5 h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                      <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
                         <Youtube className="w-5 h-5 text-red-500 shrink-0" />
                         <input
                           type="text"
                           value={socials.youtube}
                           onChange={(e) => setSocials({ ...socials, youtube: e.target.value })}
                           placeholder="youtube.com/@username"
-                          className="flex-1 text-base outline-none bg-transparent"
+                          className="flex-1 text-sm sm:text-base outline-none bg-transparent"
                         />
                       </div>
                     </div>
@@ -1518,17 +1484,110 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {/* Step 4: Template Selection */}
               {currentStep === 4 && (
                 <div className="flex flex-col items-center">
-                  <div className="text-center mb-6">
-                    <h1 className="text-[42px] font-bold leading-tight">
+                  <div className="text-center mb-4 sm:mb-6">
+                    <h1 className="text-[28px] sm:text-[42px] font-bold leading-tight">
                       Select a template
                     </h1>
-                    <p className="text-gray-500 text-base mt-2">
+                    <p className="text-gray-500 text-sm sm:text-base mt-2">
                       Pick the style you want - you can change it later
                     </p>
                   </div>
 
-                  {/* Carousel - with padding to prevent overflow */}
-                  <div className="relative w-full max-w-[700px] px-8">
+                  {/* Mobile: Grid layout with scroll */}
+                  <div className="sm:hidden w-full overflow-y-auto max-h-[calc(100vh-280px)] px-1">
+                    <div className="grid grid-cols-2 gap-3 pb-4">
+                      {THEME_TEMPLATES.map((template) => {
+                        const isSelected = selectedTemplate === template.id
+                        const bgStyle = template.theme_config.background_type === "gradient"
+                          ? { background: template.theme_config.background_gradient }
+                          : template.theme_config.background_type === "image"
+                          ? {
+                              backgroundImage: `url(${template.theme_config.background_image_url})`,
+                              backgroundSize: "cover",
+                              backgroundPosition: "center",
+                            }
+                          : { background: template.theme_config.background_color }
+                        const isImageBg = template.theme_config.background_type === "image"
+
+                        return (
+                          <button
+                            key={template.id}
+                            onClick={() => setSelectedTemplate(template.id)}
+                            className={cn(
+                              "aspect-[3/4] rounded-xl overflow-hidden relative transition-all duration-300",
+                              isSelected ? "ring-2 ring-purple-600 ring-offset-2" : ""
+                            )}
+                          >
+                            {isImageBg && (
+                              <div
+                                className="absolute inset-0 z-0"
+                                style={{
+                                  backgroundImage: `url(${template.theme_config.background_image_url})`,
+                                  backgroundSize: "cover",
+                                  backgroundPosition: "center",
+                                }}
+                              />
+                            )}
+                            <div
+                              className="w-full h-full p-2 flex flex-col items-center justify-center relative"
+                              style={isImageBg ? {} : bgStyle}
+                            >
+                              {isImageBg && (
+                                <div className="absolute inset-0 bg-black/50 z-[1]" />
+                              )}
+                              <div
+                                className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/30 relative z-10"
+                              >
+                                {avatarUrl ? (
+                                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span
+                                    className="text-xs font-bold"
+                                    style={{ color: template.theme_config.text_color }}
+                                  >
+                                    {displayName.charAt(0).toUpperCase() || "A"}
+                                  </span>
+                                )}
+                              </div>
+                              <p
+                                className="text-[10px] font-semibold mt-1 truncate max-w-full relative z-10"
+                                style={{ color: template.theme_config.text_color }}
+                              >
+                                {displayName || "Name"}
+                              </p>
+                              <div
+                                className="mt-2 w-full h-4 relative z-10"
+                                style={{
+                                  background: template.theme_config.button_color,
+                                  borderRadius: `${template.theme_config.button_border_radius || 8}px`
+                                }}
+                              />
+                              <div
+                                className="mt-1 w-full h-4 relative z-10"
+                                style={{
+                                  background: template.theme_config.button_color,
+                                  borderRadius: `${template.theme_config.button_border_radius || 8}px`
+                                }}
+                              />
+                            </div>
+                            {isSelected && (
+                              <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center z-20">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            )}
+                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 z-10">
+                              <p className="text-white text-[10px] font-medium text-center">
+                                {template.name}
+                              </p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Desktop: Carousel - with padding to prevent overflow */}
+                  <div className="hidden sm:block relative w-full max-w-[700px] px-8">
                     {/* Left arrow */}
                     <button
                       onClick={handleCarouselPrev}
@@ -1753,8 +1812,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     </button>
                   </div>
 
-                  {/* Pagination dots */}
-                  <div className="flex justify-center gap-1.5 mt-4">
+                  {/* Pagination dots - desktop only */}
+                  <div className="hidden sm:flex justify-center gap-1.5 mt-4">
                     {Array.from({ length: maxCarouselIndex + 1 }).map((_, i) => (
                       <button
                         key={i}
@@ -1771,16 +1830,16 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
               {/* Step 5: Setup - centered content */}
               {currentStep === 5 && (
-                <div className="flex flex-col items-center justify-center h-full min-h-[350px]">
+                <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[350px] px-4">
                   {/* Logo with pulse effect */}
-                  <div className="relative mb-6">
+                  <div className="relative mb-4 sm:mb-6">
                     {isSettingUp && (
                       <>
-                        <div className="absolute inset-0 w-20 h-20 rounded-2xl bg-purple-400/30 animate-ping" />
-                        <div className="absolute inset-0 w-20 h-20 rounded-2xl bg-purple-400/20 animate-pulse" />
+                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-purple-400/30 animate-ping" />
+                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-purple-400/20 animate-pulse" />
                       </>
                     )}
-                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden shadow-lg">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-lg">
                       <img
                         src={STORELIB_LOGO_URL}
                         alt="Storelib"
@@ -1792,39 +1851,39 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   {/* Title - centered */}
                   <div className="text-center">
                     {isSettingUp && setupPhase === "setting-up" ? (
-                      <div className="flex items-center justify-center gap-3">
-                        <h1 className="text-2xl font-bold">
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+                        <h1 className="text-lg sm:text-2xl font-bold">
                           We're setting things up...
                         </h1>
-                        <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                        <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
                       </div>
                     ) : isSettingUp && setupPhase === "just-a-moment" ? (
-                      <div className="flex items-center justify-center gap-3 animate-in fade-in duration-300">
-                        <h1 className="text-2xl font-bold">
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in duration-300">
+                        <h1 className="text-lg sm:text-2xl font-bold">
                           Just a moment...
                         </h1>
-                        <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                        <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
                       </div>
                     ) : setupComplete ? (
-                      <div className="flex items-center justify-center gap-3 animate-in fade-in zoom-in duration-500">
-                        <h1 className="text-2xl font-bold">
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in zoom-in duration-500">
+                        <h1 className="text-lg sm:text-2xl font-bold">
                           Your OnePage is ready.
                         </h1>
-                        <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center animate-in zoom-in duration-300">
-                          <Check className="w-5 h-5 text-white" />
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-green-500 flex items-center justify-center animate-in zoom-in duration-300">
+                          <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                         </div>
                       </div>
                     ) : null}
                   </div>
 
                   {/* Quote - centered with purple accolades */}
-                  <div className="mt-8 text-center max-w-sm">
-                    <p className="text-gray-500 text-sm italic">
+                  <div className="mt-6 sm:mt-8 text-center max-w-sm px-4">
+                    <p className="text-gray-500 text-xs sm:text-sm italic">
                       <span className="text-purple-600 font-medium not-italic">"</span>
                       Logic will get you from A to B. Imagination will take you everywhere.
                       <span className="text-purple-600 font-medium not-italic">"</span>
                     </p>
-                    <p className="text-gray-400 text-xs mt-1">- Albert Einstein</p>
+                    <p className="text-gray-400 text-[10px] sm:text-xs mt-1">- Albert Einstein</p>
                   </div>
                 </div>
               )}
@@ -1832,13 +1891,13 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
             {/* Footer with buttons - Back on left, Skip/Next on right */}
             {currentStep < 5 && (
-              <div className="px-12 pb-3 sm:pb-4 pt-3 flex items-center justify-between shrink-0">
+              <div className="px-4 sm:px-12 pb-4 sm:pb-3 pt-2 flex items-center justify-between shrink-0">
                 {/* Back button - left side */}
                 <div>
                   {currentStep > 1 && (
                     <button
                       onClick={handleBack}
-                      className="px-6 py-3 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      className="px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                     >
                       Back
                     </button>
@@ -1846,11 +1905,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 </div>
 
                 {/* Skip and Next buttons - right side */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
                   {canSkip() && (
                     <button
                       onClick={handleSkip}
-                      className="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                      className="px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
                     >
                       Skip
                     </button>
@@ -1860,7 +1919,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     onClick={handleNext}
                     disabled={!canProceed()}
                     className={cn(
-                      "px-8 py-3 rounded-lg font-semibold text-sm transition-all min-w-[140px]",
+                      "px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm transition-all min-w-[100px] sm:min-w-[140px]",
                       canProceed()
                         ? "bg-purple-600 text-white hover:bg-purple-700 shadow-md hover:shadow-lg"
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
