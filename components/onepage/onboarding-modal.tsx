@@ -584,7 +584,7 @@ interface OnboardingData {
 }
 
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
-  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, removeBlock } = useOnePage()
+  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock } = useOnePage()
   const [currentStep, setCurrentStep] = useState(1)
   const [isAnimating, setIsAnimating] = useState(false)
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("right")
@@ -952,7 +952,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   // Create blocks based on goal selection
   // Blocks are added in REVERSE order (bottom to top) because smart positioning
   // always inserts after header when no social_row exists. Social_row is added LAST.
-  // Block data is modified directly on the returned object before state update.
   const createBlocksForGoal = async (goal: "general" | "artist" | "digital" | "business") => {
     // Remove existing blocks except header
     const existingBlocks = onepage?.draft_blocks || []
@@ -962,8 +961,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       }
     }
 
-    // Small delay to ensure removeBlock operations complete
-    await new Promise(resolve => setTimeout(resolve, 50))
+    // Delay to ensure removeBlock operations complete
+    await new Promise(resolve => setTimeout(resolve, 100))
 
     switch (goal) {
       case "general": {
@@ -982,24 +981,35 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("email_capture")
         addBlock("divider")
 
-        // YouTube block - configure data directly on returned object
+        // YouTube block
         const youtubeBlock = addBlock("link_button")
-        if (youtubeBlock && youtubeBlock.data) {
-          Object.assign(youtubeBlock.data, {
-            label: "Subscribe on YouTube",
-            url: "https://youtube.com/@",
-            icon: "youtube"
-          })
+        if (youtubeBlock) {
+          // Use setTimeout to ensure state has updated before calling updateBlock
+          setTimeout(() => {
+            updateBlock(youtubeBlock.id, {
+              data: {
+                ...youtubeBlock.data,
+                label: "Subscribe on YouTube",
+                url: "https://youtube.com/@",
+                icon: "youtube"
+              }
+            })
+          }, 50)
         }
 
-        // Spotify block - configure data directly on returned object
+        // Spotify block
         const spotifyBlock = addBlock("link_button")
-        if (spotifyBlock && spotifyBlock.data) {
-          Object.assign(spotifyBlock.data, {
-            label: "Listen on Spotify",
-            url: "https://open.spotify.com/",
-            icon: "spotify"
-          })
+        if (spotifyBlock) {
+          setTimeout(() => {
+            updateBlock(spotifyBlock.id, {
+              data: {
+                ...spotifyBlock.data,
+                label: "Listen on Spotify",
+                url: "https://open.spotify.com/",
+                icon: "spotify"
+              }
+            })
+          }, 50)
         }
 
         addBlock("social_row")
@@ -1021,24 +1031,34 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("email_capture")
         addBlock("divider")
 
-        // LinkedIn block - configure data directly on returned object
+        // LinkedIn block
         const linkedinBlock = addBlock("link_button")
-        if (linkedinBlock && linkedinBlock.data) {
-          Object.assign(linkedinBlock.data, {
-            label: "Connect on LinkedIn",
-            url: "https://linkedin.com/in/",
-            icon: "linkedin"
-          })
+        if (linkedinBlock) {
+          setTimeout(() => {
+            updateBlock(linkedinBlock.id, {
+              data: {
+                ...linkedinBlock.data,
+                label: "Connect on LinkedIn",
+                url: "https://linkedin.com/in/",
+                icon: "linkedin"
+              }
+            })
+          }, 50)
         }
 
-        // Instagram block - configure data directly on returned object
+        // Instagram block
         const instagramBlock = addBlock("link_button")
-        if (instagramBlock && instagramBlock.data) {
-          Object.assign(instagramBlock.data, {
-            label: "Follow on Instagram",
-            url: "https://instagram.com/",
-            icon: "instagram"
-          })
+        if (instagramBlock) {
+          setTimeout(() => {
+            updateBlock(instagramBlock.id, {
+              data: {
+                ...instagramBlock.data,
+                label: "Follow on Instagram",
+                url: "https://instagram.com/",
+                icon: "instagram"
+              }
+            })
+          }, 50)
         }
 
         addBlock("link_button")
