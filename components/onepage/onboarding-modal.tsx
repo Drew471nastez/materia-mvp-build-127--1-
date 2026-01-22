@@ -1461,31 +1461,37 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                 />
                               )}
                               {hasPattern && template.theme_config.background_pattern === "waves" && (
-                                <div
-                                  className="absolute inset-0 pointer-events-none z-[2]"
-                                  style={{
-                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='20' viewBox='0 0 100 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21.184 20c.357-.13.72-.264 1.088-.402l1.768-.661C33.64 15.347 39.647 14 50 14c10.271 0 15.362 1.222 24.629 4.928.955.383 1.869.74 2.75 1.072h6.225c-2.51-.73-5.139-1.691-8.233-2.928C65.888 13.278 60.562 12 50 12c-10.626 0-16.855 1.397-26.66 5.063l-1.767.662c-2.475.923-4.66 1.674-6.724 2.275h6.335zm0-20C13.258 2.892 8.077 4 0 4V2c5.744 0 9.951-.574 14.85-2h6.334zM77.38 0C85.239 2.966 90.502 4 100 4V2c-6.842 0-11.386-.542-16.396-2h-6.225zM0 14c8.44 0 13.718-1.21 22.272-4.402l1.768-.661C33.64 5.347 39.647 4 50 4c10.271 0 15.362 1.222 24.629 4.928C84.112 12.722 89.438 14 100 14v-2c-10.271 0-15.362-1.222-24.629-4.928C65.888 3.278 60.562 2 50 2 39.374 2 33.145 3.397 23.34 7.063l-1.767.662C13.223 10.84 8.163 12 0 12v2z' fill='${encodeURIComponent(patternColor)}' fill-opacity='0.5' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-                                    opacity: patternOpacity
-                                  }}
-                                />
+                                <svg className="absolute inset-0 w-full h-full pointer-events-none z-[2]" xmlns="http://www.w3.org/2000/svg" style={{ opacity: patternOpacity }}>
+                                  <defs>
+                                    <pattern id={`waves-mobile-${template.id}`} width="40" height="20" patternUnits="userSpaceOnUse">
+                                      <path d="M0 10 Q10 0, 20 10 T40 10" fill="none" stroke={patternColor} strokeWidth="1.5" />
+                                    </pattern>
+                                  </defs>
+                                  <rect width="100%" height="100%" fill={`url(#waves-mobile-${template.id})`} />
+                                </svg>
                               )}
                               {hasPattern && template.theme_config.background_pattern === "zigzag" && (
-                                <div
-                                  className="absolute inset-0 pointer-events-none z-[2]"
-                                  style={{
-                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='12' viewBox='0 0 40 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6.172L6.172 0h5.656L0 11.828V6.172zm40 5.656L28.172 0h5.656L40 6.172v5.656zM6.172 12l12-12h3.656l12 12h-5.656L20 3.828 11.828 12H6.172zm12 0L0 .172V0h11.172l8.828 8.828L28.828 0H40v.172L21.828 12h-3.656z' fill='${encodeURIComponent(patternColor)}' fill-opacity='0.5' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-                                    opacity: patternOpacity
-                                  }}
-                                />
+                                <svg className="absolute inset-0 w-full h-full pointer-events-none z-[2]" xmlns="http://www.w3.org/2000/svg" style={{ opacity: patternOpacity }}>
+                                  <defs>
+                                    <pattern id={`zigzag-mobile-${template.id}`} width="20" height="12" patternUnits="userSpaceOnUse">
+                                      <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={patternColor} strokeWidth="1.5" />
+                                    </pattern>
+                                  </defs>
+                                  <rect width="100%" height="100%" fill={`url(#zigzag-mobile-${template.id})`} />
+                                </svg>
                               )}
                               {hasPattern && template.theme_config.background_pattern === "organic" && (
-                                <div
-                                  className="absolute inset-0 pointer-events-none z-[2]"
-                                  style={{
-                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='52' height='26' viewBox='0 0 52 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='${encodeURIComponent(patternColor)}' fill-opacity='0.5'%3E%3Cpath d='M10 10c0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6h2c0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4v2c-3.314 0-6-2.686-6-6 0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6zm25.464-1.95l8.486 8.486-1.414 1.414-8.486-8.486 1.414-1.414z' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                                    opacity: patternOpacity
-                                  }}
-                                />
+                                <svg className="absolute inset-0 w-full h-full pointer-events-none z-[2]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" style={{ opacity: patternOpacity }}>
+                                  <defs>
+                                    <pattern id={`organic-mobile-${template.id}`} width="200" height="200" patternUnits="userSpaceOnUse">
+                                      <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={patternColor} opacity="0.5" />
+                                      <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={patternColor} opacity="0.45" />
+                                      <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={patternColor} opacity="0.48" />
+                                      <path d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140" fill={patternColor} opacity="0.4" />
+                                    </pattern>
+                                  </defs>
+                                  <rect width="100%" height="100%" fill={`url(#organic-mobile-${template.id})`} />
+                                </svg>
                               )}
                               {hasPattern && template.theme_config.background_pattern === "morph" && (
                                 <div
@@ -1657,35 +1663,41 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             }
                             if (pattern === "waves") {
                               return (
-                                <div
-                                  className="absolute inset-0 pointer-events-none"
-                                  style={{
-                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='20' viewBox='0 0 100 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21.184 20c.357-.13.72-.264 1.088-.402l1.768-.661C33.64 15.347 39.647 14 50 14c10.271 0 15.362 1.222 24.629 4.928.955.383 1.869.74 2.75 1.072h6.225c-2.51-.73-5.139-1.691-8.233-2.928C65.888 13.278 60.562 12 50 12c-10.626 0-16.855 1.397-26.66 5.063l-1.767.662c-2.475.923-4.66 1.674-6.724 2.275h6.335zm0-20C13.258 2.892 8.077 4 0 4V2c5.744 0 9.951-.574 14.85-2h6.334zM77.38 0C85.239 2.966 90.502 4 100 4V2c-6.842 0-11.386-.542-16.396-2h-6.225zM0 14c8.44 0 13.718-1.21 22.272-4.402l1.768-.661C33.64 5.347 39.647 4 50 4c10.271 0 15.362 1.222 24.629 4.928C84.112 12.722 89.438 14 100 14v-2c-10.271 0-15.362-1.222-24.629-4.928C65.888 3.278 60.562 2 50 2 39.374 2 33.145 3.397 23.34 7.063l-1.767.662C13.223 10.84 8.163 12 0 12v2z' fill='${encodeURIComponent(patternColor)}' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-                                    opacity
-                                  }}
-                                />
+                                <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg" style={{ opacity }}>
+                                  <defs>
+                                    <pattern id={`waves-desktop-${template.id}`} width="40" height="20" patternUnits="userSpaceOnUse">
+                                      <path d="M0 10 Q10 0, 20 10 T40 10" fill="none" stroke={patternColor} strokeWidth="1.5" />
+                                    </pattern>
+                                  </defs>
+                                  <rect width="100%" height="100%" fill={`url(#waves-desktop-${template.id})`} />
+                                </svg>
                               )
                             }
                             if (pattern === "zigzag") {
                               return (
-                                <div
-                                  className="absolute inset-0 pointer-events-none"
-                                  style={{
-                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='12' viewBox='0 0 40 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6.172L6.172 0h5.656L0 11.828V6.172zm40 5.656L28.172 0h5.656L40 6.172v5.656zM6.172 12l12-12h3.656l12 12h-5.656L20 3.828 11.828 12H6.172zm12 0L0 .172V0h11.172l8.828 8.828L28.828 0H40v.172L21.828 12h-3.656z' fill='${encodeURIComponent(patternColor)}' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-                                    opacity
-                                  }}
-                                />
+                                <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg" style={{ opacity }}>
+                                  <defs>
+                                    <pattern id={`zigzag-desktop-${template.id}`} width="20" height="12" patternUnits="userSpaceOnUse">
+                                      <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={patternColor} strokeWidth="1.5" />
+                                    </pattern>
+                                  </defs>
+                                  <rect width="100%" height="100%" fill={`url(#zigzag-desktop-${template.id})`} />
+                                </svg>
                               )
                             }
                             if (pattern === "organic") {
                               return (
-                                <div
-                                  className="absolute inset-0 pointer-events-none"
-                                  style={{
-                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='52' height='26' viewBox='0 0 52 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='${encodeURIComponent(patternColor)}' fill-opacity='0.4'%3E%3Cpath d='M10 10c0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6h2c0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4v2c-3.314 0-6-2.686-6-6 0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6zm25.464-1.95l8.486 8.486-1.414 1.414-8.486-8.486 1.414-1.414z' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                                    opacity
-                                  }}
-                                />
+                                <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" style={{ opacity }}>
+                                  <defs>
+                                    <pattern id={`organic-desktop-${template.id}`} width="200" height="200" patternUnits="userSpaceOnUse">
+                                      <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={patternColor} opacity="0.5" />
+                                      <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={patternColor} opacity="0.45" />
+                                      <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={patternColor} opacity="0.48" />
+                                      <path d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140" fill={patternColor} opacity="0.4" />
+                                    </pattern>
+                                  </defs>
+                                  <rect width="100%" height="100%" fill={`url(#organic-desktop-${template.id})`} />
+                                </svg>
                               )
                             }
                             if (pattern === "morph") {
