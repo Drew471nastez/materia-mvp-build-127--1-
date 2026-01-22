@@ -952,8 +952,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   // Create blocks based on goal selection
   // Blocks are added in REVERSE order (bottom to top) because smart positioning
   // always inserts after header when no social_row exists. Social_row is added LAST.
-  // We call updateBlock immediately after addBlock to configure the block data.
-  // This works because React batches state updates within the same synchronous execution.
+  // We directly mutate the block.data on the returned object since it's the same
+  // reference that gets added to state (before React re-renders).
   const createBlocksForGoal = async (goal: "general" | "artist" | "digital" | "business") => {
     // Remove existing blocks except header
     const existingBlocks = onepage?.draft_blocks || []
@@ -972,15 +972,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // Add in reverse order, then social_row last
         addBlock("email_capture")
         
-        // Divider with line style
+        // Divider with line style - directly mutate the data
         const dividerBlock = addBlock("divider")
         if (dividerBlock) {
-          updateBlock(dividerBlock.id, {
-            data: {
-              style: "line",
-              height: 24
-            }
-          })
+          dividerBlock.data = { style: "line", height: 24 }
         }
         
         addBlock("link_button")
@@ -997,38 +992,29 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // Divider with line style
         const dividerBlock = addBlock("divider")
         if (dividerBlock) {
-          updateBlock(dividerBlock.id, {
-            data: {
-              style: "line",
-              height: 24
-            }
-          })
+          dividerBlock.data = { style: "line", height: 24 }
         }
 
-        // YouTube block: link_button with YouTube preset (same as +Add modal)
+        // YouTube block: directly set the data (same as +Add modal)
         const youtubeBlock = addBlock("link_button")
         if (youtubeBlock) {
-          updateBlock(youtubeBlock.id, {
-            data: {
-              ...youtubeBlock.data,
-              label: "Subscribe on YouTube",
-              url: "https://youtube.com/@",
-              icon: "youtube"
-            }
-          })
+          youtubeBlock.data = {
+            label: "Subscribe on YouTube",
+            url: "https://youtube.com/@",
+            icon: "youtube",
+            thumbnail_url: null
+          }
         }
 
-        // Spotify block: link_button with Spotify preset (same as +Add modal)
+        // Spotify block: directly set the data (same as +Add modal)
         const spotifyBlock = addBlock("link_button")
         if (spotifyBlock) {
-          updateBlock(spotifyBlock.id, {
-            data: {
-              ...spotifyBlock.data,
-              label: "Listen on Spotify",
-              url: "https://open.spotify.com/",
-              icon: "spotify"
-            }
-          })
+          spotifyBlock.data = {
+            label: "Listen on Spotify",
+            url: "https://open.spotify.com/",
+            icon: "spotify",
+            thumbnail_url: null
+          }
         }
 
         addBlock("social_row")
@@ -1043,12 +1029,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // Divider with line style
         const dividerBlock = addBlock("divider")
         if (dividerBlock) {
-          updateBlock(dividerBlock.id, {
-            data: {
-              style: "line",
-              height: 24
-            }
-          })
+          dividerBlock.data = { style: "line", height: 24 }
         }
         
         addBlock("link_button")
@@ -1065,38 +1046,29 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // Divider with line style
         const dividerBlock = addBlock("divider")
         if (dividerBlock) {
-          updateBlock(dividerBlock.id, {
-            data: {
-              style: "line",
-              height: 24
-            }
-          })
+          dividerBlock.data = { style: "line", height: 24 }
         }
 
-        // LinkedIn block: link_button with LinkedIn preset (same as +Add modal)
+        // LinkedIn block: directly set the data (same as +Add modal)
         const linkedinBlock = addBlock("link_button")
         if (linkedinBlock) {
-          updateBlock(linkedinBlock.id, {
-            data: {
-              ...linkedinBlock.data,
-              label: "Connect on LinkedIn",
-              url: "https://linkedin.com/in/",
-              icon: "linkedin"
-            }
-          })
+          linkedinBlock.data = {
+            label: "Connect on LinkedIn",
+            url: "https://linkedin.com/in/",
+            icon: "linkedin",
+            thumbnail_url: null
+          }
         }
 
-        // Instagram block: link_button with Instagram preset (same as +Add modal)
+        // Instagram block: directly set the data (same as +Add modal)
         const instagramBlock = addBlock("link_button")
         if (instagramBlock) {
-          updateBlock(instagramBlock.id, {
-            data: {
-              ...instagramBlock.data,
-              label: "Follow on Instagram",
-              url: "https://instagram.com/",
-              icon: "instagram"
-            }
-          })
+          instagramBlock.data = {
+            label: "Follow on Instagram",
+            url: "https://instagram.com/",
+            icon: "instagram",
+            thumbnail_url: null
+          }
         }
 
         // My Link block (generic link_button)
