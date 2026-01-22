@@ -1158,8 +1158,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
   return (
     <>
-      <Confetti show={showConfetti} />
-
       <Dialog open={open} onOpenChange={() => {}}>
         <DialogContent
           className={cn(
@@ -1657,14 +1655,26 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                 isSelected ? "ring-2 ring-purple-600 ring-offset-2" : ""
                               )}
                             >
+                              {/* Background layer for image themes */}
+                              {isImageBg && (
+                                <div
+                                  className="absolute inset-0 z-0"
+                                  style={{
+                                    backgroundImage: `url(${template.theme_config.background_image_url})`,
+                                    backgroundSize: "cover",
+                                    backgroundPosition: "center",
+                                  }}
+                                />
+                              )}
+
                               {/* Template preview */}
                               <div
                                 className="w-full h-full p-3 flex flex-col items-center justify-center relative"
-                                style={bgStyle}
+                                style={isImageBg ? {} : bgStyle}
                               >
                                 {/* Dark overlay for image backgrounds so content is visible */}
                                 {isImageBg && (
-                                  <div className="absolute inset-0 bg-black/40 z-[1]" />
+                                  <div className="absolute inset-0 bg-black/50 z-[1]" />
                                 )}
 
                                 {/* Pattern overlay */}
@@ -1822,7 +1832,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
             {/* Footer with buttons - Back on left, Skip/Next on right */}
             {currentStep < 5 && (
-              <div className="px-12 pb-4 sm:pb-5 pt-4 flex items-center justify-between shrink-0">
+              <div className="px-12 pb-3 sm:pb-4 pt-3 flex items-center justify-between shrink-0">
                 {/* Back button - left side */}
                 <div>
                   {currentStep > 1 && (
@@ -1988,6 +1998,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confetti rendered last to be on top of everything */}
+      <Confetti show={showConfetti} />
     </>
   )
 }
