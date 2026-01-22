@@ -620,13 +620,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const [setupComplete, setSetupComplete] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
 
-  // Crop state
+  // Crop state - square style like Links tab
   const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [isResizing, setIsResizing] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
+  const [isDraggingCrop, setIsDraggingCrop] = useState(false)
+  const [isResizingCrop, setIsResizingCrop] = useState(false)
+  const [dragStartCrop, setDragStartCrop] = useState({ x: 0, y: 0 })
+  const [imageSizeCrop, setImageSizeCrop] = useState({ width: 0, height: 0 })
   const cropContainerRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const supabase = createClient()
 
@@ -729,82 +730,57 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     setShowCropModal(true)
   }
 
-  // Handle crop completion
+  // Handle crop completion - same as Links tab
   const handleCropComplete = async () => {
-    if (!tempImageUrl || !avatarFile || !cropContainerRef.current) return
+    if (!tempImageUrl || !canvasRef.current) return
 
     setUploadingAvatar(true)
 
     try {
-      // Create cropped image
-      const img = new Image()
-      img.src = tempImageUrl
-      await new Promise((resolve) => { img.onload = resolve })
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('No canvas context')
 
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
-      if (!ctx) return
-
-      // Set output size
-      const outputSize = 400
+      // Output size (512x512 for crisp profile pictures)
+      const outputSize = 512
       canvas.width = outputSize
       canvas.height = outputSize
 
-      // Calculate crop dimensions for object-fit: cover behavior
-      const container = cropContainerRef.current
-      const containerRect = container.getBoundingClientRect()
-      const containerWidth = containerRect.width
-      const containerHeight = containerRect.height
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
 
-      // Calculate how the image is displayed with object-fit: cover
-      const imageAspect = img.naturalWidth / img.naturalHeight
-      const containerAspect = containerWidth / containerHeight
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('Failed to load image'))
+        img.src = tempImageUrl
+      })
 
-      let displayWidth, displayHeight, offsetX, offsetY
+      // Calculate source rectangle from crop box
+      const nw = img.naturalWidth
+      const nh = img.naturalHeight
+      const scale = Math.min(300 / nw, 300 / nh)
 
-      if (imageAspect > containerAspect) {
-        // Image is wider - height fills container, width is cropped
-        displayHeight = containerHeight
-        displayWidth = containerHeight * imageAspect
-        offsetX = (displayWidth - containerWidth) / 2
-        offsetY = 0
-      } else {
-        // Image is taller - width fills container, height is cropped
-        displayWidth = containerWidth
-        displayHeight = containerWidth / imageAspect
-        offsetX = 0
-        offsetY = (displayHeight - containerHeight) / 2
-      }
+      // Convert crop box coordinates back to original image coordinates
+      const srcX = cropBox.x / scale
+      const srcY = cropBox.y / scale
+      const srcSize = cropBox.size / scale
 
-      // Scale factor from display size to natural size
-      const scale = img.naturalWidth / displayWidth
-
-      // Calculate source coordinates in natural image pixels
-      const sourceX = (cropBox.x + offsetX - cropBox.size / 2) * scale
-      const sourceY = (cropBox.y + offsetY - cropBox.size / 2) * scale
-      const sourceSize = cropBox.size * scale
-
-      ctx.drawImage(
-        img,
-        Math.max(0, sourceX),
-        Math.max(0, sourceY),
-        sourceSize,
-        sourceSize,
-        0,
-        0,
-        outputSize,
-        outputSize
-      )
+      ctx.clearRect(0, 0, outputSize, outputSize)
+      ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, outputSize, outputSize)
 
       // Convert to blob and upload
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.9)
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (b) => b ? resolve(b) : reject(new Error('Failed to create blob')),
+          'image/png',
+          0.95
+        )
       })
 
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      const fileName = `onepage-avatar-${user.id}-${Date.now()}.jpg`
+      const fileName = `onepage-avatar-${user.id}-${Date.now()}.png`
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(fileName, blob, { upsert: true })
@@ -817,103 +793,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
       setAvatarUrl(publicUrl)
       setShowCropModal(false)
+      if (tempImageUrl) URL.revokeObjectURL(tempImageUrl)
       setTempImageUrl(null)
       setAvatarFile(null)
+      setCropBox({ x: 50, y: 50, size: 200 })
     } catch (e) {
       console.error("Error uploading avatar:", e)
+      alert('Failed to upload image')
     } finally {
       setUploadingAvatar(false)
     }
   }
-
-  // Handle crop drag
-  const handleCropMouseDown = (e: React.MouseEvent, resize?: boolean) => {
-    e.preventDefault()
-    setDragStart({ x: e.clientX, y: e.clientY })
-    if (resize) {
-      setIsResizing(true)
-    } else {
-      setIsDragging(true)
-    }
-  }
-
-  // Touch handlers for crop
-  const handleCropTouchStart = (e: React.TouchEvent, resize?: boolean) => {
-    const touch = e.touches[0]
-    if (!touch) return
-    setDragStart({ x: touch.clientX, y: touch.clientY })
-    if (resize) {
-      setIsResizing(true)
-    } else {
-      setIsDragging(true)
-    }
-  }
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging && !isResizing) return
-      if (!cropContainerRef.current) return
-
-      const container = cropContainerRef.current
-      const rect = container.getBoundingClientRect()
-
-      if (isDragging) {
-        const newX = Math.max(cropBox.size / 2, Math.min(rect.width - cropBox.size / 2, e.clientX - rect.left))
-        const newY = Math.max(cropBox.size / 2, Math.min(rect.height - cropBox.size / 2, e.clientY - rect.top))
-        setCropBox((prev) => ({ ...prev, x: newX, y: newY }))
-      } else if (isResizing) {
-        const dx = e.clientX - dragStart.x
-        const dy = e.clientY - dragStart.y
-        const delta = Math.max(dx, dy)
-        const newSize = Math.max(50, Math.min(Math.min(rect.width, rect.height) - 20, cropBox.size + delta))
-        setCropBox((prev) => ({ ...prev, size: newSize }))
-        setDragStart({ x: e.clientX, y: e.clientY })
-      }
-    }
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isDragging && !isResizing) return
-      if (!cropContainerRef.current) return
-      const touch = e.touches[0]
-      if (!touch) return
-
-      e.preventDefault()
-      const container = cropContainerRef.current
-      const rect = container.getBoundingClientRect()
-
-      if (isDragging) {
-        const newX = Math.max(cropBox.size / 2, Math.min(rect.width - cropBox.size / 2, touch.clientX - rect.left))
-        const newY = Math.max(cropBox.size / 2, Math.min(rect.height - cropBox.size / 2, touch.clientY - rect.top))
-        setCropBox((prev) => ({ ...prev, x: newX, y: newY }))
-      } else if (isResizing) {
-        const dx = touch.clientX - dragStart.x
-        const dy = touch.clientY - dragStart.y
-        const delta = Math.max(dx, dy)
-        const newSize = Math.max(50, Math.min(Math.min(rect.width, rect.height) - 20, cropBox.size + delta))
-        setCropBox((prev) => ({ ...prev, size: newSize }))
-        setDragStart({ x: touch.clientX, y: touch.clientY })
-      }
-    }
-
-    const handleMouseUp = () => {
-      setIsDragging(false)
-      setIsResizing(false)
-    }
-
-    if (isDragging || isResizing) {
-      window.addEventListener("mousemove", handleMouseMove)
-      window.addEventListener("mouseup", handleMouseUp)
-      window.addEventListener("touchmove", handleTouchMove, { passive: false })
-      window.addEventListener("touchend", handleMouseUp)
-    }
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove)
-      window.removeEventListener("mouseup", handleMouseUp)
-      window.removeEventListener("touchmove", handleTouchMove)
-      window.removeEventListener("touchend", handleMouseUp)
-    }
-  }, [isDragging, isResizing, cropBox, dragStart])
 
   // Get slug from display name
   const getSlug = () => {
@@ -2017,7 +1907,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   </div>
 
                   {/* Divider */}
-                  <div className="w-48 h-px bg-gray-200 mt-6 sm:mt-8" />
+                  <div className="h-px bg-gray-200 mt-6 sm:mt-8" style={{ width: '210px' }} />
 
                   {/* Quote - centered with purple accolades */}
                   <div className="mt-4 sm:mt-5 text-center max-w-sm px-4">
@@ -2100,121 +1990,205 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         </DialogContent>
       </Dialog>
 
-      {/* Crop Modal - more responsive */}
-      <Dialog open={showCropModal} onOpenChange={setShowCropModal}>
-        <DialogContent className="sm:max-w-md max-w-[95vw] p-0 gap-0 overflow-hidden rounded-2xl">
-          <div className="p-4 border-b">
-            <h2 className="text-lg font-semibold">Crop your photo</h2>
+      {/* Image Crop Modal - Square style like Links tab */}
+      <Dialog open={showCropModal} onOpenChange={(open) => {
+        setShowCropModal(open)
+        if (!open && tempImageUrl) {
+          URL.revokeObjectURL(tempImageUrl)
+          setTempImageUrl(null)
+          setAvatarFile(null)
+          setCropBox({ x: 50, y: 50, size: 200 })
+        }
+      }}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <div className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => { setShowCropModal(false); setTempImageUrl(null); setAvatarFile(null) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <h2 className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</h2>
           </div>
-
-          <div
-            ref={cropContainerRef}
-            className="relative w-full aspect-square max-h-[60vh] bg-gray-900 overflow-hidden cursor-move touch-none"
-          >
+          <div className="p-5 space-y-4">
             {tempImageUrl && (
               <>
-                <img
-                  src={tempImageUrl}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  draggable={false}
-                  onLoad={(e) => {
-                    const img = e.target as HTMLImageElement
-                    setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
-                    // Center crop box
-                    if (cropContainerRef.current) {
-                      const rect = cropContainerRef.current.getBoundingClientRect()
-                      setCropBox({
-                        x: rect.width / 2,
-                        y: rect.height / 2,
-                        size: Math.min(rect.width, rect.height) * 0.6
-                      })
+                {/* Square crop preview with draggable crop box */}
+                <div
+                  ref={cropContainerRef}
+                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden touch-none"
+                  style={{ width: '300px', height: '300px' }}
+                  onMouseMove={(e) => {
+                    if (!isDraggingCrop && !isResizingCrop) return
+                    const rect = cropContainerRef.current?.getBoundingClientRect()
+                    if (!rect) return
+
+                    if (isDraggingCrop) {
+                      const newX = e.clientX - rect.left - dragStartCrop.x
+                      const newY = e.clientY - rect.top - dragStartCrop.y
+                      // Constrain to image bounds
+                      const maxX = imageSizeCrop.width - cropBox.size
+                      const maxY = imageSizeCrop.height - cropBox.size
+                      const offsetX = (300 - imageSizeCrop.width) / 2
+                      const offsetY = (300 - imageSizeCrop.height) / 2
+                      setCropBox(prev => ({
+                        ...prev,
+                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
+                        y: Math.max(0, Math.min(maxY, newY - offsetY))
+                      }))
+                    } else if (isResizingCrop) {
+                      const dx = e.clientX - dragStartCrop.x
+                      const dy = e.clientY - dragStartCrop.y
+                      const delta = Math.max(dx, dy)
+                      const newSize = Math.max(50, Math.min(300, cropBox.size + delta))
+                      // Constrain to not exceed image bounds
+                      const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
+                      setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      setDragStartCrop({ x: e.clientX, y: e.clientY })
                     }
                   }}
-                />
+                  onMouseUp={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
+                  onMouseLeave={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
+                  onTouchMove={(e) => {
+                    if (!isDraggingCrop && !isResizingCrop) return
+                    e.preventDefault()
+                    const touch = e.touches[0]
+                    const rect = cropContainerRef.current?.getBoundingClientRect()
+                    if (!rect || !touch) return
 
-                {/* Overlay */}
-                <div className="absolute inset-0 pointer-events-none">
-                  {/* Dark overlay with cutout */}
-                  <svg className="w-full h-full">
-                    <defs>
-                      <mask id="cropMask">
-                        <rect width="100%" height="100%" fill="white" />
-                        <circle
-                          cx={cropBox.x}
-                          cy={cropBox.y}
-                          r={cropBox.size / 2}
-                          fill="black"
-                        />
-                      </mask>
-                    </defs>
-                    <rect
-                      width="100%"
-                      height="100%"
-                      fill="rgba(0,0,0,0.6)"
-                      mask="url(#cropMask)"
-                    />
-                  </svg>
-                </div>
-
-                {/* Crop circle */}
-                <div
-                  className="absolute border-2 border-white rounded-full pointer-events-auto cursor-move touch-none"
-                  style={{
-                    left: cropBox.x - cropBox.size / 2,
-                    top: cropBox.y - cropBox.size / 2,
-                    width: cropBox.size,
-                    height: cropBox.size,
+                    if (isDraggingCrop) {
+                      const newX = touch.clientX - rect.left - dragStartCrop.x
+                      const newY = touch.clientY - rect.top - dragStartCrop.y
+                      const maxX = imageSizeCrop.width - cropBox.size
+                      const maxY = imageSizeCrop.height - cropBox.size
+                      const offsetX = (300 - imageSizeCrop.width) / 2
+                      const offsetY = (300 - imageSizeCrop.height) / 2
+                      setCropBox(prev => ({
+                        ...prev,
+                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
+                        y: Math.max(0, Math.min(maxY, newY - offsetY))
+                      }))
+                    } else if (isResizingCrop) {
+                      const dx = touch.clientX - dragStartCrop.x
+                      const dy = touch.clientY - dragStartCrop.y
+                      const delta = Math.max(dx, dy)
+                      const newSize = Math.max(50, Math.min(300, cropBox.size + delta))
+                      const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
+                      setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      setDragStartCrop({ x: touch.clientX, y: touch.clientY })
+                    }
                   }}
-                  onMouseDown={(e) => handleCropMouseDown(e)}
-                  onTouchStart={(e) => handleCropTouchStart(e)}
+                  onTouchEnd={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
                 >
-                  {/* Resize handle */}
+                  {/* Image */}
+                  <img
+                    src={tempImageUrl}
+                    alt="Preview"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
+                    style={{
+                      width: imageSizeCrop.width,
+                      height: imageSizeCrop.height,
+                      maxWidth: '300px',
+                      maxHeight: '300px',
+                      objectFit: 'contain'
+                    }}
+                    draggable={false}
+                    onLoad={(e) => {
+                      const img = e.target as HTMLImageElement
+                      const nw = img.naturalWidth
+                      const nh = img.naturalHeight
+                      // Scale to fit container
+                      const scale = Math.min(300 / nw, 300 / nh)
+                      const displayW = nw * scale
+                      const displayH = nh * scale
+                      setImageSizeCrop({ width: displayW, height: displayH })
+                      // Center crop box
+                      const size = Math.min(displayW, displayH) * 0.8
+                      setCropBox({
+                        x: (displayW - size) / 2,
+                        y: (displayH - size) / 2,
+                        size
+                      })
+                    }}
+                  />
+
+                  {/* Crop box with shadow overlay */}
                   <div
-                    className="absolute -right-3 -bottom-3 w-8 h-8 bg-white rounded-full shadow-md cursor-se-resize flex items-center justify-center touch-none"
+                    className="absolute cursor-move touch-none"
+                    style={{
+                      left: `${150 - imageSizeCrop.width/2 + cropBox.x}px`,
+                      top: `${150 - imageSizeCrop.height/2 + cropBox.y}px`,
+                      width: `${cropBox.size}px`,
+                      height: `${cropBox.size}px`,
+                      border: '2px solid #3b82f6',
+                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
+                    }}
                     onMouseDown={(e) => {
+                      e.preventDefault()
                       e.stopPropagation()
-                      handleCropMouseDown(e, true)
+                      setIsDraggingCrop(true)
+                      const rect = (e.target as HTMLElement).getBoundingClientRect()
+                      setDragStartCrop({ x: e.clientX - rect.left, y: e.clientY - rect.top })
                     }}
                     onTouchStart={(e) => {
+                      e.preventDefault()
                       e.stopPropagation()
-                      handleCropTouchStart(e, true)
+                      const touch = e.touches[0]
+                      setIsDraggingCrop(true)
+                      const rect = (e.target as HTMLElement).getBoundingClientRect()
+                      setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
                     }}
                   >
-                    <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                    </svg>
+                    {/* Grid overlay */}
+                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
+                      {[...Array(9)].map((_, i) => (
+                        <div key={i} className="border border-white/30" />
+                      ))}
+                    </div>
+
+                    {/* Corner handles - larger for mobile touch */}
+                    <div className="absolute -top-2 -left-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -bottom-2 -left-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div
+                      className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize touch-none"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsResizingCrop(true)
+                        setDragStartCrop({ x: e.clientX, y: e.clientY })
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingCrop(true)
+                        setDragStartCrop({ x: touch.clientX, y: touch.clientY })
+                      }}
+                    />
                   </div>
+                </div>
+
+                <p className="text-xs text-center text-gray-500">
+                  Drag to move, drag bottom-right corner to resize
+                </p>
+
+                <canvas ref={canvasRef} className="hidden" />
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setShowCropModal(false); setTempImageUrl(null); setAvatarFile(null); setCropBox({ x: 50, y: 50, size: 200 }) }}
+                    className="flex-1 py-3 rounded-xl font-medium text-sm border border-gray-200 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCropComplete}
+                    disabled={uploadingAvatar}
+                    className="flex-1 py-3 rounded-xl font-medium text-sm bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {uploadingAvatar ? <><Loader2 className="h-4 w-4 animate-spin" />Saving...</> : "Save"}
+                  </button>
                 </div>
               </>
             )}
-          </div>
-
-          <div className="p-4 flex gap-3">
-            <button
-              onClick={() => {
-                setShowCropModal(false)
-                setTempImageUrl(null)
-                setAvatarFile(null)
-              }}
-              className="flex-1 py-3 rounded-xl font-medium text-sm border border-gray-200 hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleCropComplete}
-              disabled={uploadingAvatar}
-              className="flex-1 py-3 rounded-xl font-medium text-sm bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {uploadingAvatar ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                "Apply"
-              )}
-            </button>
           </div>
         </DialogContent>
       </Dialog>
