@@ -8,6 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Check, ArrowRight, CheckCircle, Download, Files, Infinity, Star, Heart } from "lucide-react"
 import { BuyButton } from "@/components/checkout/buy-button"
 import { PurchaseStatusWrapper } from "@/components/checkout/purchase-status-wrapper"
+import { ViewInLibraryButton } from "@/components/checkout/view-in-library-button"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { DownloadButton } from "@/components/download-button"
@@ -762,21 +763,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 downloadButtonTextColor={downloadButtonTextColor}
                 purchasedExtraContent={
                   <>
-                    <Button
-                      variant="outline"
-                      className="w-full min-h-[44px]"
-                      asChild
-                      style={{
-                        backgroundColor: themeColors.viewInLibraryBg || "transparent",
-                        color: themeColors.viewInLibraryText || "inherit",
-                        borderColor: themeColors.viewInLibraryBorder || "var(--border)",
-                      }}
-                    >
-                      <Link href="/library/my-downloads">
-                        <ArrowRight className="mr-2 h-4 w-4" />
-                        View in Library
-                      </Link>
-                    </Button>
+                    <ViewInLibraryButton
+                      backgroundColor={themeColors.viewInLibraryBg}
+                      textColor={themeColors.viewInLibraryText}
+                      borderColor={themeColors.viewInLibraryBorder}
+                    />
                     <RefundPolicyDisplay
                       enabled={product.refund_policy_enabled}
                       policyType={product.refund_policy_type}
@@ -1046,21 +1037,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             downloadButtonTextColor={downloadButtonTextColor}
             purchasedExtraContent={
               <>
-                <Button
-                  variant="outline"
-                  className="w-full min-h-[44px]"
-                  asChild
-                  style={{
-                    backgroundColor: themeColors.viewInLibraryBg || "transparent",
-                    color: themeColors.viewInLibraryText || "inherit",
-                    borderColor: themeColors.viewInLibraryBorder || "var(--border)",
-                  }}
-                >
-                  <Link href="/library/my-downloads">
-                    <ArrowRight className="mr-2 h-4 w-4" />
-                    View in Library
-                  </Link>
-                </Button>
+                <ViewInLibraryButton
+                  backgroundColor={themeColors.viewInLibraryBg}
+                  textColor={themeColors.viewInLibraryText}
+                  borderColor={themeColors.viewInLibraryBorder}
+                />
                 <RefundPolicyDisplay
                   enabled={product.refund_policy_enabled}
                   policyType={product.refund_policy_type}

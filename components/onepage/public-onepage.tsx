@@ -768,7 +768,7 @@ function ShareButton({
                     <img
                       src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
                       alt="Storelib"
-                      className="w-6 h-6 object-contain"
+                      className="w-full h-full object-cover"
                     />
                   </div>
                   <div className="flex-1 min-w-0">

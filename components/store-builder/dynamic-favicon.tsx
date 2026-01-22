@@ -12,8 +12,8 @@ const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v
 
 /**
  * DynamicFavicon - Dynamically sets the page favicon
- * - On seller pages: Uses the seller's profile avatar with border-radius 8px
- * - On platform pages: Uses platform favicon (logostorelib.svg) with border-radius 8px
+ * - On seller pages: Uses the seller's profile avatar with border-radius 7px
+ * - On platform pages: Uses platform favicon (logostorelib.svg) with border-radius 7px
  * - Seller favicons are NOT overridden by platform favicon
  */
 export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
@@ -36,8 +36,8 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
             return
           }
 
-          // Draw rounded rectangle clip path (border-radius 8px)
-          const radius = 8 * (size / 32) // Scale radius to canvas size (8px at 32px display)
+          // Draw rounded rectangle clip path (border-radius 7px)
+          const radius = 7 * (size / 32) // Scale radius to canvas size (7px at 32px display)
           ctx.beginPath()
           ctx.moveTo(radius, 0)
           ctx.lineTo(size - radius, 0)
@@ -84,7 +84,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
 
     // Set favicon based on whether we have a seller avatar or not
     if (iconUrl) {
-      // Seller page - use seller's avatar with rounded corners (8px border-radius)
+      // Seller page - use seller's avatar with rounded corners (7px border-radius)
       createRoundedFavicon(iconUrl)
         .then((dataUrl) => {
           setFavicon(dataUrl, "image/png")
@@ -96,7 +96,7 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
             .catch(() => setFavicon(PLATFORM_FAVICON_URL, "image/svg+xml"))
         })
     } else {
-      // Platform page - use platform favicon with rounded corners (8px border-radius)
+      // Platform page - use platform favicon with rounded corners (7px border-radius)
       createRoundedFavicon(PLATFORM_FAVICON_URL)
         .then((dataUrl) => {
           setFavicon(dataUrl, "image/png")

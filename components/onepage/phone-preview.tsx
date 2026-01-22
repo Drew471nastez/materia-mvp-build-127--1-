@@ -525,7 +525,7 @@ function ShareButtonPreview({
                     <img
                       src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
                       alt="Storelib"
-                      className={scale === "small" ? "w-3.5 h-3.5" : "w-4 h-4"}
+                      className="w-full h-full object-cover"
                     />
                   </div>
                   <div className="flex-1 min-w-0">
