@@ -1110,7 +1110,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           className={cn(
             "p-0 gap-0 overflow-hidden border-0",
             // Desktop: centered modal with exact specs - 948px width, 550px height
-            "sm:w-[948px] sm:max-w-[948px] sm:h-[550px] sm:rounded-[44px]",
+            "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
             // Mobile: full screen white
             "w-full h-full max-sm:rounded-none max-sm:max-w-none",
             // Shadow
