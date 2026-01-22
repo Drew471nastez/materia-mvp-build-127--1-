@@ -962,7 +962,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     }
 
     // Delay to ensure removeBlock operations complete
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise(resolve => setTimeout(resolve, 150))
+
+    // Track blocks that need configuration
+    const blocksToUpdate: { id: string; label: string; url: string; icon: string }[] = []
 
     switch (goal) {
       case "general": {
@@ -984,32 +987,23 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // YouTube block
         const youtubeBlock = addBlock("link_button")
         if (youtubeBlock) {
-          // Use setTimeout to ensure state has updated before calling updateBlock
-          setTimeout(() => {
-            updateBlock(youtubeBlock.id, {
-              data: {
-                ...youtubeBlock.data,
-                label: "Subscribe on YouTube",
-                url: "https://youtube.com/@",
-                icon: "youtube"
-              }
-            })
-          }, 50)
+          blocksToUpdate.push({
+            id: youtubeBlock.id,
+            label: "Subscribe on YouTube",
+            url: "https://youtube.com/@",
+            icon: "youtube"
+          })
         }
 
         // Spotify block
         const spotifyBlock = addBlock("link_button")
         if (spotifyBlock) {
-          setTimeout(() => {
-            updateBlock(spotifyBlock.id, {
-              data: {
-                ...spotifyBlock.data,
-                label: "Listen on Spotify",
-                url: "https://open.spotify.com/",
-                icon: "spotify"
-              }
-            })
-          }, 50)
+          blocksToUpdate.push({
+            id: spotifyBlock.id,
+            label: "Listen on Spotify",
+            url: "https://open.spotify.com/",
+            icon: "spotify"
+          })
         }
 
         addBlock("social_row")
@@ -1034,36 +1028,44 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // LinkedIn block
         const linkedinBlock = addBlock("link_button")
         if (linkedinBlock) {
-          setTimeout(() => {
-            updateBlock(linkedinBlock.id, {
-              data: {
-                ...linkedinBlock.data,
-                label: "Connect on LinkedIn",
-                url: "https://linkedin.com/in/",
-                icon: "linkedin"
-              }
-            })
-          }, 50)
+          blocksToUpdate.push({
+            id: linkedinBlock.id,
+            label: "Connect on LinkedIn",
+            url: "https://linkedin.com/in/",
+            icon: "linkedin"
+          })
         }
 
         // Instagram block
         const instagramBlock = addBlock("link_button")
         if (instagramBlock) {
-          setTimeout(() => {
-            updateBlock(instagramBlock.id, {
-              data: {
-                ...instagramBlock.data,
-                label: "Follow on Instagram",
-                url: "https://instagram.com/",
-                icon: "instagram"
-              }
-            })
-          }, 50)
+          blocksToUpdate.push({
+            id: instagramBlock.id,
+            label: "Follow on Instagram",
+            url: "https://instagram.com/",
+            icon: "instagram"
+          })
         }
 
         addBlock("link_button")
         addBlock("social_row")
         break
+      }
+    }
+
+    // Wait for all blocks to be added to state, then update platform blocks
+    if (blocksToUpdate.length > 0) {
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      for (const blockConfig of blocksToUpdate) {
+        updateBlock(blockConfig.id, {
+          data: {
+            label: blockConfig.label,
+            url: blockConfig.url,
+            icon: blockConfig.icon,
+            thumbnail_url: null
+          }
+        })
       }
     }
   }
