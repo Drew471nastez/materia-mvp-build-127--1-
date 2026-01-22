@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { useOnePage } from "@/lib/onepage/context"
@@ -540,7 +541,10 @@ function Confetti({ show }: { show: boolean }) {
 
   if (!show) return null
 
-  return (
+  // Use portal to render at document body level, above all dialogs
+  if (typeof document === "undefined") return null
+
+  return createPortal(
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none"
@@ -549,7 +553,8 @@ function Confetti({ show }: { show: boolean }) {
         height: "100vh",
         zIndex: 2147483647, // Maximum z-index value
       }}
-    />
+    />,
+    document.body
   )
 }
 
@@ -1134,8 +1139,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             "p-0 gap-0 overflow-hidden border-0",
             // Desktop: centered modal with exact specs - 948px width, 550px height
             "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
-            // Mobile: full screen white - true full coverage
-            "w-screen h-screen max-sm:rounded-none max-sm:max-w-none max-sm:max-h-none max-sm:fixed max-sm:inset-0 max-sm:translate-x-0 max-sm:translate-y-0",
+            // Mobile: auto height modal that fits content, max height to viewport
+            "w-[calc(100%-24px)] max-w-none max-sm:rounded-[24px] max-sm:max-h-[calc(100dvh-48px)]",
             // Shadow
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             // Hide the close button
@@ -1148,7 +1153,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col h-full max-h-screen bg-white">
+          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[calc(100dvh-48px)] bg-white">
             {/* Progress bar - centered, 8px height, more border radius */}
             <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
@@ -1514,6 +1519,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             }
                           : { background: template.theme_config.background_color }
                         const isImageBg = template.theme_config.background_type === "image"
+                        const isHeroLayout = (template as any).profile_layout === "hero" || (template.theme_config as any).header_layout === "hero"
+                        const hasPattern = template.theme_config.background_pattern && template.theme_config.background_pattern !== "none"
+                        const patternColor = template.theme_config.pattern_color || "#ffffff"
+                        const patternOpacity = template.theme_config.pattern_opacity === "high" ? 0.4 : template.theme_config.pattern_opacity === "medium" ? 0.25 : 0.15
 
                         return (
                           <button
@@ -1535,43 +1544,52 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                               />
                             )}
                             <div
-                              className="w-full h-full p-2 flex flex-col items-center justify-center relative"
+                              className="w-full h-full p-2 flex flex-col items-center justify-center gap-1.5 relative"
                               style={isImageBg ? {} : bgStyle}
                             >
                               {isImageBg && (
                                 <div className="absolute inset-0 bg-black/50 z-[1]" />
                               )}
+                              {/* Pattern overlay for mobile */}
+                              {hasPattern && (
+                                <div
+                                  className="absolute inset-0 pointer-events-none z-[2]"
+                                  style={{
+                                    backgroundImage: template.theme_config.background_pattern === "grid"
+                                      ? `linear-gradient(${patternColor} 1px, transparent 1px), linear-gradient(90deg, ${patternColor} 1px, transparent 1px)`
+                                      : template.theme_config.background_pattern === "stars"
+                                      ? `radial-gradient(${patternColor} 1px, transparent 1px)`
+                                      : undefined,
+                                    backgroundSize: template.theme_config.background_pattern === "grid" ? "16px 16px" : "12px 12px",
+                                    opacity: patternOpacity
+                                  }}
+                                />
+                              )}
+                              {/* Neon glow effect */}
+                              {template.id === "neon" && (
+                                <div className="absolute inset-0 pointer-events-none overflow-hidden z-[2]">
+                                  <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.15) 0%, transparent 50%)" }} />
+                                </div>
+                              )}
+                              {isHeroLayout ? (
+                                <>
+                                  <div className="w-full h-6 rounded-md relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}20` }} />
+                                  <div className="w-10 h-1.5 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
+                                  <div className="w-8 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-6 h-6 rounded-full relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                  <div className="w-10 h-1.5 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
+                                  <div className="w-8 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                </>
+                              )}
                               <div
-                                className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/30 relative z-10"
-                              >
-                                {avatarUrl ? (
-                                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <span
-                                    className="text-xs font-bold"
-                                    style={{ color: template.theme_config.text_color }}
-                                  >
-                                    {displayName.charAt(0).toUpperCase() || "A"}
-                                  </span>
-                                )}
-                              </div>
-                              <p
-                                className="text-[10px] font-semibold mt-1 truncate max-w-full relative z-10"
-                                style={{ color: template.theme_config.text_color }}
-                              >
-                                {displayName || "Name"}
-                              </p>
-                              <div
-                                className="mt-2 w-full h-4 relative z-10"
+                                className="mt-1 w-full max-w-[50px] h-4 relative z-10"
                                 style={{
                                   background: template.theme_config.button_color,
-                                  borderRadius: `${template.theme_config.button_border_radius || 8}px`
-                                }}
-                              />
-                              <div
-                                className="mt-1 w-full h-4 relative z-10"
-                                style={{
-                                  background: template.theme_config.button_color,
+                                  borderWidth: template.theme_config.button_border_width || 0,
+                                  borderColor: template.theme_config.button_border_color,
                                   borderRadius: `${template.theme_config.button_border_radius || 8}px`
                                 }}
                               />
@@ -1581,8 +1599,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                 <Check className="w-3 h-3 text-white" />
                               </div>
                             )}
-                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 z-10">
-                              <p className="text-white text-[10px] font-medium text-center">
+                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/50 to-transparent p-1.5 z-10">
+                              <p
+                                className="text-white text-[10px] font-medium text-center"
+                                style={{ fontFamily: template.theme_config.font_family }}
+                              >
                                 {template.name}
                               </p>
                             </div>
@@ -1755,7 +1776,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                               {/* Template preview */}
                               <div
-                                className="w-full h-full p-3 flex flex-col items-center justify-center relative"
+                                className="w-full h-full p-3 flex flex-col items-center justify-center gap-2 relative"
                                 style={isImageBg ? {} : bgStyle}
                               >
                                 {/* Dark overlay for image backgrounds so content is visible */}
@@ -1766,42 +1787,30 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                 {/* Pattern overlay */}
                                 {getPatternOverlay()}
 
-                                {/* Avatar preview */}
-                                <div
-                                  className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/30 relative z-10"
-                                >
-                                  {avatarUrl ? (
-                                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span
-                                      className="text-sm font-bold"
-                                      style={{ color: template.theme_config.text_color }}
-                                    >
-                                      {displayName.charAt(0).toUpperCase() || "A"}
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Name preview */}
-                                <p
-                                  className="text-xs font-semibold mt-2 truncate max-w-full relative z-10"
-                                  style={{ color: template.theme_config.text_color }}
-                                >
-                                  {displayName || "Name"}
-                                </p>
+                                {/* Check if hero layout */}
+                                {((template as any).profile_layout === "hero" || (template.theme_config as any).header_layout === "hero") ? (
+                                  /* Hero layout: wide banner-style header */
+                                  <>
+                                    <div className="w-full h-10 rounded-lg relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}20` }} />
+                                    <div className="w-16 h-2 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
+                                    <div className="w-12 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                  </>
+                                ) : (
+                                  /* Classic layout: circle avatar */
+                                  <>
+                                    <div className="w-8 h-8 rounded-full relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                    <div className="w-16 h-2 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
+                                    <div className="w-12 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                  </>
+                                )}
 
                                 {/* Button preview */}
                                 <div
-                                  className="mt-3 w-full h-6 relative z-10"
+                                  className="w-full max-w-[80px] h-6 mt-2 relative z-10"
                                   style={{
                                     background: template.theme_config.button_color,
-                                    borderRadius: `${template.theme_config.button_border_radius || 8}px`
-                                  }}
-                                />
-                                <div
-                                  className="mt-1.5 w-full h-6 relative z-10"
-                                  style={{
-                                    background: template.theme_config.button_color,
+                                    borderWidth: template.theme_config.button_border_width || 0,
+                                    borderColor: template.theme_config.button_border_color,
                                     borderRadius: `${template.theme_config.button_border_radius || 8}px`
                                   }}
                                 />
@@ -1809,14 +1818,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                               {/* Selected checkmark */}
                               {isSelected && (
-                                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center z-20">
-                                  <Check className="w-4 h-4 text-white" />
+                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center z-20">
+                                  <Check className="w-3 h-3 text-white" />
                                 </div>
                               )}
 
-                              {/* Template name */}
-                              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2 z-10">
-                                <p className="text-white text-xs font-medium text-center">
+                              {/* Template name with font preview */}
+                              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/50 to-transparent p-2 z-10">
+                                <p
+                                  className="text-white text-[10px] font-medium text-center"
+                                  style={{ fontFamily: template.theme_config.font_family }}
+                                >
                                   {template.name}
                                 </p>
                               </div>
@@ -1920,10 +1932,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             {currentStep < 5 && (
               <div className={cn(
                 "px-4 sm:px-12 pt-2 flex items-center justify-between shrink-0",
-                // Mobile: safe area padding, Desktop: more padding for goal slide
-                "pb-[max(16px,env(safe-area-inset-bottom))] sm:pb-4",
-                // Extra padding for goal step to move buttons up
-                currentStep === 2 && "max-sm:pb-[max(20px,env(safe-area-inset-bottom))] sm:pb-6"
+                // Mobile: consistent padding, Desktop: base padding
+                "pb-5 sm:pb-4",
+                // Extra padding for goal step to move buttons up on desktop
+                currentStep === 2 && "sm:pb-7"
               )}>
                 {/* Back button - left side */}
                 <div>
