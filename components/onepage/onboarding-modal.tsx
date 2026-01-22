@@ -584,7 +584,7 @@ interface OnboardingData {
 }
 
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
-  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock } = useOnePage()
+  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock, reorderBlocks } = useOnePage()
   const [currentStep, setCurrentStep] = useState(1)
   const [isAnimating, setIsAnimating] = useState(false)
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("right")
@@ -950,7 +950,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   }
 
   // Create blocks based on goal selection
-  // Uses afterId chaining to ensure correct block order
+  // Blocks are added in REVERSE order (bottom to top) because smart positioning
+  // always inserts after header when no social_row exists. Social_row is added LAST.
+  // After all blocks are added, we reorder them to ensure correct final order.
   const createBlocksForGoal = async (goal: "general" | "artist" | "digital" | "business") => {
     // Remove existing blocks except header
     const existingBlocks = onepage?.draft_blocks || []
@@ -960,62 +962,158 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       }
     }
 
-    // Find header block to start chain after it
-    const headerBlock = onepage?.draft_blocks.find(b => b.type === "header")
-    const startAfterId = headerBlock?.id
+    // Small delay to ensure removeBlock operations complete
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // Store created blocks for reordering
+    const createdBlocks: { id: string; type: string; data?: any }[] = []
 
     switch (goal) {
       case "general": {
-        // Order: header → social_row → link_button → link_button → divider → email_capture
-        const socialRow = addBlock("social_row", startAfterId)
-        const link1 = addBlock("link_button", socialRow?.id)
-        const link2 = addBlock("link_button", link1?.id)
-        const divider = addBlock("divider", link2?.id)
-        addBlock("email_capture", divider?.id)
+        // Final order: header → social_row → My Link → My Link → divider → email_capture
+        // Add in reverse order, then social_row last
+        const emailCapture = addBlock("email_capture")
+        if (emailCapture) createdBlocks.unshift({ id: emailCapture.id, type: "email_capture" })
+
+        const divider = addBlock("divider")
+        if (divider) createdBlocks.unshift({ id: divider.id, type: "divider" })
+
+        const link2 = addBlock("link_button")
+        if (link2) createdBlocks.unshift({ id: link2.id, type: "link_button" })
+
+        const link1 = addBlock("link_button")
+        if (link1) createdBlocks.unshift({ id: link1.id, type: "link_button" })
+
+        const socialRow = addBlock("social_row")
+        if (socialRow) createdBlocks.unshift({ id: socialRow.id, type: "social_row" })
         break
       }
 
       case "artist": {
-        // Order: header → social_row → Spotify → YouTube → divider → email_capture
-        const socialRow = addBlock("social_row", startAfterId)
-        const spotifyBlock = addBlock("link_button", socialRow?.id)
-        if (spotifyBlock) {
-          updateBlock(spotifyBlock.id, { data: { ...spotifyBlock.data, label: "Spotify", url: "https://spotify.com" } })
-        }
-        const youtubeBlock = addBlock("link_button", spotifyBlock?.id)
+        // Final order: header → social_row → Spotify → YouTube → divider → email_capture
+        const emailCapture = addBlock("email_capture")
+        if (emailCapture) createdBlocks.unshift({ id: emailCapture.id, type: "email_capture" })
+
+        const divider = addBlock("divider")
+        if (divider) createdBlocks.unshift({ id: divider.id, type: "divider" })
+
+        // YouTube block
+        const youtubeBlock = addBlock("link_button")
         if (youtubeBlock) {
-          updateBlock(youtubeBlock.id, { data: { ...youtubeBlock.data, label: "YouTube", url: "https://youtube.com" } })
+          createdBlocks.unshift({ id: youtubeBlock.id, type: "link_button" })
+          updateBlock(youtubeBlock.id, {
+            data: {
+              label: "Subscribe on YouTube",
+              url: "https://youtube.com/@",
+              icon: "youtube",
+              thumbnail_url: null
+            }
+          })
         }
-        const divider = addBlock("divider", youtubeBlock?.id)
-        addBlock("email_capture", divider?.id)
+
+        // Spotify block
+        const spotifyBlock = addBlock("link_button")
+        if (spotifyBlock) {
+          createdBlocks.unshift({ id: spotifyBlock.id, type: "link_button" })
+          updateBlock(spotifyBlock.id, {
+            data: {
+              label: "Listen on Spotify",
+              url: "https://open.spotify.com/",
+              icon: "spotify",
+              thumbnail_url: null
+            }
+          })
+        }
+
+        const socialRow = addBlock("social_row")
+        if (socialRow) createdBlocks.unshift({ id: socialRow.id, type: "social_row" })
         break
       }
 
       case "digital": {
-        // Order: header → social_row → product → link_button → divider → email_capture
-        const socialRow = addBlock("social_row", startAfterId)
-        const product = addBlock("product", socialRow?.id)
-        const link = addBlock("link_button", product?.id)
-        const divider = addBlock("divider", link?.id)
-        addBlock("email_capture", divider?.id)
+        // Final order: header → social_row → product → My Link → divider → email_capture
+        const emailCapture = addBlock("email_capture")
+        if (emailCapture) createdBlocks.unshift({ id: emailCapture.id, type: "email_capture" })
+
+        const divider = addBlock("divider")
+        if (divider) createdBlocks.unshift({ id: divider.id, type: "divider" })
+
+        const link = addBlock("link_button")
+        if (link) createdBlocks.unshift({ id: link.id, type: "link_button" })
+
+        const product = addBlock("product")
+        if (product) createdBlocks.unshift({ id: product.id, type: "product" })
+
+        const socialRow = addBlock("social_row")
+        if (socialRow) createdBlocks.unshift({ id: socialRow.id, type: "social_row" })
         break
       }
 
       case "business": {
-        // Order: header → social_row → link_button → Instagram → LinkedIn → divider → email_capture
-        const socialRow = addBlock("social_row", startAfterId)
-        const link = addBlock("link_button", socialRow?.id)
-        const instagramBlock = addBlock("link_button", link?.id)
-        if (instagramBlock) {
-          updateBlock(instagramBlock.id, { data: { ...instagramBlock.data, label: "Instagram", url: "https://instagram.com" } })
-        }
-        const linkedinBlock = addBlock("link_button", instagramBlock?.id)
+        // Final order: header → social_row → My Link → Instagram → LinkedIn → divider → email_capture
+        const emailCapture = addBlock("email_capture")
+        if (emailCapture) createdBlocks.unshift({ id: emailCapture.id, type: "email_capture" })
+
+        const divider = addBlock("divider")
+        if (divider) createdBlocks.unshift({ id: divider.id, type: "divider" })
+
+        // LinkedIn block
+        const linkedinBlock = addBlock("link_button")
         if (linkedinBlock) {
-          updateBlock(linkedinBlock.id, { data: { ...linkedinBlock.data, label: "LinkedIn", url: "https://linkedin.com" } })
+          createdBlocks.unshift({ id: linkedinBlock.id, type: "link_button" })
+          updateBlock(linkedinBlock.id, {
+            data: {
+              label: "Connect on LinkedIn",
+              url: "https://linkedin.com/in/",
+              icon: "linkedin",
+              thumbnail_url: null
+            }
+          })
         }
-        const divider = addBlock("divider", linkedinBlock?.id)
-        addBlock("email_capture", divider?.id)
+
+        // Instagram block
+        const instagramBlock = addBlock("link_button")
+        if (instagramBlock) {
+          createdBlocks.unshift({ id: instagramBlock.id, type: "link_button" })
+          updateBlock(instagramBlock.id, {
+            data: {
+              label: "Follow on Instagram",
+              url: "https://instagram.com/",
+              icon: "instagram",
+              thumbnail_url: null
+            }
+          })
+        }
+
+        const link = addBlock("link_button")
+        if (link) createdBlocks.unshift({ id: link.id, type: "link_button" })
+
+        const socialRow = addBlock("social_row")
+        if (socialRow) createdBlocks.unshift({ id: socialRow.id, type: "social_row" })
         break
+      }
+    }
+
+    // Wait for state to settle, then reorder blocks to ensure correct order
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // Get current blocks and reorder them
+    const currentBlocks = onepage?.draft_blocks || []
+    const headerBlock = currentBlocks.find(b => b.type === "header")
+
+    if (headerBlock && createdBlocks.length > 0) {
+      // Build the correctly ordered array: header first, then created blocks in order
+      const orderedBlocks = [headerBlock]
+      for (const created of createdBlocks) {
+        const block = currentBlocks.find(b => b.id === created.id)
+        if (block) {
+          orderedBlocks.push(block)
+        }
+      }
+
+      // Only reorder if we have all blocks
+      if (orderedBlocks.length === currentBlocks.length) {
+        reorderBlocks(orderedBlocks)
       }
     }
   }
