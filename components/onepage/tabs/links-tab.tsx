@@ -1587,7 +1587,7 @@ export function LinksTab() {
             className="text-left group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
           >
             <h2 className="font-semibold">{title || "Your Name"}</h2>
-            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Pencil className="h-3 w-3 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity" />
           </button>
           {onepage.bio ? (
             <button
@@ -1599,7 +1599,7 @@ export function LinksTab() {
               className="text-left mt-0.5 group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
             >
               <p className="text-sm text-muted-foreground line-clamp-2">{onepage.bio}</p>
-              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+              <Pencil className="h-3 w-3 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />
             </button>
           ) : (
             <button
@@ -1611,7 +1611,7 @@ export function LinksTab() {
               className="text-left mt-0.5 group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
             >
               <p className="text-sm text-gray-400 italic">Add your bio...</p>
-              <Pencil className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+              <Pencil className="h-3 w-3 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />
             </button>
           )}
           <div className="flex gap-1.5 mt-1.5 flex-wrap">

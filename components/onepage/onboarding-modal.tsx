@@ -468,7 +468,7 @@ function Confetti({ show }: { show: boolean }) {
     }> = []
 
     // Create confetti from left and right - more pieces for visibility
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 280; i++) {
       const fromLeft = i % 2 === 0
       confettiPieces.push({
         x: fromLeft ? -20 : canvas.width + 20,
@@ -486,7 +486,7 @@ function Confetti({ show }: { show: boolean }) {
 
     let animationId: number
     let frame = 0
-    const maxFrames = 330 // 5.5 seconds at 60fps (2 seconds more)
+    const maxFrames = 390 // 6.5 seconds at 60fps (1 second longer)
 
     const animate = () => {
       if (frame >= maxFrames) {
@@ -1016,10 +1016,13 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         await updateSocialLinks(socialUpdates)
       }
 
-      // Apply theme
+      // Apply theme with template_id so design tab shows correct selection
       const template = THEME_TEMPLATES.find((t) => t.id === selectedTemplate)
       if (template) {
-        await updateTheme(template.theme_config as any)
+        await updateTheme({
+          ...template.theme_config,
+          template_id: template.id,
+        } as any)
       }
 
       // Create blocks based on goal
@@ -1140,7 +1143,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             // Desktop: centered modal with exact specs - 948px width, 550px height
             "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
             // Mobile: auto height modal that fits content, max height to viewport
-            "w-[calc(100%-24px)] max-w-none max-sm:rounded-[24px] max-sm:max-h-[calc(100dvh-48px)]",
+            "w-[calc(100%-24px)] max-w-none max-sm:rounded-[24px]",
             // Shadow
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             // Hide the close button
@@ -1149,11 +1152,24 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           style={{
             // @ts-ignore
             "--tw-backdrop-blur": "blur(8px)",
+            // Dynamic mobile height based on step - taller for steps with more content
+            maxHeight: typeof window !== 'undefined' && window.innerWidth < 640
+              ? (currentStep === 1 || currentStep === 3)
+                ? 'calc(100dvh - 32px)' // 10% more height for step 1 and 3
+                : currentStep === 5
+                ? 'calc(100dvh - 48px)'
+                : 'calc(100dvh - 48px)'
+              : undefined,
           }}
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[calc(100dvh-48px)] bg-white">
+          <div className={cn(
+            "flex flex-col h-full sm:max-h-[540px] bg-white",
+            // Mobile height adjustments per step
+            "max-sm:max-h-[calc(100dvh-32px)]",
+            (currentStep === 1 || currentStep === 3) && "max-sm:max-h-[calc(100dvh-24px)]"
+          )}>
             {/* Progress bar - centered, 8px height, more border radius */}
             <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
@@ -1573,13 +1589,25 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                               )}
                               {isHeroLayout ? (
                                 <>
-                                  <div className="w-full h-6 rounded-md relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}20` }} />
+                                  <div className="w-full h-6 rounded-md relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
+                                    {avatarUrl && (
+                                      <img src={avatarUrl} alt="" className="w-full h-full object-cover opacity-50" />
+                                    )}
+                                  </div>
                                   <div className="w-10 h-1.5 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
                                   <div className="w-8 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
                                 </>
                               ) : (
                                 <>
-                                  <div className="w-6 h-6 rounded-full relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                  <div className="w-7 h-7 rounded-full relative z-10 overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}30` }}>
+                                    {avatarUrl ? (
+                                      <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <span className="text-[8px] font-bold" style={{ color: template.theme_config.text_color }}>
+                                        {displayName.charAt(0).toUpperCase() || "A"}
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="w-10 h-1.5 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
                                   <div className="w-8 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
                                 </>
@@ -1789,16 +1817,28 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                                 {/* Check if hero layout */}
                                 {((template as any).profile_layout === "hero" || (template.theme_config as any).header_layout === "hero") ? (
-                                  /* Hero layout: wide banner-style header */
+                                  /* Hero layout: wide banner-style header with user avatar */
                                   <>
-                                    <div className="w-full h-10 rounded-lg relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}20` }} />
+                                    <div className="w-full h-10 rounded-lg relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
+                                      {avatarUrl && (
+                                        <img src={avatarUrl} alt="" className="w-full h-full object-cover opacity-50" />
+                                      )}
+                                    </div>
                                     <div className="w-16 h-2 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
                                     <div className="w-12 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
                                   </>
                                 ) : (
-                                  /* Classic layout: circle avatar */
+                                  /* Classic layout: circle avatar with user photo/initial */
                                   <>
-                                    <div className="w-8 h-8 rounded-full relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                    <div className="w-10 h-10 rounded-full relative z-10 overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}30` }}>
+                                      {avatarUrl ? (
+                                        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <span className="text-xs font-bold" style={{ color: template.theme_config.text_color }}>
+                                          {displayName.charAt(0).toUpperCase() || "A"}
+                                        </span>
+                                      )}
+                                    </div>
                                     <div className="w-16 h-2 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
                                     <div className="w-12 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
                                   </>
@@ -1869,9 +1909,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
               {/* Step 5: Setup - centered content */}
               {currentStep === 5 && (
-                <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[350px] px-4">
+                <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[350px] px-4 pt-6 sm:pt-0">
                   {/* Logo with pulse effect */}
-                  <div className="relative mb-4 sm:mb-6">
+                  <div className="relative mb-4 sm:mb-6 mt-4 sm:mt-0">
                     {isSettingUp && (
                       <>
                         <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-purple-400/30 animate-ping" />
@@ -1915,8 +1955,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     ) : null}
                   </div>
 
+                  {/* Divider */}
+                  <div className="w-16 h-px bg-gray-200 mt-6 sm:mt-8" />
+
                   {/* Quote - centered with purple accolades */}
-                  <div className="mt-6 sm:mt-8 text-center max-w-sm px-4">
+                  <div className="mt-4 sm:mt-5 text-center max-w-sm px-4">
                     <p className="text-gray-500 text-xs sm:text-sm italic">
                       <span className="text-purple-600 font-medium not-italic">"</span>
                       Logic will get you from A to B. Imagination will take you everywhere.
@@ -1937,14 +1980,26 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 // Extra padding for goal step to move buttons up on desktop
                 currentStep === 2 && "sm:pb-7"
               )}>
-                {/* Back button - left side */}
-                <div>
+                {/* Back button and None of these - left side */}
+                <div className="flex items-center gap-3">
                   {currentStep > 1 && (
                     <button
                       onClick={handleBack}
                       className="px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
                     >
                       Back
+                    </button>
+                  )}
+                  {/* None of these button - desktop only, step 2 only */}
+                  {currentStep === 2 && (
+                    <button
+                      onClick={() => {
+                        setSelectedGoal("general")
+                        handleNext()
+                      }}
+                      className="hidden sm:block px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      None of these
                     </button>
                   )}
                 </div>

@@ -624,11 +624,11 @@ function EditorLayout() {
                 </button>
               )
             })}
-            {/* Settings Button - Mobile */}
+            {/* Settings Button - Mobile - same height as other tab buttons */}
             <button
               onClick={() => setActiveTab("settings")}
               className={cn(
-                "flex items-center justify-center min-w-[40px] w-10 h-[42px] sm:w-11 sm:h-11 rounded-[7px] sm:rounded-xl transition-all shrink-0",
+                "flex items-center justify-center min-w-[40px] w-10 py-2.5 sm:w-11 sm:py-2.5 rounded-[7px] sm:rounded-xl transition-all shrink-0",
                 activeTab === "settings"
                   ? "bg-gray-900 text-white"
                   : "bg-gray-100 text-gray-600"
