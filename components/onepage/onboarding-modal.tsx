@@ -577,7 +577,7 @@ function Confetti({ show }: { show: boolean }) {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-[9999]"
+      className="fixed inset-0 pointer-events-none z-[99999]"
       style={{ width: "100vw", height: "100vh" }}
     />
   )
@@ -636,6 +636,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   // Step 4 state
   const [selectedTemplate, setSelectedTemplate] = useState("default")
   const [carouselIndex, setCarouselIndex] = useState(0)
+  const [carouselAnimating, setCarouselAnimating] = useState(false)
+  const [carouselDirection, setCarouselDirection] = useState<"left" | "right">("right")
 
   // Step 5 state
   const [isSettingUp, setIsSettingUp] = useState(false)
@@ -1131,16 +1133,26 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     (carouselIndex + 1) * templatesPerPage
   )
 
-  // Carousel navigation with animation
+  // Carousel navigation with smooth animation
   const handleCarouselPrev = () => {
-    if (carouselIndex > 0) {
-      setCarouselIndex(carouselIndex - 1)
+    if (carouselIndex > 0 && !carouselAnimating) {
+      setCarouselAnimating(true)
+      setCarouselDirection("left")
+      setTimeout(() => {
+        setCarouselIndex(carouselIndex - 1)
+        setTimeout(() => setCarouselAnimating(false), 50)
+      }, 150)
     }
   }
 
   const handleCarouselNext = () => {
-    if (carouselIndex < maxCarouselIndex) {
-      setCarouselIndex(carouselIndex + 1)
+    if (carouselIndex < maxCarouselIndex && !carouselAnimating) {
+      setCarouselAnimating(true)
+      setCarouselDirection("right")
+      setTimeout(() => {
+        setCarouselIndex(carouselIndex + 1)
+        setTimeout(() => setCarouselAnimating(false), 50)
+      }, 150)
     }
   }
 
@@ -1534,7 +1546,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     {/* Templates container with overflow hidden and padding for ring-offset */}
                     <div className="overflow-hidden px-1 py-4">
                       <div
-                        className="flex gap-3 transition-all duration-500 ease-out"
+                        className={cn(
+                          "flex gap-3 transition-all duration-300 ease-out",
+                          carouselAnimating && carouselDirection === "right" && "opacity-0 translate-x-8",
+                          carouselAnimating && carouselDirection === "left" && "opacity-0 -translate-x-8"
+                        )}
                       >
                         {visibleTemplates.map((template) => {
                           const isSelected = selectedTemplate === template.id
@@ -1629,6 +1645,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                               }
                             : { background: template.theme_config.background_color }
 
+                          // Check if this is an image-type background
+                          const isImageBg = template.theme_config.background_type === "image"
+
                           return (
                             <button
                               key={template.id}
@@ -1643,6 +1662,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                 className="w-full h-full p-3 flex flex-col items-center justify-center relative"
                                 style={bgStyle}
                               >
+                                {/* Dark overlay for image backgrounds so content is visible */}
+                                {isImageBg && (
+                                  <div className="absolute inset-0 bg-black/40 z-[1]" />
+                                )}
+
                                 {/* Pattern overlay */}
                                 {getPatternOverlay()}
 
@@ -1798,7 +1822,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
             {/* Footer with buttons - Back on left, Skip/Next on right */}
             {currentStep < 5 && (
-              <div className="px-12 pb-6 pt-4 flex items-center justify-between shrink-0">
+              <div className="px-12 pb-4 sm:pb-5 pt-4 flex items-center justify-between shrink-0">
                 {/* Back button - left side */}
                 <div>
                   {currentStep > 1 && (
