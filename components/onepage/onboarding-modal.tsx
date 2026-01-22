@@ -1130,8 +1130,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             "p-0 gap-0 overflow-hidden border-0",
             // Desktop: centered modal with exact specs - 948px width, 550px height
             "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
-            // Mobile: full screen white
-            "w-full h-full max-sm:rounded-none max-sm:max-w-none",
+            // Mobile: full screen white - true full coverage
+            "w-screen h-screen max-sm:rounded-none max-sm:max-w-none max-sm:max-h-none max-sm:fixed max-sm:inset-0 max-sm:translate-x-0 max-sm:translate-y-0",
             // Shadow
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             // Hide the close button
@@ -1193,6 +1193,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                           onBlur={() => setUsernameFocused(false)}
                           placeholder="Your name"
                           className="flex-1 text-base outline-none bg-transparent"
+                          autoFocus={false}
+                          autoComplete="off"
                         />
                         {checkingUsername && (
                           <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
@@ -1239,8 +1241,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
               {/* Step 2: Goal Selection */}
               {currentStep === 2 && (
-                <div className="flex flex-col items-center">
-                  <div className="text-center mb-4 sm:mb-6">
+                <div className="flex flex-col items-center h-full">
+                  <div className="text-center mb-4 sm:mb-6 shrink-0">
                     <h1 className="text-[28px] sm:text-[42px] font-bold leading-tight">
                       What's the goal here?
                     </h1>
@@ -1249,7 +1251,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     </p>
                   </div>
 
-                  <div className="w-full max-w-[600px] grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="w-full max-w-[600px] grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 overflow-y-auto max-sm:max-h-[calc(100vh-320px)] max-sm:pb-2">
                     {/* General */}
                     <button
                       onClick={() => setSelectedGoal("general")}
@@ -1494,8 +1496,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   </div>
 
                   {/* Mobile: Grid layout with scroll */}
-                  <div className="sm:hidden w-full overflow-y-auto max-h-[calc(100vh-280px)] px-1">
-                    <div className="grid grid-cols-2 gap-3 pb-4">
+                  <div className="sm:hidden w-full overflow-y-auto max-h-[calc(100vh-280px)] px-2 py-2">
+                    <div className="grid grid-cols-2 gap-3 pb-4 px-1">
                       {THEME_TEMPLATES.map((template) => {
                         const isSelected = selectedTemplate === template.id
                         const bgStyle = template.theme_config.background_type === "gradient"
@@ -1616,8 +1618,29 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                           const getPatternOverlay = () => {
                             const pattern = template.theme_config.background_pattern
                             const patternColor = template.theme_config.pattern_color || "#ffffff"
-                            const opacity = template.theme_config.pattern_opacity === "high" ? 0.3 :
-                                           template.theme_config.pattern_opacity === "medium" ? 0.2 : 0.1
+                            const opacity = template.theme_config.pattern_opacity === "high" ? 0.4 :
+                                           template.theme_config.pattern_opacity === "medium" ? 0.25 : 0.15
+
+                            // Special handling for Neon theme - show cyan glow effect
+                            if (template.id === "neon") {
+                              return (
+                                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                                  <div
+                                    className="absolute inset-0"
+                                    style={{
+                                      background: "radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.15) 0%, transparent 50%)"
+                                    }}
+                                  />
+                                  <div
+                                    className="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-[2px]"
+                                    style={{
+                                      background: "linear-gradient(90deg, transparent, #22d3ee, transparent)",
+                                      boxShadow: "0 0 20px 2px rgba(34, 211, 238, 0.5)"
+                                    }}
+                                  />
+                                </div>
+                              )
+                            }
 
                             if (!pattern || pattern === "none") return null
 
@@ -1891,13 +1914,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
             {/* Footer with buttons - Back on left, Skip/Next on right */}
             {currentStep < 5 && (
-              <div className="px-4 sm:px-12 pb-4 sm:pb-3 pt-2 flex items-center justify-between shrink-0">
+              <div className={cn(
+                "px-4 sm:px-12 pt-2 flex items-center justify-between shrink-0",
+                // Extra bottom padding for goal step to move buttons up
+                currentStep === 2 ? "pb-6 sm:pb-5" : "pb-4 sm:pb-3"
+              )}>
                 {/* Back button - left side */}
                 <div>
                   {currentStep > 1 && (
                     <button
                       onClick={handleBack}
-                      className="px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      className="px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
                     >
                       Back
                     </button>
@@ -1905,11 +1932,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 </div>
 
                 {/* Skip and Next buttons - right side */}
-                <div className="flex items-center gap-2 sm:gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
                   {canSkip() && (
                     <button
                       onClick={handleSkip}
-                      className="px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                      className="px-4 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
                     >
                       Skip
                     </button>
@@ -1919,7 +1946,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     onClick={handleNext}
                     disabled={!canProceed()}
                     className={cn(
-                      "px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm transition-all min-w-[100px] sm:min-w-[140px]",
+                      "px-7 sm:px-8 py-3 sm:py-3 rounded-xl font-semibold text-sm sm:text-sm transition-all min-w-[110px] sm:min-w-[140px]",
                       canProceed()
                         ? "bg-purple-600 text-white hover:bg-purple-700 shadow-md hover:shadow-lg"
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"

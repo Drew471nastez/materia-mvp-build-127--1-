@@ -613,7 +613,7 @@ function EditorLayout() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center min-w-0",
+                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 sm:py-2.5 rounded-[7px] sm:rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center min-w-0",
                     activeTab === tab.id
                       ? "bg-gray-900 text-white"
                       : "bg-gray-100 text-gray-600"
@@ -628,7 +628,7 @@ function EditorLayout() {
             <button
               onClick={() => setActiveTab("settings")}
               className={cn(
-                "flex items-center justify-center min-w-[40px] w-10 h-10 sm:w-11 sm:h-11 rounded-xl transition-all shrink-0",
+                "flex items-center justify-center min-w-[40px] w-10 h-[42px] sm:w-11 sm:h-11 rounded-[7px] sm:rounded-xl transition-all shrink-0",
                 activeTab === "settings"
                   ? "bg-gray-900 text-white"
                   : "bg-gray-100 text-gray-600"
