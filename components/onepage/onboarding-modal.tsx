@@ -952,6 +952,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   // Create blocks based on goal selection
   // Blocks are added in REVERSE order (bottom to top) because smart positioning
   // always inserts after header when no social_row exists. Social_row is added LAST.
+  // We directly mutate block.data after addBlock returns, before the next addBlock call.
+  // This works because addBlock returns a reference to the block object that gets added to state.
   const createBlocksForGoal = async (goal: "general" | "artist" | "digital" | "business") => {
     // Remove existing blocks except header
     const existingBlocks = onepage?.draft_blocks || []
@@ -962,10 +964,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     }
 
     // Delay to ensure removeBlock operations complete
-    await new Promise(resolve => setTimeout(resolve, 150))
-
-    // Track blocks that need configuration
-    const blocksToUpdate: { id: string; label: string; url: string; icon: string }[] = []
+    await new Promise(resolve => setTimeout(resolve, 100))
 
     switch (goal) {
       case "general": {
@@ -984,25 +983,29 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("email_capture")
         addBlock("divider")
 
-        // YouTube block
+        // YouTube block: add block then immediately update its data
         const youtubeBlock = addBlock("link_button")
         if (youtubeBlock) {
-          blocksToUpdate.push({
-            id: youtubeBlock.id,
-            label: "Subscribe on YouTube",
-            url: "https://youtube.com/@",
-            icon: "youtube"
+          updateBlock(youtubeBlock.id, {
+            data: {
+              ...youtubeBlock.data,
+              label: "Subscribe on YouTube",
+              url: "https://youtube.com/@",
+              icon: "youtube"
+            }
           })
         }
 
-        // Spotify block
+        // Spotify block: add block then immediately update its data
         const spotifyBlock = addBlock("link_button")
         if (spotifyBlock) {
-          blocksToUpdate.push({
-            id: spotifyBlock.id,
-            label: "Listen on Spotify",
-            url: "https://open.spotify.com/",
-            icon: "spotify"
+          updateBlock(spotifyBlock.id, {
+            data: {
+              ...spotifyBlock.data,
+              label: "Listen on Spotify",
+              url: "https://open.spotify.com/",
+              icon: "spotify"
+            }
           })
         }
 
@@ -1025,47 +1028,35 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("email_capture")
         addBlock("divider")
 
-        // LinkedIn block
+        // LinkedIn block: add block then immediately update its data
         const linkedinBlock = addBlock("link_button")
         if (linkedinBlock) {
-          blocksToUpdate.push({
-            id: linkedinBlock.id,
-            label: "Connect on LinkedIn",
-            url: "https://linkedin.com/in/",
-            icon: "linkedin"
+          updateBlock(linkedinBlock.id, {
+            data: {
+              ...linkedinBlock.data,
+              label: "Connect on LinkedIn",
+              url: "https://linkedin.com/in/",
+              icon: "linkedin"
+            }
           })
         }
 
-        // Instagram block
+        // Instagram block: add block then immediately update its data
         const instagramBlock = addBlock("link_button")
         if (instagramBlock) {
-          blocksToUpdate.push({
-            id: instagramBlock.id,
-            label: "Follow on Instagram",
-            url: "https://instagram.com/",
-            icon: "instagram"
+          updateBlock(instagramBlock.id, {
+            data: {
+              ...instagramBlock.data,
+              label: "Follow on Instagram",
+              url: "https://instagram.com/",
+              icon: "instagram"
+            }
           })
         }
 
         addBlock("link_button")
         addBlock("social_row")
         break
-      }
-    }
-
-    // Wait for all blocks to be added to state, then update platform blocks
-    if (blocksToUpdate.length > 0) {
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      for (const blockConfig of blocksToUpdate) {
-        updateBlock(blockConfig.id, {
-          data: {
-            label: blockConfig.label,
-            url: blockConfig.url,
-            icon: blockConfig.icon,
-            thumbnail_url: null
-          }
-        })
       }
     }
   }
