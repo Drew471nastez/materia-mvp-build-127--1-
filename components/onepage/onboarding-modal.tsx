@@ -1045,6 +1045,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           }}
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[calc(100dvh-24px)] bg-white">
             {/* Progress bar - centered, 8px height, more border radius */}
@@ -1452,13 +1453,49 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                               )}
                               {hasPattern && template.theme_config.background_pattern === "stars" && (
                                 <div
-                                  className="absolute inset-0 pointer-events-none z-[2]"
-                                  style={{
-                                    backgroundImage: `radial-gradient(${patternColor} 1px, transparent 1px)`,
-                                    backgroundSize: "12px 12px",
-                                    opacity: patternOpacity
-                                  }}
-                                />
+                                  className="absolute inset-0 pointer-events-none z-[2] overflow-hidden"
+                                  style={{ opacity: patternOpacity }}
+                                >
+                                  <style>{`
+                                    @keyframes starTwinkle1m${template.id} {
+                                      0%, 100% { opacity: 0.2; }
+                                      50% { opacity: 0.8; }
+                                    }
+                                    @keyframes starTwinkle2m${template.id} {
+                                      0%, 100% { opacity: 0.4; }
+                                      50% { opacity: 1; }
+                                    }
+                                    @keyframes starTwinkle3m${template.id} {
+                                      0%, 100% { opacity: 0.3; }
+                                      50% { opacity: 0.7; }
+                                    }
+                                    .star-m-${template.id} {
+                                      position: absolute;
+                                      border-radius: 50%;
+                                      background: ${patternColor};
+                                    }
+                                    .star-m1-${template.id} { animation: starTwinkle1m${template.id} 3s ease-in-out infinite; }
+                                    .star-m2-${template.id} { animation: starTwinkle2m${template.id} 4s ease-in-out infinite; animation-delay: 0.5s; }
+                                    .star-m3-${template.id} { animation: starTwinkle3m${template.id} 5s ease-in-out infinite; animation-delay: 1s; }
+                                  `}</style>
+                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '8%', left: '15%' }} />
+                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1px', height: '1px', top: '15%', left: '45%' }} />
+                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '10%', left: '75%' }} />
+                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1px', height: '1px', top: '25%', left: '25%' }} />
+                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '30%', left: '60%' }} />
+                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1px', height: '1px', top: '22%', left: '85%' }} />
+                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '40%', left: '10%' }} />
+                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1px', height: '1px', top: '45%', left: '50%' }} />
+                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '38%', left: '80%' }} />
+                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1px', height: '1px', top: '55%', left: '20%' }} />
+                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '60%', left: '55%' }} />
+                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1px', height: '1px', top: '52%', left: '90%' }} />
+                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '70%', left: '35%' }} />
+                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1px', height: '1px', top: '75%', left: '70%' }} />
+                                  <div className={`star-m-${template.id} star-m3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '68%', left: '5%' }} />
+                                  <div className={`star-m-${template.id} star-m1-${template.id}`} style={{ width: '1px', height: '1px', top: '85%', left: '40%' }} />
+                                  <div className={`star-m-${template.id} star-m2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '90%', left: '65%' }} />
+                                </div>
                               )}
                               {hasPattern && template.theme_config.background_pattern === "waves" && (
                                 <svg className="absolute inset-0 w-full h-full pointer-events-none z-[2]" xmlns="http://www.w3.org/2000/svg" style={{ opacity: patternOpacity }}>
@@ -1652,13 +1689,56 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             if (pattern === "stars") {
                               return (
                                 <div
-                                  className="absolute inset-0 pointer-events-none"
-                                  style={{
-                                    backgroundImage: `radial-gradient(${patternColor} 1px, transparent 1px)`,
-                                    backgroundSize: "15px 15px",
-                                    opacity
-                                  }}
-                                />
+                                  className="absolute inset-0 pointer-events-none overflow-hidden"
+                                  style={{ opacity }}
+                                >
+                                  <style>{`
+                                    @keyframes starTwinkle1d${template.id} {
+                                      0%, 100% { opacity: 0.2; }
+                                      50% { opacity: 0.8; }
+                                    }
+                                    @keyframes starTwinkle2d${template.id} {
+                                      0%, 100% { opacity: 0.4; }
+                                      50% { opacity: 1; }
+                                    }
+                                    @keyframes starTwinkle3d${template.id} {
+                                      0%, 100% { opacity: 0.3; }
+                                      50% { opacity: 0.7; }
+                                    }
+                                    .star-d-${template.id} {
+                                      position: absolute;
+                                      border-radius: 50%;
+                                      background: ${patternColor};
+                                    }
+                                    .star-d1-${template.id} { animation: starTwinkle1d${template.id} 3s ease-in-out infinite; }
+                                    .star-d2-${template.id} { animation: starTwinkle2d${template.id} 4s ease-in-out infinite; animation-delay: 0.5s; }
+                                    .star-d3-${template.id} { animation: starTwinkle3d${template.id} 5s ease-in-out infinite; animation-delay: 1s; }
+                                  `}</style>
+                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '2px', height: '2px', top: '5%', left: '10%' }} />
+                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '12%', left: '30%' }} />
+                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '2px', height: '2px', top: '8%', left: '55%' }} />
+                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '15%', left: '75%' }} />
+                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '2px', height: '2px', top: '10%', left: '90%' }} />
+                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '25%', left: '15%' }} />
+                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '2px', height: '2px', top: '30%', left: '45%' }} />
+                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '22%', left: '65%' }} />
+                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '2px', height: '2px', top: '35%', left: '85%' }} />
+                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '40%', left: '5%' }} />
+                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '2px', height: '2px', top: '45%', left: '35%' }} />
+                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '42%', left: '60%' }} />
+                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '2px', height: '2px', top: '50%', left: '80%' }} />
+                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '55%', left: '20%' }} />
+                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '2px', height: '2px', top: '58%', left: '50%' }} />
+                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '62%', left: '70%' }} />
+                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '2px', height: '2px', top: '65%', left: '92%' }} />
+                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '70%', left: '8%' }} />
+                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '2px', height: '2px', top: '75%', left: '40%' }} />
+                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '78%', left: '58%' }} />
+                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '2px', height: '2px', top: '82%', left: '78%' }} />
+                                  <div className={`star-d-${template.id} star-d1-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '88%', left: '25%' }} />
+                                  <div className={`star-d-${template.id} star-d2-${template.id}`} style={{ width: '2px', height: '2px', top: '92%', left: '55%' }} />
+                                  <div className={`star-d-${template.id} star-d3-${template.id}`} style={{ width: '1.5px', height: '1.5px', top: '95%', left: '88%' }} />
+                                </div>
                               )
                             }
                             if (pattern === "waves") {
