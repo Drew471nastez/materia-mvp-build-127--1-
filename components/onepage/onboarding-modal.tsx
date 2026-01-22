@@ -13,16 +13,20 @@ import {
   ChevronRight,
   Instagram,
   Youtube,
-  Upload,
-  Loader2
+  Loader2,
+  Pencil
 } from "lucide-react"
 
-// Theme templates imported from design-tab
+// Storelib logo URL
+const STORELIB_LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+
+// Theme templates - exact copy from design-tab.tsx
 const THEME_TEMPLATES = [
   {
     id: "default",
     name: "Default",
     category: "light",
+    isDefault: true,
     theme_config: {
       background_type: "solid" as const,
       background_color: "#ffffff",
@@ -47,6 +51,11 @@ const THEME_TEMPLATES = [
       background_pattern: "none",
       laser_glow_enabled: false,
     },
+    profile_layout: "classic" as const,
+    skipLayoutDialog: true,
+    share_style: "white",
+    subscribe_style: "white",
+    light_button_text_color: "#000000",
   },
   {
     id: "air",
@@ -55,17 +64,30 @@ const THEME_TEMPLATES = [
     theme_config: {
       background_type: "solid" as const,
       background_color: "#f8fafc",
+      background_gradient: "",
+      background_image_url: "",
       text_color: "#0f172a",
       secondary_text_color: "#64748b",
       button_color: "#0f172a",
       button_text_color: "#ffffff",
       button_style: "filled" as const,
       button_border_radius: 8,
+      button_border_width: 0,
+      button_border_color: "#0f172a",
+      button_shadow: "subtle",
       font_family: "'Inter', sans-serif",
       title_font: "'Inter', sans-serif",
       title_color: "#0f172a",
       social_icon_color: "#64748b",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      laser_glow_enabled: true,
+      laser_glow_color: "#dbdbdb",
+      laser_glow_intensity: "medium",
     },
+    light_button_text_color: "#0f172a",
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "astrid",
@@ -74,6 +96,8 @@ const THEME_TEMPLATES = [
     theme_config: {
       background_type: "solid" as const,
       background_color: "#0a0a0a",
+      background_gradient: "",
+      background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#a1a1aa",
       button_color: "#27272a",
@@ -82,11 +106,19 @@ const THEME_TEMPLATES = [
       button_border_radius: 12,
       button_border_width: 1,
       button_border_color: "#3f3f46",
+      button_shadow: "none",
       font_family: "'Inter', sans-serif",
       title_font: "'Montserrat', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#a1a1aa",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      laser_glow_enabled: true,
+      laser_glow_color: "#303030",
+      laser_glow_intensity: "medium",
     },
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
   {
     id: "blocks",
@@ -96,19 +128,34 @@ const THEME_TEMPLATES = [
       background_type: "gradient" as const,
       background_color: "#7c3aed",
       background_gradient: "linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #ec4899 100%)",
+      background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#e9d5ff",
       button_color: "#ffffff",
       button_text_color: "#7c3aed",
       button_style: "filled" as const,
       button_border_radius: 12,
+      button_border_width: 0,
+      button_border_color: "#ffffff",
       button_shadow: "hard",
       button_shadow_color: "#6a197b",
       font_family: "'Poppins', sans-serif",
       title_font: "'Poppins', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#ffffff",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      laser_glow_enabled: false,
+      background_pattern: "grid",
+      pattern_opacity: "low",
+      pattern_color: "#c9c9c990",
     },
+    solid_button_text_color: "#7c3aed",
+    outline_button_text_color: "#ffffff",
+    glass_button_text_color: "#ffffff",
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "ocean",
@@ -118,17 +165,29 @@ const THEME_TEMPLATES = [
       background_type: "gradient" as const,
       background_color: "#0ea5e9",
       background_gradient: "linear-gradient(180deg, #0c4a6e 0%, #0369a1 50%, #0ea5e9 100%)",
+      background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#bae6fd",
       button_color: "rgba(255, 255, 255, 0.15)",
       button_text_color: "#ffffff",
       button_style: "glass" as const,
       button_border_radius: 24,
+      button_border_width: 1,
+      button_border_color: "rgba(255, 255, 255, 0.2)",
+      button_shadow: "subtle",
       font_family: "'Nunito', sans-serif",
       title_font: "'Nunito', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#bae6fd",
+      social_icon_style: "outline",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      background_pattern: "waves",
+      pattern_opacity: "low",
+      pattern_color: "#428ad790",
     },
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "sunset",
@@ -138,18 +197,32 @@ const THEME_TEMPLATES = [
       background_type: "gradient" as const,
       background_color: "#f97316",
       background_gradient: "linear-gradient(135deg, #f97316 0%, #ef4444 50%, #ec4899 100%)",
+      background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#fed7aa",
       button_color: "#ffffff",
       button_text_color: "#ea580c",
       button_style: "filled" as const,
       button_border_radius: 16,
+      button_border_width: 0,
+      button_border_color: "#ffffff",
       button_shadow: "strong",
       font_family: "'Poppins', sans-serif",
       title_font: "'Playfair Display', serif",
       title_color: "#ffffff",
       social_icon_color: "#ffffff",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      background_pattern: "organic",
+      pattern_opacity: "low",
+      pattern_color: "#ffcccc90",
     },
+    share_style: "white",
+    subscribe_style: "white",
+    solid_button_text_color: "#ea580c",
+    outline_button_text_color: "#ffffff",
+    glass_button_text_color: "#ffffff",
   },
   {
     id: "midnight",
@@ -158,21 +231,34 @@ const THEME_TEMPLATES = [
     theme_config: {
       background_type: "solid" as const,
       background_color: "#020617",
+      background_gradient: "",
+      background_image_url: "",
       text_color: "#f8fafc",
       secondary_text_color: "#94a3b8",
       button_color: "rgba(255, 255, 255, 0.1)",
       button_text_color: "#ffffff",
       button_style: "glass" as const,
       button_border_radius: 10,
+      button_border_width: 1,
+      button_border_color: "#182b49",
+      button_shadow: "subtle",
       font_family: "'Inter', sans-serif",
       title_font: "'Oswald', sans-serif",
       title_color: "#f8fafc",
       social_icon_color: "#3b82f6",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
       header_layout: "hero",
+      laser_glow_enabled: false,
+      button_hover_animation: "zoom",
+      allowed_patterns: ["none", "stars"],
       background_pattern: "stars",
       pattern_color: "#ffffff",
       pattern_opacity: "medium",
     },
+    profile_layout: "hero" as const,
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
   {
     id: "cream",
@@ -181,6 +267,8 @@ const THEME_TEMPLATES = [
     theme_config: {
       background_type: "solid" as const,
       background_color: "#fffbeb",
+      background_gradient: "",
+      background_image_url: "",
       text_color: "#1c1917",
       secondary_text_color: "#78716c",
       button_color: "#1c1917",
@@ -189,11 +277,26 @@ const THEME_TEMPLATES = [
       button_border_radius: 24,
       button_border_width: 2,
       button_border_color: "#1c1917",
+      button_shadow: "none",
       font_family: "'Lora', serif",
       title_font: "'Playfair Display', serif",
       title_color: "#362f2b",
       social_icon_color: "#78716c",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "zigzag",
+      pattern_color: "#e2dc9c90",
+      pattern_opacity: "low",
     },
+    profile_layout: "classic" as const,
+    share_style: "black",
+    subscribe_style: "black",
+    outline_button_text_color: "#363221",
+    solid_button_text_color: "#fffcf0",
+    glass_button_text_color: "#37342a",
   },
   {
     id: "space",
@@ -202,20 +305,32 @@ const THEME_TEMPLATES = [
     theme_config: {
       background_type: "solid" as const,
       background_color: "#000000",
+      background_gradient: "",
+      background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#a1a1aa",
       button_color: "rgba(255, 255, 255, 0.1)",
       button_text_color: "#ffffff",
       button_style: "glass" as const,
       button_border_radius: 12,
+      button_border_width: 1,
+      button_border_color: "rgba(255, 255, 255, 0.2)",
+      button_shadow: "none",
       font_family: "'Space Grotesk', sans-serif",
       title_font: "'Space Grotesk', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#ffffff",
+      social_icon_style: "filled",
       background_pattern: "stars",
       pattern_color: "#ffffff",
       pattern_opacity: "high",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
     },
+    profile_layout: "classic" as const,
+    share_style: "black",
+    subscribe_style: "black",
   },
   {
     id: "aurora",
@@ -225,16 +340,25 @@ const THEME_TEMPLATES = [
       background_type: "gradient" as const,
       background_color: "#0f0f23",
       background_gradient: "linear-gradient(135deg, #0f0f23 0%, #1a1a3e 25%, #2d1b4e 50%, #1e3a5f 75%, #0f0f23 100%)",
+      background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#94a3b8",
       button_color: "rgba(139, 92, 246, 0.3)",
       button_text_color: "#ffffff",
       button_style: "glass" as const,
       button_border_radius: 16,
+      button_border_width: 1,
+      button_border_color: "rgba(139, 92, 246, 0.5)",
+      button_shadow: "none",
       font_family: "'Space Grotesk', sans-serif",
       title_font: "'Space Grotesk', sans-serif",
       title_color: "#ffffff",
       social_icon_color: "#a78bfa",
+      background_pattern: "morph",
+      pattern_color: "#ffffff90",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      animated_gradient: false,
     },
   },
   {
@@ -244,6 +368,8 @@ const THEME_TEMPLATES = [
     theme_config: {
       background_type: "solid" as const,
       background_color: "#09090b",
+      background_gradient: "",
+      background_image_url: "",
       text_color: "#fafafa",
       secondary_text_color: "#a1a1aa",
       button_color: "#18181b",
@@ -252,12 +378,20 @@ const THEME_TEMPLATES = [
       button_border_radius: 10,
       button_border_width: 1,
       button_border_color: "#22d3ee",
+      button_shadow: "strong",
+      button_shadow_color: "#ffffff",
       font_family: "'JetBrains Mono', monospace",
       title_font: "'Orbitron', sans-serif",
       title_color: "#22d3ee",
       social_icon_color: "#22d3ee",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
       header_layout: "hero",
+      background_pattern: "none",
     },
+    profile_layout: "hero" as const,
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
   {
     id: "nature",
@@ -266,6 +400,7 @@ const THEME_TEMPLATES = [
     theme_config: {
       background_type: "image" as const,
       background_color: "#1a2e1a",
+      background_gradient: "",
       background_image_url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95",
       text_color: "#ffffff",
       secondary_text_color: "#d1fae5",
@@ -273,13 +408,53 @@ const THEME_TEMPLATES = [
       button_text_color: "#065f46",
       button_style: "filled" as const,
       button_border_radius: 24,
+      button_border_width: 0,
+      button_border_color: "#ffffff",
+      button_shadow: "subtle",
       font_family: "'Nunito', sans-serif",
       title_font: "'Lora', serif",
       title_color: "#ffffff",
       social_icon_color: "#d1fae5",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
       image_brightness: 40,
       image_noise: true,
+      noise_strength: 30,
     },
+  },
+  {
+    id: "fusion",
+    name: "Fusion",
+    category: "image",
+    theme_config: {
+      background_type: "image" as const,
+      background_color: "#0f0f1a",
+      background_gradient: "",
+      background_image_url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMzUxM2NjYjdjMjYwZmZkM2YzNjYyNzc2Y2E4YWM5ZTAuanBnIiwiaWF0IjoxNzY4OTA4Mjg2LCJleHAiOjM5NDg1NjIzODAyODZ9.gt2phg6Tkw-z5_Q-F4kqhDchEmd3eOupUWxohGQLmM0",
+      text_color: "#ffffff",
+      secondary_text_color: "#e9d5ff",
+      button_color: "#8b5cf6",
+      button_text_color: "#ffffff",
+      button_style: "filled" as const,
+      button_border_radius: 12,
+      button_border_width: 0,
+      button_border_color: "#8b5cf6",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Space Grotesk', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#e9d5ff",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      image_brightness: 60,
+      image_noise: true,
+      noise_strength: 40,
+    },
+    profile_layout: "classic" as const,
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
   },
 ]
 
@@ -835,47 +1010,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       }
     }
 
-    const timestamp = Date.now()
-
-    // Base blocks for all goals
-    const socialRowBlock = {
-      id: `block_${timestamp + 1}_social`,
-      type: "social_row" as const,
-      enabled: true,
-      data: {
-        platforms: [],
-        style: "icons",
-      },
-      sort_order: 1,
-    }
-
-    const dividerBlock = {
-      id: `block_${timestamp + 100}_divider`,
-      type: "divider" as const,
-      enabled: true,
-      data: {
-        style: "line",
-        height: 24,
-      },
-      sort_order: 100,
-    }
-
-    const newsletterBlock = {
-      id: `block_${timestamp + 101}_newsletter`,
-      type: "email_capture" as const,
-      enabled: true,
-      data: {
-        headline: "Join my newsletter",
-        description: "Get updates and exclusive content",
-        placeholder: "Enter your email",
-        button_text: "Subscribe",
-        success_message: "Thanks for subscribing!",
-        layout_type: "default",
-        animation_type: "none",
-      },
-      sort_order: 101,
-    }
-
     switch (goal) {
       case "general":
         // Header, social icons, My link, divider, newsletter
@@ -888,7 +1022,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       case "artist":
         // Header, social icons, spotify, youtube, divider, newsletter
         addBlock("social_row")
-        // Note: spotify and youtube would be added as link_button with specific icons
         addBlock("link_button") // For Spotify
         addBlock("link_button") // For YouTube
         addBlock("divider")
@@ -919,8 +1052,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   // Progress bar width
   const progressWidth = (currentStep / 5) * 100
 
-  // Template carousel
-  const templatesPerPage = 3
+  // Template carousel - show 4 per page
+  const templatesPerPage = 4
   const maxCarouselIndex = Math.ceil(THEME_TEMPLATES.length / templatesPerPage) - 1
 
   const visibleTemplates = THEME_TEMPLATES.slice(
@@ -935,526 +1068,550 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       <Dialog open={open} onOpenChange={() => {}}>
         <DialogContent
           className={cn(
-            "p-0 gap-0 overflow-hidden border-0 shadow-2xl",
-            // Desktop: centered modal with max-width
-            "sm:max-w-lg sm:rounded-3xl",
-            // Mobile: full screen
-            "w-full h-full sm:h-auto sm:max-h-[90vh] max-sm:rounded-none max-sm:max-w-none"
+            "p-0 gap-0 overflow-hidden border-0",
+            // Desktop: centered modal with exact specs
+            "sm:w-[960px] sm:max-w-[960px] sm:h-[560px] sm:rounded-[44px]",
+            // Mobile: full screen white
+            "w-full h-full max-sm:rounded-none max-sm:max-w-none",
+            // Shadow
+            "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]"
           )}
+          style={{
+            // Custom overlay blur
+            // @ts-ignore
+            "--tw-backdrop-blur": "blur(8px)",
+          }}
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          {/* Progress bar */}
-          <div className="h-1 bg-gray-100">
-            <div
-              className="h-full bg-purple-600 transition-all duration-500 ease-out"
-              style={{ width: `${progressWidth}%` }}
-            />
-          </div>
+          <div className="flex flex-col h-full bg-white">
+            {/* Progress bar - centered, thin */}
+            <div className="flex justify-center pt-8">
+              <div className="w-[200px] h-[3px] bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-500 ease-out rounded-full"
+                  style={{ width: `${progressWidth}%` }}
+                />
+              </div>
+            </div>
 
-          <div className={cn(
-            "flex-1 overflow-y-auto transition-opacity duration-200",
-            isAnimating && "opacity-0"
-          )}>
-            {/* Step 1: Let's get started */}
-            {currentStep === 1 && (
-              <div className="p-6 sm:p-8">
-                <div className="text-center mb-8">
-                  <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-                    Let's get started 👋
-                  </h1>
-                  <p className="text-gray-500 text-sm sm:text-base">
-                    Start with your name — everything can be changed later
-                  </p>
-                </div>
+            <div className={cn(
+              "flex-1 overflow-y-auto transition-opacity duration-200 px-12 pt-6",
+              isAnimating && "opacity-0"
+            )}>
+              {/* Step 1: Let's get started */}
+              {currentStep === 1 && (
+                <div className="flex flex-col items-center">
+                  <div className="text-center mb-8">
+                    <div className="flex items-center justify-center gap-3">
+                      <h1 className="text-[42px] font-bold leading-tight">
+                        Let's get started
+                      </h1>
+                      <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+                        <Pencil className="w-5 h-5 text-gray-400" />
+                      </button>
+                    </div>
+                    <p className="text-gray-500 text-base mt-2">
+                      Start with your name — everything can be changed later
+                    </p>
+                  </div>
 
-                {/* Username input */}
-                <div className="space-y-4">
-                  <div className="relative">
-                    <div className={cn(
-                      "flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-colors",
-                      usernameFocused ? "border-black" : "border-gray-200"
-                    )}>
-                      <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      <input
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        onFocus={() => setUsernameFocused(true)}
-                        onBlur={() => setUsernameFocused(false)}
-                        placeholder="Your name"
-                        className="flex-1 text-base outline-none bg-transparent"
-                      />
-                      {checkingUsername && (
-                        <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                      )}
-                      {!checkingUsername && usernameAvailable === true && displayName && (
-                        <Check className="w-5 h-5 text-green-500" />
-                      )}
-                      {!checkingUsername && usernameAvailable === false && displayName && (
-                        <X className="w-5 h-5 text-red-500" />
+                  {/* Input fields - centered, max width 600px */}
+                  <div className="w-full max-w-[600px] space-y-4">
+                    {/* Username input */}
+                    <div className="relative">
+                      <div className={cn(
+                        "flex items-center gap-3 px-5 h-[56px] rounded-[14px] transition-all",
+                        usernameFocused
+                          ? "bg-white ring-2 ring-black"
+                          : "bg-[#F3F3F3]"
+                      )}>
+                        <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <input
+                          type="text"
+                          value={displayName}
+                          onChange={(e) => setDisplayName(e.target.value)}
+                          onFocus={() => setUsernameFocused(true)}
+                          onBlur={() => setUsernameFocused(false)}
+                          placeholder="Your name"
+                          className="flex-1 text-base outline-none bg-transparent"
+                        />
+                        {checkingUsername && (
+                          <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                        )}
+                        {!checkingUsername && usernameAvailable === true && displayName && (
+                          <Check className="w-5 h-5 text-green-500" />
+                        )}
+                        {!checkingUsername && usernameAvailable === false && displayName && (
+                          <X className="w-5 h-5 text-red-500" />
+                        )}
+                      </div>
+                      {usernameAvailable === false && (
+                        <p className="text-red-500 text-xs mt-1.5 ml-1">This name is not available</p>
                       )}
                     </div>
-                    {usernameAvailable === false && (
-                      <p className="text-red-500 text-xs mt-1 ml-1">This name is not available</p>
-                    )}
-                  </div>
 
-                  {/* URL preview */}
-                  <div className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50">
-                    <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
-                    <span className="text-gray-500 text-sm sm:text-base">
-                      <span className="text-black font-medium">{getSlug() || "username"}</span>
-                      <span className="text-gray-400">.storelib.com/links</span>
-                    </span>
-                  </div>
+                    {/* URL preview */}
+                    <div className="flex items-center gap-3 px-5 h-[56px] rounded-[14px] bg-[#F3F3F3]">
+                      <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      <span className="text-base">
+                        <span className="text-black font-medium">{getSlug() || "username"}</span>
+                        <span className="text-gray-400">.storelib.com/links</span>
+                      </span>
+                    </div>
 
-                  {/* Bio input */}
-                  <div className="flex items-start gap-2 px-4 py-3 rounded-xl border-2 border-gray-200 focus-within:border-black transition-colors">
-                    <svg className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <textarea
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      placeholder="Tell us a few words about yourself"
-                      rows={2}
-                      className="flex-1 text-base outline-none bg-transparent resize-none"
-                    />
+                    {/* Bio input */}
+                    <div className="flex items-start gap-3 px-5 py-4 min-h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                      <svg className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <textarea
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
+                        placeholder="Tell us a few words about yourself"
+                        rows={2}
+                        className="flex-1 text-base outline-none bg-transparent resize-none"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Step 2: Goal Selection */}
-            {currentStep === 2 && (
-              <div className="p-6 sm:p-8">
-                <div className="text-center mb-8">
-                  <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-                    What's the goal here?
-                  </h1>
-                  <p className="text-gray-500 text-sm sm:text-base">
-                    We'll build your OnePage around this
-                  </p>
-                </div>
+              {/* Step 2: Goal Selection */}
+              {currentStep === 2 && (
+                <div className="flex flex-col items-center">
+                  <div className="text-center mb-8">
+                    <div className="flex items-center justify-center gap-3">
+                      <h1 className="text-[42px] font-bold leading-tight">
+                        What's the goal here?
+                      </h1>
+                      <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+                        <Pencil className="w-5 h-5 text-gray-400" />
+                      </button>
+                    </div>
+                    <p className="text-gray-500 text-base mt-2">
+                      We'll build your OnePage around this
+                    </p>
+                  </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  {/* General */}
+                  <div className="w-full max-w-[600px] grid grid-cols-2 gap-4">
+                    {/* General */}
+                    <button
+                      onClick={() => setSelectedGoal("general")}
+                      className={cn(
+                        "p-5 rounded-2xl border-2 text-left transition-all",
+                        selectedGoal === "general"
+                          ? "border-black bg-gray-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      )}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 pr-3">
+                          <h3 className="font-semibold text-base">General</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Covers all goals - links, business, and socials.
+                          </p>
+                        </div>
+                        {GoalIcons.general}
+                      </div>
+                    </button>
+
+                    {/* Artist & Creator */}
+                    <button
+                      onClick={() => setSelectedGoal("artist")}
+                      className={cn(
+                        "p-5 rounded-2xl border-2 text-left transition-all",
+                        selectedGoal === "artist"
+                          ? "border-black bg-gray-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      )}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 pr-3">
+                          <h3 className="font-semibold text-base">Artist & Creator</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Share my creative work with the world.
+                          </p>
+                        </div>
+                        {GoalIcons.artist}
+                      </div>
+                    </button>
+
+                    {/* Digital Products */}
+                    <button
+                      onClick={() => setSelectedGoal("digital")}
+                      className={cn(
+                        "p-5 rounded-2xl border-2 text-left transition-all",
+                        selectedGoal === "digital"
+                          ? "border-black bg-gray-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      )}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 pr-3">
+                          <h3 className="font-semibold text-base">Digital Products</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Sell my digital products to anyone.
+                          </p>
+                        </div>
+                        {GoalIcons.digital}
+                      </div>
+                    </button>
+
+                    {/* Business */}
+                    <button
+                      onClick={() => setSelectedGoal("business")}
+                      className={cn(
+                        "p-5 rounded-2xl border-2 text-left transition-all",
+                        selectedGoal === "business"
+                          ? "border-black bg-gray-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      )}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 pr-3">
+                          <h3 className="font-semibold text-base">Business</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Grow my business & convert customers.
+                          </p>
+                        </div>
+                        {GoalIcons.business}
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* None of these option */}
                   <button
                     onClick={() => setSelectedGoal("general")}
-                    className={cn(
-                      "p-4 rounded-2xl border-2 text-left transition-all",
-                      selectedGoal === "general"
-                        ? "border-black bg-gray-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    )}
+                    className="text-sm text-gray-500 hover:text-gray-700 mt-6 py-2"
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-semibold text-sm sm:text-base">General</h3>
-                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                          Covers all goals - links, business, and socials.
-                        </p>
-                      </div>
-                      {GoalIcons.general}
-                    </div>
-                  </button>
-
-                  {/* Artist & Creator */}
-                  <button
-                    onClick={() => setSelectedGoal("artist")}
-                    className={cn(
-                      "p-4 rounded-2xl border-2 text-left transition-all",
-                      selectedGoal === "artist"
-                        ? "border-black bg-gray-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    )}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-semibold text-sm sm:text-base">Artist & Creator</h3>
-                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                          Share my creative work with the world.
-                        </p>
-                      </div>
-                      {GoalIcons.artist}
-                    </div>
-                  </button>
-
-                  {/* Digital Products */}
-                  <button
-                    onClick={() => setSelectedGoal("digital")}
-                    className={cn(
-                      "p-4 rounded-2xl border-2 text-left transition-all",
-                      selectedGoal === "digital"
-                        ? "border-black bg-gray-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    )}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-semibold text-sm sm:text-base">Digital Products</h3>
-                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                          Sell my digital products to anyone.
-                        </p>
-                      </div>
-                      {GoalIcons.digital}
-                    </div>
-                  </button>
-
-                  {/* Business */}
-                  <button
-                    onClick={() => setSelectedGoal("business")}
-                    className={cn(
-                      "p-4 rounded-2xl border-2 text-left transition-all",
-                      selectedGoal === "business"
-                        ? "border-black bg-gray-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    )}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-semibold text-sm sm:text-base">Business</h3>
-                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                          Grow my business & convert customers.
-                        </p>
-                      </div>
-                      {GoalIcons.business}
-                    </div>
+                    None of these
                   </button>
                 </div>
+              )}
 
-                {/* None of these option */}
+              {/* Step 3: Socials & Profile */}
+              {currentStep === 3 && (
+                <div className="flex flex-col items-center">
+                  <div className="text-center mb-8">
+                    <div className="flex items-center justify-center gap-3">
+                      <h1 className="text-[42px] font-bold leading-tight">
+                        Add your socials
+                      </h1>
+                      <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+                        <Pencil className="w-5 h-5 text-gray-400" />
+                      </button>
+                    </div>
+                    <p className="text-gray-500 text-base mt-2">
+                      These will appear on your OnePage
+                    </p>
+                  </div>
+
+                  <div className="w-full max-w-[600px] flex gap-8">
+                    {/* Avatar section */}
+                    <div className="flex flex-col items-center shrink-0">
+                      <div
+                        className="w-24 h-24 rounded-full bg-[#F3F3F3] flex items-center justify-center overflow-hidden border-2 border-gray-200"
+                      >
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-3xl font-bold text-gray-400">
+                            {displayName.charAt(0).toUpperCase() || "A"}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => avatarInputRef.current?.click()}
+                        className="mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Edit
+                      </button>
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarSelect}
+                        className="hidden"
+                      />
+                    </div>
+
+                    {/* Social inputs */}
+                    <div className="flex-1 space-y-3">
+                      {/* Instagram */}
+                      <div className="flex items-center gap-3 px-5 h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                        <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
+                        <input
+                          type="text"
+                          value={socials.instagram}
+                          onChange={(e) => setSocials({ ...socials, instagram: e.target.value })}
+                          placeholder="@username"
+                          className="flex-1 text-base outline-none bg-transparent"
+                        />
+                      </div>
+
+                      {/* TikTok */}
+                      <div className="flex items-center gap-3 px-5 h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                        <TikTokIcon className="w-5 h-5 shrink-0" />
+                        <input
+                          type="text"
+                          value={socials.tiktok}
+                          onChange={(e) => setSocials({ ...socials, tiktok: e.target.value })}
+                          placeholder="@username"
+                          className="flex-1 text-base outline-none bg-transparent"
+                        />
+                      </div>
+
+                      {/* YouTube */}
+                      <div className="flex items-center gap-3 px-5 h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                        <Youtube className="w-5 h-5 text-red-500 shrink-0" />
+                        <input
+                          type="text"
+                          value={socials.youtube}
+                          onChange={(e) => setSocials({ ...socials, youtube: e.target.value })}
+                          placeholder="youtube.com/@username"
+                          className="flex-1 text-base outline-none bg-transparent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Template Selection */}
+              {currentStep === 4 && (
+                <div className="flex flex-col items-center">
+                  <div className="text-center mb-6">
+                    <div className="flex items-center justify-center gap-3">
+                      <h1 className="text-[42px] font-bold leading-tight">
+                        Select a template
+                      </h1>
+                      <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+                        <Pencil className="w-5 h-5 text-gray-400" />
+                      </button>
+                    </div>
+                    <p className="text-gray-500 text-base mt-2">
+                      Pick the style you want - you can change it later
+                    </p>
+                  </div>
+
+                  {/* Carousel */}
+                  <div className="relative w-full max-w-[700px]">
+                    {/* Left arrow */}
+                    <button
+                      onClick={() => setCarouselIndex(Math.max(0, carouselIndex - 1))}
+                      disabled={carouselIndex === 0}
+                      className={cn(
+                        "absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-opacity",
+                        carouselIndex === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
+                      )}
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+
+                    {/* Templates */}
+                    <div className="flex gap-3 overflow-hidden px-2">
+                      {visibleTemplates.map((template) => {
+                        const isSelected = selectedTemplate === template.id
+                        const bgStyle = template.theme_config.background_type === "gradient"
+                          ? { background: template.theme_config.background_gradient }
+                          : template.theme_config.background_type === "image"
+                          ? {
+                              background: `url(${template.theme_config.background_image_url}) center/cover`,
+                            }
+                          : { background: template.theme_config.background_color }
+
+                        return (
+                          <button
+                            key={template.id}
+                            onClick={() => setSelectedTemplate(template.id)}
+                            className={cn(
+                              "flex-1 min-w-[140px] aspect-[3/4] rounded-2xl overflow-hidden relative transition-all",
+                              isSelected ? "ring-2 ring-purple-600 ring-offset-2" : "hover:scale-105"
+                            )}
+                          >
+                            {/* Template preview */}
+                            <div
+                              className="w-full h-full p-3 flex flex-col items-center justify-center"
+                              style={bgStyle}
+                            >
+                              {/* Avatar preview */}
+                              <div
+                                className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/30"
+                              >
+                                {avatarUrl ? (
+                                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span
+                                    className="text-sm font-bold"
+                                    style={{ color: template.theme_config.text_color }}
+                                  >
+                                    {displayName.charAt(0).toUpperCase() || "A"}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Name preview */}
+                              <p
+                                className="text-xs font-semibold mt-2 truncate max-w-full"
+                                style={{ color: template.theme_config.text_color }}
+                              >
+                                {displayName || "Name"}
+                              </p>
+
+                              {/* Button preview */}
+                              <div
+                                className="mt-3 w-full h-6 rounded-lg"
+                                style={{
+                                  background: template.theme_config.button_color,
+                                  borderRadius: `${template.theme_config.button_border_radius || 8}px`
+                                }}
+                              />
+                              <div
+                                className="mt-1.5 w-full h-6 rounded-lg"
+                                style={{
+                                  background: template.theme_config.button_color,
+                                  borderRadius: `${template.theme_config.button_border_radius || 8}px`
+                                }}
+                              />
+                            </div>
+
+                            {/* Selected checkmark */}
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
+                                <Check className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+
+                            {/* Template name */}
+                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                              <p className="text-white text-xs font-medium text-center">
+                                {template.name}
+                              </p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Right arrow */}
+                    <button
+                      onClick={() => setCarouselIndex(Math.min(maxCarouselIndex, carouselIndex + 1))}
+                      disabled={carouselIndex >= maxCarouselIndex}
+                      className={cn(
+                        "absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-opacity",
+                        carouselIndex >= maxCarouselIndex ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
+                      )}
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Pagination dots */}
+                  <div className="flex justify-center gap-1.5 mt-4">
+                    {Array.from({ length: maxCarouselIndex + 1 }).map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setCarouselIndex(i)}
+                        className={cn(
+                          "w-2 h-2 rounded-full transition-colors",
+                          i === carouselIndex ? "bg-purple-600" : "bg-gray-300 hover:bg-gray-400"
+                        )}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 5: Setup */}
+              {currentStep === 5 && (
+                <div className="flex flex-col items-center justify-center min-h-[350px]">
+                  {/* Logo with pulse effect */}
+                  <div className="relative mb-6">
+                    {isSettingUp && (
+                      <>
+                        <div className="absolute inset-0 w-20 h-20 rounded-2xl bg-purple-400/30 animate-ping" />
+                        <div className="absolute inset-0 w-20 h-20 rounded-2xl bg-purple-400/20 animate-pulse" />
+                      </>
+                    )}
+                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden shadow-lg">
+                      <img
+                        src={STORELIB_LOGO_URL}
+                        alt="Storelib"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <div className="text-center">
+                    {isSettingUp ? (
+                      <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold">
+                          We're setting things up...
+                        </h1>
+                        <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                      </div>
+                    ) : setupComplete ? (
+                      <div className="flex items-center gap-3 animate-in fade-in zoom-in duration-500">
+                        <h1 className="text-2xl font-bold">
+                          Your OnePage is ready.
+                        </h1>
+                        <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center animate-in zoom-in duration-300">
+                          <Check className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Quote */}
+                  <div className="mt-8 text-center max-w-sm">
+                    <p className="text-gray-500 text-sm italic">
+                      "Logic will get you from A to B. Imagination will take you everywhere."
+                    </p>
+                    <p className="text-gray-400 text-xs mt-1">- Albert Einstein</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer with buttons - same for all steps */}
+            {currentStep < 5 && (
+              <div className="px-12 pb-8 pt-4 flex items-center justify-end gap-4">
+                {canSkip() && (
+                  <button
+                    onClick={handleSkip}
+                    className="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    Skip
+                  </button>
+                )}
+
                 <button
-                  onClick={() => setSelectedGoal("general")}
-                  className="w-full text-center text-sm text-gray-500 hover:text-gray-700 mt-4 py-2"
+                  onClick={handleNext}
+                  disabled={!canProceed()}
+                  className={cn(
+                    "px-8 py-3 rounded-xl font-semibold text-sm transition-all min-w-[140px]",
+                    canProceed()
+                      ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  )}
                 >
-                  None of these
+                  Next
                 </button>
               </div>
             )}
 
-            {/* Step 3: Socials & Profile */}
-            {currentStep === 3 && (
-              <div className="p-6 sm:p-8">
-                <div className="text-center mb-8">
-                  <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-                    Add your socials
-                  </h1>
-                  <p className="text-gray-500 text-sm sm:text-base">
-                    These will appear on your OnePage
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-6 sm:gap-8">
-                  {/* Avatar section */}
-                  <div className="flex flex-col items-center">
-                    <div
-                      className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200"
-                    >
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-3xl font-bold text-gray-400">
-                          {displayName.charAt(0).toUpperCase() || "A"}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => avatarInputRef.current?.click()}
-                      className="mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                      Edit
-                    </button>
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarSelect}
-                      className="hidden"
-                    />
-                  </div>
-
-                  {/* Social inputs */}
-                  <div className="flex-1 space-y-3">
-                    {/* Instagram */}
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-gray-400 transition-colors">
-                      <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
-                      <input
-                        type="text"
-                        value={socials.instagram}
-                        onChange={(e) => setSocials({ ...socials, instagram: e.target.value })}
-                        placeholder="@username"
-                        className="flex-1 text-base outline-none bg-transparent"
-                      />
-                    </div>
-
-                    {/* TikTok */}
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-gray-400 transition-colors">
-                      <TikTokIcon className="w-5 h-5 shrink-0" />
-                      <input
-                        type="text"
-                        value={socials.tiktok}
-                        onChange={(e) => setSocials({ ...socials, tiktok: e.target.value })}
-                        placeholder="@username"
-                        className="flex-1 text-base outline-none bg-transparent"
-                      />
-                    </div>
-
-                    {/* YouTube */}
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 focus-within:border-gray-400 transition-colors">
-                      <Youtube className="w-5 h-5 text-red-500 shrink-0" />
-                      <input
-                        type="text"
-                        value={socials.youtube}
-                        onChange={(e) => setSocials({ ...socials, youtube: e.target.value })}
-                        placeholder="youtube.com/@username"
-                        className="flex-1 text-base outline-none bg-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Template Selection */}
-            {currentStep === 4 && (
-              <div className="p-6 sm:p-8">
-                <div className="text-center mb-6">
-                  <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-                    Select a template
-                  </h1>
-                  <p className="text-gray-500 text-sm sm:text-base">
-                    Pick the style you want - you can change it later
-                  </p>
-                </div>
-
-                {/* Carousel */}
-                <div className="relative">
-                  {/* Left arrow */}
-                  <button
-                    onClick={() => setCarouselIndex(Math.max(0, carouselIndex - 1))}
-                    disabled={carouselIndex === 0}
-                    className={cn(
-                      "absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-opacity",
-                      carouselIndex === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
-                    )}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-
-                  {/* Templates */}
-                  <div className="flex gap-3 overflow-hidden px-2">
-                    {visibleTemplates.map((template) => {
-                      const isSelected = selectedTemplate === template.id
-                      const bgStyle = template.theme_config.background_type === "gradient"
-                        ? { background: template.theme_config.background_gradient }
-                        : template.theme_config.background_type === "image"
-                        ? {
-                            background: `url(${template.theme_config.background_image_url}) center/cover`,
-                          }
-                        : { background: template.theme_config.background_color }
-
-                      return (
-                        <button
-                          key={template.id}
-                          onClick={() => setSelectedTemplate(template.id)}
-                          className={cn(
-                            "flex-1 min-w-[100px] aspect-[3/4] rounded-2xl overflow-hidden relative transition-all",
-                            isSelected ? "ring-2 ring-purple-600 ring-offset-2" : "hover:scale-105"
-                          )}
-                        >
-                          {/* Template preview */}
-                          <div
-                            className="w-full h-full p-3 flex flex-col items-center justify-center"
-                            style={bgStyle}
-                          >
-                            {/* Avatar preview */}
-                            <div
-                              className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/30"
-                            >
-                              {avatarUrl ? (
-                                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <span
-                                  className="text-sm font-bold"
-                                  style={{ color: template.theme_config.text_color }}
-                                >
-                                  {displayName.charAt(0).toUpperCase() || "A"}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Name preview */}
-                            <p
-                              className="text-xs font-semibold mt-2 truncate max-w-full"
-                              style={{ color: template.theme_config.text_color }}
-                            >
-                              {displayName || "Name"}
-                            </p>
-
-                            {/* Button preview */}
-                            <div
-                              className="mt-3 w-full h-6 rounded-lg"
-                              style={{
-                                background: template.theme_config.button_color,
-                                borderRadius: `${template.theme_config.button_border_radius || 8}px`
-                              }}
-                            />
-                            <div
-                              className="mt-1.5 w-full h-6 rounded-lg"
-                              style={{
-                                background: template.theme_config.button_color,
-                                borderRadius: `${template.theme_config.button_border_radius || 8}px`
-                              }}
-                            />
-                          </div>
-
-                          {/* Selected checkmark */}
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center">
-                              <Check className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-
-                          {/* Template name */}
-                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                            <p className="text-white text-xs font-medium text-center">
-                              {template.name}
-                            </p>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/* Right arrow */}
-                  <button
-                    onClick={() => setCarouselIndex(Math.min(maxCarouselIndex, carouselIndex + 1))}
-                    disabled={carouselIndex >= maxCarouselIndex}
-                    className={cn(
-                      "absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-opacity",
-                      carouselIndex >= maxCarouselIndex ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
-                    )}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Pagination dots */}
-                <div className="flex justify-center gap-1.5 mt-4">
-                  {Array.from({ length: maxCarouselIndex + 1 }).map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setCarouselIndex(i)}
-                      className={cn(
-                        "w-2 h-2 rounded-full transition-colors",
-                        i === carouselIndex ? "bg-purple-600" : "bg-gray-300 hover:bg-gray-400"
-                      )}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 5: Setup */}
+            {/* Step 5 footer (no buttons, just padding) */}
             {currentStep === 5 && (
-              <div className="p-6 sm:p-8 flex flex-col items-center justify-center min-h-[400px]">
-                {/* Logo with pulse effect */}
-                <div className="relative mb-6">
-                  {isSettingUp && (
-                    <>
-                      <div className="absolute inset-0 w-20 h-20 rounded-2xl bg-purple-400/30 animate-ping" />
-                      <div className="absolute inset-0 w-20 h-20 rounded-2xl bg-purple-400/20 animate-pulse" />
-                    </>
-                  )}
-                  <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-lg">
-                    <span className="text-white text-3xl font-bold">S</span>
-                  </div>
-                </div>
-
-                {/* Title */}
-                <div className="text-center">
-                  {isSettingUp ? (
-                    <div className="flex items-center gap-2">
-                      <h1 className="text-xl sm:text-2xl font-bold">
-                        We're setting things up...
-                      </h1>
-                      <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
-                    </div>
-                  ) : setupComplete ? (
-                    <div className="flex items-center gap-2 animate-in fade-in zoom-in duration-500">
-                      <h1 className="text-xl sm:text-2xl font-bold">
-                        Your OnePage is ready.
-                      </h1>
-                      <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center animate-in zoom-in duration-300">
-                        <Check className="w-4 h-4 text-white" />
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Quote */}
-                <div className="mt-6 text-center max-w-sm">
-                  <p className="text-gray-500 text-sm italic">
-                    "Logic will get you from A to B. Imagination will take you everywhere."
-                  </p>
-                  <p className="text-gray-400 text-xs mt-1">- Albert Einstein</p>
-                </div>
-              </div>
+              <div className="h-16" />
             )}
           </div>
-
-          {/* Footer with buttons */}
-          {currentStep < 5 && (
-            <div className="px-6 sm:px-8 pb-6 sm:pb-8 pt-4 flex items-center justify-between border-t border-gray-100">
-              <button
-                onClick={handleSkip}
-                disabled={!canSkip()}
-                className={cn(
-                  "text-sm font-medium transition-colors",
-                  canSkip()
-                    ? "text-gray-500 hover:text-gray-700"
-                    : "text-gray-300 cursor-not-allowed"
-                )}
-              >
-                Skip
-              </button>
-
-              <button
-                onClick={handleNext}
-                disabled={!canProceed()}
-                className={cn(
-                  "px-6 py-2.5 rounded-xl font-semibold text-sm transition-all",
-                  canProceed()
-                    ? "bg-purple-600 text-white hover:bg-purple-700 shadow-md"
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                )}
-              >
-                Next
-              </button>
-            </div>
-          )}
-
-          {/* Skip button on step 5 (for loading/success) */}
-          {currentStep === 5 && !setupComplete && (
-            <div className="px-6 sm:px-8 pb-6 sm:pb-8 pt-4 flex items-center justify-between border-t border-gray-100">
-              <span />
-              <button
-                disabled
-                className="px-6 py-2.5 rounded-xl font-semibold text-sm bg-gray-200 text-gray-400 cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 
@@ -1549,14 +1706,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 setTempImageUrl(null)
                 setAvatarFile(null)
               }}
-              className="flex-1 py-2.5 rounded-xl font-medium text-sm border border-gray-200 hover:bg-gray-50 transition-colors"
+              className="flex-1 py-3 rounded-xl font-medium text-sm border border-gray-200 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleCropComplete}
               disabled={uploadingAvatar}
-              className="flex-1 py-2.5 rounded-xl font-medium text-sm bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-3 rounded-xl font-medium text-sm bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {uploadingAvatar ? (
                 <>
