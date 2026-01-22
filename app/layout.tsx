@@ -41,8 +41,8 @@ export const metadata: Metadata = {
   description: "The all-in-one platform for creators to sell digital products, courses, and paid communities.",
   generator: "Materia",
   icons: {
-    icon: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg",
-    apple: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg",
+    icon: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
+    apple: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
   },
 }
 

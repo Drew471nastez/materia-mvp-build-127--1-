@@ -8,12 +8,12 @@ interface DynamicFaviconProps {
 }
 
 // Platform favicon URL from Supabase storage
-const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
+const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
 
 /**
  * DynamicFavicon - Dynamically sets the page favicon
  * - On seller pages: Uses the seller's profile avatar with border-radius 7px
- * - On platform pages: Uses platform favicon (logostorelib.svg) with border-radius 7px
+ * - On platform pages: Uses platform favicon with border-radius 7px
  * - Seller favicons are NOT overridden by platform favicon
  */
 export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
