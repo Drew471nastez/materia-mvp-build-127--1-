@@ -1238,7 +1238,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     </div>
 
                     {/* Bio input */}
-                    <div className="flex items-start gap-3 px-5 py-4 min-h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                    <div className="flex items-start gap-3 px-5 py-4 min-h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
                       <svg className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -1451,7 +1451,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     {/* Social inputs */}
                     <div className="flex-1 space-y-3">
                       {/* Instagram */}
-                      <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                      <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
                         <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
                         <input
                           type="text"
@@ -1463,7 +1463,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                       </div>
 
                       {/* TikTok */}
-                      <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                      <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
                         <TikTokIcon className="w-5 h-5 shrink-0" />
                         <input
                           type="text"
@@ -1475,7 +1475,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                       </div>
 
                       {/* YouTube */}
-                      <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] focus-within:bg-white focus-within:ring-2 focus-within:ring-black transition-all">
+                      <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
                         <Youtube className="w-5 h-5 text-red-500 shrink-0" />
                         <input
                           type="text"
@@ -1573,7 +1573,16 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                 <>
                                   <div className="w-full h-8 rounded-md relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}15` }}>
                                     {avatarUrl ? (
-                                      <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                      <>
+                                        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                        {/* Fade gradient overlay like phone preview */}
+                                        <div
+                                          className="absolute inset-0 pointer-events-none"
+                                          style={{
+                                            background: `linear-gradient(to bottom, transparent 30%, ${template.theme_config.background_type === 'gradient' ? template.theme_config.background_color : template.theme_config.background_color} 100%)`
+                                          }}
+                                        />
+                                      </>
                                     ) : (
                                       <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
                                         <span className="text-[8px] font-bold" style={{ color: template.theme_config.text_color }}>
@@ -1805,11 +1814,20 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                                 {/* Check if hero layout */}
                                 {((template as any).profile_layout === "hero" || (template.theme_config as any).header_layout === "hero") ? (
-                                  /* Hero layout: wide banner-style header with user avatar - like phone preview */
+                                  /* Hero layout: wide banner-style header with user avatar - like phone preview with fade */
                                   <>
                                     <div className="w-full h-14 rounded-lg relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}15` }}>
                                       {avatarUrl ? (
-                                        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                        <>
+                                          <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                          {/* Fade gradient overlay like phone preview */}
+                                          <div
+                                            className="absolute inset-0 pointer-events-none"
+                                            style={{
+                                              background: `linear-gradient(to bottom, transparent 30%, ${template.theme_config.background_type === 'gradient' ? template.theme_config.background_color : template.theme_config.background_color} 100%)`
+                                            }}
+                                          />
+                                        </>
                                       ) : (
                                         <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
                                           <span className="text-sm font-bold" style={{ color: template.theme_config.text_color }}>
@@ -1950,7 +1968,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   </div>
 
                   {/* Divider */}
-                  <div className="w-24 h-px bg-gray-200 mt-6 sm:mt-8" />
+                  <div className="w-36 h-px bg-gray-200 mt-6 sm:mt-8" />
 
                   {/* Quote - centered with purple accolades */}
                   <div className="mt-4 sm:mt-5 text-center max-w-sm px-4">
