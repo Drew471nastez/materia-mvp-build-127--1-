@@ -7,7 +7,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
 export const metadata = {
-  title: "Orders | Materia",
+  title: "Orders | Storelib",
 }
 
 export default async function OrdersPage() {

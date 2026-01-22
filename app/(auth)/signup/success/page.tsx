@@ -7,7 +7,7 @@ export default function SignUpSuccessPage() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-6">
           <Link href="/" className="flex items-center justify-center gap-2">
-            <span className="text-xl font-semibold tracking-tight">Materia</span>
+            <span className="text-xl font-semibold tracking-tight">Storelib</span>
           </Link>
           <Card>
             <CardHeader>

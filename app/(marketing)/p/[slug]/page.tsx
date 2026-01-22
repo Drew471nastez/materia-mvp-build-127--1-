@@ -74,7 +74,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
     .maybeSingle()
 
   if (!product) {
-    return { title: "Product Not Found | Materia" }
+    return { title: "Product Not Found | Storelib" }
   }
 
   // Fetch creator's published config for favicon
@@ -87,8 +87,8 @@ export async function generateMetadata({ params }: ProductPageProps) {
   }
 
   return {
-    title: `${product.title} | Materia`,
-    description: product.description || "Check out this product on Materia",
+    title: `${product.title} | Storelib`,
+    description: product.description || "Check out this product on Storelib",
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,

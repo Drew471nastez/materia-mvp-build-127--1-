@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
   const { username } = await params
 
   if (isReservedWord(username)) {
-    return { title: "Page Not Found | Materia" }
+    return { title: "Page Not Found | Storelib" }
   }
 
   const supabase = await createClient()
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     .maybeSingle()
 
   if (!profile) {
-    return { title: "Creator Not Found | Materia" }
+    return { title: "Creator Not Found | Storelib" }
   }
 
   // Fetch creator to get published config for favicon
@@ -55,8 +55,8 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
   }
 
   return {
-    title: `${profile.display_name || profile.username || "Creator"} | Materia`,
-    description: `Check out ${profile.display_name || profile.username}'s products on Materia`,
+    title: `${profile.display_name || profile.username || "Creator"} | Storelib`,
+    description: `Check out ${profile.display_name || profile.username}'s products on Storelib`,
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,

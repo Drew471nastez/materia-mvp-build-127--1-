@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Users } from "lucide-react"
 
 export const metadata = {
-  title: "Customers | Materia",
+  title: "Customers | Storelib",
 }
 
 export default async function CustomersPage() {

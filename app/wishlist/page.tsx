@@ -5,7 +5,7 @@ import { PlatformHeaderClient } from "@/components/platform/platform-header-clie
 import { Skeleton } from "@/components/ui/skeleton"
 
 export const metadata: Metadata = {
-  title: "My Wishlist | Materia",
+  title: "My Wishlist | Storelib",
   description: "Your saved products",
 }
 

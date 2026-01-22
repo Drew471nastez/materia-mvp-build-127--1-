@@ -40,7 +40,7 @@ export function DashboardSidebar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground shrink-0">
             <span className="text-sm font-bold text-background">M</span>
           </div>
-          <span className="text-lg font-semibold tracking-tight truncate">Materia</span>
+          <span className="text-lg font-semibold tracking-tight truncate">Storelib</span>
         </Link>
       </div>
 
@@ -94,7 +94,7 @@ export function DashboardSidebar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground shrink-0">
             <span className="text-sm font-bold text-background">M</span>
           </div>
-          <span className="text-lg font-semibold tracking-tight">Materia</span>
+          <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>
         <Button
           variant="ghost"

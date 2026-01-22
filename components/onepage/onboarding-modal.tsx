@@ -1152,24 +1152,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           style={{
             // @ts-ignore
             "--tw-backdrop-blur": "blur(8px)",
-            // Dynamic mobile height based on step - taller for steps with more content
-            maxHeight: typeof window !== 'undefined' && window.innerWidth < 640
-              ? (currentStep === 1 || currentStep === 3)
-                ? 'calc(100dvh - 32px)' // 10% more height for step 1 and 3
-                : currentStep === 5
-                ? 'calc(100dvh - 48px)'
-                : 'calc(100dvh - 48px)'
-              : undefined,
           }}
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <div className={cn(
-            "flex flex-col h-full sm:max-h-[540px] bg-white",
-            // Mobile height adjustments per step
-            "max-sm:max-h-[calc(100dvh-32px)]",
-            (currentStep === 1 || currentStep === 3) && "max-sm:max-h-[calc(100dvh-24px)]"
-          )}>
+          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[calc(100dvh-24px)] bg-white">
             {/* Progress bar - centered, 8px height, more border radius */}
             <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
@@ -1182,6 +1169,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
             <div className={cn(
               "flex-1 min-h-0 overflow-y-auto transition-all duration-200 px-4 sm:px-12 pt-3 sm:pt-6",
+              // Add bottom padding on mobile for steps with inputs to prevent clipping
+              (currentStep === 1 || currentStep === 3) && "max-sm:pb-4",
+              currentStep === 2 && "max-sm:pb-2",
               isAnimating && slideDirection === "right" && "opacity-0 translate-x-4",
               isAnimating && slideDirection === "left" && "opacity-0 -translate-x-4"
             )}>
@@ -1413,14 +1403,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                       </div>
                     </button>
                   </div>
-
-                  {/* None of these option */}
-                  <button
-                    onClick={() => setSelectedGoal("general")}
-                    className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 mt-3 sm:mt-4 py-2"
-                  >
-                    None of these
-                  </button>
                 </div>
               )}
 
@@ -1589,9 +1571,15 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                               )}
                               {isHeroLayout ? (
                                 <>
-                                  <div className="w-full h-6 rounded-md relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
-                                    {avatarUrl && (
-                                      <img src={avatarUrl} alt="" className="w-full h-full object-cover opacity-50" />
+                                  <div className="w-full h-8 rounded-md relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}15` }}>
+                                    {avatarUrl ? (
+                                      <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
+                                        <span className="text-[8px] font-bold" style={{ color: template.theme_config.text_color }}>
+                                          {displayName.charAt(0).toUpperCase() || "A"}
+                                        </span>
+                                      </div>
                                     )}
                                   </div>
                                   <div className="w-10 h-1.5 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
@@ -1817,11 +1805,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                                 {/* Check if hero layout */}
                                 {((template as any).profile_layout === "hero" || (template.theme_config as any).header_layout === "hero") ? (
-                                  /* Hero layout: wide banner-style header with user avatar */
+                                  /* Hero layout: wide banner-style header with user avatar - like phone preview */
                                   <>
-                                    <div className="w-full h-10 rounded-lg relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
-                                      {avatarUrl && (
-                                        <img src={avatarUrl} alt="" className="w-full h-full object-cover opacity-50" />
+                                    <div className="w-full h-14 rounded-lg relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}15` }}>
+                                      {avatarUrl ? (
+                                        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
+                                          <span className="text-sm font-bold" style={{ color: template.theme_config.text_color }}>
+                                            {displayName.charAt(0).toUpperCase() || "A"}
+                                          </span>
+                                        </div>
                                       )}
                                     </div>
                                     <div className="w-16 h-2 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
@@ -1956,7 +1950,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   </div>
 
                   {/* Divider */}
-                  <div className="w-16 h-px bg-gray-200 mt-6 sm:mt-8" />
+                  <div className="w-24 h-px bg-gray-200 mt-6 sm:mt-8" />
 
                   {/* Quote - centered with purple accolades */}
                   <div className="mt-4 sm:mt-5 text-center max-w-sm px-4">

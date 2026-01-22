@@ -1596,10 +1596,9 @@ export function LinksTab() {
                 setEditBio(onepage.bio || "")
                 setShowNameBioModal(true)
               }}
-              className="text-left mt-0.5 group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+              className="text-left mt-0.5 hover:opacity-70 transition-opacity"
             >
               <p className="text-sm text-muted-foreground line-clamp-2">{onepage.bio}</p>
-              <Pencil className="h-3 w-3 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />
             </button>
           ) : (
             <button
@@ -1608,10 +1607,9 @@ export function LinksTab() {
                 setEditBio("")
                 setShowNameBioModal(true)
               }}
-              className="text-left mt-0.5 group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+              className="text-left mt-0.5 hover:opacity-70 transition-opacity"
             >
               <p className="text-sm text-gray-400 italic">Add your bio...</p>
-              <Pencil className="h-3 w-3 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />
             </button>
           )}
           <div className="flex gap-1.5 mt-1.5 flex-wrap">

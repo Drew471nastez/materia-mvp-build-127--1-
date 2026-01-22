@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Privacy Policy | Materia",
-  description: "Privacy Policy for Materia",
+  title: "Privacy Policy | Storelib",
+  description: "Privacy Policy for Storelib",
 }
 
 export default function PrivacyPage() {

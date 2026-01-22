@@ -255,7 +255,7 @@ export default function OnboardingPage() {
         <div className="w-full max-w-md">
           <Card className="border-border">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl font-semibold text-foreground">Welcome to Materia</CardTitle>
+              <CardTitle className="text-2xl font-semibold text-foreground">Welcome to Storelib</CardTitle>
               <CardDescription>Let's set up your account</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">

@@ -5,7 +5,7 @@ import { AnalyticsClient } from "./analytics-client"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Analytics | Materia",
+  title: "Analytics | Storelib",
 }
 
 export default async function AnalyticsPage() {
