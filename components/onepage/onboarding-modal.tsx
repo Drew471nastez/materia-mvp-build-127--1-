@@ -543,8 +543,12 @@ function Confetti({ show }: { show: boolean }) {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-[99999]"
-      style={{ width: "100vw", height: "100vh" }}
+      className="fixed inset-0 pointer-events-none"
+      style={{
+        width: "100vw",
+        height: "100vh",
+        zIndex: 2147483647, // Maximum z-index value
+      }}
     />
   )
 }
@@ -1144,9 +1148,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col h-full bg-white">
+          <div className="flex flex-col h-full max-h-screen bg-white">
             {/* Progress bar - centered, 8px height, more border radius */}
-            <div className="flex justify-center pt-6 sm:pt-8">
+            <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-purple-600 transition-all duration-500 ease-out rounded-full"
@@ -1156,18 +1160,18 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             </div>
 
             <div className={cn(
-              "flex-1 overflow-y-auto transition-all duration-200 px-4 sm:px-12 pt-4 sm:pt-6",
+              "flex-1 min-h-0 overflow-y-auto transition-all duration-200 px-4 sm:px-12 pt-3 sm:pt-6",
               isAnimating && slideDirection === "right" && "opacity-0 translate-x-4",
               isAnimating && slideDirection === "left" && "opacity-0 -translate-x-4"
             )}>
               {/* Step 1: Let's get started */}
               {currentStep === 1 && (
                 <div className="flex flex-col items-center">
-                  <div className="text-center mb-6 sm:mb-8">
-                    <h1 className="text-[28px] sm:text-[42px] font-bold leading-tight">
+                  <div className="text-center mb-4 sm:mb-8">
+                    <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
                       Let's get started <span className="inline-block">👋</span>
                     </h1>
-                    <p className="text-gray-500 text-sm sm:text-base mt-2">
+                    <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
                       Start with your name — everything can be changed later
                     </p>
                   </div>
@@ -1242,21 +1246,21 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {/* Step 2: Goal Selection */}
               {currentStep === 2 && (
                 <div className="flex flex-col items-center h-full">
-                  <div className="text-center mb-4 sm:mb-6 shrink-0">
-                    <h1 className="text-[28px] sm:text-[42px] font-bold leading-tight">
+                  <div className="text-center mb-3 sm:mb-6 shrink-0">
+                    <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
                       What's the goal here?
                     </h1>
-                    <p className="text-gray-500 text-sm sm:text-base mt-2">
+                    <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
                       We'll build your OnePage around this
                     </p>
                   </div>
 
-                  <div className="w-full max-w-[600px] grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 overflow-y-auto max-sm:max-h-[calc(100vh-320px)] max-sm:pb-2">
+                  <div className="w-full max-w-[600px] grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 overflow-y-auto max-sm:flex-1 max-sm:pb-2">
                     {/* General */}
                     <button
                       onClick={() => setSelectedGoal("general")}
                       className={cn(
-                        "p-5 rounded-2xl border-2 text-left transition-all",
+                        "p-3.5 sm:p-5 rounded-2xl border-2 text-left transition-all",
                         selectedGoal === "general"
                           ? "border-black bg-gray-50"
                           : "border-gray-200 hover:border-gray-300"
@@ -1290,7 +1294,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     <button
                       onClick={() => setSelectedGoal("artist")}
                       className={cn(
-                        "p-5 rounded-2xl border-2 text-left transition-all",
+                        "p-3.5 sm:p-5 rounded-2xl border-2 text-left transition-all",
                         selectedGoal === "artist"
                           ? "border-black bg-gray-50"
                           : "border-gray-200 hover:border-gray-300"
@@ -1324,7 +1328,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     <button
                       onClick={() => setSelectedGoal("digital")}
                       className={cn(
-                        "p-5 rounded-2xl border-2 text-left transition-all",
+                        "p-3.5 sm:p-5 rounded-2xl border-2 text-left transition-all",
                         selectedGoal === "digital"
                           ? "border-black bg-gray-50"
                           : "border-gray-200 hover:border-gray-300"
@@ -1358,7 +1362,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     <button
                       onClick={() => setSelectedGoal("business")}
                       className={cn(
-                        "p-5 rounded-2xl border-2 text-left transition-all",
+                        "p-3.5 sm:p-5 rounded-2xl border-2 text-left transition-all",
                         selectedGoal === "business"
                           ? "border-black bg-gray-50"
                           : "border-gray-200 hover:border-gray-300"
@@ -1402,16 +1406,16 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {/* Step 3: Socials & Profile */}
               {currentStep === 3 && (
                 <div className="flex flex-col items-center">
-                  <div className="text-center mb-4 sm:mb-8">
-                    <h1 className="text-[28px] sm:text-[42px] font-bold leading-tight">
+                  <div className="text-center mb-3 sm:mb-8">
+                    <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
                       Add your socials
                     </h1>
-                    <p className="text-gray-500 text-sm sm:text-base mt-2">
+                    <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
                       These will appear on your OnePage
                     </p>
                   </div>
 
-                  <div className="w-full max-w-[600px] flex flex-col sm:flex-row gap-6 sm:gap-8">
+                  <div className="w-full max-w-[600px] flex flex-col sm:flex-row gap-4 sm:gap-8">
                     {/* Avatar section - centered on mobile, left on desktop */}
                     <div className="flex flex-col items-center shrink-0">
                       <div
@@ -1485,18 +1489,18 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
               {/* Step 4: Template Selection */}
               {currentStep === 4 && (
-                <div className="flex flex-col items-center">
-                  <div className="text-center mb-4 sm:mb-6">
-                    <h1 className="text-[28px] sm:text-[42px] font-bold leading-tight">
+                <div className="flex flex-col items-center h-full">
+                  <div className="text-center mb-3 sm:mb-6 shrink-0">
+                    <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
                       Select a template
                     </h1>
-                    <p className="text-gray-500 text-sm sm:text-base mt-2">
+                    <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
                       Pick the style you want - you can change it later
                     </p>
                   </div>
 
                   {/* Mobile: Grid layout with scroll */}
-                  <div className="sm:hidden w-full overflow-y-auto max-h-[calc(100vh-280px)] px-2 py-2">
+                  <div className="sm:hidden w-full flex-1 min-h-0 overflow-y-auto px-2 py-2">
                     <div className="grid grid-cols-2 gap-3 pb-4 px-1">
                       {THEME_TEMPLATES.map((template) => {
                         const isSelected = selectedTemplate === template.id
@@ -1916,8 +1920,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             {currentStep < 5 && (
               <div className={cn(
                 "px-4 sm:px-12 pt-2 flex items-center justify-between shrink-0",
-                // Extra bottom padding for goal step to move buttons up
-                currentStep === 2 ? "pb-6 sm:pb-5" : "pb-4 sm:pb-3"
+                // Mobile: safe area padding, Desktop: more padding for goal slide
+                "pb-[max(16px,env(safe-area-inset-bottom))] sm:pb-4",
+                // Extra padding for goal step to move buttons up
+                currentStep === 2 && "max-sm:pb-[max(20px,env(safe-area-inset-bottom))] sm:pb-6"
               )}>
                 {/* Back button - left side */}
                 <div>

@@ -1693,7 +1693,10 @@ export function LinksTab() {
         <Button
           variant={showArchiveView ? "default" : "outline"}
           size="sm"
-          className="text-xs h-8"
+          className={cn(
+            "text-xs h-8",
+            showArchiveView && "bg-purple-600 hover:bg-purple-700 text-white"
+          )}
           onClick={() => setShowArchiveView(!showArchiveView)}
         >
           <Archive className="h-3 w-3 mr-1" />
