@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { OnboardingModal } from "./onboarding-modal"
 
 // Settings Filter Icon SVG Component
 const SettingsFilterIcon = ({ className }: { className?: string }) => (
@@ -192,6 +193,9 @@ function EditorLayout() {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
+
+  // Onboarding modal state - DEV TEST MODE: shows every time (later: show once via localStorage)
+  const [showOnboarding, setShowOnboarding] = useState(true)
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {
@@ -739,6 +743,17 @@ function EditorLayout() {
         onUpgrade={handleUpgradeToPro}
         onDiscard={handleDiscardProChanges}
         onKeepEditing={handleKeepEditing}
+      />
+
+      {/* Onboarding Modal - shown on first visit */}
+      <OnboardingModal
+        open={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={(data) => {
+          console.log("Onboarding complete:", data)
+          setShowOnboarding(false)
+          // In production, save to localStorage: localStorage.setItem('onepage_onboarding_complete', 'true')
+        }}
       />
     </div>
   )
