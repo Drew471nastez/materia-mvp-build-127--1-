@@ -486,7 +486,7 @@ function Confetti({ show }: { show: boolean }) {
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
 
-    const colors = ["#ff6b6b", "#4ecdc4", "#ffe66d", "#a78bfa", "#f472b6", "#34d399", "#60a5fa", "#fbbf24"]
+    const colors = ["#ff6b6b", "#4ecdc4", "#ffe66d", "#a78bfa", "#f472b6", "#34d399", "#60a5fa", "#fbbf24", "#8b5cf6", "#ec4899"]
     const confettiPieces: Array<{
       x: number
       y: number
@@ -497,27 +497,29 @@ function Confetti({ show }: { show: boolean }) {
       speedY: number
       rotationSpeed: number
       shape: "rect" | "circle"
+      opacity: number
     }> = []
 
-    // Create confetti from left and right
-    for (let i = 0; i < 150; i++) {
+    // Create confetti from left and right - more pieces for visibility
+    for (let i = 0; i < 200; i++) {
       const fromLeft = i % 2 === 0
       confettiPieces.push({
         x: fromLeft ? -20 : canvas.width + 20,
-        y: Math.random() * canvas.height * 0.6,
+        y: Math.random() * canvas.height * 0.5,
         rotation: Math.random() * 360,
         color: colors[Math.floor(Math.random() * colors.length)],
-        size: Math.random() * 10 + 5,
-        speedX: (fromLeft ? 1 : -1) * (Math.random() * 8 + 4),
+        size: Math.random() * 12 + 6, // Slightly larger pieces
+        speedX: (fromLeft ? 1 : -1) * (Math.random() * 10 + 5),
         speedY: Math.random() * 4 - 2,
         rotationSpeed: Math.random() * 10 - 5,
         shape: Math.random() > 0.5 ? "rect" : "circle",
+        opacity: 1,
       })
     }
 
     let animationId: number
     let frame = 0
-    const maxFrames = 210 // 3.5 seconds at 60fps
+    const maxFrames = 330 // 5.5 seconds at 60fps (2 seconds more)
 
     const animate = () => {
       if (frame >= maxFrames) {
@@ -529,7 +531,14 @@ function Confetti({ show }: { show: boolean }) {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
       confettiPieces.forEach((piece) => {
+        // Fade out in last 60 frames
+        const fadeStart = maxFrames - 60
+        if (frame > fadeStart) {
+          piece.opacity = 1 - (frame - fadeStart) / 60
+        }
+
         ctx.save()
+        ctx.globalAlpha = piece.opacity
         ctx.translate(piece.x, piece.y)
         ctx.rotate((piece.rotation * Math.PI) / 180)
         ctx.fillStyle = piece.color
@@ -544,11 +553,11 @@ function Confetti({ show }: { show: boolean }) {
 
         ctx.restore()
 
-        // Update position
-        piece.x += piece.speedX * (frame < 60 ? 1 : 0.95)
+        // Update position with smoother animation
+        piece.x += piece.speedX * (frame < 90 ? 1 : 0.97)
         piece.y += piece.speedY
-        piece.speedY += 0.15 // gravity
-        piece.speedX *= 0.99 // air resistance
+        piece.speedY += 0.12 // gentler gravity
+        piece.speedX *= 0.995 // gentler air resistance
         piece.rotation += piece.rotationSpeed
       })
 
@@ -568,7 +577,7 @@ function Confetti({ show }: { show: boolean }) {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-[100]"
+      className="fixed inset-0 pointer-events-none z-[9999]"
       style={{ width: "100vw", height: "100vh" }}
     />
   )
@@ -609,6 +618,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
   // Step 2 state
   const [selectedGoal, setSelectedGoal] = useState<"general" | "artist" | "digital" | "business" | null>(null)
+  const [loadedGoalIcons, setLoadedGoalIcons] = useState<Set<string>>(new Set())
 
   // Step 3 state
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -629,6 +639,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
   // Step 5 state
   const [isSettingUp, setIsSettingUp] = useState(false)
+  const [setupPhase, setSetupPhase] = useState<"setting-up" | "just-a-moment" | null>(null)
   const [setupComplete, setSetupComplete] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
 
@@ -762,15 +773,39 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       canvas.width = outputSize
       canvas.height = outputSize
 
-      // Calculate crop dimensions based on percentage
+      // Calculate crop dimensions for object-fit: cover behavior
       const container = cropContainerRef.current
       const containerRect = container.getBoundingClientRect()
-      const scaleX = img.naturalWidth / containerRect.width
-      const scaleY = img.naturalHeight / containerRect.height
+      const containerWidth = containerRect.width
+      const containerHeight = containerRect.height
 
-      const sourceX = (cropBox.x - cropBox.size / 2) * scaleX
-      const sourceY = (cropBox.y - cropBox.size / 2) * scaleY
-      const sourceSize = cropBox.size * Math.min(scaleX, scaleY)
+      // Calculate how the image is displayed with object-fit: cover
+      const imageAspect = img.naturalWidth / img.naturalHeight
+      const containerAspect = containerWidth / containerHeight
+
+      let displayWidth, displayHeight, offsetX, offsetY
+
+      if (imageAspect > containerAspect) {
+        // Image is wider - height fills container, width is cropped
+        displayHeight = containerHeight
+        displayWidth = containerHeight * imageAspect
+        offsetX = (displayWidth - containerWidth) / 2
+        offsetY = 0
+      } else {
+        // Image is taller - width fills container, height is cropped
+        displayWidth = containerWidth
+        displayHeight = containerWidth / imageAspect
+        offsetX = 0
+        offsetY = (displayHeight - containerHeight) / 2
+      }
+
+      // Scale factor from display size to natural size
+      const scale = img.naturalWidth / displayWidth
+
+      // Calculate source coordinates in natural image pixels
+      const sourceX = (cropBox.x + offsetX - cropBox.size / 2) * scale
+      const sourceY = (cropBox.y + offsetY - cropBox.size / 2) * scale
+      const sourceSize = cropBox.size * scale
 
       ctx.drawImage(
         img,
@@ -978,9 +1013,13 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const startSetup = async () => {
     setCurrentStep(5)
     setIsSettingUp(true)
+    setSetupPhase("setting-up")
 
-    // Wait 6 seconds
+    // Wait 6 seconds - "We're setting things up..."
     await new Promise((resolve) => setTimeout(resolve, 6000))
+
+    // Change to "Just a moment..." phase
+    setSetupPhase("just-a-moment")
 
     // Apply all changes
     try {
@@ -1013,7 +1052,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       console.error("Error during setup:", e)
     }
 
+    // Wait 3 more seconds - "Just a moment..."
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+
     setIsSettingUp(false)
+    setSetupPhase(null)
     setSetupComplete(true)
     setShowConfetti(true)
 
@@ -1126,9 +1169,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <div className="flex flex-col h-full bg-white">
-            {/* Progress bar - centered, 5px height, more border radius */}
+            {/* Progress bar - centered, 8px height, more border radius */}
             <div className="flex justify-center pt-8">
-              <div className="w-[200px] h-[5px] bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-[200px] h-[8px] bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-purple-600 transition-all duration-500 ease-out rounded-full"
                   style={{ width: `${progressWidth}%` }}
@@ -1221,7 +1264,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {/* Step 2: Goal Selection */}
               {currentStep === 2 && (
                 <div className="flex flex-col items-center">
-                  <div className="text-center mb-8">
+                  <div className="text-center mb-6">
                     <h1 className="text-[42px] font-bold leading-tight">
                       What's the goal here?
                     </h1>
@@ -1248,11 +1291,20 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             Covers all goals - links, business, and socials.
                           </p>
                         </div>
-                        <img
-                          src={GOAL_ICON_URLS.general}
-                          alt="General"
-                          className="w-12 h-12 rounded-[9px] object-cover shrink-0"
-                        />
+                        <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
+                          {!loadedGoalIcons.has("general") && (
+                            <div className="w-full h-full bg-gray-200 animate-pulse" />
+                          )}
+                          <img
+                            src={GOAL_ICON_URLS.general}
+                            alt="General"
+                            className={cn(
+                              "w-full h-full object-cover",
+                              !loadedGoalIcons.has("general") && "hidden"
+                            )}
+                            onLoad={() => setLoadedGoalIcons(prev => new Set(prev).add("general"))}
+                          />
+                        </div>
                       </div>
                     </button>
 
@@ -1273,11 +1325,20 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             Share my creative work with the world.
                           </p>
                         </div>
-                        <img
-                          src={GOAL_ICON_URLS.artist}
-                          alt="Artist"
-                          className="w-12 h-12 rounded-[9px] object-cover shrink-0"
-                        />
+                        <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
+                          {!loadedGoalIcons.has("artist") && (
+                            <div className="w-full h-full bg-gray-200 animate-pulse" />
+                          )}
+                          <img
+                            src={GOAL_ICON_URLS.artist}
+                            alt="Artist"
+                            className={cn(
+                              "w-full h-full object-cover",
+                              !loadedGoalIcons.has("artist") && "hidden"
+                            )}
+                            onLoad={() => setLoadedGoalIcons(prev => new Set(prev).add("artist"))}
+                          />
+                        </div>
                       </div>
                     </button>
 
@@ -1298,11 +1359,20 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             Sell my digital products to anyone.
                           </p>
                         </div>
-                        <img
-                          src={GOAL_ICON_URLS.digital}
-                          alt="Digital"
-                          className="w-12 h-12 rounded-[9px] object-cover shrink-0"
-                        />
+                        <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
+                          {!loadedGoalIcons.has("digital") && (
+                            <div className="w-full h-full bg-gray-200 animate-pulse" />
+                          )}
+                          <img
+                            src={GOAL_ICON_URLS.digital}
+                            alt="Digital"
+                            className={cn(
+                              "w-full h-full object-cover",
+                              !loadedGoalIcons.has("digital") && "hidden"
+                            )}
+                            onLoad={() => setLoadedGoalIcons(prev => new Set(prev).add("digital"))}
+                          />
+                        </div>
                       </div>
                     </button>
 
@@ -1323,11 +1393,20 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             Grow my business & convert customers.
                           </p>
                         </div>
-                        <img
-                          src={GOAL_ICON_URLS.business}
-                          alt="Business"
-                          className="w-12 h-12 rounded-[9px] object-cover shrink-0"
-                        />
+                        <div className="w-12 h-12 rounded-[9px] shrink-0 overflow-hidden">
+                          {!loadedGoalIcons.has("business") && (
+                            <div className="w-full h-full bg-gray-200 animate-pulse" />
+                          )}
+                          <img
+                            src={GOAL_ICON_URLS.business}
+                            alt="Business"
+                            className={cn(
+                              "w-full h-full object-cover",
+                              !loadedGoalIcons.has("business") && "hidden"
+                            )}
+                            onLoad={() => setLoadedGoalIcons(prev => new Set(prev).add("business"))}
+                          />
+                        </div>
                       </div>
                     </button>
                   </div>
@@ -1335,7 +1414,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   {/* None of these option */}
                   <button
                     onClick={() => setSelectedGoal("general")}
-                    className="text-sm text-gray-500 hover:text-gray-700 mt-6 py-2"
+                    className="text-sm text-gray-500 hover:text-gray-700 mt-4 py-2"
                   >
                     None of these
                   </button>
@@ -1439,27 +1518,107 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   </div>
 
                   {/* Carousel - with padding to prevent overflow */}
-                  <div className="relative w-full max-w-[700px] px-6">
+                  <div className="relative w-full max-w-[700px] px-8">
                     {/* Left arrow */}
                     <button
                       onClick={handleCarouselPrev}
                       disabled={carouselIndex === 0}
                       className={cn(
-                        "absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-all",
-                        carouselIndex === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
+                        "absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-all duration-200",
+                        carouselIndex === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 hover:shadow-xl"
                       )}
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </button>
 
-                    {/* Templates container with overflow hidden and padding */}
-                    <div className="overflow-hidden py-3">
+                    {/* Templates container with overflow hidden and padding for ring-offset */}
+                    <div className="overflow-hidden px-1 py-4">
                       <div
-                        className="flex gap-3 transition-transform duration-300 ease-out"
-                        style={{ transform: `translateX(0)` }}
+                        className="flex gap-3 transition-all duration-500 ease-out"
                       >
                         {visibleTemplates.map((template) => {
                           const isSelected = selectedTemplate === template.id
+
+                          // Get pattern SVG based on theme
+                          const getPatternOverlay = () => {
+                            const pattern = template.theme_config.background_pattern
+                            const patternColor = template.theme_config.pattern_color || "#ffffff"
+                            const opacity = template.theme_config.pattern_opacity === "high" ? 0.3 :
+                                           template.theme_config.pattern_opacity === "medium" ? 0.2 : 0.1
+
+                            if (!pattern || pattern === "none") return null
+
+                            if (pattern === "grid") {
+                              return (
+                                <div
+                                  className="absolute inset-0 pointer-events-none"
+                                  style={{
+                                    backgroundImage: `linear-gradient(${patternColor} 1px, transparent 1px), linear-gradient(90deg, ${patternColor} 1px, transparent 1px)`,
+                                    backgroundSize: "20px 20px",
+                                    opacity
+                                  }}
+                                />
+                              )
+                            }
+                            if (pattern === "stars") {
+                              return (
+                                <div
+                                  className="absolute inset-0 pointer-events-none"
+                                  style={{
+                                    backgroundImage: `radial-gradient(${patternColor} 1px, transparent 1px)`,
+                                    backgroundSize: "15px 15px",
+                                    opacity
+                                  }}
+                                />
+                              )
+                            }
+                            if (pattern === "waves") {
+                              return (
+                                <div
+                                  className="absolute inset-0 pointer-events-none"
+                                  style={{
+                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='20' viewBox='0 0 100 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21.184 20c.357-.13.72-.264 1.088-.402l1.768-.661C33.64 15.347 39.647 14 50 14c10.271 0 15.362 1.222 24.629 4.928.955.383 1.869.74 2.75 1.072h6.225c-2.51-.73-5.139-1.691-8.233-2.928C65.888 13.278 60.562 12 50 12c-10.626 0-16.855 1.397-26.66 5.063l-1.767.662c-2.475.923-4.66 1.674-6.724 2.275h6.335zm0-20C13.258 2.892 8.077 4 0 4V2c5.744 0 9.951-.574 14.85-2h6.334zM77.38 0C85.239 2.966 90.502 4 100 4V2c-6.842 0-11.386-.542-16.396-2h-6.225zM0 14c8.44 0 13.718-1.21 22.272-4.402l1.768-.661C33.64 5.347 39.647 4 50 4c10.271 0 15.362 1.222 24.629 4.928C84.112 12.722 89.438 14 100 14v-2c-10.271 0-15.362-1.222-24.629-4.928C65.888 3.278 60.562 2 50 2 39.374 2 33.145 3.397 23.34 7.063l-1.767.662C13.223 10.84 8.163 12 0 12v2z' fill='${encodeURIComponent(patternColor)}' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+                                    opacity
+                                  }}
+                                />
+                              )
+                            }
+                            if (pattern === "zigzag") {
+                              return (
+                                <div
+                                  className="absolute inset-0 pointer-events-none"
+                                  style={{
+                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='12' viewBox='0 0 40 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6.172L6.172 0h5.656L0 11.828V6.172zm40 5.656L28.172 0h5.656L40 6.172v5.656zM6.172 12l12-12h3.656l12 12h-5.656L20 3.828 11.828 12H6.172zm12 0L0 .172V0h11.172l8.828 8.828L28.828 0H40v.172L21.828 12h-3.656z' fill='${encodeURIComponent(patternColor)}' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+                                    opacity
+                                  }}
+                                />
+                              )
+                            }
+                            if (pattern === "organic") {
+                              return (
+                                <div
+                                  className="absolute inset-0 pointer-events-none"
+                                  style={{
+                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='52' height='26' viewBox='0 0 52 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='${encodeURIComponent(patternColor)}' fill-opacity='0.4'%3E%3Cpath d='M10 10c0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6h2c0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4v2c-3.314 0-6-2.686-6-6 0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6zm25.464-1.95l8.486 8.486-1.414 1.414-8.486-8.486 1.414-1.414z' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                                    opacity
+                                  }}
+                                />
+                              )
+                            }
+                            if (pattern === "morph") {
+                              return (
+                                <div
+                                  className="absolute inset-0 pointer-events-none"
+                                  style={{
+                                    backgroundImage: `radial-gradient(ellipse at 20% 30%, ${patternColor} 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, ${patternColor} 0%, transparent 50%)`,
+                                    opacity
+                                  }}
+                                />
+                              )
+                            }
+                            return null
+                          }
+
                           const bgStyle = template.theme_config.background_type === "gradient"
                             ? { background: template.theme_config.background_gradient }
                             : template.theme_config.background_type === "image"
@@ -1475,18 +1634,21 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                               key={template.id}
                               onClick={() => setSelectedTemplate(template.id)}
                               className={cn(
-                                "flex-1 min-w-[140px] aspect-[3/4] rounded-2xl overflow-hidden relative transition-shadow",
+                                "flex-1 min-w-[140px] aspect-[3/4] rounded-2xl overflow-hidden relative transition-all duration-300",
                                 isSelected ? "ring-2 ring-purple-600 ring-offset-2" : ""
                               )}
                             >
                               {/* Template preview */}
                               <div
-                                className="w-full h-full p-3 flex flex-col items-center justify-center"
+                                className="w-full h-full p-3 flex flex-col items-center justify-center relative"
                                 style={bgStyle}
                               >
+                                {/* Pattern overlay */}
+                                {getPatternOverlay()}
+
                                 {/* Avatar preview */}
                                 <div
-                                  className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/30"
+                                  className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/30 relative z-10"
                                 >
                                   {avatarUrl ? (
                                     <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -1502,7 +1664,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                                 {/* Name preview */}
                                 <p
-                                  className="text-xs font-semibold mt-2 truncate max-w-full"
+                                  className="text-xs font-semibold mt-2 truncate max-w-full relative z-10"
                                   style={{ color: template.theme_config.text_color }}
                                 >
                                   {displayName || "Name"}
@@ -1510,14 +1672,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                                 {/* Button preview */}
                                 <div
-                                  className="mt-3 w-full h-6"
+                                  className="mt-3 w-full h-6 relative z-10"
                                   style={{
                                     background: template.theme_config.button_color,
                                     borderRadius: `${template.theme_config.button_border_radius || 8}px`
                                   }}
                                 />
                                 <div
-                                  className="mt-1.5 w-full h-6"
+                                  className="mt-1.5 w-full h-6 relative z-10"
                                   style={{
                                     background: template.theme_config.button_color,
                                     borderRadius: `${template.theme_config.button_border_radius || 8}px`
@@ -1527,13 +1689,13 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                               {/* Selected checkmark */}
                               {isSelected && (
-                                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
+                                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center z-20">
                                   <Check className="w-4 h-4 text-white" />
                                 </div>
                               )}
 
                               {/* Template name */}
-                              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2 z-10">
                                 <p className="text-white text-xs font-medium text-center">
                                   {template.name}
                                 </p>
@@ -1549,8 +1711,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                       onClick={handleCarouselNext}
                       disabled={carouselIndex >= maxCarouselIndex}
                       className={cn(
-                        "absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-all",
-                        carouselIndex >= maxCarouselIndex ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
+                        "absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-all duration-200",
+                        carouselIndex >= maxCarouselIndex ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 hover:shadow-xl"
                       )}
                     >
                       <ChevronRight className="w-5 h-5" />
@@ -1595,10 +1757,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                   {/* Title - centered */}
                   <div className="text-center">
-                    {isSettingUp ? (
+                    {isSettingUp && setupPhase === "setting-up" ? (
                       <div className="flex items-center justify-center gap-3">
                         <h1 className="text-2xl font-bold">
                           We're setting things up...
+                        </h1>
+                        <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                      </div>
+                    ) : isSettingUp && setupPhase === "just-a-moment" ? (
+                      <div className="flex items-center justify-center gap-3 animate-in fade-in duration-300">
+                        <h1 className="text-2xl font-bold">
+                          Just a moment...
                         </h1>
                         <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
                       </div>
@@ -1614,10 +1783,12 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     ) : null}
                   </div>
 
-                  {/* Quote - centered */}
+                  {/* Quote - centered with purple accolades */}
                   <div className="mt-8 text-center max-w-sm">
                     <p className="text-gray-500 text-sm italic">
-                      "Logic will get you from A to B. Imagination will take you everywhere."
+                      <span className="text-purple-600 font-medium not-italic">"</span>
+                      Logic will get you from A to B. Imagination will take you everywhere.
+                      <span className="text-purple-600 font-medium not-italic">"</span>
                     </p>
                     <p className="text-gray-400 text-xs mt-1">- Albert Einstein</p>
                   </div>
@@ -1627,7 +1798,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
             {/* Footer with buttons - Back on left, Skip/Next on right */}
             {currentStep < 5 && (
-              <div className="px-12 pb-10 pt-4 flex items-center justify-between">
+              <div className="px-12 pb-6 pt-4 flex items-center justify-between shrink-0">
                 {/* Back button - left side */}
                 <div>
                   {currentStep > 1 && (
@@ -1684,14 +1855,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
           <div
             ref={cropContainerRef}
-            className="relative w-full aspect-square max-h-[60vh] bg-black overflow-hidden cursor-move touch-none"
+            className="relative w-full aspect-square max-h-[60vh] bg-gray-900 overflow-hidden cursor-move touch-none"
           >
             {tempImageUrl && (
               <>
                 <img
                   src={tempImageUrl}
                   alt=""
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover"
                   draggable={false}
                   onLoad={(e) => {
                     const img = e.target as HTMLImageElement
