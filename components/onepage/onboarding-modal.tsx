@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils"
 import { useOnePage } from "@/lib/onepage/context"
 import { createClient } from "@/lib/supabase/client"
 import {
-  Camera,
   Check,
   X,
   ChevronLeft,
@@ -19,6 +18,14 @@ import {
 
 // Storelib logo URL
 const STORELIB_LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+
+// Goal icon image URLs
+const GOAL_ICON_URLS = {
+  general: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20de121sign.svg",
+  artist: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/12115.svg",
+  digital: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/12551.svg",
+  business: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/53112.svg",
+}
 
 // Theme templates - exact copy from design-tab.tsx
 const THEME_TEMPLATES = [
@@ -458,36 +465,6 @@ const THEME_TEMPLATES = [
   },
 ]
 
-// Goal option icons
-const GoalIcons = {
-  general: (
-    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center">
-      <Camera className="w-6 h-6 text-white" />
-    </div>
-  ),
-  artist: (
-    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center">
-      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-      </svg>
-    </div>
-  ),
-  digital: (
-    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
-      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    </div>
-  ),
-  business: (
-    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
-      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-      </svg>
-    </div>
-  ),
-}
-
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -621,6 +598,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, removeBlock } = useOnePage()
   const [currentStep, setCurrentStep] = useState(1)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [slideDirection, setSlideDirection] = useState<"left" | "right">("right")
 
   // Step 1 state
   const [displayName, setDisplayName] = useState("")
@@ -847,6 +825,18 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     }
   }
 
+  // Touch handlers for crop
+  const handleCropTouchStart = (e: React.TouchEvent, resize?: boolean) => {
+    const touch = e.touches[0]
+    if (!touch) return
+    setDragStart({ x: touch.clientX, y: touch.clientY })
+    if (resize) {
+      setIsResizing(true)
+    } else {
+      setIsDragging(true)
+    }
+  }
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging && !isResizing) return
@@ -869,6 +859,30 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       }
     }
 
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging && !isResizing) return
+      if (!cropContainerRef.current) return
+      const touch = e.touches[0]
+      if (!touch) return
+
+      e.preventDefault()
+      const container = cropContainerRef.current
+      const rect = container.getBoundingClientRect()
+
+      if (isDragging) {
+        const newX = Math.max(cropBox.size / 2, Math.min(rect.width - cropBox.size / 2, touch.clientX - rect.left))
+        const newY = Math.max(cropBox.size / 2, Math.min(rect.height - cropBox.size / 2, touch.clientY - rect.top))
+        setCropBox((prev) => ({ ...prev, x: newX, y: newY }))
+      } else if (isResizing) {
+        const dx = touch.clientX - dragStart.x
+        const dy = touch.clientY - dragStart.y
+        const delta = Math.max(dx, dy)
+        const newSize = Math.max(50, Math.min(Math.min(rect.width, rect.height) - 20, cropBox.size + delta))
+        setCropBox((prev) => ({ ...prev, size: newSize }))
+        setDragStart({ x: touch.clientX, y: touch.clientY })
+      }
+    }
+
     const handleMouseUp = () => {
       setIsDragging(false)
       setIsResizing(false)
@@ -877,11 +891,15 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     if (isDragging || isResizing) {
       window.addEventListener("mousemove", handleMouseMove)
       window.addEventListener("mouseup", handleMouseUp)
+      window.addEventListener("touchmove", handleTouchMove, { passive: false })
+      window.addEventListener("touchend", handleMouseUp)
     }
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove)
       window.removeEventListener("mouseup", handleMouseUp)
+      window.removeEventListener("touchmove", handleTouchMove)
+      window.removeEventListener("touchend", handleMouseUp)
     }
   }, [isDragging, isResizing, cropBox, dragStart])
 
@@ -926,6 +944,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const handleNext = () => {
     if (!canProceed()) return
 
+    setSlideDirection("right")
     setIsAnimating(true)
     setTimeout(() => {
       if (currentStep < 4) {
@@ -933,6 +952,18 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       } else {
         startSetup()
       }
+      setIsAnimating(false)
+    }, 200)
+  }
+
+  // Handle back step
+  const handleBack = () => {
+    if (currentStep <= 1) return
+
+    setSlideDirection("left")
+    setIsAnimating(true)
+    setTimeout(() => {
+      setCurrentStep(currentStep - 1)
       setIsAnimating(false)
     }, 200)
   }
@@ -1012,7 +1043,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
     switch (goal) {
       case "general":
-        // Header, social icons, My link, divider, newsletter
         addBlock("social_row")
         addBlock("link_button")
         addBlock("divider")
@@ -1020,16 +1050,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         break
 
       case "artist":
-        // Header, social icons, spotify, youtube, divider, newsletter
         addBlock("social_row")
-        addBlock("link_button") // For Spotify
-        addBlock("link_button") // For YouTube
+        addBlock("link_button")
+        addBlock("link_button")
         addBlock("divider")
         addBlock("email_capture")
         break
 
       case "digital":
-        // Header, social icons, digital product, my link, divider, newsletter
         addBlock("social_row")
         addBlock("product")
         addBlock("link_button")
@@ -1038,11 +1066,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         break
 
       case "business":
-        // Header, social icons, My link, instagram, linkedin, divider, newsletter
         addBlock("social_row")
         addBlock("link_button")
-        addBlock("link_button") // For Instagram
-        addBlock("link_button") // For LinkedIn
+        addBlock("link_button")
+        addBlock("link_button")
         addBlock("divider")
         addBlock("email_capture")
         break
@@ -1061,6 +1088,19 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     (carouselIndex + 1) * templatesPerPage
   )
 
+  // Carousel navigation with animation
+  const handleCarouselPrev = () => {
+    if (carouselIndex > 0) {
+      setCarouselIndex(carouselIndex - 1)
+    }
+  }
+
+  const handleCarouselNext = () => {
+    if (carouselIndex < maxCarouselIndex) {
+      setCarouselIndex(carouselIndex + 1)
+    }
+  }
+
   return (
     <>
       <Confetti show={showConfetti} />
@@ -1069,15 +1109,16 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         <DialogContent
           className={cn(
             "p-0 gap-0 overflow-hidden border-0",
-            // Desktop: centered modal with exact specs
-            "sm:w-[960px] sm:max-w-[960px] sm:h-[560px] sm:rounded-[44px]",
+            // Desktop: centered modal with exact specs - 948px width, 550px height
+            "sm:w-[948px] sm:max-w-[948px] sm:h-[550px] sm:rounded-[44px]",
             // Mobile: full screen white
             "w-full h-full max-sm:rounded-none max-sm:max-w-none",
             // Shadow
-            "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]"
+            "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+            // Hide the close button
+            "[&>button]:hidden"
           )}
           style={{
-            // Custom overlay blur
             // @ts-ignore
             "--tw-backdrop-blur": "blur(8px)",
           }}
@@ -1085,32 +1126,28 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <div className="flex flex-col h-full bg-white">
-            {/* Progress bar - centered, thin */}
+            {/* Progress bar - centered, 5px height, more border radius */}
             <div className="flex justify-center pt-8">
-              <div className="w-[200px] h-[3px] bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-[200px] h-[5px] bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-500 ease-out rounded-full"
+                  className="h-full bg-purple-600 transition-all duration-500 ease-out rounded-full"
                   style={{ width: `${progressWidth}%` }}
                 />
               </div>
             </div>
 
             <div className={cn(
-              "flex-1 overflow-y-auto transition-opacity duration-200 px-12 pt-6",
-              isAnimating && "opacity-0"
+              "flex-1 overflow-y-auto transition-all duration-200 px-12 pt-6",
+              isAnimating && slideDirection === "right" && "opacity-0 translate-x-4",
+              isAnimating && slideDirection === "left" && "opacity-0 -translate-x-4"
             )}>
               {/* Step 1: Let's get started */}
               {currentStep === 1 && (
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-8">
-                    <div className="flex items-center justify-center gap-3">
-                      <h1 className="text-[42px] font-bold leading-tight">
-                        Let's get started
-                      </h1>
-                      <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-                        <Pencil className="w-5 h-5 text-gray-400" />
-                      </button>
-                    </div>
+                    <h1 className="text-[42px] font-bold leading-tight">
+                      Let's get started <span className="inline-block">👋</span>
+                    </h1>
                     <p className="text-gray-500 text-base mt-2">
                       Start with your name — everything can be changed later
                     </p>
@@ -1185,14 +1222,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {currentStep === 2 && (
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-8">
-                    <div className="flex items-center justify-center gap-3">
-                      <h1 className="text-[42px] font-bold leading-tight">
-                        What's the goal here?
-                      </h1>
-                      <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-                        <Pencil className="w-5 h-5 text-gray-400" />
-                      </button>
-                    </div>
+                    <h1 className="text-[42px] font-bold leading-tight">
+                      What's the goal here?
+                    </h1>
                     <p className="text-gray-500 text-base mt-2">
                       We'll build your OnePage around this
                     </p>
@@ -1216,7 +1248,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             Covers all goals - links, business, and socials.
                           </p>
                         </div>
-                        {GoalIcons.general}
+                        <img
+                          src={GOAL_ICON_URLS.general}
+                          alt="General"
+                          className="w-12 h-12 rounded-[9px] object-cover shrink-0"
+                        />
                       </div>
                     </button>
 
@@ -1237,7 +1273,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             Share my creative work with the world.
                           </p>
                         </div>
-                        {GoalIcons.artist}
+                        <img
+                          src={GOAL_ICON_URLS.artist}
+                          alt="Artist"
+                          className="w-12 h-12 rounded-[9px] object-cover shrink-0"
+                        />
                       </div>
                     </button>
 
@@ -1258,7 +1298,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             Sell my digital products to anyone.
                           </p>
                         </div>
-                        {GoalIcons.digital}
+                        <img
+                          src={GOAL_ICON_URLS.digital}
+                          alt="Digital"
+                          className="w-12 h-12 rounded-[9px] object-cover shrink-0"
+                        />
                       </div>
                     </button>
 
@@ -1279,7 +1323,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             Grow my business & convert customers.
                           </p>
                         </div>
-                        {GoalIcons.business}
+                        <img
+                          src={GOAL_ICON_URLS.business}
+                          alt="Business"
+                          className="w-12 h-12 rounded-[9px] object-cover shrink-0"
+                        />
                       </div>
                     </button>
                   </div>
@@ -1298,14 +1346,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {currentStep === 3 && (
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-8">
-                    <div className="flex items-center justify-center gap-3">
-                      <h1 className="text-[42px] font-bold leading-tight">
-                        Add your socials
-                      </h1>
-                      <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-                        <Pencil className="w-5 h-5 text-gray-400" />
-                      </button>
-                    </div>
+                    <h1 className="text-[42px] font-bold leading-tight">
+                      Add your socials
+                    </h1>
                     <p className="text-gray-500 text-base mt-2">
                       These will appear on your OnePage
                     </p>
@@ -1387,124 +1430,126 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               {currentStep === 4 && (
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-6">
-                    <div className="flex items-center justify-center gap-3">
-                      <h1 className="text-[42px] font-bold leading-tight">
-                        Select a template
-                      </h1>
-                      <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-                        <Pencil className="w-5 h-5 text-gray-400" />
-                      </button>
-                    </div>
+                    <h1 className="text-[42px] font-bold leading-tight">
+                      Select a template
+                    </h1>
                     <p className="text-gray-500 text-base mt-2">
                       Pick the style you want - you can change it later
                     </p>
                   </div>
 
-                  {/* Carousel */}
-                  <div className="relative w-full max-w-[700px]">
+                  {/* Carousel - with padding to prevent overflow */}
+                  <div className="relative w-full max-w-[700px] px-6">
                     {/* Left arrow */}
                     <button
-                      onClick={() => setCarouselIndex(Math.max(0, carouselIndex - 1))}
+                      onClick={handleCarouselPrev}
                       disabled={carouselIndex === 0}
                       className={cn(
-                        "absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-opacity",
+                        "absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-all",
                         carouselIndex === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
                       )}
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </button>
 
-                    {/* Templates */}
-                    <div className="flex gap-3 overflow-hidden px-2">
-                      {visibleTemplates.map((template) => {
-                        const isSelected = selectedTemplate === template.id
-                        const bgStyle = template.theme_config.background_type === "gradient"
-                          ? { background: template.theme_config.background_gradient }
-                          : template.theme_config.background_type === "image"
-                          ? {
-                              background: `url(${template.theme_config.background_image_url}) center/cover`,
-                            }
-                          : { background: template.theme_config.background_color }
+                    {/* Templates container with overflow hidden and padding */}
+                    <div className="overflow-hidden py-3">
+                      <div
+                        className="flex gap-3 transition-transform duration-300 ease-out"
+                        style={{ transform: `translateX(0)` }}
+                      >
+                        {visibleTemplates.map((template) => {
+                          const isSelected = selectedTemplate === template.id
+                          const bgStyle = template.theme_config.background_type === "gradient"
+                            ? { background: template.theme_config.background_gradient }
+                            : template.theme_config.background_type === "image"
+                            ? {
+                                backgroundImage: `url(${template.theme_config.background_image_url})`,
+                                backgroundSize: "cover",
+                                backgroundPosition: "center",
+                              }
+                            : { background: template.theme_config.background_color }
 
-                        return (
-                          <button
-                            key={template.id}
-                            onClick={() => setSelectedTemplate(template.id)}
-                            className={cn(
-                              "flex-1 min-w-[140px] aspect-[3/4] rounded-2xl overflow-hidden relative transition-all",
-                              isSelected ? "ring-2 ring-purple-600 ring-offset-2" : "hover:scale-105"
-                            )}
-                          >
-                            {/* Template preview */}
-                            <div
-                              className="w-full h-full p-3 flex flex-col items-center justify-center"
-                              style={bgStyle}
+                          return (
+                            <button
+                              key={template.id}
+                              onClick={() => setSelectedTemplate(template.id)}
+                              className={cn(
+                                "flex-1 min-w-[140px] aspect-[3/4] rounded-2xl overflow-hidden relative transition-shadow",
+                                isSelected ? "ring-2 ring-purple-600 ring-offset-2" : ""
+                              )}
                             >
-                              {/* Avatar preview */}
+                              {/* Template preview */}
                               <div
-                                className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/30"
+                                className="w-full h-full p-3 flex flex-col items-center justify-center"
+                                style={bgStyle}
                               >
-                                {avatarUrl ? (
-                                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <span
-                                    className="text-sm font-bold"
-                                    style={{ color: template.theme_config.text_color }}
-                                  >
-                                    {displayName.charAt(0).toUpperCase() || "A"}
-                                  </span>
-                                )}
+                                {/* Avatar preview */}
+                                <div
+                                  className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border border-white/30"
+                                >
+                                  {avatarUrl ? (
+                                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span
+                                      className="text-sm font-bold"
+                                      style={{ color: template.theme_config.text_color }}
+                                    >
+                                      {displayName.charAt(0).toUpperCase() || "A"}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Name preview */}
+                                <p
+                                  className="text-xs font-semibold mt-2 truncate max-w-full"
+                                  style={{ color: template.theme_config.text_color }}
+                                >
+                                  {displayName || "Name"}
+                                </p>
+
+                                {/* Button preview */}
+                                <div
+                                  className="mt-3 w-full h-6"
+                                  style={{
+                                    background: template.theme_config.button_color,
+                                    borderRadius: `${template.theme_config.button_border_radius || 8}px`
+                                  }}
+                                />
+                                <div
+                                  className="mt-1.5 w-full h-6"
+                                  style={{
+                                    background: template.theme_config.button_color,
+                                    borderRadius: `${template.theme_config.button_border_radius || 8}px`
+                                  }}
+                                />
                               </div>
 
-                              {/* Name preview */}
-                              <p
-                                className="text-xs font-semibold mt-2 truncate max-w-full"
-                                style={{ color: template.theme_config.text_color }}
-                              >
-                                {displayName || "Name"}
-                              </p>
+                              {/* Selected checkmark */}
+                              {isSelected && (
+                                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
+                                  <Check className="w-4 h-4 text-white" />
+                                </div>
+                              )}
 
-                              {/* Button preview */}
-                              <div
-                                className="mt-3 w-full h-6 rounded-lg"
-                                style={{
-                                  background: template.theme_config.button_color,
-                                  borderRadius: `${template.theme_config.button_border_radius || 8}px`
-                                }}
-                              />
-                              <div
-                                className="mt-1.5 w-full h-6 rounded-lg"
-                                style={{
-                                  background: template.theme_config.button_color,
-                                  borderRadius: `${template.theme_config.button_border_radius || 8}px`
-                                }}
-                              />
-                            </div>
-
-                            {/* Selected checkmark */}
-                            {isSelected && (
-                              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
-                                <Check className="w-4 h-4 text-white" />
+                              {/* Template name */}
+                              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                                <p className="text-white text-xs font-medium text-center">
+                                  {template.name}
+                                </p>
                               </div>
-                            )}
-
-                            {/* Template name */}
-                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                              <p className="text-white text-xs font-medium text-center">
-                                {template.name}
-                              </p>
-                            </div>
-                          </button>
-                        )
-                      })}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
 
                     {/* Right arrow */}
                     <button
-                      onClick={() => setCarouselIndex(Math.min(maxCarouselIndex, carouselIndex + 1))}
+                      onClick={handleCarouselNext}
                       disabled={carouselIndex >= maxCarouselIndex}
                       className={cn(
-                        "absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-opacity",
+                        "absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center border border-gray-200 transition-all",
                         carouselIndex >= maxCarouselIndex ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
                       )}
                     >
@@ -1528,9 +1573,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 </div>
               )}
 
-              {/* Step 5: Setup */}
+              {/* Step 5: Setup - centered content */}
               {currentStep === 5 && (
-                <div className="flex flex-col items-center justify-center min-h-[350px]">
+                <div className="flex flex-col items-center justify-center h-full min-h-[350px]">
                   {/* Logo with pulse effect */}
                   <div className="relative mb-6">
                     {isSettingUp && (
@@ -1548,17 +1593,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     </div>
                   </div>
 
-                  {/* Title */}
+                  {/* Title - centered */}
                   <div className="text-center">
                     {isSettingUp ? (
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center gap-3">
                         <h1 className="text-2xl font-bold">
                           We're setting things up...
                         </h1>
                         <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
                       </div>
                     ) : setupComplete ? (
-                      <div className="flex items-center gap-3 animate-in fade-in zoom-in duration-500">
+                      <div className="flex items-center justify-center gap-3 animate-in fade-in zoom-in duration-500">
                         <h1 className="text-2xl font-bold">
                           Your OnePage is ready.
                         </h1>
@@ -1569,7 +1614,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     ) : null}
                   </div>
 
-                  {/* Quote */}
+                  {/* Quote - centered */}
                   <div className="mt-8 text-center max-w-sm">
                     <p className="text-gray-500 text-sm italic">
                       "Logic will get you from A to B. Imagination will take you everywhere."
@@ -1580,30 +1625,45 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               )}
             </div>
 
-            {/* Footer with buttons - same for all steps */}
+            {/* Footer with buttons - Back on left, Skip/Next on right */}
             {currentStep < 5 && (
-              <div className="px-12 pb-8 pt-4 flex items-center justify-end gap-4">
-                {canSkip() && (
-                  <button
-                    onClick={handleSkip}
-                    className="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
-                  >
-                    Skip
-                  </button>
-                )}
-
-                <button
-                  onClick={handleNext}
-                  disabled={!canProceed()}
-                  className={cn(
-                    "px-8 py-3 rounded-xl font-semibold text-sm transition-all min-w-[140px]",
-                    canProceed()
-                      ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
-                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              <div className="px-12 pb-10 pt-4 flex items-center justify-between">
+                {/* Back button - left side */}
+                <div>
+                  {currentStep > 1 && (
+                    <button
+                      onClick={handleBack}
+                      className="px-6 py-3 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      Back
+                    </button>
                   )}
-                >
-                  Next
-                </button>
+                </div>
+
+                {/* Skip and Next buttons - right side */}
+                <div className="flex items-center gap-4">
+                  {canSkip() && (
+                    <button
+                      onClick={handleSkip}
+                      className="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      Skip
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleNext}
+                    disabled={!canProceed()}
+                    className={cn(
+                      "px-8 py-3 rounded-lg font-semibold text-sm transition-all min-w-[140px]",
+                      canProceed()
+                        ? "bg-purple-600 text-white hover:bg-purple-700 shadow-md hover:shadow-lg"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    )}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1615,16 +1675,16 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         </DialogContent>
       </Dialog>
 
-      {/* Crop Modal */}
+      {/* Crop Modal - more responsive */}
       <Dialog open={showCropModal} onOpenChange={setShowCropModal}>
-        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl">
+        <DialogContent className="sm:max-w-md max-w-[95vw] p-0 gap-0 overflow-hidden rounded-2xl">
           <div className="p-4 border-b">
             <h2 className="text-lg font-semibold">Crop your photo</h2>
           </div>
 
           <div
             ref={cropContainerRef}
-            className="relative w-full aspect-square bg-black overflow-hidden cursor-move"
+            className="relative w-full aspect-square max-h-[60vh] bg-black overflow-hidden cursor-move touch-none"
           >
             {tempImageUrl && (
               <>
@@ -1632,6 +1692,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   src={tempImageUrl}
                   alt=""
                   className="w-full h-full object-contain"
+                  draggable={false}
                   onLoad={(e) => {
                     const img = e.target as HTMLImageElement
                     setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
@@ -1673,7 +1734,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                 {/* Crop circle */}
                 <div
-                  className="absolute border-2 border-white rounded-full pointer-events-auto cursor-move"
+                  className="absolute border-2 border-white rounded-full pointer-events-auto cursor-move touch-none"
                   style={{
                     left: cropBox.x - cropBox.size / 2,
                     top: cropBox.y - cropBox.size / 2,
@@ -1681,16 +1742,21 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     height: cropBox.size,
                   }}
                   onMouseDown={(e) => handleCropMouseDown(e)}
+                  onTouchStart={(e) => handleCropTouchStart(e)}
                 >
                   {/* Resize handle */}
                   <div
-                    className="absolute -right-2 -bottom-2 w-6 h-6 bg-white rounded-full shadow-md cursor-se-resize flex items-center justify-center"
+                    className="absolute -right-3 -bottom-3 w-8 h-8 bg-white rounded-full shadow-md cursor-se-resize flex items-center justify-center touch-none"
                     onMouseDown={(e) => {
                       e.stopPropagation()
                       handleCropMouseDown(e, true)
                     }}
+                    onTouchStart={(e) => {
+                      e.stopPropagation()
+                      handleCropTouchStart(e, true)
+                    }}
                   >
-                    <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                     </svg>
                   </div>
