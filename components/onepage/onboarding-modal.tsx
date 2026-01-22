@@ -997,30 +997,30 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         const divider = addBlock("divider")
         if (divider) createdBlocks.unshift({ id: divider.id, type: "divider" })
 
-        // YouTube block
+        // YouTube block - same as +add modal "YouTube" block
         const youtubeBlock = addBlock("link_button")
         if (youtubeBlock) {
           createdBlocks.unshift({ id: youtubeBlock.id, type: "link_button" })
           updateBlock(youtubeBlock.id, {
             data: {
+              ...youtubeBlock.data,
               label: "Subscribe on YouTube",
               url: "https://youtube.com/@",
-              icon: "youtube",
-              thumbnail_url: null
+              icon: "youtube"
             }
           })
         }
 
-        // Spotify block
+        // Spotify block - same as +add modal "Spotify" block
         const spotifyBlock = addBlock("link_button")
         if (spotifyBlock) {
           createdBlocks.unshift({ id: spotifyBlock.id, type: "link_button" })
           updateBlock(spotifyBlock.id, {
             data: {
+              ...spotifyBlock.data,
               label: "Listen on Spotify",
               url: "https://open.spotify.com/",
-              icon: "spotify",
-              thumbnail_url: null
+              icon: "spotify"
             }
           })
         }
@@ -1057,30 +1057,30 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         const divider = addBlock("divider")
         if (divider) createdBlocks.unshift({ id: divider.id, type: "divider" })
 
-        // LinkedIn block
+        // LinkedIn block - same as +add modal "LinkedIn" block
         const linkedinBlock = addBlock("link_button")
         if (linkedinBlock) {
           createdBlocks.unshift({ id: linkedinBlock.id, type: "link_button" })
           updateBlock(linkedinBlock.id, {
             data: {
+              ...linkedinBlock.data,
               label: "Connect on LinkedIn",
               url: "https://linkedin.com/in/",
-              icon: "linkedin",
-              thumbnail_url: null
+              icon: "linkedin"
             }
           })
         }
 
-        // Instagram block
+        // Instagram block - same as +add modal "Instagram" block
         const instagramBlock = addBlock("link_button")
         if (instagramBlock) {
           createdBlocks.unshift({ id: instagramBlock.id, type: "link_button" })
           updateBlock(instagramBlock.id, {
             data: {
+              ...instagramBlock.data,
               label: "Follow on Instagram",
               url: "https://instagram.com/",
-              icon: "instagram",
-              thumbnail_url: null
+              icon: "instagram"
             }
           })
         }
