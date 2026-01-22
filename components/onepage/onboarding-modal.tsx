@@ -1520,7 +1520,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         const isHeroLayout = (template as any).profile_layout === "hero" || (template.theme_config as any).header_layout === "hero"
                         const hasPattern = template.theme_config.background_pattern && template.theme_config.background_pattern !== "none"
                         const patternColor = template.theme_config.pattern_color || "#ffffff"
-                        const patternOpacity = template.theme_config.pattern_opacity === "high" ? 0.4 : template.theme_config.pattern_opacity === "medium" ? 0.25 : 0.15
+                        // Increased opacity for better visibility in thumbnails
+                        const patternOpacity = template.theme_config.pattern_opacity === "high" ? 0.7 : template.theme_config.pattern_opacity === "medium" ? 0.5 : 0.35
 
                         return (
                           <button
@@ -1548,17 +1549,59 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                               {isImageBg && (
                                 <div className="absolute inset-0 bg-black/50 z-[1]" />
                               )}
-                              {/* Pattern overlay for mobile */}
-                              {hasPattern && (
+                              {/* Pattern overlay for mobile - all pattern types */}
+                              {hasPattern && template.theme_config.background_pattern === "grid" && (
                                 <div
                                   className="absolute inset-0 pointer-events-none z-[2]"
                                   style={{
-                                    backgroundImage: template.theme_config.background_pattern === "grid"
-                                      ? `linear-gradient(${patternColor} 1px, transparent 1px), linear-gradient(90deg, ${patternColor} 1px, transparent 1px)`
-                                      : template.theme_config.background_pattern === "stars"
-                                      ? `radial-gradient(${patternColor} 1px, transparent 1px)`
-                                      : undefined,
-                                    backgroundSize: template.theme_config.background_pattern === "grid" ? "16px 16px" : "12px 12px",
+                                    backgroundImage: `linear-gradient(${patternColor} 1px, transparent 1px), linear-gradient(90deg, ${patternColor} 1px, transparent 1px)`,
+                                    backgroundSize: "16px 16px",
+                                    opacity: patternOpacity
+                                  }}
+                                />
+                              )}
+                              {hasPattern && template.theme_config.background_pattern === "stars" && (
+                                <div
+                                  className="absolute inset-0 pointer-events-none z-[2]"
+                                  style={{
+                                    backgroundImage: `radial-gradient(${patternColor} 1px, transparent 1px)`,
+                                    backgroundSize: "12px 12px",
+                                    opacity: patternOpacity
+                                  }}
+                                />
+                              )}
+                              {hasPattern && template.theme_config.background_pattern === "waves" && (
+                                <div
+                                  className="absolute inset-0 pointer-events-none z-[2]"
+                                  style={{
+                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='20' viewBox='0 0 100 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21.184 20c.357-.13.72-.264 1.088-.402l1.768-.661C33.64 15.347 39.647 14 50 14c10.271 0 15.362 1.222 24.629 4.928.955.383 1.869.74 2.75 1.072h6.225c-2.51-.73-5.139-1.691-8.233-2.928C65.888 13.278 60.562 12 50 12c-10.626 0-16.855 1.397-26.66 5.063l-1.767.662c-2.475.923-4.66 1.674-6.724 2.275h6.335zm0-20C13.258 2.892 8.077 4 0 4V2c5.744 0 9.951-.574 14.85-2h6.334zM77.38 0C85.239 2.966 90.502 4 100 4V2c-6.842 0-11.386-.542-16.396-2h-6.225zM0 14c8.44 0 13.718-1.21 22.272-4.402l1.768-.661C33.64 5.347 39.647 4 50 4c10.271 0 15.362 1.222 24.629 4.928C84.112 12.722 89.438 14 100 14v-2c-10.271 0-15.362-1.222-24.629-4.928C65.888 3.278 60.562 2 50 2 39.374 2 33.145 3.397 23.34 7.063l-1.767.662C13.223 10.84 8.163 12 0 12v2z' fill='${encodeURIComponent(patternColor)}' fill-opacity='0.5' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+                                    opacity: patternOpacity
+                                  }}
+                                />
+                              )}
+                              {hasPattern && template.theme_config.background_pattern === "zigzag" && (
+                                <div
+                                  className="absolute inset-0 pointer-events-none z-[2]"
+                                  style={{
+                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='12' viewBox='0 0 40 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6.172L6.172 0h5.656L0 11.828V6.172zm40 5.656L28.172 0h5.656L40 6.172v5.656zM6.172 12l12-12h3.656l12 12h-5.656L20 3.828 11.828 12H6.172zm12 0L0 .172V0h11.172l8.828 8.828L28.828 0H40v.172L21.828 12h-3.656z' fill='${encodeURIComponent(patternColor)}' fill-opacity='0.5' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+                                    opacity: patternOpacity
+                                  }}
+                                />
+                              )}
+                              {hasPattern && template.theme_config.background_pattern === "organic" && (
+                                <div
+                                  className="absolute inset-0 pointer-events-none z-[2]"
+                                  style={{
+                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='52' height='26' viewBox='0 0 52 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='${encodeURIComponent(patternColor)}' fill-opacity='0.5'%3E%3Cpath d='M10 10c0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6h2c0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4v2c-3.314 0-6-2.686-6-6 0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6zm25.464-1.95l8.486 8.486-1.414 1.414-8.486-8.486 1.414-1.414z' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                                    opacity: patternOpacity
+                                  }}
+                                />
+                              )}
+                              {hasPattern && template.theme_config.background_pattern === "morph" && (
+                                <div
+                                  className="absolute inset-0 pointer-events-none z-[2]"
+                                  style={{
+                                    backgroundImage: `radial-gradient(ellipse at 20% 30%, ${patternColor} 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, ${patternColor} 0%, transparent 50%)`,
                                     opacity: patternOpacity
                                   }}
                                 />
@@ -1570,29 +1613,32 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                 </div>
                               )}
                               {isHeroLayout ? (
+                                /* Hero layout for mobile: full height like phone preview */
                                 <>
-                                  <div className="w-full h-8 rounded-md relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}15` }}>
+                                  <div className="absolute top-0 left-0 right-0 h-[55%] z-10 overflow-hidden">
                                     {avatarUrl ? (
                                       <>
                                         <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                                        {/* Fade gradient overlay like phone preview */}
+                                        {/* Fade gradient overlay */}
                                         <div
                                           className="absolute inset-0 pointer-events-none"
                                           style={{
-                                            background: `linear-gradient(to bottom, transparent 30%, ${template.theme_config.background_type === 'gradient' ? template.theme_config.background_color : template.theme_config.background_color} 100%)`
+                                            background: `linear-gradient(to bottom, transparent 40%, ${template.theme_config.background_type === 'gradient' ? template.theme_config.background_color : template.theme_config.background_color} 100%)`
                                           }}
                                         />
                                       </>
                                     ) : (
                                       <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
-                                        <span className="text-[8px] font-bold" style={{ color: template.theme_config.text_color }}>
+                                        <span className="text-sm font-bold" style={{ color: template.theme_config.text_color }}>
                                           {displayName.charAt(0).toUpperCase() || "A"}
                                         </span>
                                       </div>
                                     )}
                                   </div>
-                                  <div className="w-10 h-1.5 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
-                                  <div className="w-8 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                  <div className="mt-auto mb-2 flex flex-col items-center gap-0.5 relative z-10">
+                                    <div className="w-10 h-1.5 rounded" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
+                                    <div className="w-8 h-1 rounded" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                  </div>
                                 </>
                               ) : (
                                 <>
@@ -1668,8 +1714,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                           const getPatternOverlay = () => {
                             const pattern = template.theme_config.background_pattern
                             const patternColor = template.theme_config.pattern_color || "#ffffff"
-                            const opacity = template.theme_config.pattern_opacity === "high" ? 0.4 :
-                                           template.theme_config.pattern_opacity === "medium" ? 0.25 : 0.15
+                            // Increased opacity for better visibility in thumbnails
+                            const opacity = template.theme_config.pattern_opacity === "high" ? 0.7 :
+                                           template.theme_config.pattern_opacity === "medium" ? 0.5 : 0.35
 
                             // Special handling for Neon theme - show cyan glow effect
                             if (template.id === "neon") {
@@ -1814,9 +1861,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                                 {/* Check if hero layout */}
                                 {((template as any).profile_layout === "hero" || (template.theme_config as any).header_layout === "hero") ? (
-                                  /* Hero layout: wide banner-style header with user avatar - like phone preview with fade */
+                                  /* Hero layout: full height header like phone preview with fade */
                                   <>
-                                    <div className="w-full h-14 rounded-lg relative z-10 overflow-hidden" style={{ backgroundColor: `${template.theme_config.text_color}15` }}>
+                                    <div className="absolute top-0 left-0 right-0 h-[55%] z-10 overflow-hidden">
                                       {avatarUrl ? (
                                         <>
                                           <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -1824,20 +1871,22 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                                           <div
                                             className="absolute inset-0 pointer-events-none"
                                             style={{
-                                              background: `linear-gradient(to bottom, transparent 30%, ${template.theme_config.background_type === 'gradient' ? template.theme_config.background_color : template.theme_config.background_color} 100%)`
+                                              background: `linear-gradient(to bottom, transparent 40%, ${template.theme_config.background_type === 'gradient' ? template.theme_config.background_color : template.theme_config.background_color} 100%)`
                                             }}
                                           />
                                         </>
                                       ) : (
                                         <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${template.theme_config.text_color}20` }}>
-                                          <span className="text-sm font-bold" style={{ color: template.theme_config.text_color }}>
+                                          <span className="text-lg font-bold" style={{ color: template.theme_config.text_color }}>
                                             {displayName.charAt(0).toUpperCase() || "A"}
                                           </span>
                                         </div>
                                       )}
                                     </div>
-                                    <div className="w-16 h-2 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
-                                    <div className="w-12 h-1 rounded relative z-10" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                    <div className="mt-auto mb-4 flex flex-col items-center gap-1 relative z-10">
+                                      <div className="w-16 h-2 rounded" style={{ backgroundColor: `${template.theme_config.text_color}50` }} />
+                                      <div className="w-12 h-1 rounded" style={{ backgroundColor: `${template.theme_config.text_color}30` }} />
+                                    </div>
                                   </>
                                 ) : (
                                   /* Classic layout: circle avatar with user photo/initial */
@@ -1968,7 +2017,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   </div>
 
                   {/* Divider */}
-                  <div className="w-36 h-px bg-gray-200 mt-6 sm:mt-8" />
+                  <div className="w-48 h-px bg-gray-200 mt-6 sm:mt-8" />
 
                   {/* Quote - centered with purple accolades */}
                   <div className="mt-4 sm:mt-5 text-center max-w-sm px-4">
