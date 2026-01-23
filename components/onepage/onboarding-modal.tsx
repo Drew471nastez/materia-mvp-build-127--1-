@@ -973,11 +973,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("link_button")
         addBlock("social_row")
 
-        // Update divider after delay
+        // Directly modify the block object (reference to object in pending state)
         if (dividerBlock) {
-          setTimeout(() => {
-            updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
-          }, 500)
+          dividerBlock.data = { style: "line", height: 24 }
         }
         break
       }
@@ -990,38 +988,28 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         const spotifyBlock = addBlock("link_button")
         addBlock("social_row")
 
-        // Schedule updates with staggered delays to ensure each one processes
+        // Directly modify block objects (references to objects in pending state)
         if (dividerBlock) {
-          setTimeout(() => {
-            updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
-          }, 400)
+          dividerBlock.data = { style: "line", height: 24 }
         }
 
         if (youtubeBlock) {
-          setTimeout(() => {
-            updateBlock(youtubeBlock.id, {
-              data: {
-                label: "Subscribe on YouTube",
-                url: "https://youtube.com/@",
-                icon: "youtube",
-                thumbnail_url: null
-              }
-            })
-          }, 500)
+          youtubeBlock.data = {
+            label: "Subscribe on YouTube",
+            url: "https://youtube.com",
+            icon: "youtube",
+            thumbnail_url: null
+          }
         }
 
         if (spotifyBlock) {
-          setTimeout(() => {
-            updateBlock(spotifyBlock.id, {
-              data: {
-                label: "Listen on Spotify",
-                url: "https://open.spotify.com/",
-                icon: "spotify",
-                thumbnail_url: null,
-                animation_type: "swipe"
-              }
-            })
-          }, 600)
+          spotifyBlock.data = {
+            label: "Listen on Spotify",
+            url: "https://open.spotify.com/",
+            icon: "spotify",
+            thumbnail_url: null,
+            animation_type: "swipe"
+          }
         }
         break
       }
@@ -1034,11 +1022,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("product")
         addBlock("social_row")
 
-        // Update divider after delay
+        // Directly modify the block object
         if (dividerBlock) {
-          setTimeout(() => {
-            updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
-          }, 500)
+          dividerBlock.data = { style: "line", height: 24 }
         }
         break
       }
@@ -1052,37 +1038,27 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         addBlock("link_button")
         addBlock("social_row")
 
-        // Schedule updates with staggered delays
+        // Directly modify block objects
         if (dividerBlock) {
-          setTimeout(() => {
-            updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
-          }, 400)
+          dividerBlock.data = { style: "line", height: 24 }
         }
 
         if (linkedinBlock) {
-          setTimeout(() => {
-            updateBlock(linkedinBlock.id, {
-              data: {
-                label: "Connect on LinkedIn",
-                url: "https://linkedin.com/in/",
-                icon: "linkedin",
-                thumbnail_url: null
-              }
-            })
-          }, 500)
+          linkedinBlock.data = {
+            label: "Connect on LinkedIn",
+            url: "https://linkedin.com/in/",
+            icon: "linkedin",
+            thumbnail_url: null
+          }
         }
 
         if (instagramBlock) {
-          setTimeout(() => {
-            updateBlock(instagramBlock.id, {
-              data: {
-                label: "Follow on Instagram",
-                url: "https://instagram.com/",
-                icon: "instagram",
-                thumbnail_url: null
-              }
-            })
-          }, 600)
+          instagramBlock.data = {
+            label: "Follow on Instagram",
+            url: "https://instagram.com/",
+            icon: "instagram",
+            thumbnail_url: null
+          }
         }
         break
       }
