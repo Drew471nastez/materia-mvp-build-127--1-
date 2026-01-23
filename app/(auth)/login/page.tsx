@@ -85,7 +85,7 @@ function LoginFormContent() {
 
         if (creator) {
           if (creator.onboarding_completed === false) {
-            router.push("/onboarding")
+            router.push("/signup/success")
           } else {
             router.push("/app")
           }
@@ -95,8 +95,8 @@ function LoginFormContent() {
           if (userType === "buyer") {
             router.push("/library")
           } else {
-            // Default to onboarding for creators or unknown
-            router.push("/onboarding")
+            // Default to signup/success for creators or unknown
+            router.push("/signup/success")
           }
         }
         router.refresh()

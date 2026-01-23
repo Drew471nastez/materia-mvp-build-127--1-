@@ -67,13 +67,13 @@ export async function GET(request: Request) {
 
       if (creator) {
         if (creator.onboarding_completed === false) {
-          return NextResponse.redirect(`${origin}/onboarding`)
+          return NextResponse.redirect(`${origin}/signup/success`)
         }
         return NextResponse.redirect(`${origin}/app`)
       }
 
       if (existingProfile.is_creator === false) {
-        return NextResponse.redirect(`${origin}/onboarding`)
+        return NextResponse.redirect(`${origin}/signup/success`)
       }
 
       return NextResponse.redirect(`${origin}/dashboard`)
