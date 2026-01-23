@@ -997,9 +997,15 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       }
 
       case "digital": {
-        // Final order: header → social_row → product → My Link → divider (line) → email_capture
+        // Final order: header → social_row → product → My Link → Instagram block → divider (line) → email_capture
         addBlock("email_capture")
         addBlock("divider", undefined, { style: "line", height: 24 })
+        addBlock("link_button", undefined, {
+          label: "Follow on Instagram",
+          url: "https://instagram.com/",
+          icon: "instagram",
+          thumbnail_url: null
+        })
         addBlock("link_button")
         addBlock("product")
         addBlock("social_row")

@@ -15,6 +15,7 @@ import { X, ArrowRight, ArrowLeft, Check, AlertCircle, Loader2 } from "lucide-re
 import { ImageUpload } from "@/components/app/image-upload"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getStoreUrlDisplay } from "@/lib/url-helpers"
+import { WelcomeModalWrapper } from "@/components/app/welcome-modal-wrapper"
 
 const NICHE_OPTIONS = [
   "Design",
@@ -278,6 +279,7 @@ export default function OnboardingPage() {
   // Steps 2-6: Creator Onboarding
   return (
     <div className="flex min-h-svh w-full items-center justify-center bg-white p-6">
+      <WelcomeModalWrapper />
       <div className="w-full max-w-lg">
         {/* Progress */}
         <div className="mb-6">

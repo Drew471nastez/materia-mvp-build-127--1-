@@ -2,6 +2,7 @@ import type React from "react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { AppSidebar } from "@/components/app/sidebar"
+import { WelcomeModalWrapper } from "@/components/app/welcome-modal-wrapper"
 
 export default async function AppLayout({
   children,
@@ -60,6 +61,7 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-white">
+      <WelcomeModalWrapper />
       <AppSidebar
         creatorSlug={creator.slug}
         storePublished={creator.store_published}
