@@ -674,6 +674,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               // JSONB column (used by OnePage TypeScript type)
               social_links: onepageSocialLinks,
               published: false,
+              // Set to false so OnePage onboarding shows when user visits OnePage editor
+              onboarding_completed: false,
             })
         }
       } else {
@@ -719,6 +721,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               // JSONB column (used by OnePage TypeScript type)
               social_links: newCreatorSocialLinks,
               published: false,
+              // Set to false so OnePage onboarding shows when user visits OnePage editor
+              onboarding_completed: false,
             })
             .select("id")
             .single()

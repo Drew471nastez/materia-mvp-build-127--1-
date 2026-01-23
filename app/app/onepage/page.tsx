@@ -275,6 +275,8 @@ export default async function OnePageEditorPage() {
         avatar_video_crop: null,
       },
       published_social_links: mergedSocialLinks,
+      // Set onboarding_completed to false so OnePage onboarding shows once
+      onboarding_completed: false,
     }
 
     // Try to create onepage with retry logic for robustness
@@ -363,18 +365,32 @@ export default async function OnePageEditorPage() {
 
       // If still no onepage found/created, create a minimal one as last resort
       if (!created) {
+        // Generate a proper username-based slug as last resort
+        const lastResortSlug = profile?.username || creator?.slug || `links-${user.id.slice(0, 8)}`
+
         const minimalOnepage = {
           owner_id: user.id,
           creator_id: creator.id,
-          slug: `page-${Date.now()}`,
-          title: "My Page",
+          slug: lastResortSlug,
+          title: profile?.display_name || profile?.username || "My Page",
           bio: "",
-          avatar_url: null,
+          avatar_url: profile?.avatar_url || null,
           theme: newDefaultTheme,
           settings: newDefaultSettings,
           social_links: defaultSocialLinks,
-          draft_blocks: [],
-          status: "draft",
+          draft_blocks: defaultBlocks,
+          status: "published",
+          published_at: new Date().toISOString(),
+          published_blocks: defaultBlocks,
+          published_theme: newDefaultTheme,
+          published_profile: {
+            title: profile?.display_name || profile?.username || "My Page",
+            bio: "",
+            avatar_url: profile?.avatar_url || null,
+            avatar_video_url: null,
+            avatar_video_crop: null,
+          },
+          onboarding_completed: false,
         }
 
         const { data: lastResort } = await supabase
