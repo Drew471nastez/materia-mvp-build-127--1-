@@ -94,7 +94,48 @@ const EXTENDED_CATEGORIES = [
   "UI Kits",
   "Web Design",
   "Wellness",
-  "Workshops"
+  "Workshops",
+  // 30 more categories
+  "Automation",
+  "Beauty",
+  "Blogging",
+  "Calendars",
+  "Checklists",
+  "Copywriting",
+  "Crypto",
+  "Dance",
+  "Digital Art",
+  "Email Marketing",
+  "Engineering",
+  "Entrepreneurship",
+  "Events",
+  "Figma Templates",
+  "Fonts",
+  "Freelancing",
+  "Home & Garden",
+  "Icons",
+  "Interior Design",
+  "Journaling",
+  "Language Learning",
+  "Meditation",
+  "Mindfulness",
+  "Mockups",
+  "Parenting",
+  "Personal Finance",
+  "Planners",
+  "Presentation Templates",
+  "Project Management",
+  "Remote Work",
+  "Resume Templates",
+  "Self-Improvement",
+  "SEO",
+  "Side Hustle",
+  "Spirituality",
+  "Sports",
+  "Study Notes",
+  "Travel",
+  "Video Editing",
+  "Yoga"
 ]
 
 // Confetti animation component
@@ -699,7 +740,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                       <textarea
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
-                        placeholder="Tell us a few words about your store"
+                        placeholder="Tell us a few words about you..."
                         rows={2}
                         className="flex-1 text-base outline-none bg-transparent resize-none"
                       />
@@ -746,15 +787,6 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                     </button>
                   </div>
 
-                  {/* Other button - left aligned */}
-                  <div className="w-full max-w-[650px] mt-4">
-                    <button
-                      onClick={() => setSelectedCategory(null)}
-                      className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                    >
-                      Other
-                    </button>
-                  </div>
                 </div>
               )}
 
@@ -914,7 +946,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                 "pb-5 sm:pb-4",
                 currentStep === 2 && "sm:pb-7"
               )}>
-                {/* Back button - left side */}
+                {/* Back button and Other - left side */}
                 <div className="flex items-center gap-3">
                   {currentStep > 1 && (
                     <button
@@ -922,6 +954,18 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                       className="px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
                     >
                       Back
+                    </button>
+                  )}
+                  {/* Other button - only on category step */}
+                  {currentStep === 2 && (
+                    <button
+                      onClick={() => {
+                        setSelectedCategory(null)
+                        handleNext()
+                      }}
+                      className="px-4 sm:px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      Other
                     </button>
                   )}
                 </div>
@@ -989,7 +1033,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           </div>
 
           {/* Categories list */}
-          <div className="p-4 max-h-[400px] overflow-y-auto">
+          <div className="p-4 max-h-[360px] overflow-y-auto">
             <div className="flex flex-wrap gap-2">
               {filteredCategories.map((category) => (
                 <button

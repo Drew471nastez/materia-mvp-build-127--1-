@@ -236,15 +236,12 @@ export function useWelcomeModal() {
   const [isChecked, setIsChecked] = useState(false)
 
   useEffect(() => {
-    // For testing: always show the modal
-    // Remove this line and uncomment the check below when ready for production
-    setShowWelcome(true)
-
-    // Production check - uncomment when ready:
-    // const welcomeShown = localStorage.getItem("storelib_welcome_shown")
-    // if (!welcomeShown) {
-    //   setShowWelcome(true)
-    // }
+    // Check if welcome was already shown (from signup success page or previously)
+    const welcomeShown = localStorage.getItem("storelib_welcome_shown")
+    if (!welcomeShown) {
+      // For testing: always show the modal when not shown before
+      setShowWelcome(true)
+    }
 
     setIsChecked(true)
   }, [])

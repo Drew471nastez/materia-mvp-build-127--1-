@@ -48,7 +48,8 @@ export async function GET(request: Request) {
           console.error("Profile creation error:", profileError)
         }
 
-        return NextResponse.redirect(`${origin}/onboarding`)
+        // New users go to signup success to choose creator or buyer
+        return NextResponse.redirect(`${origin}/signup/success`)
       }
 
       if (!existingProfile.avatar_url && oauthAvatar) {
