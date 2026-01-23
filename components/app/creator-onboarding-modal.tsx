@@ -538,19 +538,15 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         .eq("id", user.id)
 
       if (creator) {
-        // Update creator profile with username and bio
+        // Update creator profile - only use columns that exist in the database
         await supabase
           .from("creators")
           .update({
             slug: getSlug(),
-            username: getSlug(),
-            display_name: displayName,
             bio: bio,
-            avatar_url: avatarUrl,
             niche_tags: selectedCategory ? [selectedCategory] : [],
-            instagram_url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-            youtube_url: socials.youtube || null,
             onboarding_completed: true,
+            store_published: true,
           })
           .eq("id", creator.id)
 
@@ -618,19 +614,14 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             .eq("id", onepage.id)
         }
       } else {
-        // Create new creator record if it doesn't exist
+        // Create new creator record - only use columns that exist in the database
         const { error: insertError } = await supabase
           .from("creators")
           .insert({
             user_id: user.id,
             slug: getSlug(),
-            username: getSlug(),
-            display_name: displayName,
             bio: bio,
-            avatar_url: avatarUrl,
             niche_tags: selectedCategory ? [selectedCategory] : [],
-            instagram_url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-            youtube_url: socials.youtube || null,
             onboarding_completed: true,
             store_published: true,
           })
@@ -639,10 +630,6 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           console.error("Error creating creator:", insertError)
         }
       }
-
-      // Mark welcome as shown in localStorage (backup for client-side checks)
-      localStorage.setItem("storelib_welcome_shown", "true")
-      localStorage.setItem("storelib_user_type", "creator")
     } catch (e) {
       console.error("Error during setup:", e)
     }
@@ -659,9 +646,11 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
     setSetupComplete(true)
     setShowConfetti(true)
 
-    // Auto close after animation - parent handles navigation
+    // Auto close after animation and navigate to /app
     setTimeout(() => {
       onClose()
+      // Full page reload to ensure server sees the new creator record
+      window.location.replace("/app")
     }, 3500)
   }
 

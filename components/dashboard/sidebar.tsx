@@ -68,7 +68,7 @@ export function DashboardSidebar() {
 
       <div className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <Link
-          href="/app"
+          href="/signup/success?action=become-creator"
           onClick={onItemClick}
           className="mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-colors"
         >

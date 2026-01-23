@@ -1,6 +1,5 @@
 import type React from "react"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { AppSidebar } from "@/components/app/sidebar"
 
@@ -19,46 +18,12 @@ export default async function AppLayout({
     redirect("/login")
   }
 
-  let { data: creator } = await supabase
+  // Check for creator record with onboarding completed - database is the source of truth
+  const { data: creator } = await supabase
     .from("creators")
     .select("slug, store_published, stripe_account_id, stripe_onboarding_status, onboarding_completed")
     .eq("user_id", user.id)
     .maybeSingle()
-
-  // Check for the onboarding completed cookie as a fallback
-  const cookieStore = await cookies()
-  const onboardingCookie = cookieStore.get("storelib_onboarding_completed")
-
-  // If no creator record but we have the onboarding cookie, create a basic creator record
-  if (!creator && onboardingCookie?.value === "true") {
-    // Try to create a creator record with minimal data
-    const slug = user.email?.split("@")[0]?.toLowerCase().replace(/[^a-z0-9]+/g, "-") || `creator-${user.id.slice(0, 8)}`
-
-    const { data: newCreator } = await supabase
-      .from("creators")
-      .insert({
-        user_id: user.id,
-        slug: slug,
-        onboarding_completed: true,
-        store_published: true,
-      })
-      .select("slug, store_published, stripe_account_id, stripe_onboarding_status, onboarding_completed")
-      .single()
-
-    if (newCreator) {
-      creator = newCreator
-    }
-  }
-
-  // If creator exists but onboarding not completed and we have the cookie, update it
-  if (creator && creator.onboarding_completed !== true && onboardingCookie?.value === "true") {
-    await supabase
-      .from("creators")
-      .update({ onboarding_completed: true })
-      .eq("user_id", user.id)
-
-    creator.onboarding_completed = true
-  }
 
   // No creator record or onboarding not completed - redirect to welcome selection
   if (!creator || creator.onboarding_completed !== true) {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
@@ -25,13 +25,14 @@ const UserIcon = () => (
 
 export default function SignupSuccessPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [hoveredCard, setHoveredCard] = useState<"creator" | "buyer" | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedChoice, setSelectedChoice] = useState<"creator" | "buyer" | null>(null)
   const [showCreatorOnboarding, setShowCreatorOnboarding] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
-  // Check if user already completed onboarding - redirect appropriately
+  // Check if user already completed onboarding - database is the source of truth
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       const supabase = createClient()
@@ -43,7 +44,7 @@ export default function SignupSuccessPage() {
         return
       }
 
-      // Check if user has a creator record with onboarding completed
+      // Check database for creator record with onboarding completed
       const { data: creator } = await supabase
         .from("creators")
         .select("onboarding_completed")
@@ -51,17 +52,17 @@ export default function SignupSuccessPage() {
         .maybeSingle()
 
       if (creator?.onboarding_completed === true) {
-        // Already completed creator onboarding - go to /app
-        router.replace("/app")
+        // Already completed onboarding - redirect to /app
+        window.location.replace("/app")
         return
       }
 
-      // Check profile for is_creator status
+      // Check profile for welcome_completed status (for buyers)
       const { data: profile } = await supabase
         .from("profiles")
         .select("is_creator, welcome_completed")
         .eq("id", user.id)
-        .single()
+        .maybeSingle()
 
       // If profile has welcome_completed and is NOT a creator, they're a buyer
       if (profile?.welcome_completed === true && profile?.is_creator === false) {
@@ -69,24 +70,25 @@ export default function SignupSuccessPage() {
         return
       }
 
-      // If is_creator is true but no onboarding_completed, show onboarding
-      if (profile?.is_creator === true && (!creator || creator.onboarding_completed !== true)) {
+      // Check for action=become-creator to auto-start onboarding (from "Start selling" button)
+      const action = searchParams.get("action")
+      if (action === "become-creator") {
         setIsCheckingAuth(false)
         setShowCreatorOnboarding(true)
         return
       }
 
-      // User needs to complete welcome selection - show the page
+      // User needs to complete onboarding - show the page
       setIsCheckingAuth(false)
     }
 
     checkOnboardingStatus()
-  }, [router])
+  }, [router, searchParams])
 
   const handleChoice = async (choice: "creator" | "buyer") => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user) {
       router.replace("/login")
       return
@@ -105,7 +107,7 @@ export default function SignupSuccessPage() {
 
       // Small delay for smooth transition
       await new Promise(resolve => setTimeout(resolve, 400))
-      
+
       // Show creator onboarding modal
       setIsLoading(false)
       setShowCreatorOnboarding(true)
@@ -113,9 +115,9 @@ export default function SignupSuccessPage() {
       // Mark as buyer - set welcome_completed and ensure is_creator is false
       await supabase
         .from("profiles")
-        .update({ 
+        .update({
           is_creator: false,
-          welcome_completed: true 
+          welcome_completed: true
         })
         .eq("id", user.id)
 
@@ -126,9 +128,8 @@ export default function SignupSuccessPage() {
 
   const handleCreatorOnboardingComplete = () => {
     // Onboarding modal has saved everything to database
-    // Navigate directly to /app dashboard
+    // The modal handles navigation via window.location.replace("/app")
     setShowCreatorOnboarding(false)
-    router.replace("/app")
   }
 
   // Show loading while checking auth status
