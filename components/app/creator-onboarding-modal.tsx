@@ -567,7 +567,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           }
         }
 
-        // Update or create store builder config for SHOP page (not homepage)
+        // Update or create store builder config for shop page
         const { data: existingConfig } = await supabase
           .from("store_builder_configs")
           .select("id, draft_config")

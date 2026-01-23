@@ -85,13 +85,57 @@ export async function GET(request: Request) {
     // Create default config
     const defaultConfig = pageType === "shop" ? defaultShopPageConfig : defaultProductPageConfig
 
+    // Check if onepages has social data we can use for the header
+    let socialLinksForHeader = null
+    if (pageType === "shop") {
+      const { data: onepage } = await supabase
+        .from("onepages")
+        .select("instagram, tiktok, youtube, social_links")
+        .eq("creator_id", creator.id)
+        .maybeSingle()
+
+      if (onepage) {
+        const rawOnepage = onepage as any
+        const instagramUrl = rawOnepage.instagram || onepage.social_links?.instagram || null
+        const tiktokUrl = rawOnepage.tiktok || onepage.social_links?.tiktok || null
+        const youtubeUrl = rawOnepage.youtube || onepage.social_links?.youtube || null
+
+        if (instagramUrl || tiktokUrl || youtubeUrl) {
+          socialLinksForHeader = {
+            instagram: { enabled: !!instagramUrl, url: instagramUrl || "" },
+            tiktok: { enabled: !!tiktokUrl, url: tiktokUrl || "" },
+            youtube: { enabled: !!youtubeUrl, url: youtubeUrl || "" },
+            twitter: { enabled: false, url: "" },
+            spotify: { enabled: false, url: "" },
+          }
+        }
+      }
+    }
+
+    // If we have social data from onepages, inject it into the default config
+    let configToInsert = { ...defaultConfig }
+    if (socialLinksForHeader && configToInsert.sections) {
+      const headerIndex = configToInsert.sections.findIndex((s: any) => s.type === "header")
+      if (headerIndex !== -1) {
+        configToInsert.sections[headerIndex] = {
+          ...configToInsert.sections[headerIndex],
+          settings: {
+            ...configToInsert.sections[headerIndex].settings,
+            showSocialMedia: true,
+            showSocialIconsOnMobile: true,
+            socialLinks: socialLinksForHeader,
+          }
+        }
+      }
+    }
+
     const { data: newConfig, error } = await supabase
       .from("store_builder_configs")
       .insert({
         creator_id: creator.id,
         page_type: pageType,
-        draft_config: defaultConfig,
-        published_config: defaultConfig,
+        draft_config: configToInsert,
+        published_config: configToInsert,
       })
       .select()
       .single()
@@ -102,6 +146,64 @@ export async function GET(request: Request) {
     }
 
     config = newConfig
+  } else if (pageType === "shop" && config.draft_config?.sections) {
+    // Check if existing config needs social data synced from onepages
+    const headerSection = config.draft_config.sections.find((s: any) => s.type === "header")
+    const existingSocialLinks = headerSection?.settings?.socialLinks
+    const hasExistingSocialData = existingSocialLinks && (
+      existingSocialLinks.instagram?.url ||
+      existingSocialLinks.tiktok?.url ||
+      existingSocialLinks.youtube?.url
+    )
+
+    if (!hasExistingSocialData) {
+      // Check if onepages has social data we can use
+      const { data: onepage } = await supabase
+        .from("onepages")
+        .select("instagram, tiktok, youtube, social_links")
+        .eq("creator_id", creator.id)
+        .maybeSingle()
+
+      if (onepage) {
+        const rawOnepage = onepage as any
+        const instagramUrl = rawOnepage.instagram || onepage.social_links?.instagram || null
+        const tiktokUrl = rawOnepage.tiktok || onepage.social_links?.tiktok || null
+        const youtubeUrl = rawOnepage.youtube || onepage.social_links?.youtube || null
+
+        if (instagramUrl || tiktokUrl || youtubeUrl) {
+          // Update the config with social data from onepages
+          const sections = [...config.draft_config.sections]
+          const headerIndex = sections.findIndex((s: any) => s.type === "header")
+          if (headerIndex !== -1) {
+            sections[headerIndex] = {
+              ...sections[headerIndex],
+              settings: {
+                ...sections[headerIndex].settings,
+                showSocialMedia: true,
+                showSocialIconsOnMobile: true,
+                socialLinks: {
+                  instagram: { enabled: !!instagramUrl, url: instagramUrl || "" },
+                  tiktok: { enabled: !!tiktokUrl, url: tiktokUrl || "" },
+                  youtube: { enabled: !!youtubeUrl, url: youtubeUrl || "" },
+                  twitter: { enabled: false, url: "" },
+                  spotify: { enabled: false, url: "" },
+                },
+              }
+            }
+
+            // Save the synced config back to database
+            const updatedDraftConfig = { ...config.draft_config, sections }
+            await supabase
+              .from("store_builder_configs")
+              .update({ draft_config: updatedDraftConfig })
+              .eq("id", config.id)
+
+            // Update local config object to return
+            config.draft_config = updatedDraftConfig
+          }
+        }
+      }
+    }
   }
 
   return NextResponse.json(config)
