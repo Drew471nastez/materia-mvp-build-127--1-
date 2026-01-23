@@ -567,12 +567,12 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           }
         }
 
-        // Update or create store builder config for homepage
+        // Update or create store builder config for SHOP page (not homepage)
         const { data: existingConfig } = await supabase
           .from("store_builder_configs")
           .select("id, draft_config")
           .eq("creator_id", creator.id)
-          .eq("page_type", "homepage")
+          .eq("page_type", "shop")
           .maybeSingle()
 
         if (existingConfig) {
@@ -602,12 +602,12 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             })
             .eq("id", existingConfig.id)
         } else {
-          // No config exists, create one with header section
+          // No config exists, create one with header section for SHOP page
           await supabase
             .from("store_builder_configs")
             .insert({
               creator_id: creator.id,
-              page_type: "homepage",
+              page_type: "shop",
               draft_config: { sections: [{ id: "header-1", type: "header", settings: headerSettings }] },
             })
         }
@@ -619,13 +619,6 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           .eq("creator_id", creator.id)
           .maybeSingle()
 
-        // Build social links object for both direct columns AND social_links JSONB
-        const socialLinksData = {
-          instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-          tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
-          youtube: socials.youtube || null,
-        }
-
         if (onepage) {
           await supabase
             .from("onepages")
@@ -634,12 +627,9 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
-              // Save to direct columns
-              instagram: socialLinksData.instagram,
-              tiktok: socialLinksData.tiktok,
-              youtube: socialLinksData.youtube,
-              // Also save to social_links JSONB for consistency
-              social_links: socialLinksData,
+              instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+              tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
+              youtube: socials.youtube || null,
             })
             .eq("id", onepage.id)
         } else {
@@ -647,18 +637,16 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           await supabase
             .from("onepages")
             .insert({
+              owner_id: user.id,
               creator_id: creator.id,
               seller_id: user.id,
               slug: getSlug(),
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
-              // Save to direct columns
-              instagram: socialLinksData.instagram,
-              tiktok: socialLinksData.tiktok,
-              youtube: socialLinksData.youtube,
-              // Also save to social_links JSONB for consistency
-              social_links: socialLinksData,
+              instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+              tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
+              youtube: socials.youtube || null,
               published: false,
             })
         }
@@ -684,22 +672,16 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           const { data: newOnepage } = await supabase
             .from("onepages")
             .insert({
+              owner_id: user.id,
               creator_id: newCreator.id,
               seller_id: user.id,
               slug: getSlug(),
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
-              // Save to direct columns
               instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
               tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
               youtube: socials.youtube || null,
-              // Also save to social_links JSONB for consistency
-              social_links: {
-                instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-                tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
-                youtube: socials.youtube || null,
-              },
               published: false,
             })
             .select("id")
@@ -732,7 +714,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             .from("store_builder_configs")
             .insert({
               creator_id: newCreator.id,
-              page_type: "homepage",
+              page_type: "shop",
               draft_config: { sections: defaultSections },
             })
         }
