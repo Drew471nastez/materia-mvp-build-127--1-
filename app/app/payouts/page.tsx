@@ -5,7 +5,7 @@ import { PayoutsClient } from "./payouts-client"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Payouts | Materia",
+  title: "Payouts | Storelib",
 }
 
 export default async function PayoutsPage() {

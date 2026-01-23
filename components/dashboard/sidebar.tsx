@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Package, GraduationCap, LogOut, Download, Menu, Heart } from "lucide-react"
+import { LayoutDashboard, Package, GraduationCap, LogOut, Download, Menu, Heart, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
@@ -40,7 +40,7 @@ export function DashboardSidebar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground shrink-0">
             <span className="text-sm font-bold text-background">M</span>
           </div>
-          <span className="text-lg font-semibold tracking-tight truncate">Materia</span>
+          <span className="text-lg font-semibold tracking-tight truncate">Storelib</span>
         </Link>
       </div>
 
@@ -68,6 +68,14 @@ export function DashboardSidebar() {
 
       <div className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <Link
+          href="/signup/success?action=become-creator"
+          onClick={onItemClick}
+          className="mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-colors"
+        >
+          <Sparkles className="h-5 w-5 shrink-0" />
+          <span className="truncate">Start selling</span>
+        </Link>
+        <Link
           href="/explore"
           onClick={onItemClick}
           className="mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground active:scale-[0.98]"
@@ -94,7 +102,7 @@ export function DashboardSidebar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground shrink-0">
             <span className="text-sm font-bold text-background">M</span>
           </div>
-          <span className="text-lg font-semibold tracking-tight">Materia</span>
+          <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>
         <Button
           variant="ghost"

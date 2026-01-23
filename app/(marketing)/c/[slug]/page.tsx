@@ -16,12 +16,12 @@ export async function generateMetadata({ params }: CreatorPageProps) {
     .single()
 
   if (!creator) {
-    return { title: "Creator Not Found | Materia" }
+    return { title: "Creator Not Found | Storelib" }
   }
 
   return {
-    title: `${creator.profile?.display_name || "Creator"} | Materia`,
-    description: creator.headline || creator.bio || "Check out this creator on Materia",
+    title: `${creator.profile?.display_name || "Creator"} | Storelib`,
+    description: creator.headline || creator.bio || "Check out this creator on Storelib",
   }
 }
 

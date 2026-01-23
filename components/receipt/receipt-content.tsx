@@ -286,6 +286,28 @@ export default function ReceiptContent({
     }
   }, [hasAccess, order?.product_id])
 
+  // Save purchase to localStorage for persistence across page refreshes
+  useEffect(() => {
+    if (!hasAccess || !order?.product_id || !receiptToken) return
+
+    try {
+      const PURCHASED_PRODUCTS_KEY = "materia_purchased_products"
+      const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
+      const purchases = stored ? JSON.parse(stored) : {}
+
+      // Only save if not already saved or if assets have changed
+      if (!purchases[order.product_id] || purchases[order.product_id].receiptToken !== receiptToken) {
+        purchases[order.product_id] = {
+          receiptToken,
+          assets: assets?.map(a => ({ id: a.id, file_name: a.file_name })) || [],
+        }
+        localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+      }
+    } catch (e) {
+      console.error("[ReceiptContent] Failed to save purchase to localStorage:", e)
+    }
+  }, [hasAccess, order?.product_id, receiptToken, assets])
+
   const handleSendCode = async () => {
     setError("")
     setSuccess("")

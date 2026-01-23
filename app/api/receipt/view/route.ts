@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Receipt #${order.id.slice(0, 8)} - Materia</title>
+  <title>Receipt #${order.id.slice(0, 8)} - Storelib</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 40px 20px; }
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 <body>
   <div class="receipt">
     <div class="header">
-      <h1>Materia Receipt</h1>
+      <h1>Storelib Receipt</h1>
     </div>
     <div class="content">
       <div class="order-info">

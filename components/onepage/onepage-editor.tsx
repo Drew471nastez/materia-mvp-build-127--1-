@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { OnboardingModal } from "./onboarding-modal"
 
 // Settings Filter Icon SVG Component
 const SettingsFilterIcon = ({ className }: { className?: string }) => (
@@ -192,6 +193,14 @@ function EditorLayout() {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
+
+  // Onboarding modal state - only show once for new onepages (based on database field)
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    // Only check database field for onboarding completion
+    // The main onboarding may pre-populate title/bio, so we can't use those as indicators
+    if ((onepage as any)?.onboarding_completed === true) return false
+    return true
+  })
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {
@@ -497,7 +506,7 @@ function EditorLayout() {
             className={cn(
               "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-all duration-200",
               saveState === "saved" && !isDirty
-                ? "bg-gray-900 hover:bg-gray-900 text-white cursor-default"
+                ? "bg-purple-400 hover:bg-purple-400 text-white opacity-60 cursor-default pointer-events-none"
                 : isDirty
                   ? "bg-violet-500 hover:bg-violet-600 text-white"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"
@@ -609,7 +618,7 @@ function EditorLayout() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center min-w-0",
+                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 sm:py-2.5 rounded-[7px] sm:rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center min-w-0",
                     activeTab === tab.id
                       ? "bg-gray-900 text-white"
                       : "bg-gray-100 text-gray-600"
@@ -620,11 +629,11 @@ function EditorLayout() {
                 </button>
               )
             })}
-            {/* Settings Button - Mobile */}
+            {/* Settings Button - Mobile - same height as other tab buttons */}
             <button
               onClick={() => setActiveTab("settings")}
               className={cn(
-                "flex items-center justify-center min-w-[40px] w-10 h-10 sm:w-11 sm:h-11 rounded-xl transition-all shrink-0",
+                "flex items-center justify-center min-w-[40px] w-10 py-2.5 sm:w-11 sm:py-2.5 rounded-[7px] sm:rounded-xl transition-all shrink-0",
                 activeTab === "settings"
                   ? "bg-gray-900 text-white"
                   : "bg-gray-100 text-gray-600"
@@ -739,6 +748,18 @@ function EditorLayout() {
         onUpgrade={handleUpgradeToPro}
         onDiscard={handleDiscardProChanges}
         onKeepEditing={handleKeepEditing}
+      />
+
+      {/* Onboarding Modal - shown on first visit only */}
+      <OnboardingModal
+        open={showOnboarding}
+        onClose={() => {
+          setShowOnboarding(false)
+        }}
+        onComplete={(data) => {
+          setShowOnboarding(false)
+          // Onboarding modal saves onboarding_completed=true to database
+        }}
       />
     </div>
   )

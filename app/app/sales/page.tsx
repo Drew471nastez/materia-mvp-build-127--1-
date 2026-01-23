@@ -5,7 +5,7 @@ import { SalesClient } from "./sales-client"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Sales | Materia",
+  title: "Sales | Storelib",
 }
 
 export default async function SalesPage() {

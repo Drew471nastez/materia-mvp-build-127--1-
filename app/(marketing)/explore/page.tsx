@@ -8,7 +8,7 @@ import { Search } from "lucide-react"
 import Link from "next/link"
 
 export const metadata = {
-  title: "Explore Creators & Products | Materia",
+  title: "Explore Creators & Products | Storelib",
   description: "Discover digital products, courses, and communities from top creators.",
 }
 

@@ -37,9 +37,13 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  title: "Materia - Sell your knowledge. All in one place.",
+  title: "Storelib - Sell your knowledge. All in one place.",
   description: "The all-in-one platform for creators to sell digital products, courses, and paid communities.",
-  generator: "Materia",
+  generator: "Storelib",
+  icons: {
+    icon: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
+    apple: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
+  },
 }
 
 export const viewport: Viewport = {

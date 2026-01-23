@@ -878,13 +878,26 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                             <Input
                               value={socialLinks[platform].url}
                               onChange={(e) => {
+                                let value = e.target.value
+                                // Auto-convert @username to full URL for Instagram and TikTok
+                                if (platform === "instagram" && value.startsWith("@")) {
+                                  value = `https://instagram.com/${value.replace("@", "")}`
+                                } else if (platform === "tiktok" && value.startsWith("@")) {
+                                  value = `https://tiktok.com/@${value.replace("@", "")}`
+                                }
                                 const newSocialLinks = {
                                   ...socialLinks,
-                                  [platform]: { ...socialLinks[platform], url: e.target.value },
+                                  [platform]: { ...socialLinks[platform], url: value },
                                 }
                                 updateHeaderSettings({ socialLinks: newSocialLinks })
                               }}
-                              placeholder={`https://${platform === "twitter" ? "x" : platform}.com/...`}
+                              placeholder={
+                                platform === "instagram" ? "@username or https://instagram.com/..." :
+                                platform === "tiktok" ? "@username or https://tiktok.com/..." :
+                                platform === "youtube" ? "https://youtube.com/@username" :
+                                platform === "twitter" ? "https://x.com/..." :
+                                `https://${platform}.com/...`
+                              }
                               className="h-8 text-sm"
                             />
                           )}

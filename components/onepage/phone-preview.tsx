@@ -518,21 +518,15 @@ function ShareButtonPreview({
                 <div className="flex items-center gap-2">
                   <div
                     className={cn(
-                      "rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0",
+                      "rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 overflow-hidden",
                       scale === "small" ? "w-6 h-6" : "w-7 h-7",
                     )}
                   >
-                    <svg
-                      className={scale === "small" ? "w-3 h-3" : "w-3.5 h-3.5"}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                    </svg>
+                    <img
+                      src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
+                      alt="Storelib"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={cn("font-semibold text-gray-900", scale === "small" ? "text-[7px]" : "text-[8px]")}>
@@ -2166,6 +2160,33 @@ export function MobilePreviewContent() {
               />
             </div>
           )}
+
+        {/* Share Button - conditionally rendered based on share settings */}
+        {settings?.share_enabled !== false && (
+          <ShareButtonPreview
+            sellerName={sellerName}
+            avatarUrl={avatar_url}
+            pageUrl={getLinksUrl((onepage as any).slug || "preview")}
+            scale="normal"
+            style={(settings as any)?.share_style || "white"}
+            showSubscribe={settings?.subscribe_enabled !== false}
+            accentColor={theme.button_color}
+            isVisible={buttonsVisible}
+            themeBackgroundType={theme.background_type}
+            themeBackgroundColor={theme.background_color}
+            themeBackgroundGradient={theme.background_gradient}
+          />
+        )}
+
+        {/* Notification Bell - conditionally rendered based on subscribe settings */}
+        {settings?.subscribe_enabled !== false && (
+          <NotificationBell
+            sellerName={sellerName}
+            scale="normal"
+            style={(settings as any)?.subscribe_style || "glass"}
+            isVisible={buttonsVisible}
+          />
+        )}
 
         <div
           className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-5 flex flex-col"

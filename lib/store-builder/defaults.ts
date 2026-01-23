@@ -1249,7 +1249,7 @@ export const defaultShopHeaderSettings: ShopHeaderSettings = {
   showNicheTags: true,
   showStats: true,
   showTotalSalesBadge: true,
-  showSocialMedia: false,
+  showSocialMedia: true,
   showSocialIconsOnMobile: true, // Added default for mobile social icons toggle
   socialMediaIconColor: "#ffffff",
   socialMediaIconStyle: "default",

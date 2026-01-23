@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import CheckoutPageClient from "./checkout-client"
+import { getProductUrl } from "@/lib/url-helpers"
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string }>
@@ -33,12 +34,14 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   if (creator) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("display_name, avatar_url")
+      .select("display_name, avatar_url, username")
       .eq("id", creator.user_id)
       .single()
 
     creatorProfile = profile
   }
+
+  const creatorUsername = creatorProfile?.username || creator?.slug || ""
 
   // Check if user is logged in and already owns the product
   const {
@@ -54,7 +57,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       .maybeSingle()
 
     if (existingEntitlement) {
-      redirect(`/p/${product.slug}?already_owned=true`)
+      redirect(getProductUrl(creatorUsername, product.slug))
     }
   }
 
@@ -73,6 +76,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         id: creator?.id || "",
         name: creatorProfile?.display_name || "Creator",
         avatar_url: creatorProfile?.avatar_url || null,
+        username: creatorUsername,
       }}
       userEmail={user?.email || null}
       isLoggedIn={!!user}

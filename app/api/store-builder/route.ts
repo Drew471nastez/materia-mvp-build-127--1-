@@ -82,8 +82,55 @@ export async function GET(request: Request) {
     .single()
 
   if (!config) {
-    // Create default config
-    const defaultConfig = pageType === "shop" ? defaultShopPageConfig : defaultProductPageConfig
+    // Create default config - but first check onepage for social data
+    const defaultConfig = pageType === "shop" ? { ...defaultShopPageConfig } : { ...defaultProductPageConfig }
+
+    // Try to get social data from onepage (set during main creator onboarding)
+    const { data: onepage } = await supabase
+      .from("onepages")
+      .select("instagram, tiktok, youtube, title, bio, avatar_url")
+      .eq("owner_id", user.id)
+      .maybeSingle()
+
+    // Also get profile data
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    // If we have onepage social data, inject it into the header section
+    if (pageType === "shop" && defaultConfig.sections) {
+      const headerIndex = defaultConfig.sections.findIndex((s: any) => s.type === "header")
+      if (headerIndex !== -1) {
+        const headerSettings = defaultConfig.sections[headerIndex].settings || {}
+        
+        // Populate social links from onepage
+        if (onepage?.instagram || onepage?.tiktok || onepage?.youtube) {
+          headerSettings.showSocialMedia = true
+          headerSettings.socialLinks = {
+            instagram: { enabled: !!onepage?.instagram, url: onepage?.instagram || "" },
+            tiktok: { enabled: !!onepage?.tiktok, url: onepage?.tiktok || "" },
+            youtube: { enabled: !!onepage?.youtube, url: onepage?.youtube || "" },
+            twitter: { enabled: false, url: "" },
+            spotify: { enabled: false, url: "" },
+          }
+        }
+
+        // Populate profile data
+        if (onepage?.title || profile?.display_name) {
+          headerSettings.title = onepage?.title || profile?.display_name || ""
+        }
+        if (onepage?.bio) {
+          headerSettings.subtitle = onepage.bio
+        }
+        if (onepage?.avatar_url || profile?.avatar_url) {
+          headerSettings.avatarUrl = onepage?.avatar_url || profile?.avatar_url || ""
+        }
+
+        defaultConfig.sections[headerIndex].settings = headerSettings
+      }
+    }
 
     const { data: newConfig, error } = await supabase
       .from("store_builder_configs")

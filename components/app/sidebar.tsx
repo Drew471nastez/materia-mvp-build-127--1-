@@ -117,7 +117,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/products", label: "Products", icon: Package },
     { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/app/onepage", label: "OnePage", icon: Link2 },
-    { href: "/store-builder", label: "Store Builder", icon: Palette },
+    { href: "/store-builder", label: "Store Builder", icon: Palette, forceNavigation: true },
     { href: "/app/emails", label: "Emails", icon: Mail },
     { href: "/app/payouts", label: "Payouts", icon: Wallet },
   ]
@@ -139,10 +139,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const Icon = item.icon
     const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
 
+    const handleClick = (e: React.MouseEvent) => {
+      if (item.forceNavigation) {
+        e.preventDefault()
+        onClick?.()
+        window.location.href = item.href
+        return
+      }
+      onClick?.()
+    }
+
     return (
       <Link
         href={item.href}
-        onClick={onClick}
+        onClick={handleClick}
         className={cn(
           "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150",
           isActive
@@ -161,10 +171,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const Icon = item.icon
     const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
 
+    const handleClick = (e: React.MouseEvent) => {
+      if (item.forceNavigation) {
+        e.preventDefault()
+        onClick?.()
+        window.location.href = item.href
+        return
+      }
+      onClick?.()
+    }
+
     return (
       <Link
         href={item.href}
-        onClick={onClick}
+        onClick={handleClick}
         className={cn(
           "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150",
           isActive

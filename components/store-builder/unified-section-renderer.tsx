@@ -1395,7 +1395,7 @@ function UnifiedImageTextSection({
                   {settings.buttonText}
                 </a>
               ) : (
-                <Link
+                <a
                   href={getButtonHref()}
                   className={cn(
                     "inline-flex items-center justify-center font-medium transition-colors hover:opacity-90",
@@ -1408,7 +1408,7 @@ function UnifiedImageTextSection({
                   }}
                 >
                   {settings.buttonText}
-                </Link>
+                </a>
               )}
             </div>
           )}
@@ -2602,7 +2602,7 @@ function UnifiedFeaturedProductsSection({
               }
 
               return (
-                <Link
+                <a
                   key={product.id}
                   href={getProductHref(product)}
                   className={cn(
@@ -2618,7 +2618,7 @@ function UnifiedFeaturedProductsSection({
                   }}
                 >
                   {content}
-                </Link>
+                </a>
               )
             })}
           </div>
@@ -4029,13 +4029,13 @@ export function UnifiedProductsGrid({
           }
 
           return (
-            <Link
+            <a
               key={product.id}
               href={`/p/${product.slug || product.id}`}
               className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
             >
               {content}
-            </Link>
+            </a>
           )
         })}
       </div>
@@ -4241,7 +4241,7 @@ function UnifiedMoreFromSellerSection({
           }
 
           return (
-            <Link
+            <a
               key={product.id}
               href={`/p/${product.slug || product.id}`}
               className={cn(
@@ -4257,7 +4257,7 @@ function UnifiedMoreFromSellerSection({
               }}
             >
               {content}
-            </Link>
+            </a>
           )
         })}
       </div>

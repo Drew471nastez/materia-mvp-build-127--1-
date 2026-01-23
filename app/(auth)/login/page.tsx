@@ -66,22 +66,38 @@ function LoginFormContent() {
       }
 
       if (data.user) {
+        // Check if user has completed the welcome selection
+        const welcomeShown = localStorage.getItem("storelib_welcome_shown")
+
+        if (!welcomeShown) {
+          // User hasn't completed welcome selection - redirect to signup/success
+          router.push("/signup/success")
+          router.refresh()
+          return
+        }
+
         // Check if user has completed onboarding
         const { data: creator } = await supabase
           .from("creators")
           .select("id, onboarding_completed")
           .eq("user_id", data.user.id)
-          .single()
+          .maybeSingle()
 
         if (creator) {
           if (creator.onboarding_completed === false) {
-            router.push("/onboarding")
+            router.push("/signup/success")
           } else {
             router.push("/app")
           }
         } else {
-          // No creator record, go to onboarding
-          router.push("/onboarding")
+          // No creator record - check user type from localStorage
+          const userType = localStorage.getItem("storelib_user_type")
+          if (userType === "buyer") {
+            router.push("/library")
+          } else {
+            // Default to signup/success for creators or unknown
+            router.push("/signup/success")
+          }
         }
         router.refresh()
       }
@@ -127,8 +143,13 @@ function LoginFormContent() {
     <div className="flex min-h-svh w-full">
       <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-[400px]">
-          <Link href="/" className="mb-12 inline-block">
-            <span className="text-2xl font-bold tracking-tight text-emerald-500">Storelib*</span>
+          <Link href="/" className="mb-12 inline-flex items-center gap-2">
+            <img
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              alt="Storelib"
+              className="h-8 w-8"
+            />
+            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>

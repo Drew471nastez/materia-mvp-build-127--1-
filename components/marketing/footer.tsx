@@ -7,7 +7,7 @@ export function MarketingFooter() {
         <div className="grid gap-8 md:grid-cols-4">
           <div className="flex flex-col gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-lg font-semibold tracking-tight">Materia</span>
+              <span className="text-lg font-semibold tracking-tight">Storelib</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               The all-in-one platform for creators to sell digital products, courses, and communities.
@@ -40,7 +40,7 @@ export function MarketingFooter() {
         </div>
         <div className="mt-12 border-t border-border/40 pt-8">
           <p className="text-center text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Materia. All rights reserved.
+            &copy; {new Date().getFullYear()} Storelib. All rights reserved.
           </p>
         </div>
       </div>

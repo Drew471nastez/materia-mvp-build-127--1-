@@ -36,9 +36,9 @@ export function SettingsSection() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <Label>Show Materia Branding</Label>
+            <Label>Show Storelib Branding</Label>
             <p className="text-xs text-muted-foreground">
-              Display "Powered by Materia" at the bottom
+              Display "Powered by Storelib" at the bottom
             </p>
           </div>
           <Toggle

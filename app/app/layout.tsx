@@ -18,21 +18,23 @@ export default async function AppLayout({
     redirect("/login")
   }
 
+  // Check for creator record with onboarding completed - database is the source of truth
   const { data: creator } = await supabase
     .from("creators")
-    .select("slug, store_published, stripe_account_id, stripe_onboarding_status")
+    .select("slug, store_published, stripe_account_id, stripe_onboarding_status, onboarding_completed")
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle()
 
-  if (!creator) {
-    redirect("/onboarding")
+  // No creator record or onboarding not completed - redirect to welcome selection
+  if (!creator || creator.onboarding_completed !== true) {
+    redirect("/signup/success")
   }
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("display_name, avatar_url")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
 
   const { data: onepage } = await supabase
     .from("onepages")

@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Terms of Service | Materia",
-  description: "Terms of Service for Materia",
+  title: "Terms of Service | Storelib",
+  description: "Terms of Service for Storelib",
 }
 
 export default function TermsPage() {
@@ -13,7 +13,7 @@ export default function TermsPage() {
         <section>
           <h2 className="mb-3 text-lg font-medium text-foreground">1. Acceptance of Terms</h2>
           <p>
-            By accessing or using Materia, you agree to be bound by these Terms of Service and all applicable laws and
+            By accessing or using Storelib, you agree to be bound by these Terms of Service and all applicable laws and
             regulations. If you do not agree with any of these terms, you are prohibited from using this service.
           </p>
         </section>
@@ -21,7 +21,7 @@ export default function TermsPage() {
         <section>
           <h2 className="mb-3 text-lg font-medium text-foreground">2. Use License</h2>
           <p>
-            Permission is granted to temporarily access Materia for personal, non-commercial transitory viewing only.
+            Permission is granted to temporarily access Storelib for personal, non-commercial transitory viewing only.
             This is the grant of a license, not a transfer of title.
           </p>
         </section>
@@ -29,7 +29,7 @@ export default function TermsPage() {
         <section>
           <h2 className="mb-3 text-lg font-medium text-foreground">3. Creator Responsibilities</h2>
           <p>
-            As a creator on Materia, you are responsible for the content you publish and sell. You must have the rights
+            As a creator on Storelib, you are responsible for the content you publish and sell. You must have the rights
             to all content you distribute and must comply with all applicable laws regarding digital commerce.
           </p>
         </section>
@@ -37,7 +37,7 @@ export default function TermsPage() {
         <section>
           <h2 className="mb-3 text-lg font-medium text-foreground">4. Buyer Rights</h2>
           <p>
-            When you purchase a product on Materia, you receive a license to access and use that product according to
+            When you purchase a product on Storelib, you receive a license to access and use that product according to
             the terms set by the creator. Refund policies are determined by individual creators.
           </p>
         </section>
@@ -45,7 +45,7 @@ export default function TermsPage() {
         <section>
           <h2 className="mb-3 text-lg font-medium text-foreground">5. Payment Processing</h2>
           <p>
-            All payments are processed securely through Stripe. Materia does not store your payment information. By
+            All payments are processed securely through Stripe. Storelib does not store your payment information. By
             making a purchase, you agree to Stripe&apos;s terms of service.
           </p>
         </section>
@@ -53,7 +53,7 @@ export default function TermsPage() {
         <section>
           <h2 className="mb-3 text-lg font-medium text-foreground">6. Limitation of Liability</h2>
           <p>
-            Materia shall not be liable for any indirect, incidental, special, consequential, or punitive damages
+            Storelib shall not be liable for any indirect, incidental, special, consequential, or punitive damages
             resulting from your use of the service.
           </p>
         </section>
