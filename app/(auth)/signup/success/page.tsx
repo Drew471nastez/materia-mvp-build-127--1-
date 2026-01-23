@@ -31,30 +31,9 @@ export default function SignupSuccessPage() {
   const [showCreatorOnboarding, setShowCreatorOnboarding] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
-  // Check if user already completed onboarding - redirect to /app if so
+  // Check if user already completed onboarding - redirect appropriately
   useEffect(() => {
     const checkOnboardingStatus = async () => {
-      // First check localStorage and cookie for quick redirect
-      const localOnboardingCompleted = localStorage.getItem("storelib_onboarding_completed")
-      const cookieOnboardingCompleted = document.cookie
-        .split("; ")
-        .find(row => row.startsWith("storelib_onboarding_completed="))
-        ?.split("=")[1]
-
-      const userType = localStorage.getItem("storelib_user_type")
-
-      // Quick redirect for creators who completed onboarding
-      if ((localOnboardingCompleted === "true" || cookieOnboardingCompleted === "true") && userType === "creator") {
-        window.location.replace("/app")
-        return
-      }
-
-      // Quick redirect for buyers
-      if (userType === "buyer") {
-        router.replace("/library")
-        return
-      }
-
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
 
@@ -72,16 +51,32 @@ export default function SignupSuccessPage() {
         .maybeSingle()
 
       if (creator?.onboarding_completed === true) {
-        // Already completed onboarding - redirect to /app
-        localStorage.setItem("storelib_welcome_shown", "true")
-        localStorage.setItem("storelib_user_type", "creator")
-        localStorage.setItem("storelib_onboarding_completed", "true")
-        document.cookie = "storelib_onboarding_completed=true; path=/; max-age=31536000; SameSite=Lax"
-        window.location.replace("/app")
+        // Already completed creator onboarding - go to /app
+        router.replace("/app")
         return
       }
 
-      // User needs to complete onboarding - show the page
+      // Check profile for is_creator status
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_creator, welcome_completed")
+        .eq("id", user.id)
+        .single()
+
+      // If profile has welcome_completed and is NOT a creator, they're a buyer
+      if (profile?.welcome_completed === true && profile?.is_creator === false) {
+        router.replace("/library")
+        return
+      }
+
+      // If is_creator is true but no onboarding_completed, show onboarding
+      if (profile?.is_creator === true && (!creator || creator.onboarding_completed !== true)) {
+        setIsCheckingAuth(false)
+        setShowCreatorOnboarding(true)
+        return
+      }
+
+      // User needs to complete welcome selection - show the page
       setIsCheckingAuth(false)
     }
 
@@ -89,31 +84,50 @@ export default function SignupSuccessPage() {
   }, [router])
 
   const handleChoice = async (choice: "creator" | "buyer") => {
-    // Store the choice in localStorage
-    localStorage.setItem("storelib_user_type", choice)
-    localStorage.setItem("storelib_welcome_shown", "true")
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      router.replace("/login")
+      return
+    }
 
     // Show loading state
     setSelectedChoice(choice)
     setIsLoading(true)
 
-    // Subtle delay for smooth transition
-    await new Promise(resolve => setTimeout(resolve, 600))
-
     if (choice === "creator") {
-      // Show creator onboarding
+      // Mark as creator in profiles (onboarding will complete this)
+      await supabase
+        .from("profiles")
+        .update({ is_creator: true })
+        .eq("id", user.id)
+
+      // Small delay for smooth transition
+      await new Promise(resolve => setTimeout(resolve, 400))
+      
+      // Show creator onboarding modal
       setIsLoading(false)
       setShowCreatorOnboarding(true)
     } else {
+      // Mark as buyer - set welcome_completed and ensure is_creator is false
+      await supabase
+        .from("profiles")
+        .update({ 
+          is_creator: false,
+          welcome_completed: true 
+        })
+        .eq("id", user.id)
+
       // Navigate to library for buyers
-      router.push("/library")
+      router.replace("/library")
     }
   }
 
-  const handleCreatorOnboardingClose = () => {
+  const handleCreatorOnboardingComplete = () => {
+    // Onboarding modal has saved everything to database
+    // Navigate directly to /app dashboard
     setShowCreatorOnboarding(false)
-    // Navigate to /app after onboarding completes
-    // Use replace to prevent going back to this page
     router.replace("/app")
   }
 
@@ -284,7 +298,7 @@ export default function SignupSuccessPage() {
       {/* Creator Onboarding Modal */}
       <CreatorOnboardingModal
         open={showCreatorOnboarding}
-        onClose={handleCreatorOnboardingClose}
+        onClose={handleCreatorOnboardingComplete}
       />
     </>
   )
