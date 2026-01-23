@@ -344,14 +344,48 @@ export default async function OnePageEditorPage() {
         .from("onepages")
         .select("*")
         .eq("owner_id", user.id)
-        .single()
+        .maybeSingle()
 
       if (finalCheck) {
         created = finalCheck
       } else {
-        // Redirect to dashboard as a last resort - user can try again from there
-        // We don't redirect to /app/onepage to avoid potential infinite loop
-        redirect("/app")
+        // Try one more time with maybeSingle to handle race conditions
+        const { data: raceCheck } = await supabase
+          .from("onepages")
+          .select("*")
+          .eq("creator_id", creator.id)
+          .maybeSingle()
+
+        if (raceCheck) {
+          created = raceCheck
+        }
+      }
+
+      // If still no onepage found/created, create a minimal one as last resort
+      if (!created) {
+        const minimalOnepage = {
+          owner_id: user.id,
+          creator_id: creator.id,
+          slug: `page-${Date.now()}`,
+          title: "My Page",
+          bio: "",
+          avatar_url: null,
+          theme: newDefaultTheme,
+          settings: newDefaultSettings,
+          social_links: defaultSocialLinks,
+          draft_blocks: [],
+          status: "draft",
+        }
+
+        const { data: lastResort } = await supabase
+          .from("onepages")
+          .insert(minimalOnepage)
+          .select()
+          .maybeSingle()
+
+        if (lastResort) {
+          created = lastResort
+        }
       }
     }
 
@@ -405,6 +439,14 @@ export default async function OnePageEditorPage() {
         }
       }
     }
+  }
+
+  // Final safety check - if we still don't have an onepage, something went wrong
+  // This should rarely happen with all the retry logic above
+  if (!onepage) {
+    console.error("Failed to get or create onepage - this should not happen")
+    // Instead of redirecting to /app, try to render with a minimal state
+    // The editor should handle null gracefully
   }
 
   return <OnePageEditor initialOnePage={onepage as OnePage} />
