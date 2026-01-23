@@ -96,7 +96,9 @@ export default function SignupSuccessPage() {
 
   const handleCreatorOnboardingClose = () => {
     setShowCreatorOnboarding(false)
-    // The creator onboarding modal handles the redirect to /app
+    // Navigate to /app after onboarding completes
+    // Use replace to prevent going back to this page
+    router.replace("/app")
   }
 
   // Show loading while checking auth status
