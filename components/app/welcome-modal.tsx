@@ -15,14 +15,14 @@ const StorelibLogo = ({ className }: { className?: string }) => (
 
 // Icons for the cards
 const SellIcon = () => (
-  <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M20 7H4C2.89543 7 2 7.89543 2 9V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19V9C22 7.89543 21.1046 7 20 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M16 21V5C16 4.46957 15.7893 3.96086 15.4142 3.58579C15.0391 3.21071 14.5304 3 14 3H10C9.46957 3 8.96086 3.21071 8.58579 3.58579C8.21071 3.96086 8 4.46957 8 5V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 )
 
 const BuyIcon = () => (
-  <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M6 2L3 6V20C3 20.5304 3.21071 21.0391 3.58579 21.4142C3.96086 21.7893 4.46957 22 5 22H19C19.5304 22 20.0391 21.7893 20.4142 21.4142C20.7893 21.0391 21 20.5304 21 20V6L18 2H6Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M16 10C16 11.0609 15.5786 12.0783 14.8284 12.8284C14.0783 13.5786 13.0609 14 12 14C10.9391 14 9.92172 13.5786 9.17157 12.8284C8.42143 12.0783 8 11.0609 8 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -41,7 +41,8 @@ export function WelcomeModal({ open, onClose }: WelcomeModalProps) {
   const handleChoice = async (choice: "sell" | "buy") => {
     // Store the choice in localStorage
     localStorage.setItem("storelib_user_type", choice)
-    localStorage.setItem("storelib_welcome_shown", "true")
+    // For testing: comment out the line below to show modal every time
+    // localStorage.setItem("storelib_welcome_shown", "true")
 
     onClose()
 
@@ -58,10 +59,10 @@ export function WelcomeModal({ open, onClose }: WelcomeModalProps) {
       <DialogContent
         className={cn(
           "p-0 gap-0 overflow-hidden border-0",
-          // Desktop: centered modal
-          "sm:w-[580px] sm:max-w-[580px] sm:rounded-[44px]",
-          // Mobile: auto height modal that fits content
-          "w-[calc(100%-24px)] max-w-none max-sm:rounded-[24px]",
+          // Desktop: centered modal with reduced height and 10% more width
+          "sm:w-[640px] sm:max-w-[640px] sm:rounded-[40px]",
+          // Mobile: responsive width and height
+          "w-[calc(100%-32px)] max-w-none max-sm:rounded-[24px]",
           // Shadow
           "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
           // Hide the close button
@@ -71,51 +72,56 @@ export function WelcomeModal({ open, onClose }: WelcomeModalProps) {
         onEscapeKeyDown={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="flex flex-col bg-white py-10 sm:py-12 px-6 sm:px-10">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <StorelibLogo className="w-12 h-12 sm:w-14 sm:h-14" />
+        <div className="flex flex-col bg-white py-6 sm:py-8 px-5 sm:px-8">
+          {/* Logo with vibrating animation */}
+          <div className="flex justify-center mb-4 sm:mb-5">
+            <div className="relative flex items-center justify-center">
+              {/* Vibrating background animations */}
+              <div className="absolute inset-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-purple-400/30 animate-ping" />
+              <div className="absolute inset-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-purple-400/20 animate-pulse" />
+              {/* Logo container */}
+              <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shadow-lg bg-white flex items-center justify-center">
+                <StorelibLogo className="w-full h-full" />
+              </div>
+            </div>
           </div>
 
           {/* Title & Subtext */}
-          <div className="text-center mb-8">
-            <h1 className="text-[28px] sm:text-[36px] font-bold leading-tight mb-2">
+          <div className="text-center mb-5 sm:mb-6">
+            <h1 className="text-[24px] sm:text-[32px] font-bold leading-tight mb-1.5">
               Welcome
             </h1>
-            <p className="text-gray-500 text-sm sm:text-base">
+            <p className="text-gray-500 text-xs sm:text-sm">
               Choose how you want to use Storelib.
             </p>
           </div>
 
           {/* Cards */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-8">
+          <div className="flex flex-col sm:flex-row gap-3 mb-5 sm:mb-6">
             {/* Sell Card */}
             <div
               className={cn(
-                "flex-1 p-6 rounded-[20px] border-2 cursor-pointer transition-all duration-200",
+                "flex-1 p-4 sm:p-5 rounded-[16px] border-2 cursor-pointer transition-all duration-200",
                 hoveredCard === "sell"
-                  ? "border-purple-600 bg-purple-50"
+                  ? "border-black bg-gray-50"
                   : "border-gray-200 bg-white hover:border-gray-300"
               )}
               onMouseEnter={() => setHoveredCard("sell")}
               onMouseLeave={() => setHoveredCard(null)}
               onClick={() => handleChoice("sell")}
             >
-              <div className={cn(
-                "w-14 h-14 rounded-full flex items-center justify-center mb-4 transition-colors",
-                hoveredCard === "sell" ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-600"
-              )}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-gray-100 text-gray-600">
                 <SellIcon />
               </div>
-              <h3 className="text-lg font-semibold mb-1">Sell</h3>
-              <p className="text-gray-500 text-sm mb-4">
+              <h3 className="text-base font-semibold mb-0.5">I'm a seller</h3>
+              <p className="text-gray-500 text-xs sm:text-sm mb-3">
                 Create pages and sell products.
               </p>
               <button
                 className={cn(
-                  "w-full py-3 rounded-full font-medium transition-all duration-200",
+                  "w-full py-2.5 rounded-full font-medium text-sm transition-all duration-200 active:scale-[0.98]",
                   hoveredCard === "sell"
-                    ? "bg-purple-600 text-white"
+                    ? "bg-black text-white hover:bg-gray-800"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 )}
               >
@@ -126,30 +132,27 @@ export function WelcomeModal({ open, onClose }: WelcomeModalProps) {
             {/* Buy Card */}
             <div
               className={cn(
-                "flex-1 p-6 rounded-[20px] border-2 cursor-pointer transition-all duration-200",
+                "flex-1 p-4 sm:p-5 rounded-[16px] border-2 cursor-pointer transition-all duration-200",
                 hoveredCard === "buy"
-                  ? "border-purple-600 bg-purple-50"
+                  ? "border-black bg-gray-50"
                   : "border-gray-200 bg-white hover:border-gray-300"
               )}
               onMouseEnter={() => setHoveredCard("buy")}
               onMouseLeave={() => setHoveredCard(null)}
               onClick={() => handleChoice("buy")}
             >
-              <div className={cn(
-                "w-14 h-14 rounded-full flex items-center justify-center mb-4 transition-colors",
-                hoveredCard === "buy" ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-600"
-              )}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-gray-100 text-gray-600">
                 <BuyIcon />
               </div>
-              <h3 className="text-lg font-semibold mb-1">Buy</h3>
-              <p className="text-gray-500 text-sm mb-4">
+              <h3 className="text-base font-semibold mb-0.5">I'm a buyer</h3>
+              <p className="text-gray-500 text-xs sm:text-sm mb-3">
                 Explore and purchase from creators.
               </p>
               <button
                 className={cn(
-                  "w-full py-3 rounded-full font-medium transition-all duration-200",
+                  "w-full py-2.5 rounded-full font-medium text-sm transition-all duration-200 active:scale-[0.98]",
                   hoveredCard === "buy"
-                    ? "bg-purple-600 text-white"
+                    ? "bg-black text-white hover:bg-gray-800"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 )}
               >
@@ -159,7 +162,7 @@ export function WelcomeModal({ open, onClose }: WelcomeModalProps) {
           </div>
 
           {/* Footer */}
-          <p className="text-center text-gray-400 text-xs sm:text-sm">
+          <p className="text-center text-gray-400 text-[11px] sm:text-xs">
             You can switch later.
           </p>
         </div>
@@ -174,11 +177,16 @@ export function useWelcomeModal() {
   const [isChecked, setIsChecked] = useState(false)
 
   useEffect(() => {
-    // Check if welcome modal has been shown before
-    const welcomeShown = localStorage.getItem("storelib_welcome_shown")
-    if (!welcomeShown) {
-      setShowWelcome(true)
-    }
+    // For testing: always show the modal
+    // Remove this line and uncomment the check below when ready for production
+    setShowWelcome(true)
+
+    // Production check - uncomment when ready:
+    // const welcomeShown = localStorage.getItem("storelib_welcome_shown")
+    // if (!welcomeShown) {
+    //   setShowWelcome(true)
+    // }
+
     setIsChecked(true)
   }, [])
 
