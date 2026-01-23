@@ -15,20 +15,11 @@ const StorelibLogo = ({ className }: { className?: string }) => (
   </svg>
 )
 
-// 3D Coin icon for creator/monetize
-const CoinIcon = () => (
+// Store/Creator icon - matches UserIcon style
+const StoreIcon = () => (
   <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="12" cy="14" rx="8" ry="3" fill="#D4AF37" opacity="0.6"/>
-    <ellipse cx="12" cy="13" rx="8" ry="3" fill="#F5D061"/>
-    <circle cx="12" cy="10" r="8" fill="url(#coinGradientSuccess)" stroke="#D4AF37" strokeWidth="1"/>
-    <path d="M12 6V7M12 13V14M10 8.5C10 7.67 10.9 7 12 7C13.1 7 14 7.67 14 8.5C14 9.33 13.1 10 12 10C10.9 10 10 10.67 10 11.5C10 12.33 10.9 13 12 13C13.1 13 14 12.33 14 11.5" stroke="#8B6914" strokeWidth="1.5" strokeLinecap="round"/>
-    <defs>
-      <linearGradient id="coinGradientSuccess" x1="12" y1="2" x2="12" y2="18" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#FFE066"/>
-        <stop offset="50%" stopColor="#F5D061"/>
-        <stop offset="100%" stopColor="#D4AF37"/>
-      </linearGradient>
-    </defs>
+    <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 22V12H15V22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 )
 
@@ -142,7 +133,7 @@ export default function SignupSuccessPage() {
               >
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-100 text-gray-600 shrink-0">
-                    <CoinIcon />
+                    <StoreIcon />
                   </div>
                   <div className="flex-1">
                     <h3 className="text-base font-semibold mb-0.5">I'm a creator</h3>

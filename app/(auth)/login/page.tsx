@@ -66,6 +66,16 @@ function LoginFormContent() {
       }
 
       if (data.user) {
+        // Check if user has completed the welcome selection
+        const welcomeShown = localStorage.getItem("storelib_welcome_shown")
+
+        if (!welcomeShown) {
+          // User hasn't completed welcome selection - redirect to signup/success
+          router.push("/signup/success")
+          router.refresh()
+          return
+        }
+
         // Check if user has completed onboarding
         const { data: creator } = await supabase
           .from("creators")
@@ -80,8 +90,14 @@ function LoginFormContent() {
             router.push("/app")
           }
         } else {
-          // No creator record, go to onboarding
-          router.push("/onboarding")
+          // No creator record - check user type from localStorage
+          const userType = localStorage.getItem("storelib_user_type")
+          if (userType === "buyer") {
+            router.push("/library")
+          } else {
+            // Default to onboarding for creators or unknown
+            router.push("/onboarding")
+          }
         }
         router.refresh()
       }

@@ -231,18 +231,15 @@ export function WelcomeModal({ open, onClose, onCreatorSelect }: WelcomeModalPro
 }
 
 // Hook to manage welcome modal state
+// NOTE: This modal is DISABLED - we now use the split-screen /signup/success page instead
 export function useWelcomeModal() {
   const [showWelcome, setShowWelcome] = useState(false)
   const [isChecked, setIsChecked] = useState(false)
 
   useEffect(() => {
-    // Check if welcome was already shown (from signup success page or previously)
-    const welcomeShown = localStorage.getItem("storelib_welcome_shown")
-    if (!welcomeShown) {
-      // For testing: always show the modal when not shown before
-      setShowWelcome(true)
-    }
-
+    // DISABLED: The welcome modal is no longer used
+    // New users are redirected to /signup/success which shows the split-screen welcome selection
+    // Keep showWelcome as false - never show the old modal
     setIsChecked(true)
   }, [])
 
