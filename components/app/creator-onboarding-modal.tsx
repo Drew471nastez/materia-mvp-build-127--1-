@@ -518,12 +518,12 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      // Get creator ID
+      // Get creator ID (use maybeSingle to not throw error if no record exists)
       const { data: creator } = await supabase
         .from("creators")
         .select("id")
         .eq("user_id", user.id)
-        .single()
+        .maybeSingle()
 
       // Update profile to mark as creator
       await supabase
@@ -559,7 +559,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           .select("id, draft_config")
           .eq("creator_id", creator.id)
           .eq("page_type", "homepage")
-          .single()
+          .maybeSingle()
 
         if (existingConfig) {
           // Update existing config with header section data
@@ -600,7 +600,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           .from("onepages")
           .select("id")
           .eq("creator_id", creator.id)
-          .single()
+          .maybeSingle()
 
         if (onepage) {
           await supabase
@@ -618,7 +618,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         }
       } else {
         // Create new creator record if it doesn't exist
-        await supabase
+        const { error: insertError } = await supabase
           .from("creators")
           .insert({
             user_id: user.id,
@@ -633,7 +633,15 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             onboarding_completed: true,
             store_published: true,
           })
+
+        if (insertError) {
+          console.error("Error creating creator:", insertError)
+        }
       }
+
+      // Mark welcome as shown in localStorage (backup for client-side checks)
+      localStorage.setItem("storelib_welcome_shown", "true")
+      localStorage.setItem("storelib_user_type", "creator")
     } catch (e) {
       console.error("Error during setup:", e)
     }
