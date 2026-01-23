@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
 import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-modal"
+import { createClient } from "@/lib/supabase/client"
 
 // Store/Creator icon - matches UserIcon style
 const StoreIcon = () => (
@@ -28,6 +29,48 @@ export default function SignupSuccessPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedChoice, setSelectedChoice] = useState<"creator" | "buyer" | null>(null)
   const [showCreatorOnboarding, setShowCreatorOnboarding] = useState(false)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  // Check if user already completed onboarding - redirect to /app if so
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        // Not logged in - redirect to login
+        router.replace("/login")
+        return
+      }
+
+      // Check if user has a creator record with onboarding completed
+      const { data: creator } = await supabase
+        .from("creators")
+        .select("onboarding_completed")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (creator?.onboarding_completed === true) {
+        // Already completed onboarding - redirect to /app
+        localStorage.setItem("storelib_welcome_shown", "true")
+        localStorage.setItem("storelib_user_type", "creator")
+        router.replace("/app")
+        return
+      }
+
+      // Check if user is a buyer (has welcome shown but no creator record)
+      const userType = localStorage.getItem("storelib_user_type")
+      if (userType === "buyer") {
+        router.replace("/library")
+        return
+      }
+
+      // User needs to complete onboarding - show the page
+      setIsCheckingAuth(false)
+    }
+
+    checkOnboardingStatus()
+  }, [router])
 
   const handleChoice = async (choice: "creator" | "buyer") => {
     // Store the choice in localStorage
@@ -54,6 +97,18 @@ export default function SignupSuccessPage() {
   const handleCreatorOnboardingClose = () => {
     setShowCreatorOnboarding(false)
     // The creator onboarding modal handles the redirect to /app
+  }
+
+  // Show loading while checking auth status
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-svh w-full items-center justify-center bg-white">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto" />
+          <p className="mt-4 text-neutral-500">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

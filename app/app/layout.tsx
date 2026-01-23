@@ -22,7 +22,7 @@ export default async function AppLayout({
     .from("creators")
     .select("slug, store_published, stripe_account_id, stripe_onboarding_status, onboarding_completed")
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle()
 
   // No creator record or onboarding not completed - redirect to welcome selection
   if (!creator || creator.onboarding_completed !== true) {
@@ -33,7 +33,7 @@ export default async function AppLayout({
     .from("profiles")
     .select("display_name, avatar_url")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
 
   const { data: onepage } = await supabase
     .from("onepages")
