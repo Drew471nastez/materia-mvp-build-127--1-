@@ -41,7 +41,7 @@ interface OnePageContextType {
 
   updateSocialLinks: (updates: Partial<OnePageSocialLinks>) => void
 
-  addBlock: (type: OnePageBlockType, afterId?: string) => OnePageBlock | null
+  addBlock: (type: OnePageBlockType, afterId?: string, initialData?: Record<string, any>) => OnePageBlock | null
   updateBlock: (blockId: string, updates: Partial<OnePageBlock>) => void
   removeBlock: (blockId: string) => void
   archiveBlock: (blockId: string) => void
@@ -292,11 +292,15 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     markDirty()
   }, [addToHistory, markDirty])
 
-  const addBlock = useCallback((type: OnePageBlockType, afterId?: string): OnePageBlock | null => {
+  const addBlock = useCallback((type: OnePageBlockType, afterId?: string, initialData?: Record<string, any>): OnePageBlock | null => {
     let newBlock: OnePageBlock | null = null
     setOnePageState((prev) => {
       if (!prev) return prev
       newBlock = createDefaultBlock(type)
+      // Apply initial data overrides if provided
+      if (initialData) {
+        newBlock.data = { ...newBlock.data, ...initialData }
+      }
       const blocks = [...prev.draft_blocks]
 
       if (afterId) {

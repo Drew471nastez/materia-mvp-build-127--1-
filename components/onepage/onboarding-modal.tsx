@@ -968,98 +968,62 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       case "general": {
         // Final order: header → social_row → My Link → My Link → divider (line) → email_capture
         addBlock("email_capture")
-        const dividerBlock = addBlock("divider")
+        addBlock("divider", undefined, { style: "line", height: 24 })
         addBlock("link_button")
         addBlock("link_button")
         addBlock("social_row")
-
-        // Directly modify the block object (reference to object in pending state)
-        if (dividerBlock) {
-          dividerBlock.data = { style: "line", height: 24 }
-        }
         break
       }
 
       case "artist": {
         // Final order: header → social_row → Spotify block → YouTube block → divider (line) → email_capture
         addBlock("email_capture")
-        const dividerBlock = addBlock("divider")
-        const youtubeBlock = addBlock("link_button")
-        const spotifyBlock = addBlock("link_button")
+        addBlock("divider", undefined, { style: "line", height: 24 })
+        addBlock("link_button", undefined, {
+          label: "Subscribe on YouTube",
+          url: "https://youtube.com",
+          icon: "youtube",
+          thumbnail_url: null
+        })
+        addBlock("link_button", undefined, {
+          label: "Listen on Spotify",
+          url: "https://open.spotify.com/",
+          icon: "spotify",
+          thumbnail_url: null,
+          animation_type: "swipe"
+        })
         addBlock("social_row")
-
-        // Directly modify block objects (references to objects in pending state)
-        if (dividerBlock) {
-          dividerBlock.data = { style: "line", height: 24 }
-        }
-
-        if (youtubeBlock) {
-          youtubeBlock.data = {
-            label: "Subscribe on YouTube",
-            url: "https://youtube.com",
-            icon: "youtube",
-            thumbnail_url: null
-          }
-        }
-
-        if (spotifyBlock) {
-          spotifyBlock.data = {
-            label: "Listen on Spotify",
-            url: "https://open.spotify.com/",
-            icon: "spotify",
-            thumbnail_url: null,
-            animation_type: "swipe"
-          }
-        }
         break
       }
 
       case "digital": {
         // Final order: header → social_row → product → My Link → divider (line) → email_capture
         addBlock("email_capture")
-        const dividerBlock = addBlock("divider")
+        addBlock("divider", undefined, { style: "line", height: 24 })
         addBlock("link_button")
         addBlock("product")
         addBlock("social_row")
-
-        // Directly modify the block object
-        if (dividerBlock) {
-          dividerBlock.data = { style: "line", height: 24 }
-        }
         break
       }
 
       case "business": {
         // Final order: header → social_row → My Link → Instagram block → LinkedIn block → divider (line) → email_capture
         addBlock("email_capture")
-        const dividerBlock = addBlock("divider")
-        const linkedinBlock = addBlock("link_button")
-        const instagramBlock = addBlock("link_button")
+        addBlock("divider", undefined, { style: "line", height: 24 })
+        addBlock("link_button", undefined, {
+          label: "Connect on LinkedIn",
+          url: "https://linkedin.com/in/",
+          icon: "linkedin",
+          thumbnail_url: null
+        })
+        addBlock("link_button", undefined, {
+          label: "Follow on Instagram",
+          url: "https://instagram.com/",
+          icon: "instagram",
+          thumbnail_url: null
+        })
         addBlock("link_button")
         addBlock("social_row")
-
-        // Directly modify block objects
-        if (dividerBlock) {
-          dividerBlock.data = { style: "line", height: 24 }
-        }
-
-        if (linkedinBlock) {
-          linkedinBlock.data = {
-            label: "Connect on LinkedIn",
-            url: "https://linkedin.com/in/",
-            icon: "linkedin",
-            thumbnail_url: null
-          }
-        }
-
-        if (instagramBlock) {
-          instagramBlock.data = {
-            label: "Follow on Instagram",
-            url: "https://instagram.com/",
-            icon: "instagram",
-            thumbnail_url: null
-          }
-        }
         break
       }
     }
