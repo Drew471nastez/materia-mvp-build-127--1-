@@ -949,24 +949,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     }, 4000)
   }
 
-  // Helper to get icon from URL (same logic as links-tab.tsx)
-  const getIconFromUrl = (url: string): string | null => {
-    if (url.includes('instagram.com')) return 'instagram'
-    if (url.includes('x.com') || url.includes('twitter.com')) return 'twitter'
-    if (url.includes('tiktok.com')) return 'tiktok'
-    if (url.includes('facebook.com')) return 'facebook'
-    if (url.includes('linkedin.com')) return 'linkedin'
-    if (url.includes('youtube.com')) return 'youtube'
-    if (url.includes('threads.net')) return 'threads'
-    if (url.includes('spotify.com')) return 'spotify'
-    if (url.includes('music.apple.com')) return 'apple-music'
-    if (url.includes('wa.me') || url.includes('whatsapp.com')) return 'whatsapp'
-    if (url.includes('t.me') || url.includes('telegram.')) return 'telegram'
-    if (url.includes('vimeo.com')) return 'vimeo'
-    if (url.includes('discord.gg') || url.includes('discord.com')) return 'discord'
-    return null
-  }
-
   // Create blocks based on goal selection
   // Blocks are added in REVERSE order (bottom to top) because smart positioning
   // always inserts after header when no social_row exists. Social_row is added LAST.
@@ -980,20 +962,23 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     }
 
     // Delay to ensure removeBlock operations complete
-    await new Promise(resolve => setTimeout(resolve, 150))
-
-    // Track blocks that need to be updated after adding
-    const blocksToUpdate: Array<{ id: string; data: any }> = []
+    await new Promise(resolve => setTimeout(resolve, 200))
 
     switch (goal) {
       case "general": {
         // Final order: header → social_row → My Link → My Link → divider (line) → email_capture
         addBlock("email_capture")
         const dividerBlock = addBlock("divider")
-        if (dividerBlock) blocksToUpdate.push({ id: dividerBlock.id, data: { style: "line", height: 24 } })
         addBlock("link_button")
         addBlock("link_button")
         addBlock("social_row")
+
+        // Update divider after delay
+        if (dividerBlock) {
+          setTimeout(() => {
+            updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
+          }, 500)
+        }
         break
       }
 
@@ -1001,27 +986,42 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // Final order: header → social_row → Spotify block → YouTube block → divider (line) → email_capture
         addBlock("email_capture")
         const dividerBlock = addBlock("divider")
-        if (dividerBlock) blocksToUpdate.push({ id: dividerBlock.id, data: { style: "line", height: 24 } })
-
-        // YouTube block
         const youtubeBlock = addBlock("link_button")
-        if (youtubeBlock) {
-          blocksToUpdate.push({
-            id: youtubeBlock.id,
-            data: { label: "Subscribe on YouTube", url: "https://youtube.com/@", icon: "youtube", thumbnail_url: null }
-          })
-        }
-
-        // Spotify block
         const spotifyBlock = addBlock("link_button")
-        if (spotifyBlock) {
-          blocksToUpdate.push({
-            id: spotifyBlock.id,
-            data: { label: "Listen on Spotify", url: "https://open.spotify.com/", icon: "spotify", thumbnail_url: null }
-          })
+        addBlock("social_row")
+
+        // Schedule updates with staggered delays to ensure each one processes
+        if (dividerBlock) {
+          setTimeout(() => {
+            updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
+          }, 400)
         }
 
-        addBlock("social_row")
+        if (youtubeBlock) {
+          setTimeout(() => {
+            updateBlock(youtubeBlock.id, {
+              data: {
+                label: "Subscribe on YouTube",
+                url: "https://youtube.com/@",
+                icon: "youtube",
+                thumbnail_url: null
+              }
+            })
+          }, 500)
+        }
+
+        if (spotifyBlock) {
+          setTimeout(() => {
+            updateBlock(spotifyBlock.id, {
+              data: {
+                label: "Listen on Spotify",
+                url: "https://open.spotify.com/",
+                icon: "spotify",
+                thumbnail_url: null
+              }
+            })
+          }, 600)
+        }
         break
       }
 
@@ -1029,10 +1029,16 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // Final order: header → social_row → product → My Link → divider (line) → email_capture
         addBlock("email_capture")
         const dividerBlock = addBlock("divider")
-        if (dividerBlock) blocksToUpdate.push({ id: dividerBlock.id, data: { style: "line", height: 24 } })
         addBlock("link_button")
         addBlock("product")
         addBlock("social_row")
+
+        // Update divider after delay
+        if (dividerBlock) {
+          setTimeout(() => {
+            updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
+          }, 500)
+        }
         break
       }
 
@@ -1040,41 +1046,45 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // Final order: header → social_row → My Link → Instagram block → LinkedIn block → divider (line) → email_capture
         addBlock("email_capture")
         const dividerBlock = addBlock("divider")
-        if (dividerBlock) blocksToUpdate.push({ id: dividerBlock.id, data: { style: "line", height: 24 } })
-
-        // LinkedIn block
         const linkedinBlock = addBlock("link_button")
-        if (linkedinBlock) {
-          blocksToUpdate.push({
-            id: linkedinBlock.id,
-            data: { label: "Connect on LinkedIn", url: "https://linkedin.com/in/", icon: "linkedin", thumbnail_url: null }
-          })
-        }
-
-        // Instagram block
         const instagramBlock = addBlock("link_button")
-        if (instagramBlock) {
-          blocksToUpdate.push({
-            id: instagramBlock.id,
-            data: { label: "Follow on Instagram", url: "https://instagram.com/", icon: "instagram", thumbnail_url: null }
-          })
-        }
-
-        // My Link block
         addBlock("link_button")
         addBlock("social_row")
+
+        // Schedule updates with staggered delays
+        if (dividerBlock) {
+          setTimeout(() => {
+            updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
+          }, 400)
+        }
+
+        if (linkedinBlock) {
+          setTimeout(() => {
+            updateBlock(linkedinBlock.id, {
+              data: {
+                label: "Connect on LinkedIn",
+                url: "https://linkedin.com/in/",
+                icon: "linkedin",
+                thumbnail_url: null
+              }
+            })
+          }, 500)
+        }
+
+        if (instagramBlock) {
+          setTimeout(() => {
+            updateBlock(instagramBlock.id, {
+              data: {
+                label: "Follow on Instagram",
+                url: "https://instagram.com/",
+                icon: "instagram",
+                thumbnail_url: null
+              }
+            })
+          }, 600)
+        }
         break
       }
-    }
-
-    // Wait for React to process all addBlock state updates
-    await new Promise(resolve => setTimeout(resolve, 300))
-
-    // Now update each block with its configured data
-    for (const blockUpdate of blocksToUpdate) {
-      updateBlock(blockUpdate.id, { data: blockUpdate.data })
-      // Small delay between updates to ensure each one processes
-      await new Promise(resolve => setTimeout(resolve, 50))
     }
   }
 
