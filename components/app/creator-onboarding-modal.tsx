@@ -550,6 +550,23 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           })
           .eq("id", creator.id)
 
+        // Build the header settings with social data
+        const headerSettings = {
+          title: displayName,
+          subtitle: bio,
+          avatarUrl: avatarUrl,
+          categoryBadge: selectedCategory,
+          showSocialMedia: true,
+          showSocialIconsOnMobile: true,
+          socialLinks: {
+            instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
+            tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },
+            youtube: { enabled: !!socials.youtube, url: socials.youtube || "" },
+            twitter: { enabled: false, url: "" },
+            spotify: { enabled: false, url: "" },
+          }
+        }
+
         // Update or create store builder config for homepage
         const { data: existingConfig } = await supabase
           .from("store_builder_configs")
@@ -561,30 +578,21 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         if (existingConfig) {
           // Update existing config with header section data
           const draftConfig = existingConfig.draft_config || {}
-          const sections = draftConfig.sections || []
+          let sections = draftConfig.sections || []
 
-          // Find header section and update it
+          // Find header section and update it, or add one if missing
           const headerIndex = sections.findIndex((s: any) => s.type === "header")
           if (headerIndex !== -1) {
             sections[headerIndex] = {
               ...sections[headerIndex],
               settings: {
                 ...sections[headerIndex].settings,
-                title: displayName,
-                subtitle: bio,
-                avatarUrl: avatarUrl,
-                categoryBadge: selectedCategory,
-                showSocialMedia: true,
-                showSocialIconsOnMobile: true,
-                socialLinks: {
-                  instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
-                  tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },
-                  youtube: { enabled: !!socials.youtube, url: socials.youtube || "" },
-                  twitter: { enabled: false, url: "" },
-                  spotify: { enabled: false, url: "" },
-                }
+                ...headerSettings
               }
             }
+          } else {
+            // No header section exists, add one at the beginning
+            sections = [{ id: "header-1", type: "header", settings: headerSettings }, ...sections]
           }
 
           await supabase
@@ -593,9 +601,18 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               draft_config: { ...draftConfig, sections }
             })
             .eq("id", existingConfig.id)
+        } else {
+          // No config exists, create one with header section
+          await supabase
+            .from("store_builder_configs")
+            .insert({
+              creator_id: creator.id,
+              page_type: "homepage",
+              draft_config: { sections: [{ id: "header-1", type: "header", settings: headerSettings }] },
+            })
         }
 
-        // Update onepage with the same data
+        // Update or create onepage with the same data
         const { data: onepage } = await supabase
           .from("onepages")
           .select("id")
@@ -615,6 +632,22 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               youtube: socials.youtube || null,
             })
             .eq("id", onepage.id)
+        } else {
+          // No onepage exists, create one
+          await supabase
+            .from("onepages")
+            .insert({
+              creator_id: creator.id,
+              seller_id: user.id,
+              slug: getSlug(),
+              title: displayName,
+              bio: bio,
+              avatar_url: avatarUrl,
+              instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+              tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
+              youtube: socials.youtube || null,
+              published: false,
+            })
         }
       } else {
         // Create new creator record - only use columns that exist in the database
