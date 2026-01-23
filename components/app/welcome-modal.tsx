@@ -45,9 +45,10 @@ const UserIcon = () => (
 interface WelcomeModalProps {
   open: boolean
   onClose: () => void
+  onCreatorSelect?: () => void
 }
 
-export function WelcomeModal({ open, onClose }: WelcomeModalProps) {
+export function WelcomeModal({ open, onClose, onCreatorSelect }: WelcomeModalProps) {
   const router = useRouter()
   const [hoveredCard, setHoveredCard] = useState<"creator" | "buyer" | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -64,13 +65,18 @@ export function WelcomeModal({ open, onClose }: WelcomeModalProps) {
     setIsLoading(true)
 
     // Subtle delay for smooth transition
-    await new Promise(resolve => setTimeout(resolve, 800))
+    await new Promise(resolve => setTimeout(resolve, 600))
 
     onClose()
 
     // Navigate based on choice
     if (choice === "creator") {
-      router.push("/app")
+      // If creator selected, trigger the creator onboarding
+      if (onCreatorSelect) {
+        onCreatorSelect()
+      } else {
+        router.push("/app")
+      }
     } else {
       router.push("/library")
     }
