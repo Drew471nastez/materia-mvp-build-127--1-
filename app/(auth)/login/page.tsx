@@ -81,7 +81,7 @@ function LoginFormContent() {
           .from("creators")
           .select("id, onboarding_completed")
           .eq("user_id", data.user.id)
-          .single()
+          .maybeSingle()
 
         if (creator) {
           if (creator.onboarding_completed === false) {
