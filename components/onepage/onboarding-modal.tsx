@@ -584,7 +584,7 @@ interface OnboardingData {
 }
 
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
-  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock } = useOnePage()
+  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, removeBlock } = useOnePage()
   const [currentStep, setCurrentStep] = useState(1)
   const [isAnimating, setIsAnimating] = useState(false)
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("right")
@@ -950,9 +950,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   }
 
   // Helper function to add a link_button with preset (same as handleAddBlock in links-tab.tsx)
+  // Directly modifies block.data on returned object BEFORE React processes state update
   const addLinkButtonWithPreset = (preset: { label: string; url: string }) => {
     const newBlock = addBlock("link_button")
-    if (newBlock) {
+    if (newBlock && newBlock.data) {
       // Determine default icon based on preset URL (same logic as links-tab.tsx)
       let defaultIcon: string | null = null
       if (preset.url.includes('instagram.com')) defaultIcon = 'instagram'
@@ -969,14 +970,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       else if (preset.url.includes('vimeo.com')) defaultIcon = 'vimeo'
       else if (preset.url.includes('discord.gg') || preset.url.includes('discord.com')) defaultIcon = 'discord'
 
-      updateBlock(newBlock.id, {
-        data: {
-          ...newBlock.data,
-          label: preset.label,
-          url: preset.url,
-          icon: defaultIcon
-        }
-      })
+      // Directly modify the data object on the returned block
+      // This works because it's the same object that will be added to state
+      ;(newBlock.data as any).label = preset.label
+      ;(newBlock.data as any).url = preset.url
+      ;(newBlock.data as any).icon = defaultIcon
     }
     return newBlock
   }
@@ -1001,13 +999,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // Final order: header → social_row → My Link → My Link → divider (line) → email_capture
         // Add in reverse order, then social_row last
         addBlock("email_capture")
-        
-        // Divider with line style
+
+        // Divider with line style - directly modify data
         const dividerBlock = addBlock("divider")
-        if (dividerBlock) {
-          updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
+        if (dividerBlock && dividerBlock.data) {
+          ;(dividerBlock.data as any).style = "line"
+          ;(dividerBlock.data as any).height = 24
         }
-        
+
         addBlock("link_button")
         addBlock("link_button")
         addBlock("social_row")
@@ -1015,14 +1014,15 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       }
 
       case "artist": {
-        // Final order: header → social_row → Spotify → YouTube → divider (line) → email_capture
+        // Final order: header → social_row → Spotify block → YouTube block → divider (line) → email_capture
         // Add in reverse order, then social_row last
         addBlock("email_capture")
-        
-        // Divider with line style
+
+        // Divider with line style - directly modify data
         const dividerBlock = addBlock("divider")
-        if (dividerBlock) {
-          updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
+        if (dividerBlock && dividerBlock.data) {
+          ;(dividerBlock.data as any).style = "line"
+          ;(dividerBlock.data as any).height = 24
         }
 
         // YouTube block (same as clicking "YouTube" in Add Block modal)
@@ -1039,13 +1039,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         // Final order: header → social_row → product → My Link → divider (line) → email_capture
         // Add in reverse order, then social_row last
         addBlock("email_capture")
-        
-        // Divider with line style
+
+        // Divider with line style - directly modify data
         const dividerBlock = addBlock("divider")
-        if (dividerBlock) {
-          updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
+        if (dividerBlock && dividerBlock.data) {
+          ;(dividerBlock.data as any).style = "line"
+          ;(dividerBlock.data as any).height = 24
         }
-        
+
         addBlock("link_button")
         addBlock("product")
         addBlock("social_row")
@@ -1053,14 +1054,15 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       }
 
       case "business": {
-        // Final order: header → social_row → My Link → Instagram → LinkedIn → divider (line) → email_capture
+        // Final order: header → social_row → My Link → Instagram block → LinkedIn block → divider (line) → email_capture
         // Add in reverse order, then social_row last
         addBlock("email_capture")
-        
-        // Divider with line style
+
+        // Divider with line style - directly modify data
         const dividerBlock = addBlock("divider")
-        if (dividerBlock) {
-          updateBlock(dividerBlock.id, { data: { style: "line", height: 24 } })
+        if (dividerBlock && dividerBlock.data) {
+          ;(dividerBlock.data as any).style = "line"
+          ;(dividerBlock.data as any).height = 24
         }
 
         // LinkedIn block (same as clicking "LinkedIn" in Add Block modal)
@@ -1071,7 +1073,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
         // My Link block
         addBlock("link_button")
-        
+
         addBlock("social_row")
         break
       }
