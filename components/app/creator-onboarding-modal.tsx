@@ -595,20 +595,33 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             sections = [{ id: "header-1", type: "header", settings: headerSettings }, ...sections]
           }
 
+          // IMPORTANT: Store Builder UI reads from headerSettings.socialLinks, not sections[header].settings
+          // So we need to save social links to BOTH locations
           await supabase
             .from("store_builder_configs")
             .update({
-              draft_config: { ...draftConfig, sections }
+              draft_config: {
+                ...draftConfig,
+                sections,
+                headerSettings: {
+                  ...draftConfig.headerSettings,
+                  ...headerSettings
+                }
+              }
             })
             .eq("id", existingConfig.id)
         } else {
           // No config exists, create one with header section for SHOP page
+          // IMPORTANT: Save to BOTH sections AND headerSettings
           await supabase
             .from("store_builder_configs")
             .insert({
               creator_id: creator.id,
               page_type: "shop",
-              draft_config: { sections: [{ id: "header-1", type: "header", settings: headerSettings }] },
+              draft_config: {
+                sections: [{ id: "header-1", type: "header", settings: headerSettings }],
+                headerSettings: headerSettings
+              },
             })
         }
 
@@ -619,6 +632,13 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           .eq("creator_id", creator.id)
           .maybeSingle()
 
+        // Build social_links JSONB for OnePage (used by OnePage context)
+        const onepageSocialLinks = {
+          instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+          tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
+          youtube: socials.youtube || null,
+        }
+
         if (onepage) {
           await supabase
             .from("onepages")
@@ -627,9 +647,12 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
-              instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-              tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
-              youtube: socials.youtube || null,
+              // Direct columns (for backward compatibility)
+              instagram: onepageSocialLinks.instagram,
+              tiktok: onepageSocialLinks.tiktok,
+              youtube: onepageSocialLinks.youtube,
+              // JSONB column (used by OnePage TypeScript type)
+              social_links: onepageSocialLinks,
             })
             .eq("id", onepage.id)
         } else {
@@ -644,9 +667,12 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
-              instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-              tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
-              youtube: socials.youtube || null,
+              // Direct columns (for backward compatibility)
+              instagram: onepageSocialLinks.instagram,
+              tiktok: onepageSocialLinks.tiktok,
+              youtube: onepageSocialLinks.youtube,
+              // JSONB column (used by OnePage TypeScript type)
+              social_links: onepageSocialLinks,
               published: false,
             })
         }
@@ -668,6 +694,13 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         if (insertError) {
           console.error("Error creating creator:", insertError)
         } else if (newCreator) {
+          // Build social_links JSONB for new creator's OnePage
+          const newCreatorSocialLinks = {
+            instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+            tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
+            youtube: socials.youtube || null,
+          }
+
           // Create onepage record with social data
           const { data: newOnepage } = await supabase
             .from("onepages")
@@ -679,43 +712,52 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
-              instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-              tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
-              youtube: socials.youtube || null,
+              // Direct columns (for backward compatibility)
+              instagram: newCreatorSocialLinks.instagram,
+              tiktok: newCreatorSocialLinks.tiktok,
+              youtube: newCreatorSocialLinks.youtube,
+              // JSONB column (used by OnePage TypeScript type)
+              social_links: newCreatorSocialLinks,
               published: false,
             })
             .select("id")
             .single()
 
           // Create store builder config with social data in header
+          const newCreatorHeaderSettings = {
+            title: displayName,
+            subtitle: bio,
+            avatarUrl: avatarUrl,
+            categoryBadge: selectedCategory,
+            showSocialMedia: true,
+            showSocialIconsOnMobile: true,
+            socialLinks: {
+              instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
+              tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },
+              youtube: { enabled: !!socials.youtube, url: socials.youtube || "" },
+              twitter: { enabled: false, url: "" },
+              spotify: { enabled: false, url: "" },
+            }
+          }
           const defaultSections = [
             {
               id: "header-1",
               type: "header",
-              settings: {
-                title: displayName,
-                subtitle: bio,
-                avatarUrl: avatarUrl,
-                categoryBadge: selectedCategory,
-                showSocialMedia: true,
-                showSocialIconsOnMobile: true,
-                socialLinks: {
-                  instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
-                  tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },
-                  youtube: { enabled: !!socials.youtube, url: socials.youtube || "" },
-                  twitter: { enabled: false, url: "" },
-                  spotify: { enabled: false, url: "" },
-                }
-              }
+              settings: newCreatorHeaderSettings
             }
           ]
 
+          // IMPORTANT: Save to BOTH sections AND headerSettings
+          // Store Builder UI reads from headerSettings.socialLinks
           await supabase
             .from("store_builder_configs")
             .insert({
               creator_id: newCreator.id,
               page_type: "shop",
-              draft_config: { sections: defaultSections },
+              draft_config: {
+                sections: defaultSections,
+                headerSettings: newCreatorHeaderSettings
+              },
             })
         }
       }
