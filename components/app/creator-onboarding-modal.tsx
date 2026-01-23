@@ -513,60 +513,121 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
     // Phase 2: Applying your settings... (2 seconds)
     setSetupPhase("applying")
 
-    // Actually save the data
+    // Actually save the data - using explicit check-then-update/insert pattern
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      // Get creator ID (use maybeSingle to not throw error if no record exists)
-      const { data: creator } = await supabase
-        .from("creators")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle()
+      const slug = getSlug()
 
       // Update profile to mark as creator
       await supabase
         .from("profiles")
         .update({
           is_creator: true,
-          username: getSlug(),
+          username: slug,
           display_name: displayName,
           avatar_url: avatarUrl,
         })
         .eq("id", user.id)
 
-      if (creator) {
-        // Update creator profile with username and bio
+      // Check if creator record already exists
+      const { data: existingCreator } = await supabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      const creatorData = {
+        slug: slug,
+        username: slug,
+        display_name: displayName,
+        bio: bio,
+        avatar_url: avatarUrl,
+        niche_tags: selectedCategory ? [selectedCategory] : [],
+        instagram_url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+        youtube_url: socials.youtube || null,
+        onboarding_completed: true,
+        store_published: true,
+      }
+
+      let creatorId: string | null = null
+
+      if (existingCreator) {
+        // Update existing creator record
+        const { error: updateError } = await supabase
+          .from("creators")
+          .update(creatorData)
+          .eq("id", existingCreator.id)
+
+        if (updateError) {
+          console.error("Error updating creator:", updateError)
+        }
+        creatorId = existingCreator.id
+      } else {
+        // Insert new creator record
+        const { data: newCreator, error: insertError } = await supabase
+          .from("creators")
+          .insert({
+            user_id: user.id,
+            ...creatorData,
+          })
+          .select("id")
+          .single()
+
+        if (insertError) {
+          console.error("Error inserting creator:", insertError)
+          // Try one more time with minimal data
+          const { data: minimalCreator, error: minimalError } = await supabase
+            .from("creators")
+            .insert({
+              user_id: user.id,
+              slug: slug,
+              onboarding_completed: true,
+            })
+            .select("id")
+            .single()
+
+          if (minimalError) {
+            console.error("Error with minimal creator insert:", minimalError)
+          } else if (minimalCreator) {
+            creatorId = minimalCreator.id
+          }
+        } else if (newCreator) {
+          creatorId = newCreator.id
+        }
+      }
+
+      // Verify the record was saved with onboarding_completed = true
+      const { data: verifyCreator } = await supabase
+        .from("creators")
+        .select("id, onboarding_completed")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (verifyCreator && verifyCreator.onboarding_completed !== true) {
+        // Force update onboarding_completed
         await supabase
           .from("creators")
-          .update({
-            slug: getSlug(),
-            username: getSlug(),
-            display_name: displayName,
-            bio: bio,
-            avatar_url: avatarUrl,
-            niche_tags: selectedCategory ? [selectedCategory] : [],
-            instagram_url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-            youtube_url: socials.youtube || null,
-            onboarding_completed: true,
-          })
-          .eq("id", creator.id)
+          .update({ onboarding_completed: true })
+          .eq("id", verifyCreator.id)
+      }
 
-        // Update or create store builder config for homepage
+      // Update related tables if we have a creator
+      if (creatorId || verifyCreator?.id) {
+        const actualCreatorId = creatorId || verifyCreator?.id
+
+        // Update store builder config if exists
         const { data: existingConfig } = await supabase
           .from("store_builder_configs")
           .select("id, draft_config")
-          .eq("creator_id", creator.id)
+          .eq("creator_id", actualCreatorId)
           .eq("page_type", "homepage")
           .maybeSingle()
 
         if (existingConfig) {
-          // Update existing config with header section data
           const draftConfig = existingConfig.draft_config || {}
           const sections = draftConfig.sections || []
-
-          // Find header section and update it
           const headerIndex = sections.findIndex((s: any) => s.type === "header")
           if (headerIndex !== -1) {
             sections[headerIndex] = {
@@ -586,27 +647,24 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               }
             }
           }
-
           await supabase
             .from("store_builder_configs")
-            .update({
-              draft_config: { ...draftConfig, sections }
-            })
+            .update({ draft_config: { ...draftConfig, sections } })
             .eq("id", existingConfig.id)
         }
 
-        // Update onepage with the same data
+        // Update onepage if exists
         const { data: onepage } = await supabase
           .from("onepages")
           .select("id")
-          .eq("creator_id", creator.id)
+          .eq("creator_id", actualCreatorId)
           .maybeSingle()
 
         if (onepage) {
           await supabase
             .from("onepages")
             .update({
-              slug: getSlug(),
+              slug: slug,
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
@@ -616,32 +674,16 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             })
             .eq("id", onepage.id)
         }
-      } else {
-        // Create new creator record if it doesn't exist
-        const { error: insertError } = await supabase
-          .from("creators")
-          .insert({
-            user_id: user.id,
-            slug: getSlug(),
-            username: getSlug(),
-            display_name: displayName,
-            bio: bio,
-            avatar_url: avatarUrl,
-            niche_tags: selectedCategory ? [selectedCategory] : [],
-            instagram_url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-            youtube_url: socials.youtube || null,
-            onboarding_completed: true,
-            store_published: true,
-          })
-
-        if (insertError) {
-          console.error("Error creating creator:", insertError)
-        }
       }
 
-      // Mark welcome as shown in localStorage (backup for client-side checks)
+      // Mark welcome as shown in localStorage and cookie
       localStorage.setItem("storelib_welcome_shown", "true")
       localStorage.setItem("storelib_user_type", "creator")
+      localStorage.setItem("storelib_onboarding_completed", "true")
+
+      // Set cookie that server can read (expires in 1 year)
+      document.cookie = "storelib_onboarding_completed=true; path=/; max-age=31536000; SameSite=Lax"
+
     } catch (e) {
       console.error("Error during setup:", e)
     }
@@ -658,9 +700,11 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
     setSetupComplete(true)
     setShowConfetti(true)
 
-    // Auto close after animation - parent handles navigation
+    // Auto close after animation and navigate using full page reload
     setTimeout(() => {
       onClose()
+      // Force full page reload to /app to pick up server-side changes
+      window.location.replace("/app")
     }, 3500)
   }
 

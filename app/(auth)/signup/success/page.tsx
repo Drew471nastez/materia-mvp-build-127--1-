@@ -34,6 +34,27 @@ export default function SignupSuccessPage() {
   // Check if user already completed onboarding - redirect to /app if so
   useEffect(() => {
     const checkOnboardingStatus = async () => {
+      // First check localStorage and cookie for quick redirect
+      const localOnboardingCompleted = localStorage.getItem("storelib_onboarding_completed")
+      const cookieOnboardingCompleted = document.cookie
+        .split("; ")
+        .find(row => row.startsWith("storelib_onboarding_completed="))
+        ?.split("=")[1]
+
+      const userType = localStorage.getItem("storelib_user_type")
+
+      // Quick redirect for creators who completed onboarding
+      if ((localOnboardingCompleted === "true" || cookieOnboardingCompleted === "true") && userType === "creator") {
+        window.location.replace("/app")
+        return
+      }
+
+      // Quick redirect for buyers
+      if (userType === "buyer") {
+        router.replace("/library")
+        return
+      }
+
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
 
@@ -54,14 +75,9 @@ export default function SignupSuccessPage() {
         // Already completed onboarding - redirect to /app
         localStorage.setItem("storelib_welcome_shown", "true")
         localStorage.setItem("storelib_user_type", "creator")
-        router.replace("/app")
-        return
-      }
-
-      // Check if user is a buyer (has welcome shown but no creator record)
-      const userType = localStorage.getItem("storelib_user_type")
-      if (userType === "buyer") {
-        router.replace("/library")
+        localStorage.setItem("storelib_onboarding_completed", "true")
+        document.cookie = "storelib_onboarding_completed=true; path=/; max-age=31536000; SameSite=Lax"
+        window.location.replace("/app")
         return
       }
 
