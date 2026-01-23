@@ -1017,7 +1017,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                 label: "Listen on Spotify",
                 url: "https://open.spotify.com/",
                 icon: "spotify",
-                thumbnail_url: null
+                thumbnail_url: null,
+                animation_type: "swipe"
               }
             })
           }, 600)

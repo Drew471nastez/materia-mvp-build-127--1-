@@ -2161,6 +2161,33 @@ export function MobilePreviewContent() {
             </div>
           )}
 
+        {/* Share Button - conditionally rendered based on share settings */}
+        {settings?.share_enabled !== false && (
+          <ShareButtonPreview
+            sellerName={sellerName}
+            avatarUrl={avatar_url}
+            pageUrl={getLinksUrl((onepage as any).slug || "preview")}
+            scale="normal"
+            style={(settings as any)?.share_style || "white"}
+            showSubscribe={settings?.subscribe_enabled !== false}
+            accentColor={theme.button_color}
+            isVisible={buttonsVisible}
+            themeBackgroundType={theme.background_type}
+            themeBackgroundColor={theme.background_color}
+            themeBackgroundGradient={theme.background_gradient}
+          />
+        )}
+
+        {/* Notification Bell - conditionally rendered based on subscribe settings */}
+        {settings?.subscribe_enabled !== false && (
+          <NotificationBell
+            sellerName={sellerName}
+            scale="normal"
+            style={(settings as any)?.subscribe_style || "glass"}
+            isVisible={buttonsVisible}
+          />
+        )}
+
         <div
           className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-5 flex flex-col"
           style={{ minHeight: "100vh" }}
