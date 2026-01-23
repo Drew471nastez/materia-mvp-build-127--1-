@@ -525,17 +525,31 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         .eq("user_id", user.id)
         .single()
 
+      // Update profile to mark as creator
+      await supabase
+        .from("profiles")
+        .update({
+          is_creator: true,
+          username: getSlug(),
+          display_name: displayName,
+          avatar_url: avatarUrl,
+        })
+        .eq("id", user.id)
+
       if (creator) {
         // Update creator profile with username and bio
         await supabase
           .from("creators")
           .update({
+            slug: getSlug(),
             username: getSlug(),
             display_name: displayName,
             bio: bio,
             avatar_url: avatarUrl,
+            niche_tags: selectedCategory ? [selectedCategory] : [],
             instagram_url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
             youtube_url: socials.youtube || null,
+            onboarding_completed: true,
           })
           .eq("id", creator.id)
 
@@ -602,6 +616,23 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             })
             .eq("id", onepage.id)
         }
+      } else {
+        // Create new creator record if it doesn't exist
+        await supabase
+          .from("creators")
+          .insert({
+            user_id: user.id,
+            slug: getSlug(),
+            username: getSlug(),
+            display_name: displayName,
+            bio: bio,
+            avatar_url: avatarUrl,
+            niche_tags: selectedCategory ? [selectedCategory] : [],
+            instagram_url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+            youtube_url: socials.youtube || null,
+            onboarding_completed: true,
+            store_published: true,
+          })
       }
     } catch (e) {
       console.error("Error during setup:", e)
