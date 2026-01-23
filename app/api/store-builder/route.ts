@@ -162,83 +162,85 @@ export async function GET(request: Request) {
 
     config = newConfig
   } else if (pageType === "shop") {
-    // Check if existing config needs social data synced from onepages
-    // IMPORTANT: Check BOTH headerSettings.socialLinks AND sections[header].settings.socialLinks
-    const existingHeaderSettingsSocialLinks = config.draft_config?.headerSettings?.socialLinks
-    const headerSection = config.draft_config?.sections?.find((s: any) => s.type === "header")
-    const existingSectionSocialLinks = headerSection?.settings?.socialLinks
+    // ALWAYS check if onepages has social data and sync it to store_builder_configs
+    // This ensures the Store Builder always displays the latest social links from main onboarding
+    // The main onboarding saves to BOTH onepages AND store_builder_configs, but we need to
+    // ensure they're in sync in case of timing issues or stale data
+    const { data: onepage } = await supabase
+      .from("onepages")
+      .select("instagram, tiktok, youtube, social_links")
+      .eq("creator_id", creator.id)
+      .maybeSingle()
 
-    const hasExistingSocialData = (
-      (existingHeaderSettingsSocialLinks?.instagram?.url ||
-       existingHeaderSettingsSocialLinks?.tiktok?.url ||
-       existingHeaderSettingsSocialLinks?.youtube?.url) ||
-      (existingSectionSocialLinks?.instagram?.url ||
-       existingSectionSocialLinks?.tiktok?.url ||
-       existingSectionSocialLinks?.youtube?.url)
-    )
+    if (onepage) {
+      const rawOnepage = onepage as any
+      const instagramUrl = rawOnepage.instagram || onepage.social_links?.instagram || null
+      const tiktokUrl = rawOnepage.tiktok || onepage.social_links?.tiktok || null
+      const youtubeUrl = rawOnepage.youtube || onepage.social_links?.youtube || null
 
-    if (!hasExistingSocialData) {
-      // Check if onepages has social data we can use
-      const { data: onepage } = await supabase
-        .from("onepages")
-        .select("instagram, tiktok, youtube, social_links")
-        .eq("creator_id", creator.id)
-        .maybeSingle()
+      // Get existing social links from config
+      const existingHeaderSettingsSocialLinks = config.draft_config?.headerSettings?.socialLinks
+      const existingInstagram = existingHeaderSettingsSocialLinks?.instagram?.url || ""
+      const existingTiktok = existingHeaderSettingsSocialLinks?.tiktok?.url || ""
+      const existingYoutube = existingHeaderSettingsSocialLinks?.youtube?.url || ""
 
-      if (onepage) {
-        const rawOnepage = onepage as any
-        const instagramUrl = rawOnepage.instagram || onepage.social_links?.instagram || null
-        const tiktokUrl = rawOnepage.tiktok || onepage.social_links?.tiktok || null
-        const youtubeUrl = rawOnepage.youtube || onepage.social_links?.youtube || null
+      // Check if onepages has different/newer data than store_builder_configs
+      const needsSync = (
+        (instagramUrl && instagramUrl !== existingInstagram) ||
+        (tiktokUrl && tiktokUrl !== existingTiktok) ||
+        (youtubeUrl && youtubeUrl !== existingYoutube) ||
+        // Also sync if onepages has data but store_builder_configs is empty
+        ((instagramUrl || tiktokUrl || youtubeUrl) && !existingInstagram && !existingTiktok && !existingYoutube)
+      )
 
-        if (instagramUrl || tiktokUrl || youtubeUrl) {
-          const socialLinksData = {
-            instagram: { enabled: !!instagramUrl, url: instagramUrl || "" },
-            tiktok: { enabled: !!tiktokUrl, url: tiktokUrl || "" },
-            youtube: { enabled: !!youtubeUrl, url: youtubeUrl || "" },
-            twitter: { enabled: false, url: "" },
-            spotify: { enabled: false, url: "" },
-          }
-
-          // IMPORTANT: Update BOTH headerSettings.socialLinks AND sections[header].settings
-          // The UI reads from headerSettings.socialLinks
-          let updatedDraftConfig = {
-            ...config.draft_config,
-            headerSettings: {
-              ...config.draft_config?.headerSettings,
-              showSocialMedia: true,
-              showSocialIconsOnMobile: true,
-              socialLinks: socialLinksData,
-            }
-          }
-
-          // Also update sections for backward compatibility
-          if (updatedDraftConfig.sections) {
-            const sections = [...updatedDraftConfig.sections]
-            const headerIndex = sections.findIndex((s: any) => s.type === "header")
-            if (headerIndex !== -1) {
-              sections[headerIndex] = {
-                ...sections[headerIndex],
-                settings: {
-                  ...sections[headerIndex].settings,
-                  showSocialMedia: true,
-                  showSocialIconsOnMobile: true,
-                  socialLinks: socialLinksData,
-                }
-              }
-              updatedDraftConfig = { ...updatedDraftConfig, sections }
-            }
-          }
-
-          // Save the synced config back to database
-          await supabase
-            .from("store_builder_configs")
-            .update({ draft_config: updatedDraftConfig })
-            .eq("id", config.id)
-
-          // Update local config object to return
-          config.draft_config = updatedDraftConfig
+      if (needsSync) {
+        // Build social links data from onepages (source of truth from main onboarding)
+        const socialLinksData = {
+          instagram: { enabled: !!instagramUrl, url: instagramUrl || existingInstagram || "" },
+          tiktok: { enabled: !!tiktokUrl, url: tiktokUrl || existingTiktok || "" },
+          youtube: { enabled: !!youtubeUrl, url: youtubeUrl || existingYoutube || "" },
+          twitter: existingHeaderSettingsSocialLinks?.twitter || { enabled: false, url: "" },
+          spotify: existingHeaderSettingsSocialLinks?.spotify || { enabled: false, url: "" },
         }
+
+        // IMPORTANT: Update BOTH headerSettings.socialLinks AND sections[header].settings
+        // The UI reads from headerSettings.socialLinks
+        let updatedDraftConfig = {
+          ...config.draft_config,
+          headerSettings: {
+            ...config.draft_config?.headerSettings,
+            showSocialMedia: true,
+            showSocialIconsOnMobile: true,
+            socialLinks: socialLinksData,
+          }
+        }
+
+        // Also update sections for backward compatibility
+        if (updatedDraftConfig.sections) {
+          const sections = [...updatedDraftConfig.sections]
+          const headerIndex = sections.findIndex((s: any) => s.type === "header")
+          if (headerIndex !== -1) {
+            sections[headerIndex] = {
+              ...sections[headerIndex],
+              settings: {
+                ...sections[headerIndex].settings,
+                showSocialMedia: true,
+                showSocialIconsOnMobile: true,
+                socialLinks: socialLinksData,
+              }
+            }
+            updatedDraftConfig = { ...updatedDraftConfig, sections }
+          }
+        }
+
+        // Save the synced config back to database
+        await supabase
+          .from("store_builder_configs")
+          .update({ draft_config: updatedDraftConfig })
+          .eq("id", config.id)
+
+        // Update local config object to return
+        config.draft_config = updatedDraftConfig
       }
     }
   }

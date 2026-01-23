@@ -637,93 +637,113 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const supabase = createClient()
 
   // Initialize with existing data from main onboarding
+  // IMPORTANT: Fetch fresh data from database to ensure we have the latest info
+  // from the main platform onboarding (which may have just completed)
   useEffect(() => {
     if (open && onepage) {
-      // Pre-populate from onepage data (set during main creator onboarding)
-      setDisplayName(onepage.title || "")
-      setBio(onepage.bio || "")
-      setAvatarUrl(onepage.avatar_url || null)
-
-      // Pre-populate social links from onepage (set during main onboarding)
-      // Check BOTH direct database columns (instagram, tiktok, youtube) AND social_links object
-      // Main onboarding saves to direct columns, so we need to read from both places
-      const rawOnepage = onepage as any
-      const instagramRaw = rawOnepage.instagram || onepage.social_links?.instagram || ""
-      const tiktokRaw = rawOnepage.tiktok || onepage.social_links?.tiktok || ""
-      const youtubeRaw = rawOnepage.youtube || onepage.social_links?.youtube || ""
-
-      if (instagramRaw || tiktokRaw || youtubeRaw) {
-        // Extract Instagram username from URL like https://instagram.com/username
-        let instagramValue = instagramRaw
-        if (instagramValue && instagramValue.includes("instagram.com/")) {
-          const match = instagramValue.match(/instagram\.com\/([^\/\?]+)/)
-          if (match && match[1]) {
-            instagramValue = `@${match[1].replace('@', '')}`
-          }
-        }
-
-        // Extract TikTok username from URL like https://tiktok.com/@username
-        let tiktokValue = tiktokRaw
-        if (tiktokValue && tiktokValue.includes("tiktok.com/")) {
-          const match = tiktokValue.match(/tiktok\.com\/@?([^\/\?]+)/)
-          if (match && match[1]) {
-            tiktokValue = `@${match[1].replace('@', '')}`
-          }
-        }
-
-        // YouTube can stay as full URL or channel name
-        let youtubeValue = youtubeRaw
-
-        setSocials({
-          instagram: instagramValue || "",
-          tiktok: tiktokValue || "",
-          youtube: youtubeValue || "",
-        })
-      }
-
-      // Try to get additional data from profile
-      const fetchInitialData = async () => {
+      const fetchAndPopulateData = async () => {
         try {
           const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            // Try Google profile name
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("display_name, username, avatar_url")
-              .eq("id", user.id)
-              .single()
+          if (!user) return
 
-            if (profile) {
-              if (!onepage.title && profile.display_name) {
-                setDisplayName(profile.display_name)
-              }
-              if (!onepage.avatar_url && profile.avatar_url) {
-                setAvatarUrl(profile.avatar_url)
-              }
-            }
+          // Fetch fresh onepage data from database to get latest social links
+          // The context onepage may be stale if main onboarding just completed
+          const { data: freshOnepage } = await supabase
+            .from("onepages")
+            .select("*, instagram, tiktok, youtube")
+            .eq("owner_id", user.id)
+            .single()
 
-            // Try Store Builder seller name and bio
-            const { data: creator } = await supabase
-              .from("creators")
-              .select("slug, bio")
-              .eq("user_id", user.id)
-              .single()
+          // Fetch profile data for username and display_name
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("display_name, username, avatar_url")
+            .eq("id", user.id)
+            .single()
 
-            if (creator) {
-              if (!onepage.title && creator.slug) {
-                setDisplayName(creator.slug)
-              }
-              if (!onepage.bio && creator.bio) {
-                setBio(creator.bio)
-              }
-            }
+          // Fetch creator data for bio
+          const { data: creator } = await supabase
+            .from("creators")
+            .select("slug, bio")
+            .eq("user_id", user.id)
+            .maybeSingle()
+
+          // Determine the best display name to use
+          // Priority: onepage.title > profile.display_name > profile.username > creator.slug
+          let nameToUse = ""
+          if (freshOnepage?.title) {
+            nameToUse = freshOnepage.title
+          } else if (profile?.display_name) {
+            nameToUse = profile.display_name
+          } else if (profile?.username) {
+            nameToUse = profile.username
+          } else if (creator?.slug) {
+            nameToUse = creator.slug
+          } else if (onepage.title) {
+            nameToUse = onepage.title
           }
+          setDisplayName(nameToUse)
+
+          // Bio - prefer fresh onepage, then creator bio
+          const bioToUse = freshOnepage?.bio || creator?.bio || onepage.bio || ""
+          setBio(bioToUse)
+
+          // Avatar - prefer fresh onepage, then profile avatar
+          const avatarToUse = freshOnepage?.avatar_url || profile?.avatar_url || onepage.avatar_url || null
+          setAvatarUrl(avatarToUse)
+
+          // Pre-populate social links from FRESH onepage data
+          // Check BOTH direct database columns (instagram, tiktok, youtube) AND social_links object
+          const rawFreshOnepage = freshOnepage as any
+          const instagramRaw = rawFreshOnepage?.instagram || freshOnepage?.social_links?.instagram ||
+                              (onepage as any).instagram || onepage.social_links?.instagram || ""
+          const tiktokRaw = rawFreshOnepage?.tiktok || freshOnepage?.social_links?.tiktok ||
+                           (onepage as any).tiktok || onepage.social_links?.tiktok || ""
+          const youtubeRaw = rawFreshOnepage?.youtube || freshOnepage?.social_links?.youtube ||
+                            (onepage as any).youtube || onepage.social_links?.youtube || ""
+
+          // Extract Instagram username from URL like https://instagram.com/username
+          let instagramValue = instagramRaw
+          if (instagramValue && instagramValue.includes("instagram.com/")) {
+            const match = instagramValue.match(/instagram\.com\/([^\/\?]+)/)
+            if (match && match[1]) {
+              instagramValue = `@${match[1].replace('@', '')}`
+            }
+          } else if (instagramValue && !instagramValue.startsWith("@") && !instagramValue.includes("://")) {
+            // If it's just a username without @ prefix, add it
+            instagramValue = `@${instagramValue}`
+          }
+
+          // Extract TikTok username from URL like https://tiktok.com/@username
+          let tiktokValue = tiktokRaw
+          if (tiktokValue && tiktokValue.includes("tiktok.com/")) {
+            const match = tiktokValue.match(/tiktok\.com\/@?([^\/\?]+)/)
+            if (match && match[1]) {
+              tiktokValue = `@${match[1].replace('@', '')}`
+            }
+          } else if (tiktokValue && !tiktokValue.startsWith("@") && !tiktokValue.includes("://")) {
+            // If it's just a username without @ prefix, add it
+            tiktokValue = `@${tiktokValue}`
+          }
+
+          // YouTube can stay as full URL or channel name
+          let youtubeValue = youtubeRaw
+
+          setSocials({
+            instagram: instagramValue || "",
+            tiktok: tiktokValue || "",
+            youtube: youtubeValue || "",
+          })
         } catch (e) {
           console.error("Error fetching initial data:", e)
+          // Fallback to context data if database fetch fails
+          setDisplayName(onepage.title || "")
+          setBio(onepage.bio || "")
+          setAvatarUrl(onepage.avatar_url || null)
         }
       }
 
-      fetchInitialData()
+      fetchAndPopulateData()
     }
   }, [open, onepage])
 
@@ -933,18 +953,32 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
     // Apply all changes
     try {
-      // Update profile
+      // Update profile in context
       await updateProfile({
         title: displayName,
         bio: bio,
         avatar_url: avatarUrl,
       })
 
-      // Update social links
+      // Build social links - convert @username to full URLs
+      let instagramUrl = socials.instagram || null
+      if (instagramUrl && instagramUrl.startsWith("@")) {
+        instagramUrl = `https://instagram.com/${instagramUrl.replace("@", "")}`
+      }
+      let tiktokUrl = socials.tiktok || null
+      if (tiktokUrl && tiktokUrl.startsWith("@")) {
+        tiktokUrl = `https://tiktok.com/@${tiktokUrl.replace("@", "")}`
+      }
+      let youtubeUrl = socials.youtube || null
+      if (youtubeUrl && !youtubeUrl.includes("://")) {
+        youtubeUrl = `https://youtube.com/@${youtubeUrl.replace("@", "")}`
+      }
+
+      // Update social links in context
       const socialUpdates: Record<string, string | null> = {}
-      if (socials.instagram) socialUpdates.instagram = socials.instagram
-      if (socials.tiktok) socialUpdates.tiktok = socials.tiktok
-      if (socials.youtube) socialUpdates.youtube = socials.youtube
+      if (instagramUrl) socialUpdates.instagram = instagramUrl
+      if (tiktokUrl) socialUpdates.tiktok = tiktokUrl
+      if (youtubeUrl) socialUpdates.youtube = youtubeUrl
       if (Object.keys(socialUpdates).length > 0) {
         await updateSocialLinks(socialUpdates)
       }
@@ -961,12 +995,80 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       // Create blocks based on goal
       await createBlocksForGoal(selectedGoal || "general")
 
-      // Mark onboarding as completed in database (not localStorage)
+      // IMPORTANT: Save everything directly to database (not just context)
+      // This ensures the data is persisted immediately after onboarding
       if (onepage?.id) {
+        // Build the social_links JSONB object
+        const socialLinksJsonb = {
+          ...onepage.social_links,
+          instagram: instagramUrl,
+          tiktok: tiktokUrl,
+          youtube: youtubeUrl,
+        }
+
+        // Save to onepages table - update profile, social links, and mark onboarding completed
         await supabase
           .from("onepages")
-          .update({ onboarding_completed: true })
+          .update({
+            title: displayName,
+            bio: bio,
+            avatar_url: avatarUrl,
+            // Direct columns for backward compatibility
+            instagram: instagramUrl,
+            tiktok: tiktokUrl,
+            youtube: youtubeUrl,
+            // JSONB column
+            social_links: socialLinksJsonb,
+            // Mark onboarding as completed
+            onboarding_completed: true,
+          })
           .eq("id", onepage.id)
+
+        // Also update store_builder_configs to ensure social links appear in Store Builder
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: creator } = await supabase
+            .from("creators")
+            .select("id")
+            .eq("user_id", user.id)
+            .single()
+
+          if (creator) {
+            const { data: existingConfig } = await supabase
+              .from("store_builder_configs")
+              .select("id, draft_config")
+              .eq("creator_id", creator.id)
+              .eq("page_type", "shop")
+              .maybeSingle()
+
+            if (existingConfig) {
+              // Build social links for Store Builder format
+              const storeBuilderSocialLinks = {
+                instagram: { enabled: !!instagramUrl, url: instagramUrl || "" },
+                tiktok: { enabled: !!tiktokUrl, url: tiktokUrl || "" },
+                youtube: { enabled: !!youtubeUrl, url: youtubeUrl || "" },
+                twitter: existingConfig.draft_config?.headerSettings?.socialLinks?.twitter || { enabled: false, url: "" },
+                spotify: existingConfig.draft_config?.headerSettings?.socialLinks?.spotify || { enabled: false, url: "" },
+              }
+
+              // Update store_builder_configs with social links
+              await supabase
+                .from("store_builder_configs")
+                .update({
+                  draft_config: {
+                    ...existingConfig.draft_config,
+                    headerSettings: {
+                      ...existingConfig.draft_config?.headerSettings,
+                      showSocialMedia: true,
+                      showSocialIconsOnMobile: true,
+                      socialLinks: storeBuilderSocialLinks,
+                    }
+                  }
+                })
+                .eq("id", existingConfig.id)
+            }
+          }
+        }
       }
 
     } catch (e) {
