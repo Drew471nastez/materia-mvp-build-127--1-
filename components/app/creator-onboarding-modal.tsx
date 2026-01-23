@@ -574,7 +574,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                 subtitle: bio,
                 avatarUrl: avatarUrl,
                 categoryBadge: selectedCategory,
-                showSocialIcons: !!(socials.instagram || socials.tiktok || socials.youtube),
+                showSocialIcons: true,
+                showSocialIconsOnMobile: true,
                 socialLinks: {
                   instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
                   tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },
@@ -661,7 +662,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                 subtitle: bio,
                 avatarUrl: avatarUrl,
                 categoryBadge: selectedCategory,
-                showSocialIcons: !!(socials.instagram || socials.tiktok || socials.youtube),
+                showSocialIcons: true,
+                showSocialIconsOnMobile: true,
                 socialLinks: {
                   instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
                   tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },

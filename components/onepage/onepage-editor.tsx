@@ -194,12 +194,11 @@ function EditorLayout() {
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
-  // Onboarding modal state - only show once for new onepages (based on database)
+  // Onboarding modal state - only show once for new onepages (based on database field)
   const [showOnboarding, setShowOnboarding] = useState(() => {
-    // Check database field for onboarding completion
+    // Only check database field for onboarding completion
+    // The main onboarding may pre-populate title/bio, so we can't use those as indicators
     if ((onepage as any)?.onboarding_completed === true) return false
-    // Fallback: Check if onepage already has data (title/slug set) - means onboarding was completed
-    if (onepage?.title && onepage.title !== "") return false
     return true
   })
 
