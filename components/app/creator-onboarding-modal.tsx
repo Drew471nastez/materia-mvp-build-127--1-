@@ -574,7 +574,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                 subtitle: bio,
                 avatarUrl: avatarUrl,
                 categoryBadge: selectedCategory,
-                showSocialIcons: true,
+                showSocialMedia: true,
                 showSocialIconsOnMobile: true,
                 socialLinks: {
                   instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
@@ -662,7 +662,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                 subtitle: bio,
                 avatarUrl: avatarUrl,
                 categoryBadge: selectedCategory,
-                showSocialIcons: true,
+                showSocialMedia: true,
                 showSocialIconsOnMobile: true,
                 socialLinks: {
                   instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },

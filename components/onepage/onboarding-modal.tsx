@@ -645,11 +645,33 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       setAvatarUrl(onepage.avatar_url || null)
 
       // Pre-populate social links from onepage (set during main onboarding)
+      // Extract usernames from full URLs if needed
       if (onepage.instagram || onepage.tiktok || onepage.youtube) {
+        // Extract Instagram username from URL like https://instagram.com/username
+        let instagramValue = onepage.instagram || ""
+        if (instagramValue.includes("instagram.com/")) {
+          const match = instagramValue.match(/instagram\.com\/([^\/\?]+)/)
+          if (match && match[1]) {
+            instagramValue = `@${match[1].replace('@', '')}`
+          }
+        }
+
+        // Extract TikTok username from URL like https://tiktok.com/@username
+        let tiktokValue = onepage.tiktok || ""
+        if (tiktokValue.includes("tiktok.com/")) {
+          const match = tiktokValue.match(/tiktok\.com\/@?([^\/\?]+)/)
+          if (match && match[1]) {
+            tiktokValue = `@${match[1].replace('@', '')}`
+          }
+        }
+
+        // YouTube can stay as full URL or channel name
+        let youtubeValue = onepage.youtube || ""
+
         setSocials({
-          instagram: onepage.instagram || "",
-          tiktok: onepage.tiktok || "",
-          youtube: onepage.youtube || "",
+          instagram: instagramValue,
+          tiktok: tiktokValue,
+          youtube: youtubeValue,
         })
       }
 
