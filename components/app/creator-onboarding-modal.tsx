@@ -619,6 +619,13 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           .eq("creator_id", creator.id)
           .maybeSingle()
 
+        // Build social links object for both direct columns AND social_links JSONB
+        const socialLinksData = {
+          instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+          tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
+          youtube: socials.youtube || null,
+        }
+
         if (onepage) {
           await supabase
             .from("onepages")
@@ -627,9 +634,12 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
-              instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-              tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
-              youtube: socials.youtube || null,
+              // Save to direct columns
+              instagram: socialLinksData.instagram,
+              tiktok: socialLinksData.tiktok,
+              youtube: socialLinksData.youtube,
+              // Also save to social_links JSONB for consistency
+              social_links: socialLinksData,
             })
             .eq("id", onepage.id)
         } else {
@@ -643,9 +653,12 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
-              instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-              tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
-              youtube: socials.youtube || null,
+              // Save to direct columns
+              instagram: socialLinksData.instagram,
+              tiktok: socialLinksData.tiktok,
+              youtube: socialLinksData.youtube,
+              // Also save to social_links JSONB for consistency
+              social_links: socialLinksData,
               published: false,
             })
         }
@@ -677,9 +690,16 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               title: displayName,
               bio: bio,
               avatar_url: avatarUrl,
+              // Save to direct columns
               instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
               tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
               youtube: socials.youtube || null,
+              // Also save to social_links JSONB for consistency
+              social_links: {
+                instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+                tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
+                youtube: socials.youtube || null,
+              },
               published: false,
             })
             .select("id")
