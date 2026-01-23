@@ -31,17 +31,19 @@ export async function GET(request: Request) {
 
       const { data: existingProfile } = await adminSupabase
         .from("profiles")
-        .select("id, is_creator, avatar_url, display_name")
+        .select("id, is_creator, avatar_url, display_name, welcome_completed")
         .eq("id", data.user.id)
         .single()
 
       if (!existingProfile) {
+        // New user - create profile
         const { error: profileError } = await adminSupabase.from("profiles").insert({
           id: data.user.id,
           email: data.user.email,
           display_name: oauthDisplayName,
           avatar_url: oauthAvatar,
           is_creator: false,
+          welcome_completed: false,
         })
 
         if (profileError) {
@@ -52,6 +54,7 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/signup/success`)
       }
 
+      // Update avatar if not set
       if (!existingProfile.avatar_url && oauthAvatar) {
         await adminSupabase
           .from("profiles")
@@ -59,24 +62,35 @@ export async function GET(request: Request) {
           .eq("id", data.user.id)
       }
 
+      // Check if user has a creator record
       const { data: creator } = await adminSupabase
         .from("creators")
         .select("id, onboarding_completed")
         .eq("user_id", data.user.id)
         .single()
 
-      if (creator) {
-        if (creator.onboarding_completed === false) {
-          return NextResponse.redirect(`${origin}/signup/success`)
-        }
+      // If creator with completed onboarding, go to /app
+      if (creator?.onboarding_completed === true) {
         return NextResponse.redirect(`${origin}/app`)
       }
 
-      if (existingProfile.is_creator === false) {
+      // If is_creator but onboarding not completed, go to signup/success to continue
+      if (existingProfile.is_creator === true && (!creator || creator.onboarding_completed !== true)) {
         return NextResponse.redirect(`${origin}/signup/success`)
       }
 
-      return NextResponse.redirect(`${origin}/dashboard`)
+      // If welcome_completed and NOT creator (buyer), go to library
+      if (existingProfile.welcome_completed === true && existingProfile.is_creator === false) {
+        return NextResponse.redirect(`${origin}/library`)
+      }
+
+      // If welcome not completed, go to signup/success
+      if (existingProfile.welcome_completed !== true) {
+        return NextResponse.redirect(`${origin}/signup/success`)
+      }
+
+      // Default to dashboard
+      return NextResponse.redirect(`${origin}/app`)
     }
   }
 
