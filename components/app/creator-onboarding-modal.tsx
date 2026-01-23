@@ -576,9 +576,11 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                 categoryBadge: selectedCategory,
                 showSocialIcons: !!(socials.instagram || socials.tiktok || socials.youtube),
                 socialLinks: {
-                  instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "",
-                  tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "",
-                  youtube: socials.youtube || "",
+                  instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
+                  tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },
+                  youtube: { enabled: !!socials.youtube, url: socials.youtube || "" },
+                  twitter: { enabled: false, url: "" },
+                  spotify: { enabled: false, url: "" },
                 }
               }
             }
@@ -615,7 +617,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         }
       } else {
         // Create new creator record - only use columns that exist in the database
-        const { error: insertError } = await supabase
+        const { data: newCreator, error: insertError } = await supabase
           .from("creators")
           .insert({
             user_id: user.id,
@@ -625,9 +627,59 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             onboarding_completed: true,
             store_published: true,
           })
+          .select("id")
+          .single()
 
         if (insertError) {
           console.error("Error creating creator:", insertError)
+        } else if (newCreator) {
+          // Create onepage record with social data
+          const { data: newOnepage } = await supabase
+            .from("onepages")
+            .insert({
+              creator_id: newCreator.id,
+              seller_id: user.id,
+              slug: getSlug(),
+              title: displayName,
+              bio: bio,
+              avatar_url: avatarUrl,
+              instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
+              tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
+              youtube: socials.youtube || null,
+              published: false,
+            })
+            .select("id")
+            .single()
+
+          // Create store builder config with social data in header
+          const defaultSections = [
+            {
+              id: "header-1",
+              type: "header",
+              settings: {
+                title: displayName,
+                subtitle: bio,
+                avatarUrl: avatarUrl,
+                categoryBadge: selectedCategory,
+                showSocialIcons: !!(socials.instagram || socials.tiktok || socials.youtube),
+                socialLinks: {
+                  instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
+                  tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },
+                  youtube: { enabled: !!socials.youtube, url: socials.youtube || "" },
+                  twitter: { enabled: false, url: "" },
+                  spotify: { enabled: false, url: "" },
+                }
+              }
+            }
+          ]
+
+          await supabase
+            .from("store_builder_configs")
+            .insert({
+              creator_id: newCreator.id,
+              page_type: "homepage",
+              draft_config: { sections: defaultSections },
+            })
         }
       }
     } catch (e) {

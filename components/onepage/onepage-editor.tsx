@@ -194,15 +194,12 @@ function EditorLayout() {
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
-  // Onboarding modal state - only show once for new onepages
+  // Onboarding modal state - only show once for new onepages (based on database)
   const [showOnboarding, setShowOnboarding] = useState(() => {
-    // Check if onepage already has data (title/slug set) - means onboarding was completed
+    // Check database field for onboarding completion
+    if ((onepage as any)?.onboarding_completed === true) return false
+    // Fallback: Check if onepage already has data (title/slug set) - means onboarding was completed
     if (onepage?.title && onepage.title !== "") return false
-    // Check localStorage for this specific onepage
-    if (typeof window !== "undefined" && onepage?.id) {
-      const completed = localStorage.getItem(`onepage_onboarding_${onepage.id}`)
-      if (completed === "true") return false
-    }
     return true
   })
 
@@ -759,17 +756,10 @@ function EditorLayout() {
         open={showOnboarding}
         onClose={() => {
           setShowOnboarding(false)
-          // Mark as completed so it doesn't show again
-          if (onepage?.id) {
-            localStorage.setItem(`onepage_onboarding_${onepage.id}`, "true")
-          }
         }}
         onComplete={(data) => {
           setShowOnboarding(false)
-          // Mark as completed so it doesn't show again
-          if (onepage?.id) {
-            localStorage.setItem(`onepage_onboarding_${onepage.id}`, "true")
-          }
+          // Onboarding modal saves onboarding_completed=true to database
         }}
       />
     </div>

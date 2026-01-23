@@ -636,14 +636,24 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
   const supabase = createClient()
 
-  // Initialize with existing data
+  // Initialize with existing data from main onboarding
   useEffect(() => {
     if (open && onepage) {
+      // Pre-populate from onepage data (set during main creator onboarding)
       setDisplayName(onepage.title || "")
       setBio(onepage.bio || "")
       setAvatarUrl(onepage.avatar_url || null)
 
-      // Try to get from localStorage or profile
+      // Pre-populate social links from onepage (set during main onboarding)
+      if (onepage.instagram || onepage.tiktok || onepage.youtube) {
+        setSocials({
+          instagram: onepage.instagram || "",
+          tiktok: onepage.tiktok || "",
+          youtube: onepage.youtube || "",
+        })
+      }
+
+      // Try to get additional data from profile
       const fetchInitialData = async () => {
         try {
           const { data: { user } } = await supabase.auth.getUser()
@@ -656,27 +666,27 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               .single()
 
             if (profile) {
-              if (!displayName && profile.display_name) {
+              if (!onepage.title && profile.display_name) {
                 setDisplayName(profile.display_name)
               }
-              if (!avatarUrl && profile.avatar_url) {
+              if (!onepage.avatar_url && profile.avatar_url) {
                 setAvatarUrl(profile.avatar_url)
               }
             }
 
-            // Try Store Builder seller name
-            const { data: seller } = await supabase
+            // Try Store Builder seller name and bio
+            const { data: creator } = await supabase
               .from("creators")
-              .select("store_name, avatar_url")
+              .select("slug, bio")
               .eq("user_id", user.id)
               .single()
 
-            if (seller) {
-              if (!displayName && seller.store_name) {
-                setDisplayName(seller.store_name)
+            if (creator) {
+              if (!onepage.title && creator.slug) {
+                setDisplayName(creator.slug)
               }
-              if (!avatarUrl && seller.avatar_url) {
-                setAvatarUrl(seller.avatar_url)
+              if (!onepage.bio && creator.bio) {
+                setBio(creator.bio)
               }
             }
           }
@@ -922,6 +932,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
       // Create blocks based on goal
       await createBlocksForGoal(selectedGoal || "general")
+
+      // Mark onboarding as completed in database (not localStorage)
+      if (onepage?.id) {
+        await supabase
+          .from("onepages")
+          .update({ onboarding_completed: true })
+          .eq("id", onepage.id)
+      }
 
     } catch (e) {
       console.error("Error during setup:", e)
