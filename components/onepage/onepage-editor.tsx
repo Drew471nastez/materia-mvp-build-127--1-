@@ -194,8 +194,17 @@ function EditorLayout() {
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
-  // Onboarding modal state - DEV TEST MODE: shows every time (later: show once via localStorage)
-  const [showOnboarding, setShowOnboarding] = useState(true)
+  // Onboarding modal state - only show once for new onepages
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    // Check if onepage already has data (title/slug set) - means onboarding was completed
+    if (onepage?.title && onepage.title !== "") return false
+    // Check localStorage for this specific onepage
+    if (typeof window !== "undefined" && onepage?.id) {
+      const completed = localStorage.getItem(`onepage_onboarding_${onepage.id}`)
+      if (completed === "true") return false
+    }
+    return true
+  })
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {
@@ -745,14 +754,22 @@ function EditorLayout() {
         onKeepEditing={handleKeepEditing}
       />
 
-      {/* Onboarding Modal - shown on first visit */}
+      {/* Onboarding Modal - shown on first visit only */}
       <OnboardingModal
         open={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-        onComplete={(data) => {
-          console.log("Onboarding complete:", data)
+        onClose={() => {
           setShowOnboarding(false)
-          // In production, save to localStorage: localStorage.setItem('onepage_onboarding_complete', 'true')
+          // Mark as completed so it doesn't show again
+          if (onepage?.id) {
+            localStorage.setItem(`onepage_onboarding_${onepage.id}`, "true")
+          }
+        }}
+        onComplete={(data) => {
+          setShowOnboarding(false)
+          // Mark as completed so it doesn't show again
+          if (onepage?.id) {
+            localStorage.setItem(`onepage_onboarding_${onepage.id}`, "true")
+          }
         }}
       />
     </div>

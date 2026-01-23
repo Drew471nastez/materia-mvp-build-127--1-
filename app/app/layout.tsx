@@ -2,7 +2,6 @@ import type React from "react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { AppSidebar } from "@/components/app/sidebar"
-import { WelcomeModalWrapper } from "@/components/app/welcome-modal-wrapper"
 
 export default async function AppLayout({
   children,
@@ -21,12 +20,13 @@ export default async function AppLayout({
 
   const { data: creator } = await supabase
     .from("creators")
-    .select("slug, store_published, stripe_account_id, stripe_onboarding_status")
+    .select("slug, store_published, stripe_account_id, stripe_onboarding_status, onboarding_completed")
     .eq("user_id", user.id)
     .single()
 
-  if (!creator) {
-    redirect("/onboarding")
+  // No creator record or onboarding not completed - redirect to welcome selection
+  if (!creator || creator.onboarding_completed !== true) {
+    redirect("/signup/success")
   }
 
   const { data: profile } = await supabase
@@ -61,7 +61,6 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-white">
-      <WelcomeModalWrapper />
       <AppSidebar
         creatorSlug={creator.slug}
         storePublished={creator.store_published}

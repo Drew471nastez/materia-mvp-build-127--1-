@@ -2,7 +2,6 @@ import type React from "react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
-import { WelcomeModalWrapper } from "@/components/app/welcome-modal-wrapper"
 
 export default async function DashboardLayout({
   children,
@@ -21,7 +20,6 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
-      <WelcomeModalWrapper />
       <DashboardSidebar />
       <main className="min-h-screen pt-14 md:ml-64 md:pt-0">
         <div className="px-4 py-6 sm:px-6 md:px-8">{children}</div>
