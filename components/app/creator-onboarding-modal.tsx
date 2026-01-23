@@ -642,22 +642,6 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
       // Mark welcome as shown in localStorage (backup for client-side checks)
       localStorage.setItem("storelib_welcome_shown", "true")
       localStorage.setItem("storelib_user_type", "creator")
-
-      // IMPORTANT: Verify the creator record was created/updated with onboarding_completed = true
-      const { data: verifyCreator } = await supabase
-        .from("creators")
-        .select("onboarding_completed")
-        .eq("user_id", user.id)
-        .maybeSingle()
-
-      if (!verifyCreator || verifyCreator.onboarding_completed !== true) {
-        console.error("Creator verification failed - onboarding_completed not set to true")
-        // Try one more time to set it
-        await supabase
-          .from("creators")
-          .update({ onboarding_completed: true })
-          .eq("user_id", user.id)
-      }
     } catch (e) {
       console.error("Error during setup:", e)
     }
@@ -674,11 +658,9 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
     setSetupComplete(true)
     setShowConfetti(true)
 
-    // Auto close after animation and navigate using replace to prevent back navigation
+    // Auto close after animation - parent handles navigation
     setTimeout(() => {
       onClose()
-      router.replace("/app")
-      router.refresh()
     }, 3500)
   }
 
