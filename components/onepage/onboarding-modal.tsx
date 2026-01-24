@@ -630,12 +630,14 @@ interface OnboardingProgress {
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
   const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
 
-  // DEBUG: Log when modal renders
-  console.log("[OnboardingModal] Rendering, open:", open, "onepage.onboarding_completed:", onepage?.onboarding_completed)
-
-  // CRITICAL: If onboarding is already completed in database, don't render
-  if (onepage?.onboarding_completed === true) {
-    console.log("[OnboardingModal] Already completed, returning null")
+  // CRITICAL: Check both database AND localStorage for completion
+  const isCompletedInDb = onepage?.onboarding_completed === true
+  const isCompletedInLocalStorage = typeof window !== "undefined" && onepage?.id 
+    ? localStorage.getItem(`onepage_onboarding_done_${onepage.id}`) === "true"
+    : false
+  
+  // If completed in either place, don't render
+  if (isCompletedInDb || isCompletedInLocalStorage) {
     return null
   }
 
@@ -1245,6 +1247,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
     // Clear saved progress from localStorage since onboarding is complete
     clearSavedProgress()
+    
+    // CRITICAL: Also save completion to localStorage as backup
+    // This ensures onboarding won't show again even if database update fails
+    if (onepage?.id && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`onepage_onboarding_done_${onepage.id}`, "true")
+        console.log("[OnePage Onboarding] Saved completion to localStorage")
+      } catch (e) {
+        console.error("[OnePage Onboarding] Failed to save to localStorage:", e)
+      }
+    }
 
     setIsSettingUp(false)
     setSetupPhase(null)
@@ -1255,6 +1268,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     // This ensures all changes are persisted immediately
     try {
       await save()
+      console.log("[OnePage Onboarding] Editor auto-saved successfully")
     } catch (e) {
       console.error("Failed to auto-save after onboarding:", e)
     }
