@@ -198,7 +198,8 @@ function EditorLayout() {
   const [showOnboarding, setShowOnboarding] = useState(() => {
     // Only check database field for onboarding completion
     // The main onboarding may pre-populate title/bio, so we can't use those as indicators
-    if ((onepage as any)?.onboarding_completed === true) return false
+    // Use truthy check (not strict equality) to handle various boolean representations
+    if (onepage?.onboarding_completed) return false
     return true
   })
 

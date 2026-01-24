@@ -1007,7 +1007,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         }
 
         // Save to onepages table - update profile, social links, and mark onboarding completed
-        await supabase
+        const { error: updateError } = await supabase
           .from("onepages")
           .update({
             title: displayName,
@@ -1019,10 +1019,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             youtube: youtubeUrl,
             // JSONB column
             social_links: socialLinksJsonb,
-            // Mark onboarding as completed
+            // Mark onboarding as completed - this prevents the modal from showing again
             onboarding_completed: true,
           })
           .eq("id", onepage.id)
+
+        if (updateError) {
+          console.error("Failed to save onboarding completion:", updateError)
+        }
 
         // Also update store_builder_configs to ensure social links appear in Store Builder
         const { data: { user } } = await supabase.auth.getUser()
