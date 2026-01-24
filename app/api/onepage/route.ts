@@ -225,6 +225,8 @@ export async function GET() {
           avatar_video_crop: null,
         },
         published_social_links: defaultSocialLinks,
+        // Set onboarding_completed to false so OnePage onboarding shows once
+        onboarding_completed: false,
       }
 
       // Try to create onepage with retry logic for robustness
