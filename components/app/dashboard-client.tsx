@@ -243,28 +243,52 @@ function TimeframeBottomSheet({
   selectedValue: string
   onSelect: (value: string) => void
 }) {
+  const [isClosing, setIsClosing] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
+
   useEffect(() => {
     if (isOpen) {
+      setIsVisible(true)
+      setIsClosing(false)
       document.body.style.overflow = "hidden"
-    } else {
+    } else if (isVisible) {
+      setIsClosing(true)
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setIsClosing(false)
+      }, 300)
       document.body.style.overflow = ""
+      return () => clearTimeout(timer)
     }
     return () => {
       document.body.style.overflow = ""
     }
   }, [isOpen])
 
-  if (!isOpen) return null
+  const handleClose = () => {
+    setIsClosing(true)
+    setTimeout(() => {
+      onClose()
+    }, 300)
+  }
+
+  if (!isVisible) return null
 
   return (
     <div className="fixed inset-0 z-[100] md:hidden">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 transition-opacity duration-300"
-        onClick={onClose}
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+          isClosing ? "opacity-0" : "opacity-100"
+        }`}
+        onClick={handleClose}
       />
       {/* Bottom Sheet */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] animate-in slide-in-from-bottom duration-300 ease-out">
+      <div
+        className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] transition-transform duration-300 ease-out ${
+          isClosing ? "translate-y-full" : "translate-y-0"
+        }`}
+      >
         <div className="p-4">
           {/* Handle bar */}
           <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
@@ -275,7 +299,7 @@ function TimeframeBottomSheet({
                 key={option.value}
                 onClick={() => {
                   onSelect(option.value)
-                  onClose()
+                  handleClose()
                 }}
                 className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
                   selectedValue === option.value
@@ -288,7 +312,7 @@ function TimeframeBottomSheet({
             ))}
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="w-full mt-4 py-3 text-[15px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl"
           >
             Cancel
@@ -636,7 +660,7 @@ export function DashboardClient({
         </div>
 
         {/* Main Content Grid - Store Setup + Quick Actions */}
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[370px_1fr]">
           {/* Left Column - Store Setup Checklist */}
           {!allCompleted && (
             <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
@@ -839,7 +863,7 @@ export function DashboardClient({
       <style jsx>{`
         .dashboard-scroll-container {
           scrollbar-width: thin;
-          scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+          scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
         }
         .dashboard-scroll-container::-webkit-scrollbar {
           width: 6px;
@@ -848,11 +872,11 @@ export function DashboardClient({
           background: transparent;
         }
         .dashboard-scroll-container::-webkit-scrollbar-thumb {
-          background-color: rgba(139, 92, 246, 0.3);
+          background-color: rgba(156, 163, 175, 0.5);
           border-radius: 3px;
         }
         .dashboard-scroll-container::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(139, 92, 246, 0.5);
+          background-color: rgba(156, 163, 175, 0.7);
         }
         @media (max-width: 768px) {
           .dashboard-scroll-container::-webkit-scrollbar {

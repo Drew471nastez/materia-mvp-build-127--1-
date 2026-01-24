@@ -75,19 +75,21 @@ export default async function SalesPage() {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Sales</h1>
-        <p className="text-muted-foreground">Track your revenue, orders, and sales performance</p>
-      </div>
+    <div className="h-full overflow-y-auto page-scroll">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Sales</h1>
+          <p className="text-muted-foreground">Track your revenue, orders, and sales performance</p>
+        </div>
 
-      <SalesClient
-        creatorId={creator.id}
-        products={products}
-        initialSummary={initialSummary}
-        currency={creator.default_currency || "USD"}
-        stripeConnected={creator.stripe_onboarding_status === "enabled"}
-      />
+          <SalesClient
+          creatorId={creator.id}
+          products={products}
+          initialSummary={initialSummary}
+          currency={creator.default_currency || "USD"}
+          stripeConnected={creator.stripe_onboarding_status === "enabled"}
+        />
+      </div>
     </div>
   )
 }

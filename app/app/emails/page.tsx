@@ -401,7 +401,7 @@ export default function EmailsPage() {
   // Analytics View
   if (view === "analytics" && selectedCampaignForStats && selectedCampaignStats) {
     return (
-      <div className="min-h-screen bg-gray-50/50">
+      <div className="h-full overflow-y-auto page-scroll bg-gray-50/50">
         <div className="bg-white border-b sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
             <div className="flex items-center gap-4">
@@ -718,7 +718,7 @@ export default function EmailsPage() {
 
   // List View
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className="h-full overflow-y-auto page-scroll bg-gray-50/50">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">

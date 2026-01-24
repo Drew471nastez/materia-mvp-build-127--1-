@@ -9,7 +9,7 @@ export default function MarketingLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-svh flex-col">
+    <div className="flex min-h-svh flex-col page-scroll">
       <Suspense fallback={null}>
         <ConditionalHeader />
       </Suspense>

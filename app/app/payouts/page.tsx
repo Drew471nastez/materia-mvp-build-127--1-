@@ -75,22 +75,24 @@ export default async function PayoutsPage() {
   const netEarnings = totalEarnings - totalFees
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Payouts</h1>
-        <p className="text-muted-foreground">Manage your earnings and payout settings</p>
-      </div>
+    <div className="h-full overflow-y-auto page-scroll">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Payouts</h1>
+          <p className="text-muted-foreground">Manage your earnings and payout settings</p>
+        </div>
 
-      <PayoutsClient
-        creator={creator}
-        initialData={{
-          totalEarnings,
-          totalFees,
-          netEarnings,
-          pendingAmount,
-          availableBalance,
-        }}
-      />
+        <PayoutsClient
+          creator={creator}
+          initialData={{
+            totalEarnings,
+            totalFees,
+            netEarnings,
+            pendingAmount,
+            availableBalance,
+          }}
+        />
+      </div>
     </div>
   )
 }

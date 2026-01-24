@@ -300,7 +300,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-white p-8">
+    <div className="h-full overflow-y-auto page-scroll bg-white p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
         <p className="text-muted-foreground">Manage your profile and storefront</p>
