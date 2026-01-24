@@ -33,34 +33,6 @@ import {
 } from "@/components/ui/dialog"
 import { OnboardingModal } from "./onboarding-modal"
 
-// =====================================================
-// ONBOARDING COMPLETION KEY - Used to track completion
-// =====================================================
-const ONBOARDING_COMPLETED_KEY = "onepage_onboarding_done"
-
-// Helper to check if onboarding is completed (checks localStorage)
-function isOnboardingDone(onepageId: string): boolean {
-  if (typeof window === "undefined") return false
-  try {
-    const completed = localStorage.getItem(`${ONBOARDING_COMPLETED_KEY}_${onepageId}`)
-    return completed === "true"
-  } catch {
-    return false
-  }
-}
-
-// Helper to mark onboarding as done (saves to localStorage)
-function markOnboardingDone(onepageId: string): void {
-  if (typeof window === "undefined") return
-  try {
-    localStorage.setItem(`${ONBOARDING_COMPLETED_KEY}_${onepageId}`, "true")
-    // Also clear the progress
-    localStorage.removeItem("onepage_onboarding_progress")
-  } catch {
-    // Ignore
-  }
-}
-
 // Settings Filter Icon SVG Component
 const SettingsFilterIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 512 512" className={className} fill="currentColor">
@@ -73,15 +45,9 @@ interface OnePageEditorProps {
 }
 
 export function OnePageEditor({ initialOnePage }: OnePageEditorProps) {
-  // Check if onboarding should be shown
-  // Priority: 1. localStorage (instant), 2. database field
-  const shouldSkipOnboarding = 
-    initialOnePage?.onboarding_completed === true || 
-    (typeof window !== "undefined" && isOnboardingDone(initialOnePage?.id || ""))
-
   return (
     <OnePageProvider initialOnePage={initialOnePage}>
-      <EditorLayout skipOnboarding={shouldSkipOnboarding} onepageId={initialOnePage?.id || ""} />
+      <EditorLayout />
     </OnePageProvider>
   )
 }
@@ -130,9 +96,18 @@ function UnsavedChangesDialog({
           
           <button
             onClick={onDiscard}
-            className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            disabled={isSaving}
+            className="w-full py-3 px-4 bg-white text-red-600 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
-            Don't save
+            Discard changes
+          </button>
+          
+          <button
+            onClick={onClose}
+            disabled={isSaving}
+            className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Keep editing
           </button>
         </div>
       </DialogContent>
@@ -140,7 +115,7 @@ function UnsavedChangesDialog({
   )
 }
 
-// Pro Upgrade Dialog Component (same as in original)
+// Pro Upgrade Dialog Component - shown when trying to save with Pro features without Pro plan
 function ProUpgradeDialog({
   open,
   onClose,
@@ -158,11 +133,10 @@ function ProUpgradeDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-[calc(100%-32px)] max-w-sm p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
         <div className="p-6 text-center">
-          <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
+          {/* Pro Badge */}
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
+            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </div>
           <h2 className="text-lg font-semibold mb-2">Upgrade to Pro?</h2>
@@ -198,7 +172,7 @@ function ProUpgradeDialog({
   )
 }
 
-function EditorLayout({ skipOnboarding, onepageId }: { skipOnboarding: boolean; onepageId: string }) {
+function EditorLayout() {
   const {
     onepage,
     saveState,
@@ -221,65 +195,74 @@ function EditorLayout({ skipOnboarding, onepageId }: { skipOnboarding: boolean; 
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
   // =====================================================
-  // ONBOARDING STATE - SIMPLE AND BULLETPROOF
+  // ONBOARDING STATE - Check database AND localStorage
   // =====================================================
-  
-  // Check localStorage on client side
-  const [isClient, setIsClient] = useState(false)
-  const [localStorageChecked, setLocalStorageChecked] = useState(false)
-  const [isOnboardingCompletedLocal, setIsOnboardingCompletedLocal] = useState(false)
-  
-  useEffect(() => {
-    setIsClient(true)
-    // Check localStorage
-    const isDone = isOnboardingDone(onepageId)
-    setIsOnboardingCompletedLocal(isDone)
-    setLocalStorageChecked(true)
-  }, [onepageId])
-  
-  // Determine if we should show onboarding
-  // Skip if: server says completed OR localStorage says completed
-  const shouldShowOnboarding = !skipOnboarding && !isOnboardingCompletedLocal && localStorageChecked
-  
-  // State for controlling the modal
-  const [showOnboarding, setShowOnboarding] = useState(false)
-  
-  // Show onboarding after client-side check
-  useEffect(() => {
-    if (localStorageChecked && !skipOnboarding && !isOnboardingCompletedLocal) {
-      setShowOnboarding(true)
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    // Check database field first
+    if ((onepage as any)?.onboarding_completed === true) return false
+    // Check localStorage as backup
+    if (typeof window !== "undefined" && onepage?.id) {
+      const localDone = localStorage.getItem(`onepage_onboarding_done_${onepage.id}`)
+      if (localDone === "true") return false
     }
-  }, [localStorageChecked, skipOnboarding, isOnboardingCompletedLocal])
-
-  // Track if completed this session
-  const completedThisSession = useRef(false)
+    return true
+  })
+  
+  // Track if completed this session to prevent re-showing
+  const completedThisSessionRef = useRef(false)
+  
+  // Update showOnboarding when onepage loads (for SSR cases)
+  useEffect(() => {
+    if (!onepage?.id) return
+    
+    // Check database field
+    if ((onepage as any)?.onboarding_completed === true) {
+      setShowOnboarding(false)
+      return
+    }
+    
+    // Check localStorage
+    if (typeof window !== "undefined") {
+      const localDone = localStorage.getItem(`onepage_onboarding_done_${onepage.id}`)
+      if (localDone === "true") {
+        setShowOnboarding(false)
+      }
+    }
+  }, [onepage?.id, (onepage as any)?.onboarding_completed])
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {
     if (!onepage) return false
+    // Hide branding is a Pro feature - check if show_branding is false (meaning branding is hidden)
     return onepage.settings.show_branding === false
   }, [onepage])
 
   // Handle save with Pro plan check
   const handleSaveWithProCheck = useCallback(async () => {
-    const userHasPro = false
+    // TODO: Replace this with actual Pro plan check from user's subscription
+    const userHasPro = false // For now, assume user doesn't have Pro
+
     if (hasProFeaturesEnabled() && !userHasPro) {
       setShowProUpgradeDialog(true)
       return
     }
+
+    // No Pro features or user has Pro, proceed with save
     await save()
   }, [hasProFeaturesEnabled, save])
 
   // Handle upgrading to Pro
   const handleUpgradeToPro = useCallback(() => {
     setShowProUpgradeDialog(false)
+    // Redirect to upgrade page
     window.open('/pricing', '_blank')
   }, [])
 
   // Handle discarding Pro changes
   const handleDiscardProChanges = useCallback(() => {
+    // Reset Pro-only settings to defaults
     updateSettings({
-      show_branding: true,
+      show_branding: true, // Re-enable branding
       hide_branding_pro_enabled: false,
     })
     setShowProUpgradeDialog(false)
@@ -305,279 +288,492 @@ function EditorLayout({ skipOnboarding, onepageId }: { skipOnboarding: boolean; 
       if (isDirty) {
         e.preventDefault()
         e.returnValue = ''
-      }
-    }
-
-    const handlePopState = (e: PopStateEvent) => {
-      if (isDirtyRef.current) {
-        e.preventDefault()
-        window.history.pushState(null, '', window.location.href)
-        setShowUnsavedDialog(true)
-        setPendingNavigation('back')
+        return ''
       }
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
-    window.addEventListener('popstate', handlePopState)
-
-    if (!hasSetupBackInterceptionRef.current) {
-      window.history.pushState(null, '', window.location.href)
-      hasSetupBackInterceptionRef.current = true
-    }
-
+    
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      window.removeEventListener('popstate', handlePopState)
     }
   }, [isDirty])
-
-  // Handle saving for navigation
-  const handleSaveForNav = useCallback(async () => {
-    setIsSavingForNav(true)
-    try {
-      await save()
-      setShowUnsavedDialog(false)
-      if (pendingNavigation === 'back') {
-        window.history.back()
-      } else if (pendingNavigation) {
-        window.location.href = pendingNavigation
+  
+  // Handle browser back button with popstate
+  useEffect(() => {
+    // Push a state entry so we can intercept back button
+    if (!hasSetupBackInterceptionRef.current) {
+      window.history.pushState({ onepageEditor: true }, '', window.location.href)
+      hasSetupBackInterceptionRef.current = true
+    }
+    
+    const handlePopState = (e: PopStateEvent) => {
+      // Check if user has unsaved changes
+      if (isDirtyRef.current) {
+        // Push state back to prevent navigation
+        window.history.pushState({ onepageEditor: true }, '', window.location.href)
+        // Show unsaved changes dialog
+        setShowUnsavedDialog(true)
+        setPendingNavigation('back')
       }
-    } finally {
-      setIsSavingForNav(false)
+      // If no unsaved changes, allow normal back navigation
+      // The browser will handle it naturally
     }
-  }, [save, pendingNavigation])
 
-  // Handle discarding changes
-  const handleDiscardChanges = useCallback(() => {
-    setShowUnsavedDialog(false)
-    if (pendingNavigation === 'back') {
-      hasSetupBackInterceptionRef.current = false
-      window.history.back()
-    } else if (pendingNavigation) {
-      window.location.href = pendingNavigation
+    window.addEventListener('popstate', handlePopState)
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
     }
-  }, [pendingNavigation])
-
-  // Handle closing unsaved dialog
-  const handleCloseUnsavedDialog = useCallback(() => {
-    setShowUnsavedDialog(false)
-    setPendingNavigation(null)
   }, [])
 
-  const pageUrl = onepage?.slug ? getLinksUrl(onepage.slug) : ""
-
-  const handleCopyLink = useCallback(async () => {
-    if (!pageUrl) return
-    try {
-      await navigator.clipboard.writeText(pageUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error("Failed to copy:", err)
+  // Handle link clicks when dirty
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      const anchor = target.closest('a')
+      
+      if (anchor && isDirty) {
+        const href = anchor.getAttribute('href')
+        // Only intercept internal navigation links (not external or modal triggers)
+        if (href && !href.startsWith('http') && !href.startsWith('#') && !anchor.getAttribute('target')) {
+          e.preventDefault()
+          setShowUnsavedDialog(true)
+          setPendingNavigation(href)
+        }
+      }
     }
-  }, [pageUrl])
 
-  const handleOpenPage = useCallback(() => {
-    if (!pageUrl) return
-    window.open(pageUrl, "_blank")
-  }, [pageUrl])
+    document.addEventListener('click', handleClick, true)
+    return () => document.removeEventListener('click', handleClick, true)
+  }, [isDirty])
+
+  const handleSaveAndNavigate = useCallback(async () => {
+    // TODO: Replace this with actual Pro plan check from user's subscription
+    const userHasPro = false
+
+    if (hasProFeaturesEnabled() && !userHasPro) {
+      setShowUnsavedDialog(false)
+      setShowProUpgradeDialog(true)
+      return
+    }
+
+    setIsSavingForNav(true)
+    await save()
+    setIsSavingForNav(false)
+    setShowUnsavedDialog(false)
+    if (pendingNavigation && pendingNavigation !== 'back') {
+      window.location.href = pendingNavigation
+    } else if (pendingNavigation === 'back') {
+      // Actually go back now
+      window.history.go(-2) // Go back 2 because we pushed a state
+    }
+    setPendingNavigation(null)
+  }, [save, pendingNavigation, hasProFeaturesEnabled])
+
+  const handleDiscardAndNavigate = useCallback(() => {
+    setShowUnsavedDialog(false)
+    if (pendingNavigation && pendingNavigation !== 'back') {
+      window.location.href = pendingNavigation
+    } else if (pendingNavigation === 'back') {
+      // Actually go back now
+      window.history.go(-2) // Go back 2 because we pushed a state
+    }
+    setPendingNavigation(null)
+  }, [pendingNavigation])
 
   // Handle onboarding completion
   const handleOnboardingComplete = useCallback(async () => {
-    // Mark as completed immediately in localStorage
-    markOnboardingDone(onepageId)
+    // Mark completed in localStorage immediately
+    if (onepage?.id && typeof window !== "undefined") {
+      localStorage.setItem(`onepage_onboarding_done_${onepage.id}`, "true")
+      localStorage.removeItem("onepage_onboarding_progress")
+    }
     
-    // Update local state
-    completedThisSession.current = true
+    completedThisSessionRef.current = true
     setShowOnboarding(false)
-    setIsOnboardingCompletedLocal(true)
     
-    // Save the editor
+    // Auto-save the editor
     try {
       await save()
     } catch (e) {
       console.error("Failed to save after onboarding:", e)
     }
-  }, [onepageId, save])
+  }, [onepage?.id, save])
 
   if (!onepage) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
+  const pageUrl = getLinksUrl(onepage.slug)
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(pageUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const viewLive = () => {
+    window.open(pageUrl, "_blank")
+  }
+
+  const tabs = [
+    { id: "links" as const, label: "Links", icon: Link2 },
+    { id: "design" as const, label: "Design", icon: Palette },
+    { id: "products" as const, label: "Products", icon: ShoppingBag },
+  ]
+
+  // Determine save button state
+  const getSaveButtonContent = () => {
+    if (saveState === "saving") {
+      return (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="hidden sm:inline ml-2">Saving...</span>
+        </>
+      )
+    }
+    if (saveState === "saved" && !isDirty) {
+      return (
+        <>
+          <Check className="h-4 w-4" />
+          <span className="hidden sm:inline ml-2">Saved</span>
+        </>
+      )
+    }
+    return (
+      <>
+        <Save className="h-4 w-4" />
+        <span className="hidden sm:inline ml-2">Save</span>
+      </>
+    )
+  }
+
+  const isSaveDisabled = saveState === "saving" || (saveState === "saved" && !isDirty) || !isDirty
+
   return (
-    <div className="flex flex-col h-screen bg-[#f7f7f8] overflow-hidden">
-      {/* Top Navigation Bar */}
-      <div className="flex-none h-14 border-b border-gray-200 bg-white flex items-center px-4 gap-4">
-        {/* Left: Tab Navigation */}
-        <nav className="flex items-center gap-1">
-          {[
-            { id: "links" as TabType, label: "Links", icon: Link2 },
-            { id: "design" as TabType, label: "Design", icon: Palette },
-            { id: "products" as TabType, label: "Products", icon: ShoppingBag },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                activeTab === tab.id
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              )}
-            >
-              <tab.icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          ))}
-          <button
-            onClick={() => setActiveTab("settings")}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              activeTab === "settings"
-                ? "bg-gray-100 text-gray-900"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            )}
-          >
-            <SettingsFilterIcon className="h-4 w-4" />
-          </button>
-        </nav>
-
-        {/* Center: Spacer */}
-        <div className="flex-1" />
-
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          {/* Undo/Redo */}
-          <div className="hidden sm:flex items-center gap-1 mr-2">
+    <div
+      className="flex flex-col bg-gray-50/50 fixed inset-0 md:left-64 top-[68px] md:top-0"
+      style={{ zIndex: 10 }}
+    >
+      {/* Header - ALWAYS visible with solid background */}
+      <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          {/* Undo/Redo Buttons */}
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
+              className="h-8 w-8"
               onClick={undo}
               disabled={!canUndo}
-              className="h-8 w-8"
+              title="Undo"
             >
               <Undo2 className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
+              className="h-8 w-8"
               onClick={redo}
               disabled={!canRedo}
-              className="h-8 w-8"
+              title="Redo"
             >
               <Redo2 className="h-4 w-4" />
             </Button>
           </div>
 
+          {/* Tab Navigation - Desktop */}
+          <div className="hidden md:flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  data-tab={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap",
+                    activeTab === tab.id
+                      ? "bg-white text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Settings Button - Desktop */}
+          <button
+            onClick={() => setActiveTab("settings")}
+            title="Settings"
+            className={cn(
+              "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-all duration-200",
+              activeTab === "settings"
+                ? "bg-gray-900 border-gray-900 text-white"
+                : "bg-white border-gray-200 text-gray-600 hover:bg-gray-900 hover:border-gray-900 hover:text-white shadow-sm hover:shadow-md"
+            )}
+          >
+            <SettingsFilterIcon className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Right side actions */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Unsaved changes indicator - Only show on larger screens to prevent overlap */}
+          {isDirty && saveState !== "saving" && (
+            <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0">
+              Unsaved changes
+            </span>
+          )}
+
+          {/* Mobile: URL button in header (only shows in preview mode) */}
+          {showMobilePreview && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="md:hidden h-8 px-2 rounded-lg"
+              onClick={() => setShowLinkModal(true)}
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+          )}
+
           {/* Save Button */}
           <Button
             onClick={handleSaveWithProCheck}
-            disabled={saveState === "saving"}
+            disabled={isSaveDisabled}
             className={cn(
-              "gap-2 transition-all duration-300",
-              saveState === "saved" && "bg-green-600 hover:bg-green-700"
+              "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-all duration-200",
+              saveState === "saved" && !isDirty
+                ? "bg-purple-400 hover:bg-purple-400 text-white opacity-60 cursor-default pointer-events-none"
+                : isDirty
+                  ? "bg-violet-500 hover:bg-violet-600 text-white"
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
             )}
           >
-            {saveState === "saving" ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="hidden sm:inline">Saving...</span>
-              </>
-            ) : saveState === "saved" ? (
-              <>
-                <Check className="h-4 w-4" />
-                <span className="hidden sm:inline">Saved</span>
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                <span className="hidden sm:inline">Save</span>
-              </>
+            {getSaveButtonContent()}
+          </Button>
+
+          {/* URL Button - Desktop */}
+          <div className="hidden md:block">
+            <button
+              onClick={() => setShowLinkModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md transition-all"
+            >
+              <span className="text-muted-foreground truncate max-w-[160px]">
+                {pageUrl.replace('https://', '').replace('http://', '')}
+              </span>
+              <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+          </div>
+
+          {/* Mobile Preview Toggle - Black button */}
+          <Button
+            variant={showMobilePreview ? "outline" : "default"}
+            size="sm"
+            className={cn(
+              "md:hidden h-8 px-3 rounded-lg",
+              !showMobilePreview && "bg-gray-900 hover:bg-gray-800 text-white"
             )}
-          </Button>
-
-          {/* View Live Link */}
-          <Button
-            variant="outline"
-            onClick={() => setShowLinkModal(true)}
-            className="gap-2"
-          >
-            <ExternalLink className="h-4 w-4" />
-            <span className="hidden sm:inline">View Live</span>
-          </Button>
-
-          {/* Mobile Preview Toggle */}
-          <Button
-            variant="outline"
-            size="icon"
             onClick={() => setShowMobilePreview(!showMobilePreview)}
-            className="sm:hidden"
           >
             {showMobilePreview ? (
-              <Edit3 className="h-4 w-4" />
+              <>
+                <Edit3 className="h-4 w-4 mr-1.5" />
+                Edit
+              </>
             ) : (
-              <Eye className="h-4 w-4" />
+              <>
+                <Eye className="h-4 w-4 mr-1.5" />
+                Preview
+              </>
             )}
           </Button>
         </div>
-      </div>
+      </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Editor */}
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+        {/* Editor Panel - Hidden when mobile preview is active */}
         <div
           className={cn(
-            "flex-1 overflow-y-auto",
-            showMobilePreview && "hidden sm:block"
+            "flex-1 bg-white overflow-y-auto",
+            showMobilePreview ? "hidden" : "block"
           )}
+          style={{ scrollbarWidth: 'thin' }}
         >
-          <div className="max-w-2xl mx-auto p-6">
-            {activeTab === "links" && <LinksTab />}
+  <div
+  className={cn(
+    "p-4 md:p-6 md:pl-3 md:pr-8 pb-32 md:pb-6 w-full",
+    // normal: keep it closer to the sidebar (no huge left padding)
+    // wide screens / zoomed out: center it nicely
+    "2xl:mx-auto 2xl:max-w-2xl",
+    activeTab === "settings" ? "max-w-2xl" : "max-w-xl"
+  )}
+>
             {activeTab === "design" && <DesignTab />}
+            {activeTab === "links" && <LinksTab />}
             {activeTab === "products" && <ProductsTab />}
             {activeTab === "settings" && <SettingsTab />}
           </div>
         </div>
 
-        {/* Right Panel: Phone Preview */}
+        {/* Preview Panel - Desktop with phone mockup */}
         <div
-          className={cn(
-            "w-full sm:w-[400px] flex-none border-l border-gray-200 bg-[#f0f0f2] overflow-hidden",
-            !showMobilePreview && "hidden sm:block"
-          )}
+          className="hidden md:block border-l bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 overflow-auto"
+          style={{
+            width: '414px',
+            minWidth: '414px',
+            flexShrink: 0,
+          }}
         >
-          <div className="h-full flex items-center justify-center p-6">
+          <div
+            className="flex items-center justify-center"
+            style={{
+              minHeight: '100%',
+              padding: '20px 28px',
+            }}
+          >
             <PhonePreview />
           </div>
         </div>
+
+        {/* Mobile Preview - NO phone mockup, just real page content like Linktree */}
+        {showMobilePreview && (
+          <div className="md:hidden flex-1 flex flex-col overflow-hidden">
+            <MobilePreviewContent />
+          </div>
+        )}
       </div>
 
-      {/* Link Modal */}
-      <Dialog open={showLinkModal} onOpenChange={setShowLinkModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Your OnePage Link</DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              readOnly
-              value={pageUrl}
-              className="flex-1 px-3 py-2 border rounded-lg text-sm bg-gray-50"
-            />
-            <Button onClick={handleCopyLink} variant="outline" size="icon">
-              {copied ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <Copy className="h-4 w-4" />
+      {/* Mobile Bottom Tab Bar - Fixed at bottom, only when NOT in preview */}
+      {!showMobilePreview && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20">
+          <div className="flex items-center justify-around gap-1 px-2 sm:px-4 py-2 sm:py-3 pb-[max(8px,env(safe-area-inset-bottom))]">
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 sm:py-2.5 rounded-[7px] sm:rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center min-w-0",
+                    activeTab === tab.id
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-600"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              )
+            })}
+            {/* Settings Button - Mobile - same height as other tab buttons */}
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={cn(
+                "flex items-center justify-center min-w-[40px] w-10 py-2.5 sm:w-11 sm:py-2.5 rounded-[7px] sm:rounded-xl transition-all shrink-0",
+                activeTab === "settings"
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-600"
               )}
-            </Button>
-            <Button onClick={handleOpenPage} variant="outline" size="icon">
-              <ExternalLink className="h-4 w-4" />
+            >
+              <SettingsFilterIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Link Modal - Fully Responsive */}
+      <Dialog open={showLinkModal} onOpenChange={setShowLinkModal}>
+        <DialogContent className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92vw] sm:w-[420px] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border bg-background shadow-lg">
+          <DialogHeader className="p-4 sm:p-5 border-b bg-background relative">
+            <DialogTitle className="text-base sm:text-lg font-semibold text-center">Share your OnePage</DialogTitle>
+          </DialogHeader>
+
+          <div className="p-4 sm:p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+            {/* Preview card - adapts to theme background */}
+            <div
+              className="rounded-xl p-4 sm:p-5 text-center"
+              style={{
+                background: onepage.theme.background_type === "gradient" && onepage.theme.background_gradient
+                  ? onepage.theme.background_gradient
+                  : (() => {
+                      // If background is white or very light, use light gray instead
+                      const bgColor = onepage.theme.background_color || "#1f2937"
+                      const isWhiteOrLight = bgColor.toLowerCase() === "#ffffff" ||
+                        bgColor.toLowerCase() === "#fff" ||
+                        bgColor.toLowerCase() === "white" ||
+                        bgColor.toLowerCase() === "#fafafa" ||
+                        bgColor.toLowerCase() === "#f9fafb" ||
+                        bgColor.toLowerCase() === "#f5f5f5"
+                      return isWhiteOrLight ? "#f3f4f6" : bgColor
+                    })(),
+              }}
+            >
+              {onepage.avatar_url ? (
+                <img
+                  src={onepage.avatar_url}
+                  alt={onepage.title}
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 object-cover"
+                />
+              ) : (
+                <div
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 flex items-center justify-center"
+                  style={{ backgroundColor: `${onepage.theme.text_color}20` }}
+                >
+                  <span
+                    className="text-lg sm:text-xl font-semibold"
+                    style={{ color: onepage.theme.text_color }}
+                  >
+                    {onepage.title?.charAt(0)?.toUpperCase() || "?"}
+                  </span>
+                </div>
+              )}
+              <h3
+                className="font-semibold text-sm"
+                style={{ color: onepage.theme.text_color }}
+              >
+                {onepage.title || "Your Name"}
+              </h3>
+              <p
+                className="text-xs mt-1"
+                style={{ color: `${onepage.theme.text_color}80` }}
+              >
+                ✦ /{onepage.slug}
+              </p>
+            </div>
+
+            {/* URL copy section */}
+            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border">
+              <span className="flex-1 text-xs sm:text-sm truncate">{pageUrl.replace('https://', '').replace('http://', '')}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyLink}
+                className="shrink-0 h-9 px-3 rounded-lg text-xs sm:text-sm"
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                <span className="ml-1.5">{copied ? "Copied!" : "Copy"}</span>
+              </Button>
+            </div>
+
+            {/* Open in new tab */}
+            <Button
+              variant="outline"
+              className="w-full justify-start h-11 rounded-xl text-sm"
+              onClick={viewLive}
+            >
+              <ExternalLink className="h-4 w-4 mr-3" />
+              Open in new tab
             </Button>
           </div>
         </DialogContent>
@@ -586,13 +782,13 @@ function EditorLayout({ skipOnboarding, onepageId }: { skipOnboarding: boolean; 
       {/* Unsaved Changes Dialog */}
       <UnsavedChangesDialog
         open={showUnsavedDialog}
-        onClose={handleCloseUnsavedDialog}
-        onSave={handleSaveForNav}
-        onDiscard={handleDiscardChanges}
+        onClose={() => { setShowUnsavedDialog(false); setPendingNavigation(null); }}
+        onSave={handleSaveAndNavigate}
+        onDiscard={handleDiscardAndNavigate}
         isSaving={isSavingForNav}
       />
 
-      {/* Pro Upgrade Dialog */}
+      {/* Pro Upgrade Dialog - shown when trying to save with Pro features */}
       <ProUpgradeDialog
         open={showProUpgradeDialog}
         onClose={() => setShowProUpgradeDialog(false)}
@@ -601,8 +797,8 @@ function EditorLayout({ skipOnboarding, onepageId }: { skipOnboarding: boolean; 
         onKeepEditing={handleKeepEditing}
       />
 
-      {/* Onboarding Modal - Only render if not completed */}
-      {!skipOnboarding && !completedThisSession.current && (
+      {/* Onboarding Modal - shown on first visit only */}
+      {!completedThisSessionRef.current && (
         <OnboardingModal
           open={showOnboarding}
           onClose={() => setShowOnboarding(false)}
