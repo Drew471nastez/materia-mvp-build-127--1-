@@ -302,9 +302,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <Link
             href="/"
             onClick={onItemClick}
-            className="text-[17px] font-semibold tracking-tight text-violet-600 hover:text-violet-700 transition-colors"
+            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
           >
-            storelib
+            <img
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              alt="Storelib"
+              className="h-5 w-5"
+            />
+            <span className="text-[15px] font-semibold tracking-tight text-neutral-800">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <button
@@ -364,9 +369,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <Link
             href="/"
             onClick={onItemClick}
-            className="text-[17px] font-semibold tracking-tight text-violet-600 hover:text-violet-700 transition-colors"
+            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
           >
-            storelib
+            <img
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              alt="Storelib"
+              className="h-5 w-5"
+            />
+            <span className="text-[15px] font-semibold tracking-tight text-neutral-800">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <Link

@@ -1,27 +1,21 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import {
-  DollarSign,
-  Package,
-  Users,
-  ArrowRight,
   Eye,
-  ExternalLink,
+  ShoppingCart,
+  DollarSign,
   TrendingUp,
   Check,
-  Sparkles,
+  User,
   Palette,
-  UserPlus,
+  Package,
   CreditCard,
-  Banknote,
-  Share2,
-  Zap,
-  ShoppingCart,
+  Link2,
+  Trophy,
+  ChevronRight,
+  ArrowUpRight,
 } from "lucide-react"
-import { getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
 
 export const dynamic = "force-dynamic"
 
@@ -35,12 +29,6 @@ async function fetchAnalyticsSummary(supabase: any, creatorId: string) {
     startDate.setDate(startDate.getDate() - 7)
     const endDate = new Date()
 
-    /**
-     * ✅ Views (DEDUPED) — must match analytics page logic
-     * - use visitor_id when available (more stable than session_id)
-     * - fallback to session_id
-     * - key includes product_id OR "store" for null product_id
-     */
     const viewsQuery = supabase
       .from("analytics_events")
       .select("id, visitor_id, session_id, product_id, created_at")
@@ -49,8 +37,6 @@ async function fetchAnalyticsSummary(supabase: any, creatorId: string) {
       .gte("created_at", startDate.toISOString())
       .lte("created_at", endDate.toISOString())
 
-    // Homepage should behave like analytics "All products":
-    // do NOT filter product_id, because store/profile views have product_id = null
     const { data: viewEvents } = await viewsQuery
 
     const uniqueViewKeys = new Set(
@@ -65,9 +51,6 @@ async function fetchAnalyticsSummary(supabase: any, creatorId: string) {
 
     const totalViews = uniqueViewKeys.size || 0
 
-    /**
-     * ✅ Orders (last 7 days) — scoped ONLY to this creator's products
-     */
     let ordersQuery = supabase
       .from("orders")
       .select("amount_cents")
@@ -75,20 +58,14 @@ async function fetchAnalyticsSummary(supabase: any, creatorId: string) {
       .gte("created_at", startDate.toISOString())
       .lte("created_at", endDate.toISOString())
 
-    // Scope to this creator's products, otherwise you're counting platform-wide orders
     if (productIds.length > 0) {
       ordersQuery = ordersQuery.in("product_id", productIds)
     } else {
-      // No products for this creator => no orders
-      const sales7d = 0
-      const revenue7d = 0
-      const conversionRate = 0
-
       return {
         totalViews,
-        sales7d,
-        revenue7d,
-        conversionRate,
+        sales7d: 0,
+        revenue7d: 0,
+        conversionRate: 0,
       }
     }
 
@@ -109,7 +86,7 @@ async function fetchAnalyticsSummary(supabase: any, creatorId: string) {
       conversionRate: Number(conversionRate.toFixed(2)),
     }
   } catch (error) {
-    console.error("[v0] Error fetching analytics summary:", error)
+    console.error("[Dashboard] Error fetching analytics summary:", error)
     return {
       totalViews: 0,
       sales7d: 0,
@@ -117,6 +94,39 @@ async function fetchAnalyticsSummary(supabase: any, creatorId: string) {
       conversionRate: 0,
     }
   }
+}
+
+// Progress circle component
+function ProgressCircle({ progress, size = 40 }: { progress: number; size?: number }) {
+  const strokeWidth = 3
+  const radius = (size - strokeWidth) / 2
+  const circumference = radius * 2 * Math.PI
+  const offset = circumference - (progress / 100) * circumference
+
+  return (
+    <svg width={size} height={size} className="transform -rotate-90">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="#e5e7eb"
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="#8b5cf6"
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        className="transition-all duration-500"
+      />
+    </svg>
+  )
 }
 
 export default async function AppDashboard() {
@@ -128,18 +138,39 @@ export default async function AppDashboard() {
 
   if (!user) redirect("/login")
 
-  const { data: creator } = await supabase.from("creators").select("*, views").eq("user_id", user.id).single()
+  const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).single()
 
   if (!creator) redirect("/onboarding")
 
   if (!creator.onboarding_completed) redirect("/onboarding")
 
-  const { data: profile } = await supabase.from("profiles").select("username, display_name").eq("id", user.id).single()
+  const { data: profile } = await supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).single()
 
   const analyticsData = await fetchAnalyticsSummary(supabase, creator.id)
 
-  const { data: products } = await supabase.from("products").select("id").eq("creator_id", creator.id)
+  const { data: products } = await supabase.from("products").select("id, status").eq("creator_id", creator.id)
   const productIds = products?.map((p: any) => p.id) || []
+  const hasProducts = (products?.length || 0) > 0
+  const hasPublishedProduct = products?.some((p: any) => p.status === "published") || false
+
+  // Check for OnePage
+  const { data: onepage } = await supabase
+    .from("onepages")
+    .select("id, status, draft_blocks")
+    .eq("owner_id", user.id)
+    .maybeSingle()
+
+  const hasOnePage = !!onepage
+  const hasOnePageBlock = onepage?.draft_blocks && onepage.draft_blocks.length > 1
+
+  // Check for Stripe connection
+  const { data: stripeAccount } = await supabase
+    .from("stripe_accounts")
+    .select("stripe_account_id, payouts_enabled")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  const hasPayoutsSetup = stripeAccount?.payouts_enabled === true
 
   // Total orders and revenue (all time)
   let totalOrders = 0
@@ -167,258 +198,264 @@ export default async function AppDashboard() {
     }).format(cents / 100)
   }
 
-  // Getting started checklist
-  const hasProducts = (products?.length || 0) > 0
-  const storeUsername = profile?.username || creator.slug
+  // Branding check: has avatar, name, and bio
+  const hasBranding = !!(profile?.avatar_url || creator.avatar_url) &&
+                      !!(profile?.display_name || creator.display_name) &&
+                      !!creator.bio
 
-  // Use subdomain-based URLs
-  const storeUrl = storeUsername ? getStoreUrl(storeUsername) : "/app/settings"
-  const storeUrlDisplay = storeUsername ? getStoreUrlDisplay(storeUsername) : ""
+  // First sale check
+  const hasFirstSale = totalOrders > 0
 
-  const gettingStartedCards = [
+  // Setup checklist - 6 steps
+  const setupSteps = [
     {
       id: "welcome",
-      title: "Welcome aboard",
-      description: "Complete your profile",
-      icon: Sparkles,
-      completed: true,
+      title: "Welcome",
+      description: "Account created",
+      tooltip: "This step is completed automatically when your account is created.",
+      icon: User,
+      completed: true, // Always true - account exists
       href: "/app/settings",
     },
     {
-      id: "impression",
-      title: "Make an impression",
-      description: "Customize your storefront",
+      id: "branding",
+      title: "Branding",
+      description: "Set your name, image, and bio",
+      tooltip: "Add a profile image, choose your name, and write a short bio. This appears on your store, OnePage, and public profile.",
       icon: Palette,
-      completed: !!creator.bio || !!creator.headline,
+      completed: hasBranding,
       href: "/app/settings",
     },
     {
-      id: "showtime",
-      title: "Showtime",
-      description: "Create your first product",
+      id: "product",
+      title: "Create your first product",
+      description: "Add something people can buy",
+      tooltip: "Create a digital product, service, or paid link. You need at least one product to start selling.",
       icon: Package,
       completed: hasProducts,
       href: "/app/products/new",
     },
     {
-      id: "tribe",
-      title: "Build your tribe",
-      description: "Publish your store",
-      icon: UserPlus,
-      completed: creator.store_published,
-      href: "/app/settings",
-    },
-    {
-      id: "chaching",
-      title: "Cha-ching",
-      description: "Make your first sale",
+      id: "payouts",
+      title: "Set up payouts",
+      description: "Connect a payment method",
+      tooltip: "Connect your payment account so you can receive money from sales.",
       icon: CreditCard,
-      completed: totalOrders > 0,
-      href: "/app/orders",
+      completed: hasPayoutsSetup,
+      href: "/app/payouts",
     },
     {
-      id: "money",
-      title: "Money inbound",
-      description: "Set up payouts",
-      icon: Banknote,
-      completed: false,
-      href: "/app/settings",
+      id: "onepage",
+      title: "Create your OnePage",
+      description: "Build your public page",
+      tooltip: "Your OnePage is your main link. Add links, products, and content people will see first.",
+      icon: Link2,
+      completed: hasOnePage && hasOnePageBlock,
+      href: "/app/onepage",
     },
     {
-      id: "waves",
-      title: "Making waves",
-      description: "Share your products",
-      icon: Share2,
-      completed: false,
-      href: storeUrl,
-    },
-    {
-      id: "smart",
-      title: "Smart move",
-      description: "Set up automations",
-      icon: Zap,
-      completed: false,
-      href: "/app/workflows",
+      id: "sale",
+      title: "Make your first sale",
+      description: "Share your link and sell",
+      tooltip: "Share your OnePage or store link. This step completes when your first sale comes in.",
+      icon: Trophy,
+      completed: hasFirstSale,
+      href: "/app/sales",
     },
   ]
 
-  const completedCount = gettingStartedCards.filter((c) => c.completed).length
+  const completedSteps = setupSteps.filter((s) => s.completed).length
+  const totalSteps = setupSteps.length
+  const allCompleted = completedSteps === totalSteps
+
+  const displayName = profile?.display_name || creator.display_name || "there"
 
   return (
-    <div className="min-h-screen bg-white px-4 py-6 sm:p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground">
-          Welcome back{profile?.display_name ? `, ${profile.display_name}` : ""}
-        </h1>
-        <p className="text-muted-foreground">Here's what's happening with your store</p>
-      </div>
+    <div className="min-h-screen bg-[#fafafa]">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1400px] mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-[22px] sm:text-[26px] font-semibold text-neutral-800 tracking-tight">
+            Welcome back, {displayName}
+          </h1>
+          <p className="text-[14px] text-neutral-500 mt-0.5">Here's what's happening with your store</p>
+        </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-        <Card className="border-border bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Views</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-foreground">{totalViews.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">{totalViews.toLocaleString()} last 7 days</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-foreground">{totalOrders.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">{sales7d.toLocaleString()} last 7 days</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-foreground">{formatCurrency(totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground mt-1">{formatCurrency(revenue7d)} last 7 days</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Conversion Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-foreground">{conversionRate.toFixed(2)}%</div>
-            <p className="text-xs text-muted-foreground mt-1">Views to orders</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Getting Started Grid */}
-      {completedCount < gettingStartedCards.length && (
-        <div className="mb-8">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold text-foreground">Getting started</h2>
-            <span className="text-sm text-muted-foreground">
-              {completedCount} of {gettingStartedCards.length} complete
-            </span>
+        {/* Stats Cards */}
+        <div className="mb-6 grid gap-3 grid-cols-2 lg:grid-cols-4">
+          {/* Total Views */}
+          <div className="bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13px] font-medium text-neutral-500">Total Views</span>
+              <Eye className="h-4 w-4 text-neutral-400" />
+            </div>
+            <div className="text-[24px] sm:text-[28px] font-semibold text-neutral-800 tracking-tight">
+              {totalViews.toLocaleString()}
+            </div>
+            <p className="text-[12px] text-neutral-400 mt-1">{totalViews.toLocaleString()} last 7 days</p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {gettingStartedCards.map((card) => {
-              const Icon = card.icon
-              return (
-                <Link
-                  key={card.id}
-                  href={card.href}
-                  className={`group relative flex flex-col rounded-lg border p-4 transition-all hover:shadow-md ${
-                    card.completed ? "border-green-200 bg-green-50/50" : "border-border bg-white hover:border-blue-200"
-                  }`}
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                        card.completed ? "bg-green-100" : "bg-muted"
-                      }`}
-                    >
-                      {card.completed ? (
-                        <Check className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <Icon className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </div>
-                    {!card.completed && (
-                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                    )}
-                  </div>
-                  <p className={`font-medium ${card.completed ? "text-green-700" : "text-foreground"}`}>{card.title}</p>
-                  <p className="text-sm text-muted-foreground">{card.description}</p>
-                </Link>
-              )
-            })}
+
+          {/* Total Orders */}
+          <div className="bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13px] font-medium text-neutral-500">Total Orders</span>
+              <ShoppingCart className="h-4 w-4 text-neutral-400" />
+            </div>
+            <div className="text-[24px] sm:text-[28px] font-semibold text-neutral-800 tracking-tight">
+              {totalOrders.toLocaleString()}
+            </div>
+            <p className="text-[12px] text-neutral-400 mt-1">{sales7d.toLocaleString()} last 7 days</p>
+          </div>
+
+          {/* Total Revenue */}
+          <div className="bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13px] font-medium text-neutral-500">Total Revenue</span>
+              <DollarSign className="h-4 w-4 text-neutral-400" />
+            </div>
+            <div className="text-[24px] sm:text-[28px] font-semibold text-neutral-800 tracking-tight">
+              {formatCurrency(totalRevenue)}
+            </div>
+            <p className="text-[12px] text-neutral-400 mt-1">{formatCurrency(revenue7d)} last 7 days</p>
+          </div>
+
+          {/* Conversion Rate */}
+          <div className="bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13px] font-medium text-neutral-500">Conversion Rate</span>
+              <TrendingUp className="h-4 w-4 text-neutral-400" />
+            </div>
+            <div className="text-[24px] sm:text-[28px] font-semibold text-neutral-800 tracking-tight">
+              {conversionRate.toFixed(2)}%
+            </div>
+            <p className="text-[12px] text-neutral-400 mt-1">Views to orders</p>
           </div>
         </div>
-      )}
 
-      {/* Large Banner - Share Your Store */}
-      {creator.store_published && storeUsername && (
-        <Card className="mb-8 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div className="min-w-0">
-              <h3 className="text-lg font-semibold text-foreground">Your store is live!</h3>
-              <p className="text-muted-foreground">Share your store link with your audience</p>
-
-              <p className="mt-2 font-mono text-sm text-blue-600 break-all">{storeUrlDisplay}</p>
+        {/* Store Setup Section */}
+        {!allCompleted && (
+          <div className="bg-white rounded-2xl border border-neutral-200/60 p-5 sm:p-6 shadow-sm mb-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <h2 className="text-[16px] font-semibold text-neutral-800">Store setup</h2>
+                <span className="text-[13px] text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">
+                  {completedSteps}/{totalSteps}
+                </span>
+              </div>
             </div>
 
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent" asChild>
-                <a href={storeUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  View Store
-                </a>
-              </Button>
+            {/* Steps Grid */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {setupSteps.map((step) => {
+                const Icon = step.icon
+                const stepProgress = step.completed ? 100 : 0
 
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 sm:w-auto" asChild>
-                <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out my store: ${storeUrl}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share
-                </a>
-              </Button>
+                return (
+                  <Link
+                    key={step.id}
+                    href={step.href}
+                    className="group relative flex items-start gap-3 p-4 rounded-xl border border-neutral-200/60 bg-neutral-50/50 hover:bg-white hover:border-violet-200 hover:shadow-sm transition-all duration-200"
+                    title={step.tooltip}
+                  >
+                    {/* Progress circle or checkmark */}
+                    <div className="relative shrink-0">
+                      {step.completed ? (
+                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                          <Check className="h-5 w-5 text-emerald-600" strokeWidth={2.5} />
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <ProgressCircle progress={stepProgress} size={40} />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Icon className="h-4 w-4 text-neutral-400" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[14px] font-medium ${step.completed ? "text-emerald-700" : "text-neutral-800"}`}>
+                        {step.title}
+                      </p>
+                      <p className="text-[12px] text-neutral-500 mt-0.5 truncate">{step.description}</p>
+                    </div>
+
+                    {/* Arrow on hover */}
+                    {!step.completed && (
+                      <ChevronRight className="h-4 w-4 text-neutral-300 group-hover:text-violet-500 shrink-0 mt-0.5 transition-colors" />
+                    )}
+                  </Link>
+                )
+              })}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        )}
 
-      {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Link
-          href="/app/products/new"
-          className="flex items-center gap-4 rounded-lg border border-border bg-white p-4 transition-all hover:border-blue-200 hover:shadow-sm"
-        >
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50">
-            <Package className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Create product</p>
-            <p className="text-sm text-muted-foreground">Digital download</p>
-          </div>
-        </Link>
+        {/* Quick Actions */}
+        <div className="mb-6">
+          <h2 className="text-[16px] font-semibold text-neutral-800 mb-4">Quick actions</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Link
+              href="/app/products/new"
+              className="group flex items-center gap-4 bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm hover:border-violet-200 hover:shadow-md transition-all duration-200"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-50 group-hover:bg-violet-100 transition-colors">
+                <Package className="h-6 w-6 text-violet-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[14px] font-medium text-neutral-800 group-hover:text-violet-700 transition-colors">Add a product</p>
+                <p className="text-[12px] text-neutral-500">Go from idea to product offer in minutes</p>
+              </div>
+              <ArrowUpRight className="h-4 w-4 text-neutral-300 group-hover:text-violet-500 transition-colors" />
+            </Link>
 
-        <Link
-          href="/app/courses/new"
-          className="flex items-center gap-4 rounded-lg border border-border bg-white p-4 transition-all hover:border-blue-200 hover:shadow-sm"
-        >
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-50">
-            <TrendingUp className="h-6 w-6 text-purple-600" />
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Create course</p>
-            <p className="text-sm text-muted-foreground">Video lessons</p>
-          </div>
-        </Link>
+            <Link
+              href="/app/onepage"
+              className="group flex items-center gap-4 bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm hover:border-violet-200 hover:shadow-md transition-all duration-200"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 group-hover:bg-blue-100 transition-colors">
+                <Link2 className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[14px] font-medium text-neutral-800 group-hover:text-blue-700 transition-colors">Edit your OnePage</p>
+                <p className="text-[12px] text-neutral-500">Customize your link-in-bio</p>
+              </div>
+              <ArrowUpRight className="h-4 w-4 text-neutral-300 group-hover:text-blue-500 transition-colors" />
+            </Link>
 
-        <Link
-          href="/app/community"
-          className="flex items-center gap-4 rounded-lg border border-border bg-white p-4 transition-all hover:border-blue-200 hover:shadow-sm"
-        >
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-50">
-            <Users className="h-6 w-6 text-green-600" />
+            <Link
+              href="/app/analytics"
+              className="group flex items-center gap-4 bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm hover:border-violet-200 hover:shadow-md transition-all duration-200"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 group-hover:bg-emerald-100 transition-colors">
+                <TrendingUp className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[14px] font-medium text-neutral-800 group-hover:text-emerald-700 transition-colors">View analytics</p>
+                <p className="text-[12px] text-neutral-500">See how your store is performing</p>
+              </div>
+              <ArrowUpRight className="h-4 w-4 text-neutral-300 group-hover:text-emerald-500 transition-colors" />
+            </Link>
           </div>
-          <div>
-            <p className="font-medium text-foreground">Post to community</p>
-            <p className="text-sm text-muted-foreground">Engage your audience</p>
+        </div>
+
+        {/* All setup completed celebration */}
+        {allCompleted && (
+          <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl border border-violet-200/60 p-5 sm:p-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100">
+                <Trophy className="h-6 w-6 text-violet-600" />
+              </div>
+              <div>
+                <h3 className="text-[16px] font-semibold text-neutral-800">You're all set up!</h3>
+                <p className="text-[13px] text-neutral-600 mt-0.5">
+                  Your store is ready to go. Keep creating products and sharing your links to grow your audience.
+                </p>
+              </div>
+            </div>
           </div>
-        </Link>
+        )}
       </div>
     </div>
   )

@@ -170,8 +170,13 @@ export default function VerifyEmailContent() {
       {/* Left side - Form */}
       <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-[400px]">
-          <Link href="/" className="mb-12 inline-block">
-            <span className="text-2xl font-bold tracking-tight text-emerald-500">Storelib*</span>
+          <Link href="/" className="mb-12 inline-flex items-center gap-2">
+            <img
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              alt="Storelib"
+              className="h-8 w-8"
+            />
+            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           {success ? (
