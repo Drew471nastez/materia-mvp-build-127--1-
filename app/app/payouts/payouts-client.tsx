@@ -341,7 +341,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+    <div className="space-y-6">
       {/* Alerts */}
       {error && (
         <Alert variant="destructive">

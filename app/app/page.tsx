@@ -64,13 +64,13 @@ export default async function AppDashboard() {
   // First sale check
   const hasFirstSale = totalOrders > 0
 
-  // Setup checklist - 6 steps with detailed tooltips
+  // Setup checklist - 6 steps with concise tooltips
   const setupSteps = [
     {
       id: "welcome",
       title: "Welcome",
       description: "Account created",
-      tooltip: "This step is completed automatically when your account is created.",
+      tooltip: "Your account is ready!",
       completed: true,
       href: "/app/settings",
     },
@@ -78,7 +78,7 @@ export default async function AppDashboard() {
       id: "branding",
       title: "Branding",
       description: "Set your name, image, and bio",
-      tooltip: "Add a profile image, choose your name, and write a short bio. This appears on your store, OnePage, and public profile.",
+      tooltip: "Add your profile photo, name, and bio",
       completed: hasBranding,
       href: "/app/settings",
     },
@@ -86,7 +86,7 @@ export default async function AppDashboard() {
       id: "product",
       title: "Create your first product",
       description: "Add something people can buy",
-      tooltip: "Create a digital product, service, or paid link. You need at least one product to start selling.",
+      tooltip: "Create a product to start selling",
       completed: hasProducts,
       href: "/app/products/new",
     },
@@ -94,7 +94,7 @@ export default async function AppDashboard() {
       id: "payouts",
       title: "Set up payouts",
       description: "Connect a payment method",
-      tooltip: "Connect your payment account so you can receive money from sales.",
+      tooltip: "Connect Stripe to receive payments",
       completed: hasPayoutsSetup,
       href: "/app/payouts",
     },
@@ -102,7 +102,7 @@ export default async function AppDashboard() {
       id: "onepage",
       title: "Create your OnePage",
       description: "Build your public page",
-      tooltip: "Your OnePage is your main link. Add links, products, and content people will see first.",
+      tooltip: "Build your link-in-bio page",
       completed: hasOnePage && hasOnePageBlock,
       href: "/app/onepage",
     },
@@ -110,7 +110,7 @@ export default async function AppDashboard() {
       id: "sale",
       title: "Make your first sale",
       description: "Share your link and sell",
-      tooltip: "Share your OnePage or store link. This step completes when your first sale comes in.",
+      tooltip: "Share your link to get sales",
       completed: hasFirstSale,
       href: "/app/sales",
     },

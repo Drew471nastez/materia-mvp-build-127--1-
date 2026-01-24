@@ -343,7 +343,7 @@ export function DashboardClient({
   const allCompleted = completedSteps === totalSteps
 
   return (
-    <div className="bg-[#f8f9fa]">
+    <div className="min-h-full bg-[#f8f9fa]">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
