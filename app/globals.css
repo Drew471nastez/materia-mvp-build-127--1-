@@ -168,6 +168,12 @@
       scrollbar-gutter: stable;
     }
   }
+
+  /* Dashboard main content - prevent nested scrollbars */
+  main {
+    overflow-y: visible;
+    overflow-x: hidden;
+  }
 }
 
 /* Utility classes for responsive layouts */
