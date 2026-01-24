@@ -39,6 +39,10 @@ export default async function OnePageEditorPage() {
     .eq("owner_id", user.id)
     .single()
 
+  // DEBUG: Log what we fetched
+  console.log("[OnePage Page] Fetched onepage.id:", onepage?.id)
+  console.log("[OnePage Page] Fetched onepage.onboarding_completed:", onepage?.onboarding_completed)
+
   // If we got an actual error (not just "no rows found"), log it but continue to try creating
   if (fetchError && fetchError.code !== "PGRST116") {
     console.error("Error fetching onepage (will attempt to create):", fetchError)
