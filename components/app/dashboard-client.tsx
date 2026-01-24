@@ -20,6 +20,13 @@ import {
   Palette,
   CreditCard,
   ExternalLink,
+  X,
+  Camera,
+  FileText,
+  Type,
+  Wallet,
+  Share2,
+  Blocks,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -40,6 +47,32 @@ const stepIcons: Record<string, any> = {
   payouts: CreditCard,
   onepage: Link2,
   sale: Trophy,
+}
+
+// Substeps for each main step
+const stepSubsteps: Record<string, { label: string; check: (data: any) => boolean; href: string }[]> = {
+  welcome: [
+    { label: "Account created", check: () => true, href: "/app/settings" },
+  ],
+  branding: [
+    { label: "Add profile photo", check: (d) => !!d.hasAvatar, href: "/app/settings" },
+    { label: "Set display name", check: (d) => !!d.hasName, href: "/app/settings" },
+    { label: "Write your bio", check: (d) => !!d.hasBio, href: "/app/settings" },
+  ],
+  product: [
+    { label: "Create a product", check: (d) => d.hasProducts, href: "/app/products/new" },
+  ],
+  payouts: [
+    { label: "Connect Stripe", check: (d) => d.hasPayouts, href: "/app/payouts" },
+  ],
+  onepage: [
+    { label: "Create OnePage", check: (d) => d.hasOnePage, href: "/app/onepage" },
+    { label: "Add content blocks", check: (d) => d.hasOnePageBlock, href: "/app/onepage" },
+  ],
+  sale: [
+    { label: "Share your link", check: () => false, href: "/app/onepage" },
+    { label: "Get first sale", check: (d) => d.hasFirstSale, href: "/app/sales" },
+  ],
 }
 
 interface DashboardClientProps {
@@ -196,6 +229,78 @@ function ProgressCircle({ progress, size = 32 }: { progress: number; size?: numb
   )
 }
 
+// Mobile Bottom Sheet for Timeframe Selector
+function TimeframeBottomSheet({
+  isOpen,
+  onClose,
+  options,
+  selectedValue,
+  onSelect,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  options: TimeframeOption[]
+  selectedValue: string
+  onSelect: (value: string) => void
+}) {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40 transition-opacity duration-300"
+        onClick={onClose}
+      />
+      {/* Bottom Sheet */}
+      <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] animate-in slide-in-from-bottom duration-300 ease-out">
+        <div className="p-4">
+          {/* Handle bar */}
+          <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+            {options.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => {
+                  onSelect(option.value)
+                  onClose()
+                }}
+                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
+                  selectedValue === option.value
+                    ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={onClose}
+            className="w-full mt-4 py-3 text-[15px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl"
+          >
+            Cancel
+          </button>
+        </div>
+        {/* Safe area padding for iOS */}
+        <div className="h-[env(safe-area-inset-bottom)]" />
+      </div>
+    </div>
+  )
+}
+
 export function DashboardClient({
   creatorId,
   displayName,
@@ -204,7 +309,9 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const [timeframe, setTimeframe] = useState("last_7_days")
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [analyticsData, setAnalyticsData] = useState({
     totalViews: 0,
     totalOrders: 0,
@@ -325,7 +432,7 @@ export function DashboardClient({
     fetchAnalytics(timeframe)
   }, [timeframe, creatorId])
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (desktop only)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
@@ -342,8 +449,27 @@ export function DashboardClient({
   const totalSteps = initialSetupSteps.length
   const allCompleted = completedSteps === totalSteps
 
+  // Build substep data based on step completion
+  const getSubstepData = (step: SetupStep) => {
+    return {
+      hasAvatar: step.id === "branding" ? step.completed : false,
+      hasName: step.id === "branding" ? step.completed : false,
+      hasBio: step.id === "branding" ? step.completed : false,
+      hasProducts: step.id === "product" ? step.completed : false,
+      hasPayouts: step.id === "payouts" ? step.completed : false,
+      hasOnePage: step.id === "onepage" ? step.completed : false,
+      hasOnePageBlock: step.id === "onepage" ? step.completed : false,
+      hasFirstSale: step.id === "sale" ? step.completed : false,
+    }
+  }
+
+  const handleStepClick = (stepId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    setExpandedStep(expandedStep === stepId ? null : stepId)
+  }
+
   return (
-    <div className="min-h-full bg-[#f8f9fa]">
+    <div className="min-h-full bg-[#f8f9fa] dashboard-scroll-container">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -353,7 +479,9 @@ export function DashboardClient({
             </h1>
             <p className="text-[14px] text-[#6b7280] mt-1">Here's what's happening with your store</p>
           </div>
-          <div className="relative timeframe-dropdown">
+
+          {/* Desktop Dropdown */}
+          <div className="relative timeframe-dropdown hidden md:block">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm"
@@ -384,7 +512,25 @@ export function DashboardClient({
               </div>
             )}
           </div>
+
+          {/* Mobile Timeframe Button */}
+          <button
+            onClick={() => setIsMobileSheetOpen(true)}
+            className="md:hidden inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm"
+          >
+            {selectedOption?.label || "Last 7 days"}
+            <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+          </button>
         </div>
+
+        {/* Mobile Bottom Sheet */}
+        <TimeframeBottomSheet
+          isOpen={isMobileSheetOpen}
+          onClose={() => setIsMobileSheetOpen(false)}
+          options={timeframeOptions}
+          selectedValue={timeframe}
+          onSelect={setTimeframe}
+        />
 
         {/* Stats Cards */}
         <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 ${isLoading ? "opacity-60" : ""}`}>
@@ -451,8 +597,8 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Storelib Promotional Banner - Desktop Only */}
-        <div className="hidden lg:block mb-8">
+        {/* Storelib Promotional Banner - Responsive for all devices */}
+        <div className="mb-8">
           <div
             className="relative overflow-hidden rounded-2xl"
             style={{
@@ -461,33 +607,29 @@ export function DashboardClient({
               backgroundPosition: "center",
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-            <div className="relative z-10 flex items-center justify-between px-8 py-6">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[15px] font-semibold text-white">Storelib Editions</span>
-                  <span className="text-white/60">|</span>
-                  <span className="text-[15px] text-white/90">Winter '26</span>
-                </div>
-                <p className="text-[20px] font-medium text-white mb-4">The commerce renaissance is here.</p>
-                <div className="flex items-center gap-3">
-                  <Link
-                    href="/editions"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
-                  >
-                    Explore 150+ updates
-                  </Link>
-                  <Link
-                    href="/editions"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[13px] font-medium text-white hover:bg-white/20 transition-colors"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    /editions
-                  </Link>
-                </div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
+            <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[13px] sm:text-[15px] font-semibold text-white">Storelib Editions</span>
+                <span className="text-white/60 hidden sm:inline">|</span>
+                <span className="text-[13px] sm:text-[15px] text-white/90 hidden sm:inline">Winter '26</span>
               </div>
-              <div className="hidden xl:block">
-                {/* Decorative illustration placeholder */}
+              <p className="text-[16px] sm:text-[20px] font-medium text-white mb-3 sm:mb-4">The commerce renaissance is here.</p>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <Link
+                  href="/editions"
+                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
+                >
+                  Explore updates
+                </Link>
+                <Link
+                  href="/editions"
+                  className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors"
+                >
+                  <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">/editions</span>
+                  <span className="sm:hidden">View</span>
+                </Link>
               </div>
             </div>
           </div>
@@ -513,57 +655,93 @@ export function DashboardClient({
                 />
               </div>
 
-              {/* Steps List */}
+              {/* Steps List with Collapsible Substeps */}
               <div className="space-y-1">
                 {initialSetupSteps.map((step) => {
                   const Icon = stepIcons[step.id] || Package
+                  const isExpanded = expandedStep === step.id
+                  const substeps = stepSubsteps[step.id] || []
+                  const substepData = getSubstepData(step)
 
                   return (
-                    <Link
-                      key={step.id}
-                      href={step.href}
-                      className="group relative flex items-center gap-3 p-3 rounded-xl hover:bg-[#f9fafb] transition-all duration-150"
-                      title={step.tooltip}
-                    >
-                      {/* Checkmark or Progress circle */}
-                      <div className="relative shrink-0">
-                        {step.completed ? (
-                          <div className="w-8 h-8 rounded-full bg-[#8b5cf6] flex items-center justify-center">
-                            <Check className="h-4 w-4 text-white" strokeWidth={2.5} />
-                          </div>
-                        ) : (
-                          <div className="relative">
-                            <ProgressCircle progress={0} size={32} />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <Icon className="h-3.5 w-3.5 text-[#9ca3af]" />
+                    <div key={step.id}>
+                      <button
+                        onClick={(e) => handleStepClick(step.id, e)}
+                        className="group relative flex items-center gap-3 p-3 rounded-xl hover:bg-[#f9fafb] transition-all duration-150 w-full text-left"
+                      >
+                        {/* Checkmark or Progress circle */}
+                        <div className="relative shrink-0">
+                          {step.completed ? (
+                            <div className="w-8 h-8 rounded-full bg-[#8b5cf6] flex items-center justify-center">
+                              <Check className="h-4 w-4 text-white" strokeWidth={2.5} />
                             </div>
+                          ) : (
+                            <div className="relative">
+                              <ProgressCircle progress={0} size={32} />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Icon className="h-3.5 w-3.5 text-[#9ca3af]" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-[13px] font-medium ${step.completed ? "text-[#8b5cf6]" : "text-[#1a1a2e]"}`}
+                          >
+                            {step.title}
+                          </p>
+                          <p className="text-[11px] text-[#9ca3af] mt-0.5 truncate">{step.description}</p>
+                        </div>
+
+                        {/* Expand/Collapse Arrow */}
+                        <ChevronDown
+                          className={`h-4 w-4 text-[#d1d5db] shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                        />
+
+                        {/* Tooltip on hover - hidden on mobile, wider on desktop */}
+                        <div className="hidden lg:block absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
+                          <div className="bg-[#1a1a2e] text-white text-[12px] px-4 py-2.5 rounded-xl shadow-lg w-[220px] whitespace-normal leading-relaxed">
+                            {step.tooltip}
+                            <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-[#1a1a2e]" />
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      </button>
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-[13px] font-medium ${step.completed ? "text-[#8b5cf6]" : "text-[#1a1a2e]"}`}
-                        >
-                          {step.title}
-                        </p>
-                        <p className="text-[11px] text-[#9ca3af] mt-0.5 truncate">{step.description}</p>
-                      </div>
-
-                      {/* Arrow on hover for incomplete steps */}
-                      {!step.completed && (
-                        <ChevronRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] shrink-0 transition-colors" />
-                      )}
-
-                      {/* Tooltip on hover - hidden on mobile */}
-                      <div className="hidden lg:block absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
-                        <div className="bg-[#1a1a2e] text-white text-[11px] px-3 py-2 rounded-lg shadow-lg max-w-[200px] whitespace-normal">
-                          {step.tooltip}
-                          <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-[#1a1a2e]" />
+                      {/* Collapsible Substeps */}
+                      <div
+                        className={`overflow-hidden transition-all duration-300 ease-out ${
+                          isExpanded ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"
+                        }`}
+                      >
+                        <div className="pl-11 pr-3 pb-2 space-y-1">
+                          {substeps.map((substep, idx) => {
+                            const isSubstepComplete = substep.check(substepData)
+                            return (
+                              <Link
+                                key={idx}
+                                href={substep.href}
+                                className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[#f5f3ff]/50 transition-colors"
+                              >
+                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                  isSubstepComplete
+                                    ? "bg-[#8b5cf6] border-[#8b5cf6]"
+                                    : "border-[#d1d5db]"
+                                }`}>
+                                  {isSubstepComplete && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                                </div>
+                                <span className={`text-[12px] ${
+                                  isSubstepComplete ? "text-[#8b5cf6]" : "text-[#6b7280]"
+                                }`}>
+                                  {substep.label}
+                                </span>
+                              </Link>
+                            )
+                          })}
                         </div>
                       </div>
-                    </Link>
+                    </div>
                   )
                 })}
               </div>
@@ -656,6 +834,35 @@ export function DashboardClient({
           </div>
         )}
       </div>
+
+      {/* Dashboard Scrollbar Styles */}
+      <style jsx>{`
+        .dashboard-scroll-container {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+        }
+        .dashboard-scroll-container::-webkit-scrollbar {
+          width: 6px;
+        }
+        .dashboard-scroll-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .dashboard-scroll-container::-webkit-scrollbar-thumb {
+          background-color: rgba(139, 92, 246, 0.3);
+          border-radius: 3px;
+        }
+        .dashboard-scroll-container::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(139, 92, 246, 0.5);
+        }
+        @media (max-width: 768px) {
+          .dashboard-scroll-container::-webkit-scrollbar {
+            display: none;
+          }
+          .dashboard-scroll-container {
+            scrollbar-width: none;
+          }
+        }
+      `}</style>
     </div>
   )
 }
