@@ -15,21 +15,22 @@ import {
   Trophy,
   ChevronRight,
   ArrowRight,
-  ChevronDown,
   Sparkles,
   Image as ImageIcon,
+  ExternalLink,
 } from "lucide-react"
+import { TimeFrameSelector } from "@/components/app/time-frame-selector"
 
 export const dynamic = "force-dynamic"
 
 // Helper function for analytics API calls with proper auth
-async function fetchAnalyticsSummary(supabase: any, creatorId: string) {
+async function fetchAnalyticsSummary(supabase: any, creatorId: string, days: number) {
   try {
     const { data: products } = await supabase.from("products").select("id").eq("creator_id", creatorId)
     const productIds = products?.map((p: any) => p.id) || []
 
     const startDate = new Date()
-    startDate.setDate(startDate.getDate() - 7)
+    startDate.setDate(startDate.getDate() - days)
     const endDate = new Date()
 
     const viewsQuery = supabase
@@ -66,34 +67,34 @@ async function fetchAnalyticsSummary(supabase: any, creatorId: string) {
     } else {
       return {
         totalViews,
-        sales7d: 0,
-        revenue7d: 0,
+        sales: 0,
+        revenue: 0,
         conversionRate: 0,
       }
     }
 
-    const { data: orders7d } = await ordersQuery
+    const { data: orders } = await ordersQuery
 
-    const sales7d = orders7d?.length || 0
-    const revenue7d = orders7d?.reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) || 0
+    const sales = orders?.length || 0
+    const revenue = orders?.reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) || 0
 
     let conversionRate = 0
     if (totalViews > 0) {
-      conversionRate = (sales7d / totalViews) * 100
+      conversionRate = (sales / totalViews) * 100
     }
 
     return {
       totalViews,
-      sales7d,
-      revenue7d,
+      sales,
+      revenue,
       conversionRate: Number(conversionRate.toFixed(2)),
     }
   } catch (error) {
     console.error("[Dashboard] Error fetching analytics summary:", error)
     return {
       totalViews: 0,
-      sales7d: 0,
-      revenue7d: 0,
+      sales: 0,
+      revenue: 0,
       conversionRate: 0,
     }
   }
@@ -132,7 +133,64 @@ function ProgressCircle({ progress, size = 32 }: { progress: number; size?: numb
   )
 }
 
-export default async function AppDashboard() {
+// Map time frame to days
+function getTimeFrameDays(timeFrame: string): number {
+  switch (timeFrame) {
+    case "today":
+      return 1
+    case "48h":
+      return 2
+    case "7d":
+      return 7
+    case "30d":
+      return 30
+    case "this_month":
+      return new Date().getDate()
+    case "90d":
+      return 90
+    case "365d":
+      return 365
+    case "last_year":
+      return 365
+    default:
+      return 7
+  }
+}
+
+// Get time frame label
+function getTimeFrameLabel(timeFrame: string): string {
+  switch (timeFrame) {
+    case "today":
+      return "today"
+    case "48h":
+      return "last 48 hours"
+    case "7d":
+      return "last 7 days"
+    case "30d":
+      return "last 30 days"
+    case "this_month":
+      return "this month"
+    case "90d":
+      return "last 90 days"
+    case "365d":
+      return "last 365 days"
+    case "last_year":
+      return "last year"
+    default:
+      return "last 7 days"
+  }
+}
+
+export default async function AppDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const params = await searchParams
+  const timeFrame = (params.timeframe as string) || "7d"
+  const days = getTimeFrameDays(timeFrame)
+  const timeFrameLabel = getTimeFrameLabel(timeFrame)
+
   const supabase = await createClient()
 
   const {
@@ -149,12 +207,11 @@ export default async function AppDashboard() {
 
   const { data: profile } = await supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).single()
 
-  const analyticsData = await fetchAnalyticsSummary(supabase, creator.id)
+  const analyticsData = await fetchAnalyticsSummary(supabase, creator.id, days)
 
   const { data: products } = await supabase.from("products").select("id, status").eq("creator_id", creator.id)
   const productIds = products?.map((p: any) => p.id) || []
   const hasProducts = (products?.length || 0) > 0
-  const hasPublishedProduct = products?.some((p: any) => p.status === "published") || false
 
   // Check for OnePage
   const { data: onepage } = await supabase
@@ -188,11 +245,6 @@ export default async function AppDashboard() {
     totalOrders = allOrders?.length || 0
     totalRevenue = allOrders?.reduce((acc: number, o: any) => acc + (o?.amount_cents || 0), 0) || 0
   }
-
-  const totalViews = analyticsData.totalViews
-  const conversionRate = analyticsData.conversionRate
-  const sales7d = analyticsData.sales7d
-  const revenue7d = analyticsData.revenue7d
 
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -284,16 +336,11 @@ export default async function AppDashboard() {
             </h1>
             <p className="text-[14px] text-[#6b7280] mt-1">Here's what's happening with your store</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm">
-              Last 7 days
-              <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
-            </button>
-          </div>
+          <TimeFrameSelector currentTimeFrame={timeFrame} />
         </div>
 
         {/* Stats Cards - Clean, minimal design */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-6">
           {/* Total Views */}
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
@@ -303,9 +350,9 @@ export default async function AppDashboard() {
               </div>
             </div>
             <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {totalViews.toLocaleString()}
+              {analyticsData.totalViews.toLocaleString()}
             </div>
-            <p className="text-[12px] text-[#9ca3af] mt-1">{totalViews.toLocaleString()} last 7 days</p>
+            <p className="text-[12px] text-[#9ca3af] mt-1">{analyticsData.totalViews.toLocaleString()} {timeFrameLabel}</p>
           </div>
 
           {/* Total Orders */}
@@ -317,9 +364,9 @@ export default async function AppDashboard() {
               </div>
             </div>
             <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {totalOrders.toLocaleString()}
+              {analyticsData.sales.toLocaleString()}
             </div>
-            <p className="text-[12px] text-[#9ca3af] mt-1">{sales7d.toLocaleString()} last 7 days</p>
+            <p className="text-[12px] text-[#9ca3af] mt-1">{analyticsData.sales.toLocaleString()} {timeFrameLabel}</p>
           </div>
 
           {/* Total Revenue */}
@@ -331,9 +378,9 @@ export default async function AppDashboard() {
               </div>
             </div>
             <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {formatCurrency(totalRevenue)}
+              {formatCurrency(analyticsData.revenue)}
             </div>
-            <p className="text-[12px] text-[#9ca3af] mt-1">{formatCurrency(revenue7d)} last 7 days</p>
+            <p className="text-[12px] text-[#9ca3af] mt-1">{formatCurrency(analyticsData.revenue)} {timeFrameLabel}</p>
           </div>
 
           {/* Conversion Rate */}
@@ -345,9 +392,66 @@ export default async function AppDashboard() {
               </div>
             </div>
             <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {conversionRate.toFixed(2)}%
+              {analyticsData.conversionRate.toFixed(2)}%
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
+          </div>
+        </div>
+
+        {/* Storelib Banner - Like Shopify Editions */}
+        <div className="hidden lg:block mb-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1a1a2e] via-[#2d2d44] to-[#1a1a2e] h-[140px]">
+            {/* Background image */}
+            <div
+              className="absolute inset-0 opacity-40"
+              style={{
+                backgroundImage: "url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&q=80')",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            />
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1a1a2e]/90 via-[#1a1a2e]/70 to-transparent" />
+
+            {/* Content */}
+            <div className="relative h-full flex items-center px-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[13px] font-medium text-white/70">Storelib</span>
+                  <span className="text-white/40">|</span>
+                  <span className="text-[13px] font-medium text-white/70">2026 Edition</span>
+                </div>
+                <h3 className="text-[20px] font-semibold text-white mb-3">
+                  The creator economy is here.
+                </h3>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/upgrade"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-[13px] font-medium text-[#1a1a2e] hover:bg-white/90 transition-colors"
+                  >
+                    Explore features
+                  </Link>
+                  <Link
+                    href="/help"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/10 rounded-lg text-[13px] font-medium text-white/90 hover:bg-white/20 transition-colors border border-white/10"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    What's new
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right side decorative image */}
+              <div className="hidden xl:block w-[200px] h-full relative">
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[180px] h-[100px] rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 backdrop-blur-sm border border-white/10 flex items-center justify-center">
+                  <img
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+                    alt="Storelib"
+                    className="h-12 w-12 opacity-80"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
