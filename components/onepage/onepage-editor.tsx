@@ -45,9 +45,13 @@ interface OnePageEditorProps {
 }
 
 export function OnePageEditor({ initialOnePage }: OnePageEditorProps) {
+  // DEBUG: Log the initialOnePage to see if onboarding_completed is correct
+  console.log("[OnePageEditor] initialOnePage.onboarding_completed:", initialOnePage?.onboarding_completed)
+  console.log("[OnePageEditor] initialOnePage.id:", initialOnePage?.id)
+  
   return (
     <OnePageProvider initialOnePage={initialOnePage}>
-      <EditorLayout />
+      <EditorLayout initialOnboardingCompleted={initialOnePage?.onboarding_completed === true} />
     </OnePageProvider>
   )
 }
@@ -172,7 +176,7 @@ function ProUpgradeDialog({
   )
 }
 
-function EditorLayout() {
+function EditorLayout({ initialOnboardingCompleted }: { initialOnboardingCompleted: boolean }) {
   const {
     onepage,
     saveState,
@@ -195,46 +199,33 @@ function EditorLayout() {
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
   // =====================================================
-  // ONBOARDING STATE MANAGEMENT - CRITICAL FIX
+  // ONBOARDING STATE - USE THE PROP FROM SERVER
   // =====================================================
   
-  // Track if we've already determined the onboarding state
-  const onboardingCheckedRef = useRef(false)
+  // DEBUG: Log the values
+  console.log("[EditorLayout] initialOnboardingCompleted (from server):", initialOnboardingCompleted)
+  console.log("[EditorLayout] onepage?.onboarding_completed (from context):", onepage?.onboarding_completed)
   
-  // Track completion in a ref to prevent re-showing after completion in the same session
-  const onboardingCompletedRef = useRef(false)
+  // Use the server-provided value as the source of truth
+  // This is set ONCE on mount and won't change during the session
+  const [showOnboarding, setShowOnboarding] = useState(!initialOnboardingCompleted)
   
-  // Onboarding modal state - starts as false, will be set based on database value
-  const [showOnboarding, setShowOnboarding] = useState(false)
+  // Track if onboarding was completed during this session
+  const onboardingCompletedThisSession = useRef(false)
   
-  // CRITICAL: Check onboarding status when onepage data is available
-  // This runs on mount and whenever onepage changes
+  // Clear localStorage if onboarding is already completed
   useEffect(() => {
-    if (!onepage) return
-    
-    // Check the database value
-    const isCompleted = onepage.onboarding_completed === true
-    
-    if (isCompleted) {
-      // Onboarding is complete - never show it
-      setShowOnboarding(false)
-      onboardingCompletedRef.current = true
-      onboardingCheckedRef.current = true
-      
-      // Clear any stale localStorage progress
+    if (initialOnboardingCompleted) {
       if (typeof window !== "undefined") {
         try {
           localStorage.removeItem("onepage_onboarding_progress")
+          console.log("[EditorLayout] Cleared localStorage - onboarding already completed")
         } catch (e) {
           // Ignore
         }
       }
-    } else if (!onboardingCheckedRef.current && !onboardingCompletedRef.current) {
-      // Onboarding not completed and we haven't shown it yet - show it
-      setShowOnboarding(true)
-      onboardingCheckedRef.current = true
     }
-  }, [onepage, onepage?.onboarding_completed])
+  }, [initialOnboardingCompleted])
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {
@@ -785,36 +776,39 @@ function EditorLayout() {
       />
 
       {/* Onboarding Modal - shown on first visit only */}
-      <OnboardingModal
-        open={showOnboarding && !onboardingCompletedRef.current}
-        onClose={() => {
-          // User closed without completing - still hide but don't mark as complete
-          setShowOnboarding(false)
-        }}
-        onComplete={async (data) => {
-          // Mark as completed in local state immediately
-          onboardingCompletedRef.current = true
-          setShowOnboarding(false)
-          
-          // Clear localStorage progress
-          if (typeof window !== "undefined") {
-            try {
-              localStorage.removeItem("onepage_onboarding_progress")
-            } catch (e) {
-              // Ignore
+      {!initialOnboardingCompleted && !onboardingCompletedThisSession.current && (
+        <OnboardingModal
+          open={showOnboarding}
+          onClose={() => {
+            // User closed without completing
+            setShowOnboarding(false)
+          }}
+          onComplete={async (data) => {
+            console.log("[EditorLayout] Onboarding completed!")
+            
+            // Mark as completed this session
+            onboardingCompletedThisSession.current = true
+            setShowOnboarding(false)
+            
+            // Clear localStorage
+            if (typeof window !== "undefined") {
+              try {
+                localStorage.removeItem("onepage_onboarding_progress")
+              } catch (e) {
+                // Ignore
+              }
             }
-          }
-          
-          // The onboarding modal already saved onboarding_completed=true to database
-          // Now trigger a final save to ensure everything is persisted and shows "Saved"
-          try {
-            await save()
-            console.log("[OnePage] Onboarding complete - editor saved successfully")
-          } catch (e) {
-            console.error("[OnePage] Failed to save after onboarding:", e)
-          }
-        }}
-      />
+            
+            // Save the editor to show "Saved" state
+            try {
+              await save()
+              console.log("[EditorLayout] Editor saved after onboarding completion")
+            } catch (e) {
+              console.error("[EditorLayout] Failed to save after onboarding:", e)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
