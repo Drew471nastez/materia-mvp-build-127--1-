@@ -103,6 +103,14 @@ function ResetPasswordContent() {
     return (
       <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
+          <Link href="/" className="mb-12 inline-flex items-center gap-2">
+            <img
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              alt="Storelib"
+              className="h-8 w-8"
+            />
+            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
+          </Link>
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
           <p className="mt-4 text-[15px] text-neutral-500">Validating reset link...</p>
         </div>
@@ -114,6 +122,14 @@ function ResetPasswordContent() {
     return (
       <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
+          <Link href="/" className="mb-12 inline-flex items-center gap-2">
+            <img
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              alt="Storelib"
+              className="h-8 w-8"
+            />
+            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
+          </Link>
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
@@ -133,6 +149,14 @@ function ResetPasswordContent() {
     return (
       <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
+          <Link href="/" className="mb-12 inline-flex items-center gap-2">
+            <img
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              alt="Storelib"
+              className="h-8 w-8"
+            />
+            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
+          </Link>
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
             <XCircle className="h-8 w-8 text-red-600" />
           </div>
@@ -151,7 +175,7 @@ function ResetPasswordContent() {
             </Button>
           </Link>
           <div className="mt-4">
-            <Link href="/login" className="text-[14px] font-medium text-neutral-500 hover:text-neutral-700">
+            <Link href="/login" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
               Back to log in
             </Link>
           </div>
@@ -163,6 +187,14 @@ function ResetPasswordContent() {
   return (
     <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
       <div className="w-full max-w-[440px] text-center">
+        <Link href="/" className="mb-12 inline-flex items-center gap-2">
+          <img
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+            alt="Storelib"
+            className="h-8 w-8"
+          />
+          <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
+        </Link>
         <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">
           Reset your password
         </h1>
@@ -209,7 +241,7 @@ function ResetPasswordContent() {
           <Button
             type="submit"
             disabled={isLoading || !password.trim() || !confirmPassword.trim()}
-            className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 hover:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? "Resetting..." : "Reset Password"}
           </Button>

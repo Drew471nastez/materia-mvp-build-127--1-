@@ -14,7 +14,10 @@ import {
   Link2,
   Trophy,
   ChevronRight,
-  ArrowUpRight,
+  ArrowRight,
+  ChevronDown,
+  Sparkles,
+  Image as ImageIcon,
 } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -96,9 +99,9 @@ async function fetchAnalyticsSummary(supabase: any, creatorId: string) {
   }
 }
 
-// Progress circle component
-function ProgressCircle({ progress, size = 40 }: { progress: number; size?: number }) {
-  const strokeWidth = 3
+// Progress circle component with purple accent
+function ProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
+  const strokeWidth = 2.5
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (progress / 100) * circumference
@@ -110,7 +113,7 @@ function ProgressCircle({ progress, size = 40 }: { progress: number; size?: numb
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="#e5e7eb"
+        stroke="#f3f4f6"
         strokeWidth={strokeWidth}
       />
       <circle
@@ -206,7 +209,7 @@ export default async function AppDashboard() {
   // First sale check
   const hasFirstSale = totalOrders > 0
 
-  // Setup checklist - 6 steps
+  // Setup checklist - 6 steps with detailed tooltips
   const setupSteps = [
     {
       id: "welcome",
@@ -214,7 +217,7 @@ export default async function AppDashboard() {
       description: "Account created",
       tooltip: "This step is completed automatically when your account is created.",
       icon: User,
-      completed: true, // Always true - account exists
+      completed: true,
       href: "/app/settings",
     },
     {
@@ -271,185 +274,231 @@ export default async function AppDashboard() {
   const displayName = profile?.display_name || creator.display_name || "there"
 
   return (
-    <div className="min-h-screen bg-[#fafafa]">
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1400px] mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-[22px] sm:text-[26px] font-semibold text-neutral-800 tracking-tight">
-            Welcome back, {displayName}
-          </h1>
-          <p className="text-[14px] text-neutral-500 mt-0.5">Here's what's happening with your store</p>
+    <div className="min-h-screen bg-[#f8f9fa]">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
+              Welcome back, {displayName}
+            </h1>
+            <p className="text-[14px] text-[#6b7280] mt-1">Here's what's happening with your store</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm">
+              Last 7 days
+              <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+            </button>
+          </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="mb-6 grid gap-3 grid-cols-2 lg:grid-cols-4">
+        {/* Stats Cards - Clean, minimal design */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
           {/* Total Views */}
-          <div className="bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm">
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-neutral-500">Total Views</span>
-              <Eye className="h-4 w-4 text-neutral-400" />
+              <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
+              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                <Eye className="h-4 w-4 text-[#9ca3af]" />
+              </div>
             </div>
-            <div className="text-[24px] sm:text-[28px] font-semibold text-neutral-800 tracking-tight">
+            <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
               {totalViews.toLocaleString()}
             </div>
-            <p className="text-[12px] text-neutral-400 mt-1">{totalViews.toLocaleString()} last 7 days</p>
+            <p className="text-[12px] text-[#9ca3af] mt-1">{totalViews.toLocaleString()} last 7 days</p>
           </div>
 
           {/* Total Orders */}
-          <div className="bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm">
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-neutral-500">Total Orders</span>
-              <ShoppingCart className="h-4 w-4 text-neutral-400" />
+              <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
+              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
+              </div>
             </div>
-            <div className="text-[24px] sm:text-[28px] font-semibold text-neutral-800 tracking-tight">
+            <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
               {totalOrders.toLocaleString()}
             </div>
-            <p className="text-[12px] text-neutral-400 mt-1">{sales7d.toLocaleString()} last 7 days</p>
+            <p className="text-[12px] text-[#9ca3af] mt-1">{sales7d.toLocaleString()} last 7 days</p>
           </div>
 
           {/* Total Revenue */}
-          <div className="bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm">
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-neutral-500">Total Revenue</span>
-              <DollarSign className="h-4 w-4 text-neutral-400" />
+              <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
+              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-[#9ca3af]" />
+              </div>
             </div>
-            <div className="text-[24px] sm:text-[28px] font-semibold text-neutral-800 tracking-tight">
+            <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
               {formatCurrency(totalRevenue)}
             </div>
-            <p className="text-[12px] text-neutral-400 mt-1">{formatCurrency(revenue7d)} last 7 days</p>
+            <p className="text-[12px] text-[#9ca3af] mt-1">{formatCurrency(revenue7d)} last 7 days</p>
           </div>
 
           {/* Conversion Rate */}
-          <div className="bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm">
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-neutral-500">Conversion Rate</span>
-              <TrendingUp className="h-4 w-4 text-neutral-400" />
+              <span className="text-[13px] font-medium text-[#6b7280]">Conversion Rate</span>
+              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
+              </div>
             </div>
-            <div className="text-[24px] sm:text-[28px] font-semibold text-neutral-800 tracking-tight">
+            <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
               {conversionRate.toFixed(2)}%
             </div>
-            <p className="text-[12px] text-neutral-400 mt-1">Views to orders</p>
+            <p className="text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
           </div>
         </div>
 
-        {/* Store Setup Section */}
-        {!allCompleted && (
-          <div className="bg-white rounded-2xl border border-neutral-200/60 p-5 sm:p-6 shadow-sm mb-6">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <h2 className="text-[16px] font-semibold text-neutral-800">Store setup</h2>
-                <span className="text-[13px] text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">
+        {/* Main Content Grid - Store Setup + Quick Actions */}
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+          {/* Left Column - Store Setup Checklist */}
+          {!allCompleted && (
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Store setup</h2>
+                <span className="text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] px-2.5 py-1 rounded-full">
                   {completedSteps}/{totalSteps}
                 </span>
               </div>
-            </div>
 
-            {/* Steps Grid */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {setupSteps.map((step) => {
-                const Icon = step.icon
-                const stepProgress = step.completed ? 100 : 0
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-[#f3f4f6] rounded-full mb-5 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#8b5cf6] to-[#a78bfa] rounded-full transition-all duration-500"
+                  style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
+                />
+              </div>
 
-                return (
-                  <Link
-                    key={step.id}
-                    href={step.href}
-                    className="group relative flex items-start gap-3 p-4 rounded-xl border border-neutral-200/60 bg-neutral-50/50 hover:bg-white hover:border-violet-200 hover:shadow-sm transition-all duration-200"
-                    title={step.tooltip}
-                  >
-                    {/* Progress circle or checkmark */}
-                    <div className="relative shrink-0">
-                      {step.completed ? (
-                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                          <Check className="h-5 w-5 text-emerald-600" strokeWidth={2.5} />
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <ProgressCircle progress={stepProgress} size={40} />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Icon className="h-4 w-4 text-neutral-400" />
+              {/* Steps List */}
+              <div className="space-y-1">
+                {setupSteps.map((step) => {
+                  const Icon = step.icon
+
+                  return (
+                    <Link
+                      key={step.id}
+                      href={step.href}
+                      className="group relative flex items-center gap-3 p-3 rounded-xl hover:bg-[#f9fafb] transition-all duration-150"
+                      title={step.tooltip}
+                    >
+                      {/* Checkmark or Progress circle */}
+                      <div className="relative shrink-0">
+                        {step.completed ? (
+                          <div className="w-8 h-8 rounded-full bg-[#8b5cf6] flex items-center justify-center">
+                            <Check className="h-4 w-4 text-white" strokeWidth={2.5} />
                           </div>
-                        </div>
+                        ) : (
+                          <div className="relative">
+                            <ProgressCircle progress={0} size={32} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Icon className="h-3.5 w-3.5 text-[#9ca3af]" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[13px] font-medium ${step.completed ? "text-[#8b5cf6]" : "text-[#1a1a2e]"}`}>
+                          {step.title}
+                        </p>
+                        <p className="text-[11px] text-[#9ca3af] mt-0.5 truncate">{step.description}</p>
+                      </div>
+
+                      {/* Arrow on hover for incomplete steps */}
+                      {!step.completed && (
+                        <ChevronRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] shrink-0 transition-colors" />
                       )}
-                    </div>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[14px] font-medium ${step.completed ? "text-emerald-700" : "text-neutral-800"}`}>
-                        {step.title}
-                      </p>
-                      <p className="text-[12px] text-neutral-500 mt-0.5 truncate">{step.description}</p>
-                    </div>
-
-                    {/* Arrow on hover */}
-                    {!step.completed && (
-                      <ChevronRight className="h-4 w-4 text-neutral-300 group-hover:text-violet-500 shrink-0 mt-0.5 transition-colors" />
-                    )}
-                  </Link>
-                )
-              })}
+                      {/* Tooltip on hover - hidden on mobile */}
+                      <div className="hidden lg:block absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
+                        <div className="bg-[#1a1a2e] text-white text-[11px] px-3 py-2 rounded-lg shadow-lg max-w-[200px] whitespace-normal">
+                          {step.tooltip}
+                          <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-[#1a1a2e]" />
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Quick Actions */}
-        <div className="mb-6">
-          <h2 className="text-[16px] font-semibold text-neutral-800 mb-4">Quick actions</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Right Column - Quick Actions */}
+          <div className="space-y-4">
+            {/* Add a product card */}
             <Link
               href="/app/products/new"
-              className="group flex items-center gap-4 bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm hover:border-violet-200 hover:shadow-md transition-all duration-200"
+              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-50 group-hover:bg-violet-100 transition-colors">
-                <Package className="h-6 w-6 text-violet-600" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#f5f3ff] to-[#ede9fe]">
+                <Package className="h-6 w-6 text-[#8b5cf6]" />
               </div>
               <div className="flex-1">
-                <p className="text-[14px] font-medium text-neutral-800 group-hover:text-violet-700 transition-colors">Add a product</p>
-                <p className="text-[12px] text-neutral-500">Go from idea to product offer in minutes</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">Add a product</p>
+                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">Go from idea to product offer in minutes</p>
               </div>
-              <ArrowUpRight className="h-4 w-4 text-neutral-300 group-hover:text-violet-500 transition-colors" />
+              <div className="hidden sm:block w-20 h-20 rounded-xl bg-gradient-to-br from-[#f9fafb] to-[#f3f4f6] overflow-hidden">
+                <div className="w-full h-full flex items-center justify-center">
+                  <ImageIcon className="h-8 w-8 text-[#d1d5db]" />
+                </div>
+              </div>
             </Link>
 
+            {/* Market your products card */}
             <Link
               href="/app/onepage"
-              className="group flex items-center gap-4 bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm hover:border-violet-200 hover:shadow-md transition-all duration-200"
+              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 group-hover:bg-blue-100 transition-colors">
-                <Link2 className="h-6 w-6 text-blue-600" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#ecfdf5] to-[#d1fae5]">
+                <Link2 className="h-6 w-6 text-[#10b981]" />
               </div>
               <div className="flex-1">
-                <p className="text-[14px] font-medium text-neutral-800 group-hover:text-blue-700 transition-colors">Edit your OnePage</p>
-                <p className="text-[12px] text-neutral-500">Customize your link-in-bio</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">Edit your OnePage</p>
+                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">Customize your link-in-bio page</p>
               </div>
-              <ArrowUpRight className="h-4 w-4 text-neutral-300 group-hover:text-blue-500 transition-colors" />
             </Link>
 
+            {/* View analytics card */}
             <Link
               href="/app/analytics"
-              className="group flex items-center gap-4 bg-white rounded-2xl border border-neutral-200/60 p-4 sm:p-5 shadow-sm hover:border-violet-200 hover:shadow-md transition-all duration-200"
+              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 group-hover:bg-emerald-100 transition-colors">
-                <TrendingUp className="h-6 w-6 text-emerald-600" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#fef3c7] to-[#fde68a]">
+                <TrendingUp className="h-6 w-6 text-[#f59e0b]" />
               </div>
               <div className="flex-1">
-                <p className="text-[14px] font-medium text-neutral-800 group-hover:text-emerald-700 transition-colors">View analytics</p>
-                <p className="text-[12px] text-neutral-500">See how your store is performing</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">View analytics</p>
+                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">See how your store is performing</p>
               </div>
-              <ArrowUpRight className="h-4 w-4 text-neutral-300 group-hover:text-emerald-500 transition-colors" />
             </Link>
           </div>
         </div>
 
         {/* All setup completed celebration */}
         {allCompleted && (
-          <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl border border-violet-200/60 p-5 sm:p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100">
-                <Trophy className="h-6 w-6 text-violet-600" />
+          <div className="mt-6 bg-gradient-to-r from-[#f5f3ff] via-[#ede9fe] to-[#f5f3ff] rounded-2xl border border-[#8b5cf6]/20 p-6">
+            <div className="flex items-center gap-5">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#8b5cf6]">
+                <Trophy className="h-7 w-7 text-white" />
               </div>
               <div>
-                <h3 className="text-[16px] font-semibold text-neutral-800">You're all set up!</h3>
-                <p className="text-[13px] text-neutral-600 mt-0.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-[17px] font-semibold text-[#1a1a2e]">You're all set up!</h3>
+                  <Sparkles className="h-5 w-5 text-[#8b5cf6]" />
+                </div>
+                <p className="text-[14px] text-[#6b7280] mt-1">
                   Your store is ready to go. Keep creating products and sharing your links to grow your audience.
                 </p>
               </div>
