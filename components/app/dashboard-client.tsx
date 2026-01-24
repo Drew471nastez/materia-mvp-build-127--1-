@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   DollarSign,
   TrendingUp,
+  TrendingDown,
   Check,
   ChevronRight,
   ArrowRight,
@@ -172,6 +173,34 @@ const timeframeOptions: TimeframeOption[] = [
   },
 ]
 
+// Helper function to calculate percentage change
+const calculatePercentChange = (current: number, previous: number): { value: number; isPositive: boolean; isZero: boolean } => {
+  if (previous === 0 && current === 0) return { value: 0, isPositive: true, isZero: true }
+  if (previous === 0) return { value: 100, isPositive: true, isZero: false }
+  const change = ((current - previous) / previous) * 100
+  return { value: Math.abs(change), isPositive: change >= 0, isZero: change === 0 }
+}
+
+// Small percentage change indicator component
+function PercentChangeIndicator({ current, previous }: { current: number; previous: number }) {
+  const { value, isPositive, isZero } = calculatePercentChange(current, previous)
+
+  if (isZero) return null
+
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
+      isPositive ? "text-emerald-600" : "text-rose-500"
+    }`}>
+      {isPositive ? (
+        <TrendingUp className="h-3 w-3" />
+      ) : (
+        <TrendingDown className="h-3 w-3" />
+      )}
+      {value.toFixed(1)}%
+    </span>
+  )
+}
+
 // Helper function to format period text naturally
 const formatPeriodText = (timeframeValue: string): string => {
   switch (timeframeValue) {
@@ -243,30 +272,36 @@ function TimeframeBottomSheet({
   selectedValue: string
   onSelect: (value: string) => void
 }) {
-  const [isClosing, setIsClosing] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isVisible) {
+      // Opening: first mount, then animate in
       setIsVisible(true)
-      setIsClosing(false)
       document.body.style.overflow = "hidden"
-    } else if (isVisible) {
-      setIsClosing(true)
+      // Small delay to ensure DOM is ready before animation
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (!isOpen && isVisible) {
+      // Closing: animate out, then unmount
+      setIsAnimating(false)
+      document.body.style.overflow = ""
       const timer = setTimeout(() => {
         setIsVisible(false)
-        setIsClosing(false)
       }, 300)
-      document.body.style.overflow = ""
       return () => clearTimeout(timer)
     }
     return () => {
       document.body.style.overflow = ""
     }
-  }, [isOpen])
+  }, [isOpen, isVisible])
 
   const handleClose = () => {
-    setIsClosing(true)
+    setIsAnimating(false)
     setTimeout(() => {
       onClose()
     }, 300)
@@ -278,15 +313,15 @@ function TimeframeBottomSheet({
     <div className="fixed inset-0 z-[100] md:hidden">
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
-          isClosing ? "opacity-0" : "opacity-100"
+        className={`absolute inset-0 bg-black transition-opacity duration-300 ease-out ${
+          isAnimating ? "opacity-40" : "opacity-0"
         }`}
         onClick={handleClose}
       />
       {/* Bottom Sheet */}
       <div
         className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] transition-transform duration-300 ease-out ${
-          isClosing ? "translate-y-full" : "translate-y-0"
+          isAnimating ? "translate-y-0" : "translate-y-full"
         }`}
       >
         <div className="p-4">
@@ -344,6 +379,11 @@ export function DashboardClient({
     periodViews: 0,
     periodOrders: 0,
     periodRevenue: 0,
+    // Previous period for comparison
+    prevPeriodViews: 0,
+    prevPeriodOrders: 0,
+    prevPeriodRevenue: 0,
+    prevConversionRate: 0,
   })
 
   const formatCurrency = (cents: number) => {
@@ -363,7 +403,12 @@ export function DashboardClient({
 
       const { start, end } = option.getDates()
 
-      // Fetch views for the period
+      // Calculate previous period dates (same duration, immediately before)
+      const periodDuration = end.getTime() - start.getTime()
+      const prevEnd = new Date(start.getTime() - 1) // 1ms before current period start
+      const prevStart = new Date(prevEnd.getTime() - periodDuration)
+
+      // Fetch views for the current period
       const { data: viewEvents } = await supabase
         .from("analytics_events")
         .select("id, visitor_id, session_id, product_id, created_at")
@@ -384,9 +429,32 @@ export function DashboardClient({
 
       const periodViews = uniqueViewKeys.size || 0
 
-      // Fetch orders for the period
+      // Fetch views for the previous period
+      const { data: prevViewEvents } = await supabase
+        .from("analytics_events")
+        .select("id, visitor_id, session_id, product_id, created_at")
+        .eq("creator_id", creatorId)
+        .eq("event_type", "view")
+        .gte("created_at", prevStart.toISOString())
+        .lte("created_at", prevEnd.toISOString())
+
+      const prevUniqueViewKeys = new Set(
+        (prevViewEvents || [])
+          .map((e: any) => {
+            const identity = e.visitor_id || e.session_id
+            if (!identity) return null
+            return `${identity}__${e.product_id || "store"}`
+          })
+          .filter(Boolean)
+      )
+
+      const prevPeriodViews = prevUniqueViewKeys.size || 0
+
+      // Fetch orders for the current period
       let periodOrders = 0
       let periodRevenue = 0
+      let prevPeriodOrders = 0
+      let prevPeriodRevenue = 0
 
       if (productIds.length > 0) {
         const { data: orders } = await supabase
@@ -399,6 +467,18 @@ export function DashboardClient({
 
         periodOrders = orders?.length || 0
         periodRevenue = orders?.reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) || 0
+
+        // Fetch orders for the previous period
+        const { data: prevOrders } = await supabase
+          .from("orders")
+          .select("amount_cents")
+          .eq("status", "completed")
+          .in("product_id", productIds)
+          .gte("created_at", prevStart.toISOString())
+          .lte("created_at", prevEnd.toISOString())
+
+        prevPeriodOrders = prevOrders?.length || 0
+        prevPeriodRevenue = prevOrders?.reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) || 0
       }
 
       // Fetch all-time totals
@@ -435,6 +515,7 @@ export function DashboardClient({
       }
 
       const conversionRate = periodViews > 0 ? (periodOrders / periodViews) * 100 : 0
+      const prevConversionRate = prevPeriodViews > 0 ? (prevPeriodOrders / prevPeriodViews) * 100 : 0
 
       setAnalyticsData({
         totalViews,
@@ -444,6 +525,10 @@ export function DashboardClient({
         periodViews,
         periodOrders,
         periodRevenue,
+        prevPeriodViews,
+        prevPeriodOrders,
+        prevPeriodRevenue,
+        prevConversionRate: Number(prevConversionRate.toFixed(2)),
       })
     } catch (error) {
       console.error("Error fetching analytics:", error)
@@ -566,8 +651,11 @@ export function DashboardClient({
                 <Eye className="h-4 w-4 text-[#9ca3af]" />
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {analyticsData.totalViews.toLocaleString()}
+            <div className="flex items-baseline gap-2">
+              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {analyticsData.totalViews.toLocaleString()}
+              </span>
+              <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">
               {analyticsData.periodViews.toLocaleString()} {formatPeriodText(timeframe)}
@@ -582,8 +670,11 @@ export function DashboardClient({
                 <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {analyticsData.totalOrders.toLocaleString()}
+            <div className="flex items-baseline gap-2">
+              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {analyticsData.totalOrders.toLocaleString()}
+              </span>
+              <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">
               {analyticsData.periodOrders.toLocaleString()} {formatPeriodText(timeframe)}
@@ -598,8 +689,11 @@ export function DashboardClient({
                 <DollarSign className="h-4 w-4 text-[#9ca3af]" />
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {formatCurrency(analyticsData.totalRevenue)}
+            <div className="flex items-baseline gap-2">
+              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {formatCurrency(analyticsData.totalRevenue)}
+              </span>
+              <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">
               {formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}
@@ -614,8 +708,11 @@ export function DashboardClient({
                 <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {analyticsData.conversionRate.toFixed(2)}%
+            <div className="flex items-baseline gap-2">
+              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {analyticsData.conversionRate.toFixed(2)}%
+              </span>
+              <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
           </div>

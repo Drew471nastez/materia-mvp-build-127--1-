@@ -75,14 +75,14 @@ export default async function SalesPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto page-scroll">
-      <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold">Sales</h1>
-          <p className="text-muted-foreground">Track your revenue, orders, and sales performance</p>
+          <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Sales</h1>
+          <p className="text-[14px] text-[#6b7280] mt-1">Track your revenue, orders, and sales performance</p>
         </div>
 
-          <SalesClient
+        <SalesClient
           creatorId={creator.id}
           products={products}
           initialSummary={initialSummary}

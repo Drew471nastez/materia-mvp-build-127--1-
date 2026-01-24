@@ -571,75 +571,63 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Sales</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <>
-                <div className="text-2xl font-semibold">{formatPrice(summary.totalSales)}</div>
-                <p className="text-xs text-muted-foreground mt-1">Gross revenue</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+      {/* Summary Cards - Dashboard Style */}
+      <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 ${isLoading ? "opacity-60" : ""}`}>
+        {/* Total Sales */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Total Sales</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <DollarSign className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            {formatPrice(summary.totalSales)}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Gross revenue</p>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <>
-                <div className="text-2xl font-semibold">{summary.totalOrders.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground mt-1">Completed orders</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        {/* Orders */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Orders</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            {summary.totalOrders.toLocaleString()}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Completed orders</p>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Order Value</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <>
-                <div className="text-2xl font-semibold">{formatPrice(summary.avgOrderValue)}</div>
-                <p className="text-xs text-muted-foreground mt-1">Per transaction</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        {/* Avg Order Value */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Avg Order Value</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            {formatPrice(summary.avgOrderValue)}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Per transaction</p>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Refunds</CardTitle>
-            <RotateCcw className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <>
-                <div className="text-2xl font-semibold text-red-600">{summary.refundCount}</div>
-                <p className="text-xs text-muted-foreground mt-1">{formatPrice(summary.refundAmount)} refunded</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        {/* Refunds */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Refunds</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <RotateCcw className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-rose-500 tracking-tight">
+            {summary.refundCount}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">{formatPrice(summary.refundAmount)} refunded</p>
+        </div>
       </div>
 
       {/* Sales Trend Chart */}
