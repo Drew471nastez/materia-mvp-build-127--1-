@@ -420,42 +420,26 @@ function EditorLayout() {
   }, [pendingNavigation])
 
   // Handle onboarding completion
+  // Note: The onboarding modal already saves everything to the database and calls save()
+  // This handler just updates local state and closes the modal
   const handleOnboardingComplete = useCallback(async () => {
-    console.log("[OnePageEditor] Onboarding completed, saving to database...")
-    
-    // Mark completed in localStorage immediately
+    console.log("[OnePageEditor] Onboarding completed - modal already saved, updating local state...")
+
+    // Mark completed in localStorage immediately as backup
     if (onepage?.id && typeof window !== "undefined") {
       localStorage.setItem(`onepage_onboarding_done_${onepage.id}`, "true")
       localStorage.removeItem("onepage_onboarding_progress")
     }
-    
+
     completedThisSessionRef.current = true
     setShowOnboarding(false)
-    
-    // CRITICAL: Save onboarding_completed to database
-    // This ensures it works across all devices
-    if (onepage?.id) {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from("onepages")
-        .update({ onboarding_completed: true })
-        .eq("id", onepage.id)
-      
-      if (error) {
-        console.error("[OnePageEditor] Failed to save onboarding_completed to database:", error)
-      } else {
-        console.log("[OnePageEditor] Successfully saved onboarding_completed to database")
-      }
-    }
-    
-    // Auto-save the editor
-    try {
-      await save()
-      console.log("[OnePageEditor] Editor auto-saved after onboarding")
-    } catch (e) {
-      console.error("Failed to save after onboarding:", e)
-    }
-  }, [onepage?.id, save])
+
+    // The onboarding modal already:
+    // 1. Saved onboarding_completed to database
+    // 2. Called save() to persist all editor changes
+    // So we don't need to do it again here
+    console.log("[OnePageEditor] Onboarding completion handled - auto-save already done by modal")
+  }, [onepage?.id])
 
   if (!onepage) {
     return (

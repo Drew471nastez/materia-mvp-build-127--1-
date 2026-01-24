@@ -57,7 +57,7 @@ interface OnePageContextType {
   undo: () => void
   redo: () => void
 
-  save: () => Promise<void>
+  save: (force?: boolean) => Promise<void>
   publish: () => Promise<void>
 
   loadTemplates: () => Promise<void>
@@ -546,8 +546,9 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     markDirty()
   }, [canRedo, historyIndex, history, markDirty])
 
-  const save = useCallback(async () => {
-    if (!onepage || !isDirty) return
+  const save = useCallback(async (force: boolean = false) => {
+    // Allow force save for special cases like onboarding completion
+    if (!onepage || (!isDirty && !force)) return
     await saveAndPublish()
   }, [onepage, isDirty, saveAndPublish])
 
