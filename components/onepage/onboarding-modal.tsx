@@ -703,8 +703,12 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const [setupComplete, setSetupComplete] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
 
-  // Track if onboarding was already completed (prevents confetti on re-render)
+  // Track if onboarding was already completed in THIS session (prevents confetti on re-render)
   const hasCompletedRef = useRef(false)
+
+  // Track if confetti was explicitly triggered during completion flow
+  // This prevents random confetti appearances from stale state
+  const confettiTriggeredRef = useRef(false)
 
   // Save progress to localStorage whenever relevant state changes
   const saveProgress = useCallback(() => {
@@ -743,25 +747,48 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     }
   }, [open, currentStep, displayName, bio, selectedGoal, socials, avatarUrl, selectedTemplate, saveProgress])
 
-  // Reset confetti and completion states when modal closes
+  // CRITICAL: Reset confetti and completion states when modal closes
+  // This prevents the confetti from showing randomly on page refresh or modal reopen
   useEffect(() => {
     if (!open) {
-      // Reset confetti to prevent showing on next open
+      // Reset confetti immediately to prevent random appearances
       setShowConfetti(false)
-      // Don't reset hasCompletedRef here - it should persist to prevent re-completion
+      // Reset the confetti triggered flag so it can be triggered again in a new session
+      confettiTriggeredRef.current = false
+      // Don't reset hasCompletedRef here - it should persist to prevent re-completion in same session
     }
   }, [open])
 
   // Reset setup states when modal opens (fresh start if returning to editor after unmount)
+  // IMPORTANT: Only reset if onboarding is not already completed
   useEffect(() => {
-    if (open && !hasCompletedRef.current) {
-      // Reset step 5 states to default when opening
-      setSetupComplete(false)
-      setIsSettingUp(false)
-      setSetupPhase(null)
+    if (open) {
+      // Always ensure confetti is off when opening
       setShowConfetti(false)
+      confettiTriggeredRef.current = false
+
+      if (!hasCompletedRef.current) {
+        // Reset step 5 states to default when opening
+        setSetupComplete(false)
+        setIsSettingUp(false)
+        setSetupPhase(null)
+      }
     }
   }, [open])
+
+  // CRITICAL: If onepage is already marked as completed in database, don't show anything
+  // This handles edge cases where the modal opens but onboarding was already done
+  useEffect(() => {
+    if (open && onepage?.onboarding_completed === true) {
+      // Mark as completed to prevent any actions
+      hasCompletedRef.current = true
+      // Ensure no confetti shows
+      setShowConfetti(false)
+      confettiTriggeredRef.current = false
+      // Clear any saved progress
+      clearSavedProgress()
+    }
+  }, [open, onepage?.onboarding_completed, clearSavedProgress])
 
   // Crop state - square style like Links tab
   const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
@@ -1232,20 +1259,36 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     setIsSettingUp(false)
     setSetupPhase(null)
     setSetupComplete(true)
+
+    // CRITICAL: Only show confetti if explicitly triggered during this completion flow
+    // Mark that confetti was triggered and then show it
+    confettiTriggeredRef.current = true
     setShowConfetti(true)
 
     // Auto-save the OnePage editor after onboarding completion
     // This ensures all changes are persisted immediately
+    // Do this BEFORE showing confetti to ensure data is saved
     try {
       await save()
+      console.log("OnePage auto-saved after onboarding completion")
     } catch (e) {
       console.error("Failed to auto-save after onboarding:", e)
+      // Try to save again after a short delay
+      setTimeout(async () => {
+        try {
+          await save()
+          console.log("OnePage auto-saved on retry")
+        } catch (retryError) {
+          console.error("Failed to auto-save on retry:", retryError)
+        }
+      }, 1000)
     }
 
     // Auto close after confetti animation and call onComplete
     setTimeout(() => {
       // Hide confetti before closing
       setShowConfetti(false)
+      confettiTriggeredRef.current = false
 
       onComplete({
         displayName,
@@ -2638,7 +2681,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       </Dialog>
 
       {/* Confetti rendered last to be on top of everything */}
-      <Confetti show={showConfetti} />
+      {/* CRITICAL: Only show confetti if it was explicitly triggered during completion flow */}
+      {/* This prevents random confetti appearances from stale state or re-renders */}
+      <Confetti show={showConfetti && confettiTriggeredRef.current && setupComplete} />
     </>
   )
 }

@@ -195,11 +195,12 @@ function EditorLayout() {
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
   // Onboarding modal state - only show once for new onepages (based on database field)
+  // IMPORTANT: Check onboarding_completed === true strictly, as it must be explicitly set
   const [showOnboarding, setShowOnboarding] = useState(() => {
     // Only check database field for onboarding completion
     // The main onboarding may pre-populate title/bio, so we can't use those as indicators
-    // Use truthy check (not strict equality) to handle various boolean representations
-    if (onepage?.onboarding_completed) {
+    // Use strict equality to ensure we only hide when explicitly completed
+    if (onepage?.onboarding_completed === true) {
       // Clear any stale localStorage progress if onboarding is already completed
       if (typeof window !== "undefined") {
         try {
@@ -214,7 +215,29 @@ function EditorLayout() {
   })
 
   // Mark onboarding as completed in local state to prevent re-opening
-  const onboardingCompletedRef = useRef(onepage?.onboarding_completed || false)
+  const onboardingCompletedRef = useRef(onepage?.onboarding_completed === true)
+
+  // CRITICAL: Watch for onepage.onboarding_completed changes after initial render
+  // This handles the case where:
+  // 1. Page refreshes and database has onboarding_completed=true
+  // 2. Data is loaded async and updates after initial render
+  // 3. User completed onboarding in another tab/session
+  useEffect(() => {
+    if (onepage?.onboarding_completed === true) {
+      // Update ref to prevent modal from showing
+      onboardingCompletedRef.current = true
+      // Update state to hide modal if it was showing
+      setShowOnboarding(false)
+      // Clear any stale localStorage progress
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("onepage_onboarding_progress")
+        } catch (e) {
+          // Ignore localStorage errors
+        }
+      }
+    }
+  }, [onepage?.onboarding_completed])
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {
