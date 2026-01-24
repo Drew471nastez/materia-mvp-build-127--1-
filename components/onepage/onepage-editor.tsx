@@ -199,9 +199,22 @@ function EditorLayout() {
     // Only check database field for onboarding completion
     // The main onboarding may pre-populate title/bio, so we can't use those as indicators
     // Use truthy check (not strict equality) to handle various boolean representations
-    if (onepage?.onboarding_completed) return false
+    if (onepage?.onboarding_completed) {
+      // Clear any stale localStorage progress if onboarding is already completed
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("onepage_onboarding_progress")
+        } catch (e) {
+          // Ignore localStorage errors
+        }
+      }
+      return false
+    }
     return true
   })
+
+  // Mark onboarding as completed in local state to prevent re-opening
+  const onboardingCompletedRef = useRef(onepage?.onboarding_completed || false)
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {
@@ -753,13 +766,23 @@ function EditorLayout() {
 
       {/* Onboarding Modal - shown on first visit only */}
       <OnboardingModal
-        open={showOnboarding}
+        open={showOnboarding && !onboardingCompletedRef.current}
         onClose={() => {
           setShowOnboarding(false)
         }}
         onComplete={(data) => {
+          // Mark as completed to prevent re-opening
+          onboardingCompletedRef.current = true
           setShowOnboarding(false)
-          // Onboarding modal saves onboarding_completed=true to database
+          // Clear any remaining localStorage progress
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.removeItem("onepage_onboarding_progress")
+            } catch (e) {
+              // Ignore localStorage errors
+            }
+          }
+          // Onboarding modal saves onboarding_completed=true to database and auto-saves
         }}
       />
     </div>

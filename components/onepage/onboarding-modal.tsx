@@ -444,12 +444,32 @@ const TikTokIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
-// Confetti animation component
+// Confetti animation component - with proper cleanup to prevent random appearances
 function Confetti({ show }: { show: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animationIdRef = useRef<number | null>(null)
+  const hasAnimatedRef = useRef(false)
 
   useEffect(() => {
-    if (!show || !canvasRef.current) return
+    // Only run animation once per show=true transition
+    // This prevents re-running on component re-renders
+    if (!show) {
+      hasAnimatedRef.current = false
+      // Clean up canvas if it exists
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext("2d")
+        if (ctx) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+        }
+      }
+      return
+    }
+
+    // Prevent duplicate animations
+    if (hasAnimatedRef.current) return
+    hasAnimatedRef.current = true
+
+    if (!canvasRef.current) return
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
@@ -489,13 +509,15 @@ function Confetti({ show }: { show: boolean }) {
       })
     }
 
-    let animationId: number
     let frame = 0
     const maxFrames = 390 // 6.5 seconds at 60fps (1 second longer)
 
     const animate = () => {
       if (frame >= maxFrames) {
-        cancelAnimationFrame(animationId)
+        if (animationIdRef.current) {
+          cancelAnimationFrame(animationIdRef.current)
+          animationIdRef.current = null
+        }
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         return
       }
@@ -534,16 +556,24 @@ function Confetti({ show }: { show: boolean }) {
       })
 
       frame++
-      animationId = requestAnimationFrame(animate)
+      animationIdRef.current = requestAnimationFrame(animate)
     }
 
     animate()
 
     return () => {
-      cancelAnimationFrame(animationId)
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current)
+        animationIdRef.current = null
+      }
+      // Clear canvas on cleanup
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+      }
     }
   }, [show])
 
+  // Don't render anything if not showing
   if (!show) return null
 
   // Use portal to render at document body level, above all dialogs
@@ -583,38 +613,86 @@ interface OnboardingData {
   templateId: string
 }
 
+// LocalStorage key for saving onboarding progress
+const ONBOARDING_STORAGE_KEY = "onepage_onboarding_progress"
+
+interface OnboardingProgress {
+  step: number
+  displayName: string
+  bio: string
+  selectedGoal: "general" | "artist" | "digital" | "business" | null
+  socials: { instagram: string; tiktok: string; youtube: string }
+  avatarUrl: string | null
+  selectedTemplate: string
+  onepageId: string
+}
+
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
-  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock } = useOnePage()
-  const [currentStep, setCurrentStep] = useState(1)
+  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
+
+  // Load saved progress from localStorage
+  const getSavedProgress = useCallback((): OnboardingProgress | null => {
+    if (typeof window === "undefined") return null
+    try {
+      const saved = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+      if (!saved) return null
+      const progress = JSON.parse(saved) as OnboardingProgress
+      // Only use saved progress if it's for the same onepage
+      if (progress.onepageId !== onepage?.id) return null
+      return progress
+    } catch {
+      return null
+    }
+  }, [onepage?.id])
+
+  // Initialize step from saved progress or default to 1
+  const [currentStep, setCurrentStep] = useState(() => {
+    const saved = getSavedProgress()
+    return saved?.step || 1
+  })
   const [isAnimating, setIsAnimating] = useState(false)
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("right")
 
-  // Step 1 state
-  const [displayName, setDisplayName] = useState("")
-  const [bio, setBio] = useState("")
+  // Step 1 state - initialize from saved progress
+  const [displayName, setDisplayName] = useState(() => {
+    const saved = getSavedProgress()
+    return saved?.displayName || ""
+  })
+  const [bio, setBio] = useState(() => {
+    const saved = getSavedProgress()
+    return saved?.bio || ""
+  })
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameFocused, setUsernameFocused] = useState(false)
 
-  // Step 2 state
-  const [selectedGoal, setSelectedGoal] = useState<"general" | "artist" | "digital" | "business" | null>(null)
+  // Step 2 state - initialize from saved progress
+  const [selectedGoal, setSelectedGoal] = useState<"general" | "artist" | "digital" | "business" | null>(() => {
+    const saved = getSavedProgress()
+    return saved?.selectedGoal || null
+  })
   const [loadedGoalIcons, setLoadedGoalIcons] = useState<Set<string>>(new Set())
 
-  // Step 3 state
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  // Step 3 state - initialize from saved progress
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
+    const saved = getSavedProgress()
+    return saved?.avatarUrl || null
+  })
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [showCropModal, setShowCropModal] = useState(false)
   const [tempImageUrl, setTempImageUrl] = useState<string | null>(null)
-  const [socials, setSocials] = useState({
-    instagram: "",
-    tiktok: "",
-    youtube: "",
+  const [socials, setSocials] = useState(() => {
+    const saved = getSavedProgress()
+    return saved?.socials || { instagram: "", tiktok: "", youtube: "" }
   })
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
-  // Step 4 state
-  const [selectedTemplate, setSelectedTemplate] = useState("default")
+  // Step 4 state - initialize from saved progress
+  const [selectedTemplate, setSelectedTemplate] = useState(() => {
+    const saved = getSavedProgress()
+    return saved?.selectedTemplate || "default"
+  })
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [carouselAnimating, setCarouselAnimating] = useState(false)
   const [carouselDirection, setCarouselDirection] = useState<"left" | "right">("right")
@@ -624,6 +702,66 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const [setupPhase, setSetupPhase] = useState<"setting-up" | "just-a-moment" | null>(null)
   const [setupComplete, setSetupComplete] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
+
+  // Track if onboarding was already completed (prevents confetti on re-render)
+  const hasCompletedRef = useRef(false)
+
+  // Save progress to localStorage whenever relevant state changes
+  const saveProgress = useCallback(() => {
+    if (typeof window === "undefined" || !onepage?.id || currentStep >= 5) return
+    try {
+      const progress: OnboardingProgress = {
+        step: currentStep,
+        displayName,
+        bio,
+        selectedGoal,
+        socials,
+        avatarUrl,
+        selectedTemplate,
+        onepageId: onepage.id,
+      }
+      localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(progress))
+    } catch (e) {
+      console.error("Failed to save onboarding progress:", e)
+    }
+  }, [currentStep, displayName, bio, selectedGoal, socials, avatarUrl, selectedTemplate, onepage?.id])
+
+  // Clear saved progress from localStorage
+  const clearSavedProgress = useCallback(() => {
+    if (typeof window === "undefined") return
+    try {
+      localStorage.removeItem(ONBOARDING_STORAGE_KEY)
+    } catch (e) {
+      console.error("Failed to clear onboarding progress:", e)
+    }
+  }, [])
+
+  // Save progress when modal is open and state changes
+  useEffect(() => {
+    if (open && currentStep < 5) {
+      saveProgress()
+    }
+  }, [open, currentStep, displayName, bio, selectedGoal, socials, avatarUrl, selectedTemplate, saveProgress])
+
+  // Reset confetti and completion states when modal closes
+  useEffect(() => {
+    if (!open) {
+      // Reset confetti to prevent showing on next open
+      setShowConfetti(false)
+      // Don't reset hasCompletedRef here - it should persist to prevent re-completion
+    }
+  }, [open])
+
+  // Reset setup states when modal opens (fresh start if returning to editor after unmount)
+  useEffect(() => {
+    if (open && !hasCompletedRef.current) {
+      // Reset step 5 states to default when opening
+      setSetupComplete(false)
+      setIsSettingUp(false)
+      setSetupPhase(null)
+      setShowConfetti(false)
+    }
+  }, [open])
 
   // Crop state - square style like Links tab
   const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
@@ -941,9 +1079,15 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
   // Start setup process
   const startSetup = async () => {
+    // Prevent double execution
+    if (hasCompletedRef.current) return
+
     setCurrentStep(5)
     setIsSettingUp(true)
     setSetupPhase("setting-up")
+
+    // Clear saved progress since we're completing the onboarding
+    clearSavedProgress()
 
     // Wait 6 seconds - "We're setting things up..."
     await new Promise((resolve) => setTimeout(resolve, 6000))
@@ -1082,13 +1226,27 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     // Wait 3 more seconds - "Just a moment..."
     await new Promise((resolve) => setTimeout(resolve, 3000))
 
+    // Mark as completed to prevent duplicate execution
+    hasCompletedRef.current = true
+
     setIsSettingUp(false)
     setSetupPhase(null)
     setSetupComplete(true)
     setShowConfetti(true)
 
-    // Auto close after animation
+    // Auto-save the OnePage editor after onboarding completion
+    // This ensures all changes are persisted immediately
+    try {
+      await save()
+    } catch (e) {
+      console.error("Failed to auto-save after onboarding:", e)
+    }
+
+    // Auto close after confetti animation and call onComplete
     setTimeout(() => {
+      // Hide confetti before closing
+      setShowConfetti(false)
+
       onComplete({
         displayName,
         bio,
