@@ -802,6 +802,9 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           const { data: { user } } = await supabase.auth.getUser()
           if (!user) return
 
+          // Check if we have saved progress (for resuming onboarding)
+          const savedProgress = getSavedProgress()
+          
           // Fetch fresh onepage data from database to get latest social links
           // The context onepage may be stale if main onboarding just completed
           const { data: freshOnepage } = await supabase
@@ -824,31 +827,43 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             .eq("user_id", user.id)
             .maybeSingle()
 
-          // Determine the best display name to use
-          // Priority: onepage.title > profile.display_name > profile.username > creator.slug
-          let nameToUse = ""
-          if (freshOnepage?.title) {
-            nameToUse = freshOnepage.title
-          } else if (profile?.display_name) {
-            nameToUse = profile.display_name
-          } else if (profile?.username) {
-            nameToUse = profile.username
-          } else if (creator?.slug) {
-            nameToUse = creator.slug
-          } else if (onepage.title) {
-            nameToUse = onepage.title
+          // If saved progress exists, use it for most fields BUT always use fresh DB data for socials
+          if (savedProgress) {
+            // Use saved progress for display name, bio, goal, template
+            if (savedProgress.displayName) setDisplayName(savedProgress.displayName)
+            if (savedProgress.bio) setBio(savedProgress.bio)
+            if (savedProgress.selectedGoal) setSelectedGoal(savedProgress.selectedGoal)
+            if (savedProgress.selectedTemplate) setSelectedTemplate(savedProgress.selectedTemplate)
+            if (savedProgress.avatarUrl) setAvatarUrl(savedProgress.avatarUrl)
+          } else {
+            // No saved progress - use fresh database data
+            // Determine the best display name to use
+            // Priority: onepage.title > profile.display_name > profile.username > creator.slug
+            let nameToUse = ""
+            if (freshOnepage?.title) {
+              nameToUse = freshOnepage.title
+            } else if (profile?.display_name) {
+              nameToUse = profile.display_name
+            } else if (profile?.username) {
+              nameToUse = profile.username
+            } else if (creator?.slug) {
+              nameToUse = creator.slug
+            } else if (onepage.title) {
+              nameToUse = onepage.title
+            }
+            setDisplayName(nameToUse)
+
+            // Bio - prefer fresh onepage, then creator bio
+            const bioToUse = freshOnepage?.bio || creator?.bio || onepage.bio || ""
+            setBio(bioToUse)
+
+            // Avatar - prefer fresh onepage, then profile avatar
+            const avatarToUse = freshOnepage?.avatar_url || profile?.avatar_url || onepage.avatar_url || null
+            setAvatarUrl(avatarToUse)
           }
-          setDisplayName(nameToUse)
 
-          // Bio - prefer fresh onepage, then creator bio
-          const bioToUse = freshOnepage?.bio || creator?.bio || onepage.bio || ""
-          setBio(bioToUse)
-
-          // Avatar - prefer fresh onepage, then profile avatar
-          const avatarToUse = freshOnepage?.avatar_url || profile?.avatar_url || onepage.avatar_url || null
-          setAvatarUrl(avatarToUse)
-
-          // Pre-populate social links from FRESH onepage data
+          // ALWAYS fetch and populate social links from FRESH database data
+          // This ensures socials from main platform onboarding are always loaded
           // Check BOTH direct database columns (instagram, tiktok, youtube) AND social_links object
           const rawFreshOnepage = freshOnepage as any
           const instagramRaw = rawFreshOnepage?.instagram || freshOnepage?.social_links?.instagram ||
@@ -885,11 +900,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           // YouTube can stay as full URL or channel name
           let youtubeValue = youtubeRaw
 
-          setSocials({
-            instagram: instagramValue || "",
-            tiktok: tiktokValue || "",
-            youtube: youtubeValue || "",
-          })
+          // Only update socials if we got data from DB (don't overwrite with empty)
+          if (instagramValue || tiktokValue || youtubeValue) {
+            setSocials({
+              instagram: instagramValue || "",
+              tiktok: tiktokValue || "",
+              youtube: youtubeValue || "",
+            })
+          }
         } catch (e) {
           console.error("Error fetching initial data:", e)
           // Fallback to context data if database fetch fails
