@@ -1329,10 +1329,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
     // Auto-save the OnePage editor after onboarding completion
     // This ensures all changes are persisted immediately
+
     // Use force=true to ensure save happens even if isDirty is somehow false
     try {
       await save(true)
       console.log("[OnePage Onboarding] Editor auto-saved successfully after onboarding")
+    try {
+      await save()
+      console.log("[OnePage Onboarding] Editor auto-saved successfully")
     } catch (e) {
       console.error("Failed to auto-save after onboarding:", e)
     }
