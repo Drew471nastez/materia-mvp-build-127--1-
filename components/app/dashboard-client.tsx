@@ -139,6 +139,30 @@ const timeframeOptions: TimeframeOption[] = [
   },
 ]
 
+// Helper function to format period text naturally
+const formatPeriodText = (timeframeValue: string): string => {
+  switch (timeframeValue) {
+    case "today":
+      return "today"
+    case "last_48_hours":
+      return "in last 48h"
+    case "last_7_days":
+      return "in last 7 days"
+    case "last_30_days":
+      return "in last 30 days"
+    case "this_month":
+      return "this month"
+    case "last_90_days":
+      return "in last 90 days"
+    case "last_365_days":
+      return "in last 365 days"
+    case "last_year":
+      return "last year"
+    default:
+      return ""
+  }
+}
+
 // Progress circle component with purple accent
 function ProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
   const strokeWidth = 2.5
@@ -319,7 +343,7 @@ export function DashboardClient({
   const allCompleted = completedSteps === totalSteps
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa]">
+    <div className="bg-[#f8f9fa]">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -376,7 +400,7 @@ export function DashboardClient({
               {analyticsData.totalViews.toLocaleString()}
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">
-              {analyticsData.periodViews.toLocaleString()} {selectedOption?.label.toLowerCase()}
+              {analyticsData.periodViews.toLocaleString()} {formatPeriodText(timeframe)}
             </p>
           </div>
 
@@ -392,7 +416,7 @@ export function DashboardClient({
               {analyticsData.totalOrders.toLocaleString()}
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">
-              {analyticsData.periodOrders.toLocaleString()} {selectedOption?.label.toLowerCase()}
+              {analyticsData.periodOrders.toLocaleString()} {formatPeriodText(timeframe)}
             </p>
           </div>
 
@@ -408,7 +432,7 @@ export function DashboardClient({
               {formatCurrency(analyticsData.totalRevenue)}
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">
-              {formatCurrency(analyticsData.periodRevenue)} {selectedOption?.label.toLowerCase()}
+              {formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}
             </p>
           </div>
 
