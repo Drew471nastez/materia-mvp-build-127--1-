@@ -462,7 +462,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
 
   return (
-    <div className="space-y-6">
+    <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
       {/* Stripe Connection Warning */}
       {!stripeConnected && (
         <Card className="border-amber-200 bg-amber-50">

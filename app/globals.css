@@ -169,16 +169,6 @@
     }
   }
 
-  /* Dashboard main content - prevent nested scrollbars */
-  main {
-    overflow-y: visible;
-    overflow-x: hidden;
-  }
-
-  /* Ensure no scrollbar appears inside the dashboard/app layout */
-  main > div {
-    overflow: hidden;
-  }
 }
 
 /* Utility classes for responsive layouts */

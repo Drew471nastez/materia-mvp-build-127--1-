@@ -32,7 +32,7 @@ export default async function AnalyticsPage() {
   const { data: products = [] } = await supabase.from("products").select("id, title").eq("creator_id", creator.id)
 
   return (
-    <div className="space-y-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">Analytics</h1>
         <p className="text-muted-foreground">Track your store performance</p>
