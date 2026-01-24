@@ -39,6 +39,10 @@ export default async function OnePageEditorPage() {
     .eq("owner_id", user.id)
     .single()
 
+  // DEBUG: Log what we fetched
+  console.log("[OnePage Page] Fetched onepage.id:", onepage?.id)
+  console.log("[OnePage Page] Fetched onepage.onboarding_completed:", onepage?.onboarding_completed)
+
   // If we got an actual error (not just "no rows found"), log it but continue to try creating
   if (fetchError && fetchError.code !== "PGRST116") {
     console.error("Error fetching onepage (will attempt to create):", fetchError)
@@ -52,6 +56,28 @@ export default async function OnePageEditorPage() {
       .select("display_name, username, avatar_url")
       .eq("id", user.id)
       .single()
+
+    // Check if store_builder_configs has social data we can use
+    const { data: storeConfig } = await supabase
+      .from("store_builder_configs")
+      .select("draft_config")
+      .eq("creator_id", creator.id)
+      .eq("page_type", "shop")
+      .maybeSingle()
+
+    // Extract social links from store builder config if available
+    let socialDataFromStore = { instagram: null as string | null, tiktok: null as string | null, youtube: null as string | null }
+    if (storeConfig?.draft_config?.sections) {
+      const headerSection = storeConfig.draft_config.sections.find((s: any) => s.type === "header")
+      if (headerSection?.settings?.socialLinks) {
+        const sl = headerSection.settings.socialLinks
+        socialDataFromStore = {
+          instagram: sl.instagram?.url || null,
+          tiktok: sl.tiktok?.url || null,
+          youtube: sl.youtube?.url || null,
+        }
+      }
+    }
 
     const baseSlug = profile?.username || creator?.slug || user.id.slice(0, 8)
 
@@ -217,6 +243,14 @@ export default async function OnePageEditorPage() {
     const defaultAvatarUrl = profile?.avatar_url || null
     const defaultBlocks = [headerBlock, socialRowBlock, linkBlock1, linkBlock2, dividerBlock, newsletterBlock]
 
+    // Merge social data from store builder with defaults
+    const mergedSocialLinks = {
+      ...defaultSocialLinks,
+      instagram: socialDataFromStore.instagram || defaultSocialLinks.instagram,
+      tiktok: socialDataFromStore.tiktok || defaultSocialLinks.tiktok,
+      youtube: socialDataFromStore.youtube || defaultSocialLinks.youtube,
+    }
+
     const newOnepage = {
       owner_id: user.id,
       creator_id: creator.id,
@@ -226,7 +260,11 @@ export default async function OnePageEditorPage() {
       avatar_url: defaultAvatarUrl,
       theme: newDefaultTheme,
       settings: newDefaultSettings,
-      social_links: defaultSocialLinks,
+      social_links: mergedSocialLinks,
+      // Also save to direct columns for compatibility
+      instagram: socialDataFromStore.instagram,
+      tiktok: socialDataFromStore.tiktok,
+      youtube: socialDataFromStore.youtube,
       draft_blocks: defaultBlocks,
       // Auto-publish by default so page is visible immediately
       status: "published",
@@ -240,7 +278,9 @@ export default async function OnePageEditorPage() {
         avatar_video_url: null,
         avatar_video_crop: null,
       },
-      published_social_links: defaultSocialLinks,
+      published_social_links: mergedSocialLinks,
+      // Set onboarding_completed to false so OnePage onboarding shows once
+      onboarding_completed: false,
     }
 
     // Try to create onepage with retry logic for robustness
@@ -310,18 +350,123 @@ export default async function OnePageEditorPage() {
         .from("onepages")
         .select("*")
         .eq("owner_id", user.id)
-        .single()
+        .maybeSingle()
 
       if (finalCheck) {
         created = finalCheck
       } else {
-        // Redirect to dashboard as a last resort - user can try again from there
-        // We don't redirect to /app/onepage to avoid potential infinite loop
-        redirect("/app")
+        // Try one more time with maybeSingle to handle race conditions
+        const { data: raceCheck } = await supabase
+          .from("onepages")
+          .select("*")
+          .eq("creator_id", creator.id)
+          .maybeSingle()
+
+        if (raceCheck) {
+          created = raceCheck
+        }
+      }
+
+      // If still no onepage found/created, create a minimal one as last resort
+      if (!created) {
+        // Generate a proper username-based slug as last resort
+        const lastResortSlug = profile?.username || creator?.slug || `links-${user.id.slice(0, 8)}`
+
+        const minimalOnepage = {
+          owner_id: user.id,
+          creator_id: creator.id,
+          slug: lastResortSlug,
+          title: profile?.display_name || profile?.username || "My Page",
+          bio: "",
+          avatar_url: profile?.avatar_url || null,
+          theme: newDefaultTheme,
+          settings: newDefaultSettings,
+          social_links: defaultSocialLinks,
+          draft_blocks: defaultBlocks,
+          status: "published",
+          published_at: new Date().toISOString(),
+          published_blocks: defaultBlocks,
+          published_theme: newDefaultTheme,
+          published_profile: {
+            title: profile?.display_name || profile?.username || "My Page",
+            bio: "",
+            avatar_url: profile?.avatar_url || null,
+            avatar_video_url: null,
+            avatar_video_crop: null,
+          },
+          onboarding_completed: false,
+        }
+
+        const { data: lastResort } = await supabase
+          .from("onepages")
+          .insert(minimalOnepage)
+          .select()
+          .maybeSingle()
+
+        if (lastResort) {
+          created = lastResort
+        }
       }
     }
 
     onepage = created
+  }
+
+  // If onepage exists but has no social data, try to sync from store_builder_configs
+  const rawOnepage = onepage as any
+  if (onepage && !rawOnepage.instagram && !rawOnepage.tiktok && !rawOnepage.youtube) {
+    // Check if store_builder_configs has social data we can use
+    const { data: storeConfig } = await supabase
+      .from("store_builder_configs")
+      .select("draft_config")
+      .eq("creator_id", creator.id)
+      .eq("page_type", "shop")
+      .maybeSingle()
+
+    if (storeConfig?.draft_config?.sections) {
+      const headerSection = storeConfig.draft_config.sections.find((s: any) => s.type === "header")
+      if (headerSection?.settings?.socialLinks) {
+        const sl = headerSection.settings.socialLinks
+        const hasData = sl.instagram?.url || sl.tiktok?.url || sl.youtube?.url
+
+        if (hasData) {
+          // Sync social data from store builder to onepage
+          await supabase
+            .from("onepages")
+            .update({
+              instagram: sl.instagram?.url || null,
+              tiktok: sl.tiktok?.url || null,
+              youtube: sl.youtube?.url || null,
+              social_links: {
+                ...onepage.social_links,
+                instagram: sl.instagram?.url || null,
+                tiktok: sl.tiktok?.url || null,
+                youtube: sl.youtube?.url || null,
+              },
+            })
+            .eq("id", onepage.id)
+
+          // Update the local onepage object with the synced data
+          rawOnepage.instagram = sl.instagram?.url || null
+          rawOnepage.tiktok = sl.tiktok?.url || null
+          rawOnepage.youtube = sl.youtube?.url || null
+          onepage.social_links = {
+            ...onepage.social_links,
+            instagram: sl.instagram?.url || null,
+            tiktok: sl.tiktok?.url || null,
+            youtube: sl.youtube?.url || null,
+          }
+        }
+      }
+    }
+  }
+
+  // Final safety check - if we still don't have an onepage, something went wrong
+  // This should rarely happen with all the retry logic above
+  if (!onepage) {
+    console.error("Failed to get or create onepage - this should not happen")
+    // Instead of redirecting to /app, try to render with a minimal state
+    // The editor should handle null gracefully
   }
 
   return <OnePageEditor initialOnePage={onepage as OnePage} />

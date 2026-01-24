@@ -444,12 +444,32 @@ const TikTokIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
-// Confetti animation component
+// Confetti animation component - with proper cleanup to prevent random appearances
 function Confetti({ show }: { show: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animationIdRef = useRef<number | null>(null)
+  const hasAnimatedRef = useRef(false)
 
   useEffect(() => {
-    if (!show || !canvasRef.current) return
+    // Only run animation once per show=true transition
+    // This prevents re-running on component re-renders
+    if (!show) {
+      hasAnimatedRef.current = false
+      // Clean up canvas if it exists
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext("2d")
+        if (ctx) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+        }
+      }
+      return
+    }
+
+    // Prevent duplicate animations
+    if (hasAnimatedRef.current) return
+    hasAnimatedRef.current = true
+
+    if (!canvasRef.current) return
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
@@ -489,13 +509,15 @@ function Confetti({ show }: { show: boolean }) {
       })
     }
 
-    let animationId: number
     let frame = 0
     const maxFrames = 390 // 6.5 seconds at 60fps (1 second longer)
 
     const animate = () => {
       if (frame >= maxFrames) {
-        cancelAnimationFrame(animationId)
+        if (animationIdRef.current) {
+          cancelAnimationFrame(animationIdRef.current)
+          animationIdRef.current = null
+        }
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         return
       }
@@ -534,16 +556,24 @@ function Confetti({ show }: { show: boolean }) {
       })
 
       frame++
-      animationId = requestAnimationFrame(animate)
+      animationIdRef.current = requestAnimationFrame(animate)
     }
 
     animate()
 
     return () => {
-      cancelAnimationFrame(animationId)
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current)
+        animationIdRef.current = null
+      }
+      // Clear canvas on cleanup
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+      }
     }
   }, [show])
 
+  // Don't render anything if not showing
   if (!show) return null
 
   // Use portal to render at document body level, above all dialogs
@@ -583,38 +613,107 @@ interface OnboardingData {
   templateId: string
 }
 
+// LocalStorage key for saving onboarding progress
+const ONBOARDING_STORAGE_KEY = "onepage_onboarding_progress"
+
+interface OnboardingProgress {
+  step: number
+  displayName: string
+  bio: string
+  selectedGoal: "general" | "artist" | "digital" | "business" | null
+  socials: { instagram: string; tiktok: string; youtube: string }
+  avatarUrl: string | null
+  selectedTemplate: string
+  onepageId: string
+}
+
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
-  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock } = useOnePage()
-  const [currentStep, setCurrentStep] = useState(1)
+  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
+
+  // Load saved progress from localStorage
+  const getSavedProgress = useCallback((): OnboardingProgress | null => {
+    if (typeof window === "undefined") return null
+    try {
+      const saved = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+      if (!saved) return null
+      const progress = JSON.parse(saved) as OnboardingProgress
+      // Only use saved progress if it's for the same onepage
+      if (progress.onepageId !== onepage?.id) return null
+      return progress
+    } catch {
+      return null
+    }
+  }, [onepage?.id])
+
+  // Initialize step from saved progress or default to 1
+  const [currentStep, setCurrentStep] = useState(() => {
+    if (typeof window === "undefined") return 1
+    try {
+      const saved = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+      if (!saved) return 1
+      const progress = JSON.parse(saved) as OnboardingProgress
+      return progress?.step || 1
+    } catch {
+      return 1
+    }
+  })
   const [isAnimating, setIsAnimating] = useState(false)
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("right")
 
-  // Step 1 state
-  const [displayName, setDisplayName] = useState("")
-  const [bio, setBio] = useState("")
+  // Step 1 state - initialize from saved progress
+  const [displayName, setDisplayName] = useState(() => {
+    if (typeof window === "undefined") return ""
+    try {
+      const saved = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+      if (!saved) return ""
+      const progress = JSON.parse(saved) as OnboardingProgress
+      return progress?.displayName || ""
+    } catch {
+      return ""
+    }
+  })
+  const [bio, setBio] = useState(() => {
+    if (typeof window === "undefined") return ""
+    try {
+      const saved = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+      if (!saved) return ""
+      const progress = JSON.parse(saved) as OnboardingProgress
+      return progress?.bio || ""
+    } catch {
+      return ""
+    }
+  })
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameFocused, setUsernameFocused] = useState(false)
 
-  // Step 2 state
-  const [selectedGoal, setSelectedGoal] = useState<"general" | "artist" | "digital" | "business" | null>(null)
+  // Step 2 state - initialize from saved progress
+  const [selectedGoal, setSelectedGoal] = useState<"general" | "artist" | "digital" | "business" | null>(() => {
+    const saved = getSavedProgress()
+    return saved?.selectedGoal || null
+  })
   const [loadedGoalIcons, setLoadedGoalIcons] = useState<Set<string>>(new Set())
 
-  // Step 3 state
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  // Step 3 state - initialize from saved progress
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
+    const saved = getSavedProgress()
+    return saved?.avatarUrl || null
+  })
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [showCropModal, setShowCropModal] = useState(false)
   const [tempImageUrl, setTempImageUrl] = useState<string | null>(null)
-  const [socials, setSocials] = useState({
-    instagram: "",
-    tiktok: "",
-    youtube: "",
+  const [socials, setSocials] = useState(() => {
+    const saved = getSavedProgress()
+    return saved?.socials || { instagram: "", tiktok: "", youtube: "" }
   })
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
-  // Step 4 state
-  const [selectedTemplate, setSelectedTemplate] = useState("default")
+  // Step 4 state - initialize from saved progress
+  const [selectedTemplate, setSelectedTemplate] = useState(() => {
+    const saved = getSavedProgress()
+    return saved?.selectedTemplate || "default"
+  })
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [carouselAnimating, setCarouselAnimating] = useState(false)
   const [carouselDirection, setCarouselDirection] = useState<"left" | "right">("right")
@@ -624,6 +723,63 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const [setupPhase, setSetupPhase] = useState<"setting-up" | "just-a-moment" | null>(null)
   const [setupComplete, setSetupComplete] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
+
+  // Track if setup has already run (prevents double execution)
+  const hasCompletedRef = useRef(false)
+
+  // Save progress to localStorage whenever relevant state changes
+  const saveProgress = useCallback(() => {
+    if (typeof window === "undefined" || !onepage?.id || currentStep >= 5) return
+    try {
+      const progress: OnboardingProgress = {
+        step: currentStep,
+        displayName,
+        bio,
+        selectedGoal,
+        socials,
+        avatarUrl,
+        selectedTemplate,
+        onepageId: onepage.id,
+      }
+      localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(progress))
+    } catch (e) {
+      console.error("Failed to save onboarding progress:", e)
+    }
+  }, [currentStep, displayName, bio, selectedGoal, socials, avatarUrl, selectedTemplate, onepage?.id])
+
+  // Clear saved progress from localStorage
+  const clearSavedProgress = useCallback(() => {
+    if (typeof window === "undefined") return
+    try {
+      localStorage.removeItem(ONBOARDING_STORAGE_KEY)
+    } catch (e) {
+      console.error("Failed to clear onboarding progress:", e)
+    }
+  }, [])
+
+  // Save progress when modal is open and state changes
+  useEffect(() => {
+    if (open && currentStep < 5) {
+      saveProgress()
+    }
+  }, [open, currentStep, displayName, bio, selectedGoal, socials, avatarUrl, selectedTemplate, saveProgress])
+
+  // Reset confetti when modal closes
+  useEffect(() => {
+    if (!open) {
+      setShowConfetti(false)
+    }
+  }, [open])
+
+  // Reset setup states when modal opens fresh
+  useEffect(() => {
+    if (open && !hasCompletedRef.current) {
+      setSetupComplete(false)
+      setIsSettingUp(false)
+      setSetupPhase(null)
+      setShowConfetti(false)
+    }
+  }, [open])
 
   // Crop state - square style like Links tab
   const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
@@ -637,93 +793,135 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const supabase = createClient()
 
   // Initialize with existing data from main onboarding
+  // IMPORTANT: Fetch fresh data from database to ensure we have the latest info
+  // from the main platform onboarding (which may have just completed)
   useEffect(() => {
     if (open && onepage) {
-      // Pre-populate from onepage data (set during main creator onboarding)
-      setDisplayName(onepage.title || "")
-      setBio(onepage.bio || "")
-      setAvatarUrl(onepage.avatar_url || null)
-
-      // Pre-populate social links from onepage (set during main onboarding)
-      // Check BOTH direct database columns (instagram, tiktok, youtube) AND social_links object
-      // Main onboarding saves to direct columns, so we need to read from both places
-      const rawOnepage = onepage as any
-      const instagramRaw = rawOnepage.instagram || onepage.social_links?.instagram || ""
-      const tiktokRaw = rawOnepage.tiktok || onepage.social_links?.tiktok || ""
-      const youtubeRaw = rawOnepage.youtube || onepage.social_links?.youtube || ""
-
-      if (instagramRaw || tiktokRaw || youtubeRaw) {
-        // Extract Instagram username from URL like https://instagram.com/username
-        let instagramValue = instagramRaw
-        if (instagramValue && instagramValue.includes("instagram.com/")) {
-          const match = instagramValue.match(/instagram\.com\/([^\/\?]+)/)
-          if (match && match[1]) {
-            instagramValue = `@${match[1].replace('@', '')}`
-          }
-        }
-
-        // Extract TikTok username from URL like https://tiktok.com/@username
-        let tiktokValue = tiktokRaw
-        if (tiktokValue && tiktokValue.includes("tiktok.com/")) {
-          const match = tiktokValue.match(/tiktok\.com\/@?([^\/\?]+)/)
-          if (match && match[1]) {
-            tiktokValue = `@${match[1].replace('@', '')}`
-          }
-        }
-
-        // YouTube can stay as full URL or channel name
-        let youtubeValue = youtubeRaw
-
-        setSocials({
-          instagram: instagramValue || "",
-          tiktok: tiktokValue || "",
-          youtube: youtubeValue || "",
-        })
-      }
-
-      // Try to get additional data from profile
-      const fetchInitialData = async () => {
+      const fetchAndPopulateData = async () => {
         try {
           const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            // Try Google profile name
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("display_name, username, avatar_url")
-              .eq("id", user.id)
-              .single()
+          if (!user) return
 
-            if (profile) {
-              if (!onepage.title && profile.display_name) {
-                setDisplayName(profile.display_name)
-              }
-              if (!onepage.avatar_url && profile.avatar_url) {
-                setAvatarUrl(profile.avatar_url)
-              }
+          // Check if we have saved progress (for resuming onboarding)
+          const savedProgress = getSavedProgress()
+          
+          // Fetch fresh onepage data from database to get latest social links
+          // The context onepage may be stale if main onboarding just completed
+          const { data: freshOnepage } = await supabase
+            .from("onepages")
+            .select("*, instagram, tiktok, youtube")
+            .eq("owner_id", user.id)
+            .single()
+
+          // Fetch profile data for username and display_name
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("display_name, username, avatar_url")
+            .eq("id", user.id)
+            .single()
+
+          // Fetch creator data for bio
+          const { data: creator } = await supabase
+            .from("creators")
+            .select("slug, bio")
+            .eq("user_id", user.id)
+            .maybeSingle()
+
+          // ALWAYS use fresh database data for display name and bio
+          // This ensures data from main platform onboarding is always loaded
+          // Priority for display name: onepage.title > profile.display_name > profile.username > creator.slug
+          let nameToUse = ""
+          if (freshOnepage?.title) {
+            nameToUse = freshOnepage.title
+          } else if (profile?.display_name) {
+            nameToUse = profile.display_name
+          } else if (profile?.username) {
+            nameToUse = profile.username
+          } else if (creator?.slug) {
+            nameToUse = creator.slug
+          } else if (onepage.title) {
+            nameToUse = onepage.title
+          }
+          
+          // Only set if we have a value (don't overwrite with empty)
+          if (nameToUse) {
+            setDisplayName(nameToUse)
+          }
+
+          // Bio - prefer fresh onepage, then creator bio
+          const bioToUse = freshOnepage?.bio || creator?.bio || onepage.bio || ""
+          if (bioToUse) {
+            setBio(bioToUse)
+          }
+
+          // Avatar - prefer fresh onepage, then profile avatar
+          const avatarToUse = freshOnepage?.avatar_url || profile?.avatar_url || onepage.avatar_url || null
+          if (avatarToUse) {
+            setAvatarUrl(avatarToUse)
+          }
+
+          // For goal and template, use saved progress if available
+          if (savedProgress) {
+            if (savedProgress.selectedGoal) setSelectedGoal(savedProgress.selectedGoal)
+            if (savedProgress.selectedTemplate) setSelectedTemplate(savedProgress.selectedTemplate)
+          }
+
+          // ALWAYS fetch and populate social links from FRESH database data
+          // This ensures socials from main platform onboarding are always loaded
+          // Check BOTH direct database columns (instagram, tiktok, youtube) AND social_links object
+          const rawFreshOnepage = freshOnepage as any
+          const instagramRaw = rawFreshOnepage?.instagram || freshOnepage?.social_links?.instagram ||
+                              (onepage as any).instagram || onepage.social_links?.instagram || ""
+          const tiktokRaw = rawFreshOnepage?.tiktok || freshOnepage?.social_links?.tiktok ||
+                           (onepage as any).tiktok || onepage.social_links?.tiktok || ""
+          const youtubeRaw = rawFreshOnepage?.youtube || freshOnepage?.social_links?.youtube ||
+                            (onepage as any).youtube || onepage.social_links?.youtube || ""
+
+          // Extract Instagram username from URL like https://instagram.com/username
+          let instagramValue = instagramRaw
+          if (instagramValue && instagramValue.includes("instagram.com/")) {
+            const match = instagramValue.match(/instagram\.com\/([^\/\?]+)/)
+            if (match && match[1]) {
+              instagramValue = `@${match[1].replace('@', '')}`
             }
+          } else if (instagramValue && !instagramValue.startsWith("@") && !instagramValue.includes("://")) {
+            // If it's just a username without @ prefix, add it
+            instagramValue = `@${instagramValue}`
+          }
 
-            // Try Store Builder seller name and bio
-            const { data: creator } = await supabase
-              .from("creators")
-              .select("slug, bio")
-              .eq("user_id", user.id)
-              .single()
-
-            if (creator) {
-              if (!onepage.title && creator.slug) {
-                setDisplayName(creator.slug)
-              }
-              if (!onepage.bio && creator.bio) {
-                setBio(creator.bio)
-              }
+          // Extract TikTok username from URL like https://tiktok.com/@username
+          let tiktokValue = tiktokRaw
+          if (tiktokValue && tiktokValue.includes("tiktok.com/")) {
+            const match = tiktokValue.match(/tiktok\.com\/@?([^\/\?]+)/)
+            if (match && match[1]) {
+              tiktokValue = `@${match[1].replace('@', '')}`
             }
+          } else if (tiktokValue && !tiktokValue.startsWith("@") && !tiktokValue.includes("://")) {
+            // If it's just a username without @ prefix, add it
+            tiktokValue = `@${tiktokValue}`
+          }
+
+          // YouTube can stay as full URL or channel name
+          let youtubeValue = youtubeRaw
+
+          // Only update socials if we got data from DB (don't overwrite with empty)
+          if (instagramValue || tiktokValue || youtubeValue) {
+            setSocials({
+              instagram: instagramValue || "",
+              tiktok: tiktokValue || "",
+              youtube: youtubeValue || "",
+            })
           }
         } catch (e) {
           console.error("Error fetching initial data:", e)
+          // Fallback to context data if database fetch fails
+          setDisplayName(onepage.title || "")
+          setBio(onepage.bio || "")
+          setAvatarUrl(onepage.avatar_url || null)
         }
       }
 
-      fetchInitialData()
+      fetchAndPopulateData()
     }
   }, [open, onepage])
 
@@ -921,9 +1119,15 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
   // Start setup process
   const startSetup = async () => {
+    // Prevent double execution
+    if (hasCompletedRef.current) return
+
     setCurrentStep(5)
     setIsSettingUp(true)
     setSetupPhase("setting-up")
+
+    // Clear saved progress since we're completing the onboarding
+    clearSavedProgress()
 
     // Wait 6 seconds - "We're setting things up..."
     await new Promise((resolve) => setTimeout(resolve, 6000))
@@ -933,18 +1137,32 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
     // Apply all changes
     try {
-      // Update profile
+      // Update profile in context
       await updateProfile({
         title: displayName,
         bio: bio,
         avatar_url: avatarUrl,
       })
 
-      // Update social links
+      // Build social links - convert @username to full URLs
+      let instagramUrl = socials.instagram || null
+      if (instagramUrl && instagramUrl.startsWith("@")) {
+        instagramUrl = `https://instagram.com/${instagramUrl.replace("@", "")}`
+      }
+      let tiktokUrl = socials.tiktok || null
+      if (tiktokUrl && tiktokUrl.startsWith("@")) {
+        tiktokUrl = `https://tiktok.com/@${tiktokUrl.replace("@", "")}`
+      }
+      let youtubeUrl = socials.youtube || null
+      if (youtubeUrl && !youtubeUrl.includes("://")) {
+        youtubeUrl = `https://youtube.com/@${youtubeUrl.replace("@", "")}`
+      }
+
+      // Update social links in context
       const socialUpdates: Record<string, string | null> = {}
-      if (socials.instagram) socialUpdates.instagram = socials.instagram
-      if (socials.tiktok) socialUpdates.tiktok = socials.tiktok
-      if (socials.youtube) socialUpdates.youtube = socials.youtube
+      if (instagramUrl) socialUpdates.instagram = instagramUrl
+      if (tiktokUrl) socialUpdates.tiktok = tiktokUrl
+      if (youtubeUrl) socialUpdates.youtube = youtubeUrl
       if (Object.keys(socialUpdates).length > 0) {
         await updateSocialLinks(socialUpdates)
       }
@@ -961,12 +1179,123 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       // Create blocks based on goal
       await createBlocksForGoal(selectedGoal || "general")
 
-      // Mark onboarding as completed in database (not localStorage)
+      // IMPORTANT: Save everything directly to database (not just context)
+      // This ensures the data is persisted immediately after onboarding
       if (onepage?.id) {
-        await supabase
+        // Build the social_links JSONB object
+        const socialLinksJsonb = {
+          ...onepage.social_links,
+          instagram: instagramUrl,
+          tiktok: tiktokUrl,
+          youtube: youtubeUrl,
+        }
+
+        console.log("[OnePage Onboarding] Saving onboarding completion to database...")
+        console.log("[OnePage Onboarding] onepage.id:", onepage.id)
+
+        // Get current user to ensure we're authenticated
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        if (!currentUser) {
+          console.error("[OnePage Onboarding] No authenticated user!")
+        } else {
+          console.log("[OnePage Onboarding] Authenticated user:", currentUser.id)
+        }
+
+        // Save to onepages table - update profile, social links, and mark onboarding completed
+        // Use owner_id filter to ensure RLS policy works
+        const { data: updateData, error: updateError } = await supabase
           .from("onepages")
-          .update({ onboarding_completed: true })
+          .update({
+            title: displayName,
+            bio: bio,
+            avatar_url: avatarUrl,
+            // Direct columns for backward compatibility
+            instagram: instagramUrl,
+            tiktok: tiktokUrl,
+            youtube: youtubeUrl,
+            // JSONB column
+            social_links: socialLinksJsonb,
+            // CRITICAL: Mark onboarding as completed - this prevents the modal from showing again
+            onboarding_completed: true,
+          })
           .eq("id", onepage.id)
+          .select()
+
+        if (updateError) {
+          console.error("[OnePage Onboarding] FAILED to save onboarding completion:", updateError)
+          console.error("[OnePage Onboarding] Error details:", JSON.stringify(updateError, null, 2))
+          
+          // RETRY: Try updating just the onboarding_completed field
+          console.log("[OnePage Onboarding] Retrying with just onboarding_completed...")
+          const { error: retryError } = await supabase
+            .from("onepages")
+            .update({ onboarding_completed: true })
+            .eq("id", onepage.id)
+          
+          if (retryError) {
+            console.error("[OnePage Onboarding] RETRY FAILED:", retryError)
+          } else {
+            console.log("[OnePage Onboarding] RETRY SUCCESS - onboarding_completed saved")
+          }
+        } else {
+          console.log("[OnePage Onboarding] SUCCESS - onboarding_completed saved to database")
+          console.log("[OnePage Onboarding] Updated data:", updateData)
+          
+          // Verify the save worked
+          const { data: verifyData } = await supabase
+            .from("onepages")
+            .select("onboarding_completed")
+            .eq("id", onepage.id)
+            .single()
+          
+          console.log("[OnePage Onboarding] VERIFY - onboarding_completed in DB:", verifyData?.onboarding_completed)
+        }
+
+        // Also update store_builder_configs to ensure social links appear in Store Builder
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: creator } = await supabase
+            .from("creators")
+            .select("id")
+            .eq("user_id", user.id)
+            .single()
+
+          if (creator) {
+            const { data: existingConfig } = await supabase
+              .from("store_builder_configs")
+              .select("id, draft_config")
+              .eq("creator_id", creator.id)
+              .eq("page_type", "shop")
+              .maybeSingle()
+
+            if (existingConfig) {
+              // Build social links for Store Builder format
+              const storeBuilderSocialLinks = {
+                instagram: { enabled: !!instagramUrl, url: instagramUrl || "" },
+                tiktok: { enabled: !!tiktokUrl, url: tiktokUrl || "" },
+                youtube: { enabled: !!youtubeUrl, url: youtubeUrl || "" },
+                twitter: existingConfig.draft_config?.headerSettings?.socialLinks?.twitter || { enabled: false, url: "" },
+                spotify: existingConfig.draft_config?.headerSettings?.socialLinks?.spotify || { enabled: false, url: "" },
+              }
+
+              // Update store_builder_configs with social links
+              await supabase
+                .from("store_builder_configs")
+                .update({
+                  draft_config: {
+                    ...existingConfig.draft_config,
+                    headerSettings: {
+                      ...existingConfig.draft_config?.headerSettings,
+                      showSocialMedia: true,
+                      showSocialIconsOnMobile: true,
+                      socialLinks: storeBuilderSocialLinks,
+                    }
+                  }
+                })
+                .eq("id", existingConfig.id)
+            }
+          }
+        }
       }
 
     } catch (e) {
@@ -976,13 +1305,43 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     // Wait 3 more seconds - "Just a moment..."
     await new Promise((resolve) => setTimeout(resolve, 3000))
 
+    // Mark as completed to prevent duplicate execution
+    hasCompletedRef.current = true
+
+    // Clear saved progress from localStorage since onboarding is complete
+    clearSavedProgress()
+    
+    // CRITICAL: Also save completion to localStorage as backup
+    // This ensures onboarding won't show again even if database update fails
+    if (onepage?.id && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`onepage_onboarding_done_${onepage.id}`, "true")
+        console.log("[OnePage Onboarding] Saved completion to localStorage")
+      } catch (e) {
+        console.error("[OnePage Onboarding] Failed to save to localStorage:", e)
+      }
+    }
+
     setIsSettingUp(false)
     setSetupPhase(null)
     setSetupComplete(true)
     setShowConfetti(true)
 
-    // Auto close after animation
+    // Auto-save the OnePage editor after onboarding completion
+    // This ensures all changes are persisted immediately
+    try {
+      await save()
+      console.log("[OnePage Onboarding] Editor auto-saved successfully")
+    } catch (e) {
+      console.error("Failed to auto-save after onboarding:", e)
+    }
+
+    // Auto close after confetti animation and call onComplete
     setTimeout(() => {
+      // Hide confetti before closing
+      setShowConfetti(false)
+
+      // Call onComplete to close the modal and update parent state
       onComplete({
         displayName,
         bio,
@@ -1114,6 +1473,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         setTimeout(() => setCarouselAnimating(false), 50)
       }, 150)
     }
+  }
+
+  // CRITICAL: Check completion AFTER all hooks but BEFORE rendering
+  // Check both database AND localStorage
+  const isCompletedInDb = onepage?.onboarding_completed === true
+  const isCompletedInLocalStorage = typeof window !== "undefined" && onepage?.id 
+    ? localStorage.getItem(`onepage_onboarding_done_${onepage.id}`) === "true"
+    : false
+  
+  if (isCompletedInDb || isCompletedInLocalStorage) {
+    return null
   }
 
   return (

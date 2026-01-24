@@ -408,6 +408,8 @@ export interface OnePage {
   published_at?: string | null
   created_at: string
   updated_at: string
+  // Track if the user has completed the OnePage onboarding wizard
+  onboarding_completed?: boolean
 }
 
 export interface OnePageTemplate {
