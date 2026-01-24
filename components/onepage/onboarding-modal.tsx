@@ -1167,8 +1167,11 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           youtube: youtubeUrl,
         }
 
+        console.log("[OnePage Onboarding] Saving onboarding completion to database...")
+        console.log("[OnePage Onboarding] onepage.id:", onepage.id)
+
         // Save to onepages table - update profile, social links, and mark onboarding completed
-        const { error: updateError } = await supabase
+        const { data: updateData, error: updateError } = await supabase
           .from("onepages")
           .update({
             title: displayName,
@@ -1180,13 +1183,18 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             youtube: youtubeUrl,
             // JSONB column
             social_links: socialLinksJsonb,
-            // Mark onboarding as completed - this prevents the modal from showing again
+            // CRITICAL: Mark onboarding as completed - this prevents the modal from showing again
             onboarding_completed: true,
           })
           .eq("id", onepage.id)
+          .select()
 
         if (updateError) {
-          console.error("Failed to save onboarding completion:", updateError)
+          console.error("[OnePage Onboarding] FAILED to save onboarding completion:", updateError)
+          console.error("[OnePage Onboarding] Error details:", JSON.stringify(updateError, null, 2))
+        } else {
+          console.log("[OnePage Onboarding] SUCCESS - onboarding_completed saved to database")
+          console.log("[OnePage Onboarding] Updated data:", updateData)
         }
 
         // Also update store_builder_configs to ensure social links appear in Store Builder
