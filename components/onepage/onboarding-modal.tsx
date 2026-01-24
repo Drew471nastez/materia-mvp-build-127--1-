@@ -630,17 +630,6 @@ interface OnboardingProgress {
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
   const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
 
-  // CRITICAL: Check both database AND localStorage for completion
-  const isCompletedInDb = onepage?.onboarding_completed === true
-  const isCompletedInLocalStorage = typeof window !== "undefined" && onepage?.id 
-    ? localStorage.getItem(`onepage_onboarding_done_${onepage.id}`) === "true"
-    : false
-  
-  // If completed in either place, don't render
-  if (isCompletedInDb || isCompletedInLocalStorage) {
-    return null
-  }
-
   // Load saved progress from localStorage
   const getSavedProgress = useCallback((): OnboardingProgress | null => {
     if (typeof window === "undefined") return null
@@ -658,20 +647,41 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
   // Initialize step from saved progress or default to 1
   const [currentStep, setCurrentStep] = useState(() => {
-    const saved = getSavedProgress()
-    return saved?.step || 1
+    if (typeof window === "undefined") return 1
+    try {
+      const saved = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+      if (!saved) return 1
+      const progress = JSON.parse(saved) as OnboardingProgress
+      return progress?.step || 1
+    } catch {
+      return 1
+    }
   })
   const [isAnimating, setIsAnimating] = useState(false)
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("right")
 
   // Step 1 state - initialize from saved progress
   const [displayName, setDisplayName] = useState(() => {
-    const saved = getSavedProgress()
-    return saved?.displayName || ""
+    if (typeof window === "undefined") return ""
+    try {
+      const saved = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+      if (!saved) return ""
+      const progress = JSON.parse(saved) as OnboardingProgress
+      return progress?.displayName || ""
+    } catch {
+      return ""
+    }
   })
   const [bio, setBio] = useState(() => {
-    const saved = getSavedProgress()
-    return saved?.bio || ""
+    if (typeof window === "undefined") return ""
+    try {
+      const saved = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+      if (!saved) return ""
+      const progress = JSON.parse(saved) as OnboardingProgress
+      return progress?.bio || ""
+    } catch {
+      return ""
+    }
   })
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
@@ -1410,6 +1420,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         setTimeout(() => setCarouselAnimating(false), 50)
       }, 150)
     }
+  }
+
+  // CRITICAL: Check completion AFTER all hooks but BEFORE rendering
+  // Check both database AND localStorage
+  const isCompletedInDb = onepage?.onboarding_completed === true
+  const isCompletedInLocalStorage = typeof window !== "undefined" && onepage?.id 
+    ? localStorage.getItem(`onepage_onboarding_done_${onepage.id}`) === "true"
+    : false
+  
+  if (isCompletedInDb || isCompletedInLocalStorage) {
+    return null
   }
 
   return (
