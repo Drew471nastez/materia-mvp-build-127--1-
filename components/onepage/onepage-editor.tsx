@@ -195,12 +195,18 @@ function EditorLayout() {
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
   // =====================================================
-  // ONBOARDING STATE - Check database AND localStorage
+  // ONBOARDING STATE - Database is source of truth (works across devices)
+  // localStorage is just a backup for same-device instant check
   // =====================================================
+  
+  // Primary check: database field onboarding_completed
+  // This ensures completion works across all devices for the same account
+  const isCompletedInDatabase = (onepage as any)?.onboarding_completed === true
+  
   const [showOnboarding, setShowOnboarding] = useState(() => {
-    // Check database field first
-    if ((onepage as any)?.onboarding_completed === true) return false
-    // Check localStorage as backup
+    // Database is the source of truth
+    if (isCompletedInDatabase) return false
+    // localStorage as backup for same device
     if (typeof window !== "undefined" && onepage?.id) {
       const localDone = localStorage.getItem(`onepage_onboarding_done_${onepage.id}`)
       if (localDone === "true") return false
@@ -215,13 +221,17 @@ function EditorLayout() {
   useEffect(() => {
     if (!onepage?.id) return
     
-    // Check database field
+    // Database is the source of truth - if completed in DB, don't show
     if ((onepage as any)?.onboarding_completed === true) {
       setShowOnboarding(false)
+      // Also sync localStorage so it's consistent
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`onepage_onboarding_done_${onepage.id}`, "true")
+      }
       return
     }
     
-    // Check localStorage
+    // If not completed in DB, check localStorage as backup
     if (typeof window !== "undefined") {
       const localDone = localStorage.getItem(`onepage_onboarding_done_${onepage.id}`)
       if (localDone === "true") {

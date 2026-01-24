@@ -827,39 +827,43 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             .eq("user_id", user.id)
             .maybeSingle()
 
-          // If saved progress exists, use it for most fields BUT always use fresh DB data for socials
+          // ALWAYS use fresh database data for display name and bio
+          // This ensures data from main platform onboarding is always loaded
+          // Priority for display name: onepage.title > profile.display_name > profile.username > creator.slug
+          let nameToUse = ""
+          if (freshOnepage?.title) {
+            nameToUse = freshOnepage.title
+          } else if (profile?.display_name) {
+            nameToUse = profile.display_name
+          } else if (profile?.username) {
+            nameToUse = profile.username
+          } else if (creator?.slug) {
+            nameToUse = creator.slug
+          } else if (onepage.title) {
+            nameToUse = onepage.title
+          }
+          
+          // Only set if we have a value (don't overwrite with empty)
+          if (nameToUse) {
+            setDisplayName(nameToUse)
+          }
+
+          // Bio - prefer fresh onepage, then creator bio
+          const bioToUse = freshOnepage?.bio || creator?.bio || onepage.bio || ""
+          if (bioToUse) {
+            setBio(bioToUse)
+          }
+
+          // Avatar - prefer fresh onepage, then profile avatar
+          const avatarToUse = freshOnepage?.avatar_url || profile?.avatar_url || onepage.avatar_url || null
+          if (avatarToUse) {
+            setAvatarUrl(avatarToUse)
+          }
+
+          // For goal and template, use saved progress if available
           if (savedProgress) {
-            // Use saved progress for display name, bio, goal, template
-            if (savedProgress.displayName) setDisplayName(savedProgress.displayName)
-            if (savedProgress.bio) setBio(savedProgress.bio)
             if (savedProgress.selectedGoal) setSelectedGoal(savedProgress.selectedGoal)
             if (savedProgress.selectedTemplate) setSelectedTemplate(savedProgress.selectedTemplate)
-            if (savedProgress.avatarUrl) setAvatarUrl(savedProgress.avatarUrl)
-          } else {
-            // No saved progress - use fresh database data
-            // Determine the best display name to use
-            // Priority: onepage.title > profile.display_name > profile.username > creator.slug
-            let nameToUse = ""
-            if (freshOnepage?.title) {
-              nameToUse = freshOnepage.title
-            } else if (profile?.display_name) {
-              nameToUse = profile.display_name
-            } else if (profile?.username) {
-              nameToUse = profile.username
-            } else if (creator?.slug) {
-              nameToUse = creator.slug
-            } else if (onepage.title) {
-              nameToUse = onepage.title
-            }
-            setDisplayName(nameToUse)
-
-            // Bio - prefer fresh onepage, then creator bio
-            const bioToUse = freshOnepage?.bio || creator?.bio || onepage.bio || ""
-            setBio(bioToUse)
-
-            // Avatar - prefer fresh onepage, then profile avatar
-            const avatarToUse = freshOnepage?.avatar_url || profile?.avatar_url || onepage.avatar_url || null
-            setAvatarUrl(avatarToUse)
           }
 
           // ALWAYS fetch and populate social links from FRESH database data
