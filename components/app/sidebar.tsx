@@ -203,13 +203,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <button
         onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
         className={cn(
-          "flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-all duration-150",
+          "flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-all duration-200 ease-out",
           profileDropdownOpen ? "bg-neutral-100/80" : "hover:bg-neutral-100/50",
         )}
       >
-        <Avatar className="h-10 w-10 shrink-0">
+        <Avatar className="h-10 w-10 shrink-0 bg-neutral-200">
           {avatarUrl ? (
-            <AvatarImage src={avatarUrl} alt={userDisplayName} className="object-cover" />
+            <AvatarImage
+              src={avatarUrl}
+              alt={userDisplayName}
+              className="object-cover"
+              loading="eager"
+            />
           ) : null}
           <AvatarFallback className="bg-neutral-200 text-neutral-600 text-sm font-medium">
             {userInitials}
@@ -218,46 +223,51 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <span className="flex-1 text-[14px] font-medium text-neutral-900 truncate">{userDisplayName}</span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-neutral-400 transition-transform duration-150",
+            "h-4 w-4 text-neutral-400 transition-transform duration-200 ease-out",
             profileDropdownOpen && "rotate-180",
           )}
         />
       </button>
 
-      {profileDropdownOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100">
-          <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-lg shadow-black/5">
-            {profileDropdownItems.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => {
-                    setProfileDropdownOpen(false)
-                    onItemClick?.()
-                  }}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
-                >
-                  <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
-            <div className="my-1 h-px bg-neutral-100" />
-            <button
-              onClick={() => {
-                setProfileDropdownOpen(false)
-                handleSignOut()
-              }}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
-            >
-              <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-              <span>Logout</span>
-            </button>
-          </div>
+      <div
+        className={cn(
+          "absolute left-0 right-0 top-full mt-1.5 z-50 transition-all duration-200 ease-out origin-top",
+          profileDropdownOpen
+            ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+        )}
+      >
+        <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-lg shadow-black/5">
+          {profileDropdownItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => {
+                  setProfileDropdownOpen(false)
+                  onItemClick?.()
+                }}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+              >
+                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+          <div className="my-1 h-px bg-neutral-100" />
+          <button
+            onClick={() => {
+              setProfileDropdownOpen(false)
+              handleSignOut()
+            }}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
+          >
+            <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+            <span>Logout</span>
+          </button>
         </div>
-      )}
+      </div>
     </div>
   )
 
@@ -475,13 +485,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <button
               onClick={() => setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)}
               className={cn(
-                "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-all duration-150",
+                "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-all duration-200 ease-out",
                 mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
               )}
             >
-              <Avatar className="h-6 w-6 shrink-0 ring-1 ring-white/20">
+              <Avatar className="h-6 w-6 shrink-0 ring-1 ring-white/20 bg-neutral-700">
                 {avatarUrl ? (
-                  <AvatarImage src={avatarUrl} alt={userDisplayName} className="object-cover" />
+                  <AvatarImage
+                    src={avatarUrl}
+                    alt={userDisplayName}
+                    className="object-cover"
+                    loading="eager"
+                  />
                 ) : null}
                 <AvatarFallback className="bg-neutral-700 text-white text-[10px] font-medium">
                   {userInitials}
@@ -492,44 +507,49 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               </span>
               <ChevronDown
                 className={cn(
-                  "h-3.5 w-3.5 text-white/50 transition-transform duration-150",
+                  "h-3.5 w-3.5 text-white/50 transition-transform duration-200 ease-out",
                   mobileProfileDropdownOpen && "rotate-180"
                 )}
               />
             </button>
 
             {/* Mobile Profile Dropdown Menu */}
-            {mobileProfileDropdownOpen && (
-              <div className="absolute left-0 top-full mt-2 z-50 animate-in fade-in-0 zoom-in-95 duration-100 min-w-[200px]">
-                <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
-                  {profileDropdownItems.map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setMobileProfileDropdownOpen(false)}
-                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
-                      >
-                        <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                        <span>{item.label}</span>
-                      </Link>
-                    )
-                  })}
-                  <div className="my-1 h-px bg-neutral-100" />
-                  <button
-                    onClick={() => {
-                      setMobileProfileDropdownOpen(false)
-                      handleSignOut()
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
-                  >
-                    <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                    <span>Logout</span>
-                  </button>
-                </div>
+            <div
+              className={cn(
+                "absolute left-0 top-full mt-2 z-50 min-w-[200px] transition-all duration-200 ease-out origin-top-left",
+                mobileProfileDropdownOpen
+                  ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+                  : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+              )}
+            >
+              <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
+                {profileDropdownItems.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                    >
+                      <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                      <span>{item.label}</span>
+                    </Link>
+                  )
+                })}
+                <div className="my-1 h-px bg-neutral-100" />
+                <button
+                  onClick={() => {
+                    setMobileProfileDropdownOpen(false)
+                    handleSignOut()
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <span>Logout</span>
+                </button>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Right side: Notifications + Home */}

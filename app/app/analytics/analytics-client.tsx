@@ -266,62 +266,63 @@ export function AnalyticsClient({ creatorId, products }: AnalyticsClientProps) {
         </div>
       )}
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Views</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <div className="text-2xl font-semibold">{summary.totalViews.toLocaleString()}</div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Summary Cards - Dashboard Style */}
+      <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 ${isLoading ? "opacity-60" : ""}`}>
+        {/* Total Views */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <Eye className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            {summary.totalViews.toLocaleString()}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Unique page views</p>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <div className="text-2xl font-semibold">{summary.totalOrders.toLocaleString()}</div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Total Orders */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            {summary.totalOrders.toLocaleString()}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Completed orders</p>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <div className="text-2xl font-semibold">{formatPrice(summary.totalRevenue)}</div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Total Revenue */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <DollarSign className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            {formatPrice(summary.totalRevenue)}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Gross revenue</p>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Conversion Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <div className="text-2xl font-semibold">{summary.conversionRate.toFixed(2)}%</div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Conversion Rate */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Conversion Rate</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            {summary.conversionRate.toFixed(2)}%
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
+        </div>
       </div>
 
       {/* Trend Chart */}

@@ -359,8 +359,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
 
       {/* Stripe Connection Card */}
       {!isStripeConnected && (
-        <Card className={isStripePending ? "border-yellow-200 bg-yellow-50" : "border-amber-200 bg-amber-50"}>
-          <CardContent className="p-6">
+        <div className={`rounded-2xl border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${isStripePending ? "border-yellow-200 bg-yellow-50" : "border-amber-200 bg-amber-50"}`}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-4">
                 <div className={`p-3 rounded-full ${isStripePending ? "bg-yellow-100" : "bg-amber-100"}`}>
@@ -398,195 +397,205 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                 )}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Balance Overview Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Available Balance</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-green-600">{formatPrice(initialData.availableBalance)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Ready for payout</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {/* Available Balance */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Available Balance</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Wallet className="h-4 w-4 text-emerald-600" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-emerald-600 tracking-tight">
+            {formatPrice(initialData.availableBalance)}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Ready for payout</p>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-yellow-600">{formatPrice(initialData.pendingAmount)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Processing (7 day hold)</p>
-          </CardContent>
-        </Card>
+        {/* Pending */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Pending</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+              <Clock className="h-4 w-4 text-amber-600" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-amber-600 tracking-tight">
+            {formatPrice(initialData.pendingAmount)}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Processing (7 day hold)</p>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Earnings</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatPrice(initialData.totalEarnings)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Gross revenue all time</p>
-          </CardContent>
-        </Card>
+        {/* Total Earnings */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Total Earnings</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <DollarSign className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            {formatPrice(initialData.totalEarnings)}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Gross revenue all time</p>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Net Earnings</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatPrice(initialData.netEarnings)}</div>
-            <p className="text-xs text-muted-foreground mt-1">After {formatPrice(initialData.totalFees)} in fees</p>
-          </CardContent>
-        </Card>
+        {/* Net Earnings */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-medium text-[#6b7280]">Net Earnings</span>
+            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </div>
+          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            {formatPrice(initialData.netEarnings)}
+          </div>
+          <p className="text-[12px] text-[#9ca3af] mt-1">After {formatPrice(initialData.totalFees)} in fees</p>
+        </div>
       </div>
 
       {/* Payout Account & Settings */}
       {isStripeConnected && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Payout Account */}
-          <Card>
-            <CardHeader>
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+            <div className="p-5 border-b border-[#e5e7eb]/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] flex items-center gap-2">
                     <Landmark className="h-5 w-5" />
                     Payout Account
-                  </CardTitle>
-                  <CardDescription>Where your earnings are deposited</CardDescription>
+                  </h3>
+                  <p className="text-[13px] text-[#6b7280] mt-0.5">Where your earnings are deposited</p>
                 </div>
-                <Badge className="bg-green-100 text-green-700">
+                <Badge className="bg-emerald-50 text-emerald-700 border-0">
                   <CheckCircle2 className="mr-1 h-3 w-3" />
                   Connected
                 </Badge>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-                <div className="p-2 bg-background rounded-lg">
-                  <Building2 className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-4 p-4 bg-[#f9fafb] rounded-xl">
+                <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60">
+                  <Building2 className="h-6 w-6 text-[#6b7280]" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium">
+                  <p className="font-medium text-[14px] text-[#1a1a2e]">
                     {connectionStatus?.bankAccount?.bankName || "Bank Account"}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-[13px] text-[#6b7280]">
                     ****{connectionStatus?.bankAccount?.last4 || "4242"} ({currency})
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleConnectStripe}>
+                <Button variant="outline" size="sm" onClick={handleConnectStripe} className="rounded-lg">
                   Update
                 </Button>
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Charges enabled</span>
-                  <Badge variant={connectionStatus?.chargesEnabled ? "default" : "destructive"}>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-[#6b7280]">Charges enabled</span>
+                  <Badge variant={connectionStatus?.chargesEnabled ? "default" : "destructive"} className="text-[11px]">
                     {connectionStatus?.chargesEnabled ? "Yes" : "No"}
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Payouts enabled</span>
-                  <Badge variant={connectionStatus?.payoutsEnabled ? "default" : "destructive"}>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-[#6b7280]">Payouts enabled</span>
+                  <Badge variant={connectionStatus?.payoutsEnabled ? "default" : "destructive"} className="text-[11px]">
                     {connectionStatus?.payoutsEnabled ? "Yes" : "No"}
                   </Badge>
                 </div>
               </div>
-            </CardContent>
-            <CardFooter className="border-t pt-4">
-              <Button variant="outline" className="w-full" asChild>
+            </div>
+            <div className="p-5 border-t border-[#e5e7eb]/60">
+              <Button variant="outline" className="w-full rounded-xl" asChild>
                 <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Open Stripe Dashboard
                 </a>
               </Button>
-            </CardFooter>
-          </Card>
+            </div>
+          </div>
 
           {/* Payout Settings */}
-          <Card>
-            <CardHeader>
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+            <div className="p-5 border-b border-[#e5e7eb]/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] flex items-center gap-2">
                     <Settings className="h-5 w-5" />
                     Payout Settings
-                  </CardTitle>
-                  <CardDescription>Configure how and when you get paid</CardDescription>
+                  </h3>
+                  <p className="text-[13px] text-[#6b7280] mt-0.5">Configure how and when you get paid</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setSettingsDialogOpen(true)}>
+                <Button variant="outline" size="sm" onClick={() => setSettingsDialogOpen(true)} className="rounded-lg">
                   Edit
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">Payout Schedule</p>
-                      <p className="text-xs text-muted-foreground">
-                        {PAYOUT_SCHEDULES.find((s) => s.value === payoutSchedule)?.description}
-                      </p>
-                    </div>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="flex items-center justify-between p-3 bg-[#f9fafb] rounded-xl">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-5 w-5 text-[#6b7280]" />
+                  <div>
+                    <p className="font-medium text-[13px] text-[#1a1a2e]">Payout Schedule</p>
+                    <p className="text-[12px] text-[#9ca3af]">
+                      {PAYOUT_SCHEDULES.find((s) => s.value === payoutSchedule)?.description}
+                    </p>
                   </div>
-                  <Badge variant="secondary" className="capitalize">{payoutSchedule}</Badge>
                 </div>
-
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <BanknoteIcon className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">Minimum Payout</p>
-                      <p className="text-xs text-muted-foreground">
-                        Payouts trigger when balance exceeds this amount
-                      </p>
-                    </div>
-                  </div>
-                  <span className="font-medium">{payoutThreshold > 0 ? formatPrice(payoutThreshold * 100) : "No minimum"}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Zap className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">Instant Payouts</p>
-                      <p className="text-xs text-muted-foreground">
-                        Get funds in minutes (1.5% fee)
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant={instantPayoutsEnabled ? "default" : "secondary"}>
-                    {instantPayoutsEnabled ? "Enabled" : "Disabled"}
-                  </Badge>
-                </div>
+                <Badge variant="secondary" className="capitalize text-[11px]">{payoutSchedule}</Badge>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="flex items-center justify-between p-3 bg-[#f9fafb] rounded-xl">
+                <div className="flex items-center gap-3">
+                  <BanknoteIcon className="h-5 w-5 text-[#6b7280]" />
+                  <div>
+                    <p className="font-medium text-[13px] text-[#1a1a2e]">Minimum Payout</p>
+                    <p className="text-[12px] text-[#9ca3af]">
+                      Payouts trigger when balance exceeds this amount
+                    </p>
+                  </div>
+                </div>
+                <span className="font-medium text-[13px] text-[#1a1a2e]">{payoutThreshold > 0 ? formatPrice(payoutThreshold * 100) : "No minimum"}</span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-[#f9fafb] rounded-xl">
+                <div className="flex items-center gap-3">
+                  <Zap className="h-5 w-5 text-[#6b7280]" />
+                  <div>
+                    <p className="font-medium text-[13px] text-[#1a1a2e]">Instant Payouts</p>
+                    <p className="text-[12px] text-[#9ca3af]">
+                      Get funds in minutes (1.5% fee)
+                    </p>
+                  </div>
+                </div>
+                <Badge variant={instantPayoutsEnabled ? "default" : "secondary"} className="text-[11px]">
+                  {instantPayoutsEnabled ? "Enabled" : "Disabled"}
+                </Badge>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Earnings Chart */}
       {isStripeConnected && earningsTrend.length > 0 && (
-        <Card>
-          <CardHeader>
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="p-5 border-b border-[#e5e7eb]/60">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <CardTitle>Earnings Over Time</CardTitle>
-                <CardDescription>Your revenue trend for the selected period</CardDescription>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Earnings Over Time</h3>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">Your revenue trend for the selected period</p>
               </div>
               <Select value={timeframe} onValueChange={setTimeframe}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[180px] rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -597,8 +606,8 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                 </SelectContent>
               </Select>
             </div>
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="p-5">
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={earningsTrend}>
@@ -629,43 +638,43 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Payout History */}
-      <Card>
-        <CardHeader>
+      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="p-5 border-b border-[#e5e7eb]/60">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Payout History</CardTitle>
-              <CardDescription>All your past and scheduled payouts</CardDescription>
+              <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Payout History</h3>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">All your past and scheduled payouts</p>
             </div>
             {payouts.length > 0 && (
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="rounded-lg">
                 <Download className="mr-2 h-4 w-4" />
                 Export
               </Button>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
+        </div>
+        <div className="p-0 sm:p-5 sm:pt-0">
           {isLoading ? (
             <div className="space-y-4 p-4">
               {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
               ))}
             </div>
           ) : !isStripeConnected ? (
             <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-              <div className="p-4 bg-muted rounded-full mb-4">
-                <Wallet className="h-8 w-8 text-muted-foreground" />
+              <div className="p-4 bg-[#f3f4f6] rounded-full mb-4">
+                <Wallet className="h-8 w-8 text-[#9ca3af]" />
               </div>
-              <h3 className="font-medium mb-1">No payout history</h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
+              <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No payout history</h3>
+              <p className="text-[13px] text-[#6b7280] max-w-sm">
                 Connect your Stripe account to start receiving payouts from your sales.
               </p>
-              <Button onClick={handleConnectStripe} disabled={isConnecting} className="mt-4">
+              <Button onClick={handleConnectStripe} disabled={isConnecting} className="mt-4 rounded-xl bg-[#1a1a2e] hover:bg-[#2d2d44]">
                 {isConnecting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -679,11 +688,11 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
           ) : payouts.length > 0 ? (
             <>
               {/* Mobile view */}
-              <div className="divide-y divide-border sm:hidden">
+              <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
                 {payouts.map((payout) => (
                   <div
                     key={payout.id}
-                    className="p-4 space-y-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                    className="p-4 space-y-2 cursor-pointer hover:bg-[#f9fafb] transition-colors"
                     onClick={() => {
                       setSelectedPayout(payout)
                       setPayoutDetailOpen(true)
@@ -691,14 +700,14 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-semibold text-lg">{formatPrice(payout.amount)}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="font-semibold text-[18px] text-[#1a1a2e]">{formatPrice(payout.amount)}</p>
+                        <p className="text-[12px] text-[#9ca3af]">
                           {payout.status === "paid" ? "Arrived" : "Expected"} {formatDate(payout.arrival_date)}
                         </p>
                       </div>
                       {getPayoutStatusBadge(payout.status)}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 text-[13px] text-[#6b7280]">
                       <Building2 className="h-3 w-3" />
                       <span>Bank ****{payout.destination_last4}</span>
                     </div>
@@ -710,36 +719,36 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
               <div className="hidden sm:block">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Destination</TableHead>
-                      <TableHead>Initiated</TableHead>
-                      <TableHead>Arrival</TableHead>
+                    <TableRow className="border-b border-[#e5e7eb]">
+                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Amount</TableHead>
+                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Status</TableHead>
+                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Destination</TableHead>
+                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Initiated</TableHead>
+                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Arrival</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {payouts.map((payout) => (
-                      <TableRow key={payout.id} className="hover:bg-muted/50">
-                        <TableCell className="font-semibold">{formatPrice(payout.amount)}</TableCell>
+                      <TableRow key={payout.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
+                        <TableCell className="font-semibold text-[14px] text-[#1a1a2e]">{formatPrice(payout.amount)}</TableCell>
                         <TableCell>{getPayoutStatusBadge(payout.status)}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex items-center gap-2 text-[14px] text-[#1a1a2e]">
+                            <Building2 className="h-4 w-4 text-[#9ca3af]" />
                             <span>****{payout.destination_last4}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{formatDate(payout.created_at)}</TableCell>
-                        <TableCell className="text-muted-foreground">{formatDate(payout.arrival_date)}</TableCell>
+                        <TableCell className="text-[14px] text-[#6b7280]">{formatDate(payout.created_at)}</TableCell>
+                        <TableCell className="text-[14px] text-[#6b7280]">{formatDate(payout.arrival_date)}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-[#f3f4f6]">
+                                <MoreHorizontal className="h-4 w-4 text-[#9ca3af]" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="rounded-xl">
                               <DropdownMenuItem
                                 onClick={() => {
                                   setSelectedPayout(payout)
@@ -764,44 +773,42 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-              <div className="p-4 bg-muted rounded-full mb-4">
-                <Wallet className="h-8 w-8 text-muted-foreground" />
+              <div className="p-4 bg-[#f3f4f6] rounded-full mb-4">
+                <Wallet className="h-8 w-8 text-[#9ca3af]" />
               </div>
-              <h3 className="font-medium mb-1">No payouts yet</h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
+              <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No payouts yet</h3>
+              <p className="text-[13px] text-[#6b7280] max-w-sm">
                 Once you start making sales, your payouts will appear here.
               </p>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Help Section */}
-      <Card className="bg-muted/30">
-        <CardContent className="p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-background rounded-lg">
-                <HelpCircle className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="font-medium">Need help with payouts?</h3>
-                <p className="text-sm text-muted-foreground">
-                  Learn about payout schedules, fees, and how to optimize your earnings.
-                </p>
-              </div>
+      <div className="bg-[#f9fafb] rounded-2xl border border-[#e5e7eb]/60 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60">
+              <HelpCircle className="h-5 w-5 text-[#6b7280]" />
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                View FAQ
-              </Button>
-              <Button variant="outline" size="sm">
-                Contact Support
-              </Button>
+            <div>
+              <h3 className="font-medium text-[14px] text-[#1a1a2e]">Need help with payouts?</h3>
+              <p className="text-[13px] text-[#6b7280]">
+                Learn about payout schedules, fees, and how to optimize your earnings.
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="rounded-lg">
+              View FAQ
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-lg">
+              Contact Support
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Payout Settings Dialog */}
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
