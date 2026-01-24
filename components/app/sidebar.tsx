@@ -302,14 +302,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <Link
             href="/"
             onClick={onItemClick}
-            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+            className="flex items-center hover:opacity-80 transition-opacity"
           >
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-5 w-5"
+              className="h-7 w-7"
             />
-            <span className="text-[15px] font-semibold tracking-tight text-neutral-800">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <button
@@ -369,14 +368,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <Link
             href="/"
             onClick={onItemClick}
-            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+            className="flex items-center hover:opacity-80 transition-opacity"
           >
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-5 w-5"
+              className="h-7 w-7"
             />
-            <span className="text-[15px] font-semibold tracking-tight text-neutral-800">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <Link
