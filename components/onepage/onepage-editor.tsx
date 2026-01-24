@@ -194,31 +194,47 @@ function EditorLayout() {
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
-  // CRITICAL FIX: Track if onboarding has been completed - check database value
-  // This determines whether to show the onboarding modal
-  const isOnboardingCompleted = onepage?.onboarding_completed === true
-
-  // Onboarding modal state - only show if NOT completed in database
-  const [showOnboarding, setShowOnboarding] = useState(!isOnboardingCompleted)
-
+  // =====================================================
+  // ONBOARDING STATE MANAGEMENT - CRITICAL FIX
+  // =====================================================
+  
+  // Track if we've already determined the onboarding state
+  const onboardingCheckedRef = useRef(false)
+  
   // Track completion in a ref to prevent re-showing after completion in the same session
-  const onboardingCompletedRef = useRef(isOnboardingCompleted)
-
-  // CRITICAL: Update showOnboarding when onepage data changes (e.g., after page refresh)
+  const onboardingCompletedRef = useRef(false)
+  
+  // Onboarding modal state - starts as false, will be set based on database value
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  
+  // CRITICAL: Check onboarding status when onepage data is available
+  // This runs on mount and whenever onepage changes
   useEffect(() => {
-    if (onepage?.onboarding_completed === true) {
-      // Onboarding is complete in database - hide modal and clear localStorage
+    if (!onepage) return
+    
+    // Check the database value
+    const isCompleted = onepage.onboarding_completed === true
+    
+    if (isCompleted) {
+      // Onboarding is complete - never show it
       setShowOnboarding(false)
       onboardingCompletedRef.current = true
+      onboardingCheckedRef.current = true
+      
+      // Clear any stale localStorage progress
       if (typeof window !== "undefined") {
         try {
           localStorage.removeItem("onepage_onboarding_progress")
         } catch (e) {
-          // Ignore localStorage errors
+          // Ignore
         }
       }
+    } else if (!onboardingCheckedRef.current && !onboardingCompletedRef.current) {
+      // Onboarding not completed and we haven't shown it yet - show it
+      setShowOnboarding(true)
+      onboardingCheckedRef.current = true
     }
-  }, [onepage?.onboarding_completed])
+  }, [onepage, onepage?.onboarding_completed])
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {
@@ -772,26 +788,30 @@ function EditorLayout() {
       <OnboardingModal
         open={showOnboarding && !onboardingCompletedRef.current}
         onClose={() => {
+          // User closed without completing - still hide but don't mark as complete
           setShowOnboarding(false)
         }}
         onComplete={async (data) => {
-          // Mark as completed to prevent re-opening
+          // Mark as completed in local state immediately
           onboardingCompletedRef.current = true
           setShowOnboarding(false)
-          // Clear any remaining localStorage progress
+          
+          // Clear localStorage progress
           if (typeof window !== "undefined") {
             try {
               localStorage.removeItem("onepage_onboarding_progress")
             } catch (e) {
-              // Ignore localStorage errors
+              // Ignore
             }
           }
-          // Onboarding modal already saved onboarding_completed=true to database and auto-saved
-          // Force a re-save to ensure the "Saved" state is visible to the user
+          
+          // The onboarding modal already saved onboarding_completed=true to database
+          // Now trigger a final save to ensure everything is persisted and shows "Saved"
           try {
             await save()
+            console.log("[OnePage] Onboarding complete - editor saved successfully")
           } catch (e) {
-            // Ignore save errors - modal already saved
+            console.error("[OnePage] Failed to save after onboarding:", e)
           }
         }}
       />
