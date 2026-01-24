@@ -397,7 +397,6 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                 )}
               </Button>
             </div>
-          </div>
         </div>
       )}
 
