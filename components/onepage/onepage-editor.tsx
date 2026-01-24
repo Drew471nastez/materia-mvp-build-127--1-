@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { OnboardingModal } from "./onboarding-modal"
+import { createClient } from "@/lib/supabase/client"
 
 // Settings Filter Icon SVG Component
 const SettingsFilterIcon = ({ className }: { className?: string }) => (
@@ -195,50 +196,76 @@ function EditorLayout() {
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
   // =====================================================
-  // ONBOARDING STATE - Database is source of truth (works across devices)
-  // localStorage is just a backup for same-device instant check
+  // ONBOARDING STATE - Fetch directly from database
+  // This ensures it works across ALL devices for the same account
   // =====================================================
   
-  // Primary check: database field onboarding_completed
-  // This ensures completion works across all devices for the same account
-  const isCompletedInDatabase = (onepage as any)?.onboarding_completed === true
-  
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    // Database is the source of truth
-    if (isCompletedInDatabase) return false
-    // localStorage as backup for same device
-    if (typeof window !== "undefined" && onepage?.id) {
-      const localDone = localStorage.getItem(`onepage_onboarding_done_${onepage.id}`)
-      if (localDone === "true") return false
-    }
-    return true
-  })
-  
-  // Track if completed this session to prevent re-showing
+  const [showOnboarding, setShowOnboarding] = useState(false) // Start with false, check DB
+  const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
   const completedThisSessionRef = useRef(false)
   
-  // Update showOnboarding when onepage loads (for SSR cases)
+  // Check onboarding status directly from database on mount
   useEffect(() => {
-    if (!onepage?.id) return
+    if (!onepage?.id || onboardingChecked || completedThisSessionRef.current) return
     
-    // Database is the source of truth - if completed in DB, don't show
-    if ((onepage as any)?.onboarding_completed === true) {
-      setShowOnboarding(false)
-      // Also sync localStorage so it's consistent
-      if (typeof window !== "undefined") {
-        localStorage.setItem(`onepage_onboarding_done_${onepage.id}`, "true")
+    const checkOnboardingStatus = async () => {
+      const supabase = createClient()
+      
+      console.log("[OnePageEditor] Checking onboarding status from database...")
+      console.log("[OnePageEditor] onepage.id:", onepage.id)
+      
+      // Fetch fresh onboarding_completed status directly from database
+      const { data, error } = await supabase
+        .from("onepages")
+        .select("onboarding_completed")
+        .eq("id", onepage.id)
+        .single()
+      
+      if (error) {
+        console.error("[OnePageEditor] Error fetching onboarding status:", error)
+        // On error, check localStorage as fallback
+        if (typeof window !== "undefined") {
+          const localDone = localStorage.getItem(`onepage_onboarding_done_${onepage.id}`)
+          if (localDone === "true") {
+            console.log("[OnePageEditor] localStorage says completed")
+            setShowOnboarding(false)
+          } else {
+            console.log("[OnePageEditor] No completion found, showing onboarding")
+            setShowOnboarding(true)
+          }
+        }
+      } else {
+        console.log("[OnePageEditor] Database onboarding_completed:", data?.onboarding_completed)
+        
+        if (data?.onboarding_completed === true) {
+          // Completed in database - don't show onboarding
+          setShowOnboarding(false)
+          // Sync localStorage
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`onepage_onboarding_done_${onepage.id}`, "true")
+          }
+        } else {
+          // Not completed in database - check localStorage as backup
+          if (typeof window !== "undefined") {
+            const localDone = localStorage.getItem(`onepage_onboarding_done_${onepage.id}`)
+            if (localDone === "true") {
+              console.log("[OnePageEditor] localStorage override - not showing onboarding")
+              setShowOnboarding(false)
+            } else {
+              console.log("[OnePageEditor] Not completed - showing onboarding")
+              setShowOnboarding(true)
+            }
+          } else {
+            setShowOnboarding(true)
+          }
+        }
       }
-      return
+      
+      setOnboardingChecked(true)
     }
     
-    // If not completed in DB, check localStorage as backup
-    if (typeof window !== "undefined") {
-      const localDone = localStorage.getItem(`onepage_onboarding_done_${onepage.id}`)
-      if (localDone === "true") {
-        setShowOnboarding(false)
-      }
-    }
-  }, [onepage?.id, (onepage as any)?.onboarding_completed])
+    checkOnboardingStatus()
+  }, [onepage?.id, onboardingChecked])
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {
@@ -394,6 +421,8 @@ function EditorLayout() {
 
   // Handle onboarding completion
   const handleOnboardingComplete = useCallback(async () => {
+    console.log("[OnePageEditor] Onboarding completed, saving to database...")
+    
     // Mark completed in localStorage immediately
     if (onepage?.id && typeof window !== "undefined") {
       localStorage.setItem(`onepage_onboarding_done_${onepage.id}`, "true")
@@ -403,9 +432,26 @@ function EditorLayout() {
     completedThisSessionRef.current = true
     setShowOnboarding(false)
     
+    // CRITICAL: Save onboarding_completed to database
+    // This ensures it works across all devices
+    if (onepage?.id) {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from("onepages")
+        .update({ onboarding_completed: true })
+        .eq("id", onepage.id)
+      
+      if (error) {
+        console.error("[OnePageEditor] Failed to save onboarding_completed to database:", error)
+      } else {
+        console.log("[OnePageEditor] Successfully saved onboarding_completed to database")
+      }
+    }
+    
     // Auto-save the editor
     try {
       await save()
+      console.log("[OnePageEditor] Editor auto-saved after onboarding")
     } catch (e) {
       console.error("Failed to save after onboarding:", e)
     }
@@ -807,8 +853,8 @@ function EditorLayout() {
         onKeepEditing={handleKeepEditing}
       />
 
-      {/* Onboarding Modal - shown on first visit only */}
-      {!completedThisSessionRef.current && (
+      {/* Onboarding Modal - shown on first visit only, after database check */}
+      {onboardingChecked && !completedThisSessionRef.current && (
         <OnboardingModal
           open={showOnboarding}
           onClose={() => setShowOnboarding(false)}
