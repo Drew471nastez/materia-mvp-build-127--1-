@@ -1193,7 +1193,16 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         console.log("[OnePage Onboarding] Saving onboarding completion to database...")
         console.log("[OnePage Onboarding] onepage.id:", onepage.id)
 
+        // Get current user to ensure we're authenticated
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        if (!currentUser) {
+          console.error("[OnePage Onboarding] No authenticated user!")
+        } else {
+          console.log("[OnePage Onboarding] Authenticated user:", currentUser.id)
+        }
+
         // Save to onepages table - update profile, social links, and mark onboarding completed
+        // Use owner_id filter to ensure RLS policy works
         const { data: updateData, error: updateError } = await supabase
           .from("onepages")
           .update({
@@ -1215,9 +1224,31 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         if (updateError) {
           console.error("[OnePage Onboarding] FAILED to save onboarding completion:", updateError)
           console.error("[OnePage Onboarding] Error details:", JSON.stringify(updateError, null, 2))
+          
+          // RETRY: Try updating just the onboarding_completed field
+          console.log("[OnePage Onboarding] Retrying with just onboarding_completed...")
+          const { error: retryError } = await supabase
+            .from("onepages")
+            .update({ onboarding_completed: true })
+            .eq("id", onepage.id)
+          
+          if (retryError) {
+            console.error("[OnePage Onboarding] RETRY FAILED:", retryError)
+          } else {
+            console.log("[OnePage Onboarding] RETRY SUCCESS - onboarding_completed saved")
+          }
         } else {
           console.log("[OnePage Onboarding] SUCCESS - onboarding_completed saved to database")
           console.log("[OnePage Onboarding] Updated data:", updateData)
+          
+          // Verify the save worked
+          const { data: verifyData } = await supabase
+            .from("onepages")
+            .select("onboarding_completed")
+            .eq("id", onepage.id)
+            .single()
+          
+          console.log("[OnePage Onboarding] VERIFY - onboarding_completed in DB:", verifyData?.onboarding_completed)
         }
 
         // Also update store_builder_configs to ensure social links appear in Store Builder
