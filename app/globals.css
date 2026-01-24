@@ -171,8 +171,12 @@
 
   /* Dashboard main content - prevent nested scrollbars */
   main {
-    overflow-y: visible;
-    overflow-x: hidden;
+    overflow: visible;
+  }
+
+  /* App dashboard - ensure single scroll context */
+  .app-dashboard-content {
+    overflow: visible;
   }
 }
 

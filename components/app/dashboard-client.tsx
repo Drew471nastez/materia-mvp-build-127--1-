@@ -72,7 +72,7 @@ const timeframeOptions: TimeframeOption[] = [
     getDates: () => {
       const end = new Date()
       const start = new Date()
-      start.setHours(start.getHours() - 48)
+      start.setTime(end.getTime() - 48 * 60 * 60 * 1000)
       return { start, end }
     },
   },
@@ -82,7 +82,8 @@ const timeframeOptions: TimeframeOption[] = [
     getDates: () => {
       const end = new Date()
       const start = new Date()
-      start.setDate(start.getDate() - 7)
+      start.setDate(start.getDate() - 6)
+      start.setHours(0, 0, 0, 0)
       return { start, end }
     },
   },
@@ -92,7 +93,8 @@ const timeframeOptions: TimeframeOption[] = [
     getDates: () => {
       const end = new Date()
       const start = new Date()
-      start.setDate(start.getDate() - 30)
+      start.setDate(start.getDate() - 29)
+      start.setHours(0, 0, 0, 0)
       return { start, end }
     },
   },
@@ -113,7 +115,8 @@ const timeframeOptions: TimeframeOption[] = [
     getDates: () => {
       const end = new Date()
       const start = new Date()
-      start.setDate(start.getDate() - 90)
+      start.setDate(start.getDate() - 89)
+      start.setHours(0, 0, 0, 0)
       return { start, end }
     },
   },
@@ -123,7 +126,8 @@ const timeframeOptions: TimeframeOption[] = [
     getDates: () => {
       const end = new Date()
       const start = new Date()
-      start.setDate(start.getDate() - 365)
+      start.setDate(start.getDate() - 364)
+      start.setHours(0, 0, 0, 0)
       return { start, end }
     },
   },
@@ -134,6 +138,7 @@ const timeframeOptions: TimeframeOption[] = [
       const end = new Date()
       const start = new Date()
       start.setFullYear(start.getFullYear() - 1)
+      start.setHours(0, 0, 0, 0)
       return { start, end }
     },
   },
@@ -343,8 +348,8 @@ export function DashboardClient({
   const allCompleted = completedSteps === totalSteps
 
   return (
-    <div className="bg-[#f8f9fa]">
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
+    <div className="bg-[#f8f9fa] min-h-svh">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto pb-8">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>

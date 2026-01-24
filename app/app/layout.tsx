@@ -61,7 +61,7 @@ export default async function AppLayout({
   const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator.slug
 
   return (
-    <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-white">
+    <div className="min-h-svh bg-[#111111] md:bg-white">
       <AppSidebar
         creatorSlug={creator.slug}
         storePublished={creator.store_published}
@@ -71,8 +71,8 @@ export default async function AppLayout({
         stripeStatus={creator.stripe_onboarding_status || "not_connected"}
         onePagePublished={onepage?.published || false}
       />
-      <main className="min-h-svh pt-[68px] md:pl-[220px] md:pt-0 bg-[#f8f9fa] rounded-t-[20px] md:rounded-none overflow-x-hidden">
-        <div className="min-h-[calc(100svh-3.75rem)] md:min-h-svh overflow-x-hidden">{children}</div>
+      <main className="min-h-svh pt-[68px] md:pl-[220px] md:pt-0 bg-[#f8f9fa] rounded-t-[20px] md:rounded-none">
+        {children}
       </main>
     </div>
   )
