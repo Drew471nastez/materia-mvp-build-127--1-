@@ -194,12 +194,22 @@ function EditorLayout() {
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
-  // Onboarding modal state - only show once for new onepages (based on database field)
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    // CRITICAL: Check database field for onboarding completion
-    // Use strict boolean check - onboarding_completed must be exactly true to skip
+  // CRITICAL FIX: Track if onboarding has been completed - check database value
+  // This determines whether to show the onboarding modal
+  const isOnboardingCompleted = onepage?.onboarding_completed === true
+
+  // Onboarding modal state - only show if NOT completed in database
+  const [showOnboarding, setShowOnboarding] = useState(!isOnboardingCompleted)
+
+  // Track completion in a ref to prevent re-showing after completion in the same session
+  const onboardingCompletedRef = useRef(isOnboardingCompleted)
+
+  // CRITICAL: Update showOnboarding when onepage data changes (e.g., after page refresh)
+  useEffect(() => {
     if (onepage?.onboarding_completed === true) {
-      // Clear any stale localStorage progress if onboarding is already completed
+      // Onboarding is complete in database - hide modal and clear localStorage
+      setShowOnboarding(false)
+      onboardingCompletedRef.current = true
       if (typeof window !== "undefined") {
         try {
           localStorage.removeItem("onepage_onboarding_progress")
@@ -207,14 +217,8 @@ function EditorLayout() {
           // Ignore localStorage errors
         }
       }
-      return false
     }
-    // Only show onboarding if onboarding_completed is NOT true
-    return true
-  })
-
-  // Track completion in a ref to prevent re-showing after completion in the same session
-  const onboardingCompletedRef = useRef(onepage?.onboarding_completed === true)
+  }, [onepage?.onboarding_completed])
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {

@@ -630,9 +630,15 @@ interface OnboardingProgress {
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
   const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
 
+  // CRITICAL: If onboarding is already completed in database, don't show anything
+  // This is the first check to prevent any rendering or confetti
+  const isAlreadyCompleted = onepage?.onboarding_completed === true
+
   // Load saved progress from localStorage
   const getSavedProgress = useCallback((): OnboardingProgress | null => {
     if (typeof window === "undefined") return null
+    // Don't load progress if already completed
+    if (isAlreadyCompleted) return null
     try {
       const saved = localStorage.getItem(ONBOARDING_STORAGE_KEY)
       if (!saved) return null
@@ -643,7 +649,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     } catch {
       return null
     }
-  }, [onepage?.id])
+  }, [onepage?.id, isAlreadyCompleted])
 
   // Initialize step from saved progress or default to 1
   const [currentStep, setCurrentStep] = useState(() => {
@@ -704,14 +710,21 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const [showConfetti, setShowConfetti] = useState(false)
 
   // Track if onboarding was already completed (prevents confetti on re-render)
-  // Initialize based on database value
-  const hasCompletedRef = useRef(onepage?.onboarding_completed === true)
+  // Initialize based on database value - CRITICAL for preventing random confetti
+  const hasCompletedRef = useRef(isAlreadyCompleted)
+
+  // Update ref when database value changes
+  useEffect(() => {
+    if (isAlreadyCompleted) {
+      hasCompletedRef.current = true
+    }
+  }, [isAlreadyCompleted])
 
   // Save progress to localStorage whenever relevant state changes
   const saveProgress = useCallback(() => {
     if (typeof window === "undefined" || !onepage?.id || currentStep >= 5) return
     // Don't save progress if onboarding is already completed
-    if (onepage?.onboarding_completed === true) return
+    if (isAlreadyCompleted) return
     try {
       const progress: OnboardingProgress = {
         step: currentStep,
@@ -727,7 +740,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     } catch (e) {
       console.error("Failed to save onboarding progress:", e)
     }
-  }, [currentStep, displayName, bio, selectedGoal, socials, avatarUrl, selectedTemplate, onepage?.id, onepage?.onboarding_completed])
+  }, [currentStep, displayName, bio, selectedGoal, socials, avatarUrl, selectedTemplate, onepage?.id, isAlreadyCompleted])
 
   // Clear saved progress from localStorage
   const clearSavedProgress = useCallback(() => {
@@ -741,10 +754,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
   // Save progress when modal is open and state changes (only if not completed)
   useEffect(() => {
-    if (open && currentStep < 5 && onepage?.onboarding_completed !== true) {
+    if (open && currentStep < 5 && !isAlreadyCompleted) {
       saveProgress()
     }
-  }, [open, currentStep, displayName, bio, selectedGoal, socials, avatarUrl, selectedTemplate, saveProgress, onepage?.onboarding_completed])
+  }, [open, currentStep, displayName, bio, selectedGoal, socials, avatarUrl, selectedTemplate, saveProgress, isAlreadyCompleted])
 
   // Reset confetti and completion states when modal closes
   useEffect(() => {
@@ -758,14 +771,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   // Reset setup states when modal opens (fresh start if returning to editor after unmount)
   // But ONLY if onboarding hasn't been completed yet
   useEffect(() => {
-    if (open && !hasCompletedRef.current && onepage?.onboarding_completed !== true) {
+    if (open && !hasCompletedRef.current && !isAlreadyCompleted) {
       // Reset step 5 states to default when opening
       setSetupComplete(false)
       setIsSettingUp(false)
       setSetupPhase(null)
       setShowConfetti(false)
     }
-  }, [open, onepage?.onboarding_completed])
+  }, [open, isAlreadyCompleted])
 
   // Crop state - square style like Links tab
   const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
@@ -1386,6 +1399,12 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         setTimeout(() => setCarouselAnimating(false), 50)
       }, 150)
     }
+  }
+
+  // CRITICAL: If onboarding is already completed in database, return null to prevent rendering
+  // This prevents any confetti, dialogs, or other UI from appearing
+  if (isAlreadyCompleted) {
+    return null
   }
 
   return (
