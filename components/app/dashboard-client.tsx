@@ -52,6 +52,7 @@ interface DashboardClientProps {
 type TimeframeOption = {
   value: string
   label: string
+  periodLabel: string
   getDates: () => { start: Date; end: Date }
 }
 
@@ -59,6 +60,7 @@ const timeframeOptions: TimeframeOption[] = [
   {
     value: "today",
     label: "Today",
+    periodLabel: "today",
     getDates: () => {
       const start = new Date()
       start.setHours(0, 0, 0, 0)
@@ -69,6 +71,7 @@ const timeframeOptions: TimeframeOption[] = [
   {
     value: "last_48_hours",
     label: "Last 48 hours",
+    periodLabel: "last 48 hours",
     getDates: () => {
       const end = new Date()
       const start = new Date()
@@ -79,6 +82,7 @@ const timeframeOptions: TimeframeOption[] = [
   {
     value: "last_7_days",
     label: "Last 7 days",
+    periodLabel: "last 7 days",
     getDates: () => {
       const end = new Date()
       const start = new Date()
@@ -89,6 +93,7 @@ const timeframeOptions: TimeframeOption[] = [
   {
     value: "last_30_days",
     label: "Last 30 days",
+    periodLabel: "last 30 days",
     getDates: () => {
       const end = new Date()
       const start = new Date()
@@ -99,6 +104,7 @@ const timeframeOptions: TimeframeOption[] = [
   {
     value: "this_month",
     label: "This month",
+    periodLabel: "this month",
     getDates: () => {
       const end = new Date()
       const start = new Date()
@@ -110,6 +116,7 @@ const timeframeOptions: TimeframeOption[] = [
   {
     value: "last_90_days",
     label: "Last 90 days",
+    periodLabel: "last 90 days",
     getDates: () => {
       const end = new Date()
       const start = new Date()
@@ -120,6 +127,7 @@ const timeframeOptions: TimeframeOption[] = [
   {
     value: "last_365_days",
     label: "Last 365 days",
+    periodLabel: "last 365 days",
     getDates: () => {
       const end = new Date()
       const start = new Date()
@@ -130,6 +138,7 @@ const timeframeOptions: TimeframeOption[] = [
   {
     value: "last_year",
     label: "Last year",
+    periodLabel: "last year",
     getDates: () => {
       const end = new Date()
       const start = new Date()
@@ -319,7 +328,7 @@ export function DashboardClient({
   const allCompleted = completedSteps === totalSteps
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa]">
+    <div className="bg-[#f8f9fa]">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -376,7 +385,7 @@ export function DashboardClient({
               {analyticsData.totalViews.toLocaleString()}
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">
-              {analyticsData.periodViews.toLocaleString()} {selectedOption?.label.toLowerCase()}
+              {analyticsData.periodViews.toLocaleString()} {selectedOption?.periodLabel}
             </p>
           </div>
 
@@ -392,7 +401,7 @@ export function DashboardClient({
               {analyticsData.totalOrders.toLocaleString()}
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">
-              {analyticsData.periodOrders.toLocaleString()} {selectedOption?.label.toLowerCase()}
+              {analyticsData.periodOrders.toLocaleString()} {selectedOption?.periodLabel}
             </p>
           </div>
 
@@ -408,7 +417,7 @@ export function DashboardClient({
               {formatCurrency(analyticsData.totalRevenue)}
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">
-              {formatCurrency(analyticsData.periodRevenue)} {selectedOption?.label.toLowerCase()}
+              {formatCurrency(analyticsData.periodRevenue)} {selectedOption?.periodLabel}
             </p>
           </div>
 
