@@ -469,7 +469,7 @@ export function DashboardClient({
   }
 
   return (
-    <div className="min-h-full bg-[#f8f9fa] dashboard-scroll-container">
+    <div className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -516,7 +516,7 @@ export function DashboardClient({
           {/* Mobile Timeframe Button */}
           <button
             onClick={() => setIsMobileSheetOpen(true)}
-            className="md:hidden inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm"
+            className="md:hidden w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm"
           >
             {selectedOption?.label || "Last 7 days"}
             <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
