@@ -270,9 +270,13 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
 
       if (productIds.length === 0) {
         setIsLoading(false)
+        setOrders([])
+        setAllOrders([])
+        setMonthlyReports([])
         return
       }
 
+      // Fetch orders for the selected timeframe (for display and KPIs)
       let ordersQuery = supabase
         .from("orders")
         .select(`
@@ -290,7 +294,6 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
       if (error) throw error
 
       let filteredOrders = fetchedOrders || []
-      setAllOrders(filteredOrders)
 
       // Apply search filter
       if (searchQuery) {
@@ -327,7 +330,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
       setTotalCount(filteredOrders.length)
       setOrders(filteredOrders)
 
-      // Calculate summary
+      // Calculate summary from filtered orders
       const completedOrders = filteredOrders.filter((o) => o.status === "completed")
       const refundedOrders = filteredOrders.filter((o) => o.status === "refunded")
 
@@ -343,8 +346,22 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         refundAmount: refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0),
       })
 
-      // Generate monthly reports from all orders
-      generateMonthlyReports(fetchedOrders || [])
+      // Fetch ALL orders (all time) for monthly reports
+      const { data: allTimeOrders, error: allTimeError } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          product:products!orders_product_id_fkey(id, title, type, cover_image),
+          buyer:profiles!orders_buyer_id_fkey(email, display_name)
+        `)
+        .in("product_id", productIds)
+        .order("created_at", { ascending: false })
+
+      if (!allTimeError) {
+        setAllOrders(allTimeOrders || [])
+        // Generate monthly reports from ALL orders (all time)
+        generateMonthlyReports(allTimeOrders || [])
+      }
     } catch (error) {
       console.error("Error fetching sales data:", error)
     } finally {
@@ -352,12 +369,13 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
     }
   }
 
-  // Generate monthly reports
+  // Generate monthly reports - includes all orders (paid and free)
   const generateMonthlyReports = (ordersData: Order[]) => {
-    const completedOrders = ordersData.filter(o => o.status === "completed")
+    // Include all orders except failed ones (completed, pending, refunded, free)
+    const validOrders = ordersData.filter(o => o.status !== "failed")
     const reportMap: Record<string, MonthlyReport> = {}
 
-    completedOrders.forEach((order) => {
+    validOrders.forEach((order) => {
       const date = new Date(order.created_at)
       const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
       const month = monthNames[date.getMonth()]
@@ -376,7 +394,10 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
       }
 
       reportMap[key].orders++
-      reportMap[key].revenue += order.amount_cents || 0
+      // Only count revenue from completed orders
+      if (order.status === "completed") {
+        reportMap[key].revenue += order.amount_cents || 0
+      }
       reportMap[key].orderDetails.push(order)
     })
 
@@ -525,7 +546,9 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
 
   // Generate PDF report
   const generatePDFReport = (report: MonthlyReport) => {
-    const avgOrderValue = report.orders > 0 ? report.revenue / report.orders : 0
+    // Calculate avg from completed orders only
+    const completedOrders = report.orderDetails.filter(o => o.status === "completed")
+    const avgOrderValue = completedOrders.length > 0 ? report.revenue / completedOrders.length : 0
 
     // Create PDF content as HTML for printing
     const printContent = `
@@ -546,6 +569,10 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
           th { text-align: left; padding: 12px; background: #f3f4f6; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; }
           td { padding: 12px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
           .amount { text-align: right; font-weight: 500; }
+          .status { text-transform: capitalize; }
+          .status-completed { color: #059669; }
+          .status-pending { color: #d97706; }
+          .status-refunded { color: #dc2626; }
         </style>
       </head>
       <body>
@@ -578,6 +605,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
               <th>Order ID</th>
               <th>Customer</th>
               <th>Product</th>
+              <th>Status</th>
               <th class="amount">Amount</th>
             </tr>
           </thead>
@@ -588,7 +616,8 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                 <td>#${order.id.slice(0, 8)}</td>
                 <td>${order.buyer?.email || 'Unknown'}</td>
                 <td>${order.product?.title || 'Unknown'}</td>
-                <td class="amount">${formatPrice(order.amount_cents)}</td>
+                <td class="status status-${order.status}">${order.status}</td>
+                <td class="amount">${order.amount_cents > 0 ? formatPrice(order.amount_cents) : 'Free'}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -682,7 +711,8 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
     URL.revokeObjectURL(url)
   }
 
-  const hasOrders = orders.length > 0 || summary.totalOrders > 0
+  // Check if there are any orders in selected timeframe or any orders all time
+  const hasOrders = orders.length > 0 || allOrders.length > 0 || summary.totalOrders > 0
   const hasChartData = chartData.some(d => d.value > 0)
 
   return (
@@ -1219,60 +1249,41 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         ) : (
           /* All Orders Tab - Orders List or Empty State */
           !hasOrders ? (
-            /* Empty State */
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12">
-              <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
-                {/* Illustration - Customer list with coin - Modern light gray and purple */}
-                <div className="relative mb-6">
-                  <div className="w-[160px] h-[110px] bg-gradient-to-br from-[#f8f9fa] to-[#f3f4f6] rounded-2xl border border-[#e5e7eb]/80 p-4 relative shadow-sm">
-                    {/* Customer rows */}
-                    <div className="space-y-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#c4b5fd] to-[#8b5cf6] flex items-center justify-center">
-                          <Users className="h-3.5 w-3.5 text-white" />
-                        </div>
-                        <div className="flex-1 space-y-1.5">
-                          <div className="h-2 w-16 bg-[#e5e7eb] rounded-full" />
-                          <div className="h-1.5 w-10 bg-[#f3f4f6] rounded-full" />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#ddd6fe] to-[#a78bfa]" />
-                        <div className="flex-1 space-y-1.5">
-                          <div className="h-2 w-12 bg-[#e5e7eb] rounded-full" />
-                          <div className="h-1.5 w-8 bg-[#f3f4f6] rounded-full" />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#ede9fe] to-[#c4b5fd]" />
-                        <div className="flex-1 space-y-1.5">
-                          <div className="h-2 w-14 bg-[#e5e7eb] rounded-full" />
-                          <div className="h-1.5 w-9 bg-[#f3f4f6] rounded-full" />
-                        </div>
-                      </div>
-                    </div>
-                    {/* Purple coin badge */}
-                    <div className="absolute -top-3 -right-3 w-11 h-11 rounded-xl bg-gradient-to-br from-[#a78bfa] to-[#8b5cf6] flex items-center justify-center shadow-lg shadow-violet-200/50">
-                      <DollarSign className="h-5 w-5 text-white" />
-                    </div>
-                    {/* Subtle decorative element */}
-                    <div className="absolute -bottom-1 -left-1 w-6 h-6 rounded-lg bg-[#f5f3ff] border border-[#ede9fe]" />
+            /* Empty State - Promotional Banner */
+            <div className="space-y-6">
+              {/* Promotional Banner - Like Storelib Editions */}
+              <div
+                className="relative overflow-hidden rounded-2xl"
+                style={{
+                  backgroundImage: `url('https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/9965079.jpg')`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
+                <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Start Selling</span>
+                    <span className="text-white/60 hidden sm:inline">|</span>
+                    <span className="text-[13px] sm:text-[15px] text-white/90 hidden sm:inline">Your journey begins</span>
+                  </div>
+                  <p className="text-[16px] sm:text-[20px] font-medium text-white mb-3 sm:mb-4">You're one step away from making your first sale.</p>
+                  <p className="text-[13px] sm:text-[14px] text-white/80 mb-4 max-w-lg">Every time a new customer purchases a product from your Storelib, their details appear here.</p>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <Link
+                      href="/app/products/new"
+                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
+                    >
+                      Start selling
+                    </Link>
+                    <Link
+                      href="/app/onepage"
+                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors"
+                    >
+                      Edit OnePage
+                    </Link>
                   </div>
                 </div>
-
-                <h2 className="text-[18px] font-semibold text-[#1a1a2e] mb-2">
-                  You're one step away from making your first sale.
-                </h2>
-                <p className="text-[14px] text-[#6b7280] mb-6">
-                  Every time a new customer purchases a product from your Storelib, their email address and other details are added here.
-                </p>
-
-                <Link
-                  href="/app/products/new"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-[14px] font-medium rounded-full hover:bg-[#7c3aed] transition-colors"
-                >
-                  Start selling
-                </Link>
               </div>
             </div>
           ) : (
