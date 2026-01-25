@@ -565,34 +565,50 @@ export function DashboardClient({
   // Announcement bar state
   const [announcementType, setAnnouncementType] = useState<"upgrade" | "steps" | "payouts">("upgrade")
   const [announcementVisible, setAnnouncementVisible] = useState(true)
+  const [progressWidth, setProgressWidth] = useState(0)
 
-  // Rotate announcements
+  // Rotate announcements every 10 seconds with progress bar
   useEffect(() => {
-    const rotateAnnouncements = () => {
+    const DURATION = 10000 // 10 seconds
+    const PROGRESS_INTERVAL = 50 // Update progress every 50ms
+
+    // Reset progress when announcement changes
+    setProgressWidth(0)
+
+    // Progress bar animation
+    const progressTimer = setInterval(() => {
+      setProgressWidth((prev) => {
+        const newWidth = prev + (100 / (DURATION / PROGRESS_INTERVAL))
+        return newWidth >= 100 ? 100 : newWidth
+      })
+    }, PROGRESS_INTERVAL)
+
+    // Rotate announcements
+    const rotateTimer = setTimeout(() => {
       setAnnouncementVisible(false)
       setTimeout(() => {
         setAnnouncementType((prev) => {
           if (prev === "upgrade") {
-            // After upgrade, show steps if not all completed
             if (!allCompleted) return "steps"
-            // Or show payouts reminder if needed
             if (hasProducts && !hasPayouts) return "payouts"
             return "upgrade"
           } else if (prev === "steps") {
-            // After steps, show payouts reminder if user has products but no payouts
             if (hasProducts && !hasPayouts) return "payouts"
             return "upgrade"
           } else {
             return "upgrade"
           }
         })
+        setProgressWidth(0)
         setAnnouncementVisible(true)
-      }, 300) // Match fade-out duration
-    }
+      }, 300)
+    }, DURATION)
 
-    const interval = setInterval(rotateAnnouncements, 5000)
-    return () => clearInterval(interval)
-  }, [allCompleted, hasProducts, hasPayouts])
+    return () => {
+      clearInterval(progressTimer)
+      clearTimeout(rotateTimer)
+    }
+  }, [announcementType, allCompleted, hasProducts, hasPayouts])
 
   // Build substep data based on step completion
   const getSubstepData = (step: SetupStep) => {
@@ -615,64 +631,140 @@ export function DashboardClient({
 
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container">
-      {/* Announcement Bar - Purple background stays, content fades */}
-      <div className="bg-[#8b5cf6] text-white py-2.5 px-4">
-        <div
-          className={`max-w-[1200px] mx-auto flex items-center justify-center gap-3 text-center transition-opacity duration-300 ${
-            announcementVisible ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          {announcementType === "upgrade" && (
-            <>
-              <span className="text-[13px] sm:text-[14px] text-white/90">
-                <span className="font-semibold text-white">Try Pro for free</span>
-                <span className="hidden sm:inline"> — our most popular plan for content creators and businesses.</span>
-              </span>
-              <Link
-                href="/upgrade"
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Upgrade
-              </Link>
-            </>
-          )}
-          {announcementType === "steps" && (
-            <>
-              <span className="text-[13px] sm:text-[14px] text-white/90">
-                <span className="font-semibold text-white">Complete your store setup</span>
-                <span className="hidden sm:inline"> — {totalSteps - completedSteps} steps remaining to get started.</span>
-                <span className="sm:hidden"> — {completedSteps}/{totalSteps}</span>
-              </span>
-              <button
-                onClick={() => {
-                  const setupSection = document.getElementById("store-setup-section")
-                  setupSection?.scrollIntoView({ behavior: "smooth" })
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
-              >
-                Continue
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </>
-          )}
-          {announcementType === "payouts" && (
-            <>
-              <span className="text-[13px] sm:text-[14px] text-white/90">
-                <span className="font-semibold text-white">Get paid for your sales</span>
-                <span className="hidden sm:inline"> — Connect your payouts to receive payments.</span>
-              </span>
-              <Link
-                href="/app/payouts"
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
-              >
-                <Wallet className="h-3.5 w-3.5" />
-                Connect
-              </Link>
-            </>
-          )}
+      {/* Mobile Announcement Bar - Fixed above header */}
+      <div className="fixed top-0 left-0 right-0 z-[60] md:hidden bg-[#8b5cf6] text-white">
+        <div className="py-2 px-4">
+          <div
+            className={`flex items-center justify-center gap-2 text-center transition-opacity duration-300 ${
+              announcementVisible ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {announcementType === "upgrade" && (
+              <>
+                <span className="text-[12px] text-white/90">
+                  <span className="font-semibold text-white">Try Pro free</span>
+                </span>
+                <Link
+                  href="/upgrade"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white text-[11px] font-medium rounded-full transition-colors shrink-0"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Upgrade
+                </Link>
+              </>
+            )}
+            {announcementType === "steps" && (
+              <>
+                <span className="text-[12px] text-white/90">
+                  <span className="font-semibold text-white">Complete setup</span>
+                  <span> — {completedSteps}/{totalSteps}</span>
+                </span>
+                <button
+                  onClick={() => {
+                    const setupSection = document.getElementById("store-setup-section")
+                    setupSection?.scrollIntoView({ behavior: "smooth" })
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white text-[11px] font-medium rounded-full transition-colors shrink-0"
+                >
+                  Continue
+                  <ChevronRight className="h-3 w-3" />
+                </button>
+              </>
+            )}
+            {announcementType === "payouts" && (
+              <>
+                <span className="text-[12px] text-white/90">
+                  <span className="font-semibold text-white">Get paid</span>
+                </span>
+                <Link
+                  href="/app/payouts"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white text-[11px] font-medium rounded-full transition-colors shrink-0"
+                >
+                  <Wallet className="h-3 w-3" />
+                  Connect
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+        {/* Subtle progress bar */}
+        <div className="h-[2px] bg-white/10">
+          <div
+            className="h-full bg-white/30 transition-all duration-50 ease-linear"
+            style={{ width: `${progressWidth}%` }}
+          />
         </div>
       </div>
+
+      {/* Desktop Announcement Bar */}
+      <div className="hidden md:block bg-[#8b5cf6] text-white">
+        <div className="py-2.5 px-4">
+          <div
+            className={`max-w-[1200px] mx-auto flex items-center justify-center gap-3 text-center transition-opacity duration-300 ${
+              announcementVisible ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {announcementType === "upgrade" && (
+              <>
+                <span className="text-[13px] sm:text-[14px] text-white/90">
+                  <span className="font-semibold text-white">Try Pro for free</span>
+                  <span> — our most popular plan for content creators and businesses.</span>
+                </span>
+                <Link
+                  href="/upgrade"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Upgrade
+                </Link>
+              </>
+            )}
+            {announcementType === "steps" && (
+              <>
+                <span className="text-[13px] sm:text-[14px] text-white/90">
+                  <span className="font-semibold text-white">Complete your store setup</span>
+                  <span> — {totalSteps - completedSteps} steps remaining to get started.</span>
+                </span>
+                <button
+                  onClick={() => {
+                    const setupSection = document.getElementById("store-setup-section")
+                    setupSection?.scrollIntoView({ behavior: "smooth" })
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
+                >
+                  Continue
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+            {announcementType === "payouts" && (
+              <>
+                <span className="text-[13px] sm:text-[14px] text-white/90">
+                  <span className="font-semibold text-white">Get paid for your sales</span>
+                  <span> — Connect your payouts to receive payments.</span>
+                </span>
+                <Link
+                  href="/app/payouts"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  Connect
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+        {/* Subtle progress bar */}
+        <div className="h-[2px] bg-white/10">
+          <div
+            className="h-full bg-white/30 transition-all duration-50 ease-linear"
+            style={{ width: `${progressWidth}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Mobile spacer for fixed announcement bar */}
+      <div className="h-[38px] md:hidden" />
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header Section */}

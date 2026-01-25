@@ -350,28 +350,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         )}
       </nav>
 
-      <div className="px-3 pb-3 space-y-2.5">
-        {/* Setup Progress Widget */}
-        {showSetupWidget && (
-          <Link
-            href="/app#store-setup-section"
-            onClick={onItemClick}
-            className="group flex items-center gap-3 rounded-xl bg-white border border-neutral-200/70 px-3 py-3 transition-all duration-150 hover:border-violet-200 hover:shadow-sm"
-          >
-            <div className="relative shrink-0">
-              <SetupProgressCircle progress={setupProgressPercent} size={36} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[9px] font-semibold text-violet-600">{setupProgressPercent}%</span>
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-semibold text-neutral-900">Your setup checklist</p>
-              <p className="text-[11px] text-neutral-500">{setupProgress.completed} of {setupProgress.total} complete</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-neutral-400 group-hover:text-violet-500 transition-colors" />
-          </Link>
-        )}
-
+      <div className="px-3 pb-3">
         <Link
           href="/upgrade"
           onClick={onItemClick}
@@ -437,28 +416,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         )}
       </nav>
 
-      <div className="px-3 pb-3 space-y-2.5">
-        {/* Setup Progress Widget */}
-        {showSetupWidget && (
-          <Link
-            href="/app#store-setup-section"
-            onClick={onItemClick}
-            className="group flex items-center gap-3 rounded-xl bg-neutral-50 border border-neutral-200/70 px-3 py-3 transition-all duration-150 hover:border-violet-200 hover:shadow-sm"
-          >
-            <div className="relative shrink-0">
-              <SetupProgressCircle progress={setupProgressPercent} size={36} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[9px] font-semibold text-violet-600">{setupProgressPercent}%</span>
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-semibold text-neutral-900">Your setup checklist</p>
-              <p className="text-[11px] text-neutral-500">{setupProgress?.completed} of {setupProgress?.total} complete</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-neutral-400 group-hover:text-violet-500 transition-colors" />
-          </Link>
-        )}
-
+      <div className="px-3 pb-3">
         <Link
           href="/upgrade"
           onClick={onItemClick}
@@ -708,11 +666,26 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <SidebarContent />
       </aside>
 
-      {/* Mobile Floating Setup Progress Circle */}
+      {/* Floating Setup Progress Circle - shows on both mobile and desktop */}
       {showSetupWidget && !mobileMenuOpen && (
-        <Link
-          href="/app#store-setup-section"
-          className="fixed bottom-6 right-4 z-40 md:hidden flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 shadow-lg border border-neutral-200/70 transition-all duration-200 active:scale-95"
+        <button
+          onClick={() => {
+            // Navigate to dashboard and smooth scroll to setup section
+            if (pathname === "/app") {
+              // Already on dashboard, just scroll
+              const setupSection = document.getElementById("store-setup-section")
+              setupSection?.scrollIntoView({ behavior: "smooth", block: "start" })
+            } else {
+              // Navigate to dashboard then scroll
+              router.push("/app")
+              // Wait for navigation and scroll
+              setTimeout(() => {
+                const setupSection = document.getElementById("store-setup-section")
+                setupSection?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }, 100)
+            }
+          }}
+          className="fixed bottom-6 right-4 md:right-6 z-40 flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95"
         >
           <div className="relative shrink-0">
             <SetupProgressCircle progress={setupProgressPercent} size={32} />
@@ -720,8 +693,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <span className="text-[8px] font-bold text-violet-600">{setupProgressPercent}%</span>
             </div>
           </div>
-          <span className="text-[11px] font-semibold text-neutral-700 whitespace-nowrap">set up</span>
-        </Link>
+          <span className="text-[11px] font-semibold text-neutral-700 whitespace-nowrap">Setup</span>
+        </button>
       )}
     </>
   )

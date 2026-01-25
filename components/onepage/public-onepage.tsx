@@ -3767,7 +3767,7 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? `${theme.button_color}`
               : "transparent",
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth:
           theme.button_style === "outline"
@@ -3777,7 +3777,7 @@ function PublicBlockRenderer({
               : "0",
         borderColor:
           theme.button_style === "outline"
-            ? theme.text_color
+            ? theme.button_border_color
             : theme.button_style === "glass"
               ? `${theme.button_text_color}30`
               : "transparent",
@@ -3883,7 +3883,7 @@ function PublicBlockRenderer({
                   backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
                 }}
               >
-                <span className="truncate font-medium" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+                <span className="truncate font-medium" style={{ color: theme.button_text_color }}>
                   {data.label || "Watch on YouTube"}
                 </span>
               </a>
@@ -3960,7 +3960,7 @@ function PublicBlockRenderer({
                     <svg
                       viewBox="0 0 24 24"
                       className="w-16 h-16"
-                      style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}
+                      style={{ color: theme.button_text_color }}
                       fill={isFilledIcon ? "currentColor" : "none"}
                       stroke={isFilledIcon ? "none" : "currentColor"}
                       strokeWidth={isFilledIcon ? undefined : "2"}
@@ -4003,7 +4003,7 @@ function PublicBlockRenderer({
                 backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
               }}
             >
-              <span className="truncate font-medium max-w-full block" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+              <span className="truncate font-medium max-w-full block" style={{ color: theme.button_text_color }}>
                 {data.label || "Link"}
               </span>
               {/* Spotify metadata display for Pro Layout */}
@@ -4011,7 +4011,7 @@ function PublicBlockRenderer({
                 <span
                   className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                   style={{
-                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    color: theme.button_text_color,
                     opacity: 0.75
                   }}
                 >
@@ -4032,7 +4032,7 @@ function PublicBlockRenderer({
                 <span
                   className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                   style={{
-                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    color: theme.button_text_color,
                     opacity: 0.75
                   }}
                 >
@@ -4178,7 +4178,7 @@ function PublicBlockRenderer({
                 <span
                     className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                     style={{
-                      color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                      color: theme.button_text_color,
                       opacity: 0.75
                     }}
                   >
@@ -4242,7 +4242,7 @@ function PublicBlockRenderer({
                 <span
                   className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                   style={{
-                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    color: theme.button_text_color,
                     opacity: 0.75
                   }}
                 >
@@ -4313,7 +4313,7 @@ function PublicBlockRenderer({
               <span
                 className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                 style={{
-                  color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                  color: theme.button_text_color,
                   opacity: 0.75
                 }}
               >
@@ -4334,7 +4334,7 @@ function PublicBlockRenderer({
               <span
                 className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
                 style={{
-                  color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                  color: theme.button_text_color,
                   opacity: 0.75
                 }}
               >
@@ -4587,7 +4587,7 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? `${theme.button_color}`
               : "transparent",
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderColor:
@@ -5135,7 +5135,7 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? `${theme.button_color}`
               : "transparent",
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth:
           theme.button_style === "outline"
@@ -5145,7 +5145,7 @@ function PublicBlockRenderer({
               : "0",
         borderColor:
           theme.button_style === "outline"
-            ? theme.text_color
+            ? theme.button_border_color
             : theme.button_style === "glass"
               ? `${theme.button_text_color}30`
               : "transparent",
@@ -5451,7 +5451,7 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? `${theme.button_color}`
               : "transparent",
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderColor:
@@ -5503,7 +5503,7 @@ function PublicBlockRenderer({
         }
       }
 
-      const textColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
+      const textColor = theme.button_text_color
       const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
 
       // Featured (Pro) layout with thumbnail, title, description
@@ -5642,7 +5642,7 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? `${theme.button_color}`
               : "transparent",
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderColor:
@@ -5694,7 +5694,7 @@ function PublicBlockRenderer({
         }
       }
 
-      const textColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
+      const textColor = theme.button_text_color
       const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
 
       // Featured (Pro) layout with thumbnail, title, description
@@ -5833,7 +5833,7 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? `${theme.button_color}`
               : "transparent",
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderColor:
@@ -5893,7 +5893,7 @@ function PublicBlockRenderer({
         setShowCalendlyModal(false)
       }
 
-      const textColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
+      const textColor = theme.button_text_color
       const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
 
       // Check if inline embed mode

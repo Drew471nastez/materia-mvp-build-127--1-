@@ -483,11 +483,11 @@ const THEME_TEMPLATES = [
       text_color: "#1c1917",
       secondary_text_color: "#78716c",
       button_color: "#1c1917",
-      button_text_color: "#fffbeb",
+      button_text_color: "#363221",
       button_style: "outline" as const,
       button_border_radius: 24,
       button_border_width: 2,
-      button_border_color: "#1c1917",
+      button_border_color: "#363221",
       button_shadow: "none",
       font_family: "'Lora', serif",
       title_font: "'Playfair Display', serif",
@@ -1676,7 +1676,7 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
-      {/* Video Crop Modal */}
+      {/* Video Crop Modal - Simple 1:1 crop like image crop */}
       <Dialog open={showVideoCropModal} onOpenChange={(open) => {
         setShowVideoCropModal(open)
         if (!open) {
@@ -1687,110 +1687,73 @@ function HeaderSection() {
           setIsVideoResizing(null)
         }
       }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-[360px] sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto z-[60]">
-          <DialogHeader className="p-4 border-b flex flex-row items-center gap-3">
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto z-[60]">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-base font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
           </DialogHeader>
-          <div className="p-4 space-y-3">
+          <div className="p-5 space-y-4">
             {tempVideoUrl && (
               <>
                 <div
                   ref={videoCropContainerRef}
-                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden w-[220px] h-[293px] sm:w-[260px] sm:h-[347px] md:w-[300px] md:h-[400px]"
-                  style={{ touchAction: 'none' }}
+                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
+                  style={{ width: '300px', height: '300px', touchAction: 'none' }}
                 >
                   <video
                     ref={videoPreviewRef}
                     src={tempVideoUrl}
-                    className="w-full h-full object-cover pointer-events-none rounded-xl"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover pointer-events-none"
                     autoPlay
                     loop
                     muted
                     playsInline
                   />
 
-                  {/* Crop box - draggable */}
+                  {/* Crop box - 1:1 square ratio */}
                   <div
-                    className="absolute border-2 border-white border-dashed cursor-move"
+                    className="absolute cursor-move"
                     style={{
                       left: `${videoCropBox.x}%`,
                       top: `${videoCropBox.y}%`,
                       width: `${videoCropBox.width}%`,
-                      height: `${videoCropBox.height}%`,
+                      height: `${videoCropBox.width}%`,
+                      border: '2px solid #3b82f6',
                       boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      background: 'transparent',
                       touchAction: 'none'
                     }}
                     onMouseDown={(e) => handleVideoCropMouseDown(e, 'drag')}
                     onTouchStart={(e) => handleVideoCropTouchStart(e, 'drag')}
                   >
-                    {/* Grid lines */}
+                    {/* Grid overlay */}
                     <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
                       {[...Array(9)].map((_, i) => (
                         <div key={i} className="border border-white/30" />
                       ))}
                     </div>
 
-                    {/* Corner resize handles - much larger for mobile touch */}
+                    {/* Corner handles */}
+                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
+                    <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
                     <div
-                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
-                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'top-left') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'top-left') }}
-                    />
-                    <div
-                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
-                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'top-right') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'top-right') }}
-                    />
-                    <div
-                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
-                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom-left') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom-left') }}
-                    />
-                    <div
-                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
-                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
+                      className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize"
                       onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom-right') }}
                       onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom-right') }}
                     />
-
-                    {/* Edge resize handles - larger for mobile touch */}
-                    <div
-                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-n-resize z-50"
-                      style={{ top: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'top') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'top') }}
-                    />
-                    <div
-                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-s-resize z-50"
-                      style={{ bottom: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom') }}
-                    />
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-w-resize z-50"
-                      style={{ left: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'left') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'left') }}
-                    />
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-e-resize z-50"
-                      style={{ right: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'right') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'right') }}
-                    />
                   </div>
                 </div>
-                
-                <p className="text-xs text-center text-gray-500">Drag to move, use corners to resize</p>
-                
-                <Button onClick={handleVideoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingVideo}>
-                  {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
-                </Button>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  Drag to move, drag bottom-right corner to resize
+                </p>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="flex-1">Cancel</Button>
+                  <Button onClick={handleVideoCropSave} className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={uploadingVideo}>
+                    {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
+                  </Button>
+                </div>
               </>
             )}
           </div>
