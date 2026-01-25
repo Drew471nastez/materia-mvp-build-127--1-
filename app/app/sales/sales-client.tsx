@@ -204,13 +204,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [isChartLoading, setIsChartLoading] = useState(false)
 
   const [summary, setSummary] = useState(initialSummary)
-  const [orders, setOrders] = useState<Order[]>([])
-  const [allOrders, setAllOrders] = useState<Order[]>([])
-  const [totalCount, setTotalCount] = useState(0)
+  const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [allOrders, setAllOrders] = useState<Order[]>(initialOrders)
+  const [totalCount, setTotalCount] = useState(initialOrders.length)
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([])
-  const [isInitialLoading, setIsInitialLoading] = useState(true)
-
-  const supabase = createClient()
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -266,51 +263,18 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     }
   }
 
-  const fetchSalesData = async () => {
+  const fetchSalesData = () => {
     setIsLoading(true)
     try {
       const option = timeframeOptions.find((o) => o.value === timeframe)
       if (!option) return
 
       const { start, end } = option.getDates()
-      const productIds = products.map((p) => p.id)
 
-      if (productIds.length === 0) {
-        setOrders([])
-        setAllOrders([])
-        setTotalCount(0)
-        setMonthlyReports([])
-        setIsLoading(false)
-        return
-      }
-
-      // Fetch orders client-side (like dashboard does - this works!)
-      const { data: fetchedOrders, error } = await supabase
-        .from("orders")
-        .select("*")
-        .in("product_id", productIds)
-        .gte("created_at", start.toISOString())
-        .lte("created_at", end.toISOString())
-        .order("created_at", { ascending: false })
-
-      if (error) {
-        console.error("Error fetching orders:", error)
-        setIsLoading(false)
-        return
-      }
-
-      // Map orders with product info
-      let filteredOrders = (fetchedOrders || []).map(order => {
-        const product = products.find(p => p.id === order.product_id)
-        return {
-          ...order,
-          product: product ? {
-            id: product.id,
-            title: product.title,
-            type: product.type,
-            cover_image: (product as any).cover_image
-          } : null
-        }
+      // Filter from initialOrders (server-side fetched data - bypasses RLS)
+      let filteredOrders = initialOrders.filter(o => {
+        const orderDate = new Date(o.created_at)
+        return orderDate >= start && orderDate <= end
       })
 
       // Apply search filter
@@ -366,34 +330,12 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         refundAmount: refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0),
       })
 
-      // Fetch ALL orders (all time) for monthly reports
-      const { data: allTimeOrders } = await supabase
-        .from("orders")
-        .select("*")
-        .in("product_id", productIds)
-        .order("created_at", { ascending: false })
-
-      if (allTimeOrders) {
-        const allOrdersWithProducts = allTimeOrders.map(order => {
-          const product = products.find(p => p.id === order.product_id)
-          return {
-            ...order,
-            product: product ? {
-              id: product.id,
-              title: product.title,
-              type: product.type,
-              cover_image: (product as any).cover_image
-            } : null
-          }
-        })
-        setAllOrders(allOrdersWithProducts)
-        generateMonthlyReports(allOrdersWithProducts)
-      }
+      // Generate monthly reports from ALL initialOrders (all time)
+      generateMonthlyReports(initialOrders)
     } catch (error) {
-      console.error("Error fetching sales data:", error)
+      console.error("Error filtering sales data:", error)
     } finally {
       setIsLoading(false)
-      setIsInitialLoading(false)
     }
   }
 
@@ -452,8 +394,8 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       const { start, end } = option.getDates()
       const points: ChartDataPoint[] = []
 
-      // Filter completed orders from allOrders (client-fetched data)
-      const completedOrders = allOrders.filter(o => o.status === "completed")
+      // Filter completed orders from initialOrders (server-fetched data)
+      const completedOrders = initialOrders.filter(o => o.status === "completed")
 
       if (completedOrders.length === 0) {
         setChartData([])
@@ -733,8 +675,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   }
 
   // Check if there are any orders in selected timeframe or any orders all time
-  // Don't show empty state while still loading
-  const hasOrders = isInitialLoading || orders.length > 0 || allOrders.length > 0 || summary.totalOrders > 0
+  const hasOrders = orders.length > 0 || initialOrders.length > 0 || summary.totalOrders > 0
   const hasChartData = chartData.some(d => d.value > 0)
 
   return (
