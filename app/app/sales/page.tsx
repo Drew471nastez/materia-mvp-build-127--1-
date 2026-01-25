@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { SalesClient } from "./sales-client"
 
 export const dynamic = "force-dynamic"
@@ -9,9 +9,22 @@ export const metadata = {
   title: "Sales | Storelib",
 }
 
+// Create admin client directly to ensure it works
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+  return createSupabaseClient(url, serviceKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  })
+}
+
 export default async function SalesPage() {
   const supabase = await createClient()
-  const adminSupabase = createAdminClient()
 
   const {
     data: { user },
@@ -21,7 +34,10 @@ export default async function SalesPage() {
     redirect("/login")
   }
 
-  // Use admin client to fetch creator (bypass RLS)
+  // Use admin client directly
+  const adminSupabase = getAdminClient()
+
+  // Fetch creator
   const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")
     .select("id, stripe_account_id, stripe_onboarding_status, default_currency")
@@ -29,20 +45,18 @@ export default async function SalesPage() {
     .single()
 
   if (creatorError || !creator) {
-    console.log("[Sales] Creator not found for user:", user.id, creatorError)
+    console.error("[Sales] Creator error:", creatorError)
     redirect("/onboarding")
   }
 
-  console.log("[Sales] Found creator:", creator.id)
-
-  // Fetch creator profile for PDF reports
+  // Fetch profile
   const { data: profile } = await adminSupabase
     .from("profiles")
     .select("display_name")
     .eq("id", user.id)
     .single()
 
-  // Fetch ALL products for this creator (using admin to bypass RLS)
+  // Fetch ALL products for this creator
   const { data: productsData, error: productsError } = await adminSupabase
     .from("products")
     .select("id, title, type, price_cents, cover_image")
@@ -50,13 +64,15 @@ export default async function SalesPage() {
     .order("title")
 
   if (productsError) {
-    console.log("[Sales] Products fetch error:", productsError)
+    console.error("[Sales] Products error:", productsError)
   }
 
   const products = productsData || []
   const productIds = products.map((p) => p.id)
 
-  console.log("[Sales] Found products:", products.length, "Product IDs:", productIds)
+  console.log("[Sales] Creator ID:", creator.id)
+  console.log("[Sales] Products found:", products.length)
+  console.log("[Sales] Product IDs:", productIds)
 
   let initialSummary = {
     totalSales: 0,
@@ -77,10 +93,10 @@ export default async function SalesPage() {
       .order("created_at", { ascending: false })
 
     if (ordersError) {
-      console.log("[Sales] Orders fetch error:", ordersError)
+      console.error("[Sales] Orders error:", ordersError)
     }
 
-    console.log("[Sales] Found orders:", allOrders?.length || 0)
+    console.log("[Sales] Orders found:", allOrders?.length || 0)
 
     initialOrders = (allOrders || []).map(order => {
       const product = products.find(p => p.id === order.product_id)
@@ -107,11 +123,10 @@ export default async function SalesPage() {
     const refundedOrders = initialOrders.filter(o => o.status === "refunded")
     initialSummary.refundCount = refundedOrders.length
     initialSummary.refundAmount = refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-
-    console.log("[Sales] Summary:", initialSummary)
-  } else {
-    console.log("[Sales] No products found, skipping orders fetch")
   }
+
+  console.log("[Sales] Final summary:", initialSummary)
+  console.log("[Sales] Final orders count:", initialOrders.length)
 
   return (
     <SalesClient

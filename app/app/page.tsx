@@ -1,13 +1,26 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { DashboardClient } from "@/components/app/dashboard-client"
 
 export const dynamic = "force-dynamic"
 
+// Create admin client directly to ensure it works
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+  return createSupabaseClient(url, serviceKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  })
+}
+
 export default async function AppDashboard() {
   const supabase = await createClient()
-  const adminSupabase = createAdminClient()
 
   const {
     data: { user },
@@ -15,7 +28,9 @@ export default async function AppDashboard() {
 
   if (!user) redirect("/login")
 
-  // Use admin client to bypass RLS
+  // Use admin client directly
+  const adminSupabase = getAdminClient()
+
   const { data: creator } = await adminSupabase
     .from("creators")
     .select("*")
@@ -73,7 +88,7 @@ export default async function AppDashboard() {
       .in("product_id", productIds)
 
     if (ordersError) {
-      console.log("[Dashboard] Orders fetch error:", ordersError)
+      console.error("[Dashboard] Orders error:", ordersError)
     }
 
     totalOrders = allOrders?.length || 0
