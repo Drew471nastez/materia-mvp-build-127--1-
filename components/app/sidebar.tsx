@@ -139,26 +139,34 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const Icon = item.icon
     const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
 
-    const handleClick = (e: React.MouseEvent) => {
-      if (item.forceNavigation) {
-        e.preventDefault()
-        onClick?.()
-        window.location.href = item.href
-        return
-      }
-      onClick?.()
+    const baseClassName = cn(
+      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150 w-full text-left",
+      isActive
+        ? "bg-neutral-200 text-neutral-900"
+        : "text-neutral-600 hover:bg-neutral-100/50 hover:text-neutral-900",
+    )
+
+    // Use button for force navigation to ensure reliable click handling
+    if (item.forceNavigation) {
+      return (
+        <button
+          onClick={() => {
+            onClick?.()
+            window.location.href = item.href
+          }}
+          className={baseClassName}
+        >
+          <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+          <span>{item.label}</span>
+        </button>
+      )
     }
 
     return (
       <Link
         href={item.href}
-        onClick={handleClick}
-        className={cn(
-          "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150",
-          isActive
-            ? "bg-neutral-200 text-neutral-900"
-            : "text-neutral-600 hover:bg-neutral-100/50 hover:text-neutral-900",
-        )}
+        onClick={() => onClick?.()}
+        className={baseClassName}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
         <span>{item.label}</span>
@@ -171,26 +179,34 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const Icon = item.icon
     const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
 
-    const handleClick = (e: React.MouseEvent) => {
-      if (item.forceNavigation) {
-        e.preventDefault()
-        onClick?.()
-        window.location.href = item.href
-        return
-      }
-      onClick?.()
+    const baseClassName = cn(
+      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150 w-full text-left",
+      isActive
+        ? "bg-white/15 text-white"
+        : "text-white/70 hover:bg-white/10 hover:text-white",
+    )
+
+    // Use button for force navigation to ensure reliable click handling
+    if (item.forceNavigation) {
+      return (
+        <button
+          onClick={() => {
+            onClick?.()
+            window.location.href = item.href
+          }}
+          className={baseClassName}
+        >
+          <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+          <span>{item.label}</span>
+        </button>
+      )
     }
 
     return (
       <Link
         href={item.href}
-        onClick={handleClick}
-        className={cn(
-          "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150",
-          isActive
-            ? "bg-white/15 text-white"
-            : "text-white/70 hover:bg-white/10 hover:text-white",
-        )}
+        onClick={() => onClick?.()}
+        className={baseClassName}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
         <span>{item.label}</span>
