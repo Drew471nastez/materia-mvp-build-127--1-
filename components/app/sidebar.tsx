@@ -18,6 +18,7 @@ import {
   HelpCircle,
   Zap,
   ChevronDown,
+  ChevronRight,
   Compass,
   Library,
   Bell,
