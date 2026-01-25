@@ -1,30 +1,18 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { SalesClient } from "./sales-client"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export const metadata = {
   title: "Sales | Storelib",
 }
 
-// Create admin client directly to ensure it works
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-  return createSupabaseClient(url, serviceKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  })
-}
-
 export default async function SalesPage() {
   const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   const {
     data: { user },
@@ -34,46 +22,34 @@ export default async function SalesPage() {
     redirect("/login")
   }
 
-  // Use admin client directly
-  const adminSupabase = getAdminClient()
-
-  // Fetch creator
-  const { data: creator, error: creatorError } = await adminSupabase
+  // Step 1: Get creator
+  const { data: creator } = await adminSupabase
     .from("creators")
-    .select("id, stripe_account_id, stripe_onboarding_status, default_currency")
+    .select("*")
     .eq("user_id", user.id)
     .single()
 
-  if (creatorError || !creator) {
-    console.error("[Sales] Creator error:", creatorError)
+  if (!creator) {
     redirect("/onboarding")
   }
 
-  // Fetch profile
+  // Step 2: Get profile
   const { data: profile } = await adminSupabase
     .from("profiles")
     .select("display_name")
     .eq("id", user.id)
     .single()
 
-  // Fetch ALL products for this creator
-  const { data: productsData, error: productsError } = await adminSupabase
+  // Step 3: Get ALL products for this creator
+  const { data: productsData } = await adminSupabase
     .from("products")
-    .select("id, title, type, price_cents, cover_image")
+    .select("*")
     .eq("creator_id", creator.id)
-    .order("title")
-
-  if (productsError) {
-    console.error("[Sales] Products error:", productsError)
-  }
 
   const products = productsData || []
-  const productIds = products.map((p) => p.id)
 
-  console.log("[Sales] Creator ID:", creator.id)
-  console.log("[Sales] Products found:", products.length)
-  console.log("[Sales] Product IDs:", productIds)
-
+  // Step 4: Get ALL orders for these products
+  let initialOrders: any[] = []
   let initialSummary = {
     totalSales: 0,
     totalOrders: 0,
@@ -82,23 +58,17 @@ export default async function SalesPage() {
     refundAmount: 0,
   }
 
-  let initialOrders: any[] = []
+  if (products.length > 0) {
+    const productIds = products.map(p => p.id)
 
-  // Fetch ALL orders for this creator's products
-  if (productIds.length > 0) {
-    const { data: allOrders, error: ordersError } = await adminSupabase
+    const { data: ordersData } = await adminSupabase
       .from("orders")
       .select("*")
       .in("product_id", productIds)
       .order("created_at", { ascending: false })
 
-    if (ordersError) {
-      console.error("[Sales] Orders error:", ordersError)
-    }
-
-    console.log("[Sales] Orders found:", allOrders?.length || 0)
-
-    initialOrders = (allOrders || []).map(order => {
+    // Map orders with product info
+    initialOrders = (ordersData || []).map(order => {
       const product = products.find(p => p.id === order.product_id)
       return {
         ...order,
@@ -111,7 +81,7 @@ export default async function SalesPage() {
       }
     })
 
-    // Calculate summary from completed orders
+    // Calculate summary
     const completedOrders = initialOrders.filter(o => o.status === "completed")
     initialSummary.totalSales = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
     initialSummary.totalOrders = completedOrders.length
@@ -119,19 +89,21 @@ export default async function SalesPage() {
       ? Math.round(initialSummary.totalSales / completedOrders.length)
       : 0
 
-    // Get refunds count
     const refundedOrders = initialOrders.filter(o => o.status === "refunded")
     initialSummary.refundCount = refundedOrders.length
     initialSummary.refundAmount = refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
   }
 
-  console.log("[Sales] Final summary:", initialSummary)
-  console.log("[Sales] Final orders count:", initialOrders.length)
-
   return (
     <SalesClient
       creatorId={creator.id}
-      products={products}
+      products={products.map(p => ({
+        id: p.id,
+        title: p.title,
+        type: p.type,
+        price_cents: p.price_cents,
+        cover_image: p.cover_image
+      }))}
       initialSummary={initialSummary}
       initialOrders={initialOrders}
       currency={creator.default_currency || "USD"}
