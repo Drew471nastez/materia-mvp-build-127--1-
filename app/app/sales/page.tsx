@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { SalesClient } from "./sales-client"
 
 export const dynamic = "force-dynamic"
@@ -56,11 +57,12 @@ export default async function SalesPage() {
     refundAmount: 0,
   }
 
-  // Fetch ALL orders for this creator's products (server-side to bypass RLS)
+  // Fetch ALL orders for this creator's products (using admin client to bypass RLS)
   let initialOrders: any[] = []
 
   if (productIds.length > 0) {
-    const { data: allOrders } = await supabase
+    const adminSupabase = createAdminClient()
+    const { data: allOrders } = await adminSupabase
       .from("orders")
       .select("*")
       .in("product_id", productIds)
