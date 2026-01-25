@@ -56,16 +56,20 @@ interface Order {
   status: string
   payment_method?: string
   created_at: string
+  buyer_id?: string | null
+  buyer_email?: string
+  buyer_first_name?: string
+  buyer_last_name?: string
   buyer?: {
     email: string
     display_name: string
-  }
+  } | null
   product?: {
     id: string
     title: string
     type: string
     cover_image?: string
-  }
+  } | null
 }
 
 interface ChartDataPoint {
@@ -277,12 +281,12 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
       }
 
       // Fetch orders for the selected timeframe (for display and KPIs)
+      // Use left join for buyer profile (buyer_id can be null for guest orders)
       let ordersQuery = supabase
         .from("orders")
         .select(`
           *,
-          product:products!orders_product_id_fkey(id, title, type, cover_image),
-          buyer:profiles!orders_buyer_id_fkey(email, display_name)
+          product:products(id, title, type, cover_image)
         `)
         .in("product_id", productIds)
         .gte("created_at", start.toISOString())
@@ -301,6 +305,9 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         filteredOrders = filteredOrders.filter(
           (o) =>
             o.id.toLowerCase().includes(query) ||
+            o.buyer_email?.toLowerCase().includes(query) ||
+            o.buyer_first_name?.toLowerCase().includes(query) ||
+            o.buyer_last_name?.toLowerCase().includes(query) ||
             o.buyer?.email?.toLowerCase().includes(query) ||
             o.buyer?.display_name?.toLowerCase().includes(query) ||
             o.product?.title?.toLowerCase().includes(query)
@@ -321,6 +328,9 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         if (appliedFilters.customer) {
           const customerQuery = appliedFilters.customer.toLowerCase()
           filteredOrders = filteredOrders.filter(o =>
+            o.buyer_email?.toLowerCase().includes(customerQuery) ||
+            o.buyer_first_name?.toLowerCase().includes(customerQuery) ||
+            o.buyer_last_name?.toLowerCase().includes(customerQuery) ||
             o.buyer?.email?.toLowerCase().includes(customerQuery) ||
             o.buyer?.display_name?.toLowerCase().includes(customerQuery)
           )
@@ -351,8 +361,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         .from("orders")
         .select(`
           *,
-          product:products!orders_product_id_fkey(id, title, type, cover_image),
-          buyer:profiles!orders_buyer_id_fkey(email, display_name)
+          product:products(id, title, type, cover_image)
         `)
         .in("product_id", productIds)
         .order("created_at", { ascending: false })
@@ -614,7 +623,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
               <tr>
                 <td>${formatDate(order.created_at)}</td>
                 <td>#${order.id.slice(0, 8)}</td>
-                <td>${order.buyer?.email || 'Unknown'}</td>
+                <td>${order.buyer?.email || order.buyer_email || 'Unknown'}</td>
                 <td>${order.product?.title || 'Unknown'}</td>
                 <td class="status status-${order.status}">${order.status}</td>
                 <td class="amount">${order.amount_cents > 0 ? formatPrice(order.amount_cents) : 'Free'}</td>
@@ -694,8 +703,8 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
     const rows = orders.map((order) => [
       order.id,
       formatDate(order.created_at),
-      order.buyer?.display_name || "Unknown",
-      order.buyer?.email || "",
+      order.buyer?.display_name || (order.buyer_first_name && order.buyer_last_name ? `${order.buyer_first_name} ${order.buyer_last_name}` : "Unknown"),
+      order.buyer?.email || order.buyer_email || "",
       order.product?.title || "Unknown",
       formatPrice(order.amount_cents),
       order.status,
@@ -1249,41 +1258,34 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         ) : (
           /* All Orders Tab - Orders List or Empty State */
           !hasOrders ? (
-            /* Empty State - Promotional Banner */
-            <div className="space-y-6">
-              {/* Promotional Banner - Like Storelib Editions */}
-              <div
-                className="relative overflow-hidden rounded-2xl"
-                style={{
-                  backgroundImage: `url('https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/9965079.jpg')`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
-                <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Start Selling</span>
-                    <span className="text-white/60 hidden sm:inline">|</span>
-                    <span className="text-[13px] sm:text-[15px] text-white/90 hidden sm:inline">Your journey begins</span>
-                  </div>
-                  <p className="text-[16px] sm:text-[20px] font-medium text-white mb-3 sm:mb-4">You're one step away from making your first sale.</p>
-                  <p className="text-[13px] sm:text-[14px] text-white/80 mb-4 max-w-lg">Every time a new customer purchases a product from your Storelib, their details appear here.</p>
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <Link
-                      href="/app/products/new"
-                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
-                    >
-                      Start selling
-                    </Link>
-                    <Link
-                      href="/app/onepage"
-                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors"
-                    >
-                      Edit OnePage
-                    </Link>
-                  </div>
-                </div>
+            /* Empty State - Banner + Text Below */
+            <div className="flex flex-col items-center">
+              {/* Banner Image */}
+              <div className="w-full max-w-3xl mb-8">
+                <div
+                  className="relative overflow-hidden rounded-2xl h-[200px] sm:h-[260px]"
+                  style={{
+                    backgroundImage: `url('https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/9965079.jpg')`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
+                />
+              </div>
+
+              {/* Text Content Below */}
+              <div className="text-center max-w-xl px-4">
+                <h2 className="text-[20px] sm:text-[24px] font-semibold text-[#1a1a2e] mb-3">
+                  Manage all of your sales in one place.
+                </h2>
+                <p className="text-[14px] sm:text-[15px] text-[#6b7280] mb-6">
+                  Every time a new customer purchases a product from your Storelib, their email address and other details are added here.
+                </p>
+                <Link
+                  href="/app/products/new"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#8b5cf6] text-white text-[14px] font-medium rounded-lg hover:bg-[#7c3aed] transition-colors"
+                >
+                  Start selling today
+                </Link>
               </div>
             </div>
           ) : (
@@ -1307,9 +1309,9 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                         <td className="px-5 py-4">
                           <div>
                             <p className="text-[14px] font-medium text-[#1a1a2e]">
-                              {order.buyer?.display_name || "Customer"}
+                              {order.buyer?.display_name || (order.buyer_first_name && order.buyer_last_name ? `${order.buyer_first_name} ${order.buyer_last_name}` : "Customer")}
                             </p>
-                            <p className="text-[12px] text-[#6b7280]">{order.buyer?.email}</p>
+                            <p className="text-[12px] text-[#6b7280]">{order.buyer?.email || order.buyer_email || ""}</p>
                           </div>
                         </td>
                         <td className="px-5 py-4">
