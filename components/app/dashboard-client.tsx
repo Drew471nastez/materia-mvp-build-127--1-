@@ -368,186 +368,6 @@ function TimeframeBottomSheet({
   )
 }
 
-// KPI Detail Modal with Bar Chart
-function KPIDetailModal({
-  isOpen,
-  onClose,
-  kpiType,
-  chartData,
-  isLoading,
-  timeframe,
-  formatCurrency,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  kpiType: KPIType
-  chartData: ChartDataPoint[]
-  isLoading: boolean
-  timeframe: string
-  formatCurrency: (cents: number) => string
-}) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      document.body.style.overflow = ""
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-      }, 300)
-      return () => clearTimeout(timer)
-    }
-    return () => {
-      document.body.style.overflow = ""
-    }
-  }, [isOpen, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setTimeout(() => {
-      onClose()
-    }, 300)
-  }
-
-  if (!isVisible) return null
-
-  const maxValue = Math.max(...chartData.map((d) => d.value), 1)
-  const kpiLabels: Record<string, { title: string; unit: string; color: string }> = {
-    views: { title: "Views", unit: "views", color: "#8b5cf6" },
-    orders: { title: "Orders", unit: "orders", color: "#10b981" },
-    revenue: { title: "Revenue", unit: "", color: "#f59e0b" },
-  }
-  const kpiInfo = kpiType ? kpiLabels[kpiType] : kpiLabels.views
-
-  const periodLabels: Record<string, string> = {
-    today: "hourly",
-    last_7_days: "daily",
-    last_30_days: "daily",
-    last_year: "monthly",
-  }
-
-  return (
-    <div className="fixed inset-0 z-[100]">
-      {/* Backdrop */}
-      <div
-        className={`absolute inset-0 bg-black transition-opacity duration-300 ease-out ${
-          isAnimating ? "opacity-50" : "opacity-0"
-        }`}
-        onClick={handleClose}
-      />
-      {/* Modal */}
-      <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-        <div
-          className={`relative bg-white rounded-2xl shadow-xl w-full max-w-lg pointer-events-auto transition-all duration-300 ease-out ${
-            isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
-          }`}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-gray-100">
-            <div>
-              <h3 className="text-[17px] font-semibold text-[#1a1a2e]">{kpiInfo.title}</h3>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">
-                {periodLabels[timeframe] || "daily"} breakdown
-              </p>
-            </div>
-            <button
-              onClick={handleClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <X className="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-
-          {/* Chart */}
-          <div className="p-5">
-            {isLoading ? (
-              <div className="h-[250px] flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-violet-500 border-t-transparent" />
-              </div>
-            ) : (
-              <div className="relative h-[250px]">
-                {/* Y-axis labels */}
-                <div className="absolute left-0 top-0 bottom-8 w-10 flex flex-col justify-between text-[10px] text-gray-400">
-                  <span>{kpiType === "revenue" ? `$${maxValue.toFixed(0)}` : maxValue}</span>
-                  <span>{kpiType === "revenue" ? `$${(maxValue / 2).toFixed(0)}` : Math.round(maxValue / 2)}</span>
-                  <span>0</span>
-                </div>
-
-                {/* Chart area */}
-                <div className="ml-12 h-full flex items-end gap-1 pb-8 overflow-x-auto">
-                  {chartData.map((point, index) => {
-                    const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
-                    const isHovered = hoveredIndex === index
-
-                    return (
-                      <div
-                        key={index}
-                        className="flex-1 min-w-[20px] max-w-[40px] flex flex-col items-center relative group"
-                        onMouseEnter={() => setHoveredIndex(index)}
-                        onMouseLeave={() => setHoveredIndex(null)}
-                      >
-                        {/* Tooltip */}
-                        {isHovered && (
-                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[11px] px-2.5 py-1.5 rounded-lg whitespace-nowrap z-10 shadow-lg">
-                            <div className="font-semibold">{point.label}</div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-violet-300">
-                                {kpiType === "revenue" ? `$${point.value.toFixed(2)}` : `${point.value} ${kpiInfo.unit}`}
-                              </span>
-                              {kpiType === "views" && point.secondaryValue !== undefined && (
-                                <span className="text-gray-400">{point.secondaryValue} clicks</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Bar */}
-                        <div
-                          className="w-full rounded-t-md transition-all duration-200 cursor-pointer"
-                          style={{
-                            height: `${Math.max(heightPercent, 2)}%`,
-                            backgroundColor: isHovered ? kpiInfo.color : `${kpiInfo.color}99`,
-                            minHeight: '4px'
-                          }}
-                        />
-
-                        {/* X-axis label */}
-                        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] text-gray-400 whitespace-nowrap">
-                          {chartData.length > 12 && index % 2 !== 0 ? '' : point.label}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="px-5 pb-5">
-            <button
-              onClick={handleClose}
-              className="w-full py-2.5 text-[14px] font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function DashboardClient({
   creatorId,
   displayName,
@@ -1175,75 +995,202 @@ export function DashboardClient({
         />
 
         {/* Stats Cards */}
-        <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 ${isLoading ? "opacity-60" : ""}`}>
-          {/* Total Views */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
-              <button
-                onClick={() => setOpenKPIModal("views")}
-                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center hover:bg-[#e5e7eb] transition-colors cursor-pointer"
-              >
-                <Eye className="h-4 w-4 text-[#9ca3af]" />
-              </button>
+        <div className={`grid gap-4 mb-8 ${isLoading ? "opacity-60" : ""}`} style={{
+          gridTemplateColumns: openKPIModal ? '1fr' : 'repeat(2, 1fr)',
+        }}>
+          {/* Total Views - Expandable */}
+          <div
+            className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ${
+              openKPIModal === "views" ? "col-span-full" : ""
+            } ${openKPIModal && openKPIModal !== "views" ? "hidden" : ""}`}
+          >
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
+                <button
+                  onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                    openKPIModal === "views" ? "bg-violet-100 text-violet-600" : "bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#9ca3af]"
+                  }`}
+                >
+                  {openKPIModal === "views" ? <X className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                  {analyticsData.totalViews.toLocaleString()}
+                </span>
+                <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
+              </div>
+              <p className="text-[12px] text-[#9ca3af] mt-1">
+                {analyticsData.periodViews.toLocaleString()} {formatPeriodText(timeframe)}
+              </p>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                {analyticsData.totalViews.toLocaleString()}
-              </span>
-              <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
-            </div>
-            <p className="text-[12px] text-[#9ca3af] mt-1">
-              {analyticsData.periodViews.toLocaleString()} {formatPeriodText(timeframe)}
-            </p>
+
+            {/* Inline Chart for Views */}
+            {openKPIModal === "views" && (
+              <div className="px-5 pb-5 pt-2 border-t border-[#f3f4f6]">
+                {isChartLoading ? (
+                  <div className="h-[180px] flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-violet-500 border-t-transparent" />
+                  </div>
+                ) : (
+                  <div className="h-[180px] flex items-end gap-1 pt-6 relative">
+                    {chartData.map((point, index) => {
+                      const maxValue = Math.max(...chartData.map((d) => d.value), 1)
+                      const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
+                      return (
+                        <div key={index} className="flex-1 min-w-0 flex flex-col items-center group relative">
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                            <div className="font-medium">{point.label}</div>
+                            <div className="text-violet-300">{point.value} views</div>
+                            {point.secondaryValue !== undefined && <div className="text-gray-400">{point.secondaryValue} clicks</div>}
+                          </div>
+                          <div
+                            className="w-full rounded-t transition-all duration-200 bg-violet-400 hover:bg-violet-500 cursor-pointer"
+                            style={{ height: `${Math.max(heightPercent, 3)}%`, minHeight: '4px' }}
+                          />
+                          <span className="text-[8px] text-gray-400 mt-1 truncate w-full text-center">
+                            {chartData.length > 12 && index % 3 !== 0 ? '' : point.label.split(' ')[0]}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Total Orders */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
-              <button
-                onClick={() => setOpenKPIModal("orders")}
-                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center hover:bg-[#e5e7eb] transition-colors cursor-pointer"
-              >
-                <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
-              </button>
+          {/* Total Orders - Expandable */}
+          <div
+            className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ${
+              openKPIModal === "orders" ? "col-span-full" : ""
+            } ${openKPIModal && openKPIModal !== "orders" ? "hidden" : ""}`}
+          >
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
+                <button
+                  onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                    openKPIModal === "orders" ? "bg-emerald-100 text-emerald-600" : "bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#9ca3af]"
+                  }`}
+                >
+                  {openKPIModal === "orders" ? <X className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
+                </button>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                  {analyticsData.totalOrders.toLocaleString()}
+                </span>
+                <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
+              </div>
+              <p className="text-[12px] text-[#9ca3af] mt-1">
+                {analyticsData.periodOrders.toLocaleString()} {formatPeriodText(timeframe)}
+              </p>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                {analyticsData.totalOrders.toLocaleString()}
-              </span>
-              <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
-            </div>
-            <p className="text-[12px] text-[#9ca3af] mt-1">
-              {analyticsData.periodOrders.toLocaleString()} {formatPeriodText(timeframe)}
-            </p>
+
+            {/* Inline Chart for Orders */}
+            {openKPIModal === "orders" && (
+              <div className="px-5 pb-5 pt-2 border-t border-[#f3f4f6]">
+                {isChartLoading ? (
+                  <div className="h-[180px] flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-emerald-500 border-t-transparent" />
+                  </div>
+                ) : (
+                  <div className="h-[180px] flex items-end gap-1 pt-6 relative">
+                    {chartData.map((point, index) => {
+                      const maxValue = Math.max(...chartData.map((d) => d.value), 1)
+                      const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
+                      return (
+                        <div key={index} className="flex-1 min-w-0 flex flex-col items-center group relative">
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                            <div className="font-medium">{point.label}</div>
+                            <div className="text-emerald-300">{point.value} orders</div>
+                          </div>
+                          <div
+                            className="w-full rounded-t transition-all duration-200 bg-emerald-400 hover:bg-emerald-500 cursor-pointer"
+                            style={{ height: `${Math.max(heightPercent, 3)}%`, minHeight: '4px' }}
+                          />
+                          <span className="text-[8px] text-gray-400 mt-1 truncate w-full text-center">
+                            {chartData.length > 12 && index % 3 !== 0 ? '' : point.label.split(' ')[0]}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Total Revenue */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
-              <button
-                onClick={() => setOpenKPIModal("revenue")}
-                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center hover:bg-[#e5e7eb] transition-colors cursor-pointer"
-              >
-                <DollarSign className="h-4 w-4 text-[#9ca3af]" />
-              </button>
+          {/* Total Revenue - Expandable */}
+          <div
+            className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ${
+              openKPIModal === "revenue" ? "col-span-full" : ""
+            } ${openKPIModal && openKPIModal !== "revenue" ? "hidden" : ""}`}
+          >
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
+                <button
+                  onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                    openKPIModal === "revenue" ? "bg-amber-100 text-amber-600" : "bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#9ca3af]"
+                  }`}
+                >
+                  {openKPIModal === "revenue" ? <X className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
+                </button>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                  {formatCurrency(analyticsData.totalRevenue)}
+                </span>
+                <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
+              </div>
+              <p className="text-[12px] text-[#9ca3af] mt-1">
+                {formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}
+              </p>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                {formatCurrency(analyticsData.totalRevenue)}
-              </span>
-              <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
-            </div>
-            <p className="text-[12px] text-[#9ca3af] mt-1">
-              {formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}
-            </p>
+
+            {/* Inline Chart for Revenue */}
+            {openKPIModal === "revenue" && (
+              <div className="px-5 pb-5 pt-2 border-t border-[#f3f4f6]">
+                {isChartLoading ? (
+                  <div className="h-[180px] flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-amber-500 border-t-transparent" />
+                  </div>
+                ) : (
+                  <div className="h-[180px] flex items-end gap-1 pt-6 relative">
+                    {chartData.map((point, index) => {
+                      const maxValue = Math.max(...chartData.map((d) => d.value), 1)
+                      const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
+                      return (
+                        <div key={index} className="flex-1 min-w-0 flex flex-col items-center group relative">
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                            <div className="font-medium">{point.label}</div>
+                            <div className="text-amber-300">${point.value.toFixed(2)}</div>
+                          </div>
+                          <div
+                            className="w-full rounded-t transition-all duration-200 bg-amber-400 hover:bg-amber-500 cursor-pointer"
+                            style={{ height: `${Math.max(heightPercent, 3)}%`, minHeight: '4px' }}
+                          />
+                          <span className="text-[8px] text-gray-400 mt-1 truncate w-full text-center">
+                            {chartData.length > 12 && index % 3 !== 0 ? '' : point.label.split(' ')[0]}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Conversion Rate */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          {/* Conversion Rate - Non-expandable */}
+          <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${openKPIModal ? "hidden" : ""}`}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-[13px] font-medium text-[#6b7280]">Conversion Rate</span>
               <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
@@ -1259,17 +1206,6 @@ export function DashboardClient({
             <p className="text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
           </div>
         </div>
-
-        {/* KPI Detail Modal */}
-        <KPIDetailModal
-          isOpen={openKPIModal !== null}
-          onClose={() => setOpenKPIModal(null)}
-          kpiType={openKPIModal}
-          chartData={chartData}
-          isLoading={isChartLoading}
-          timeframe={timeframe}
-          formatCurrency={formatCurrency}
-        />
 
         {/* Storelib Promotional Banner - Responsive for all devices */}
         <div className="mb-8">
