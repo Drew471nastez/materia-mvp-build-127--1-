@@ -20,6 +20,8 @@ import {
   XCircle,
   FileText,
   Eye,
+  BarChart3,
+  Users,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -175,7 +177,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
   const [isLoading, setIsLoading] = useState(false)
   const [timeframe, setTimeframe] = useState("last_30_days")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<"sales" | "reports">("sales")
+  const [activeTab, setActiveTab] = useState<"orders" | "reports">("orders")
 
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -688,14 +690,14 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center" style={{ gap: '14px' }}>
             <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Sales</h1>
 
             {/* Timeframe Dropdown */}
             <div className="relative timeframe-dropdown">
               <button
                 onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-full text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-full text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
               >
                 <Calendar className="h-3.5 w-3.5 text-[#9ca3af]" />
                 {selectedOption?.shortLabel || "30 days"}
@@ -710,7 +712,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                         setTimeframe(option.value)
                         setIsTimeframeOpen(false)
                       }}
-                      className={`w-full text-left px-3 py-2 text-[13px] font-medium transition-colors ${
+                      className={`w-full text-left px-3 py-2 text-[13px] font-medium transition-colors cursor-pointer ${
                         timeframe === option.value
                           ? "bg-[#f5f3ff] text-[#8b5cf6]"
                           : "text-[#374151] hover:bg-[#f9fafb]"
@@ -723,10 +725,22 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
               )}
             </div>
 
+            {/* All Orders Tab */}
+            <button
+              onClick={() => setActiveTab("orders")}
+              className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer ${
+                activeTab === "orders"
+                  ? "bg-[#e5e7eb] text-[#374151]"
+                  : "text-[#6b7280] hover:bg-[#f3f4f6]"
+              }`}
+            >
+              All Orders
+            </button>
+
             {/* Sales Reports Tab */}
             <button
-              onClick={() => setActiveTab(activeTab === "reports" ? "sales" : "reports")}
-              className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
+              onClick={() => setActiveTab("reports")}
+              className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer ${
                 activeTab === "reports"
                   ? "bg-[#e5e7eb] text-[#374151]"
                   : "text-[#6b7280] hover:bg-[#f3f4f6]"
@@ -763,7 +777,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
               ) : (
                 <button
                   onClick={() => setIsSearchOpen(true)}
-                  className="p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm"
+                  className="p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
                 >
                   <Search className="h-4 w-4" />
                 </button>
@@ -774,7 +788,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
             <div className="relative">
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`filter-button p-2 bg-white border rounded-lg transition-colors shadow-sm ${
+                className={`filter-button p-2 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer ${
                   appliedFilters ? "border-[#8b5cf6] text-[#8b5cf6]" : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
                 }`}
               >
@@ -905,7 +919,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
             {/* Download */}
             <button
               onClick={handleExportCSV}
-              className="p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm"
+              className="p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
               title="Export CSV"
             >
               <Download className="h-4 w-4" />
@@ -942,7 +956,8 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                     ))}
                   </div>
                 ) : !hasChartData ? (
-                  <div className="h-[80px] flex items-center justify-center">
+                  <div className="h-[80px] flex items-center justify-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
                     <span className="text-[12px] text-[#9ca3af]">No data</span>
                   </div>
                 ) : (
@@ -1007,7 +1022,8 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                     ))}
                   </div>
                 ) : !hasChartData ? (
-                  <div className="h-[80px] flex items-center justify-center">
+                  <div className="h-[80px] flex items-center justify-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
                     <span className="text-[12px] text-[#9ca3af]">No data</span>
                   </div>
                 ) : (
@@ -1072,7 +1088,8 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                     ))}
                   </div>
                 ) : !hasChartData ? (
-                  <div className="h-[80px] flex items-center justify-center">
+                  <div className="h-[80px] flex items-center justify-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
                     <span className="text-[12px] text-[#9ca3af]">No data</span>
                   </div>
                 ) : (
@@ -1200,39 +1217,46 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
             </div>
           )
         ) : (
-          /* Sales Tab - Orders List or Empty State */
+          /* All Orders Tab - Orders List or Empty State */
           !hasOrders ? (
             /* Empty State */
             <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12">
               <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
-                {/* Illustration - Customer list with coin */}
+                {/* Illustration - Customer list with coin - Modern light gray and purple */}
                 <div className="relative mb-6">
-                  <div className="w-[140px] h-[100px] bg-[#f9fafb] rounded-2xl border border-[#e5e7eb] p-3 relative">
+                  <div className="w-[160px] h-[110px] bg-gradient-to-br from-[#f8f9fa] to-[#f3f4f6] rounded-2xl border border-[#e5e7eb]/80 p-4 relative shadow-sm">
                     {/* Customer rows */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-400 to-rose-500" />
-                        <div className="flex-1 space-y-1">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#c4b5fd] to-[#8b5cf6] flex items-center justify-center">
+                          <Users className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 space-y-1.5">
                           <div className="h-2 w-16 bg-[#e5e7eb] rounded-full" />
+                          <div className="h-1.5 w-10 bg-[#f3f4f6] rounded-full" />
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-pink-300 to-pink-400" />
-                        <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#ddd6fe] to-[#a78bfa]" />
+                        <div className="flex-1 space-y-1.5">
                           <div className="h-2 w-12 bg-[#e5e7eb] rounded-full" />
+                          <div className="h-1.5 w-8 bg-[#f3f4f6] rounded-full" />
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-500" />
-                        <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#ede9fe] to-[#c4b5fd]" />
+                        <div className="flex-1 space-y-1.5">
                           <div className="h-2 w-14 bg-[#e5e7eb] rounded-full" />
+                          <div className="h-1.5 w-9 bg-[#f3f4f6] rounded-full" />
                         </div>
                       </div>
                     </div>
-                    {/* Gold coin badge */}
-                    <div className="absolute -top-2 -right-2 w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
+                    {/* Purple coin badge */}
+                    <div className="absolute -top-3 -right-3 w-11 h-11 rounded-xl bg-gradient-to-br from-[#a78bfa] to-[#8b5cf6] flex items-center justify-center shadow-lg shadow-violet-200/50">
                       <DollarSign className="h-5 w-5 text-white" />
                     </div>
+                    {/* Subtle decorative element */}
+                    <div className="absolute -bottom-1 -left-1 w-6 h-6 rounded-lg bg-[#f5f3ff] border border-[#ede9fe]" />
                   </div>
                 </div>
 

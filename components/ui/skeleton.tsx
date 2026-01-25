@@ -39,12 +39,40 @@ function Skeleton({ className, themePreset, style, ...props }: SkeletonProps) {
   const themeColors = getSkeletonColors()
 
   return (
-    <div
-      data-slot="skeleton"
-      className={cn('bg-accent animate-pulse rounded-md', className)}
-      style={{ ...themeColors, ...style }}
-      {...props}
-    />
+    <>
+      <div
+        data-slot="skeleton"
+        className={cn('skeleton-shimmer rounded-md', className)}
+        style={{ ...themeColors, ...style }}
+        {...props}
+      />
+      <style jsx>{`
+        @keyframes skeleton-shimmer-sweep {
+          0% {
+            background-position: -200% 0;
+          }
+          100% {
+            background-position: 200% 0;
+          }
+        }
+        @keyframes skeleton-fade {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 0.8; }
+        }
+        .skeleton-shimmer {
+          background: linear-gradient(
+            90deg,
+            #e5e7eb 0%,
+            #f3f4f6 25%,
+            #e5e7eb 50%,
+            #f3f4f6 75%,
+            #e5e7eb 100%
+          );
+          background-size: 200% 100%;
+          animation: skeleton-shimmer-sweep 2.5s ease-in-out infinite, skeleton-fade 3s ease-in-out infinite;
+        }
+      `}</style>
+    </>
   )
 }
 

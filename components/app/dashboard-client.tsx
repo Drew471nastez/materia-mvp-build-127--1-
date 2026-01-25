@@ -28,6 +28,7 @@ import {
   Wallet,
   Share2,
   Blocks,
+  BarChart3,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -1025,6 +1026,11 @@ export function DashboardClient({
                       </div>
                     ))}
                   </div>
+                ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
+                  <div className="h-[80px] flex items-center justify-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
+                    <span className="text-[12px] text-[#9ca3af]">No data</span>
+                  </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
                     {(() => {
@@ -1090,6 +1096,11 @@ export function DashboardClient({
                       </div>
                     ))}
                   </div>
+                ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
+                  <div className="h-[80px] flex items-center justify-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
+                    <span className="text-[12px] text-[#9ca3af]">No data</span>
+                  </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
                     {(() => {
@@ -1154,6 +1165,11 @@ export function DashboardClient({
                         />
                       </div>
                     ))}
+                  </div>
+                ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
+                  <div className="h-[80px] flex items-center justify-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
+                    <span className="text-[12px] text-[#9ca3af]">No data</span>
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
