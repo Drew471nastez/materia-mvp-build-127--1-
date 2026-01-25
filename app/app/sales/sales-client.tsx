@@ -42,6 +42,7 @@ interface SalesClientProps {
     refundCount: number
     refundAmount: number
   }
+  initialOrders: Order[]
   currency: string
   stripeConnected: boolean
   storeName: string
@@ -177,9 +178,9 @@ const timeframeOptions: TimeframeOption[] = [
   },
 ]
 
-export function SalesClient({ creatorId, products, initialSummary, currency, stripeConnected, storeName, sellerName }: SalesClientProps) {
+export function SalesClient({ creatorId, products, initialSummary, initialOrders, currency, stripeConnected, storeName, sellerName }: SalesClientProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [timeframe, setTimeframe] = useState("last_30_days")
+  const [timeframe, setTimeframe] = useState("all_time")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"orders" | "reports">("orders")
 
@@ -202,9 +203,9 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
   const [isChartLoading, setIsChartLoading] = useState(false)
 
   const [summary, setSummary] = useState(initialSummary)
-  const [orders, setOrders] = useState<Order[]>([])
-  const [allOrders, setAllOrders] = useState<Order[]>([])
-  const [totalCount, setTotalCount] = useState(0)
+  const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [allOrders, setAllOrders] = useState<Order[]>(initialOrders)
+  const [totalCount, setTotalCount] = useState(initialOrders.length)
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([])
 
   const supabase = createClient()
@@ -263,41 +264,19 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
     }
   }
 
-  const fetchSalesData = async () => {
+  const fetchSalesData = () => {
     setIsLoading(true)
     try {
       const option = timeframeOptions.find((o) => o.value === timeframe)
       if (!option) return
 
       const { start, end } = option.getDates()
-      const productIds = products.map((p) => p.id)
 
-      if (productIds.length === 0) {
-        setIsLoading(false)
-        setOrders([])
-        setAllOrders([])
-        setMonthlyReports([])
-        return
-      }
-
-      // Fetch orders for the selected timeframe (for display and KPIs)
-      // Use left join for buyer profile (buyer_id can be null for guest orders)
-      let ordersQuery = supabase
-        .from("orders")
-        .select(`
-          *,
-          product:products(id, title, type, cover_image)
-        `)
-        .in("product_id", productIds)
-        .gte("created_at", start.toISOString())
-        .lte("created_at", end.toISOString())
-        .order("created_at", { ascending: false })
-
-      const { data: fetchedOrders, error } = await ordersQuery
-
-      if (error) throw error
-
-      let filteredOrders = fetchedOrders || []
+      // Filter orders locally from initialOrders (server-side fetched, bypasses RLS)
+      let filteredOrders = initialOrders.filter(o => {
+        const orderDate = new Date(o.created_at)
+        return orderDate >= start && orderDate <= end
+      })
 
       // Apply search filter
       if (searchQuery) {
@@ -356,23 +335,10 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         refundAmount: refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0),
       })
 
-      // Fetch ALL orders (all time) for monthly reports
-      const { data: allTimeOrders, error: allTimeError } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          product:products(id, title, type, cover_image)
-        `)
-        .in("product_id", productIds)
-        .order("created_at", { ascending: false })
-
-      if (!allTimeError) {
-        setAllOrders(allTimeOrders || [])
-        // Generate monthly reports from ALL orders (all time)
-        generateMonthlyReports(allTimeOrders || [])
-      }
+      // Generate monthly reports from ALL orders (all time)
+      generateMonthlyReports(initialOrders)
     } catch (error) {
-      console.error("Error fetching sales data:", error)
+      console.error("Error filtering sales data:", error)
     } finally {
       setIsLoading(false)
     }
@@ -421,8 +387,8 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
     setMonthlyReports(sortedReports)
   }
 
-  // Fetch chart data for KPI
-  const fetchChartData = async (kpiType: KPIType) => {
+  // Generate chart data for KPI using local filtering
+  const fetchChartData = (kpiType: KPIType) => {
     if (!kpiType) return
 
     setIsChartLoading(true)
@@ -431,10 +397,12 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
       if (!option) return
 
       const { start, end } = option.getDates()
-      const productIds = products.map((p) => p.id)
       const points: ChartDataPoint[] = []
 
-      if (productIds.length === 0) {
+      // Filter completed orders from initialOrders
+      const completedOrders = initialOrders.filter(o => o.status === "completed")
+
+      if (completedOrders.length === 0) {
         setChartData([])
         setIsChartLoading(false)
         return
@@ -452,22 +420,19 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
           const hourEnd = new Date(start)
           hourEnd.setHours(hour, 59, 59, 999)
 
-          const { data } = await supabase
-            .from("orders")
-            .select("amount_cents, status")
-            .in("product_id", productIds)
-            .eq("status", "completed")
-            .gte("created_at", hourStart.toISOString())
-            .lte("created_at", hourEnd.toISOString())
+          const data = completedOrders.filter(o => {
+            const orderDate = new Date(o.created_at)
+            return orderDate >= hourStart && orderDate <= hourEnd
+          })
 
           let value = 0
           if (kpiType === "sales") {
-            value = (data || []).reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+            value = data.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
           } else if (kpiType === "orders") {
-            value = data?.length || 0
+            value = data.length
           } else if (kpiType === "avgValue") {
-            const total = (data || []).reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-            value = data && data.length > 0 ? (total / data.length) / 100 : 0
+            const total = data.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+            value = data.length > 0 ? (total / data.length) / 100 : 0
           }
 
           points.push({
@@ -484,22 +449,19 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
 
           if (monthEnd > end) break
 
-          const { data } = await supabase
-            .from("orders")
-            .select("amount_cents, status")
-            .in("product_id", productIds)
-            .eq("status", "completed")
-            .gte("created_at", monthStart.toISOString())
-            .lte("created_at", monthEnd.toISOString())
+          const data = completedOrders.filter(o => {
+            const orderDate = new Date(o.created_at)
+            return orderDate >= monthStart && orderDate <= monthEnd
+          })
 
           let value = 0
           if (kpiType === "sales") {
-            value = (data || []).reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+            value = data.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
           } else if (kpiType === "orders") {
-            value = data?.length || 0
+            value = data.length
           } else if (kpiType === "avgValue") {
-            const total = (data || []).reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-            value = data && data.length > 0 ? (total / data.length) / 100 : 0
+            const total = data.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+            value = data.length > 0 ? (total / data.length) / 100 : 0
           }
 
           points.push({
@@ -520,22 +482,19 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
           dayEnd.setDate(dayEnd.getDate() + dayStep - 1)
           dayEnd.setHours(23, 59, 59, 999)
 
-          const { data } = await supabase
-            .from("orders")
-            .select("amount_cents, status")
-            .in("product_id", productIds)
-            .eq("status", "completed")
-            .gte("created_at", dayStart.toISOString())
-            .lte("created_at", dayEnd.toISOString())
+          const data = completedOrders.filter(o => {
+            const orderDate = new Date(o.created_at)
+            return orderDate >= dayStart && orderDate <= dayEnd
+          })
 
           let value = 0
           if (kpiType === "sales") {
-            value = (data || []).reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+            value = data.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
           } else if (kpiType === "orders") {
-            value = data?.length || 0
+            value = data.length
           } else if (kpiType === "avgValue") {
-            const total = (data || []).reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-            value = data && data.length > 0 ? (total / data.length) / 100 : 0
+            const total = data.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+            value = data.length > 0 ? (total / data.length) / 100 : 0
           }
 
           points.push({
@@ -547,7 +506,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
 
       setChartData(points)
     } catch (error) {
-      console.error("Error fetching chart data:", error)
+      console.error("Error generating chart data:", error)
     } finally {
       setIsChartLoading(false)
     }
@@ -721,7 +680,7 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
   }
 
   // Check if there are any orders in selected timeframe or any orders all time
-  const hasOrders = orders.length > 0 || allOrders.length > 0 || summary.totalOrders > 0
+  const hasOrders = orders.length > 0 || initialOrders.length > 0 || summary.totalOrders > 0
   const hasChartData = chartData.some(d => d.value > 0)
 
   return (
@@ -1258,33 +1217,35 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         ) : (
           /* All Orders Tab - Orders List or Empty State */
           !hasOrders ? (
-            /* Empty State - Banner + Text Below */
-            <div className="flex flex-col items-center">
-              {/* Banner Image */}
-              <div className="w-full max-w-3xl mb-8">
-                <div
-                  className="relative overflow-hidden rounded-2xl h-[200px] sm:h-[260px]"
-                  style={{
-                    backgroundImage: `url('https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/9965079.jpg')`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                  }}
-                />
-              </div>
+            /* Empty State - Simple Icon Design */
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12">
+              <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
+                {/* Icon Container with Decorative Elements */}
+                <div className="relative mb-6">
+                  {/* Background Circle */}
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#f5f3ff] to-[#ede9fe] flex items-center justify-center">
+                    {/* Main Icon */}
+                    <div className="w-14 h-14 rounded-xl bg-white shadow-sm flex items-center justify-center">
+                      <ShoppingCart className="h-7 w-7 text-[#8b5cf6]" />
+                    </div>
+                  </div>
+                  {/* Decorative Dot 1 */}
+                  <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#c4b5fd]" />
+                  {/* Decorative Dot 2 */}
+                  <div className="absolute -bottom-2 -left-2 w-3 h-3 rounded-full bg-[#ddd6fe]" />
+                </div>
 
-              {/* Text Content Below */}
-              <div className="text-center max-w-xl px-4">
-                <h2 className="text-[20px] sm:text-[24px] font-semibold text-[#1a1a2e] mb-3">
-                  Manage all of your sales in one place.
+                <h2 className="text-[18px] font-semibold text-[#1a1a2e] mb-2">
+                  Manage all of your sales in one place
                 </h2>
-                <p className="text-[14px] sm:text-[15px] text-[#6b7280] mb-6">
+                <p className="text-[14px] text-[#6b7280] mb-6">
                   Every time a new customer purchases a product from your Storelib, their email address and other details are added here.
                 </p>
                 <Link
                   href="/app/products/new"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#8b5cf6] text-white text-[14px] font-medium rounded-lg hover:bg-[#7c3aed] transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-[14px] font-medium rounded-full hover:bg-[#7c3aed] transition-colors cursor-pointer"
                 >
-                  Start selling today
+                  Start selling
                 </Link>
               </div>
             </div>

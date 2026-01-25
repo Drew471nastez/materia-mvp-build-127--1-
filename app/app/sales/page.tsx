@@ -39,7 +39,7 @@ export default async function SalesPage() {
   // Fetch products for filters
   const { data: productsData } = await supabase
     .from("products")
-    .select("id, title, type, price_cents")
+    .select("id, title, type, price_cents, cover_image")
     .eq("creator_id", creator.id)
     .order("title")
 
@@ -56,14 +56,32 @@ export default async function SalesPage() {
     refundAmount: 0,
   }
 
-  if (productIds.length > 0) {
-    const { data: orders } = await supabase
-      .from("orders")
-      .select("amount_cents, status, fee_cents")
-      .in("product_id", productIds)
-      .eq("status", "completed")
+  // Fetch ALL orders for this creator's products (server-side to bypass RLS)
+  let initialOrders: any[] = []
 
-    const completedOrders = orders || []
+  if (productIds.length > 0) {
+    const { data: allOrders } = await supabase
+      .from("orders")
+      .select("*")
+      .in("product_id", productIds)
+      .order("created_at", { ascending: false })
+
+    initialOrders = (allOrders || []).map(order => {
+      // Find the product for this order
+      const product = products.find(p => p.id === order.product_id)
+      return {
+        ...order,
+        product: product ? {
+          id: product.id,
+          title: product.title,
+          type: product.type,
+          cover_image: product.cover_image
+        } : null
+      }
+    })
+
+    // Calculate summary from completed orders
+    const completedOrders = initialOrders.filter(o => o.status === "completed")
     initialSummary.totalSales = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
     initialSummary.totalOrders = completedOrders.length
     initialSummary.avgOrderValue = completedOrders.length > 0
@@ -71,14 +89,9 @@ export default async function SalesPage() {
       : 0
 
     // Get refunds count
-    const { data: refunds } = await supabase
-      .from("orders")
-      .select("amount_cents")
-      .in("product_id", productIds)
-      .eq("status", "refunded")
-
-    initialSummary.refundCount = refunds?.length || 0
-    initialSummary.refundAmount = refunds?.reduce((sum, o) => sum + (o.amount_cents || 0), 0) || 0
+    const refundedOrders = initialOrders.filter(o => o.status === "refunded")
+    initialSummary.refundCount = refundedOrders.length
+    initialSummary.refundAmount = refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
   }
 
   return (
@@ -86,6 +99,7 @@ export default async function SalesPage() {
       creatorId={creator.id}
       products={products}
       initialSummary={initialSummary}
+      initialOrders={initialOrders}
       currency={creator.default_currency || "USD"}
       stripeConnected={creator.stripe_onboarding_status === "enabled"}
       storeName="Storelib"
