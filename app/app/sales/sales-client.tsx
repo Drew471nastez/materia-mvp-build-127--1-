@@ -14,14 +14,12 @@ import {
   X,
   Calendar,
   Package,
-  Mail,
   MoreHorizontal,
-  Eye,
-  ExternalLink,
   CheckCircle2,
   Clock,
   XCircle,
-  Users,
+  FileText,
+  Eye,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -44,6 +42,8 @@ interface SalesClientProps {
   }
   currency: string
   stripeConnected: boolean
+  storeName: string
+  sellerName: string
 }
 
 interface Order {
@@ -69,6 +69,15 @@ interface Order {
 interface ChartDataPoint {
   label: string
   value: number
+}
+
+interface MonthlyReport {
+  month: string
+  year: number
+  monthYear: string
+  orders: number
+  revenue: number
+  orderDetails: Order[]
 }
 
 type KPIType = "sales" | "orders" | "avgValue" | "refunds" | null
@@ -162,7 +171,7 @@ const timeframeOptions: TimeframeOption[] = [
   },
 ]
 
-export function SalesClient({ creatorId, products, initialSummary, currency, stripeConnected }: SalesClientProps) {
+export function SalesClient({ creatorId, products, initialSummary, currency, stripeConnected, storeName, sellerName }: SalesClientProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [timeframe, setTimeframe] = useState("last_30_days")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
@@ -188,7 +197,9 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
 
   const [summary, setSummary] = useState(initialSummary)
   const [orders, setOrders] = useState<Order[]>([])
+  const [allOrders, setAllOrders] = useState<Order[]>([])
   const [totalCount, setTotalCount] = useState(0)
+  const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([])
 
   const supabase = createClient()
 
@@ -272,11 +283,12 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         .lte("created_at", end.toISOString())
         .order("created_at", { ascending: false })
 
-      const { data: allOrders, error } = await ordersQuery
+      const { data: fetchedOrders, error } = await ordersQuery
 
       if (error) throw error
 
-      let filteredOrders = allOrders || []
+      let filteredOrders = fetchedOrders || []
+      setAllOrders(filteredOrders)
 
       // Apply search filter
       if (searchQuery) {
@@ -328,11 +340,53 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
         refundCount: refundedOrders.length,
         refundAmount: refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0),
       })
+
+      // Generate monthly reports from all orders
+      generateMonthlyReports(fetchedOrders || [])
     } catch (error) {
       console.error("Error fetching sales data:", error)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Generate monthly reports
+  const generateMonthlyReports = (ordersData: Order[]) => {
+    const completedOrders = ordersData.filter(o => o.status === "completed")
+    const reportMap: Record<string, MonthlyReport> = {}
+
+    completedOrders.forEach((order) => {
+      const date = new Date(order.created_at)
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+      const month = monthNames[date.getMonth()]
+      const year = date.getFullYear()
+      const key = `${year}-${date.getMonth()}`
+
+      if (!reportMap[key]) {
+        reportMap[key] = {
+          month,
+          year,
+          monthYear: `${month} ${year}`,
+          orders: 0,
+          revenue: 0,
+          orderDetails: [],
+        }
+      }
+
+      reportMap[key].orders++
+      reportMap[key].revenue += order.amount_cents || 0
+      reportMap[key].orderDetails.push(order)
+    })
+
+    // Sort by date descending (newest first)
+    const sortedReports = Object.values(reportMap).sort((a, b) => {
+      const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+      const aIndex = a.year * 12 + monthOrder.indexOf(a.month)
+      const bIndex = b.year * 12 + monthOrder.indexOf(b.month)
+      return bIndex - aIndex
+    })
+
+    setMonthlyReports(sortedReports)
   }
 
   // Fetch chart data for KPI
@@ -357,7 +411,6 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
       // Determine grouping based on timeframe
       const isToday = timeframe === "today"
       const isYear = timeframe === "this_year" || timeframe === "all_time"
-      const isMonth = timeframe === "last_30_days" || timeframe === "last_90_days"
 
       if (isToday) {
         // Group by hour
@@ -468,6 +521,89 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
     }
   }
 
+  // Generate PDF report
+  const generatePDFReport = (report: MonthlyReport) => {
+    const avgOrderValue = report.orders > 0 ? report.revenue / report.orders : 0
+
+    // Create PDF content as HTML for printing
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Sales Report - ${report.monthYear}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1a1a2e; }
+          .header { margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 20px; }
+          .header h1 { font-size: 24px; margin: 0 0 8px 0; }
+          .header p { color: #6b7280; margin: 4px 0; font-size: 14px; }
+          .summary { display: flex; gap: 40px; margin: 30px 0; padding: 20px; background: #f9fafb; border-radius: 12px; }
+          .summary-item { }
+          .summary-item .label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+          .summary-item .value { font-size: 24px; font-weight: 600; }
+          table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+          th { text-align: left; padding: 12px; background: #f3f4f6; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; }
+          td { padding: 12px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+          .amount { text-align: right; font-weight: 500; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${storeName} - Sales Report</h1>
+          <p><strong>Seller:</strong> ${sellerName}</p>
+          <p><strong>Period:</strong> ${report.monthYear}</p>
+          <p><strong>Generated:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        </div>
+
+        <div class="summary">
+          <div class="summary-item">
+            <div class="label">Total Revenue</div>
+            <div class="value">${formatPrice(report.revenue)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Total Orders</div>
+            <div class="value">${report.orders}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Average Order Value</div>
+            <div class="value">${formatPrice(avgOrderValue)}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Product</th>
+              <th class="amount">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${report.orderDetails.map(order => `
+              <tr>
+                <td>${formatDate(order.created_at)}</td>
+                <td>#${order.id.slice(0, 8)}</td>
+                <td>${order.buyer?.email || 'Unknown'}</td>
+                <td>${order.product?.title || 'Unknown'}</td>
+                <td class="amount">${formatPrice(order.amount_cents)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `
+
+    // Open print window
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(printContent)
+      printWindow.document.close()
+      printWindow.print()
+    }
+  }
+
   // Fetch chart data when KPI modal opens
   useEffect(() => {
     if (openKPIModal && openKPIModal !== "refunds") {
@@ -545,20 +681,21 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
   }
 
   const hasOrders = orders.length > 0 || summary.totalOrders > 0
+  const hasChartData = chartData.some(d => d.value > 0)
 
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] sales-scroll-container">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Sales</h1>
 
             {/* Timeframe Dropdown */}
             <div className="relative timeframe-dropdown">
               <button
                 onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-lg text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-full text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm"
               >
                 <Calendar className="h-3.5 w-3.5 text-[#9ca3af]" />
                 {selectedOption?.shortLabel || "30 days"}
@@ -588,10 +725,10 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
 
             {/* Sales Reports Tab */}
             <button
-              onClick={() => setActiveTab("reports")}
-              className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
+              onClick={() => setActiveTab(activeTab === "reports" ? "sales" : "reports")}
+              className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
                 activeTab === "reports"
-                  ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                  ? "bg-[#e5e7eb] text-[#374151]"
                   : "text-[#6b7280] hover:bg-[#f3f4f6]"
               }`}
             >
@@ -800,12 +937,13 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                   <div className="h-[80px] flex items-end gap-[2px]">
                     {[35, 50, 25, 60, 40, 55, 30].map((h, i) => (
                       <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
-                        <div
-                          className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
-                          style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }}
-                        />
+                        <div className="w-full rounded-sm bg-violet-200/60 skeleton-bar" style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }} />
                       </div>
                     ))}
+                  </div>
+                ) : !hasChartData ? (
+                  <div className="h-[80px] flex items-center justify-center">
+                    <span className="text-[12px] text-[#9ca3af]">No data</span>
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
@@ -864,12 +1002,13 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                   <div className="h-[80px] flex items-end gap-[2px]">
                     {[30, 45, 55, 35, 50, 40, 60].map((h, i) => (
                       <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
-                        <div
-                          className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
-                          style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }}
-                        />
+                        <div className="w-full rounded-sm bg-violet-200/60 skeleton-bar" style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }} />
                       </div>
                     ))}
+                  </div>
+                ) : !hasChartData ? (
+                  <div className="h-[80px] flex items-center justify-center">
+                    <span className="text-[12px] text-[#9ca3af]">No data</span>
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
@@ -928,12 +1067,13 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
                   <div className="h-[80px] flex items-end gap-[2px]">
                     {[40, 55, 30, 50, 45, 35, 55].map((h, i) => (
                       <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
-                        <div
-                          className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
-                          style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }}
-                        />
+                        <div className="w-full rounded-sm bg-violet-200/60 skeleton-bar" style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }} />
                       </div>
                     ))}
+                  </div>
+                ) : !hasChartData ? (
+                  <div className="h-[80px] flex items-center justify-center">
+                    <span className="text-[12px] text-[#9ca3af]">No data</span>
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
@@ -985,122 +1125,211 @@ export function SalesClient({ creatorId, products, initialSummary, currency, str
           </div>
         </div>
 
-        {/* Orders List or Empty State */}
-        {!hasOrders ? (
-          /* Empty State */
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12">
-            <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
-              {/* Illustration */}
-              <div className="relative mb-6">
-                <div className="flex items-center gap-1">
-                  <div className="w-12 h-14 bg-[#f3f4f6] rounded-lg flex items-center justify-center">
-                    <div className="w-6 h-8 bg-[#e5e7eb] rounded" />
-                  </div>
-                  <div className="w-14 h-16 bg-[#e5e7eb] rounded-lg flex items-center justify-center relative">
-                    <div className="w-8 h-10 bg-[#d1d5db] rounded" />
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
-                      <CheckCircle2 className="h-3 w-3 text-white" />
+        {/* Content Area - Sales or Reports */}
+        {activeTab === "reports" ? (
+          /* Sales Reports Tab */
+          monthlyReports.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#e5e7eb]">
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider w-12">#</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Month & Year</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Orders</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Revenue</th>
+                      <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#e5e7eb]">
+                    {monthlyReports.map((report, index) => (
+                      <tr key={`${report.year}-${report.month}`} className="hover:bg-[#f9fafb] transition-colors">
+                        <td className="px-5 py-4 text-[14px] text-[#6b7280]">{index + 1}</td>
+                        <td className="px-5 py-4">
+                          <span className="text-[14px] font-medium text-[#1a1a2e]">{report.monthYear}</span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="text-[14px] text-[#1a1a2e]">{report.orders}</span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(report.revenue)}</span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => generatePDFReport(report)}
+                              className="text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
+                            >
+                              View
+                            </button>
+                            <span className="text-[#d1d5db]">·</span>
+                            <button
+                              onClick={() => generatePDFReport(report)}
+                              className="text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* No Reports Empty State */
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12">
+              <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
+                <div className="w-16 h-16 rounded-2xl bg-[#f3f4f6] flex items-center justify-center mb-5">
+                  <FileText className="h-8 w-8 text-[#9ca3af]" />
+                </div>
+                <h2 className="text-[18px] font-semibold text-[#1a1a2e] mb-2">
+                  No reports available
+                </h2>
+                <p className="text-[14px] text-[#6b7280] mb-6">
+                  Reports will be available once you start making your first orders.
+                </p>
+                <Link
+                  href="/app/products/new"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-[14px] font-medium rounded-full hover:bg-[#7c3aed] transition-colors"
+                >
+                  Start selling
+                </Link>
+              </div>
+            </div>
+          )
+        ) : (
+          /* Sales Tab - Orders List or Empty State */
+          !hasOrders ? (
+            /* Empty State */
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12">
+              <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
+                {/* Illustration - Customer list with coin */}
+                <div className="relative mb-6">
+                  <div className="w-[140px] h-[100px] bg-[#f9fafb] rounded-2xl border border-[#e5e7eb] p-3 relative">
+                    {/* Customer rows */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-400 to-rose-500" />
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-16 bg-[#e5e7eb] rounded-full" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-pink-300 to-pink-400" />
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-12 bg-[#e5e7eb] rounded-full" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-500" />
+                        <div className="flex-1 space-y-1">
+                          <div className="h-2 w-14 bg-[#e5e7eb] rounded-full" />
+                        </div>
+                      </div>
+                    </div>
+                    {/* Gold coin badge */}
+                    <div className="absolute -top-2 -right-2 w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
+                      <DollarSign className="h-5 w-5 text-white" />
                     </div>
                   </div>
-                  <div className="w-12 h-14 bg-[#f3f4f6] rounded-lg flex items-center justify-center">
-                    <div className="w-6 h-8 bg-[#e5e7eb] rounded" />
-                  </div>
                 </div>
+
+                <h2 className="text-[18px] font-semibold text-[#1a1a2e] mb-2">
+                  You're one step away from making your first sale.
+                </h2>
+                <p className="text-[14px] text-[#6b7280] mb-6">
+                  Every time a new customer purchases a product from your Storelib, their email address and other details are added here.
+                </p>
+
+                <Link
+                  href="/app/products/new"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-[14px] font-medium rounded-full hover:bg-[#7c3aed] transition-colors"
+                >
+                  Start selling
+                </Link>
               </div>
-
-              <h2 className="text-[18px] font-semibold text-[#1a1a2e] mb-2">
-                You're one step away from making your first sale.
-              </h2>
-              <p className="text-[14px] text-[#6b7280] mb-6">
-                Every time a new customer purchases a product from your Gumroad, their email address and other details are added here.
-              </p>
-
-              <Link
-                href="/app/products/new"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-[14px] font-medium rounded-full hover:bg-[#7c3aed] transition-colors"
-              >
-                Start selling
-              </Link>
             </div>
-          </div>
-        ) : (
-          /* Orders Table */
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[#e5e7eb]">
-                    <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</th>
-                    <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</th>
-                    <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</th>
-                    <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</th>
-                    <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</th>
-                    <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#e5e7eb]">
-                  {orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-[#f9fafb] transition-colors">
-                      <td className="px-5 py-4">
-                        <div>
-                          <p className="text-[14px] font-medium text-[#1a1a2e]">
-                            {order.buyer?.display_name || "Customer"}
-                          </p>
-                          <p className="text-[12px] text-[#6b7280]">{order.buyer?.email}</p>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          {order.product?.cover_image ? (
-                            <img
-                              src={order.product.cover_image}
-                              alt=""
-                              className="w-10 h-10 rounded-lg object-cover"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                              <Package className="h-4 w-4 text-[#9ca3af]" />
-                            </div>
-                          )}
-                          <span className="text-[14px] text-[#1a1a2e] truncate max-w-[200px]">
-                            {order.product?.title || "Unknown Product"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-[14px] text-[#6b7280]">{formatDate(order.created_at)}</span>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <span className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(order.amount_cents)}</span>
-                      </td>
-                      <td className="px-5 py-4">
-                        {getStatusBadge(order.status)}
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {order.status === "completed" && (
-                            <button className="px-3 py-1.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors">
-                              Refund
-                            </button>
-                          )}
-                          <button className="p-1.5 text-[#9ca3af] hover:text-[#6b7280] transition-colors">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
+          ) : (
+            /* Orders Table */
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#e5e7eb]">
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</th>
+                      <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</th>
+                      <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination info */}
-            {totalCount > 0 && (
-              <div className="px-5 py-3 border-t border-[#e5e7eb] text-[13px] text-[#6b7280]">
-                Showing {orders.length} of {totalCount} orders
+                  </thead>
+                  <tbody className="divide-y divide-[#e5e7eb]">
+                    {orders.map((order) => (
+                      <tr key={order.id} className="hover:bg-[#f9fafb] transition-colors">
+                        <td className="px-5 py-4">
+                          <div>
+                            <p className="text-[14px] font-medium text-[#1a1a2e]">
+                              {order.buyer?.display_name || "Customer"}
+                            </p>
+                            <p className="text-[12px] text-[#6b7280]">{order.buyer?.email}</p>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            {order.product?.cover_image ? (
+                              <img
+                                src={order.product.cover_image}
+                                alt=""
+                                className="w-10 h-10 rounded-lg object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                                <Package className="h-4 w-4 text-[#9ca3af]" />
+                              </div>
+                            )}
+                            <span className="text-[14px] text-[#1a1a2e] truncate max-w-[200px]">
+                              {order.product?.title || "Unknown Product"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="text-[14px] text-[#6b7280]">{formatDate(order.created_at)}</span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <span className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(order.amount_cents)}</span>
+                        </td>
+                        <td className="px-5 py-4">
+                          {getStatusBadge(order.status)}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {order.status === "completed" && (
+                              <button className="px-3 py-1.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors">
+                                Refund
+                              </button>
+                            )}
+                            <button className="p-1.5 text-[#9ca3af] hover:text-[#6b7280] transition-colors">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
+
+              {/* Pagination info */}
+              {totalCount > 0 && (
+                <div className="px-5 py-3 border-t border-[#e5e7eb] text-[13px] text-[#6b7280]">
+                  Showing {orders.length} of {totalCount} orders
+                </div>
+              )}
+            </div>
+          )
         )}
       </div>
 

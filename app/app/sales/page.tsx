@@ -29,6 +29,13 @@ export default async function SalesPage() {
     redirect("/onboarding")
   }
 
+  // Fetch creator profile for PDF reports
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .single()
+
   // Fetch products for filters
   const { data: productsData } = await supabase
     .from("products")
@@ -75,21 +82,14 @@ export default async function SalesPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
-        <div>
-          <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Sales</h1>
-          <p className="text-[14px] text-[#6b7280] mt-1">Track your revenue, orders, and sales performance</p>
-        </div>
-
-        <SalesClient
-          creatorId={creator.id}
-          products={products}
-          initialSummary={initialSummary}
-          currency={creator.default_currency || "USD"}
-          stripeConnected={creator.stripe_onboarding_status === "enabled"}
-        />
-      </div>
-    </div>
+    <SalesClient
+      creatorId={creator.id}
+      products={products}
+      initialSummary={initialSummary}
+      currency={creator.default_currency || "USD"}
+      stripeConnected={creator.stripe_onboarding_status === "enabled"}
+      storeName="Storelib"
+      sellerName={profile?.display_name || "Seller"}
+    />
   )
 }
