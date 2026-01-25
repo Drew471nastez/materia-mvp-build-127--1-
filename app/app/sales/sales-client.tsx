@@ -184,6 +184,8 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [timeframe, setTimeframe] = useState("all_time")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"orders" | "reports">("orders")
+  const [showDebug, setShowDebug] = useState(false)
+  const [debugData, setDebugData] = useState<any>(null)
 
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -678,9 +680,43 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const hasOrders = orders.length > 0 || initialOrders.length > 0 || summary.totalOrders > 0
   const hasChartData = chartData.some(d => d.value > 0)
 
+  const fetchDebugData = async () => {
+    try {
+      const res = await fetch('/api/debug/orders')
+      const data = await res.json()
+      setDebugData(data)
+    } catch (error: any) {
+      setDebugData({ error: error.message })
+    }
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] sales-scroll-container">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
+
+        {/* Debug Panel */}
+        <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] font-medium text-yellow-800">
+              Debug: creatorId={creatorId}, products={products.length}, initialOrders={initialOrders.length}, summary.totalOrders={summary.totalOrders}
+            </span>
+            <button
+              onClick={() => {
+                setShowDebug(!showDebug)
+                if (!debugData) fetchDebugData()
+              }}
+              className="text-[12px] text-yellow-700 underline cursor-pointer"
+            >
+              {showDebug ? 'Hide' : 'Show'} Full Debug
+            </button>
+          </div>
+          {showDebug && (
+            <div className="mt-3 p-3 bg-white rounded border text-[11px] font-mono overflow-auto max-h-[300px]">
+              <pre>{JSON.stringify(debugData || { loading: true }, null, 2)}</pre>
+            </div>
+          )}
+        </div>
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="flex items-center" style={{ gap: '14px' }}>
