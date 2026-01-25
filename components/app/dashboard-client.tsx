@@ -1451,12 +1451,22 @@ export function DashboardClient({
           0% { transform: translateX(-100%); }
           100% { transform: translateX(200%); }
         }
+        @keyframes skeleton-shimmer {
+          0% {
+            background-position: -200% 0;
+          }
+          100% {
+            background-position: 200% 0;
+          }
+        }
         @keyframes skeleton-pulse {
           0%, 100% { opacity: 0.4; }
           50% { opacity: 0.7; }
         }
         .skeleton-bar {
-          animation: skeleton-pulse 2.5s ease-in-out infinite;
+          background: linear-gradient(90deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.4) 50%, rgba(139, 92, 246, 0.2) 100%);
+          background-size: 200% 100%;
+          animation: skeleton-shimmer 2s ease-in-out infinite, skeleton-pulse 2.5s ease-in-out infinite;
         }
         .dashboard-scroll-container {
           scrollbar-width: thin;
