@@ -22,14 +22,22 @@ export default async function OnePageEditorPage() {
   }
 
   // Get creator info including social links from onboarding
-  const { data: creator } = await supabase
+  const { data: creator, error: creatorError } = await supabase
     .from("creators")
-    .select("id, slug, instagram, tiktok, youtube")
+    .select("*")
     .eq("user_id", user.id)
     .single()
 
-  if (!creator) {
+  if (creatorError || !creator) {
+    console.error("[OnePage] Creator fetch error:", creatorError)
     redirect("/onboarding")
+  }
+
+  // Extract social data from creator (may be null if columns don't exist)
+  const creatorSocials = {
+    instagram: (creator as any).instagram || null,
+    tiktok: (creator as any).tiktok || null,
+    youtube: (creator as any).youtube || null,
   }
 
   // Try to get existing onepage with proper error handling
@@ -69,11 +77,11 @@ export default async function OnePageEditorPage() {
     let socialDataFromStore = { instagram: null as string | null, tiktok: null as string | null, youtube: null as string | null }
 
     // First check creators table (populated during main onboarding)
-    if (creator?.instagram || creator?.tiktok || creator?.youtube) {
+    if (creatorSocials.instagram || creatorSocials.tiktok || creatorSocials.youtube) {
       socialDataFromStore = {
-        instagram: creator.instagram || null,
-        tiktok: creator.tiktok || null,
-        youtube: creator.youtube || null,
+        instagram: creatorSocials.instagram,
+        tiktok: creatorSocials.tiktok,
+        youtube: creatorSocials.youtube,
       }
     }
     // Fallback to store builder config if no data in creators table
@@ -426,32 +434,32 @@ export default async function OnePageEditorPage() {
   const rawOnepage = onepage as any
   if (onepage && !rawOnepage.instagram && !rawOnepage.tiktok && !rawOnepage.youtube) {
     // First check creators table (from main onboarding)
-    if (creator?.instagram || creator?.tiktok || creator?.youtube) {
+    if (creatorSocials.instagram || creatorSocials.tiktok || creatorSocials.youtube) {
       // Sync social data from creators table to onepage
       await supabase
         .from("onepages")
         .update({
-          instagram: creator.instagram || null,
-          tiktok: creator.tiktok || null,
-          youtube: creator.youtube || null,
+          instagram: creatorSocials.instagram,
+          tiktok: creatorSocials.tiktok,
+          youtube: creatorSocials.youtube,
           social_links: {
             ...onepage.social_links,
-            instagram: creator.instagram || null,
-            tiktok: creator.tiktok || null,
-            youtube: creator.youtube || null,
+            instagram: creatorSocials.instagram,
+            tiktok: creatorSocials.tiktok,
+            youtube: creatorSocials.youtube,
           },
         })
         .eq("id", onepage.id)
 
       // Update the local onepage object with the synced data
-      rawOnepage.instagram = creator.instagram || null
-      rawOnepage.tiktok = creator.tiktok || null
-      rawOnepage.youtube = creator.youtube || null
+      rawOnepage.instagram = creatorSocials.instagram
+      rawOnepage.tiktok = creatorSocials.tiktok
+      rawOnepage.youtube = creatorSocials.youtube
       onepage.social_links = {
         ...onepage.social_links,
-        instagram: creator.instagram || null,
-        tiktok: creator.tiktok || null,
-        youtube: creator.youtube || null,
+        instagram: creatorSocials.instagram,
+        tiktok: creatorSocials.tiktok,
+        youtube: creatorSocials.youtube,
       }
     } else {
       // Fallback: Check if store_builder_configs has social data we can use
