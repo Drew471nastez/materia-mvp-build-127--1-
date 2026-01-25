@@ -567,9 +567,9 @@ export function DashboardClient({
   const [announcementVisible, setAnnouncementVisible] = useState(true)
   const [progressWidth, setProgressWidth] = useState(0)
 
-  // Rotate announcements every 10 seconds with progress bar
+  // Rotate announcements every 15 seconds with progress bar
   useEffect(() => {
-    const DURATION = 10000 // 10 seconds
+    const DURATION = 15000 // 15 seconds
     const PROGRESS_INTERVAL = 50 // Update progress every 50ms
 
     // Reset progress when announcement changes
@@ -631,56 +631,61 @@ export function DashboardClient({
 
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container">
-      {/* Mobile Announcement Bar - Fixed above header */}
-      <div className="fixed top-0 left-0 right-0 z-[60] md:hidden bg-[#8b5cf6] text-white">
-        <div className="py-2 px-4">
+      {/* Announcement Bar - positioned normally in document flow */}
+      <div className="bg-[#8b5cf6] text-white">
+        <div className="py-2 px-4 md:py-2.5">
           <div
-            className={`flex items-center justify-center gap-2 text-center transition-opacity duration-300 ${
+            className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${
               announcementVisible ? "opacity-100" : "opacity-0"
             }`}
           >
             {announcementType === "upgrade" && (
               <>
-                <span className="text-[12px] text-white/90">
+                <span className="text-[12px] md:text-[14px] text-white/90">
                   <span className="font-semibold text-white">Try Pro free</span>
+                  <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
                 </span>
                 <Link
                   href="/upgrade"
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white text-[11px] font-medium rounded-full transition-colors shrink-0"
+                  className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
                 >
-                  <Sparkles className="h-3 w-3" />
-                  Upgrade
+                  <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
+                  <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)', animation: 'laser-sweep 2s infinite linear' }} />
+                  <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
+                  <span className="relative z-10">Upgrade</span>
                 </Link>
               </>
             )}
             {announcementType === "steps" && (
               <>
-                <span className="text-[12px] text-white/90">
+                <span className="text-[12px] md:text-[14px] text-white/90">
                   <span className="font-semibold text-white">Complete setup</span>
-                  <span> — {completedSteps}/{totalSteps}</span>
+                  <span className="md:hidden"> — {completedSteps}/{totalSteps}</span>
+                  <span className="hidden md:inline"> — {totalSteps - completedSteps} steps remaining to get started.</span>
                 </span>
                 <button
                   onClick={() => {
                     const setupSection = document.getElementById("store-setup-section")
                     setupSection?.scrollIntoView({ behavior: "smooth" })
                   }}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white text-[11px] font-medium rounded-full transition-colors shrink-0"
+                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
                 >
                   Continue
-                  <ChevronRight className="h-3 w-3" />
+                  <ChevronRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
                 </button>
               </>
             )}
             {announcementType === "payouts" && (
               <>
-                <span className="text-[12px] text-white/90">
+                <span className="text-[12px] md:text-[14px] text-white/90">
                   <span className="font-semibold text-white">Get paid</span>
+                  <span className="hidden md:inline"> — Connect your payouts to receive payments.</span>
                 </span>
                 <Link
                   href="/app/payouts"
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white text-[11px] font-medium rounded-full transition-colors shrink-0"
+                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
                 >
-                  <Wallet className="h-3 w-3" />
+                  <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
                   Connect
                 </Link>
               </>
@@ -695,76 +700,6 @@ export function DashboardClient({
           />
         </div>
       </div>
-
-      {/* Desktop Announcement Bar */}
-      <div className="hidden md:block bg-[#8b5cf6] text-white">
-        <div className="py-2.5 px-4">
-          <div
-            className={`max-w-[1200px] mx-auto flex items-center justify-center gap-3 text-center transition-opacity duration-300 ${
-              announcementVisible ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            {announcementType === "upgrade" && (
-              <>
-                <span className="text-[13px] sm:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">Try Pro for free</span>
-                  <span> — our most popular plan for content creators and businesses.</span>
-                </span>
-                <Link
-                  href="/upgrade"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Upgrade
-                </Link>
-              </>
-            )}
-            {announcementType === "steps" && (
-              <>
-                <span className="text-[13px] sm:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">Complete your store setup</span>
-                  <span> — {totalSteps - completedSteps} steps remaining to get started.</span>
-                </span>
-                <button
-                  onClick={() => {
-                    const setupSection = document.getElementById("store-setup-section")
-                    setupSection?.scrollIntoView({ behavior: "smooth" })
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
-                >
-                  Continue
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </>
-            )}
-            {announcementType === "payouts" && (
-              <>
-                <span className="text-[13px] sm:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">Get paid for your sales</span>
-                  <span> — Connect your payouts to receive payments.</span>
-                </span>
-                <Link
-                  href="/app/payouts"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
-                >
-                  <Wallet className="h-3.5 w-3.5" />
-                  Connect
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-        {/* Subtle progress bar */}
-        <div className="h-[2px] bg-white/10">
-          <div
-            className="h-full bg-white/30 transition-all duration-50 ease-linear"
-            style={{ width: `${progressWidth}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Mobile spacer for fixed announcement bar */}
-      <div className="h-[38px] md:hidden" />
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header Section */}
@@ -1145,6 +1080,10 @@ export function DashboardClient({
 
       {/* Dashboard Scrollbar Styles */}
       <style jsx>{`
+        @keyframes laser-sweep {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
         .dashboard-scroll-container {
           scrollbar-width: thin;
           scrollbar-color: rgba(156, 163, 175, 0.5) transparent;

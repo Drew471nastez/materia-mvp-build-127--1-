@@ -785,7 +785,8 @@ function HeaderSection() {
   const [isVideoDragging, setIsVideoDragging] = useState(false)
   const [isVideoResizing, setIsVideoResizing] = useState<string | null>(null)
   const [videoDragStart, setVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
-  
+  const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 })
+
   // Crop box state
   const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
   const [isDragging, setIsDragging] = useState(false)
@@ -1685,9 +1686,14 @@ function HeaderSection() {
           setTempVideoFile(null)
           setIsVideoDragging(false)
           setIsVideoResizing(null)
+          setVideoDimensions({ width: 0, height: 0 })
         }
       }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto z-[60]">
+        <DialogContent
+          className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto z-[100]"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
@@ -1698,7 +1704,19 @@ function HeaderSection() {
                 <div
                   ref={videoCropContainerRef}
                   className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
-                  style={{ width: '300px', height: '300px', touchAction: 'none' }}
+                  style={{
+                    width: videoDimensions.width > 0
+                      ? `${Math.min(300, Math.max(200, videoDimensions.width > videoDimensions.height
+                          ? 300
+                          : Math.round(300 * (videoDimensions.width / videoDimensions.height))))}px`
+                      : '300px',
+                    height: videoDimensions.height > 0
+                      ? `${Math.min(300, Math.max(200, videoDimensions.height > videoDimensions.width
+                          ? 300
+                          : Math.round(300 * (videoDimensions.height / videoDimensions.width))))}px`
+                      : '300px',
+                    touchAction: 'none'
+                  }}
                 >
                   <video
                     ref={videoPreviewRef}
@@ -1708,6 +1726,10 @@ function HeaderSection() {
                     loop
                     muted
                     playsInline
+                    onLoadedMetadata={(e) => {
+                      const video = e.currentTarget
+                      setVideoDimensions({ width: video.videoWidth, height: video.videoHeight })
+                    }}
                   />
 
                   {/* Crop box - 1:1 square ratio */}

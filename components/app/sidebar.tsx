@@ -685,15 +685,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               }, 100)
             }
           }}
-          className="fixed bottom-6 right-4 md:right-6 z-40 flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95"
+          className="fixed bottom-6 right-4 md:right-6 z-40 flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95"
         >
-          <div className="relative shrink-0">
-            <SetupProgressCircle progress={setupProgressPercent} size={32} />
+          <div className="relative shrink-0 w-8 h-8 md:w-[37px] md:h-[37px]">
+            <div className="md:hidden">
+              <SetupProgressCircle progress={setupProgressPercent} size={32} />
+            </div>
+            <div className="hidden md:block">
+              <SetupProgressCircle progress={setupProgressPercent} size={37} />
+            </div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[8px] font-bold text-violet-600">{setupProgressPercent}%</span>
+              <span className="text-[8px] md:text-[9px] font-bold text-violet-600">{setupProgressPercent}%</span>
             </div>
           </div>
-          <span className="text-[11px] font-semibold text-neutral-700 whitespace-nowrap">Setup</span>
+          <span className="text-[11px] md:text-[12px] font-semibold text-neutral-700 whitespace-nowrap">Setup</span>
         </button>
       )}
     </>
