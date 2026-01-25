@@ -140,7 +140,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
 
     const baseClassName = cn(
-      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150 w-full text-left",
+      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150 w-full text-left cursor-pointer",
       isActive
         ? "bg-neutral-200 text-neutral-900"
         : "text-neutral-600 hover:bg-neutral-100/50 hover:text-neutral-900",
@@ -180,7 +180,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
 
     const baseClassName = cn(
-      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150 w-full text-left",
+      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150 w-full text-left cursor-pointer",
       isActive
         ? "bg-white/15 text-white"
         : "text-white/70 hover:bg-white/10 hover:text-white",

@@ -1355,8 +1355,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
   const quickCheckoutModalContextValue = { openQuickCheckoutModal, purchasedProducts, downloadPurchasedAsset }
 
-  // Safe defaults
-  const safeTheme = theme || {
+  // Safe defaults - MERGE theme with defaults to ensure all properties exist
+  const safeTheme = {
     background_type: "solid" as const,
     background_color: "#ffffff",
     background_gradient: "",
@@ -1372,6 +1372,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     font_family: "Inter",
     spacing: "normal" as const,
     card_width: "standard" as const,
+    title_color: "#000000",
+    title_font: "Inter",
+    social_icon_color: "#000000",
+    header_layout: "classic" as const,
+    ...theme, // Spread theme to override defaults with actual values
   }
 
   const safeBlocks = blocks || []

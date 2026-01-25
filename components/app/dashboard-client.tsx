@@ -558,6 +558,42 @@ export function DashboardClient({
   const totalSteps = initialSetupSteps.length
   const allCompleted = completedSteps === totalSteps
 
+  // Derive completion status from steps
+  const hasProducts = initialSetupSteps.find((s) => s.id === "product")?.completed || false
+  const hasPayouts = initialSetupSteps.find((s) => s.id === "payouts")?.completed || false
+
+  // Announcement bar state
+  const [announcementType, setAnnouncementType] = useState<"upgrade" | "steps" | "payouts">("upgrade")
+  const [announcementVisible, setAnnouncementVisible] = useState(true)
+
+  // Rotate announcements
+  useEffect(() => {
+    const rotateAnnouncements = () => {
+      setAnnouncementVisible(false)
+      setTimeout(() => {
+        setAnnouncementType((prev) => {
+          if (prev === "upgrade") {
+            // After upgrade, show steps if not all completed
+            if (!allCompleted) return "steps"
+            // Or show payouts reminder if needed
+            if (hasProducts && !hasPayouts) return "payouts"
+            return "upgrade"
+          } else if (prev === "steps") {
+            // After steps, show payouts reminder if user has products but no payouts
+            if (hasProducts && !hasPayouts) return "payouts"
+            return "upgrade"
+          } else {
+            return "upgrade"
+          }
+        })
+        setAnnouncementVisible(true)
+      }, 300) // Match fade-out duration
+    }
+
+    const interval = setInterval(rotateAnnouncements, 5000)
+    return () => clearInterval(interval)
+  }, [allCompleted, hasProducts, hasPayouts])
+
   // Build substep data based on step completion
   const getSubstepData = (step: SetupStep) => {
     return {
@@ -579,6 +615,65 @@ export function DashboardClient({
 
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container">
+      {/* Announcement Bar */}
+      <div
+        className={`bg-[#1a1a2e] text-white py-2.5 px-4 transition-opacity duration-300 ${
+          announcementVisible ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-3 text-center">
+          {announcementType === "upgrade" && (
+            <>
+              <span className="text-[13px] sm:text-[14px] text-white/90">
+                <span className="font-semibold text-white">Try Pro for free</span>
+                <span className="hidden sm:inline"> — our most popular plan for content creators and businesses.</span>
+              </span>
+              <Link
+                href="/upgrade"
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Upgrade
+              </Link>
+            </>
+          )}
+          {announcementType === "steps" && (
+            <>
+              <span className="text-[13px] sm:text-[14px] text-white/90">
+                <span className="font-semibold text-white">Complete your store setup</span>
+                <span className="hidden sm:inline"> — {totalSteps - completedSteps} steps remaining to get started.</span>
+                <span className="sm:hidden"> — {completedSteps}/{totalSteps}</span>
+              </span>
+              <button
+                onClick={() => {
+                  const setupSection = document.getElementById("store-setup-section")
+                  setupSection?.scrollIntoView({ behavior: "smooth" })
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-500 hover:bg-violet-600 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
+              >
+                Continue
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+          {announcementType === "payouts" && (
+            <>
+              <span className="text-[13px] sm:text-[14px] text-white/90">
+                <span className="font-semibold text-white">Get paid for your sales</span>
+                <span className="hidden sm:inline"> — Connect your payouts to receive payments.</span>
+              </span>
+              <Link
+                href="/app/payouts"
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
+              >
+                <Wallet className="h-3.5 w-3.5" />
+                Connect
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -760,7 +855,7 @@ export function DashboardClient({
         <div className="grid gap-6 lg:grid-cols-[370px_1fr]">
           {/* Left Column - Store Setup Checklist */}
           {!allCompleted && (
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
+            <div id="store-setup-section" className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Store setup</h2>
                 <span className="text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] px-2.5 py-1 rounded-full">
