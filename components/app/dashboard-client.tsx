@@ -1128,35 +1128,42 @@ export function DashboardClient({
                 }`} />
               </div>
             ) : (
-              <div className="h-[180px] flex items-end gap-1 pt-4 relative">
-                {chartData.map((point, index) => {
+              <div className="h-[180px] flex items-end gap-1 relative">
+                {(() => {
                   const maxValue = Math.max(...chartData.map((d) => d.value), 1)
-                  const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
                   const barColor = openKPIModal === "views" ? "bg-violet-400 hover:bg-violet-500" : openKPIModal === "orders" ? "bg-emerald-400 hover:bg-emerald-500" : "bg-amber-400 hover:bg-amber-500"
                   const textColor = openKPIModal === "views" ? "text-violet-300" : openKPIModal === "orders" ? "text-emerald-300" : "text-amber-300"
 
-                  return (
-                    <div key={index} className="flex-1 min-w-0 flex flex-col items-center group relative">
-                      {/* Tooltip */}
-                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none shadow-lg">
-                        <div className="font-semibold">{point.label}</div>
-                        <div className={textColor}>
-                          {openKPIModal === "revenue" ? `$${point.value.toFixed(2)}` : `${point.value} ${openKPIModal === "views" ? "views" : "orders"}`}
+                  return chartData.map((point, index) => {
+                    const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
+                    // Calculate actual pixel height based on container (180px minus padding for labels ~24px)
+                    const barHeight = Math.max((heightPercent / 100) * 150, 4)
+
+                    return (
+                      <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative h-full pb-6">
+                        {/* Tooltip */}
+                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none shadow-lg">
+                          <div className="font-semibold">{point.label}</div>
+                          <div className={textColor}>
+                            {openKPIModal === "revenue" ? `$${point.value.toFixed(2)}` : `${point.value} ${openKPIModal === "views" ? "views" : "orders"}`}
+                          </div>
+                          {openKPIModal === "views" && point.secondaryValue !== undefined && (
+                            <div className="text-gray-400">{point.secondaryValue} clicks</div>
+                          )}
                         </div>
-                        {openKPIModal === "views" && point.secondaryValue !== undefined && (
-                          <div className="text-gray-400">{point.secondaryValue} clicks</div>
-                        )}
+                        {/* Bar */}
+                        <div
+                          className={`w-full rounded-t transition-all duration-300 cursor-pointer ${barColor}`}
+                          style={{ height: `${barHeight}px` }}
+                        />
+                        {/* Label */}
+                        <span className="absolute bottom-0 text-[8px] text-gray-400 truncate w-full text-center">
+                          {chartData.length > 14 && index % 2 !== 0 ? '' : point.label.split(' ')[0]}
+                        </span>
                       </div>
-                      <div
-                        className={`w-full rounded-t transition-all duration-200 cursor-pointer ${barColor}`}
-                        style={{ height: `${Math.max(heightPercent, 3)}%`, minHeight: '4px' }}
-                      />
-                      <span className="text-[8px] text-gray-400 mt-1.5 truncate w-full text-center">
-                        {chartData.length > 14 && index % 2 !== 0 ? '' : point.label.split(' ')[0]}
-                      </span>
-                    </div>
-                  )
-                })}
+                    )
+                  })
+                })()}
               </div>
             )}
           </div>
