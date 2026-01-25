@@ -1016,11 +1016,11 @@ export function DashboardClient({
                 </div>
                 {isChartLoading ? (
                   <div className="h-[80px] flex items-end gap-[2px]">
-                    {Array.from({ length: 7 }).map((_, i) => (
+                    {[35, 50, 25, 60, 40, 55, 30].map((h, i) => (
                       <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
                         <div
-                          className="w-full rounded-sm bg-violet-200 animate-pulse"
-                          style={{ height: `${Math.random() * 40 + 20}px` }}
+                          className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
+                          style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }}
                         />
                       </div>
                     ))}
@@ -1081,11 +1081,11 @@ export function DashboardClient({
                 </div>
                 {isChartLoading ? (
                   <div className="h-[80px] flex items-end gap-[2px]">
-                    {Array.from({ length: 7 }).map((_, i) => (
+                    {[30, 45, 55, 35, 50, 40, 60].map((h, i) => (
                       <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
                         <div
-                          className="w-full rounded-sm bg-violet-200 animate-pulse"
-                          style={{ height: `${Math.random() * 40 + 20}px` }}
+                          className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
+                          style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }}
                         />
                       </div>
                     ))}
@@ -1146,11 +1146,11 @@ export function DashboardClient({
                 </div>
                 {isChartLoading ? (
                   <div className="h-[80px] flex items-end gap-[2px]">
-                    {Array.from({ length: 7 }).map((_, i) => (
+                    {[40, 55, 30, 50, 45, 35, 55].map((h, i) => (
                       <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
                         <div
-                          className="w-full rounded-sm bg-violet-200 animate-pulse"
-                          style={{ height: `${Math.random() * 40 + 20}px` }}
+                          className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
+                          style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }}
                         />
                       </div>
                     ))}
@@ -1450,6 +1450,13 @@ export function DashboardClient({
         @keyframes laser-sweep {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(200%); }
+        }
+        @keyframes skeleton-pulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.7; }
+        }
+        .skeleton-bar {
+          animation: skeleton-pulse 2.5s ease-in-out infinite;
         }
         .dashboard-scroll-container {
           scrollbar-width: thin;
