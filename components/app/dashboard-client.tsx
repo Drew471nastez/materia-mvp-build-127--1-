@@ -40,6 +40,14 @@ interface SetupStep {
   href: string
 }
 
+interface ChartDataPoint {
+  label: string
+  value: number
+  secondaryValue?: number
+}
+
+type KPIType = "views" | "orders" | "revenue" | null
+
 // Icon mapping for setup steps
 const stepIcons: Record<string, any> = {
   welcome: User,
@@ -360,6 +368,186 @@ function TimeframeBottomSheet({
   )
 }
 
+// KPI Detail Modal with Bar Chart
+function KPIDetailModal({
+  isOpen,
+  onClose,
+  kpiType,
+  chartData,
+  isLoading,
+  timeframe,
+  formatCurrency,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  kpiType: KPIType
+  chartData: ChartDataPoint[]
+  isLoading: boolean
+  timeframe: string
+  formatCurrency: (cents: number) => string
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setTimeout(() => {
+      onClose()
+    }, 300)
+  }
+
+  if (!isVisible) return null
+
+  const maxValue = Math.max(...chartData.map((d) => d.value), 1)
+  const kpiLabels: Record<string, { title: string; unit: string; color: string }> = {
+    views: { title: "Views", unit: "views", color: "#8b5cf6" },
+    orders: { title: "Orders", unit: "orders", color: "#10b981" },
+    revenue: { title: "Revenue", unit: "", color: "#f59e0b" },
+  }
+  const kpiInfo = kpiType ? kpiLabels[kpiType] : kpiLabels.views
+
+  const periodLabels: Record<string, string> = {
+    today: "hourly",
+    last_7_days: "daily",
+    last_30_days: "daily",
+    last_year: "monthly",
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100]">
+      {/* Backdrop */}
+      <div
+        className={`absolute inset-0 bg-black transition-opacity duration-300 ease-out ${
+          isAnimating ? "opacity-50" : "opacity-0"
+        }`}
+        onClick={handleClose}
+      />
+      {/* Modal */}
+      <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div
+          className={`relative bg-white rounded-2xl shadow-xl w-full max-w-lg pointer-events-auto transition-all duration-300 ease-out ${
+            isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
+          }`}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-5 border-b border-gray-100">
+            <div>
+              <h3 className="text-[17px] font-semibold text-[#1a1a2e]">{kpiInfo.title}</h3>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">
+                {periodLabels[timeframe] || "daily"} breakdown
+              </p>
+            </div>
+            <button
+              onClick={handleClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          {/* Chart */}
+          <div className="p-5">
+            {isLoading ? (
+              <div className="h-[250px] flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-violet-500 border-t-transparent" />
+              </div>
+            ) : (
+              <div className="relative h-[250px]">
+                {/* Y-axis labels */}
+                <div className="absolute left-0 top-0 bottom-8 w-10 flex flex-col justify-between text-[10px] text-gray-400">
+                  <span>{kpiType === "revenue" ? `$${maxValue.toFixed(0)}` : maxValue}</span>
+                  <span>{kpiType === "revenue" ? `$${(maxValue / 2).toFixed(0)}` : Math.round(maxValue / 2)}</span>
+                  <span>0</span>
+                </div>
+
+                {/* Chart area */}
+                <div className="ml-12 h-full flex items-end gap-1 pb-8 overflow-x-auto">
+                  {chartData.map((point, index) => {
+                    const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
+                    const isHovered = hoveredIndex === index
+
+                    return (
+                      <div
+                        key={index}
+                        className="flex-1 min-w-[20px] max-w-[40px] flex flex-col items-center relative group"
+                        onMouseEnter={() => setHoveredIndex(index)}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                      >
+                        {/* Tooltip */}
+                        {isHovered && (
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[11px] px-2.5 py-1.5 rounded-lg whitespace-nowrap z-10 shadow-lg">
+                            <div className="font-semibold">{point.label}</div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-violet-300">
+                                {kpiType === "revenue" ? `$${point.value.toFixed(2)}` : `${point.value} ${kpiInfo.unit}`}
+                              </span>
+                              {kpiType === "views" && point.secondaryValue !== undefined && (
+                                <span className="text-gray-400">{point.secondaryValue} clicks</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bar */}
+                        <div
+                          className="w-full rounded-t-md transition-all duration-200 cursor-pointer"
+                          style={{
+                            height: `${Math.max(heightPercent, 2)}%`,
+                            backgroundColor: isHovered ? kpiInfo.color : `${kpiInfo.color}99`,
+                            minHeight: '4px'
+                          }}
+                        />
+
+                        {/* X-axis label */}
+                        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] text-gray-400 whitespace-nowrap">
+                          {chartData.length > 12 && index % 2 !== 0 ? '' : point.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-5 pb-5">
+            <button
+              onClick={handleClose}
+              className="w-full py-2.5 text-[14px] font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function DashboardClient({
   creatorId,
   displayName,
@@ -371,6 +559,9 @@ export function DashboardClient({
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
+  const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([])
+  const [isChartLoading, setIsChartLoading] = useState(false)
   const [analyticsData, setAnalyticsData] = useState({
     totalViews: 0,
     totalOrders: 0,
@@ -536,6 +727,226 @@ export function DashboardClient({
       setIsLoading(false)
     }
   }
+
+  // Fetch detailed chart data for KPI modal
+  const fetchChartData = async (kpiType: KPIType) => {
+    if (!kpiType) return
+
+    setIsChartLoading(true)
+    const supabase = createClient()
+
+    try {
+      const option = timeframeOptions.find((o) => o.value === timeframe)
+      if (!option) return
+
+      const { start, end } = option.getDates()
+      const points: ChartDataPoint[] = []
+
+      // Determine grouping based on timeframe
+      const isToday = timeframe === "today"
+      const isYear = timeframe === "last_year"
+      const isMonth = timeframe === "last_30_days"
+
+      if (isToday) {
+        // Group by hour for today
+        for (let hour = 0; hour <= new Date().getHours(); hour++) {
+          const hourStart = new Date(start)
+          hourStart.setHours(hour, 0, 0, 0)
+          const hourEnd = new Date(start)
+          hourEnd.setHours(hour, 59, 59, 999)
+
+          let value = 0
+          let secondaryValue = 0
+
+          if (kpiType === "views") {
+            const { data } = await supabase
+              .from("analytics_events")
+              .select("id, visitor_id, session_id, product_id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "view")
+              .gte("created_at", hourStart.toISOString())
+              .lte("created_at", hourEnd.toISOString())
+
+            const uniqueKeys = new Set((data || []).map((e: any) => {
+              const identity = e.visitor_id || e.session_id
+              return identity ? `${identity}__${e.product_id || "store"}` : null
+            }).filter(Boolean))
+            value = uniqueKeys.size
+
+            // Get clicks for secondary value
+            const { data: clicks } = await supabase
+              .from("analytics_events")
+              .select("id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "click")
+              .gte("created_at", hourStart.toISOString())
+              .lte("created_at", hourEnd.toISOString())
+            secondaryValue = clicks?.length || 0
+          } else if (kpiType === "orders" && productIds.length > 0) {
+            const { data } = await supabase
+              .from("orders")
+              .select("id")
+              .eq("status", "completed")
+              .in("product_id", productIds)
+              .gte("created_at", hourStart.toISOString())
+              .lte("created_at", hourEnd.toISOString())
+            value = data?.length || 0
+          } else if (kpiType === "revenue" && productIds.length > 0) {
+            const { data } = await supabase
+              .from("orders")
+              .select("amount_cents")
+              .eq("status", "completed")
+              .in("product_id", productIds)
+              .gte("created_at", hourStart.toISOString())
+              .lte("created_at", hourEnd.toISOString())
+            value = (data || []).reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) / 100
+          }
+
+          points.push({
+            label: `${hour.toString().padStart(2, '0')}:00`,
+            value,
+            secondaryValue: kpiType === "views" ? secondaryValue : undefined
+          })
+        }
+      } else if (isYear) {
+        // Group by month for year
+        for (let month = 0; month < 12; month++) {
+          const monthStart = new Date(start.getFullYear(), month, 1)
+          const monthEnd = new Date(start.getFullYear(), month + 1, 0, 23, 59, 59, 999)
+
+          if (monthEnd > end) break
+
+          let value = 0
+          let secondaryValue = 0
+
+          if (kpiType === "views") {
+            const { data } = await supabase
+              .from("analytics_events")
+              .select("id, visitor_id, session_id, product_id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "view")
+              .gte("created_at", monthStart.toISOString())
+              .lte("created_at", monthEnd.toISOString())
+
+            const uniqueKeys = new Set((data || []).map((e: any) => {
+              const identity = e.visitor_id || e.session_id
+              return identity ? `${identity}__${e.product_id || "store"}` : null
+            }).filter(Boolean))
+            value = uniqueKeys.size
+
+            const { data: clicks } = await supabase
+              .from("analytics_events")
+              .select("id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "click")
+              .gte("created_at", monthStart.toISOString())
+              .lte("created_at", monthEnd.toISOString())
+            secondaryValue = clicks?.length || 0
+          } else if (kpiType === "orders" && productIds.length > 0) {
+            const { data } = await supabase
+              .from("orders")
+              .select("id")
+              .eq("status", "completed")
+              .in("product_id", productIds)
+              .gte("created_at", monthStart.toISOString())
+              .lte("created_at", monthEnd.toISOString())
+            value = data?.length || 0
+          } else if (kpiType === "revenue" && productIds.length > 0) {
+            const { data } = await supabase
+              .from("orders")
+              .select("amount_cents")
+              .eq("status", "completed")
+              .in("product_id", productIds)
+              .gte("created_at", monthStart.toISOString())
+              .lte("created_at", monthEnd.toISOString())
+            value = (data || []).reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) / 100
+          }
+
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+          points.push({
+            label: monthNames[month],
+            value,
+            secondaryValue: kpiType === "views" ? secondaryValue : undefined
+          })
+        }
+      } else {
+        // Group by day for 7 days / 30 days
+        const dayCount = isMonth ? 30 : 7
+        for (let i = dayCount - 1; i >= 0; i--) {
+          const dayStart = new Date(end)
+          dayStart.setDate(dayStart.getDate() - i)
+          dayStart.setHours(0, 0, 0, 0)
+          const dayEnd = new Date(dayStart)
+          dayEnd.setHours(23, 59, 59, 999)
+
+          let value = 0
+          let secondaryValue = 0
+
+          if (kpiType === "views") {
+            const { data } = await supabase
+              .from("analytics_events")
+              .select("id, visitor_id, session_id, product_id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "view")
+              .gte("created_at", dayStart.toISOString())
+              .lte("created_at", dayEnd.toISOString())
+
+            const uniqueKeys = new Set((data || []).map((e: any) => {
+              const identity = e.visitor_id || e.session_id
+              return identity ? `${identity}__${e.product_id || "store"}` : null
+            }).filter(Boolean))
+            value = uniqueKeys.size
+
+            const { data: clicks } = await supabase
+              .from("analytics_events")
+              .select("id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "click")
+              .gte("created_at", dayStart.toISOString())
+              .lte("created_at", dayEnd.toISOString())
+            secondaryValue = clicks?.length || 0
+          } else if (kpiType === "orders" && productIds.length > 0) {
+            const { data } = await supabase
+              .from("orders")
+              .select("id")
+              .eq("status", "completed")
+              .in("product_id", productIds)
+              .gte("created_at", dayStart.toISOString())
+              .lte("created_at", dayEnd.toISOString())
+            value = data?.length || 0
+          } else if (kpiType === "revenue" && productIds.length > 0) {
+            const { data } = await supabase
+              .from("orders")
+              .select("amount_cents")
+              .eq("status", "completed")
+              .in("product_id", productIds)
+              .gte("created_at", dayStart.toISOString())
+              .lte("created_at", dayEnd.toISOString())
+            value = (data || []).reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) / 100
+          }
+
+          points.push({
+            label: dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            value,
+            secondaryValue: kpiType === "views" ? secondaryValue : undefined
+          })
+        }
+      }
+
+      setChartData(points)
+    } catch (error) {
+      console.error("Error fetching chart data:", error)
+    } finally {
+      setIsChartLoading(false)
+    }
+  }
+
+  // Fetch chart data when modal opens
+  useEffect(() => {
+    if (openKPIModal) {
+      fetchChartData(openKPIModal)
+    }
+  }, [openKPIModal, timeframe])
 
   useEffect(() => {
     fetchAnalytics(timeframe)
@@ -769,9 +1180,12 @@ export function DashboardClient({
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
-              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <button
+                onClick={() => setOpenKPIModal("views")}
+                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center hover:bg-[#e5e7eb] transition-colors cursor-pointer"
+              >
                 <Eye className="h-4 w-4 text-[#9ca3af]" />
-              </div>
+              </button>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
@@ -788,9 +1202,12 @@ export function DashboardClient({
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
-              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <button
+                onClick={() => setOpenKPIModal("orders")}
+                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center hover:bg-[#e5e7eb] transition-colors cursor-pointer"
+              >
                 <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
-              </div>
+              </button>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
@@ -807,9 +1224,12 @@ export function DashboardClient({
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
-              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+              <button
+                onClick={() => setOpenKPIModal("revenue")}
+                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center hover:bg-[#e5e7eb] transition-colors cursor-pointer"
+              >
                 <DollarSign className="h-4 w-4 text-[#9ca3af]" />
-              </div>
+              </button>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
@@ -839,6 +1259,17 @@ export function DashboardClient({
             <p className="text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
           </div>
         </div>
+
+        {/* KPI Detail Modal */}
+        <KPIDetailModal
+          isOpen={openKPIModal !== null}
+          onClose={() => setOpenKPIModal(null)}
+          kpiType={openKPIModal}
+          chartData={chartData}
+          isLoading={isChartLoading}
+          timeframe={timeframe}
+          formatCurrency={formatCurrency}
+        />
 
         {/* Storelib Promotional Banner - Responsive for all devices */}
         <div className="mb-8">

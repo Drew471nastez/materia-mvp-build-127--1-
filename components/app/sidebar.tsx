@@ -414,6 +414,40 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <p className="text-[12px] text-amber-700">Store is unpublished. Go to Settings to publish.</p>
           </div>
         )}
+
+        {/* Setup Progress Section for Mobile */}
+        {setupProgress && setupProgress.completed < setupProgress.total && (
+          <button
+            onClick={() => {
+              onItemClick?.()
+              if (pathname === "/app") {
+                const setupSection = document.getElementById("store-setup-section")
+                setupSection?.scrollIntoView({ behavior: "smooth", block: "start" })
+              } else {
+                router.push("/app")
+                setTimeout(() => {
+                  const setupSection = document.getElementById("store-setup-section")
+                  setupSection?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }, 100)
+              }
+            }}
+            className="mt-4 w-full rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-100/60 p-3 text-left transition-all hover:from-violet-100/80 hover:to-purple-100/80"
+          >
+            <div className="flex items-center gap-3">
+              <div className="relative shrink-0 w-10 h-10">
+                <SetupProgressCircle progress={setupProgressPercent} size={40} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-violet-600">{setupProgressPercent}%</span>
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-neutral-900">Store Setup</p>
+                <p className="text-[11px] text-neutral-500">{setupProgress.completed} of {setupProgress.total} steps complete</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+            </div>
+          </button>
+        )}
       </nav>
 
       <div className="px-3 pb-3">

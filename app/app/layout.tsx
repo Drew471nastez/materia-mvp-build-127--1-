@@ -120,7 +120,7 @@ export default async function AppLayout({
         setupProgress={{ completed: completedSteps, total: totalSteps }}
       />
       <main className="h-svh pt-[68px] md:pl-[220px] md:pt-0 bg-white rounded-t-[20px] md:rounded-none overflow-hidden">
-        <div className="h-[calc(100svh-68px)] md:h-svh overflow-hidden">{children}</div>
+        <div className="h-[calc(100svh-68px)] md:h-svh overflow-y-auto">{children}</div>
       </main>
     </div>
   )

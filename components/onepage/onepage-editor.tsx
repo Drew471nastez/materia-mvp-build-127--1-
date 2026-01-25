@@ -71,7 +71,7 @@ function UnsavedChangesDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[calc(100%-32px)] max-w-sm md:max-w-[326px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <DialogContent className="w-[calc(100%-32px)] max-w-sm md:max-w-[340px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
         <div className="p-6 text-center">
           <h2 className="text-lg font-semibold mb-2">Save changes?</h2>
           <p className="text-sm text-muted-foreground">
