@@ -1006,14 +1006,24 @@ export function DashboardClient({
             {openKPIModal === "views" ? (
               <>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-medium text-violet-600">Views</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-medium text-violet-600">Views</span>
+                    <span className="text-[10px] text-[#9ca3af]">• {selectedOption?.label}</span>
+                  </div>
                   <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 {isChartLoading ? (
-                  <div className="h-[80px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-violet-500 border-t-transparent" />
+                  <div className="h-[80px] flex items-end gap-[2px]">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
+                        <div
+                          className="w-full rounded-sm bg-violet-200 animate-pulse"
+                          style={{ height: `${Math.random() * 40 + 20}px` }}
+                        />
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
@@ -1054,21 +1064,31 @@ export function DashboardClient({
           {/* Total Orders */}
           <div
             className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-              openKPIModal === "orders" ? "border-emerald-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
+              openKPIModal === "orders" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
             }`}
             onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
           >
             {openKPIModal === "orders" ? (
               <>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-medium text-emerald-600">Orders</span>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-600 flex items-center justify-center hover:bg-emerald-200 transition-colors">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-medium text-violet-600">Orders</span>
+                    <span className="text-[10px] text-[#9ca3af]">• {selectedOption?.label}</span>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 {isChartLoading ? (
-                  <div className="h-[80px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500 border-t-transparent" />
+                  <div className="h-[80px] flex items-end gap-[2px]">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
+                        <div
+                          className="w-full rounded-sm bg-violet-200 animate-pulse"
+                          style={{ height: `${Math.random() * 40 + 20}px` }}
+                        />
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
@@ -1081,7 +1101,7 @@ export function DashboardClient({
                             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
                               {point.label}: {point.value}
                             </div>
-                            <div className="w-full rounded-sm bg-emerald-400 hover:bg-emerald-500 transition-colors" style={{ height: `${barHeight}px` }} />
+                            <div className="w-full rounded-sm bg-violet-400 hover:bg-violet-500 transition-colors" style={{ height: `${barHeight}px` }} />
                           </div>
                         )
                       })
@@ -1109,21 +1129,31 @@ export function DashboardClient({
           {/* Total Revenue */}
           <div
             className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-              openKPIModal === "revenue" ? "border-amber-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
+              openKPIModal === "revenue" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
             }`}
             onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
           >
             {openKPIModal === "revenue" ? (
               <>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-medium text-amber-600">Revenue</span>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center hover:bg-amber-200 transition-colors">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-medium text-violet-600">Revenue</span>
+                    <span className="text-[10px] text-[#9ca3af]">• {selectedOption?.label}</span>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 {isChartLoading ? (
-                  <div className="h-[80px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-amber-500 border-t-transparent" />
+                  <div className="h-[80px] flex items-end gap-[2px]">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
+                        <div
+                          className="w-full rounded-sm bg-violet-200 animate-pulse"
+                          style={{ height: `${Math.random() * 40 + 20}px` }}
+                        />
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
@@ -1136,7 +1166,7 @@ export function DashboardClient({
                             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
                               {point.label}: ${point.value.toFixed(2)}
                             </div>
-                            <div className="w-full rounded-sm bg-amber-400 hover:bg-amber-500 transition-colors" style={{ height: `${barHeight}px` }} />
+                            <div className="w-full rounded-sm bg-violet-400 hover:bg-violet-500 transition-colors" style={{ height: `${barHeight}px` }} />
                           </div>
                         )
                       })
@@ -1347,9 +1377,9 @@ export function DashboardClient({
                 </div>
                 <p className="text-[13px] text-[#6b7280] mt-0.5">Go from idea to product offer in minutes</p>
               </div>
-              <div className="hidden sm:block w-20 h-20 rounded-xl bg-gradient-to-br from-[#f9fafb] to-[#f3f4f6] overflow-hidden">
+              <div className="hidden sm:block w-20 h-20 rounded-xl bg-[#f3f4f6] overflow-hidden">
                 <div className="w-full h-full flex items-center justify-center">
-                  <ImageIcon className="h-8 w-8 text-[#d1d5db]" />
+                  <ImageIcon className="h-8 w-8 text-[#9ca3af]" />
                 </div>
               </div>
             </Link>
