@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { DashboardClient } from "@/components/app/dashboard-client"
 
 export const dynamic = "force-dynamic"
 
 export default async function AppDashboard() {
   const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   const {
     data: { user },
@@ -13,20 +15,36 @@ export default async function AppDashboard() {
 
   if (!user) redirect("/login")
 
-  const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).single()
+  // Use admin client to bypass RLS
+  const { data: creator } = await adminSupabase
+    .from("creators")
+    .select("*")
+    .eq("user_id", user.id)
+    .single()
 
   if (!creator) redirect("/onboarding")
 
   if (!creator.onboarding_completed) redirect("/onboarding")
 
-  const { data: profile } = await supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).single()
+  const { data: profile } = await adminSupabase
+    .from("profiles")
+    .select("username, display_name, avatar_url")
+    .eq("id", user.id)
+    .single()
 
-  const { data: products } = await supabase.from("products").select("id, status").eq("creator_id", creator.id)
+  // Fetch products using admin client
+  const { data: products } = await adminSupabase
+    .from("products")
+    .select("id, status")
+    .eq("creator_id", creator.id)
+
   const productIds = products?.map((p: any) => p.id) || []
   const hasProducts = (products?.length || 0) > 0
 
+  console.log("[Dashboard] Creator:", creator.id, "Products:", productIds.length)
+
   // Check for OnePage
-  const { data: onepage } = await supabase
+  const { data: onepage } = await adminSupabase
     .from("onepages")
     .select("id, status, draft_blocks")
     .eq("owner_id", user.id)
@@ -36,7 +54,7 @@ export default async function AppDashboard() {
   const hasOnePageBlock = onepage?.draft_blocks && onepage.draft_blocks.length > 1
 
   // Check for Stripe connection
-  const { data: stripeAccount } = await supabase
+  const { data: stripeAccount } = await adminSupabase
     .from("stripe_accounts")
     .select("stripe_account_id, payouts_enabled")
     .eq("user_id", user.id)
@@ -44,16 +62,23 @@ export default async function AppDashboard() {
 
   const hasPayoutsSetup = stripeAccount?.payouts_enabled === true
 
-  // Total orders (all time) for first sale check
+  // Total orders (all time) for first sale check - using admin client
   let totalOrders = 0
+  let totalRevenue = 0
   if (productIds.length > 0) {
-    const { data: allOrders } = await supabase
+    const { data: allOrders, error: ordersError } = await adminSupabase
       .from("orders")
-      .select("id")
+      .select("id, amount_cents, status")
       .eq("status", "completed")
       .in("product_id", productIds)
 
+    if (ordersError) {
+      console.log("[Dashboard] Orders fetch error:", ordersError)
+    }
+
     totalOrders = allOrders?.length || 0
+    totalRevenue = allOrders?.reduce((sum: number, o: any) => sum + (o.amount_cents || 0), 0) || 0
+    console.log("[Dashboard] Found orders:", totalOrders, "Revenue:", totalRevenue)
   }
 
   // Branding check: has avatar, name, and bio
@@ -124,6 +149,8 @@ export default async function AppDashboard() {
       displayName={displayName}
       initialSetupSteps={setupSteps}
       productIds={productIds}
+      initialTotalOrders={totalOrders}
+      initialTotalRevenue={totalRevenue}
     />
   )
 }

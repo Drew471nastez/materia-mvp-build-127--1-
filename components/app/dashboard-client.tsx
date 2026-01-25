@@ -90,6 +90,8 @@ interface DashboardClientProps {
   displayName: string
   initialSetupSteps: SetupStep[]
   productIds: string[]
+  initialTotalOrders?: number
+  initialTotalRevenue?: number
 }
 
 type TimeframeOption = {
@@ -374,6 +376,8 @@ export function DashboardClient({
   displayName,
   initialSetupSteps,
   productIds,
+  initialTotalOrders = 0,
+  initialTotalRevenue = 0,
 }: DashboardClientProps) {
   const [timeframe, setTimeframe] = useState("last_7_days")
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -385,12 +389,12 @@ export function DashboardClient({
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [analyticsData, setAnalyticsData] = useState({
     totalViews: 0,
-    totalOrders: 0,
-    totalRevenue: 0,
+    totalOrders: initialTotalOrders,
+    totalRevenue: initialTotalRevenue,
     conversionRate: 0,
     periodViews: 0,
-    periodOrders: 0,
-    periodRevenue: 0,
+    periodOrders: initialTotalOrders,
+    periodRevenue: initialTotalRevenue,
     // Previous period for comparison
     prevPeriodViews: 0,
     prevPeriodOrders: 0,
