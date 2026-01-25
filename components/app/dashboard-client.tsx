@@ -995,202 +995,87 @@ export function DashboardClient({
         />
 
         {/* Stats Cards */}
-        <div className={`grid gap-4 mb-8 ${isLoading ? "opacity-60" : ""}`} style={{
-          gridTemplateColumns: openKPIModal ? '1fr' : 'repeat(2, 1fr)',
-        }}>
-          {/* Total Views - Expandable */}
+        <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 mb-4 ${isLoading ? "opacity-60" : ""}`}>
+          {/* Total Views */}
           <div
-            className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ${
-              openKPIModal === "views" ? "col-span-full" : ""
-            } ${openKPIModal && openKPIModal !== "views" ? "hidden" : ""}`}
+            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
+              openKPIModal === "views" ? "border-violet-300 ring-2 ring-violet-100" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
+            }`}
+            onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
           >
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
-                <button
-                  onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    openKPIModal === "views" ? "bg-violet-100 text-violet-600" : "bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#9ca3af]"
-                  }`}
-                >
-                  {openKPIModal === "views" ? <X className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                openKPIModal === "views" ? "bg-violet-100 text-violet-600" : "bg-[#f3f4f6] text-[#9ca3af]"
+              }`}>
+                <Eye className="h-4 w-4" />
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                  {analyticsData.totalViews.toLocaleString()}
-                </span>
-                <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
-              </div>
-              <p className="text-[12px] text-[#9ca3af] mt-1">
-                {analyticsData.periodViews.toLocaleString()} {formatPeriodText(timeframe)}
-              </p>
             </div>
-
-            {/* Inline Chart for Views */}
-            {openKPIModal === "views" && (
-              <div className="px-5 pb-5 pt-2 border-t border-[#f3f4f6]">
-                {isChartLoading ? (
-                  <div className="h-[180px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-violet-500 border-t-transparent" />
-                  </div>
-                ) : (
-                  <div className="h-[180px] flex items-end gap-1 pt-6 relative">
-                    {chartData.map((point, index) => {
-                      const maxValue = Math.max(...chartData.map((d) => d.value), 1)
-                      const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
-                      return (
-                        <div key={index} className="flex-1 min-w-0 flex flex-col items-center group relative">
-                          {/* Tooltip */}
-                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                            <div className="font-medium">{point.label}</div>
-                            <div className="text-violet-300">{point.value} views</div>
-                            {point.secondaryValue !== undefined && <div className="text-gray-400">{point.secondaryValue} clicks</div>}
-                          </div>
-                          <div
-                            className="w-full rounded-t transition-all duration-200 bg-violet-400 hover:bg-violet-500 cursor-pointer"
-                            style={{ height: `${Math.max(heightPercent, 3)}%`, minHeight: '4px' }}
-                          />
-                          <span className="text-[8px] text-gray-400 mt-1 truncate w-full text-center">
-                            {chartData.length > 12 && index % 3 !== 0 ? '' : point.label.split(' ')[0]}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="flex items-baseline gap-2">
+              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {analyticsData.totalViews.toLocaleString()}
+              </span>
+              <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
+            </div>
+            <p className="text-[12px] text-[#9ca3af] mt-1">
+              {analyticsData.periodViews.toLocaleString()} {formatPeriodText(timeframe)}
+            </p>
           </div>
 
-          {/* Total Orders - Expandable */}
+          {/* Total Orders */}
           <div
-            className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ${
-              openKPIModal === "orders" ? "col-span-full" : ""
-            } ${openKPIModal && openKPIModal !== "orders" ? "hidden" : ""}`}
+            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
+              openKPIModal === "orders" ? "border-emerald-300 ring-2 ring-emerald-100" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
+            }`}
+            onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
           >
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
-                <button
-                  onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    openKPIModal === "orders" ? "bg-emerald-100 text-emerald-600" : "bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#9ca3af]"
-                  }`}
-                >
-                  {openKPIModal === "orders" ? <X className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
-                </button>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                openKPIModal === "orders" ? "bg-emerald-100 text-emerald-600" : "bg-[#f3f4f6] text-[#9ca3af]"
+              }`}>
+                <ShoppingCart className="h-4 w-4" />
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                  {analyticsData.totalOrders.toLocaleString()}
-                </span>
-                <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
-              </div>
-              <p className="text-[12px] text-[#9ca3af] mt-1">
-                {analyticsData.periodOrders.toLocaleString()} {formatPeriodText(timeframe)}
-              </p>
             </div>
-
-            {/* Inline Chart for Orders */}
-            {openKPIModal === "orders" && (
-              <div className="px-5 pb-5 pt-2 border-t border-[#f3f4f6]">
-                {isChartLoading ? (
-                  <div className="h-[180px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-emerald-500 border-t-transparent" />
-                  </div>
-                ) : (
-                  <div className="h-[180px] flex items-end gap-1 pt-6 relative">
-                    {chartData.map((point, index) => {
-                      const maxValue = Math.max(...chartData.map((d) => d.value), 1)
-                      const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
-                      return (
-                        <div key={index} className="flex-1 min-w-0 flex flex-col items-center group relative">
-                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                            <div className="font-medium">{point.label}</div>
-                            <div className="text-emerald-300">{point.value} orders</div>
-                          </div>
-                          <div
-                            className="w-full rounded-t transition-all duration-200 bg-emerald-400 hover:bg-emerald-500 cursor-pointer"
-                            style={{ height: `${Math.max(heightPercent, 3)}%`, minHeight: '4px' }}
-                          />
-                          <span className="text-[8px] text-gray-400 mt-1 truncate w-full text-center">
-                            {chartData.length > 12 && index % 3 !== 0 ? '' : point.label.split(' ')[0]}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="flex items-baseline gap-2">
+              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {analyticsData.totalOrders.toLocaleString()}
+              </span>
+              <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
+            </div>
+            <p className="text-[12px] text-[#9ca3af] mt-1">
+              {analyticsData.periodOrders.toLocaleString()} {formatPeriodText(timeframe)}
+            </p>
           </div>
 
-          {/* Total Revenue - Expandable */}
+          {/* Total Revenue */}
           <div
-            className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ${
-              openKPIModal === "revenue" ? "col-span-full" : ""
-            } ${openKPIModal && openKPIModal !== "revenue" ? "hidden" : ""}`}
+            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
+              openKPIModal === "revenue" ? "border-amber-300 ring-2 ring-amber-100" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
+            }`}
+            onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
           >
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
-                <button
-                  onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    openKPIModal === "revenue" ? "bg-amber-100 text-amber-600" : "bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#9ca3af]"
-                  }`}
-                >
-                  {openKPIModal === "revenue" ? <X className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
-                </button>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                openKPIModal === "revenue" ? "bg-amber-100 text-amber-600" : "bg-[#f3f4f6] text-[#9ca3af]"
+              }`}>
+                <DollarSign className="h-4 w-4" />
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                  {formatCurrency(analyticsData.totalRevenue)}
-                </span>
-                <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
-              </div>
-              <p className="text-[12px] text-[#9ca3af] mt-1">
-                {formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}
-              </p>
             </div>
-
-            {/* Inline Chart for Revenue */}
-            {openKPIModal === "revenue" && (
-              <div className="px-5 pb-5 pt-2 border-t border-[#f3f4f6]">
-                {isChartLoading ? (
-                  <div className="h-[180px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-amber-500 border-t-transparent" />
-                  </div>
-                ) : (
-                  <div className="h-[180px] flex items-end gap-1 pt-6 relative">
-                    {chartData.map((point, index) => {
-                      const maxValue = Math.max(...chartData.map((d) => d.value), 1)
-                      const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
-                      return (
-                        <div key={index} className="flex-1 min-w-0 flex flex-col items-center group relative">
-                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                            <div className="font-medium">{point.label}</div>
-                            <div className="text-amber-300">${point.value.toFixed(2)}</div>
-                          </div>
-                          <div
-                            className="w-full rounded-t transition-all duration-200 bg-amber-400 hover:bg-amber-500 cursor-pointer"
-                            style={{ height: `${Math.max(heightPercent, 3)}%`, minHeight: '4px' }}
-                          />
-                          <span className="text-[8px] text-gray-400 mt-1 truncate w-full text-center">
-                            {chartData.length > 12 && index % 3 !== 0 ? '' : point.label.split(' ')[0]}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="flex items-baseline gap-2">
+              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {formatCurrency(analyticsData.totalRevenue)}
+              </span>
+              <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
+            </div>
+            <p className="text-[12px] text-[#9ca3af] mt-1">
+              {formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}
+            </p>
           </div>
 
-          {/* Conversion Rate - Non-expandable */}
-          <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${openKPIModal ? "hidden" : ""}`}>
+          {/* Conversion Rate */}
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[13px] font-medium text-[#6b7280]">Conversion Rate</span>
               <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
@@ -1204,6 +1089,76 @@ export function DashboardClient({
               <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
+          </div>
+        </div>
+
+        {/* Expandable Chart Section - Below KPI Cards */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-out mb-8 ${
+            openKPIModal ? "max-h-[280px] opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 ${
+            openKPIModal === "views" ? "border-violet-200" : openKPIModal === "orders" ? "border-emerald-200" : "border-amber-200"
+          }`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  openKPIModal === "views" ? "bg-violet-500" : openKPIModal === "orders" ? "bg-emerald-500" : "bg-amber-500"
+                }`} />
+                <span className="text-[14px] font-semibold text-[#1a1a2e]">
+                  {openKPIModal === "views" ? "Views" : openKPIModal === "orders" ? "Orders" : "Revenue"} Breakdown
+                </span>
+                <span className="text-[12px] text-[#9ca3af]">
+                  ({timeframe === "today" ? "hourly" : timeframe === "last_year" ? "monthly" : "daily"})
+                </span>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }}
+                className="w-7 h-7 rounded-lg bg-[#f3f4f6] hover:bg-[#e5e7eb] flex items-center justify-center transition-colors"
+              >
+                <X className="h-4 w-4 text-[#6b7280]" />
+              </button>
+            </div>
+
+            {isChartLoading ? (
+              <div className="h-[180px] flex items-center justify-center">
+                <div className={`animate-spin rounded-full h-6 w-6 border-2 border-t-transparent ${
+                  openKPIModal === "views" ? "border-violet-500" : openKPIModal === "orders" ? "border-emerald-500" : "border-amber-500"
+                }`} />
+              </div>
+            ) : (
+              <div className="h-[180px] flex items-end gap-1 pt-4 relative">
+                {chartData.map((point, index) => {
+                  const maxValue = Math.max(...chartData.map((d) => d.value), 1)
+                  const heightPercent = maxValue > 0 ? (point.value / maxValue) * 100 : 0
+                  const barColor = openKPIModal === "views" ? "bg-violet-400 hover:bg-violet-500" : openKPIModal === "orders" ? "bg-emerald-400 hover:bg-emerald-500" : "bg-amber-400 hover:bg-amber-500"
+                  const textColor = openKPIModal === "views" ? "text-violet-300" : openKPIModal === "orders" ? "text-emerald-300" : "text-amber-300"
+
+                  return (
+                    <div key={index} className="flex-1 min-w-0 flex flex-col items-center group relative">
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none shadow-lg">
+                        <div className="font-semibold">{point.label}</div>
+                        <div className={textColor}>
+                          {openKPIModal === "revenue" ? `$${point.value.toFixed(2)}` : `${point.value} ${openKPIModal === "views" ? "views" : "orders"}`}
+                        </div>
+                        {openKPIModal === "views" && point.secondaryValue !== undefined && (
+                          <div className="text-gray-400">{point.secondaryValue} clicks</div>
+                        )}
+                      </div>
+                      <div
+                        className={`w-full rounded-t transition-all duration-200 cursor-pointer ${barColor}`}
+                        style={{ height: `${Math.max(heightPercent, 3)}%`, minHeight: '4px' }}
+                      />
+                      <span className="text-[8px] text-gray-400 mt-1.5 truncate w-full text-center">
+                        {chartData.length > 14 && index % 2 !== 0 ? '' : point.label.split(' ')[0]}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
 
