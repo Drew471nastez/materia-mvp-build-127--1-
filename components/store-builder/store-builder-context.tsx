@@ -469,7 +469,28 @@ export function StoreBuilderProvider({
 
         const wasPublished = !!data.published_at || (data.is_default && !productId)
         setHasEverBeenPublished(wasPublished)
-        setSaveState(wasPublished ? "published" : "saved")
+
+        // If this is first access (never published), auto-publish the default config
+        if (!wasPublished) {
+          setSaveState("publishing")
+          // Auto-publish on first access
+          try {
+            const publishBody: any = { pageType, config: loadedDraft }
+            if (productId && pageType === "product") {
+              publishBody.productId = productId
+            }
+            await fetch("/api/store-builder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pageType, config: loadedDraft, productId: productId || undefined }) })
+            await fetch("/api/store-builder", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pageType, productId: productId || undefined }) })
+            setPublishedConfig(loadedDraft)
+            setHasEverBeenPublished(true)
+            setSaveState("published")
+          } catch (autoPublishError) {
+            console.error("Auto-publish failed:", autoPublishError)
+            setSaveState("saved")
+          }
+        } else {
+          setSaveState("published")
+        }
 
         setHistory([{ config: JSON.parse(JSON.stringify(loadedDraft)), timestamp: Date.now() }])
         setHistoryIndex(0)

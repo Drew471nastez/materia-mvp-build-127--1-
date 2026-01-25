@@ -615,13 +615,13 @@ export function DashboardClient({
 
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container">
-      {/* Announcement Bar */}
-      <div
-        className={`bg-[#1a1a2e] text-white py-2.5 px-4 transition-opacity duration-300 ${
-          announcementVisible ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-3 text-center">
+      {/* Announcement Bar - Purple background stays, content fades */}
+      <div className="bg-[#8b5cf6] text-white py-2.5 px-4">
+        <div
+          className={`max-w-[1200px] mx-auto flex items-center justify-center gap-3 text-center transition-opacity duration-300 ${
+            announcementVisible ? "opacity-100" : "opacity-0"
+          }`}
+        >
           {announcementType === "upgrade" && (
             <>
               <span className="text-[13px] sm:text-[14px] text-white/90">
@@ -630,7 +630,7 @@ export function DashboardClient({
               </span>
               <Link
                 href="/upgrade"
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 Upgrade
@@ -649,7 +649,7 @@ export function DashboardClient({
                   const setupSection = document.getElementById("store-setup-section")
                   setupSection?.scrollIntoView({ behavior: "smooth" })
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-500 hover:bg-violet-600 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
               >
                 Continue
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -664,7 +664,7 @@ export function DashboardClient({
               </span>
               <Link
                 href="/app/payouts"
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] sm:text-[13px] font-medium rounded-full transition-colors shrink-0"
               >
                 <Wallet className="h-3.5 w-3.5" />
                 Connect

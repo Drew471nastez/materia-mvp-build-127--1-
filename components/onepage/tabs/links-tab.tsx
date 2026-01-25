@@ -3388,18 +3388,18 @@ export function LinksTab() {
           setVideoCropBox({ x: 10, y: 5, width: 60, height: 80 })
         }
       }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md sm:max-w-lg md:max-w-xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto z-[60]">
-          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+        <DialogContent className="w-[calc(100%-32px)] max-w-[360px] sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto z-[60]">
+          <DialogHeader className="p-4 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
+            <DialogTitle className="text-base font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
           </DialogHeader>
-          <div className="p-5 space-y-4">
+          <div className="p-4 space-y-3">
             {tempVideoUrl && (
               <>
                 {/* Video container - video fills container with object-cover */}
                 <div
                   ref={videoContainerRef}
-                  className="relative mx-auto bg-black rounded-xl select-none w-[280px] h-[373px] sm:w-[340px] sm:h-[453px] md:w-[400px] md:h-[533px]"
+                  className="relative mx-auto bg-black rounded-xl select-none w-[220px] h-[293px] sm:w-[260px] sm:h-[347px] md:w-[300px] md:h-[400px]"
                   style={{ touchAction: 'none' }}
                 >
                   <video

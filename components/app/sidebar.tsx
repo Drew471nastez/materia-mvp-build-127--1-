@@ -33,6 +33,39 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 
+// Progress circle component for setup widget
+function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
+  const strokeWidth = 3
+  const radius = (size - strokeWidth) / 2
+  const circumference = radius * 2 * Math.PI
+  const offset = circumference - (progress / 100) * circumference
+
+  return (
+    <svg width={size} height={size} className="transform -rotate-90">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="#e5e7eb"
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="#8b5cf6"
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        className="transition-all duration-500"
+      />
+    </svg>
+  )
+}
+
 interface SidebarProps {
   creatorSlug?: string
   username?: string
@@ -42,6 +75,7 @@ interface SidebarProps {
   stripeConnected?: boolean
   stripeStatus?: string
   onePagePublished?: boolean
+  setupProgress?: { completed: number; total: number }
 }
 
 const DISMISSED_NOTIFICATIONS_KEY = "storelib_dismissed_notifications"
@@ -56,7 +90,7 @@ function getDismissedNotifications(): string[] {
   }
 }
 
-export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false }: SidebarProps) {
+export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -287,6 +321,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     </div>
   )
 
+  // Check if we should show setup widget (hide on store-builder and onepage)
+  const showSetupWidget = setupProgress &&
+    setupProgress.completed < setupProgress.total &&
+    !pathname.startsWith("/store-builder") &&
+    !pathname.startsWith("/app/onepage")
+
+  const setupProgressPercent = setupProgress ? Math.round((setupProgress.completed / setupProgress.total) * 100) : 0
+
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
     <div className="flex h-full flex-col bg-[#FAFAFA]">
       <div className="px-3 pt-4 pb-1">
@@ -307,7 +349,28 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         )}
       </nav>
 
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-3 space-y-2.5">
+        {/* Setup Progress Widget */}
+        {showSetupWidget && (
+          <Link
+            href="/app#store-setup-section"
+            onClick={onItemClick}
+            className="group flex items-center gap-3 rounded-xl bg-white border border-neutral-200/70 px-3 py-3 transition-all duration-150 hover:border-violet-200 hover:shadow-sm"
+          >
+            <div className="relative shrink-0">
+              <SetupProgressCircle progress={setupProgressPercent} size={36} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[9px] font-semibold text-violet-600">{setupProgressPercent}%</span>
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-semibold text-neutral-900">Your setup checklist</p>
+              <p className="text-[11px] text-neutral-500">{setupProgress.completed} of {setupProgress.total} complete</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-neutral-400 group-hover:text-violet-500 transition-colors" />
+          </Link>
+        )}
+
         <Link
           href="/upgrade"
           onClick={onItemClick}
@@ -373,7 +436,28 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         )}
       </nav>
 
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-3 space-y-2.5">
+        {/* Setup Progress Widget */}
+        {showSetupWidget && (
+          <Link
+            href="/app#store-setup-section"
+            onClick={onItemClick}
+            className="group flex items-center gap-3 rounded-xl bg-neutral-50 border border-neutral-200/70 px-3 py-3 transition-all duration-150 hover:border-violet-200 hover:shadow-sm"
+          >
+            <div className="relative shrink-0">
+              <SetupProgressCircle progress={setupProgressPercent} size={36} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[9px] font-semibold text-violet-600">{setupProgressPercent}%</span>
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-semibold text-neutral-900">Your setup checklist</p>
+              <p className="text-[11px] text-neutral-500">{setupProgress?.completed} of {setupProgress?.total} complete</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-neutral-400 group-hover:text-violet-500 transition-colors" />
+          </Link>
+        )}
+
         <Link
           href="/upgrade"
           onClick={onItemClick}
@@ -622,6 +706,22 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <aside className="fixed left-0 top-0 z-40 hidden h-svh w-[220px] flex-col border-r border-neutral-200/50 md:flex">
         <SidebarContent />
       </aside>
+
+      {/* Mobile Floating Setup Progress Circle */}
+      {showSetupWidget && !mobileMenuOpen && (
+        <Link
+          href="/app#store-setup-section"
+          className="fixed bottom-6 right-4 z-40 md:hidden flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 shadow-lg border border-neutral-200/70 transition-all duration-200 active:scale-95"
+        >
+          <div className="relative shrink-0">
+            <SetupProgressCircle progress={setupProgressPercent} size={32} />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-[8px] font-bold text-violet-600">{setupProgressPercent}%</span>
+            </div>
+          </div>
+          <span className="text-[11px] font-semibold text-neutral-700 whitespace-nowrap">set up</span>
+        </Link>
+      )}
     </>
   )
 }
