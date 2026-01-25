@@ -30,6 +30,7 @@ interface Product {
   title: string
   type?: string
   price_cents?: number
+  cover_image?: string
 }
 
 interface SalesClientProps {
@@ -203,10 +204,11 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [isChartLoading, setIsChartLoading] = useState(false)
 
   const [summary, setSummary] = useState(initialSummary)
-  const [orders, setOrders] = useState<Order[]>(initialOrders)
-  const [allOrders, setAllOrders] = useState<Order[]>(initialOrders)
-  const [totalCount, setTotalCount] = useState(initialOrders.length)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [allOrders, setAllOrders] = useState<Order[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([])
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
 
   const supabase = createClient()
 
@@ -264,18 +266,51 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     }
   }
 
-  const fetchSalesData = () => {
+  const fetchSalesData = async () => {
     setIsLoading(true)
     try {
       const option = timeframeOptions.find((o) => o.value === timeframe)
       if (!option) return
 
       const { start, end } = option.getDates()
+      const productIds = products.map((p) => p.id)
 
-      // Filter orders locally from initialOrders (server-side fetched, bypasses RLS)
-      let filteredOrders = initialOrders.filter(o => {
-        const orderDate = new Date(o.created_at)
-        return orderDate >= start && orderDate <= end
+      if (productIds.length === 0) {
+        setOrders([])
+        setAllOrders([])
+        setTotalCount(0)
+        setMonthlyReports([])
+        setIsLoading(false)
+        return
+      }
+
+      // Fetch orders client-side (like dashboard does - this works!)
+      const { data: fetchedOrders, error } = await supabase
+        .from("orders")
+        .select("*")
+        .in("product_id", productIds)
+        .gte("created_at", start.toISOString())
+        .lte("created_at", end.toISOString())
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Error fetching orders:", error)
+        setIsLoading(false)
+        return
+      }
+
+      // Map orders with product info
+      let filteredOrders = (fetchedOrders || []).map(order => {
+        const product = products.find(p => p.id === order.product_id)
+        return {
+          ...order,
+          product: product ? {
+            id: product.id,
+            title: product.title,
+            type: product.type,
+            cover_image: (product as any).cover_image
+          } : null
+        }
       })
 
       // Apply search filter
@@ -287,8 +322,6 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             o.buyer_email?.toLowerCase().includes(query) ||
             o.buyer_first_name?.toLowerCase().includes(query) ||
             o.buyer_last_name?.toLowerCase().includes(query) ||
-            o.buyer?.email?.toLowerCase().includes(query) ||
-            o.buyer?.display_name?.toLowerCase().includes(query) ||
             o.product?.title?.toLowerCase().includes(query)
         )
       }
@@ -309,9 +342,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           filteredOrders = filteredOrders.filter(o =>
             o.buyer_email?.toLowerCase().includes(customerQuery) ||
             o.buyer_first_name?.toLowerCase().includes(customerQuery) ||
-            o.buyer_last_name?.toLowerCase().includes(customerQuery) ||
-            o.buyer?.email?.toLowerCase().includes(customerQuery) ||
-            o.buyer?.display_name?.toLowerCase().includes(customerQuery)
+            o.buyer_last_name?.toLowerCase().includes(customerQuery)
           )
         }
       }
@@ -324,23 +355,45 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       const refundedOrders = filteredOrders.filter((o) => o.status === "refunded")
 
       const totalSales = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-      const totalOrders = completedOrders.length
-      const avgOrderValue = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0
+      const totalOrdersCount = completedOrders.length
+      const avgOrderValue = totalOrdersCount > 0 ? Math.round(totalSales / totalOrdersCount) : 0
 
       setSummary({
         totalSales,
-        totalOrders,
+        totalOrders: totalOrdersCount,
         avgOrderValue,
         refundCount: refundedOrders.length,
         refundAmount: refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0),
       })
 
-      // Generate monthly reports from ALL orders (all time)
-      generateMonthlyReports(initialOrders)
+      // Fetch ALL orders (all time) for monthly reports
+      const { data: allTimeOrders } = await supabase
+        .from("orders")
+        .select("*")
+        .in("product_id", productIds)
+        .order("created_at", { ascending: false })
+
+      if (allTimeOrders) {
+        const allOrdersWithProducts = allTimeOrders.map(order => {
+          const product = products.find(p => p.id === order.product_id)
+          return {
+            ...order,
+            product: product ? {
+              id: product.id,
+              title: product.title,
+              type: product.type,
+              cover_image: (product as any).cover_image
+            } : null
+          }
+        })
+        setAllOrders(allOrdersWithProducts)
+        generateMonthlyReports(allOrdersWithProducts)
+      }
     } catch (error) {
-      console.error("Error filtering sales data:", error)
+      console.error("Error fetching sales data:", error)
     } finally {
       setIsLoading(false)
+      setIsInitialLoading(false)
     }
   }
 
@@ -399,8 +452,8 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       const { start, end } = option.getDates()
       const points: ChartDataPoint[] = []
 
-      // Filter completed orders from initialOrders
-      const completedOrders = initialOrders.filter(o => o.status === "completed")
+      // Filter completed orders from allOrders (client-fetched data)
+      const completedOrders = allOrders.filter(o => o.status === "completed")
 
       if (completedOrders.length === 0) {
         setChartData([])
@@ -680,7 +733,8 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   }
 
   // Check if there are any orders in selected timeframe or any orders all time
-  const hasOrders = orders.length > 0 || initialOrders.length > 0 || summary.totalOrders > 0
+  // Don't show empty state while still loading
+  const hasOrders = isInitialLoading || orders.length > 0 || allOrders.length > 0 || summary.totalOrders > 0
   const hasChartData = chartData.some(d => d.value > 0)
 
   return (
@@ -1221,22 +1275,18 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12">
               <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
                 {/* Icon Container with Decorative Elements */}
-                <div className="relative mb-6">
+                <div className="relative mb-7">
                   {/* Background Circle */}
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#f5f3ff] to-[#ede9fe] flex items-center justify-center">
+                  <div className="w-20 h-20 rounded-full bg-[#f5f3ff] flex items-center justify-center">
                     {/* Main Icon */}
-                    <div className="w-14 h-14 rounded-xl bg-white shadow-sm flex items-center justify-center">
-                      <ShoppingCart className="h-7 w-7 text-[#8b5cf6]" />
-                    </div>
+                    <DollarSign className="h-9 w-9 text-[#8b5cf6]" />
                   </div>
-                  {/* Decorative Dot 1 */}
-                  <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#c4b5fd]" />
-                  {/* Decorative Dot 2 */}
-                  <div className="absolute -bottom-2 -left-2 w-3 h-3 rounded-full bg-[#ddd6fe]" />
+                  {/* Decorative Ring */}
+                  <div className="absolute inset-0 w-20 h-20 rounded-full border-2 border-dashed border-[#ddd6fe] animate-spin" style={{ animationDuration: '20s' }} />
                 </div>
 
                 <h2 className="text-[18px] font-semibold text-[#1a1a2e] mb-2">
-                  Manage all of your sales in one place
+                  You're one step away from making your first sale.
                 </h2>
                 <p className="text-[14px] text-[#6b7280] mb-6">
                   Every time a new customer purchases a product from your Storelib, their email address and other details are added here.
