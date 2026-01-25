@@ -996,201 +996,173 @@ export function DashboardClient({
 
         {/* Stats Cards */}
         <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 ${isLoading ? "opacity-60" : ""}`}>
-          {/* Total Views - Expandable inline */}
+          {/* Total Views */}
           <div
-            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ${
-              openKPIModal === "views"
-                ? "col-span-2 lg:col-span-4 border-violet-300"
-                : openKPIModal ? "hidden" : "border-[#e5e7eb]/60 hover:border-[#d1d5db] cursor-pointer"
+            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
+              openKPIModal === "views" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
             }`}
-            onClick={() => !openKPIModal && setOpenKPIModal("views")}
+            onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
           >
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setOpenKPIModal(openKPIModal === "views" ? null : "views") }}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    openKPIModal === "views" ? "bg-violet-100 text-violet-600" : "bg-[#f3f4f6] text-[#9ca3af] hover:bg-[#e5e7eb]"
-                  }`}
-                >
-                  {openKPIModal === "views" ? <X className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                  {analyticsData.totalViews.toLocaleString()}
-                </span>
-                <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
-              </div>
-              <p className="text-[12px] text-[#9ca3af] mt-1">
-                {analyticsData.periodViews.toLocaleString()} {formatPeriodText(timeframe)}
-              </p>
-            </div>
-            {/* Inline Chart */}
-            <div className={`overflow-hidden transition-all duration-300 ${openKPIModal === "views" ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"}`}>
-              <div className="px-5 pb-5 border-t border-violet-100">
+            {openKPIModal === "views" ? (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-medium text-violet-600">Views</span>
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 {isChartLoading ? (
-                  <div className="h-[160px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-violet-500 border-t-transparent" />
+                  <div className="h-[80px] flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-violet-500 border-t-transparent" />
                   </div>
                 ) : (
-                  <div className="h-[160px] flex items-end gap-1 pt-4 relative">
+                  <div className="h-[80px] flex items-end gap-[2px]">
                     {(() => {
                       const maxValue = Math.max(...chartData.map((d) => d.value), 1)
                       return chartData.map((point, index) => {
-                        const barHeight = Math.max((point.value / maxValue) * 130, 4)
+                        const barHeight = Math.max((point.value / maxValue) * 65, 3)
                         return (
-                          <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative h-full pb-5">
-                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none shadow-lg">
-                              <div className="font-semibold">{point.label}</div>
-                              <div className="text-violet-300">{point.value} views</div>
-                              {point.secondaryValue !== undefined && <div className="text-gray-400">{point.secondaryValue} clicks</div>}
+                          <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative">
+                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                              {point.label}: {point.value}
                             </div>
-                            <div className="w-full rounded-t transition-all duration-300 bg-violet-400 hover:bg-violet-500 cursor-pointer" style={{ height: `${barHeight}px` }} />
-                            <span className="absolute bottom-0 text-[8px] text-gray-400 truncate w-full text-center">
-                              {chartData.length > 14 && index % 2 !== 0 ? '' : point.label.split(' ')[0]}
-                            </span>
+                            <div className="w-full rounded-sm bg-violet-400 hover:bg-violet-500 transition-colors" style={{ height: `${barHeight}px` }} />
                           </div>
                         )
                       })
                     })()}
                   </div>
                 )}
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                    <Eye className="h-4 w-4 text-[#9ca3af]" />
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{analyticsData.totalViews.toLocaleString()}</span>
+                  <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
+                </div>
+                <p className="text-[12px] text-[#9ca3af] mt-1">{analyticsData.periodViews.toLocaleString()} {formatPeriodText(timeframe)}</p>
+              </>
+            )}
           </div>
 
-          {/* Total Orders - Expandable inline */}
+          {/* Total Orders */}
           <div
-            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ${
-              openKPIModal === "orders"
-                ? "col-span-2 lg:col-span-4 border-emerald-300"
-                : openKPIModal ? "hidden" : "border-[#e5e7eb]/60 hover:border-[#d1d5db] cursor-pointer"
+            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
+              openKPIModal === "orders" ? "border-emerald-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
             }`}
-            onClick={() => !openKPIModal && setOpenKPIModal("orders")}
+            onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
           >
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setOpenKPIModal(openKPIModal === "orders" ? null : "orders") }}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    openKPIModal === "orders" ? "bg-emerald-100 text-emerald-600" : "bg-[#f3f4f6] text-[#9ca3af] hover:bg-[#e5e7eb]"
-                  }`}
-                >
-                  {openKPIModal === "orders" ? <X className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
-                </button>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                  {analyticsData.totalOrders.toLocaleString()}
-                </span>
-                <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
-              </div>
-              <p className="text-[12px] text-[#9ca3af] mt-1">
-                {analyticsData.periodOrders.toLocaleString()} {formatPeriodText(timeframe)}
-              </p>
-            </div>
-            {/* Inline Chart */}
-            <div className={`overflow-hidden transition-all duration-300 ${openKPIModal === "orders" ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"}`}>
-              <div className="px-5 pb-5 border-t border-emerald-100">
+            {openKPIModal === "orders" ? (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-medium text-emerald-600">Orders</span>
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-600 flex items-center justify-center hover:bg-emerald-200 transition-colors">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 {isChartLoading ? (
-                  <div className="h-[160px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-emerald-500 border-t-transparent" />
+                  <div className="h-[80px] flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500 border-t-transparent" />
                   </div>
                 ) : (
-                  <div className="h-[160px] flex items-end gap-1 pt-4 relative">
+                  <div className="h-[80px] flex items-end gap-[2px]">
                     {(() => {
                       const maxValue = Math.max(...chartData.map((d) => d.value), 1)
                       return chartData.map((point, index) => {
-                        const barHeight = Math.max((point.value / maxValue) * 130, 4)
+                        const barHeight = Math.max((point.value / maxValue) * 65, 3)
                         return (
-                          <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative h-full pb-5">
-                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none shadow-lg">
-                              <div className="font-semibold">{point.label}</div>
-                              <div className="text-emerald-300">{point.value} orders</div>
+                          <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative">
+                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                              {point.label}: {point.value}
                             </div>
-                            <div className="w-full rounded-t transition-all duration-300 bg-emerald-400 hover:bg-emerald-500 cursor-pointer" style={{ height: `${barHeight}px` }} />
-                            <span className="absolute bottom-0 text-[8px] text-gray-400 truncate w-full text-center">
-                              {chartData.length > 14 && index % 2 !== 0 ? '' : point.label.split(' ')[0]}
-                            </span>
+                            <div className="w-full rounded-sm bg-emerald-400 hover:bg-emerald-500 transition-colors" style={{ height: `${barHeight}px` }} />
                           </div>
                         )
                       })
                     })()}
                   </div>
                 )}
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                    <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{analyticsData.totalOrders.toLocaleString()}</span>
+                  <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
+                </div>
+                <p className="text-[12px] text-[#9ca3af] mt-1">{analyticsData.periodOrders.toLocaleString()} {formatPeriodText(timeframe)}</p>
+              </>
+            )}
           </div>
 
-          {/* Total Revenue - Expandable inline */}
+          {/* Total Revenue */}
           <div
-            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ${
-              openKPIModal === "revenue"
-                ? "col-span-2 lg:col-span-4 border-amber-300"
-                : openKPIModal ? "hidden" : "border-[#e5e7eb]/60 hover:border-[#d1d5db] cursor-pointer"
+            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
+              openKPIModal === "revenue" ? "border-amber-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
             }`}
-            onClick={() => !openKPIModal && setOpenKPIModal("revenue")}
+            onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
           >
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue") }}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    openKPIModal === "revenue" ? "bg-amber-100 text-amber-600" : "bg-[#f3f4f6] text-[#9ca3af] hover:bg-[#e5e7eb]"
-                  }`}
-                >
-                  {openKPIModal === "revenue" ? <X className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
-                </button>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                  {formatCurrency(analyticsData.totalRevenue)}
-                </span>
-                <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
-              </div>
-              <p className="text-[12px] text-[#9ca3af] mt-1">
-                {formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}
-              </p>
-            </div>
-            {/* Inline Chart */}
-            <div className={`overflow-hidden transition-all duration-300 ${openKPIModal === "revenue" ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"}`}>
-              <div className="px-5 pb-5 border-t border-amber-100">
+            {openKPIModal === "revenue" ? (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-medium text-amber-600">Revenue</span>
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center hover:bg-amber-200 transition-colors">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 {isChartLoading ? (
-                  <div className="h-[160px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-amber-500 border-t-transparent" />
+                  <div className="h-[80px] flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-amber-500 border-t-transparent" />
                   </div>
                 ) : (
-                  <div className="h-[160px] flex items-end gap-1 pt-4 relative">
+                  <div className="h-[80px] flex items-end gap-[2px]">
                     {(() => {
                       const maxValue = Math.max(...chartData.map((d) => d.value), 1)
                       return chartData.map((point, index) => {
-                        const barHeight = Math.max((point.value / maxValue) * 130, 4)
+                        const barHeight = Math.max((point.value / maxValue) * 65, 3)
                         return (
-                          <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative h-full pb-5">
-                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none shadow-lg">
-                              <div className="font-semibold">{point.label}</div>
-                              <div className="text-amber-300">${point.value.toFixed(2)}</div>
+                          <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative">
+                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                              {point.label}: ${point.value.toFixed(2)}
                             </div>
-                            <div className="w-full rounded-t transition-all duration-300 bg-amber-400 hover:bg-amber-500 cursor-pointer" style={{ height: `${barHeight}px` }} />
-                            <span className="absolute bottom-0 text-[8px] text-gray-400 truncate w-full text-center">
-                              {chartData.length > 14 && index % 2 !== 0 ? '' : point.label.split(' ')[0]}
-                            </span>
+                            <div className="w-full rounded-sm bg-amber-400 hover:bg-amber-500 transition-colors" style={{ height: `${barHeight}px` }} />
                           </div>
                         )
                       })
                     })()}
                   </div>
                 )}
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                    <DollarSign className="h-4 w-4 text-[#9ca3af]" />
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCurrency(analyticsData.totalRevenue)}</span>
+                  <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
+                </div>
+                <p className="text-[12px] text-[#9ca3af] mt-1">{formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}</p>
+              </>
+            )}
           </div>
 
-          {/* Conversion Rate - Non-expandable */}
-          <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${openKPIModal ? "hidden" : ""}`}>
+          {/* Conversion Rate */}
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[13px] font-medium text-[#6b7280]">Conversion Rate</span>
               <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
@@ -1198,9 +1170,7 @@ export function DashboardClient({
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                {analyticsData.conversionRate.toFixed(2)}%
-              </span>
+              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{analyticsData.conversionRate.toFixed(2)}%</span>
               <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
             </div>
             <p className="text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
