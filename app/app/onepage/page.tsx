@@ -21,10 +21,10 @@ export default async function OnePageEditorPage() {
     redirect("/login")
   }
 
-  // Get creator info
+  // Get creator info including social links from onboarding
   const { data: creator } = await supabase
     .from("creators")
-    .select("id, slug")
+    .select("id, slug, instagram, tiktok, youtube")
     .eq("user_id", user.id)
     .single()
 
@@ -65,9 +65,19 @@ export default async function OnePageEditorPage() {
       .eq("page_type", "shop")
       .maybeSingle()
 
-    // Extract social links from store builder config if available
+    // Extract social links - prioritize creators table (from onboarding), then store builder config
     let socialDataFromStore = { instagram: null as string | null, tiktok: null as string | null, youtube: null as string | null }
-    if (storeConfig?.draft_config?.sections) {
+
+    // First check creators table (populated during main onboarding)
+    if (creator?.instagram || creator?.tiktok || creator?.youtube) {
+      socialDataFromStore = {
+        instagram: creator.instagram || null,
+        tiktok: creator.tiktok || null,
+        youtube: creator.youtube || null,
+      }
+    }
+    // Fallback to store builder config if no data in creators table
+    else if (storeConfig?.draft_config?.sections) {
       const headerSection = storeConfig.draft_config.sections.find((s: any) => s.type === "header")
       if (headerSection?.settings?.socialLinks) {
         const sl = headerSection.settings.socialLinks
@@ -412,49 +422,79 @@ export default async function OnePageEditorPage() {
     onepage = created
   }
 
-  // If onepage exists but has no social data, try to sync from store_builder_configs
+  // If onepage exists but has no social data, try to sync from creators table or store_builder_configs
   const rawOnepage = onepage as any
   if (onepage && !rawOnepage.instagram && !rawOnepage.tiktok && !rawOnepage.youtube) {
-    // Check if store_builder_configs has social data we can use
-    const { data: storeConfig } = await supabase
-      .from("store_builder_configs")
-      .select("draft_config")
-      .eq("creator_id", creator.id)
-      .eq("page_type", "shop")
-      .maybeSingle()
+    // First check creators table (from main onboarding)
+    if (creator?.instagram || creator?.tiktok || creator?.youtube) {
+      // Sync social data from creators table to onepage
+      await supabase
+        .from("onepages")
+        .update({
+          instagram: creator.instagram || null,
+          tiktok: creator.tiktok || null,
+          youtube: creator.youtube || null,
+          social_links: {
+            ...onepage.social_links,
+            instagram: creator.instagram || null,
+            tiktok: creator.tiktok || null,
+            youtube: creator.youtube || null,
+          },
+        })
+        .eq("id", onepage.id)
 
-    if (storeConfig?.draft_config?.sections) {
-      const headerSection = storeConfig.draft_config.sections.find((s: any) => s.type === "header")
-      if (headerSection?.settings?.socialLinks) {
-        const sl = headerSection.settings.socialLinks
-        const hasData = sl.instagram?.url || sl.tiktok?.url || sl.youtube?.url
+      // Update the local onepage object with the synced data
+      rawOnepage.instagram = creator.instagram || null
+      rawOnepage.tiktok = creator.tiktok || null
+      rawOnepage.youtube = creator.youtube || null
+      onepage.social_links = {
+        ...onepage.social_links,
+        instagram: creator.instagram || null,
+        tiktok: creator.tiktok || null,
+        youtube: creator.youtube || null,
+      }
+    } else {
+      // Fallback: Check if store_builder_configs has social data we can use
+      const { data: storeConfig } = await supabase
+        .from("store_builder_configs")
+        .select("draft_config")
+        .eq("creator_id", creator.id)
+        .eq("page_type", "shop")
+        .maybeSingle()
 
-        if (hasData) {
-          // Sync social data from store builder to onepage
-          await supabase
-            .from("onepages")
-            .update({
-              instagram: sl.instagram?.url || null,
-              tiktok: sl.tiktok?.url || null,
-              youtube: sl.youtube?.url || null,
-              social_links: {
-                ...onepage.social_links,
+      if (storeConfig?.draft_config?.sections) {
+        const headerSection = storeConfig.draft_config.sections.find((s: any) => s.type === "header")
+        if (headerSection?.settings?.socialLinks) {
+          const sl = headerSection.settings.socialLinks
+          const hasData = sl.instagram?.url || sl.tiktok?.url || sl.youtube?.url
+
+          if (hasData) {
+            // Sync social data from store builder to onepage
+            await supabase
+              .from("onepages")
+              .update({
                 instagram: sl.instagram?.url || null,
                 tiktok: sl.tiktok?.url || null,
                 youtube: sl.youtube?.url || null,
-              },
-            })
-            .eq("id", onepage.id)
+                social_links: {
+                  ...onepage.social_links,
+                  instagram: sl.instagram?.url || null,
+                  tiktok: sl.tiktok?.url || null,
+                  youtube: sl.youtube?.url || null,
+                },
+              })
+              .eq("id", onepage.id)
 
-          // Update the local onepage object with the synced data
-          rawOnepage.instagram = sl.instagram?.url || null
-          rawOnepage.tiktok = sl.tiktok?.url || null
-          rawOnepage.youtube = sl.youtube?.url || null
-          onepage.social_links = {
-            ...onepage.social_links,
-            instagram: sl.instagram?.url || null,
-            tiktok: sl.tiktok?.url || null,
-            youtube: sl.youtube?.url || null,
+            // Update the local onepage object with the synced data
+            rawOnepage.instagram = sl.instagram?.url || null
+            rawOnepage.tiktok = sl.tiktok?.url || null
+            rawOnepage.youtube = sl.youtube?.url || null
+            onepage.social_links = {
+              ...onepage.social_links,
+              instagram: sl.instagram?.url || null,
+              tiktok: sl.tiktok?.url || null,
+              youtube: sl.youtube?.url || null,
+            }
           }
         }
       }
