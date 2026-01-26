@@ -742,13 +742,27 @@ function OrderDetailsModal({
               <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
                 <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-[#8b5cf6]" />
-                  Customer
+                  Customer Information
                 </h4>
-                <div className="text-[12px]">
-                  <p className="font-medium text-[#1a1a2e]">
-                    {selectedOrder.buyer?.display_name || (selectedOrder.buyer_first_name && selectedOrder.buyer_last_name ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}` : "Unknown")}
-                  </p>
-                  <p className="text-[#6b7280] break-all">{selectedOrder.buyer?.email || selectedOrder.buyer_email || "N/A"}</p>
+                <div className="grid grid-cols-2 gap-2 text-[12px]">
+                  <div>
+                    <span className="text-[#6b7280]">Name</span>
+                    <p className="font-medium text-[#1a1a2e]">
+                      {selectedOrder.buyer?.display_name || (selectedOrder.buyer_first_name && selectedOrder.buyer_last_name ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}` : "Unknown")}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Email</span>
+                    <p className="font-medium text-[#1a1a2e] break-all">{selectedOrder.buyer?.email || selectedOrder.buyer_email || "N/A"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">First Name</span>
+                    <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_first_name || "N/A"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Last Name</span>
+                    <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_last_name || "N/A"}</p>
+                  </div>
                 </div>
               </div>
 
@@ -784,27 +798,72 @@ function OrderDetailsModal({
                   <span className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-[#6b7280]">Net</span>
+                  <span className="text-[12px] text-[#6b7280]">Fee</span>
+                  <span className="text-[12px] font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.fee_cents || 0)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280]">Net Revenue</span>
                   <span className="text-[12px] font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280]">Payment Method</span>
+                  <span className="text-[12px] font-medium text-[#1a1a2e] capitalize">
+                    {selectedOrder.payment_method === "card" && selectedOrder.card_brand ? (
+                      <span className="flex items-center gap-1">
+                        <span className="capitalize">{selectedOrder.card_brand}</span>
+                        {selectedOrder.card_last4 && <span className="text-[#6b7280]">•••• {selectedOrder.card_last4}</span>}
+                      </span>
+                    ) : selectedOrder.payment_method === "paypal" ? "PayPal" : selectedOrder.payment_method === "free" ? "Free" : selectedOrder.payment_method || "Card"}
+                  </span>
+                </div>
+                {selectedOrder.payment_method === "paypal" && selectedOrder.paypal_email && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-[#6b7280]">PayPal Email</span>
+                    <span className="text-[12px] font-medium text-[#1a1a2e] break-all max-w-[60%] text-right">{selectedOrder.paypal_email}</span>
+                  </div>
+                )}
               </div>
 
-              {/* Location & Device */}
-              {(selectedOrder.buyer_country || selectedOrder.buyer_device_type) && (
+              {/* Location */}
+              {selectedOrder.buyer_country && (
                 <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
-                  {selectedOrder.buyer_country && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#6b7280]">Location</span>
-                      <span className="text-[12px] font-medium text-[#1a1a2e] flex items-center gap-1">
-                        {selectedOrder.buyer_country_code && <span>{getFlagEmoji(selectedOrder.buyer_country_code)}</span>}
-                        {selectedOrder.buyer_country}
-                      </span>
-                    </div>
-                  )}
+                  <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                    Location
+                  </h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-[#6b7280]">Country</span>
+                    <span className="text-[12px] font-medium text-[#1a1a2e] flex items-center gap-1">
+                      {selectedOrder.buyer_country_code && <span>{getFlagEmoji(selectedOrder.buyer_country_code)}</span>}
+                      {selectedOrder.buyer_country}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Device Info */}
+              {(selectedOrder.buyer_device_type || selectedOrder.buyer_os || selectedOrder.buyer_browser) && (
+                <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                  <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                    {selectedOrder.buyer_device_type === "Mobile" ? <Smartphone className="h-3.5 w-3.5 text-[#8b5cf6]" /> : selectedOrder.buyer_device_type === "Tablet" ? <Tablet className="h-3.5 w-3.5 text-[#8b5cf6]" /> : <Monitor className="h-3.5 w-3.5 text-[#8b5cf6]" />}
+                    Device
+                  </h4>
                   {selectedOrder.buyer_device_type && (
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#6b7280]">Device</span>
+                      <span className="text-[12px] text-[#6b7280]">Type</span>
                       <span className="text-[12px] font-medium text-[#1a1a2e]">{selectedOrder.buyer_device_type}</span>
+                    </div>
+                  )}
+                  {selectedOrder.buyer_os && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#6b7280]">OS</span>
+                      <span className="text-[12px] font-medium text-[#1a1a2e]">{selectedOrder.buyer_os}</span>
+                    </div>
+                  )}
+                  {selectedOrder.buyer_browser && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#6b7280]">Browser</span>
+                      <span className="text-[12px] font-medium text-[#1a1a2e]">{selectedOrder.buyer_browser}</span>
                     </div>
                   )}
                 </div>
