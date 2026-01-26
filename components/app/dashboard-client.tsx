@@ -289,7 +289,7 @@ function ProgressCircle({ progress, size = 32 }: { progress: number; size?: numb
   )
 }
 
-// Mobile Bottom Sheet for Timeframe Selector with swipe-to-close
+// Mobile Bottom Sheet for Timeframe Selector with swipe-to-close (only from handle area)
 function TimeframeBottomSheet({
   isOpen,
   onClose,
@@ -314,6 +314,7 @@ function TimeframeBottomSheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
+      // Use a small delay to ensure DOM is ready for smooth animation
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -325,7 +326,7 @@ function TimeframeBottomSheet({
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
-      }, 300)
+      }, 400) // Match the longer animation duration
       return () => clearTimeout(timer)
     }
     return () => {
@@ -335,14 +336,26 @@ function TimeframeBottomSheet({
 
   const handleClose = () => {
     setIsAnimating(false)
+    setDragY(0)
     setTimeout(() => {
       onClose()
-    }, 300)
+    }, 400) // Match the longer animation duration
   }
 
+  // Only allow drag from the handle area (top 60px of the sheet)
   const handleTouchStart = (e: React.TouchEvent) => {
-    startY.current = e.touches[0].clientY
-    setIsDragging(true)
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+
+    // Only start dragging if touch is in the handle area (top 60px)
+    if (touchYInSheet <= 60) {
+      startY.current = touch.clientY
+      setIsDragging(true)
+    }
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -350,13 +363,15 @@ function TimeframeBottomSheet({
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
     if (diff > 0) {
-      setDragY(diff)
+      // Add resistance to the drag
+      setDragY(diff * 0.8)
     }
   }
 
   const handleTouchEnd = () => {
+    if (!isDragging) return
     setIsDragging(false)
-    if (dragY > 100) {
+    if (dragY > 80) {
       handleClose()
     } else {
       setDragY(0)
@@ -367,34 +382,38 @@ function TimeframeBottomSheet({
 
   return (
     <div className="fixed inset-0 z-[100] md:hidden">
-      {/* Backdrop */}
+      {/* Backdrop with smooth fade */}
       <div
-        className={`absolute inset-0 bg-black transition-opacity duration-300 ease-out ${
-          isAnimating ? "opacity-40" : "opacity-0"
+        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ease-out ${
+          isAnimating ? "opacity-100" : "opacity-0"
         }`}
+        style={{ transitionDuration: '400ms' }}
         onClick={handleClose}
       />
-      {/* Bottom Sheet */}
+      {/* Bottom Sheet with smooth spring-like animation */}
       <div
         ref={(el) => { sheetRef.current = el }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] transition-transform duration-300 ease-out ${
-          isAnimating ? "translate-y-0" : "translate-y-full"
-        }`}
-        style={{ transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)" }}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
       >
-        <div className="p-4">
-          {/* Handle bar - clickable to close */}
+        {/* Handle bar area - this is the drag zone */}
+        <div className="pt-3 pb-2">
           <button
             onClick={handleClose}
-            className="w-full flex justify-center py-2 -mt-2 mb-2 cursor-pointer"
+            className="w-full flex justify-center py-2 cursor-pointer touch-none"
           >
-            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
+        </div>
+        <div className="px-4 pb-4">
           <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -414,7 +433,7 @@ function TimeframeBottomSheet({
           </div>
           <button
             onClick={handleClose}
-            className="w-full mt-4 py-3 text-[15px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl"
+            className="w-full mt-4 py-3 text-[15px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl active:bg-[#e5e7eb] transition-colors"
           >
             Cancel
           </button>
