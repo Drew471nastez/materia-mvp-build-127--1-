@@ -191,6 +191,15 @@ const timeframeOptions: TimeframeOption[] = [
       return { start, end }
     },
   },
+  {
+    value: "all_time",
+    label: "All time",
+    getDates: () => {
+      const end = new Date()
+      const start = new Date(2020, 0, 1) // Start from 2020
+      return { start, end }
+    },
+  },
 ]
 
 // Helper function to calculate percentage change
@@ -240,6 +249,8 @@ const formatPeriodText = (timeframeValue: string): string => {
       return "in last 365 days"
     case "last_year":
       return "last year"
+    case "all_time":
+      return "all time"
     default:
       return ""
   }
@@ -560,6 +571,7 @@ export function DashboardClient({
 
       // Determine grouping based on timeframe
       const isToday = timeframe === "today"
+      const isAllTime = timeframe === "all_time"
       const isYear = timeframe === "last_year" || timeframe === "last_365_days"
       const isMonth = timeframe === "last_30_days" || timeframe === "this_month"
       const is90Days = timeframe === "last_90_days"
@@ -617,6 +629,61 @@ export function DashboardClient({
 
           points.push({
             label: `${hour.toString().padStart(2, '0')}:00`,
+            value,
+            secondaryValue: kpiType === "views" ? secondaryValue : undefined
+          })
+        }
+      } else if (isAllTime) {
+        // Group by year for all time
+        const currentYear = new Date().getFullYear()
+        const startYear = 2020
+
+        for (let year = startYear; year <= currentYear; year++) {
+          const yearStart = new Date(year, 0, 1)
+          const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999)
+
+          let value = 0
+          let secondaryValue = 0
+
+          if (kpiType === "views") {
+            const { data } = await supabase
+              .from("analytics_events")
+              .select("id, visitor_id, session_id, product_id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "view")
+              .gte("created_at", yearStart.toISOString())
+              .lte("created_at", yearEnd.toISOString())
+
+            const uniqueKeys = new Set((data || []).map((e: any) => {
+              const identity = e.visitor_id || e.session_id
+              return identity ? `${identity}__${e.product_id || "store"}` : null
+            }).filter(Boolean))
+            value = uniqueKeys.size
+
+            const { data: clicks } = await supabase
+              .from("analytics_events")
+              .select("id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "click")
+              .gte("created_at", yearStart.toISOString())
+              .lte("created_at", yearEnd.toISOString())
+            secondaryValue = clicks?.length || 0
+          } else if (kpiType === "orders") {
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= yearStart && orderDate <= yearEnd
+            })
+            value = periodOrders.length
+          } else if (kpiType === "revenue") {
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= yearStart && orderDate <= yearEnd
+            })
+            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+          }
+
+          points.push({
+            label: year.toString(),
             value,
             secondaryValue: kpiType === "views" ? secondaryValue : undefined
           })

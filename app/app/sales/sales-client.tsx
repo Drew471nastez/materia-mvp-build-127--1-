@@ -30,7 +30,8 @@ import {
   Send,
   Copy,
   Check,
-  Star,
+  UserX,
+  Trophy,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -247,6 +248,50 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [copiedId, setCopiedId] = useState(false)
   const [openMenuOrderId, setOpenMenuOrderId] = useState<string | null>(null)
 
+  // Notification state
+  const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
+
+  // Receipt resend tracking (max 5 per order)
+  const [receiptResendCounts, setReceiptResendCounts] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('receiptResendCounts')
+      return saved ? JSON.parse(saved) : {}
+    }
+    return {}
+  })
+
+  const showNotification = (message: string) => {
+    setNotification({ message, visible: true })
+    setTimeout(() => setNotification({ message: "", visible: false }), 3000)
+  }
+
+  const handleResendReceipt = (order: Order) => {
+    const currentCount = receiptResendCounts[order.id] || 0
+    if (currentCount >= 5) {
+      showNotification("Maximum resend limit (5) reached for this order")
+      setOpenMenuOrderId(null)
+      return
+    }
+
+    // Update count
+    const newCounts = { ...receiptResendCounts, [order.id]: currentCount + 1 }
+    setReceiptResendCounts(newCounts)
+    localStorage.setItem('receiptResendCounts', JSON.stringify(newCounts))
+
+    // Here you would call your API to resend the receipt email
+    // For now, we'll just show a notification
+    const email = order.buyer?.email || order.buyer_email || "customer"
+    showNotification(`Receipt sent to ${email} (${currentCount + 1}/5)`)
+    setOpenMenuOrderId(null)
+  }
+
+  const handleUnsubscribe = (order: Order) => {
+    // Here you would call your API to mark this email as unsubscribed
+    const email = order.buyer?.email || order.buyer_email || "Unknown email"
+    showNotification(`${email} has been unsubscribed from emails`)
+    setOpenMenuOrderId(null)
+  }
+
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -291,12 +336,6 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     navigator.clipboard.writeText(orderId)
     setCopiedId(true)
     setTimeout(() => setCopiedId(false), 2000)
-  }
-
-  const handleSendReceipt = () => {
-    // Placeholder for sending receipt
-    alert("Receipt sent to " + editEmail)
-    setShowEditEmailModal(false)
   }
 
   const getStatusBadge = (status: string) => {
@@ -950,6 +989,16 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
 
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] sales-scroll-container">
+      {/* Notification Toast */}
+      {notification.visible && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">
+          <div className="bg-[#1a1a2e] text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-[13px] font-medium">
+            <Check className="h-4 w-4 text-emerald-400" />
+            {notification.message}
+          </div>
+        </div>
+      )}
+
       {/* Stripe Connection Announcement Bar */}
       {showPayoutsBanner && (
         <div className="bg-[#8b5cf6] text-white">
@@ -1569,99 +1618,134 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
-                    {orders.map((order) => (
-                      <tr key={order.id} className="hover:bg-[#f9fafb] transition-colors">
-                        <td className="px-5 py-4">
-                          <div>
-                            <p className="text-[14px] font-medium text-[#1a1a2e]">
-                              {order.buyer?.display_name || (order.buyer_first_name && order.buyer_last_name ? `${order.buyer_first_name} ${order.buyer_last_name}` : "Customer")}
-                            </p>
-                            <p className="text-[12px] text-[#6b7280]">{order.buyer?.email || order.buyer_email || ""}</p>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            {order.product?.cover_image ? (
-                              <img
-                                src={order.product.cover_image}
-                                alt=""
-                                className="w-10 h-10 rounded-lg object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                                <Package className="h-4 w-4 text-[#9ca3af]" />
-                              </div>
-                            )}
-                            <span className="text-[14px] text-[#1a1a2e] truncate max-w-[200px]">
-                              {order.product?.title || "Unknown Product"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className="text-[14px] text-[#6b7280]">{formatDate(order.created_at)}</span>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <span className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(order.amount_cents)}</span>
-                        </td>
-                        <td className="px-5 py-4">
-                          {getStatusBadge(order.status)}
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleViewOrder(order)}
-                              className="px-3 py-1.5 text-[12px] font-medium text-[#8b5cf6] bg-[#f5f3ff] rounded-lg hover:bg-[#ede9fe] transition-colors"
-                            >
-                              View
-                            </button>
-                            <div className="relative order-menu">
-                              <button
-                                onClick={() => setOpenMenuOrderId(openMenuOrderId === order.id ? null : order.id)}
-                                className="p-1.5 text-[#9ca3af] hover:text-[#6b7280] hover:bg-[#f3f4f6] rounded-lg transition-colors"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </button>
-                              {openMenuOrderId === order.id && (
-                                <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
-                                  <button
-                                    onClick={() => handleEditEmail(order)}
-                                    className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
-                                  >
-                                    <Mail className="h-4 w-4 text-[#9ca3af]" />
-                                    Edit email address
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      // Send receipt logic
-                                      setOpenMenuOrderId(null)
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
-                                  >
-                                    <Send className="h-4 w-4 text-[#9ca3af]" />
-                                    Resend receipt
-                                  </button>
-                                  {order.status === "completed" && (
-                                    <>
-                                      <div className="border-t border-[#e5e7eb] my-1" />
-                                      <button
-                                        onClick={() => {
-                                          // Refund logic
-                                          setOpenMenuOrderId(null)
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 flex items-center gap-2"
-                                      >
-                                        <RotateCcw className="h-4 w-4" />
-                                        Issue refund
-                                      </button>
-                                    </>
-                                  )}
+                    {orders.map((order) => {
+                      // Find product cover image from products prop if not in order
+                      const productImage = order.product?.cover_image || products.find(p => p.id === order.product_id)?.cover_image
+                      return (
+                        <tr
+                          key={order.id}
+                          className="hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                          onClick={(e) => {
+                            // Don't open modal if clicking on action buttons
+                            if ((e.target as HTMLElement).closest('.order-actions')) return
+                            handleViewOrder(order)
+                          }}
+                        >
+                          <td className="px-5 py-4">
+                            <div>
+                              <p className="text-[14px] font-medium text-[#1a1a2e]">
+                                {order.buyer?.display_name || (order.buyer_first_name && order.buyer_last_name ? `${order.buyer_first_name} ${order.buyer_last_name}` : "Customer")}
+                              </p>
+                              <p className="text-[12px] text-[#6b7280]">{order.buyer?.email || order.buyer_email || ""}</p>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              {productImage ? (
+                                <img
+                                  src={productImage}
+                                  alt=""
+                                  className="w-10 h-10 rounded-lg object-cover"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                                  <Package className="h-4 w-4 text-[#9ca3af]" />
                                 </div>
                               )}
+                              <span className="text-[14px] text-[#1a1a2e] truncate max-w-[200px]">
+                                {order.product?.title || products.find(p => p.id === order.product_id)?.title || "Unknown Product"}
+                              </span>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="text-[14px] text-[#6b7280]">{formatDate(order.created_at)}</span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <span className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(order.amount_cents)}</span>
+                          </td>
+                          <td className="px-5 py-4">
+                            {getStatusBadge(order.status)}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2 order-actions">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleViewOrder(order)
+                                }}
+                                className="px-3 py-1.5 text-[12px] font-medium text-[#1a1a2e] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
+                              >
+                                View
+                              </button>
+                              <div className="relative order-menu">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setOpenMenuOrderId(openMenuOrderId === order.id ? null : order.id)
+                                  }}
+                                  className="p-1.5 text-[#9ca3af] hover:text-[#6b7280] hover:bg-[#f3f4f6] rounded-lg transition-colors"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                                {openMenuOrderId === order.id && (
+                                  <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleEditEmail(order)
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+                                    >
+                                      <Mail className="h-4 w-4 text-[#9ca3af]" />
+                                      Edit email address
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleResendReceipt(order)
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+                                    >
+                                      <Send className="h-4 w-4 text-[#9ca3af]" />
+                                      Resend receipt
+                                      <span className="ml-auto text-[11px] text-[#9ca3af]">
+                                        {receiptResendCounts[order.id] || 0}/5
+                                      </span>
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleUnsubscribe(order)
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+                                    >
+                                      <UserX className="h-4 w-4 text-[#9ca3af]" />
+                                      Unsubscribe from emails
+                                    </button>
+                                    {order.status === "completed" && (
+                                      <>
+                                        <div className="border-t border-[#e5e7eb] my-1" />
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            // Refund logic
+                                            setOpenMenuOrderId(null)
+                                          }}
+                                          className="w-full text-left px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                        >
+                                          <RotateCcw className="h-4 w-4" />
+                                          Issue refund
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1681,7 +1765,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[16px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                <Star className="h-5 w-5 text-[#f59e0b]" />
+                <Trophy className="h-5 w-5 text-[#8b5cf6]" />
                 Best Performing Products
               </h2>
               <span className="text-[12px] text-[#6b7280]">By revenue</span>
@@ -1699,50 +1783,55 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
-                    {bestProducts.map((product, index) => (
-                      <tr key={product.productId} className="hover:bg-[#f9fafb] transition-colors">
-                        <td className="px-5 py-4">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold ${
-                            index === 0
-                              ? "bg-amber-100 text-amber-700"
-                              : index === 1
-                              ? "bg-gray-100 text-gray-600"
-                              : index === 2
-                              ? "bg-orange-100 text-orange-700"
-                              : "bg-[#f3f4f6] text-[#6b7280]"
-                          }`}>
-                            {index + 1}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            {product.coverImage ? (
-                              <img
-                                src={product.coverImage}
-                                alt=""
-                                className="w-10 h-10 rounded-lg object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                                <Package className="h-4 w-4 text-[#9ca3af]" />
-                              </div>
-                            )}
-                            <span className="text-[14px] font-medium text-[#1a1a2e] truncate max-w-[200px]">
-                              {product.title}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className="text-[13px] text-[#6b7280] capitalize">{product.type || "Digital"}</span>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <span className="text-[14px] font-medium text-[#1a1a2e]">{product.salesCount}</span>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <span className="text-[14px] font-semibold text-green-600">{formatPrice(product.revenue)}</span>
-                        </td>
-                      </tr>
-                    ))}
+                    {bestProducts.map((product, index) => {
+                      // Get product image from products prop
+                      const productData = products.find(p => p.id === product.productId)
+                      const coverImage = product.coverImage || productData?.cover_image
+                      return (
+                        <tr key={product.productId} className="hover:bg-[#f9fafb] transition-colors">
+                          <td className="px-5 py-4">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold ${
+                              index === 0
+                                ? "bg-amber-100 text-amber-700"
+                                : index === 1
+                                ? "bg-gray-100 text-gray-600"
+                                : index === 2
+                                ? "bg-orange-100 text-orange-700"
+                                : "bg-[#f3f4f6] text-[#6b7280]"
+                            }`}>
+                              {index + 1}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              {coverImage ? (
+                                <img
+                                  src={coverImage}
+                                  alt=""
+                                  className="w-10 h-10 rounded-lg object-cover"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                                  <Package className="h-4 w-4 text-[#9ca3af]" />
+                                </div>
+                              )}
+                              <span className="text-[14px] font-medium text-[#1a1a2e] truncate max-w-[200px]">
+                                {product.title || productData?.title || "Unknown Product"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="text-[13px] text-[#6b7280] capitalize">{product.type || productData?.type || "Digital"}</span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <span className="text-[14px] font-medium text-[#1a1a2e]">{product.salesCount}</span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <span className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(product.revenue)}</span>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1808,6 +1897,18 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                       {selectedOrder.buyer?.email || selectedOrder.buyer_email || "N/A"}
                     </p>
                   </div>
+                  <div>
+                    <span className="text-[#6b7280]">First Name</span>
+                    <p className="font-medium text-[#1a1a2e]">
+                      {selectedOrder.buyer_first_name || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Last Name</span>
+                    <p className="font-medium text-[#1a1a2e]">
+                      {selectedOrder.buyer_last_name || "N/A"}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1817,23 +1918,31 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   <Package className="h-4 w-4 text-[#8b5cf6]" />
                   Product
                 </h3>
-                <div className="flex items-center gap-3">
-                  {selectedOrder.product?.cover_image ? (
-                    <img
-                      src={selectedOrder.product.cover_image}
-                      alt=""
-                      className="w-14 h-14 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
-                      <Package className="h-6 w-6 text-[#9ca3af]" />
+                {(() => {
+                  const productData = products.find(p => p.id === selectedOrder.product_id)
+                  const coverImage = selectedOrder.product?.cover_image || productData?.cover_image
+                  const productTitle = selectedOrder.product?.title || productData?.title || "Unknown Product"
+                  const productType = selectedOrder.product?.type || productData?.type || "Digital Product"
+                  return (
+                    <div className="flex items-center gap-3">
+                      {coverImage ? (
+                        <img
+                          src={coverImage}
+                          alt=""
+                          className="w-14 h-14 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
+                          <Package className="h-6 w-6 text-[#9ca3af]" />
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-medium text-[#1a1a2e]">{productTitle}</p>
+                        <p className="text-[12px] text-[#6b7280] capitalize">{productType}</p>
+                      </div>
                     </div>
-                  )}
-                  <div>
-                    <p className="font-medium text-[#1a1a2e]">{selectedOrder.product?.title || "Unknown Product"}</p>
-                    <p className="text-[12px] text-[#6b7280]">{selectedOrder.product?.type || "Digital Product"}</p>
-                  </div>
-                </div>
+                  )
+                })()}
               </div>
 
               {/* Payment Info */}
@@ -1857,20 +1966,39 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   </div>
                   <div>
                     <span className="text-[#6b7280]">Net Revenue</span>
-                    <p className="font-medium text-green-600">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</p>
+                    <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Order Date */}
+              {/* Order Date & Time */}
               <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
                 <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-[#8b5cf6]" />
-                  Order Date
+                  Order Date & Time
                 </h3>
                 <p className="text-[13px] font-medium text-[#1a1a2e]">
                   {formatFullDate(selectedOrder.created_at)}
                 </p>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleResendReceipt(selectedOrder)}
+                  className="flex-1 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  Resend Receipt
+                  <span className="text-[11px] text-[#9ca3af]">({receiptResendCounts[selectedOrder.id] || 0}/5)</span>
+                </button>
+                <button
+                  onClick={() => handleUnsubscribe(selectedOrder)}
+                  className="flex-1 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-2"
+                >
+                  <UserX className="h-4 w-4" />
+                  Unsubscribe
+                </button>
               </div>
             </div>
 
