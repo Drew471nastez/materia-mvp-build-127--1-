@@ -337,11 +337,32 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     setOpenMenuOrderId(null)
   }
 
-  const formatPrice = (cents: number) => {
+  const formatPrice = (cents: number, compact = false) => {
+    const value = cents / 100
+    if (compact && value >= 1000) {
+      if (value >= 1000000) {
+        return `$${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`
+      }
+      return `$${(value / 1000).toFixed(1).replace(/\.0$/, '')}K`
+    }
+    // Remove decimal places if they are .00
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency,
-    }).format(cents / 100)
+      minimumFractionDigits: 0,
+      maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+    }).format(value)
+  }
+
+  // Format numbers compactly (10.5K, 1.2M, etc.)
+  const formatCompactNumber = (num: number) => {
+    if (num >= 1000000) {
+      return `${(num / 1000000).toFixed(1).replace(/\.0$/, '')}M`
+    }
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}K`
+    }
+    return num.toLocaleString()
   }
 
   // Convert country code to flag emoji
@@ -1085,20 +1106,20 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}
         <div className="flex flex-col gap-4 mb-6">
-          {/* Title Row */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center flex-wrap gap-2 sm:gap-3.5">
-              <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Sales</h1>
+          {/* Title and Controls Row */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-3.5">
+              <h1 className="text-[20px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Sales</h1>
 
               {/* Timeframe Dropdown */}
               <div className="relative timeframe-dropdown">
                 <button
                   onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
-                  className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white border border-[#e5e7eb] rounded-xl text-[12px] sm:text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+                  className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-white border border-[#e5e7eb] rounded-xl text-[11px] sm:text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
                 >
                   <span className="hidden sm:inline">{selectedOption?.shortLabel || "30 days"}</span>
                   <span className="sm:hidden">{selectedOption?.shortLabel || "30d"}</span>
-                  <ChevronDown className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
                 </button>
                 {isTimeframeOpen && (
                   <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
@@ -1123,18 +1144,18 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               </div>
             </div>
 
-          {/* Right side buttons */}
-          <div className="flex items-center gap-2">
+            {/* Right side buttons - Always visible */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Search */}
             <div className="relative">
               {isSearchOpen ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search orders..."
-                    className="w-48 px-3 py-1.5 text-[13px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
+                    placeholder="Search..."
+                    className="w-28 sm:w-48 px-2 sm:px-3 py-1 sm:py-1.5 text-[12px] sm:text-[13px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
                     autoFocus
                   />
                   <button
@@ -1142,17 +1163,17 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                       setIsSearchOpen(false)
                       setSearchQuery("")
                     }}
-                    className="p-1.5 text-[#9ca3af] hover:text-[#6b7280]"
+                    className="p-1 sm:p-1.5 text-[#9ca3af] hover:text-[#6b7280]"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </button>
                 </div>
               ) : (
                 <button
                   onClick={() => setIsSearchOpen(true)}
-                  className="p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+                  className="p-1.5 sm:p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
                 >
-                  <Search className="h-4 w-4" />
+                  <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </button>
               )}
             </div>
@@ -1161,11 +1182,11 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             <div className="relative">
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`filter-button p-2 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer ${
+                className={`filter-button p-1.5 sm:p-2 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer ${
                   appliedFilters ? "border-[#8b5cf6] text-[#8b5cf6]" : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
                 }`}
               >
-                <Filter className="h-4 w-4" />
+                <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
 
               {/* Filter Dropdown */}
@@ -1308,10 +1329,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             {/* Download */}
             <button
               onClick={handleExportCSV}
-              className="p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+              className="p-1.5 sm:p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
               title="Export CSV"
             >
-              <Download className="h-4 w-4" />
+              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
           </div>
           </div>
@@ -1401,10 +1422,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     <DollarSign className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
                   {formatPrice(summary.totalSales)}
                 </div>
-                <p className="text-[12px] text-[#9ca3af] mt-1">Gross revenue</p>
+                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Gross revenue</p>
               </>
             )}
           </div>
@@ -1467,10 +1488,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                  {summary.totalOrders.toLocaleString()}
+                <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                  {formatCompactNumber(summary.totalOrders)}
                 </div>
-                <p className="text-[12px] text-[#9ca3af] mt-1">Completed orders</p>
+                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Completed orders</p>
               </>
             )}
           </div>
@@ -1526,22 +1547,29 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                 )}
               </div>
             ) : (
-              <div className="group/aov relative">
+              <div className="relative">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Avg Order Value</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[13px] font-medium text-[#6b7280]">Avg Order Value</span>
+                    {/* Info icon with tooltip */}
+                    <div className="group/info relative">
+                      <div className="w-4 h-4 rounded-full bg-[#f3f4f6] flex items-center justify-center cursor-help">
+                        <span className="text-[9px] font-medium text-[#9ca3af]">i</span>
+                      </div>
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] rounded-lg opacity-0 group-hover/info:opacity-100 transition-opacity duration-200 pointer-events-none z-30 w-[200px] text-center shadow-lg">
+                        Average revenue earned per order. Calculated by dividing total revenue by number of orders.
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-[#1a1a2e]" />
+                      </div>
+                    </div>
+                  </div>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
                   {formatPrice(summary.avgOrderValue)}
                 </div>
-                <p className="text-[12px] text-[#9ca3af] mt-1">Per transaction</p>
-                {/* Tooltip for AOV */}
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] rounded-lg opacity-0 group-hover/aov:opacity-100 transition-opacity duration-200 pointer-events-none z-20 w-[200px] text-center shadow-lg">
-                  Average revenue earned per order. Calculated by dividing total revenue by number of orders.
-                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-[#1a1a2e]" />
-                </div>
+                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Per transaction</p>
               </div>
             )}
           </div>
@@ -1554,10 +1582,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                 <RotateCcw className="h-4 w-4 text-[#9ca3af]" />
               </div>
             </div>
-            <div className="text-[28px] font-semibold text-rose-500 tracking-tight">
-              {summary.refundCount}
+            <div className="text-[24px] sm:text-[28px] font-semibold text-rose-500 tracking-tight">
+              {formatCompactNumber(summary.refundCount)}
             </div>
-            <p className="text-[12px] text-[#9ca3af] mt-1">{formatPrice(summary.refundAmount)} refunded</p>
+            <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatPrice(summary.refundAmount)} refunded</p>
           </div>
         </div>
 
@@ -1673,6 +1701,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               <div className="sm:hidden divide-y divide-[#e5e7eb]">
                 {orders.map((order) => {
                   const productData = products.find(p => p.id === order.product_id)
+                  const productImage = productData?.thumbnail_url || order.product?.thumbnail_url
                   const customerName = order.buyer?.display_name ||
                     (order.buyer_first_name && order.buyer_last_name
                       ? `${order.buyer_first_name} ${order.buyer_last_name}`
@@ -1683,26 +1712,50 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   return (
                     <div
                       key={order.id}
-                      className="px-4 py-3 active:bg-[#f9fafb] cursor-pointer"
-                      onClick={() => handleViewOrder(order)}
+                      className="px-3 py-3 active:bg-[#f9fafb]"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="text-[13px] font-medium text-[#1a1a2e] truncate">
-                              {customerName.length > 8 ? customerName.slice(0, 8) + "..." : customerName}
-                            </p>
-                            <span className="text-[11px] text-[#9ca3af]">•</span>
-                            <span className="text-[11px] text-[#6b7280]">{mobileDate}</span>
+                      <div className="flex items-center gap-3">
+                        {/* Product Thumbnail */}
+                        {productImage ? (
+                          <img
+                            src={productImage}
+                            alt=""
+                            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center flex-shrink-0">
+                            <Package className="h-4 w-4 text-[#9ca3af]" />
                           </div>
-                          <p className="text-[12px] text-[#6b7280] truncate">
-                            {productTitle.length > 6 ? productTitle.slice(0, 6) + "..." : productTitle}
+                        )}
+
+                        {/* Order Info */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <p className="text-[13px] font-medium text-[#1a1a2e] truncate max-w-[100px]">
+                              {customerName.length > 10 ? customerName.slice(0, 10) + "..." : customerName}
+                            </p>
+                            <span className="text-[10px] text-[#9ca3af]">•</span>
+                            <span className="text-[10px] text-[#6b7280]">{mobileDate}</span>
+                          </div>
+                          <p className="text-[11px] text-[#6b7280] truncate max-w-[120px]">
+                            {productTitle.length > 15 ? productTitle.slice(0, 15) + "..." : productTitle}
                           </p>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-[14px] font-semibold text-[#1a1a2e]">
+
+                        {/* Amount & View */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <p className="text-[13px] font-semibold text-[#1a1a2e]">
                             {formatPrice(order.amount_cents)}
                           </p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleViewOrder(order)
+                            }}
+                            className="px-2 py-1 text-[11px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-md hover:bg-[#e5e7eb] transition-colors"
+                          >
+                            View
+                          </button>
                         </div>
                       </div>
                     </div>

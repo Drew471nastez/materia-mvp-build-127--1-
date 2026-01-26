@@ -423,11 +423,33 @@ export function DashboardClient({
     prevConversionRate: 0,
   })
 
-  const formatCurrency = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
+  const formatCurrency = (cents: number, compact = false) => {
+    const value = cents / 100
+    if (compact && value >= 1000) {
+      if (value >= 1000000) {
+        return `$${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`
+      }
+      return `$${(value / 1000).toFixed(1).replace(/\.0$/, '')}K`
+    }
+    // Remove decimal places if they are .00
+    const formatted = new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(cents / 100)
+      minimumFractionDigits: 0,
+      maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+    }).format(value)
+    return formatted
+  }
+
+  // Format numbers compactly (10.5K, 1.2M, etc.)
+  const formatCompactNumber = (num: number) => {
+    if (num >= 1000000) {
+      return `${(num / 1000000).toFixed(1).replace(/\.0$/, '')}M`
+    }
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}K`
+    }
+    return num.toLocaleString()
   }
 
   const fetchAnalytics = async (selectedTimeframe: string) => {
@@ -1172,11 +1194,11 @@ export function DashboardClient({
                     <Eye className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{analyticsData.totalViews.toLocaleString()}</span>
+                <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCompactNumber(analyticsData.totalViews)}</span>
                   <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
                 </div>
-                <p className="text-[12px] text-[#9ca3af] mt-1">{analyticsData.periodViews.toLocaleString()} {formatPeriodText(timeframe)}</p>
+                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(analyticsData.periodViews)} {formatPeriodText(timeframe)}</p>
               </>
             )}
           </div>
@@ -1242,11 +1264,11 @@ export function DashboardClient({
                     <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{analyticsData.totalOrders.toLocaleString()}</span>
+                <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCompactNumber(analyticsData.totalOrders)}</span>
                   <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
                 </div>
-                <p className="text-[12px] text-[#9ca3af] mt-1">{analyticsData.periodOrders.toLocaleString()} {formatPeriodText(timeframe)}</p>
+                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(analyticsData.periodOrders)} {formatPeriodText(timeframe)}</p>
               </>
             )}
           </div>
@@ -1312,11 +1334,11 @@ export function DashboardClient({
                     <DollarSign className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCurrency(analyticsData.totalRevenue)}</span>
+                <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCurrency(analyticsData.totalRevenue)}</span>
                   <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
                 </div>
-                <p className="text-[12px] text-[#9ca3af] mt-1">{formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}</p>
+                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}</p>
               </>
             )}
           </div>
@@ -1329,11 +1351,11 @@ export function DashboardClient({
                 <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
               </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{analyticsData.conversionRate.toFixed(2)}%</span>
+            <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+              <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{analyticsData.conversionRate.toFixed(2)}%</span>
               <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
             </div>
-            <p className="text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
+            <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
           </div>
         </div>
 
