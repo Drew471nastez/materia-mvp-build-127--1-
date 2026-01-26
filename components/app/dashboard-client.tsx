@@ -1119,13 +1119,13 @@ export function DashboardClient({
             onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
           >
             {openKPIModal === "views" ? (
-              <>
+              <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-medium text-violet-600">Views</span>
-                    <span className="text-[10px] text-[#9ca3af]">• {selectedOption?.label}</span>
+                    <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1163,7 +1163,7 @@ export function DashboardClient({
                     })()}
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
@@ -1189,13 +1189,13 @@ export function DashboardClient({
             onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
           >
             {openKPIModal === "orders" ? (
-              <>
+              <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-medium text-violet-600">Orders</span>
-                    <span className="text-[10px] text-[#9ca3af]">• {selectedOption?.label}</span>
+                    <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1233,7 +1233,7 @@ export function DashboardClient({
                     })()}
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
@@ -1259,13 +1259,13 @@ export function DashboardClient({
             onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
           >
             {openKPIModal === "revenue" ? (
-              <>
+              <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-medium text-violet-600">Revenue</span>
-                    <span className="text-[10px] text-[#9ca3af]">• {selectedOption?.label}</span>
+                    <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1303,7 +1303,7 @@ export function DashboardClient({
                     })()}
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">

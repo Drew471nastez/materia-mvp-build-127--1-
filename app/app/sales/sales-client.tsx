@@ -1084,65 +1084,44 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div className="flex items-center" style={{ gap: '14px' }}>
-            <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Sales</h1>
+        <div className="flex flex-col gap-4 mb-6">
+          {/* Title Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center flex-wrap gap-2 sm:gap-3.5">
+              <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Sales</h1>
 
-            {/* Timeframe Dropdown */}
-            <div className="relative timeframe-dropdown">
-              <button
-                onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
-              >
-                {selectedOption?.shortLabel || "30 days"}
-                <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
-              </button>
-              {isTimeframeOpen && (
-                <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
-                  {timeframeOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setTimeframe(option.value)
-                        setIsTimeframeOpen(false)
-                      }}
-                      className={`w-full text-left px-3 py-2 text-[13px] font-medium transition-colors cursor-pointer ${
-                        timeframe === option.value
-                          ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                          : "text-[#374151] hover:bg-[#f9fafb]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Timeframe Dropdown */}
+              <div className="relative timeframe-dropdown">
+                <button
+                  onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
+                  className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white border border-[#e5e7eb] rounded-xl text-[12px] sm:text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+                >
+                  <span className="hidden sm:inline">{selectedOption?.shortLabel || "30 days"}</span>
+                  <span className="sm:hidden">{selectedOption?.shortLabel || "30d"}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
+                </button>
+                {isTimeframeOpen && (
+                  <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+                    {timeframeOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          setTimeframe(option.value)
+                          setIsTimeframeOpen(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-[13px] font-medium transition-colors cursor-pointer ${
+                          timeframe === option.value
+                            ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                            : "text-[#374151] hover:bg-[#f9fafb]"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-
-            {/* All Orders Tab */}
-            <button
-              onClick={() => setActiveTab("orders")}
-              className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer ${
-                activeTab === "orders"
-                  ? "bg-[#e5e7eb] text-[#374151]"
-                  : "text-[#6b7280] hover:bg-[#f3f4f6]"
-              }`}
-            >
-              All Orders
-            </button>
-
-            {/* Sales Reports Tab */}
-            <button
-              onClick={() => setActiveTab("reports")}
-              className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer ${
-                activeTab === "reports"
-                  ? "bg-[#e5e7eb] text-[#374151]"
-                  : "text-[#6b7280] hover:bg-[#f3f4f6]"
-              }`}
-            >
-              Sales Reports
-            </button>
-          </div>
 
           {/* Right side buttons */}
           <div className="flex items-center gap-2">
@@ -1335,6 +1314,31 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               <Download className="h-4 w-4" />
             </button>
           </div>
+          </div>
+
+          {/* Tab Pills - Responsive */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+            <button
+              onClick={() => setActiveTab("orders")}
+              className={`px-3 sm:px-4 py-1.5 rounded-full text-[12px] sm:text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                activeTab === "orders"
+                  ? "bg-[#e5e7eb] text-[#374151]"
+                  : "text-[#6b7280] hover:bg-[#f3f4f6]"
+              }`}
+            >
+              All Orders
+            </button>
+            <button
+              onClick={() => setActiveTab("reports")}
+              className={`px-3 sm:px-4 py-1.5 rounded-full text-[12px] sm:text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                activeTab === "reports"
+                  ? "bg-[#e5e7eb] text-[#374151]"
+                  : "text-[#6b7280] hover:bg-[#f3f4f6]"
+              }`}
+            >
+              Sales Reports
+            </button>
+          </div>
         </div>
 
         {/* KPI Cards */}
@@ -1347,13 +1351,13 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             onClick={() => setOpenKPIModal(openKPIModal === "sales" ? null : "sales")}
           >
             {openKPIModal === "sales" ? (
-              <>
+              <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-medium text-violet-600">Total Sales</span>
-                    <span className="text-[10px] text-[#9ca3af]">• {selectedOption?.label}</span>
+                    <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1388,7 +1392,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     })()}
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
@@ -1413,13 +1417,13 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
           >
             {openKPIModal === "orders" ? (
-              <>
+              <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-medium text-violet-600">Orders</span>
-                    <span className="text-[10px] text-[#9ca3af]">• {selectedOption?.label}</span>
+                    <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1454,7 +1458,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     })()}
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
@@ -1479,13 +1483,13 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             onClick={() => setOpenKPIModal(openKPIModal === "avgValue" ? null : "avgValue")}
           >
             {openKPIModal === "avgValue" ? (
-              <>
+              <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-medium text-violet-600">Avg Order Value</span>
-                    <span className="text-[10px] text-[#9ca3af]">• {selectedOption?.label}</span>
+                    <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors">
+                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1520,9 +1524,9 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     })()}
                   </div>
                 )}
-              </>
+              </div>
             ) : (
-              <>
+              <div className="group/aov relative">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[13px] font-medium text-[#6b7280]">Avg Order Value</span>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
@@ -1533,7 +1537,12 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   {formatPrice(summary.avgOrderValue)}
                 </div>
                 <p className="text-[12px] text-[#9ca3af] mt-1">Per transaction</p>
-              </>
+                {/* Tooltip for AOV */}
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] rounded-lg opacity-0 group-hover/aov:opacity-100 transition-opacity duration-200 pointer-events-none z-20 w-[200px] text-center shadow-lg">
+                  Average revenue earned per order. Calculated by dividing total revenue by number of orders.
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-[#1a1a2e]" />
+                </div>
+              </div>
             )}
           </div>
 
@@ -1658,9 +1667,51 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               </div>
             </div>
           ) : (
-            /* Orders Table */
+            /* Orders List - Responsive */
             <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Mobile View - Card List */}
+              <div className="sm:hidden divide-y divide-[#e5e7eb]">
+                {orders.map((order) => {
+                  const productData = products.find(p => p.id === order.product_id)
+                  const customerName = order.buyer?.display_name ||
+                    (order.buyer_first_name && order.buyer_last_name
+                      ? `${order.buyer_first_name} ${order.buyer_last_name}`
+                      : "Customer")
+                  const productTitle = order.product?.title || productData?.title || "Product"
+                  const mobileDate = new Date(order.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+
+                  return (
+                    <div
+                      key={order.id}
+                      className="px-4 py-3 active:bg-[#f9fafb] cursor-pointer"
+                      onClick={() => handleViewOrder(order)}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-[13px] font-medium text-[#1a1a2e] truncate">
+                              {customerName.length > 8 ? customerName.slice(0, 8) + "..." : customerName}
+                            </p>
+                            <span className="text-[11px] text-[#9ca3af]">•</span>
+                            <span className="text-[11px] text-[#6b7280]">{mobileDate}</span>
+                          </div>
+                          <p className="text-[12px] text-[#6b7280] truncate">
+                            {productTitle.length > 6 ? productTitle.slice(0, 6) + "..." : productTitle}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[14px] font-semibold text-[#1a1a2e]">
+                            {formatPrice(order.amount_cents)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Desktop View - Full Table */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#e5e7eb]">
@@ -1808,7 +1859,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
 
               {/* Pagination info */}
               {totalCount > 0 && (
-                <div className="px-5 py-3 border-t border-[#e5e7eb] text-[13px] text-[#6b7280]">
+                <div className="px-4 sm:px-5 py-3 border-t border-[#e5e7eb] text-[12px] sm:text-[13px] text-[#6b7280]">
                   Showing {orders.length} of {totalCount} orders
                 </div>
               )}
@@ -2272,6 +2323,13 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           .sales-scroll-container {
             scrollbar-width: none;
           }
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </div>
