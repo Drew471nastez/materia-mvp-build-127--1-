@@ -59,19 +59,22 @@ export default async function AppDashboard() {
 
   const hasPayoutsSetup = stripeAccount?.payouts_enabled === true
 
-  // Total orders (all time) for first sale check
-  let totalOrders = 0
-  let totalRevenue = 0
+  // Fetch ALL orders for this creator's products (same source as Sales page)
+  let allOrders: any[] = []
   if (productIds.length > 0) {
-    const { data: allOrders } = await adminSupabase
+    const { data: ordersData } = await adminSupabase
       .from("orders")
-      .select("id, amount_cents, status")
-      .eq("status", "completed")
+      .select("id, product_id, amount_cents, status, created_at")
       .in("product_id", productIds)
+      .order("created_at", { ascending: false })
 
-    totalOrders = allOrders?.length || 0
-    totalRevenue = allOrders?.reduce((sum: number, o: any) => sum + (o.amount_cents || 0), 0) || 0
+    allOrders = ordersData || []
   }
+
+  // Calculate totals from completed orders
+  const completedOrders = allOrders.filter(o => o.status === "completed")
+  const totalOrders = completedOrders.length
+  const totalRevenue = completedOrders.reduce((sum: number, o: any) => sum + (o.amount_cents || 0), 0)
 
   // Branding check: has avatar, name, and bio
   const hasBranding = !!(profile?.avatar_url || creator.avatar_url) &&
@@ -141,6 +144,7 @@ export default async function AppDashboard() {
       displayName={displayName}
       initialSetupSteps={setupSteps}
       productIds={productIds}
+      initialOrders={allOrders}
       initialTotalOrders={totalOrders}
       initialTotalRevenue={totalRevenue}
     />

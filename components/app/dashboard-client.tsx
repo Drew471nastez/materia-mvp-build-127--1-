@@ -85,11 +85,20 @@ const stepSubsteps: Record<string, { label: string; check: (data: any) => boolea
   ],
 }
 
+interface Order {
+  id: string
+  product_id: string
+  amount_cents: number
+  status: string
+  created_at: string
+}
+
 interface DashboardClientProps {
   creatorId: string
   displayName: string
   initialSetupSteps: SetupStep[]
   productIds: string[]
+  initialOrders?: Order[]
   initialTotalOrders?: number
   initialTotalRevenue?: number
 }
@@ -376,6 +385,7 @@ export function DashboardClient({
   displayName,
   initialSetupSteps,
   productIds,
+  initialOrders = [],
   initialTotalOrders = 0,
   initialTotalRevenue = 0,
 }: DashboardClientProps) {
@@ -424,7 +434,7 @@ export function DashboardClient({
       const prevEnd = new Date(start.getTime() - 1) // 1ms before current period start
       const prevStart = new Date(prevEnd.getTime() - periodDuration)
 
-      // Fetch views for the current period
+      // Fetch views for the current period (analytics_events are OK to fetch client-side)
       const { data: viewEvents } = await supabase
         .from("analytics_events")
         .select("id, visitor_id, session_id, product_id, created_at")
@@ -466,38 +476,26 @@ export function DashboardClient({
 
       const prevPeriodViews = prevUniqueViewKeys.size || 0
 
-      // Fetch orders for the current period
-      let periodOrders = 0
-      let periodRevenue = 0
-      let prevPeriodOrders = 0
-      let prevPeriodRevenue = 0
+      // Filter orders from initialOrders (server-side fetched data - bypasses RLS)
+      const completedOrders = initialOrders.filter(o => o.status === "completed")
 
-      if (productIds.length > 0) {
-        const { data: orders } = await supabase
-          .from("orders")
-          .select("amount_cents")
-          .eq("status", "completed")
-          .in("product_id", productIds)
-          .gte("created_at", start.toISOString())
-          .lte("created_at", end.toISOString())
+      // Current period orders
+      const periodOrdersData = completedOrders.filter(o => {
+        const orderDate = new Date(o.created_at)
+        return orderDate >= start && orderDate <= end
+      })
+      const periodOrders = periodOrdersData.length
+      const periodRevenue = periodOrdersData.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
-        periodOrders = orders?.length || 0
-        periodRevenue = orders?.reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) || 0
+      // Previous period orders
+      const prevPeriodOrdersData = completedOrders.filter(o => {
+        const orderDate = new Date(o.created_at)
+        return orderDate >= prevStart && orderDate <= prevEnd
+      })
+      const prevPeriodOrders = prevPeriodOrdersData.length
+      const prevPeriodRevenue = prevPeriodOrdersData.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
-        // Fetch orders for the previous period
-        const { data: prevOrders } = await supabase
-          .from("orders")
-          .select("amount_cents")
-          .eq("status", "completed")
-          .in("product_id", productIds)
-          .gte("created_at", prevStart.toISOString())
-          .lte("created_at", prevEnd.toISOString())
-
-        prevPeriodOrders = prevOrders?.length || 0
-        prevPeriodRevenue = prevOrders?.reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) || 0
-      }
-
-      // Fetch all-time totals
+      // Fetch all-time views
       const { data: allViewEvents } = await supabase
         .from("analytics_events")
         .select("id, visitor_id, session_id, product_id")
@@ -516,19 +514,9 @@ export function DashboardClient({
 
       const totalViews = allUniqueViewKeys.size || 0
 
-      let totalOrders = 0
-      let totalRevenue = 0
-
-      if (productIds.length > 0) {
-        const { data: allOrders } = await supabase
-          .from("orders")
-          .select("amount_cents")
-          .eq("status", "completed")
-          .in("product_id", productIds)
-
-        totalOrders = allOrders?.length || 0
-        totalRevenue = allOrders?.reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) || 0
-      }
+      // All-time orders from initialOrders (already filtered for completed)
+      const totalOrders = completedOrders.length
+      const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
       const conversionRate = periodViews > 0 ? (periodOrders / periodViews) * 100 : 0
       const prevConversionRate = prevPeriodViews > 0 ? (prevPeriodOrders / prevPeriodViews) * 100 : 0
@@ -566,6 +554,9 @@ export function DashboardClient({
 
       const { start, end } = option.getDates()
       const points: ChartDataPoint[] = []
+
+      // Filter completed orders from initialOrders (server-side fetched data)
+      const completedOrders = initialOrders.filter(o => o.status === "completed")
 
       // Determine grouping based on timeframe
       const isToday = timeframe === "today"
@@ -607,24 +598,20 @@ export function DashboardClient({
               .gte("created_at", hourStart.toISOString())
               .lte("created_at", hourEnd.toISOString())
             secondaryValue = clicks?.length || 0
-          } else if (kpiType === "orders" && productIds.length > 0) {
-            const { data } = await supabase
-              .from("orders")
-              .select("id")
-              .eq("status", "completed")
-              .in("product_id", productIds)
-              .gte("created_at", hourStart.toISOString())
-              .lte("created_at", hourEnd.toISOString())
-            value = data?.length || 0
-          } else if (kpiType === "revenue" && productIds.length > 0) {
-            const { data } = await supabase
-              .from("orders")
-              .select("amount_cents")
-              .eq("status", "completed")
-              .in("product_id", productIds)
-              .gte("created_at", hourStart.toISOString())
-              .lte("created_at", hourEnd.toISOString())
-            value = (data || []).reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) / 100
+          } else if (kpiType === "orders") {
+            // Filter orders locally from initialOrders
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= hourStart && orderDate <= hourEnd
+            })
+            value = periodOrders.length
+          } else if (kpiType === "revenue") {
+            // Filter orders locally from initialOrders
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= hourStart && orderDate <= hourEnd
+            })
+            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
           }
 
           points.push({
@@ -667,24 +654,20 @@ export function DashboardClient({
               .gte("created_at", monthStart.toISOString())
               .lte("created_at", monthEnd.toISOString())
             secondaryValue = clicks?.length || 0
-          } else if (kpiType === "orders" && productIds.length > 0) {
-            const { data } = await supabase
-              .from("orders")
-              .select("id")
-              .eq("status", "completed")
-              .in("product_id", productIds)
-              .gte("created_at", monthStart.toISOString())
-              .lte("created_at", monthEnd.toISOString())
-            value = data?.length || 0
-          } else if (kpiType === "revenue" && productIds.length > 0) {
-            const { data } = await supabase
-              .from("orders")
-              .select("amount_cents")
-              .eq("status", "completed")
-              .in("product_id", productIds)
-              .gte("created_at", monthStart.toISOString())
-              .lte("created_at", monthEnd.toISOString())
-            value = (data || []).reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) / 100
+          } else if (kpiType === "orders") {
+            // Filter orders locally from initialOrders
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= monthStart && orderDate <= monthEnd
+            })
+            value = periodOrders.length
+          } else if (kpiType === "revenue") {
+            // Filter orders locally from initialOrders
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= monthStart && orderDate <= monthEnd
+            })
+            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
           }
 
           const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -730,24 +713,20 @@ export function DashboardClient({
               .gte("created_at", dayStart.toISOString())
               .lte("created_at", dayEnd.toISOString())
             secondaryValue = clicks?.length || 0
-          } else if (kpiType === "orders" && productIds.length > 0) {
-            const { data } = await supabase
-              .from("orders")
-              .select("id")
-              .eq("status", "completed")
-              .in("product_id", productIds)
-              .gte("created_at", dayStart.toISOString())
-              .lte("created_at", dayEnd.toISOString())
-            value = data?.length || 0
-          } else if (kpiType === "revenue" && productIds.length > 0) {
-            const { data } = await supabase
-              .from("orders")
-              .select("amount_cents")
-              .eq("status", "completed")
-              .in("product_id", productIds)
-              .gte("created_at", dayStart.toISOString())
-              .lte("created_at", dayEnd.toISOString())
-            value = (data || []).reduce((sum: number, o: any) => sum + (o?.amount_cents || 0), 0) / 100
+          } else if (kpiType === "orders") {
+            // Filter orders locally from initialOrders
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= dayStart && orderDate <= dayEnd
+            })
+            value = periodOrders.length
+          } else if (kpiType === "revenue") {
+            // Filter orders locally from initialOrders
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= dayStart && orderDate <= dayEnd
+            })
+            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
           }
 
           points.push({
