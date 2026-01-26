@@ -361,6 +361,500 @@ function TimeframeBottomSheet({
   )
 }
 
+// Order Details Modal with swipe-to-close on mobile
+function OrderDetailsModal({
+  isOpen,
+  onClose,
+  selectedOrder,
+  products,
+  formatPrice,
+  formatFullDate,
+  handleCopyOrderId,
+  copiedId,
+  getStatusBadge,
+  handleResendReceipt,
+  handleUnsubscribe,
+  handleEditEmail,
+  receiptResendCounts,
+  getFlagEmoji,
+  setShowOrderModal,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  selectedOrder: Order | null
+  products: Product[]
+  formatPrice: (cents: number, compact?: boolean) => string
+  formatFullDate: (dateString: string) => string
+  handleCopyOrderId: (orderId: string) => void
+  copiedId: boolean
+  getStatusBadge: (status: string) => React.ReactNode
+  handleResendReceipt: (order: Order) => void
+  handleUnsubscribe: (order: Order) => void
+  handleEditEmail: (order: Order) => void
+  receiptResendCounts: Record<string, number>
+  getFlagEmoji: (countryCode: string) => string
+  setShowOrderModal: (show: boolean) => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = React.useRef(0)
+  const sheetRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setDragY(0)
+    setTimeout(() => {
+      onClose()
+    }, 400)
+  }
+
+  // Handle drag for mobile swipe-to-close
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+
+    // Only start dragging if touch is in the handle area (top 60px)
+    if (touchYInSheet <= 60) {
+      startY.current = touch.clientY
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startY.current
+    if (diff > 0) {
+      setDragY(diff * 0.8)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 80) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
+  if (!isVisible || !selectedOrder) return null
+
+  const productData = products.find(p => p.id === selectedOrder.product_id)
+  const coverImage = productData?.thumbnail_url || selectedOrder.product?.thumbnail_url
+  const productTitle = selectedOrder.product?.title || productData?.title || "Unknown Product"
+  const productType = selectedOrder.product?.type || productData?.type || "Digital Product"
+
+  return (
+    <>
+      {/* Desktop Modal */}
+      <div className="fixed inset-0 z-50 hidden sm:flex items-center justify-center p-4">
+        <div
+          className={`absolute inset-0 bg-black/50 transition-opacity duration-400 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
+          onClick={handleClose}
+        />
+        <div
+          className={`relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl transition-all duration-400 ${
+            isAnimating ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+          }`}
+          style={{ transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
+        >
+          {/* Desktop Header */}
+          <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
+            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Order Details</h2>
+            <button
+              onClick={handleClose}
+              className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Desktop Content */}
+          <div className="p-6 space-y-6">
+            {/* Order ID & Status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-[#6b7280]">Order ID:</span>
+                <code className="text-[12px] font-mono bg-[#f3f4f6] px-2 py-0.5 rounded">
+                  #{selectedOrder.id.slice(0, 8)}
+                </code>
+                <button
+                  onClick={() => handleCopyOrderId(selectedOrder.id)}
+                  className="p-1 text-[#9ca3af] hover:text-[#6b7280] transition-colors"
+                >
+                  {copiedId ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              {getStatusBadge(selectedOrder.status)}
+            </div>
+
+            {/* Customer Info */}
+            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                <Users className="h-4 w-4 text-[#8b5cf6]" />
+                Customer Information
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-[13px]">
+                <div>
+                  <span className="text-[#6b7280]">Name</span>
+                  <p className="font-medium text-[#1a1a2e]">
+                    {selectedOrder.buyer?.display_name ||
+                      (selectedOrder.buyer_first_name && selectedOrder.buyer_last_name
+                        ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}`
+                        : "Unknown")}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Email</span>
+                  <p className="font-medium text-[#1a1a2e] break-all">
+                    {selectedOrder.buyer?.email || selectedOrder.buyer_email || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">First Name</span>
+                  <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_first_name || "N/A"}</p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Last Name</span>
+                  <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_last_name || "N/A"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Product Info */}
+            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                <Package className="h-4 w-4 text-[#8b5cf6]" />
+                Product
+              </h3>
+              <div className="flex items-center gap-3">
+                {coverImage ? (
+                  <img src={coverImage} alt="" className="w-14 h-14 rounded-lg object-cover" />
+                ) : (
+                  <div className="w-14 h-14 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
+                    <Package className="h-6 w-6 text-[#9ca3af]" />
+                  </div>
+                )}
+                <div>
+                  <p className="font-medium text-[#1a1a2e]">{productTitle}</p>
+                  <p className="text-[12px] text-[#6b7280] capitalize">{productType}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Info */}
+            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-[#8b5cf6]" />
+                Payment Details
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-[13px]">
+                <div>
+                  <span className="text-[#6b7280]">Amount</span>
+                  <p className="font-semibold text-[#1a1a2e] text-[16px]">{formatPrice(selectedOrder.amount_cents)}</p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Fee</span>
+                  <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.fee_cents || 0)}</p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Payment Method</span>
+                  <p className="font-medium text-[#1a1a2e] capitalize">
+                    {selectedOrder.payment_method === "card" && selectedOrder.card_brand ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="capitalize">{selectedOrder.card_brand}</span>
+                        {selectedOrder.card_last4 && <span className="text-[#6b7280]">•••• {selectedOrder.card_last4}</span>}
+                      </span>
+                    ) : selectedOrder.payment_method === "paypal" ? "PayPal" : selectedOrder.payment_method === "free" ? "Free" : selectedOrder.payment_method || "Card"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Net Revenue</span>
+                  <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</p>
+                </div>
+                {selectedOrder.payment_method === "paypal" && selectedOrder.paypal_email && (
+                  <div className="col-span-2">
+                    <span className="text-[#6b7280]">PayPal Email</span>
+                    <p className="font-medium text-[#1a1a2e] break-all">{selectedOrder.paypal_email}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Location Info */}
+            {selectedOrder.buyer_country && (
+              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-[#8b5cf6]" />
+                  Location
+                </h3>
+                <div className="text-[13px]">
+                  <span className="text-[#6b7280]">Country</span>
+                  <p className="font-medium text-[#1a1a2e] flex items-center gap-2">
+                    {selectedOrder.buyer_country_code && <span className="text-[16px]">{getFlagEmoji(selectedOrder.buyer_country_code)}</span>}
+                    {selectedOrder.buyer_country}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Device Info */}
+            {(selectedOrder.buyer_device_type || selectedOrder.buyer_os || selectedOrder.buyer_browser) && (
+              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                  {selectedOrder.buyer_device_type === "Mobile" ? <Smartphone className="h-4 w-4 text-[#8b5cf6]" /> : selectedOrder.buyer_device_type === "Tablet" ? <Tablet className="h-4 w-4 text-[#8b5cf6]" /> : <Monitor className="h-4 w-4 text-[#8b5cf6]" />}
+                  Device Information
+                </h3>
+                <div className="grid grid-cols-3 gap-3 text-[13px]">
+                  {selectedOrder.buyer_device_type && <div><span className="text-[#6b7280]">Device</span><p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_device_type}</p></div>}
+                  {selectedOrder.buyer_os && <div><span className="text-[#6b7280]">OS</span><p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_os}</p></div>}
+                  {selectedOrder.buyer_browser && <div><span className="text-[#6b7280]">Browser</span><p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_browser}</p></div>}
+                </div>
+              </div>
+            )}
+
+            {/* Order Date & Time */}
+            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-[#8b5cf6]" />
+                Order Date & Time
+              </h3>
+              <p className="text-[13px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</p>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleResendReceipt(selectedOrder)}
+                className="flex-1 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-2"
+              >
+                <Send className="h-4 w-4" />
+                Resend Receipt
+                <span className="text-[11px] text-[#9ca3af]">({receiptResendCounts[selectedOrder.id] || 0}/5)</span>
+              </button>
+              <button
+                onClick={() => handleUnsubscribe(selectedOrder)}
+                className="flex-1 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-2"
+              >
+                <UserX className="h-4 w-4" />
+                Unsubscribe
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop Footer */}
+          <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-between gap-3">
+            <button
+              onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
+              className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              Edit Email
+            </button>
+            {selectedOrder.status === "completed" && (
+              <button className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2">
+                <RotateCcw className="h-4 w-4" />
+                Issue Refund
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Sheet */}
+      <div className="fixed inset-0 z-50 sm:hidden">
+        {/* Backdrop */}
+        <div
+          className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
+          style={{ transitionDuration: '400ms' }}
+          onClick={handleClose}
+        />
+        {/* Bottom Sheet */}
+        <div
+          ref={sheetRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+          style={{
+            transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+            transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+            maxHeight: '76.5vh', // 15% reduced from 90vh
+          }}
+        >
+          {/* Handle bar area */}
+          <div className="pt-3 pb-2">
+            <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
+              <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+            </button>
+          </div>
+
+          {/* Header */}
+          <div className="px-4 pb-3 flex items-center justify-between border-b border-[#e5e7eb]">
+            <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Order Details</h3>
+            {getStatusBadge(selectedOrder.status)}
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="px-4 py-4 overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(76.5vh - 120px)' }}>
+            <div className="space-y-4">
+              {/* Order ID */}
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-[#6b7280]">Order ID:</span>
+                <code className="text-[12px] font-mono bg-[#f3f4f6] px-2 py-0.5 rounded">#{selectedOrder.id.slice(0, 8)}</code>
+                <button onClick={() => handleCopyOrderId(selectedOrder.id)} className="p-1 text-[#9ca3af]">
+                  {copiedId ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+
+              {/* Customer */}
+              <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                  Customer
+                </h4>
+                <div className="text-[12px]">
+                  <p className="font-medium text-[#1a1a2e]">
+                    {selectedOrder.buyer?.display_name || (selectedOrder.buyer_first_name && selectedOrder.buyer_last_name ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}` : "Unknown")}
+                  </p>
+                  <p className="text-[#6b7280] break-all">{selectedOrder.buyer?.email || selectedOrder.buyer_email || "N/A"}</p>
+                </div>
+              </div>
+
+              {/* Product */}
+              <div className="bg-[#f9fafb] rounded-xl p-3">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5 mb-2">
+                  <Package className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                  Product
+                </h4>
+                <div className="flex items-center gap-3">
+                  {coverImage ? (
+                    <img src={coverImage} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
+                      <Package className="h-5 w-5 text-[#9ca3af]" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[13px] font-medium text-[#1a1a2e]">{productTitle}</p>
+                    <p className="text-[11px] text-[#6b7280] capitalize">{productType}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment */}
+              <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                  Payment
+                </h4>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280]">Amount</span>
+                  <span className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280]">Net</span>
+                  <span className="text-[12px] font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</span>
+                </div>
+              </div>
+
+              {/* Location & Device */}
+              {(selectedOrder.buyer_country || selectedOrder.buyer_device_type) && (
+                <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                  {selectedOrder.buyer_country && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#6b7280]">Location</span>
+                      <span className="text-[12px] font-medium text-[#1a1a2e] flex items-center gap-1">
+                        {selectedOrder.buyer_country_code && <span>{getFlagEmoji(selectedOrder.buyer_country_code)}</span>}
+                        {selectedOrder.buyer_country}
+                      </span>
+                    </div>
+                  )}
+                  {selectedOrder.buyer_device_type && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#6b7280]">Device</span>
+                      <span className="text-[12px] font-medium text-[#1a1a2e]">{selectedOrder.buyer_device_type}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Date */}
+              <div className="bg-[#f9fafb] rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280] flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                    Date
+                  </span>
+                  <span className="text-[12px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Footer Actions */}
+          <div className="px-4 py-3 border-t border-[#e5e7eb] flex items-center gap-2">
+            <button
+              onClick={() => handleResendReceipt(selectedOrder)}
+              className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Resend
+            </button>
+            <button
+              onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
+              className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Edit Email
+            </button>
+            {selectedOrder.status === "completed" && (
+              <button className="px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Refund
+              </button>
+            )}
+          </div>
+
+          {/* Safe area padding */}
+          <div className="h-[env(safe-area-inset-bottom)]" />
+        </div>
+      </div>
+    </>
+  )
+}
+
 export function SalesClient({ creatorId, products, initialSummary, initialOrders, currency, stripeConnected, storeName, sellerName }: SalesClientProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [timeframe, setTimeframe] = useState("last_30_days")
@@ -1175,7 +1669,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         productStats[productId] = {
           productId,
           title: order.product?.title || "Unknown Product",
-          coverImage: order.product?.cover_image,
+          coverImage: order.product?.thumbnail_url || undefined,
           type: order.product?.type,
           salesCount: 0,
           revenue: 0,
@@ -1345,26 +1839,26 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   </button>
                 )}
               </div>
-              {/* Mobile search toggle button */}
+              {/* Mobile search toggle button - 15% bigger to match timeframe button height */}
               <button
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
-                className={`sm:hidden p-1.5 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer ${
+                className={`sm:hidden p-2 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer ${
                   isSearchOpen ? "border-[#8b5cf6] text-[#8b5cf6]" : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
                 }`}
               >
-                <Search className="h-3.5 w-3.5" />
+                <Search className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Filter */}
+            {/* Filter - 15% bigger on mobile to match timeframe button height */}
             <div className="relative">
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`filter-button p-1.5 sm:p-2 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer ${
+                className={`filter-button p-2 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer ${
                   appliedFilters ? "border-[#8b5cf6] text-[#8b5cf6]" : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
                 }`}
               >
-                <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <Filter className="h-4 w-4" />
               </button>
 
               {/* Filter Dropdown */}
@@ -1504,13 +1998,13 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               )}
             </div>
 
-            {/* Download */}
+            {/* Download - 15% bigger on mobile to match timeframe button height */}
             <button
               onClick={handleExportCSV}
-              className="p-1.5 sm:p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+              className="p-2 bg-white border border-[#e5e7eb] rounded-lg text-[#6b7280] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
               title="Export CSV"
             >
-              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Download className="h-4 w-4" />
             </button>
           </div>
           </div>
@@ -1763,14 +2257,15 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               <div className="relative">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
-                    <span className="text-[12px] sm:text-[13px] font-medium text-[#6b7280] truncate">Avg Order Value</span>
+                    <span className="text-[12px] sm:text-[13px] font-medium text-[#6b7280] hidden sm:inline">Avg Order Value</span>
+                    <span className="text-[12px] font-medium text-[#6b7280] sm:hidden leading-tight">Avg Order<br />Value</span>
                     {/* Info icon with tooltip - hidden on mobile, shown on desktop */}
                     <div className="group/info relative flex-shrink-0 hidden sm:block">
                       <div className="w-4 h-4 min-w-[16px] min-h-[16px] rounded-full bg-[#f3f4f6] flex items-center justify-center cursor-help">
                         <span className="text-[9px] font-medium text-[#9ca3af]">i</span>
                       </div>
-                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] rounded-lg opacity-0 group-hover/info:opacity-100 transition-opacity duration-200 pointer-events-none z-30 w-[200px] text-center shadow-lg">
-                        Average revenue earned per order. Calculated by dividing total revenue by number of orders.
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] rounded-lg opacity-0 group-hover/info:opacity-100 transition-opacity duration-200 pointer-events-none z-30 w-[160px] text-center shadow-lg">
+                        Revenue per order
                         <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-[#1a1a2e]" />
                       </div>
                     </div>
@@ -1789,9 +2284,9 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     <div className="w-4 h-4 min-w-[16px] min-h-[16px] rounded-full bg-[#f3f4f6] flex items-center justify-center cursor-help">
                       <span className="text-[9px] font-medium text-[#9ca3af]">i</span>
                     </div>
-                    <div className="absolute right-0 bottom-full mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] rounded-lg opacity-0 group-hover/info:opacity-100 transition-opacity duration-200 pointer-events-none z-30 w-[180px] text-center shadow-lg">
-                      Average revenue earned per order. Calculated by dividing total revenue by number of orders.
-                      <div className="absolute right-3 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-[#1a1a2e]" />
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] rounded-lg opacity-0 group-hover/info:opacity-100 transition-opacity duration-200 pointer-events-none z-30 w-[120px] text-center shadow-lg whitespace-nowrap">
+                      Revenue per order
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-[#1a1a2e]" />
                     </div>
                   </div>
                 </div>
@@ -2248,269 +2743,24 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         )}
       </div>
 
-      {/* Order Details Modal */}
-      {showOrderModal && selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowOrderModal(false)} />
-          <div className="relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl animate-in fade-in-0 zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
-              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Order Details</h2>
-              <button
-                onClick={() => setShowOrderModal(false)}
-                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* Order ID & Status */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-[#6b7280]">Order ID:</span>
-                  <code className="text-[12px] font-mono bg-[#f3f4f6] px-2 py-0.5 rounded">
-                    #{selectedOrder.id.slice(0, 8)}
-                  </code>
-                  <button
-                    onClick={() => handleCopyOrderId(selectedOrder.id)}
-                    className="p-1 text-[#9ca3af] hover:text-[#6b7280] transition-colors"
-                  >
-                    {copiedId ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-                {getStatusBadge(selectedOrder.status)}
-              </div>
-
-              {/* Customer Info */}
-              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
-                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <Users className="h-4 w-4 text-[#8b5cf6]" />
-                  Customer Information
-                </h3>
-                <div className="grid grid-cols-2 gap-3 text-[13px]">
-                  <div>
-                    <span className="text-[#6b7280]">Name</span>
-                    <p className="font-medium text-[#1a1a2e]">
-                      {selectedOrder.buyer?.display_name ||
-                        (selectedOrder.buyer_first_name && selectedOrder.buyer_last_name
-                          ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}`
-                          : "Unknown")}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[#6b7280]">Email</span>
-                    <p className="font-medium text-[#1a1a2e] break-all">
-                      {selectedOrder.buyer?.email || selectedOrder.buyer_email || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[#6b7280]">First Name</span>
-                    <p className="font-medium text-[#1a1a2e]">
-                      {selectedOrder.buyer_first_name || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[#6b7280]">Last Name</span>
-                    <p className="font-medium text-[#1a1a2e]">
-                      {selectedOrder.buyer_last_name || "N/A"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Product Info */}
-              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
-                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <Package className="h-4 w-4 text-[#8b5cf6]" />
-                  Product
-                </h3>
-                {(() => {
-                  const productData = products.find(p => p.id === selectedOrder.product_id)
-                  // Get product thumbnail image
-                  const coverImage = productData?.thumbnail_url || selectedOrder.product?.thumbnail_url
-                  const productTitle = selectedOrder.product?.title || productData?.title || "Unknown Product"
-                  const productType = selectedOrder.product?.type || productData?.type || "Digital Product"
-                  return (
-                    <div className="flex items-center gap-3">
-                      {coverImage ? (
-                        <img
-                          src={coverImage}
-                          alt=""
-                          className="w-14 h-14 rounded-lg object-cover"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
-                          <Package className="h-6 w-6 text-[#9ca3af]" />
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-medium text-[#1a1a2e]">{productTitle}</p>
-                        <p className="text-[12px] text-[#6b7280] capitalize">{productType}</p>
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-
-              {/* Payment Info */}
-              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
-                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-[#8b5cf6]" />
-                  Payment Details
-                </h3>
-                <div className="grid grid-cols-2 gap-3 text-[13px]">
-                  <div>
-                    <span className="text-[#6b7280]">Amount</span>
-                    <p className="font-semibold text-[#1a1a2e] text-[16px]">{formatPrice(selectedOrder.amount_cents)}</p>
-                  </div>
-                  <div>
-                    <span className="text-[#6b7280]">Fee</span>
-                    <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.fee_cents || 0)}</p>
-                  </div>
-                  <div>
-                    <span className="text-[#6b7280]">Payment Method</span>
-                    <p className="font-medium text-[#1a1a2e] capitalize">
-                      {selectedOrder.payment_method === "card" && selectedOrder.card_brand ? (
-                        <span className="flex items-center gap-1.5">
-                          <span className="capitalize">{selectedOrder.card_brand}</span>
-                          {selectedOrder.card_last4 && (
-                            <span className="text-[#6b7280]">•••• {selectedOrder.card_last4}</span>
-                          )}
-                        </span>
-                      ) : selectedOrder.payment_method === "paypal" ? (
-                        "PayPal"
-                      ) : selectedOrder.payment_method === "free" ? (
-                        "Free"
-                      ) : (
-                        selectedOrder.payment_method || "Card"
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[#6b7280]">Net Revenue</span>
-                    <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</p>
-                  </div>
-                  {selectedOrder.payment_method === "paypal" && selectedOrder.paypal_email && (
-                    <div className="col-span-2">
-                      <span className="text-[#6b7280]">PayPal Email</span>
-                      <p className="font-medium text-[#1a1a2e] break-all">{selectedOrder.paypal_email}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Location Info */}
-              {selectedOrder.buyer_country && (
-                <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
-                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-[#8b5cf6]" />
-                    Location
-                  </h3>
-                  <div className="text-[13px]">
-                    <span className="text-[#6b7280]">Country</span>
-                    <p className="font-medium text-[#1a1a2e] flex items-center gap-2">
-                      {selectedOrder.buyer_country_code && (
-                        <span className="text-[16px]">
-                          {getFlagEmoji(selectedOrder.buyer_country_code)}
-                        </span>
-                      )}
-                      {selectedOrder.buyer_country}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Device Info */}
-              {(selectedOrder.buyer_device_type || selectedOrder.buyer_os || selectedOrder.buyer_browser) && (
-                <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
-                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                    {selectedOrder.buyer_device_type === "Mobile" ? (
-                      <Smartphone className="h-4 w-4 text-[#8b5cf6]" />
-                    ) : selectedOrder.buyer_device_type === "Tablet" ? (
-                      <Tablet className="h-4 w-4 text-[#8b5cf6]" />
-                    ) : (
-                      <Monitor className="h-4 w-4 text-[#8b5cf6]" />
-                    )}
-                    Device Information
-                  </h3>
-                  <div className="grid grid-cols-3 gap-3 text-[13px]">
-                    {selectedOrder.buyer_device_type && (
-                      <div>
-                        <span className="text-[#6b7280]">Device</span>
-                        <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_device_type}</p>
-                      </div>
-                    )}
-                    {selectedOrder.buyer_os && (
-                      <div>
-                        <span className="text-[#6b7280]">OS</span>
-                        <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_os}</p>
-                      </div>
-                    )}
-                    {selectedOrder.buyer_browser && (
-                      <div>
-                        <span className="text-[#6b7280]">Browser</span>
-                        <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_browser}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Order Date & Time */}
-              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
-                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-[#8b5cf6]" />
-                  Order Date & Time
-                </h3>
-                <p className="text-[13px] font-medium text-[#1a1a2e]">
-                  {formatFullDate(selectedOrder.created_at)}
-                </p>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleResendReceipt(selectedOrder)}
-                  className="flex-1 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-2"
-                >
-                  <Send className="h-4 w-4" />
-                  Resend Receipt
-                  <span className="text-[11px] text-[#9ca3af]">({receiptResendCounts[selectedOrder.id] || 0}/5)</span>
-                </button>
-                <button
-                  onClick={() => handleUnsubscribe(selectedOrder)}
-                  className="flex-1 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-2"
-                >
-                  <UserX className="h-4 w-4" />
-                  Unsubscribe
-                </button>
-              </div>
-            </div>
-
-            {/* Footer Actions */}
-            <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-between gap-3">
-              <button
-                onClick={() => {
-                  setShowOrderModal(false)
-                  handleEditEmail(selectedOrder)
-                }}
-                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
-              >
-                <Mail className="h-4 w-4" />
-                Edit Email
-              </button>
-              {selectedOrder.status === "completed" && (
-                <button className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2">
-                  <RotateCcw className="h-4 w-4" />
-                  Issue Refund
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Order Details Modal - Mobile Bottom Sheet with swipe-to-close, Desktop centered */}
+      <OrderDetailsModal
+        isOpen={showOrderModal}
+        onClose={() => setShowOrderModal(false)}
+        selectedOrder={selectedOrder}
+        products={products}
+        formatPrice={formatPrice}
+        formatFullDate={formatFullDate}
+        handleCopyOrderId={handleCopyOrderId}
+        copiedId={copiedId}
+        getStatusBadge={getStatusBadge}
+        handleResendReceipt={handleResendReceipt}
+        handleUnsubscribe={handleUnsubscribe}
+        handleEditEmail={handleEditEmail}
+        receiptResendCounts={receiptResendCounts}
+        getFlagEmoji={getFlagEmoji}
+        setShowOrderModal={setShowOrderModal}
+      />
 
       {/* Edit Email Modal */}
       {showEditEmailModal && selectedOrder && (
