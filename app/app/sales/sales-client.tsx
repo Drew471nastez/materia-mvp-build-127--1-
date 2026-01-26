@@ -727,7 +727,7 @@ function OrderDetailsModal({
           </div>
 
           {/* Scrollable Content */}
-          <div className="px-4 py-4 overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(76.5vh - 120px)' }}>
+          <div className="px-4 py-4 overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(76.5vh - 160px)' }}>
             <div className="space-y-4">
               {/* Order ID */}
               <div className="flex items-center gap-2">
@@ -824,7 +824,7 @@ function OrderDetailsModal({
           </div>
 
           {/* Mobile Footer Actions */}
-          <div className="px-4 py-3 border-t border-[#e5e7eb] flex items-center gap-2">
+          <div className="px-4 pt-4 pb-5 border-t border-[#e5e7eb] flex items-center gap-2 bg-white">
             <button
               onClick={() => handleResendReceipt(selectedOrder)}
               className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
@@ -840,15 +840,15 @@ function OrderDetailsModal({
               Edit Email
             </button>
             {selectedOrder.status === "completed" && (
-              <button className="px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5">
+              <button className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5">
                 <RotateCcw className="h-3.5 w-3.5" />
                 Refund
               </button>
             )}
           </div>
 
-          {/* Safe area padding */}
-          <div className="h-[env(safe-area-inset-bottom)]" />
+          {/* Safe area padding for bottom notch */}
+          <div className="h-[env(safe-area-inset-bottom)] min-h-[16px] bg-white" />
         </div>
       </div>
     </>
