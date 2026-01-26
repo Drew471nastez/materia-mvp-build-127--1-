@@ -31,7 +31,6 @@ import {
   Copy,
   Check,
   UserX,
-  Trophy,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -41,6 +40,7 @@ interface Product {
   type?: string
   price_cents?: number
   cover_image?: string
+  gallery_images?: string[]
 }
 
 interface SalesClientProps {
@@ -72,6 +72,7 @@ interface Order {
   buyer_email?: string
   buyer_first_name?: string
   buyer_last_name?: string
+  receipt_token?: string
   buyer?: {
     email: string
     display_name: string
@@ -81,6 +82,7 @@ interface Order {
     title: string
     type: string
     cover_image?: string
+    gallery_images?: string[]
   } | null
 }
 
@@ -262,10 +264,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
 
   const showNotification = (message: string) => {
     setNotification({ message, visible: true })
-    setTimeout(() => setNotification({ message: "", visible: false }), 3000)
+    setTimeout(() => setNotification({ message: "", visible: false }), 8000)
   }
 
-  const handleResendReceipt = (order: Order) => {
+  const handleResendReceipt = async (order: Order) => {
     const currentCount = receiptResendCounts[order.id] || 0
     if (currentCount >= 5) {
       showNotification("Maximum resend limit (5) reached for this order")
@@ -273,16 +275,46 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       return
     }
 
-    // Update count
-    const newCounts = { ...receiptResendCounts, [order.id]: currentCount + 1 }
-    setReceiptResendCounts(newCounts)
-    localStorage.setItem('receiptResendCounts', JSON.stringify(newCounts))
-
-    // Here you would call your API to resend the receipt email
-    // For now, we'll just show a notification
     const email = order.buyer?.email || order.buyer_email || "customer"
-    showNotification(`Receipt sent to ${email} (${currentCount + 1}/5)`)
     setOpenMenuOrderId(null)
+
+    // Check if order has receipt_token
+    if (!order.receipt_token) {
+      showNotification("Unable to resend receipt - missing receipt token")
+      return
+    }
+
+    try {
+      // Call the actual API to resend the receipt email
+      const response = await fetch('/api/receipt/resend', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiptToken: order.receipt_token,
+          orderId: order.id,
+          resendType: 'buyer'
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        // Update local count
+        const newCounts = { ...receiptResendCounts, [order.id]: currentCount + 1 }
+        setReceiptResendCounts(newCounts)
+        localStorage.setItem('receiptResendCounts', JSON.stringify(newCounts))
+        showNotification(`Receipt sent to ${email} (${currentCount + 1}/5)`)
+      } else if (data.limitReached) {
+        showNotification("Maximum resend limit (5) reached for this order")
+      } else {
+        showNotification(data.error || "Failed to send receipt")
+      }
+    } catch (error) {
+      console.error("Error resending receipt:", error)
+      showNotification("Failed to send receipt. Please try again.")
+    }
   }
 
   const handleUnsubscribe = (order: Order) => {
@@ -1619,8 +1651,9 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
                     {orders.map((order) => {
-                      // Find product cover image from products prop if not in order
-                      const productImage = order.product?.cover_image || products.find(p => p.id === order.product_id)?.cover_image
+                      // Find product cover image - prefer gallery_images[0]
+                      const productData = products.find(p => p.id === order.product_id)
+                      const productImage = productData?.gallery_images?.[0] || order.product?.gallery_images?.[0] || order.product?.cover_image || productData?.cover_image
                       return (
                         <tr
                           key={order.id}
@@ -1764,8 +1797,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         {activeTab === "orders" && bestProducts.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[16px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-[#8b5cf6]" />
+              <h2 className="text-[16px] font-semibold text-[#1a1a2e]">
                 Best Performing Products
               </h2>
               <span className="text-[12px] text-[#6b7280]">By revenue</span>
@@ -1784,9 +1816,9 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
                     {bestProducts.map((product, index) => {
-                      // Get product image from products prop
+                      // Get product image from products prop - prefer gallery_images[0]
                       const productData = products.find(p => p.id === product.productId)
-                      const coverImage = product.coverImage || productData?.cover_image
+                      const coverImage = productData?.gallery_images?.[0] || product.coverImage || productData?.cover_image
                       return (
                         <tr key={product.productId} className="hover:bg-[#f9fafb] transition-colors">
                           <td className="px-5 py-4">
@@ -1920,7 +1952,8 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                 </h3>
                 {(() => {
                   const productData = products.find(p => p.id === selectedOrder.product_id)
-                  const coverImage = selectedOrder.product?.cover_image || productData?.cover_image
+                  // Prefer gallery_images[0] for product image
+                  const coverImage = productData?.gallery_images?.[0] || selectedOrder.product?.gallery_images?.[0] || selectedOrder.product?.cover_image || productData?.cover_image
                   const productTitle = selectedOrder.product?.title || productData?.title || "Unknown Product"
                   const productType = selectedOrder.product?.type || productData?.type || "Digital Product"
                   return (
