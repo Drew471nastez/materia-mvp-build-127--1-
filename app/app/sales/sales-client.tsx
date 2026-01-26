@@ -39,8 +39,7 @@ interface Product {
   title: string
   type?: string
   price_cents?: number
-  cover_image?: string
-  gallery_images?: string[]
+  thumbnail_url?: string | null
 }
 
 interface SalesClientProps {
@@ -81,8 +80,7 @@ interface Order {
     id: string
     title: string
     type: string
-    cover_image?: string
-    gallery_images?: string[]
+    thumbnail_url?: string | null
   } | null
 }
 
@@ -264,7 +262,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
 
   const showNotification = (message: string) => {
     setNotification({ message, visible: true })
-    setTimeout(() => setNotification({ message: "", visible: false }), 8000)
+    setTimeout(() => setNotification({ message: "", visible: false }), 5000)
   }
 
   const handleResendReceipt = async (order: Order) => {
@@ -1651,9 +1649,9 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
                     {orders.map((order) => {
-                      // Find product cover image - prefer gallery_images[0]
+                      // Find product thumbnail image
                       const productData = products.find(p => p.id === order.product_id)
-                      const productImage = productData?.gallery_images?.[0] || order.product?.gallery_images?.[0] || order.product?.cover_image || productData?.cover_image
+                      const productImage = productData?.thumbnail_url || order.product?.thumbnail_url
                       return (
                         <tr
                           key={order.id}
@@ -1706,7 +1704,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                                   e.stopPropagation()
                                   handleViewOrder(order)
                                 }}
-                                className="px-3 py-1.5 text-[12px] font-medium text-[#1a1a2e] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
+                                className="px-3 py-1.5 text-[12px] font-medium text-[#1a1a2e] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors cursor-pointer"
                               >
                                 View
                               </button>
@@ -1816,9 +1814,9 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
                     {bestProducts.map((product, index) => {
-                      // Get product image from products prop - prefer gallery_images[0]
+                      // Get product thumbnail image from products prop
                       const productData = products.find(p => p.id === product.productId)
-                      const coverImage = productData?.gallery_images?.[0] || product.coverImage || productData?.cover_image
+                      const coverImage = productData?.thumbnail_url || product.coverImage
                       return (
                         <tr key={product.productId} className="hover:bg-[#f9fafb] transition-colors">
                           <td className="px-5 py-4">
@@ -1952,8 +1950,8 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                 </h3>
                 {(() => {
                   const productData = products.find(p => p.id === selectedOrder.product_id)
-                  // Prefer gallery_images[0] for product image
-                  const coverImage = productData?.gallery_images?.[0] || selectedOrder.product?.gallery_images?.[0] || selectedOrder.product?.cover_image || productData?.cover_image
+                  // Get product thumbnail image
+                  const coverImage = productData?.thumbnail_url || selectedOrder.product?.thumbnail_url
                   const productTitle = selectedOrder.product?.title || productData?.title || "Unknown Product"
                   const productType = selectedOrder.product?.type || productData?.type || "Digital Product"
                   return (

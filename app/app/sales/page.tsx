@@ -76,8 +76,7 @@ export default async function SalesPage() {
           id: product.id,
           title: product.title,
           type: product.type,
-          cover_image: product.cover_image,
-          gallery_images: product.gallery_images || []
+          thumbnail_url: product.thumbnail_url || product.gallery_images?.[0] || null
         } : null
       }
     })
@@ -103,8 +102,7 @@ export default async function SalesPage() {
         title: p.title,
         type: p.type,
         price_cents: p.price_cents,
-        cover_image: p.cover_image,
-        gallery_images: p.gallery_images || []
+        thumbnail_url: p.thumbnail_url || p.gallery_images?.[0] || null
       }))}
       initialSummary={initialSummary}
       initialOrders={initialOrders}
