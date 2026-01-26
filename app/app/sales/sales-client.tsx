@@ -22,6 +22,8 @@ import {
   Eye,
   BarChart3,
   Users,
+  Wallet,
+  AlertCircle,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -184,6 +186,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [timeframe, setTimeframe] = useState("all_time")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"orders" | "reports">("orders")
+  const [showPayoutsBanner, setShowPayoutsBanner] = useState(!stripeConnected)
 
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -196,6 +199,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [filterMinValue, setFilterMinValue] = useState("")
   const [filterMaxValue, setFilterMaxValue] = useState("")
   const [filterCustomer, setFilterCustomer] = useState("")
+  const [filterStatus, setFilterStatus] = useState("all")
   const [appliedFilters, setAppliedFilters] = useState<any>(null)
 
   // KPI Modal states
@@ -228,7 +232,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     switch (status) {
       case "completed":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-violet-100 text-violet-700">
             <CheckCircle2 className="h-3 w-3" />
             Completed
           </span>
@@ -269,7 +273,33 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       const option = timeframeOptions.find((o) => o.value === timeframe)
       if (!option) return
 
-      const { start, end } = option.getDates()
+      let { start, end } = option.getDates()
+
+      // Apply custom date range from filters if set
+      if (appliedFilters) {
+        if (appliedFilters.fromDate) {
+          start = new Date(appliedFilters.fromDate)
+          start.setHours(0, 0, 0, 0)
+        }
+        if (appliedFilters.toDate) {
+          end = new Date(appliedFilters.toDate)
+          end.setHours(23, 59, 59, 999)
+        }
+        // Handle preset date ranges from filter
+        if (appliedFilters.dateRange === "today") {
+          start = new Date()
+          start.setHours(0, 0, 0, 0)
+          end = new Date()
+        } else if (appliedFilters.dateRange === "7days") {
+          end = new Date()
+          start = new Date()
+          start.setDate(start.getDate() - 7)
+        } else if (appliedFilters.dateRange === "30days") {
+          end = new Date()
+          start = new Date()
+          start.setDate(start.getDate() - 30)
+        }
+      }
 
       // Filter from initialOrders (server-side fetched data - bypasses RLS)
       let filteredOrders = initialOrders.filter(o => {
@@ -308,6 +338,9 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             o.buyer_first_name?.toLowerCase().includes(customerQuery) ||
             o.buyer_last_name?.toLowerCase().includes(customerQuery)
           )
+        }
+        if (appliedFilters.status && appliedFilters.status !== "all") {
+          filteredOrders = filteredOrders.filter(o => o.status === appliedFilters.status)
         }
       }
 
@@ -389,7 +422,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     setIsChartLoading(true)
     try {
       const option = timeframeOptions.find((o) => o.value === timeframe)
-      if (!option) return
+      if (!option) {
+        setIsChartLoading(false)
+        return
+      }
 
       const { start, end } = option.getDates()
       const points: ChartDataPoint[] = []
@@ -397,15 +433,11 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       // Filter completed orders from initialOrders (server-fetched data)
       const completedOrders = initialOrders.filter(o => o.status === "completed")
 
-      if (completedOrders.length === 0) {
-        setChartData([])
-        setIsChartLoading(false)
-        return
-      }
-
       // Determine grouping based on timeframe
       const isToday = timeframe === "today"
       const isYear = timeframe === "this_year" || timeframe === "all_time"
+      const isLast90Days = timeframe === "last_90_days"
+      const isLast30Days = timeframe === "last_30_days" || timeframe === "this_month"
 
       if (isToday) {
         // Group by hour
@@ -465,9 +497,20 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           })
         }
       } else {
-        // Group by day
-        const dayCount = timeframe === "last_90_days" ? 12 : timeframe === "last_30_days" ? 10 : 7
-        const dayStep = timeframe === "last_90_days" ? 7 : timeframe === "last_30_days" ? 3 : 1
+        // Group by day - adjust based on timeframe
+        let dayCount = 7
+        let dayStep = 1
+
+        if (isLast90Days) {
+          dayCount = 12
+          dayStep = 7
+        } else if (isLast30Days) {
+          dayCount = 10
+          dayStep = 3
+        } else if (timeframe === "last_7_days") {
+          dayCount = 7
+          dayStep = 1
+        }
 
         for (let i = dayCount - 1; i >= 0; i--) {
           const dayStart = new Date(end)
@@ -508,10 +551,15 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   }
 
   // Generate PDF report
-  const generatePDFReport = (report: MonthlyReport) => {
+  const generatePDFReport = (report: MonthlyReport, action: 'view' | 'download' = 'view') => {
     // Calculate avg from completed orders only
     const completedOrders = report.orderDetails.filter(o => o.status === "completed")
+    const refundedOrders = report.orderDetails.filter(o => o.status === "refunded")
     const avgOrderValue = completedOrders.length > 0 ? report.revenue / completedOrders.length : 0
+    const refundTotal = refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+    const netRevenue = report.revenue - refundTotal
+    const generatedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    const reportId = `RPT-${report.year}${String(new Date(report.month + ' 1, ' + report.year).getMonth() + 1).padStart(2, '0')}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
 
     // Create PDF content as HTML for printing
     const printContent = `
@@ -520,47 +568,90 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       <head>
         <title>Sales Report - ${report.monthYear}</title>
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1a1a2e; }
-          .header { margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 20px; }
-          .header h1 { font-size: 24px; margin: 0 0 8px 0; }
-          .header p { color: #6b7280; margin: 4px 0; font-size: 14px; }
-          .summary { display: flex; gap: 40px; margin: 30px 0; padding: 20px; background: #f9fafb; border-radius: 12px; }
-          .summary-item { }
-          .summary-item .label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
-          .summary-item .value { font-size: 24px; font-weight: 600; }
-          table { width: 100%; border-collapse: collapse; margin-top: 30px; }
-          th { text-align: left; padding: 12px; background: #f3f4f6; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; }
-          td { padding: 12px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1a1a2e; line-height: 1.5; }
+          .header { margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+          .header-left { display: flex; align-items: center; gap: 12px; }
+          .logo { width: 32px; height: 32px; }
+          .header h1 { font-size: 22px; margin: 0; font-weight: 600; }
+          .header-right { text-align: right; }
+          .header-right p { color: #6b7280; margin: 2px 0; font-size: 13px; }
+          .header-right .report-id { font-family: monospace; font-size: 11px; color: #9ca3af; }
+          .seller-info { background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+          .seller-info h3 { font-size: 12px; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; letter-spacing: 0.5px; }
+          .seller-info p { font-size: 14px; margin: 4px 0; }
+          .summary { display: flex; gap: 20px; margin: 24px 0; flex-wrap: wrap; }
+          .summary-item { flex: 1; min-width: 140px; background: #f9fafb; border-radius: 12px; padding: 16px; }
+          .summary-item .label { font-size: 11px; color: #6b7280; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+          .summary-item .value { font-size: 22px; font-weight: 600; }
+          .summary-item .value.negative { color: #dc2626; }
+          .summary-item .value.positive { color: #059669; }
+          .section-title { font-size: 14px; font-weight: 600; margin: 24px 0 12px 0; color: #374151; }
+          table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+          th { text-align: left; padding: 10px 12px; background: #f3f4f6; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+          td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
           .amount { text-align: right; font-weight: 500; }
-          .status { text-transform: capitalize; }
-          .status-completed { color: #059669; }
-          .status-pending { color: #d97706; }
-          .status-refunded { color: #dc2626; }
+          .status { text-transform: capitalize; font-size: 12px; padding: 2px 8px; border-radius: 4px; display: inline-block; }
+          .status-completed { background: #f3e8ff; color: #7c3aed; }
+          .status-pending { background: #fef3c7; color: #d97706; }
+          .status-refunded { background: #fee2e2; color: #dc2626; }
+          .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
+          .footer-grid { display: flex; justify-content: space-between; margin-bottom: 16px; }
+          .footer-section h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: #6b7280; }
+          .footer-section p { margin: 2px 0; }
+          .legal-notice { background: #f9fafb; padding: 12px; border-radius: 6px; margin-top: 16px; font-size: 10px; line-height: 1.6; }
+          .legal-notice strong { color: #374151; }
+          @media print {
+            body { padding: 20px; }
+            .summary-item { break-inside: avoid; }
+          }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>${storeName} - Sales Report</h1>
-          <p><strong>Seller:</strong> ${sellerName}</p>
-          <p><strong>Period:</strong> ${report.monthYear}</p>
-          <p><strong>Generated:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <div class="header-left">
+            <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="Storelib" class="logo" />
+            <h1>Storelib - Sales Report</h1>
+          </div>
+          <div class="header-right">
+            <p><strong>Period:</strong> ${report.monthYear}</p>
+            <p><strong>Generated:</strong> ${generatedDate}</p>
+            <p class="report-id">Report ID: ${reportId}</p>
+          </div>
+        </div>
+
+        <div class="seller-info">
+          <h3>Seller Information</h3>
+          <p><strong>Business Name:</strong> ${sellerName}</p>
+          <p><strong>Store:</strong> ${storeName}</p>
+          <p><strong>Report Period:</strong> ${report.monthYear}</p>
+          <p><strong>Currency:</strong> ${currency}</p>
         </div>
 
         <div class="summary">
           <div class="summary-item">
-            <div class="label">Total Revenue</div>
+            <div class="label">Gross Revenue</div>
             <div class="value">${formatPrice(report.revenue)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Refunds</div>
+            <div class="value negative">${refundedOrders.length > 0 ? '-' : ''}${formatPrice(refundTotal)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Net Revenue</div>
+            <div class="value positive">${formatPrice(netRevenue)}</div>
           </div>
           <div class="summary-item">
             <div class="label">Total Orders</div>
             <div class="value">${report.orders}</div>
           </div>
           <div class="summary-item">
-            <div class="label">Average Order Value</div>
+            <div class="label">Avg Order Value</div>
             <div class="value">${formatPrice(avgOrderValue)}</div>
           </div>
         </div>
 
+        <div class="section-title">Transaction Details</div>
         <table>
           <thead>
             <tr>
@@ -579,12 +670,45 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                 <td>#${order.id.slice(0, 8)}</td>
                 <td>${order.buyer?.email || order.buyer_email || 'Unknown'}</td>
                 <td>${order.product?.title || 'Unknown'}</td>
-                <td class="status status-${order.status}">${order.status}</td>
+                <td><span class="status status-${order.status}">${order.status}</span></td>
                 <td class="amount">${order.amount_cents > 0 ? formatPrice(order.amount_cents) : 'Free'}</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
+
+        <div class="footer">
+          <div class="footer-grid">
+            <div class="footer-section">
+              <h4>Payment Processing</h4>
+              <p>Payments processed via Stripe</p>
+              <p>All amounts in ${currency}</p>
+            </div>
+            <div class="footer-section">
+              <h4>Report Summary</h4>
+              <p>Total Transactions: ${report.orders}</p>
+              <p>Completed: ${completedOrders.length}</p>
+              <p>Refunded: ${refundedOrders.length}</p>
+            </div>
+            <div class="footer-section">
+              <h4>Generated By</h4>
+              <p>Storelib Platform</p>
+              <p>${generatedDate}</p>
+            </div>
+          </div>
+
+          <div class="legal-notice">
+            <strong>Legal Disclaimer:</strong> This sales report is generated for informational and record-keeping purposes only.
+            The seller is responsible for maintaining accurate financial records and complying with all applicable tax laws and regulations in their jurisdiction.
+            This document does not constitute tax advice. Please consult with a qualified tax professional regarding your tax obligations.
+            Storelib acts as a payment facilitator and is not responsible for the accuracy of seller-provided information.
+            All sales are subject to Storelib's Terms of Service and applicable platform fees.
+            Refunds are processed according to the seller's refund policy and Storelib's refund guidelines.
+            <br /><br />
+            <strong>Data Retention:</strong> Transaction records are retained for a minimum of 7 years in compliance with financial regulations.
+            For questions regarding this report, contact support@storelib.io.
+          </div>
+        </div>
       </body>
       </html>
     `
@@ -594,7 +718,9 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     if (printWindow) {
       printWindow.document.write(printContent)
       printWindow.document.close()
-      printWindow.print()
+      if (action === 'download') {
+        printWindow.print()
+      }
     }
   }
 
@@ -635,6 +761,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       minValue: filterMinValue,
       maxValue: filterMaxValue,
       customer: filterCustomer,
+      status: filterStatus,
     })
     setIsFilterOpen(false)
   }
@@ -647,6 +774,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     setFilterMinValue("")
     setFilterMaxValue("")
     setFilterCustomer("")
+    setFilterStatus("all")
     setAppliedFilters(null)
   }
 
@@ -680,6 +808,34 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
 
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] sales-scroll-container">
+      {/* Stripe Connection Announcement Bar */}
+      {showPayoutsBanner && (
+        <div className="bg-[#8b5cf6] text-white">
+          <div className="py-2 px-4 md:py-2.5">
+            <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
+              <AlertCircle className="h-4 w-4 text-white/80 shrink-0" />
+              <span className="text-[12px] md:text-[14px] text-white/90">
+                <span className="font-semibold text-white">Get paid</span>
+                <span className="hidden md:inline"> — Connect your payouts to receive payments.</span>
+              </span>
+              <Link
+                href="/app/payouts"
+                className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
+              >
+                <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                Connect
+              </Link>
+              <button
+                onClick={() => setShowPayoutsBanner(false)}
+                className="ml-2 p-1 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X className="h-3.5 w-3.5 text-white/70 hover:text-white" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -690,11 +846,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             <div className="relative timeframe-dropdown">
               <button
                 onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-full text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
               >
-                <Calendar className="h-3.5 w-3.5 text-[#9ca3af]" />
                 {selectedOption?.shortLabel || "30 days"}
-                <ChevronDown className={`h-3.5 w-3.5 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
+                <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
               </button>
               {isTimeframeOpen && (
                 <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
@@ -884,6 +1039,22 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                         placeholder="Email or name"
                         className="w-full px-2.5 py-1.5 text-[12px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
                       />
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                      <label className="block text-[12px] font-medium text-[#6b7280] mb-1.5">Status</label>
+                      <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-[12px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6] bg-white"
+                      >
+                        <option value="all">All statuses</option>
+                        <option value="completed">Completed</option>
+                        <option value="pending">Pending</option>
+                        <option value="refunded">Refunded</option>
+                        <option value="failed">Failed</option>
+                      </select>
                     </div>
 
                     {/* Divider */}
@@ -1167,15 +1338,15 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-3">
                             <button
-                              onClick={() => generatePDFReport(report)}
-                              className="text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
+                              onClick={() => generatePDFReport(report, 'view')}
+                              className="text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors cursor-pointer hover:underline"
                             >
                               View
                             </button>
                             <span className="text-[#d1d5db]">·</span>
                             <button
-                              onClick={() => generatePDFReport(report)}
-                              className="text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
+                              onClick={() => generatePDFReport(report, 'download')}
+                              className="text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors cursor-pointer hover:underline"
                             >
                               Download
                             </button>
