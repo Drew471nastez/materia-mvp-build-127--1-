@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle } from "lucide-react"
+import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { getProductUrl } from "@/lib/url-helpers"
@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client"
 
 interface Product {
   id: string
+  creator_id: string
   title: string
   type: string
   price_cents: number
@@ -19,6 +20,8 @@ interface Product {
   slug: string
   created_at: string
   archived?: boolean
+  description?: string | null
+  includes_community?: boolean
 }
 
 interface ProductsClientProps {
@@ -31,6 +34,7 @@ type TabType = "active" | "archived" | "all"
 export function ProductsClient({ products: initialProducts, creatorUsername }: ProductsClientProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [activeTab, setActiveTab] = useState<TabType>("active")
+  const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -38,6 +42,24 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const [isDeleting, setIsDeleting] = useState(false)
   const [notification, setNotification] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" })
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const tabDropdownRef = useRef<HTMLDivElement>(null)
+
+  const tabOptions = [
+    { value: "active" as TabType, label: "Active" },
+    { value: "all" as TabType, label: "All" },
+    { value: "archived" as TabType, label: "Archived" },
+  ]
+
+  // Close tab dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tabDropdownRef.current && !tabDropdownRef.current.contains(event.target as Node)) {
+        setIsTabDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -60,8 +82,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   // Filter products based on tab and search
   const filteredProducts = products.filter((product) => {
     // Tab filter
-    if (activeTab === "active" && (product.archived || product.status === "archived")) return false
+    // Active: Only published products (not archived)
+    if (activeTab === "active") {
+      if (product.archived || product.status === "archived") return false
+      if (product.status !== "published") return false
+    }
+    // Archived: Only archived products
     if (activeTab === "archived" && !product.archived && product.status !== "archived") return false
+    // All: Draft and active products (not archived)
+    if (activeTab === "all" && (product.archived || product.status === "archived")) return false
 
     // Search filter
     if (searchQuery) {
@@ -97,14 +126,18 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     try {
       const supabase = createClient()
 
-      // Create a duplicate with a new title
+      // Create a duplicate with a new title and all required fields
       const duplicateData = {
+        creator_id: product.creator_id,
         title: `${product.title} (Copy)`,
         type: product.type,
         price_cents: product.price_cents,
         status: "draft",
         thumbnail_url: product.thumbnail_url,
         slug: `${product.slug}-copy-${Date.now()}`,
+        description: product.description || null,
+        includes_community: product.includes_community || false,
+        archived: false,
       }
 
       const { data, error } = await supabase
@@ -128,6 +161,17 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const handleDeleteClick = (product: Product) => {
     setProductToDelete(product)
     setDeleteModalOpen(true)
+  }
+
+  const handleShare = async (product: Product) => {
+    const url = getProductUrl(creatorUsername, product.slug)
+    try {
+      await navigator.clipboard.writeText(url)
+      showNotification("Link copied to clipboard")
+    } catch (error) {
+      console.error("Error copying to clipboard:", error)
+      showNotification("Failed to copy link", "error")
+    }
   }
 
   const handleDeleteConfirm = async () => {
@@ -157,9 +201,12 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   }
 
   const tabCounts = {
-    active: products.filter(p => !p.archived && p.status !== "archived").length,
+    // Active: Only published products (not archived)
+    active: products.filter(p => !p.archived && p.status !== "archived" && p.status === "published").length,
+    // Archived: Only archived products
     archived: products.filter(p => p.archived || p.status === "archived").length,
-    all: products.length,
+    // All: Draft and active products (not archived)
+    all: products.filter(p => !p.archived && p.status !== "archived").length,
   }
 
   return (
@@ -191,41 +238,38 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           </Button>
         </div>
 
-        {/* Tab Pills & Search */}
+        {/* Tab Dropdown & Search */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
-            {/* Tab Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+            {/* Tab Dropdown - Similar to timeframe selector */}
+            <div className="relative tab-dropdown" ref={tabDropdownRef}>
               <button
-                onClick={() => setActiveTab("active")}
-                className={`px-3 sm:px-4 py-1.5 rounded-full text-[12px] sm:text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${
-                  activeTab === "active"
-                    ? "bg-[#e5e7eb] text-[#374151]"
-                    : "text-[#6b7280] hover:bg-[#f3f4f6]"
-                }`}
+                onClick={() => setIsTabDropdownOpen(!isTabDropdownOpen)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
               >
-                Active ({tabCounts.active})
+                {tabOptions.find(t => t.value === activeTab)?.label || "Active"} ({tabCounts[activeTab]})
+                <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isTabDropdownOpen ? "rotate-180" : ""}`} />
               </button>
-              <button
-                onClick={() => setActiveTab("archived")}
-                className={`px-3 sm:px-4 py-1.5 rounded-full text-[12px] sm:text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${
-                  activeTab === "archived"
-                    ? "bg-[#e5e7eb] text-[#374151]"
-                    : "text-[#6b7280] hover:bg-[#f3f4f6]"
-                }`}
-              >
-                Archived ({tabCounts.archived})
-              </button>
-              <button
-                onClick={() => setActiveTab("all")}
-                className={`px-3 sm:px-4 py-1.5 rounded-full text-[12px] sm:text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${
-                  activeTab === "all"
-                    ? "bg-[#e5e7eb] text-[#374151]"
-                    : "text-[#6b7280] hover:bg-[#f3f4f6]"
-                }`}
-              >
-                All ({tabCounts.all})
-              </button>
+              {isTabDropdownOpen && (
+                <div className="absolute left-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+                  {tabOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        setActiveTab(option.value)
+                        setIsTabDropdownOpen(false)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${
+                        activeTab === option.value
+                          ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                          : "text-[#374151] hover:bg-[#f9fafb]"
+                      }`}
+                    >
+                      {option.label} ({tabCounts[option.value]})
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Search Button */}
@@ -306,42 +350,58 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       </div>
                       <p className="mt-1.5 text-[13px] font-semibold text-[#1a1a2e]">{formatPrice(product.price_cents)}</p>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9 rounded-lg hover:bg-[#f3f4f6]">
-                          <MoreHorizontal className="h-4 w-4 text-[#9ca3af]" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-xl w-48">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/app/products/${product.id}`} className="cursor-pointer">Edit</Link>
-                        </DropdownMenuItem>
-                        {product.status === "published" && (
-                          <DropdownMenuItem asChild>
-                            <a href={getProductUrl(creatorUsername, product.slug)} target="_blank" rel="noopener noreferrer" className="cursor-pointer">
-                              View public page
-                            </a>
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Edit Button - Dark gray/black */}
+                      <Link
+                        href={`/app/products/${product.id}`}
+                        className="inline-flex items-center justify-center h-8 px-2.5 bg-[#1f2937] hover:bg-[#111827] text-white text-[11px] font-medium rounded-lg transition-colors"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Link>
+                      {/* View Button - Light gray with black text */}
+                      <a
+                        href={getProductUrl(creatorUsername, product.slug)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </a>
+                      {/* Share Button - Light gray */}
+                      <button
+                        onClick={() => handleShare(product)}
+                        className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                      </button>
+                      {/* More Actions Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8 rounded-lg hover:bg-[#f3f4f6]">
+                            <MoreHorizontal className="h-4 w-4 text-[#9ca3af]" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-xl w-48">
+                          <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
+                            <Archive className="h-4 w-4 mr-2" />
+                            {product.archived ? "Restore" : "Archive"}
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
-                          <Archive className="h-4 w-4 mr-2" />
-                          {product.archived ? "Restore" : "Archive"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDuplicate(product)} className="cursor-pointer">
-                          <Copy className="h-4 w-4 mr-2" />
-                          Duplicate
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteClick(product)}
-                          className="cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          <DropdownMenuItem onClick={() => handleDuplicate(product)} className="cursor-pointer">
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteClick(product)}
+                            className="cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -396,42 +456,60 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           </span>
                         </td>
                         <td className="px-5 py-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="rounded-lg hover:bg-[#f3f4f6]">
-                                <MoreHorizontal className="h-4 w-4 text-[#9ca3af]" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-xl w-48">
-                              <DropdownMenuItem asChild>
-                                <Link href={`/app/products/${product.id}`} className="cursor-pointer">Edit</Link>
-                              </DropdownMenuItem>
-                              {product.status === "published" && (
-                                <DropdownMenuItem asChild>
-                                  <a href={getProductUrl(creatorUsername, product.slug)} target="_blank" rel="noopener noreferrer" className="cursor-pointer">
-                                    View public page
-                                  </a>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Edit Button - Dark gray/black */}
+                            <Link
+                              href={`/app/products/${product.id}`}
+                              className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#1f2937] hover:bg-[#111827] text-white text-[12px] font-medium rounded-lg transition-colors"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Edit
+                            </Link>
+                            {/* View Button - Light gray with black text */}
+                            <a
+                              href={getProductUrl(creatorUsername, product.slug)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              View
+                            </a>
+                            {/* Share Button - Light gray */}
+                            <button
+                              onClick={() => handleShare(product)}
+                              className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
+                            >
+                              <Share2 className="h-3.5 w-3.5" />
+                              Share
+                            </button>
+                            {/* More Actions Dropdown */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="rounded-lg hover:bg-[#f3f4f6] h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4 text-[#9ca3af]" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="rounded-xl w-48">
+                                <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
+                                  <Archive className="h-4 w-4 mr-2" />
+                                  {product.archived ? "Restore" : "Archive"}
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
-                                <Archive className="h-4 w-4 mr-2" />
-                                {product.archived ? "Restore" : "Archive"}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDuplicate(product)} className="cursor-pointer">
-                                <Copy className="h-4 w-4 mr-2" />
-                                Duplicate
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteClick(product)}
-                                className="cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                <DropdownMenuItem onClick={() => handleDuplicate(product)} className="cursor-pointer">
+                                  <Copy className="h-4 w-4 mr-2" />
+                                  Duplicate
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteClick(product)}
+                                  className="cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </td>
                       </tr>
                     ))}
