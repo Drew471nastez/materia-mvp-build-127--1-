@@ -24,6 +24,13 @@ import {
   Users,
   Wallet,
   AlertCircle,
+  Mail,
+  Globe,
+  CreditCard,
+  Send,
+  Copy,
+  Check,
+  Star,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -183,10 +190,29 @@ const timeframeOptions: TimeframeOption[] = [
 
 export function SalesClient({ creatorId, products, initialSummary, initialOrders, currency, stripeConnected, storeName, sellerName }: SalesClientProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [timeframe, setTimeframe] = useState("all_time")
+  const [timeframe, setTimeframe] = useState("last_30_days")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"orders" | "reports">("orders")
-  const [showPayoutsBanner, setShowPayoutsBanner] = useState(!stripeConnected)
+  // Check localStorage for banner dismissal (12 hour persistence)
+  const [showPayoutsBanner, setShowPayoutsBanner] = useState(() => {
+    if (stripeConnected) return false
+    if (typeof window !== 'undefined') {
+      const dismissedAt = localStorage.getItem('payoutsBannerDismissedAt')
+      if (dismissedAt) {
+        const dismissedTime = parseInt(dismissedAt, 10)
+        const twelveHours = 12 * 60 * 60 * 1000
+        if (Date.now() - dismissedTime < twelveHours) {
+          return false
+        }
+      }
+    }
+    return true
+  })
+
+  const handleDismissBanner = () => {
+    localStorage.setItem('payoutsBannerDismissedAt', Date.now().toString())
+    setShowPayoutsBanner(false)
+  }
 
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -213,6 +239,14 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [totalCount, setTotalCount] = useState(initialOrders.length)
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([])
 
+  // Order details modal states
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [showOrderModal, setShowOrderModal] = useState(false)
+  const [showEditEmailModal, setShowEditEmailModal] = useState(false)
+  const [editEmail, setEditEmail] = useState("")
+  const [copiedId, setCopiedId] = useState(false)
+  const [openMenuOrderId, setOpenMenuOrderId] = useState<string | null>(null)
+
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -226,6 +260,43 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       day: "numeric",
       year: "numeric",
     })
+  }
+
+  const formatFullDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    })
+  }
+
+  const handleViewOrder = (order: Order) => {
+    setSelectedOrder(order)
+    setShowOrderModal(true)
+    setOpenMenuOrderId(null)
+  }
+
+  const handleEditEmail = (order: Order) => {
+    setSelectedOrder(order)
+    setEditEmail(order.buyer?.email || order.buyer_email || "")
+    setShowEditEmailModal(true)
+    setOpenMenuOrderId(null)
+  }
+
+  const handleCopyOrderId = (orderId: string) => {
+    navigator.clipboard.writeText(orderId)
+    setCopiedId(true)
+    setTimeout(() => setCopiedId(false), 2000)
+  }
+
+  const handleSendReceipt = () => {
+    // Placeholder for sending receipt
+    alert("Receipt sent to " + editEmail)
+    setShowEditEmailModal(false)
   }
 
   const getStatusBadge = (status: string) => {
@@ -435,7 +506,8 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
 
       // Determine grouping based on timeframe
       const isToday = timeframe === "today"
-      const isYear = timeframe === "this_year" || timeframe === "all_time"
+      const isAllTime = timeframe === "all_time"
+      const isThisYear = timeframe === "this_year"
       const isLast90Days = timeframe === "last_90_days"
       const isLast30Days = timeframe === "last_30_days" || timeframe === "this_month"
 
@@ -467,14 +539,44 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             value,
           })
         }
-      } else if (isYear) {
-        // Group by month
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        for (let month = 0; month < 12; month++) {
-          const monthStart = new Date(start.getFullYear(), month, 1)
-          const monthEnd = new Date(start.getFullYear(), month + 1, 0, 23, 59, 59, 999)
+      } else if (isAllTime) {
+        // For all time, group by year to show meaningful data
+        const currentYear = new Date().getFullYear()
+        const startYear = 2020
 
-          if (monthEnd > end) break
+        for (let year = startYear; year <= currentYear; year++) {
+          const yearStart = new Date(year, 0, 1)
+          const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999)
+
+          const data = completedOrders.filter(o => {
+            const orderDate = new Date(o.created_at)
+            return orderDate >= yearStart && orderDate <= yearEnd
+          })
+
+          let value = 0
+          if (kpiType === "sales") {
+            value = data.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+          } else if (kpiType === "orders") {
+            value = data.length
+          } else if (kpiType === "avgValue") {
+            const total = data.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+            value = data.length > 0 ? (total / data.length) / 100 : 0
+          }
+
+          points.push({
+            label: year.toString(),
+            value,
+          })
+        }
+      } else if (isThisYear) {
+        // Group by month for this year
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        const currentYear = new Date().getFullYear()
+        const currentMonth = new Date().getMonth()
+
+        for (let month = 0; month <= currentMonth; month++) {
+          const monthStart = new Date(currentYear, month, 1)
+          const monthEnd = new Date(currentYear, month + 1, 0, 23, 59, 59, 999)
 
           const data = completedOrders.filter(o => {
             const orderDate = new Date(o.created_at)
@@ -745,6 +847,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       if (!target.closest(".filter-dropdown") && !target.closest(".filter-button")) {
         setIsFilterOpen(false)
       }
+      // Close order menu when clicking outside
+      if (!target.closest(".order-menu")) {
+        setOpenMenuOrderId(null)
+      }
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
@@ -777,6 +883,42 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     setFilterStatus("all")
     setAppliedFilters(null)
   }
+
+  // Calculate best performing products
+  const getBestPerformingProducts = () => {
+    const completedOrders = initialOrders.filter(o => o.status === "completed")
+    const productStats: Record<string, {
+      productId: string
+      title: string
+      coverImage?: string
+      type?: string
+      salesCount: number
+      revenue: number
+    }> = {}
+
+    completedOrders.forEach(order => {
+      const productId = order.product_id
+      if (!productStats[productId]) {
+        productStats[productId] = {
+          productId,
+          title: order.product?.title || "Unknown Product",
+          coverImage: order.product?.cover_image,
+          type: order.product?.type,
+          salesCount: 0,
+          revenue: 0,
+        }
+      }
+      productStats[productId].salesCount += 1
+      productStats[productId].revenue += order.amount_cents || 0
+    })
+
+    // Sort by revenue descending
+    return Object.values(productStats)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5) // Top 5 products
+  }
+
+  const bestProducts = getBestPerformingProducts()
 
   const handleExportCSV = () => {
     if (orders.length === 0) return
@@ -826,7 +968,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                 Connect
               </Link>
               <button
-                onClick={() => setShowPayoutsBanner(false)}
+                onClick={handleDismissBanner}
                 className="ml-2 p-1 hover:bg-white/10 rounded-full transition-colors"
               >
                 <X className="h-3.5 w-3.5 text-white/70 hover:text-white" />
@@ -1466,14 +1608,56 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                         </td>
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {order.status === "completed" && (
-                              <button className="px-3 py-1.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors">
-                                Refund
-                              </button>
-                            )}
-                            <button className="p-1.5 text-[#9ca3af] hover:text-[#6b7280] transition-colors">
-                              <MoreHorizontal className="h-4 w-4" />
+                            <button
+                              onClick={() => handleViewOrder(order)}
+                              className="px-3 py-1.5 text-[12px] font-medium text-[#8b5cf6] bg-[#f5f3ff] rounded-lg hover:bg-[#ede9fe] transition-colors"
+                            >
+                              View
                             </button>
+                            <div className="relative order-menu">
+                              <button
+                                onClick={() => setOpenMenuOrderId(openMenuOrderId === order.id ? null : order.id)}
+                                className="p-1.5 text-[#9ca3af] hover:text-[#6b7280] hover:bg-[#f3f4f6] rounded-lg transition-colors"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                              {openMenuOrderId === order.id && (
+                                <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+                                  <button
+                                    onClick={() => handleEditEmail(order)}
+                                    className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+                                  >
+                                    <Mail className="h-4 w-4 text-[#9ca3af]" />
+                                    Edit email address
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      // Send receipt logic
+                                      setOpenMenuOrderId(null)
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+                                  >
+                                    <Send className="h-4 w-4 text-[#9ca3af]" />
+                                    Resend receipt
+                                  </button>
+                                  {order.status === "completed" && (
+                                    <>
+                                      <div className="border-t border-[#e5e7eb] my-1" />
+                                      <button
+                                        onClick={() => {
+                                          // Refund logic
+                                          setOpenMenuOrderId(null)
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                      >
+                                        <RotateCcw className="h-4 w-4" />
+                                        Issue refund
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -1491,7 +1675,297 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             </div>
           )
         )}
+
+        {/* Best Performance Products Section */}
+        {activeTab === "orders" && bestProducts.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[16px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                <Star className="h-5 w-5 text-[#f59e0b]" />
+                Best Performing Products
+              </h2>
+              <span className="text-[12px] text-[#6b7280]">By revenue</span>
+            </div>
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#e5e7eb]">
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider w-12">#</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Type</th>
+                      <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Sales</th>
+                      <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#e5e7eb]">
+                    {bestProducts.map((product, index) => (
+                      <tr key={product.productId} className="hover:bg-[#f9fafb] transition-colors">
+                        <td className="px-5 py-4">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold ${
+                            index === 0
+                              ? "bg-amber-100 text-amber-700"
+                              : index === 1
+                              ? "bg-gray-100 text-gray-600"
+                              : index === 2
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-[#f3f4f6] text-[#6b7280]"
+                          }`}>
+                            {index + 1}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            {product.coverImage ? (
+                              <img
+                                src={product.coverImage}
+                                alt=""
+                                className="w-10 h-10 rounded-lg object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                                <Package className="h-4 w-4 text-[#9ca3af]" />
+                              </div>
+                            )}
+                            <span className="text-[14px] font-medium text-[#1a1a2e] truncate max-w-[200px]">
+                              {product.title}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="text-[13px] text-[#6b7280] capitalize">{product.type || "Digital"}</span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <span className="text-[14px] font-medium text-[#1a1a2e]">{product.salesCount}</span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <span className="text-[14px] font-semibold text-green-600">{formatPrice(product.revenue)}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Order Details Modal */}
+      {showOrderModal && selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowOrderModal(false)} />
+          <div className="relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl animate-in fade-in-0 zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Order Details</h2>
+              <button
+                onClick={() => setShowOrderModal(false)}
+                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Order ID & Status */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-[#6b7280]">Order ID:</span>
+                  <code className="text-[12px] font-mono bg-[#f3f4f6] px-2 py-0.5 rounded">
+                    #{selectedOrder.id.slice(0, 8)}
+                  </code>
+                  <button
+                    onClick={() => handleCopyOrderId(selectedOrder.id)}
+                    className="p-1 text-[#9ca3af] hover:text-[#6b7280] transition-colors"
+                  >
+                    {copiedId ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+                {getStatusBadge(selectedOrder.status)}
+              </div>
+
+              {/* Customer Info */}
+              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                  <Users className="h-4 w-4 text-[#8b5cf6]" />
+                  Customer Information
+                </h3>
+                <div className="grid grid-cols-2 gap-3 text-[13px]">
+                  <div>
+                    <span className="text-[#6b7280]">Name</span>
+                    <p className="font-medium text-[#1a1a2e]">
+                      {selectedOrder.buyer?.display_name ||
+                        (selectedOrder.buyer_first_name && selectedOrder.buyer_last_name
+                          ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}`
+                          : "Unknown")}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Email</span>
+                    <p className="font-medium text-[#1a1a2e] break-all">
+                      {selectedOrder.buyer?.email || selectedOrder.buyer_email || "N/A"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Info */}
+              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                  <Package className="h-4 w-4 text-[#8b5cf6]" />
+                  Product
+                </h3>
+                <div className="flex items-center gap-3">
+                  {selectedOrder.product?.cover_image ? (
+                    <img
+                      src={selectedOrder.product.cover_image}
+                      alt=""
+                      className="w-14 h-14 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
+                      <Package className="h-6 w-6 text-[#9ca3af]" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium text-[#1a1a2e]">{selectedOrder.product?.title || "Unknown Product"}</p>
+                    <p className="text-[12px] text-[#6b7280]">{selectedOrder.product?.type || "Digital Product"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Info */}
+              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-[#8b5cf6]" />
+                  Payment Details
+                </h3>
+                <div className="grid grid-cols-2 gap-3 text-[13px]">
+                  <div>
+                    <span className="text-[#6b7280]">Amount</span>
+                    <p className="font-semibold text-[#1a1a2e] text-[16px]">{formatPrice(selectedOrder.amount_cents)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Fee</span>
+                    <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.fee_cents || 0)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Payment Method</span>
+                    <p className="font-medium text-[#1a1a2e] capitalize">{selectedOrder.payment_method || "Card"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Net Revenue</span>
+                    <p className="font-medium text-green-600">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Date */}
+              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-[#8b5cf6]" />
+                  Order Date
+                </h3>
+                <p className="text-[13px] font-medium text-[#1a1a2e]">
+                  {formatFullDate(selectedOrder.created_at)}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-between gap-3">
+              <button
+                onClick={() => {
+                  setShowOrderModal(false)
+                  handleEditEmail(selectedOrder)
+                }}
+                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+              >
+                <Mail className="h-4 w-4" />
+                Edit Email
+              </button>
+              {selectedOrder.status === "completed" && (
+                <button className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4" />
+                  Issue Refund
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Email Modal */}
+      {showEditEmailModal && selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowEditEmailModal(false)} />
+          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl animate-in fade-in-0 zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Edit Email Address</h2>
+              <button
+                onClick={() => setShowEditEmailModal(false)}
+                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[13px] font-medium text-[#374151] mb-1.5">
+                  Customer Email
+                </label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="customer@example.com"
+                  className="w-full px-4 py-2.5 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6] transition-colors"
+                />
+                <p className="text-[12px] text-[#6b7280] mt-1.5">
+                  This will update the email address for order #{selectedOrder.id.slice(0, 8)}
+                </p>
+              </div>
+
+              <div className="bg-[#f9fafb] rounded-xl p-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-[#d1d5db] text-[#8b5cf6] focus:ring-[#8b5cf6]"
+                    defaultChecked
+                  />
+                  <span className="text-[13px] text-[#374151]">
+                    Send purchase receipt to new email
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowEditEmailModal(false)}
+                className="px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Save email logic here
+                  setShowEditEmailModal(false)
+                }}
+                className="px-4 py-2 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-lg hover:bg-[#7c3aed] transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Styles */}
       <style jsx>{`

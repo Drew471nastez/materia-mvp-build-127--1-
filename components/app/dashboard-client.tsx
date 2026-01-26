@@ -560,8 +560,9 @@ export function DashboardClient({
 
       // Determine grouping based on timeframe
       const isToday = timeframe === "today"
-      const isYear = timeframe === "last_year"
-      const isMonth = timeframe === "last_30_days"
+      const isYear = timeframe === "last_year" || timeframe === "last_365_days"
+      const isMonth = timeframe === "last_30_days" || timeframe === "this_month"
+      const is90Days = timeframe === "last_90_days"
 
       if (isToday) {
         // Group by hour for today
@@ -622,11 +623,13 @@ export function DashboardClient({
         }
       } else if (isYear) {
         // Group by month for year
-        for (let month = 0; month < 12; month++) {
-          const monthStart = new Date(start.getFullYear(), month, 1)
-          const monthEnd = new Date(start.getFullYear(), month + 1, 0, 23, 59, 59, 999)
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        const currentMonth = new Date().getMonth()
 
-          if (monthEnd > end) break
+        for (let month = 0; month <= currentMonth; month++) {
+          const currentYear = new Date().getFullYear()
+          const monthStart = new Date(currentYear, month, 1)
+          const monthEnd = new Date(currentYear, month + 1, 0, 23, 59, 59, 999)
 
           let value = 0
           let secondaryValue = 0
@@ -670,21 +673,82 @@ export function DashboardClient({
             value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
           }
 
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
           points.push({
             label: monthNames[month],
             value,
             secondaryValue: kpiType === "views" ? secondaryValue : undefined
           })
         }
+      } else if (is90Days) {
+        // Group by week for 90 days (12 weeks)
+        for (let week = 11; week >= 0; week--) {
+          const weekStart = new Date(end)
+          weekStart.setDate(weekStart.getDate() - (week * 7 + 6))
+          weekStart.setHours(0, 0, 0, 0)
+          const weekEnd = new Date(weekStart)
+          weekEnd.setDate(weekEnd.getDate() + 6)
+          weekEnd.setHours(23, 59, 59, 999)
+
+          let value = 0
+          let secondaryValue = 0
+
+          if (kpiType === "views") {
+            const { data } = await supabase
+              .from("analytics_events")
+              .select("id, visitor_id, session_id, product_id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "view")
+              .gte("created_at", weekStart.toISOString())
+              .lte("created_at", weekEnd.toISOString())
+
+            const uniqueKeys = new Set((data || []).map((e: any) => {
+              const identity = e.visitor_id || e.session_id
+              return identity ? `${identity}__${e.product_id || "store"}` : null
+            }).filter(Boolean))
+            value = uniqueKeys.size
+
+            const { data: clicks } = await supabase
+              .from("analytics_events")
+              .select("id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "click")
+              .gte("created_at", weekStart.toISOString())
+              .lte("created_at", weekEnd.toISOString())
+            secondaryValue = clicks?.length || 0
+          } else if (kpiType === "orders") {
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= weekStart && orderDate <= weekEnd
+            })
+            value = periodOrders.length
+          } else if (kpiType === "revenue") {
+            const periodOrders = completedOrders.filter(o => {
+              const orderDate = new Date(o.created_at)
+              return orderDate >= weekStart && orderDate <= weekEnd
+            })
+            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+          }
+
+          points.push({
+            label: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            value,
+            secondaryValue: kpiType === "views" ? secondaryValue : undefined
+          })
+        }
       } else {
-        // Group by day for 7 days / 30 days
-        const dayCount = isMonth ? 30 : 7
+        // Group by day for 7 days / 30 days / 48 hours
+        let dayCount = 7
+        if (isMonth) dayCount = 10
+        if (timeframe === "last_48_hours") dayCount = 2
+
+        const dayStep = isMonth ? 3 : 1
+
         for (let i = dayCount - 1; i >= 0; i--) {
           const dayStart = new Date(end)
-          dayStart.setDate(dayStart.getDate() - i)
+          dayStart.setDate(dayStart.getDate() - (i * dayStep))
           dayStart.setHours(0, 0, 0, 0)
           const dayEnd = new Date(dayStart)
+          dayEnd.setDate(dayEnd.getDate() + dayStep - 1)
           dayEnd.setHours(23, 59, 59, 999)
 
           let value = 0
