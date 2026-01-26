@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, ChevronDown } from "lucide-react"
+import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { getProductUrl } from "@/lib/url-helpers"
@@ -34,7 +34,6 @@ type TabType = "active" | "archived" | "all"
 export function ProductsClient({ products: initialProducts, creatorUsername }: ProductsClientProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [activeTab, setActiveTab] = useState<TabType>("active")
-  const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -42,24 +41,12 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const [isDeleting, setIsDeleting] = useState(false)
   const [notification, setNotification] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" })
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const tabDropdownRef = useRef<HTMLDivElement>(null)
 
   const tabOptions = [
     { value: "active" as TabType, label: "Active" },
     { value: "all" as TabType, label: "All" },
     { value: "archived" as TabType, label: "Archived" },
   ]
-
-  // Close tab dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (tabDropdownRef.current && !tabDropdownRef.current.contains(event.target as Node)) {
-        setIsTabDropdownOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -238,38 +225,27 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           </Button>
         </div>
 
-        {/* Tab Dropdown & Search */}
+        {/* Tab Pills & Search */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
-            {/* Tab Dropdown - Similar to timeframe selector */}
-            <div className="relative tab-dropdown" ref={tabDropdownRef}>
-              <button
-                onClick={() => setIsTabDropdownOpen(!isTabDropdownOpen)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
-              >
-                {tabOptions.find(t => t.value === activeTab)?.label || "Active"} ({tabCounts[activeTab]})
-                <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isTabDropdownOpen ? "rotate-180" : ""}`} />
-              </button>
-              {isTabDropdownOpen && (
-                <div className="absolute left-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
-                  {tabOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setActiveTab(option.value)
-                        setIsTabDropdownOpen(false)
-                      }}
-                      className={`w-full text-left px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${
-                        activeTab === option.value
-                          ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                          : "text-[#374151] hover:bg-[#f9fafb]"
-                      }`}
-                    >
-                      {option.label} ({tabCounts[option.value]})
-                    </button>
-                  ))}
-                </div>
-              )}
+            {/* Horizontal Tab Pills */}
+            <div className="flex items-center gap-2">
+              {tabOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setActiveTab(option.value)}
+                  className={`inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium rounded-xl transition-colors cursor-pointer ${
+                    activeTab === option.value
+                      ? "bg-white border border-[#e5e7eb] text-[#374151] shadow-sm"
+                      : "bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb]"
+                  }`}
+                >
+                  {option.label}
+                  <span className={`text-[11px] ${activeTab === option.value ? "text-[#9ca3af]" : "text-[#9ca3af]"}`}>
+                    {tabCounts[option.value]}
+                  </span>
+                </button>
+              ))}
             </div>
 
             {/* Search Button */}
@@ -352,10 +328,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     </div>
                     {/* Action Buttons */}
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Edit Button - Dark gray/black */}
+                      {/* Edit Button - Light gray */}
                       <Link
                         href={`/app/products/${product.id}`}
-                        className="inline-flex items-center justify-center h-8 px-2.5 bg-[#1f2937] hover:bg-[#111827] text-white text-[11px] font-medium rounded-lg transition-colors"
+                        className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
@@ -368,14 +344,16 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       >
                         <Eye className="h-3.5 w-3.5" />
                       </a>
-                      {/* Share Button - Light gray */}
-                      <button
-                        onClick={() => handleShare(product)}
-                        className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
-                      >
-                        <Share2 className="h-3.5 w-3.5" />
-                      </button>
-                      {/* More Actions Dropdown */}
+                      {/* Restore Button - Only for archived products (light gray) */}
+                      {(product.archived || product.status === "archived") && (
+                        <button
+                          onClick={() => handleArchive(product)}
+                          className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {/* More Actions Dropdown - includes Share on mobile */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8 rounded-lg hover:bg-[#f3f4f6]">
@@ -383,6 +361,12 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl w-48">
+                          {/* Share option in dropdown on mobile */}
+                          <DropdownMenuItem onClick={() => handleShare(product)} className="cursor-pointer">
+                            <Share2 className="h-4 w-4 mr-2" />
+                            Share
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
                             <Archive className="h-4 w-4 mr-2" />
                             {product.archived ? "Restore" : "Archive"}
@@ -457,10 +441,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         </td>
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {/* Edit Button - Dark gray/black */}
+                            {/* Edit Button - Light gray */}
                             <Link
                               href={`/app/products/${product.id}`}
-                              className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#1f2937] hover:bg-[#111827] text-white text-[12px] font-medium rounded-lg transition-colors"
+                              className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                               Edit
@@ -475,14 +459,24 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                               <Eye className="h-3.5 w-3.5" />
                               View
                             </a>
-                            {/* Share Button - Light gray */}
-                            <button
-                              onClick={() => handleShare(product)}
-                              className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
-                            >
-                              <Share2 className="h-3.5 w-3.5" />
-                              Share
-                            </button>
+                            {/* Conditional: Share Button for active products, Restore for archived */}
+                            {product.archived || product.status === "archived" ? (
+                              <button
+                                onClick={() => handleArchive(product)}
+                                className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                Restore
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleShare(product)}
+                                className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
+                              >
+                                <Share2 className="h-3.5 w-3.5" />
+                                Share
+                              </button>
+                            )}
                             {/* More Actions Dropdown */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -491,6 +485,16 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="rounded-xl w-48">
+                                {/* Share option for archived products in dropdown */}
+                                {(product.archived || product.status === "archived") && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleShare(product)} className="cursor-pointer">
+                                      <Share2 className="h-4 w-4 mr-2" />
+                                      Share
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
                                 <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
                                   <Archive className="h-4 w-4 mr-2" />
                                   {product.archived ? "Restore" : "Archive"}
