@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
+import { collectOrderDeviceInfo } from "@/lib/device-info"
 
 function calculatePlatformFee(amountCents: number): number {
   const feePercent = 0.06 // 6%
@@ -115,6 +116,9 @@ export async function POST(request: Request) {
   const sessionFingerprint = nanoid(32)
   const receiptToken = generateReceiptToken()
 
+  // Collect device and geo info
+  const { deviceInfo, geoInfo } = collectOrderDeviceInfo(request)
+
   const cookieStore = await cookies()
   cookieStore.set("materia_session", sessionFingerprint, {
     httpOnly: true,
@@ -188,6 +192,12 @@ export async function POST(request: Request) {
         session_fingerprint: sessionFingerprint,
         receipt_token: receiptToken,
         platform_fee_cents: platformFee.toString(),
+        // Device and geo info
+        buyer_country: geoInfo.country,
+        buyer_country_code: geoInfo.countryCode,
+        buyer_device_type: deviceInfo.deviceType,
+        buyer_os: deviceInfo.os,
+        buyer_browser: deviceInfo.browser,
       },
       return_url: `${baseUrl}/api/checkout/complete?session_id={CHECKOUT_SESSION_ID}`,
     }

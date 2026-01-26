@@ -5,6 +5,7 @@ import { sendOrderEmails } from "@/lib/email"
 import { generateReceiptToken } from "@/lib/security"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
+import { collectOrderDeviceInfo } from "@/lib/device-info"
 
 export const runtime = "nodejs"
 
@@ -73,6 +74,9 @@ export async function POST(request: Request) {
     const sessionFingerprint = nanoid(32)
     const cookieStore = await cookies()
 
+    // Collect device and geo info
+    const { deviceInfo, geoInfo } = collectOrderDeviceInfo(request)
+
     // Set session cookie
     cookieStore.set("materia_session", sessionFingerprint, {
       httpOnly: true,
@@ -100,6 +104,14 @@ export async function POST(request: Request) {
         allowed_fingerprints: [sessionFingerprint],
         buyer_email_attempt_count: 0,
         seller_email_attempt_count: 0,
+        // Payment method for free orders
+        payment_method: "free",
+        // Device and geo info
+        buyer_country: geoInfo.country,
+        buyer_country_code: geoInfo.countryCode,
+        buyer_device_type: deviceInfo.deviceType,
+        buyer_os: deviceInfo.os,
+        buyer_browser: deviceInfo.browser,
       })
       .select()
       .single()

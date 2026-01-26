@@ -94,10 +94,16 @@ export async function POST(request: Request) {
     let transferId: string | null = null
     let destinationPaymentId: string | null = null
 
+    // Payment method details
+    let paymentMethod = "card"
+    let cardBrand: string | null = null
+    let cardLast4: string | null = null
+    let paypalEmail: string | null = null
+
     try {
       if (session.payment_intent) {
         const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string, {
-          expand: ["charges", "transfer"],
+          expand: ["charges", "transfer", "payment_method"],
         })
 
         if (paymentIntent.application_fee_amount) {
@@ -110,6 +116,23 @@ export async function POST(request: Request) {
 
         if (paymentIntent.charges?.data?.[0]) {
           destinationPaymentId = (paymentIntent.charges.data[0].destination_payment as string) || null
+
+          // Get payment method details from the charge
+          const charge = paymentIntent.charges.data[0]
+          if (charge.payment_method_details) {
+            const pmDetails = charge.payment_method_details
+
+            if (pmDetails.card) {
+              paymentMethod = "card"
+              cardBrand = pmDetails.card.brand || null // visa, mastercard, amex, etc.
+              cardLast4 = pmDetails.card.last4 || null
+            } else if (pmDetails.paypal) {
+              paymentMethod = "paypal"
+              paypalEmail = (pmDetails.paypal as any).payer_email || null
+            } else if (pmDetails.type) {
+              paymentMethod = pmDetails.type
+            }
+          }
         }
 
         console.log("[v0] Payment Intent details:", {
@@ -117,6 +140,9 @@ export async function POST(request: Request) {
           application_fee_amount: applicationFeeAmount,
           transfer: transferId,
           destination_payment: destinationPaymentId,
+          payment_method: paymentMethod,
+          card_brand: cardBrand,
+          card_last4: cardLast4,
         })
       }
     } catch (error) {
@@ -160,6 +186,19 @@ export async function POST(request: Request) {
 
       agreed_to_terms: metadata.agreed_to_terms === "true",
       agreed_at: metadata.agreed_at || null,
+
+      // Payment method details
+      payment_method: paymentMethod,
+      card_brand: cardBrand,
+      card_last4: cardLast4,
+      paypal_email: paypalEmail,
+
+      // Device and geo info from checkout metadata
+      buyer_country: metadata.buyer_country || null,
+      buyer_country_code: metadata.buyer_country_code || null,
+      buyer_device_type: metadata.buyer_device_type || null,
+      buyer_os: metadata.buyer_os || null,
+      buyer_browser: metadata.buyer_browser || null,
     }
 
     if (!buyerId) {

@@ -31,6 +31,10 @@ import {
   Copy,
   Check,
   UserX,
+  Monitor,
+  Smartphone,
+  Tablet,
+  MapPin,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -72,6 +76,17 @@ interface Order {
   buyer_first_name?: string
   buyer_last_name?: string
   receipt_token?: string
+  // Payment method details
+  card_brand?: string | null
+  card_last4?: string | null
+  paypal_email?: string | null
+  // Location info
+  buyer_country?: string | null
+  buyer_country_code?: string | null
+  // Device info
+  buyer_device_type?: string | null
+  buyer_os?: string | null
+  buyer_browser?: string | null
   buyer?: {
     email: string
     display_name: string
@@ -327,6 +342,16 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       style: "currency",
       currency: currency,
     }).format(cents / 100)
+  }
+
+  // Convert country code to flag emoji
+  const getFlagEmoji = (countryCode: string) => {
+    if (!countryCode || countryCode === "XX") return "🌍"
+    const codePoints = countryCode
+      .toUpperCase()
+      .split("")
+      .map((char) => 127397 + char.charCodeAt(0))
+    return String.fromCodePoint(...codePoints)
   }
 
   const formatDate = (dateString: string) => {
@@ -1993,14 +2018,92 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   </div>
                   <div>
                     <span className="text-[#6b7280]">Payment Method</span>
-                    <p className="font-medium text-[#1a1a2e] capitalize">{selectedOrder.payment_method || "Card"}</p>
+                    <p className="font-medium text-[#1a1a2e] capitalize">
+                      {selectedOrder.payment_method === "card" && selectedOrder.card_brand ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className="capitalize">{selectedOrder.card_brand}</span>
+                          {selectedOrder.card_last4 && (
+                            <span className="text-[#6b7280]">•••• {selectedOrder.card_last4}</span>
+                          )}
+                        </span>
+                      ) : selectedOrder.payment_method === "paypal" ? (
+                        "PayPal"
+                      ) : selectedOrder.payment_method === "free" ? (
+                        "Free"
+                      ) : (
+                        selectedOrder.payment_method || "Card"
+                      )}
+                    </p>
                   </div>
                   <div>
                     <span className="text-[#6b7280]">Net Revenue</span>
                     <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</p>
                   </div>
+                  {selectedOrder.payment_method === "paypal" && selectedOrder.paypal_email && (
+                    <div className="col-span-2">
+                      <span className="text-[#6b7280]">PayPal Email</span>
+                      <p className="font-medium text-[#1a1a2e] break-all">{selectedOrder.paypal_email}</p>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Location Info */}
+              {selectedOrder.buyer_country && (
+                <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-[#8b5cf6]" />
+                    Location
+                  </h3>
+                  <div className="text-[13px]">
+                    <span className="text-[#6b7280]">Country</span>
+                    <p className="font-medium text-[#1a1a2e] flex items-center gap-2">
+                      {selectedOrder.buyer_country_code && (
+                        <span className="text-[16px]">
+                          {getFlagEmoji(selectedOrder.buyer_country_code)}
+                        </span>
+                      )}
+                      {selectedOrder.buyer_country}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Device Info */}
+              {(selectedOrder.buyer_device_type || selectedOrder.buyer_os || selectedOrder.buyer_browser) && (
+                <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                    {selectedOrder.buyer_device_type === "Mobile" ? (
+                      <Smartphone className="h-4 w-4 text-[#8b5cf6]" />
+                    ) : selectedOrder.buyer_device_type === "Tablet" ? (
+                      <Tablet className="h-4 w-4 text-[#8b5cf6]" />
+                    ) : (
+                      <Monitor className="h-4 w-4 text-[#8b5cf6]" />
+                    )}
+                    Device Information
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3 text-[13px]">
+                    {selectedOrder.buyer_device_type && (
+                      <div>
+                        <span className="text-[#6b7280]">Device</span>
+                        <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_device_type}</p>
+                      </div>
+                    )}
+                    {selectedOrder.buyer_os && (
+                      <div>
+                        <span className="text-[#6b7280]">OS</span>
+                        <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_os}</p>
+                      </div>
+                    )}
+                    {selectedOrder.buyer_browser && (
+                      <div>
+                        <span className="text-[#6b7280]">Browser</span>
+                        <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_browser}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Order Date & Time */}
               <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">

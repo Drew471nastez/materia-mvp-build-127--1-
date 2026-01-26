@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
+import { collectOrderDeviceInfo } from "@/lib/device-info"
 
 export const runtime = "nodejs"
 
@@ -21,8 +22,11 @@ export async function GET(request: Request) {
     console.log("[checkout/complete] Processing Stripe checkout for session:", sessionId)
 
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ["payment_intent", "payment_intent.charges"],
+      expand: ["payment_intent", "payment_intent.charges", "payment_intent.payment_method"],
     })
+
+    // Collect device info from current request (fallback if not in metadata)
+    const { deviceInfo: requestDeviceInfo, geoInfo: requestGeoInfo } = collectOrderDeviceInfo(request)
 
     if (session.payment_status !== "paid") {
       console.log("[checkout/complete] Payment not completed:", session.payment_status)
@@ -71,6 +75,12 @@ export async function GET(request: Request) {
     let transferId = null
     let applicationFeeCents = platformFeeCents
 
+    // Payment method details
+    let paymentMethod = "card"
+    let cardBrand: string | null = null
+    let cardLast4: string | null = null
+    let paypalEmail: string | null = null
+
     if (typeof session.payment_intent === "object" && session.payment_intent) {
       const paymentIntent = session.payment_intent as any
 
@@ -82,10 +92,32 @@ export async function GET(request: Request) {
         transferId = typeof paymentIntent.transfer === "string" ? paymentIntent.transfer : paymentIntent.transfer.id
       }
 
+      // Extract payment method details from charges
+      if (paymentIntent.charges?.data?.[0]) {
+        const charge = paymentIntent.charges.data[0]
+        if (charge.payment_method_details) {
+          const pmDetails = charge.payment_method_details
+
+          if (pmDetails.card) {
+            paymentMethod = "card"
+            cardBrand = pmDetails.card.brand || null
+            cardLast4 = pmDetails.card.last4 || null
+          } else if (pmDetails.paypal) {
+            paymentMethod = "paypal"
+            paypalEmail = pmDetails.paypal?.payer_email || null
+          } else if (pmDetails.type) {
+            paymentMethod = pmDetails.type
+          }
+        }
+      }
+
       console.log("[checkout/complete] Payment Intent details:", {
         id: paymentIntent.id,
         application_fee_amount: applicationFeeCents,
         transfer: transferId,
+        payment_method: paymentMethod,
+        card_brand: cardBrand,
+        card_last4: cardLast4,
       })
     }
 
@@ -116,6 +148,17 @@ export async function GET(request: Request) {
         agreed_at: metadata.agreed_at || null,
         buyer_email_attempt_count: 0,
         seller_email_attempt_count: 0,
+        // Payment method details
+        payment_method: paymentMethod,
+        card_brand: cardBrand,
+        card_last4: cardLast4,
+        paypal_email: paypalEmail,
+        // Device and geo info (from metadata, with fallback to current request)
+        buyer_country: metadata.buyer_country || requestGeoInfo.country || null,
+        buyer_country_code: metadata.buyer_country_code || requestGeoInfo.countryCode || null,
+        buyer_device_type: metadata.buyer_device_type || requestDeviceInfo.deviceType || null,
+        buyer_os: metadata.buyer_os || requestDeviceInfo.os || null,
+        buyer_browser: metadata.buyer_browser || requestDeviceInfo.browser || null,
       })
       .select()
       .single()

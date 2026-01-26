@@ -5,6 +5,7 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails } from "@/lib/email"
+import { collectOrderDeviceInfo } from "@/lib/device-info"
 
 export const runtime = "nodejs"
 
@@ -72,6 +73,9 @@ export async function POST(request: Request) {
     const sessionFingerprint = nanoid(32)
     const receiptToken = generateReceiptToken()
 
+    // Collect device and geo info
+    const { deviceInfo, geoInfo } = collectOrderDeviceInfo(request)
+
     console.log("[checkout/process] Generated receipt token:", receiptToken.substring(0, 10) + "...")
 
     // Set session cookie
@@ -106,6 +110,14 @@ export async function POST(request: Request) {
       agreed_at: new Date().toISOString(),
       buyer_email_attempt_count: 0,
       seller_email_attempt_count: 0,
+      // Payment method for free orders
+      payment_method: "free",
+      // Device and geo info
+      buyer_country: geoInfo.country,
+      buyer_country_code: geoInfo.countryCode,
+      buyer_device_type: deviceInfo.deviceType,
+      buyer_os: deviceInfo.os,
+      buyer_browser: deviceInfo.browser,
     }
 
     console.log("[checkout/process] Creating order for email:", email.toLowerCase().trim())
