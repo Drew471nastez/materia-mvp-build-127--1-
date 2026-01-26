@@ -289,7 +289,7 @@ function ProgressCircle({ progress, size = 32 }: { progress: number; size?: numb
   )
 }
 
-// Mobile Bottom Sheet for Timeframe Selector
+// Mobile Bottom Sheet for Timeframe Selector with swipe-to-close
 function TimeframeBottomSheet({
   isOpen,
   onClose,
@@ -305,24 +305,26 @@ function TimeframeBottomSheet({
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = { current: 0 }
+  const sheetRef = { current: null as HTMLDivElement | null }
 
   useEffect(() => {
     if (isOpen && !isVisible) {
-      // Opening: first mount, then animate in
       setIsVisible(true)
       document.body.style.overflow = "hidden"
-      // Small delay to ensure DOM is ready before animation
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
         })
       })
     } else if (!isOpen && isVisible) {
-      // Closing: animate out, then unmount
       setIsAnimating(false)
       document.body.style.overflow = ""
       const timer = setTimeout(() => {
         setIsVisible(false)
+        setDragY(0)
       }, 300)
       return () => clearTimeout(timer)
     }
@@ -338,6 +340,29 @@ function TimeframeBottomSheet({
     }, 300)
   }
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY
+    setIsDragging(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startY.current
+    if (diff > 0) {
+      setDragY(diff)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+    if (dragY > 100) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
   if (!isVisible) return null
 
   return (
@@ -351,13 +376,23 @@ function TimeframeBottomSheet({
       />
       {/* Bottom Sheet */}
       <div
+        ref={(el) => { sheetRef.current = el }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] transition-transform duration-300 ease-out ${
           isAnimating ? "translate-y-0" : "translate-y-full"
         }`}
+        style={{ transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)" }}
       >
         <div className="p-4">
-          {/* Handle bar */}
-          <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+          {/* Handle bar - clickable to close */}
+          <button
+            onClick={handleClose}
+            className="w-full flex justify-center py-2 -mt-2 mb-2 cursor-pointer"
+          >
+            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          </button>
           <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
           <div className="space-y-1 max-h-[50vh] overflow-y-auto">
             {options.map((option) => (
@@ -1335,10 +1370,10 @@ export function DashboardClient({
                   </div>
                 </div>
                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCurrency(analyticsData.totalRevenue)}</span>
+                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCurrency(analyticsData.periodRevenue)}</span>
                   <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
                 </div>
-                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCurrency(analyticsData.periodRevenue)} {formatPeriodText(timeframe)}</p>
+                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCurrency(analyticsData.totalRevenue)} all time</p>
               </>
             )}
           </div>

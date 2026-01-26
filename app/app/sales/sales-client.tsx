@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import {
   DollarSign,
@@ -204,10 +204,148 @@ const timeframeOptions: TimeframeOption[] = [
   },
 ]
 
+// Mobile Bottom Sheet for Timeframe Selector with swipe-to-close
+function TimeframeBottomSheet({
+  isOpen,
+  onClose,
+  options,
+  selectedValue,
+  onSelect,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  options: TimeframeOption[]
+  selectedValue: string
+  onSelect: (value: string) => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = React.useRef(0)
+  const sheetRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setTimeout(() => {
+      onClose()
+    }, 300)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY
+    setIsDragging(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startY.current
+    if (diff > 0) {
+      setDragY(diff)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+    if (dragY > 100) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
+  if (!isVisible) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      {/* Backdrop */}
+      <div
+        className={`absolute inset-0 bg-black transition-opacity duration-300 ease-out ${
+          isAnimating ? "opacity-40" : "opacity-0"
+        }`}
+        onClick={handleClose}
+      />
+      {/* Bottom Sheet */}
+      <div
+        ref={sheetRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] transition-transform duration-300 ease-out ${
+          isAnimating ? "translate-y-0" : "translate-y-full"
+        }`}
+        style={{ transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)" }}
+      >
+        <div className="p-4">
+          {/* Handle bar - clickable to close */}
+          <button
+            onClick={handleClose}
+            className="w-full flex justify-center py-2 -mt-2 mb-2 cursor-pointer"
+          >
+            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          </button>
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+            {options.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => {
+                  onSelect(option.value)
+                  handleClose()
+                }}
+                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
+                  selectedValue === option.value
+                    ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleClose}
+            className="w-full mt-4 py-3 text-[15px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl"
+          >
+            Cancel
+          </button>
+        </div>
+        {/* Safe area padding for iOS */}
+        <div className="h-[env(safe-area-inset-bottom)]" />
+      </div>
+    </div>
+  )
+}
+
 export function SalesClient({ creatorId, products, initialSummary, initialOrders, currency, stripeConnected, storeName, sellerName }: SalesClientProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [timeframe, setTimeframe] = useState("last_30_days")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"orders" | "reports">("orders")
   // Check localStorage for banner dismissal (12 hour persistence)
   const [showPayoutsBanner, setShowPayoutsBanner] = useState(() => {
@@ -1111,18 +1249,17 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             <div className="flex items-center gap-2 sm:gap-3.5">
               <h1 className="text-[20px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Sales</h1>
 
-              {/* Timeframe Dropdown */}
-              <div className="relative timeframe-dropdown">
+              {/* Desktop Timeframe Dropdown */}
+              <div className="relative timeframe-dropdown hidden md:block">
                 <button
                   onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
-                  className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-white border border-[#e5e7eb] rounded-xl text-[11px] sm:text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
                 >
-                  <span className="hidden sm:inline">{selectedOption?.shortLabel || "30 days"}</span>
-                  <span className="sm:hidden">{selectedOption?.shortLabel || "30d"}</span>
-                  <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
+                  {selectedOption?.label || "Last 30 days"}
+                  <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
                 </button>
                 {isTimeframeOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+                  <div className="absolute left-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
                     {timeframeOptions.map((option) => (
                       <button
                         key={option.value}
@@ -1130,7 +1267,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                           setTimeframe(option.value)
                           setIsTimeframeOpen(false)
                         }}
-                        className={`w-full text-left px-3 py-2 text-[13px] font-medium transition-colors cursor-pointer ${
+                        className={`w-full text-left px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${
                           timeframe === option.value
                             ? "bg-[#f5f3ff] text-[#8b5cf6]"
                             : "text-[#374151] hover:bg-[#f9fafb]"
@@ -1142,6 +1279,15 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   </div>
                 )}
               </div>
+
+              {/* Mobile Timeframe Button */}
+              <button
+                onClick={() => setIsMobileSheetOpen(true)}
+                className="md:hidden inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm"
+              >
+                {selectedOption?.label || "Last 30 days"}
+                <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+              </button>
             </div>
 
             {/* Right side buttons - Always visible */}
@@ -1362,6 +1508,15 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           </div>
         </div>
 
+        {/* Mobile Bottom Sheet */}
+        <TimeframeBottomSheet
+          isOpen={isMobileSheetOpen}
+          onClose={() => setIsMobileSheetOpen(false)}
+          options={timeframeOptions}
+          selectedValue={timeframe}
+          onSelect={setTimeframe}
+        />
+
         {/* KPI Cards */}
         <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 ${isLoading ? "opacity-60" : ""}`}>
           {/* Total Sales */}
@@ -1549,20 +1704,20 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             ) : (
               <div className="relative">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-medium text-[#6b7280]">Avg Order Value</span>
-                    {/* Info icon with tooltip */}
-                    <div className="group/info relative">
-                      <div className="w-4 h-4 rounded-full bg-[#f3f4f6] flex items-center justify-center cursor-help">
+                  <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                    <span className="text-[12px] sm:text-[13px] font-medium text-[#6b7280] truncate">Avg Order Value</span>
+                    {/* Info icon with tooltip - fixed size, no shrink */}
+                    <div className="group/info relative flex-shrink-0">
+                      <div className="w-4 h-4 min-w-[16px] min-h-[16px] rounded-full bg-[#f3f4f6] flex items-center justify-center cursor-help">
                         <span className="text-[9px] font-medium text-[#9ca3af]">i</span>
                       </div>
-                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] rounded-lg opacity-0 group-hover/info:opacity-100 transition-opacity duration-200 pointer-events-none z-30 w-[200px] text-center shadow-lg">
+                      <div className="absolute left-1/2 -translate-x-1/2 sm:left-1/2 sm:-translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] rounded-lg opacity-0 group-hover/info:opacity-100 transition-opacity duration-200 pointer-events-none z-30 w-[180px] sm:w-[200px] text-center shadow-lg">
                         Average revenue earned per order. Calculated by dividing total revenue by number of orders.
                         <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-[#1a1a2e]" />
                       </div>
                     </div>
                   </div>
-                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                  <div className="w-8 h-8 min-w-[32px] rounded-lg bg-[#f3f4f6] flex items-center justify-center flex-shrink-0">
                     <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
@@ -1594,11 +1749,36 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           /* Sales Reports Tab */
           monthlyReports.length > 0 ? (
             <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Mobile Card View */}
+              <div className="sm:hidden divide-y divide-[#e5e7eb]">
+                {monthlyReports.map((report) => (
+                  <div key={`${report.year}-${report.month}`} className="px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14px] font-medium text-[#1a1a2e]">{report.monthYear}</p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-[12px] text-[#6b7280]">{report.orders} orders</span>
+                          <span className="text-[12px] text-[#9ca3af]">•</span>
+                          <span className="text-[12px] font-medium text-[#1a1a2e]">{formatPrice(report.revenue)}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => generatePDFReport(report, 'download')}
+                        className="px-3 py-1.5 text-[12px] font-medium text-white bg-[#8b5cf6] hover:bg-[#7c3aed] transition-colors rounded-lg flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden sm:block">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#e5e7eb]">
-                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider w-12">#</th>
                       <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Month & Year</th>
                       <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Orders</th>
                       <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Revenue</th>
@@ -1606,9 +1786,8 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
-                    {monthlyReports.map((report, index) => (
+                    {monthlyReports.map((report) => (
                       <tr key={`${report.year}-${report.month}`} className="hover:bg-[#f9fafb] transition-colors">
-                        <td className="px-5 py-4 text-[14px] text-[#6b7280]">{index + 1}</td>
                         <td className="px-5 py-4">
                           <span className="text-[14px] font-medium text-[#1a1a2e]">{report.monthYear}</span>
                         </td>

@@ -292,13 +292,28 @@ function NotificationItem({
   return content
 }
 
-// Badge component for notification count - red gradient with glassmorphism effect
+// Badge component for notification count - red gradient with glassmorphism effect and subtle pulse animation
 export function NotificationBadge({ count }: { count: number }) {
   if (count === 0) return null
 
   return (
-    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-semibold text-white rounded-full shadow-lg backdrop-blur-sm bg-gradient-to-br from-red-500 via-red-500 to-red-600 ring-2 ring-white/30">
-      {count > 9 ? "9+" : count}
-    </span>
+    <>
+      <style jsx>{`
+        @keyframes subtle-pulse {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+          }
+          50% {
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+          }
+        }
+        .notification-badge-pulse {
+          animation: subtle-pulse 2.5s ease-in-out infinite;
+        }
+      `}</style>
+      <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-semibold text-white rounded-full shadow-lg backdrop-blur-sm bg-gradient-to-br from-red-500 via-red-500 to-red-600 ring-2 ring-white/30 notification-badge-pulse">
+        {count > 9 ? "9+" : count}
+      </span>
+    </>
   )
 }
