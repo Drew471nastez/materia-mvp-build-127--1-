@@ -230,22 +230,37 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           <div className="flex items-center justify-between gap-3">
             {/* Horizontal Tab Pills */}
             <div className="flex items-center gap-2">
-              {tabOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setActiveTab(option.value)}
-                  className={`inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium rounded-xl transition-colors cursor-pointer ${
-                    activeTab === option.value
-                      ? "bg-white border border-[#e5e7eb] text-[#374151] shadow-sm"
-                      : "bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb]"
-                  }`}
-                >
-                  {option.label}
-                  <span className={`text-[11px] ${activeTab === option.value ? "text-[#9ca3af]" : "text-[#9ca3af]"}`}>
-                    {tabCounts[option.value]}
-                  </span>
-                </button>
-              ))}
+              {tabOptions.map((option) => {
+                // Active tab keeps the original white/border/shadow style
+                // All and Archived tabs use pill style like Sales page
+                const isActiveTab = option.value === "active"
+                const isSelected = activeTab === option.value
+
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => setActiveTab(option.value)}
+                    className={`inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors cursor-pointer ${
+                      isActiveTab
+                        ? `px-4 py-2 rounded-xl ${
+                            isSelected
+                              ? "bg-white border border-[#e5e7eb] text-[#374151] shadow-sm"
+                              : "bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb]"
+                          }`
+                        : `px-3 sm:px-4 py-1.5 rounded-full ${
+                            isSelected
+                              ? "bg-[#e5e7eb] text-[#374151]"
+                              : "text-[#6b7280] hover:bg-[#f3f4f6]"
+                          }`
+                    }`}
+                  >
+                    {option.label}
+                    <span className="text-[11px] text-[#9ca3af]">
+                      {tabCounts[option.value]}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
 
             {/* Search Button */}
@@ -310,20 +325,27 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <Link href={`/app/products/${product.id}`} className="text-[14px] font-medium text-[#1a1a2e] hover:text-[#8b5cf6] line-clamp-1 transition-colors">
-                        {product.title}
-                      </Link>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${
-                          product.status === "published"
-                            ? "text-[#8b5cf6] bg-[#f5f3ff]"
-                            : product.archived
-                            ? "text-[#6b7280] bg-[#f3f4f6]"
-                            : "text-[#6b7280] bg-[#f3f4f6]"
-                        }`}>
-                          {product.archived ? "Archived" : product.status}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/app/products/${product.id}`} className="text-[14px] font-medium text-[#1a1a2e] hover:text-[#8b5cf6] line-clamp-1 transition-colors">
+                          {product.title}
+                        </Link>
+                        {/* Green dot for published status on mobile */}
+                        {product.status === "published" && !product.archived && (
+                          <span className="flex-shrink-0 w-2 h-2 rounded-full bg-emerald-500" title="Published" />
+                        )}
                       </div>
+                      {/* Show status badge only for non-published products on mobile */}
+                      {(product.status !== "published" || product.archived) && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${
+                            product.archived
+                              ? "text-[#6b7280] bg-[#f3f4f6]"
+                              : "text-[#6b7280] bg-[#f3f4f6]"
+                          }`}>
+                            {product.archived ? "Archived" : product.status}
+                          </span>
+                        </div>
+                      )}
                       <p className="mt-1.5 text-[13px] font-semibold text-[#1a1a2e]">{formatPrice(product.price_cents)}</p>
                     </div>
                     {/* Action Buttons */}
