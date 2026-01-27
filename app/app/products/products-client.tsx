@@ -948,57 +948,82 @@ function ProductDetailsModal({
       try {
         const supabase = createClient()
 
-        // Fetch product views from product_views table
-        const { data: viewsData, count: totalViews } = await supabase
-          .from("product_views")
-          .select("*", { count: "exact" })
-          .eq("product_id", product.id)
+        // Get current user's creator ID first
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          throw new Error("Not authenticated")
+        }
 
-        // Fetch orders/entitlements for this product
+        const { data: creator } = await supabase
+          .from("creators")
+          .select("id")
+          .eq("user_id", user.id)
+          .single()
+
+        if (!creator) {
+          throw new Error("Creator not found")
+        }
+
+        // Fetch views from analytics_events table (this is where track-view API writes)
+        const { count: totalViews } = await supabase
+          .from("analytics_events")
+          .select("*", { count: "exact", head: true })
+          .eq("product_id", product.id)
+          .eq("event_type", "view")
+          .eq("creator_id", creator.id)
+
+        // Fetch completed orders for this product from orders table
         const { data: ordersData, count: totalOrders } = await supabase
-          .from("entitlements")
-          .select("*, order:orders(*)", { count: "exact" })
+          .from("orders")
+          .select("id, buyer_id, amount_cents, created_at", { count: "exact" })
           .eq("product_id", product.id)
+          .eq("status", "completed")
 
-        // Fetch refunds for this product
-        const { data: refundsData, count: totalRefunds } = await supabase
+        // Fetch refunds for this product (completed refunds only)
+        const { count: totalRefunds } = await supabase
           .from("refunds")
-          .select("*", { count: "exact" })
+          .select("*", { count: "exact", head: true })
           .eq("product_id", product.id)
+          .eq("status", "completed")
 
-        // Get unique customers
+        // Get unique customers from orders
         const uniqueCustomers = new Set(ordersData?.map(o => o.buyer_id) || []).size
 
         // Calculate revenue from orders
         const revenue = (ordersData || []).reduce((sum, order) => {
-          return sum + (order.order?.amount_cents || product.price_cents)
+          return sum + (order.amount_cents || 0)
         }, 0)
 
-        // Get views data for chart (last 7 days)
+        // Get last 7 days dates
         const last7Days = Array.from({ length: 7 }, (_, i) => {
           const date = new Date()
           date.setDate(date.getDate() - (6 - i))
           return date.toISOString().split('T')[0]
         })
 
+        // Get views data for chart from analytics_events
         const { data: dailyViews } = await supabase
-          .from("product_views")
-          .select("viewed_at")
-          .eq("product_id", product.id)
-          .gte("viewed_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-
-        const { data: dailyOrders } = await supabase
-          .from("entitlements")
+          .from("analytics_events")
           .select("created_at")
           .eq("product_id", product.id)
+          .eq("event_type", "view")
+          .eq("creator_id", creator.id)
+          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+
+        // Get orders data for chart
+        const { data: dailyOrdersData } = await supabase
+          .from("orders")
+          .select("created_at")
+          .eq("product_id", product.id)
+          .eq("status", "completed")
           .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
 
         // Build chart data
         const chartData = last7Days.map(date => {
           const dayViews = (dailyViews || []).filter(v =>
-            v.viewed_at?.startsWith(date)
+            v.created_at?.startsWith(date)
           ).length
-          const dayOrders = (dailyOrders || []).filter(o =>
+          const dayOrders = (dailyOrdersData || []).filter(o =>
             o.created_at?.startsWith(date)
           ).length
           return {
@@ -1008,28 +1033,30 @@ function ProductDetailsModal({
           }
         })
 
-        // Get first and last sale dates
+        // Get first and last sale dates from orders
         const { data: firstSaleData } = await supabase
-          .from("entitlements")
+          .from("orders")
           .select("created_at")
           .eq("product_id", product.id)
+          .eq("status", "completed")
           .order("created_at", { ascending: true })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         const { data: lastSaleData } = await supabase
-          .from("entitlements")
+          .from("orders")
           .select("created_at")
           .eq("product_id", product.id)
+          .eq("status", "completed")
           .order("created_at", { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         const views = totalViews || 0
         const orders = totalOrders || 0
         const refunds = totalRefunds || 0
         const conversionRate = views > 0 ? ((orders / views) * 100).toFixed(1) : "0.0"
-        const avgOrderValue = orders > 0 ? revenue / orders : 0
+        const avgOrderValue = orders > 0 ? Math.round(revenue / orders) : 0
         const refundRate = orders > 0 ? ((refunds / orders) * 100).toFixed(1) : "0.0"
         const daysLive = Math.max(1, Math.floor((Date.now() - new Date(product.created_at).getTime()) / (1000 * 60 * 60 * 24)))
 
@@ -1167,16 +1194,7 @@ function ProductDetailsModal({
         >
           {/* Desktop Header */}
           <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between z-10">
-            <div className="flex items-center gap-3">
-              <Image
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-                alt="StoreLib"
-                width={24}
-                height={24}
-                className="opacity-80"
-              />
-              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
-            </div>
+            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">StoreLib Product Analytics</h2>
             <button
               type="button"
               onClick={handleClose}
@@ -1411,16 +1429,7 @@ function ProductDetailsModal({
 
           {/* Mobile Header */}
           <div className="px-5 pb-4 flex items-center justify-between border-b border-[#e5e7eb]">
-            <div className="flex items-center gap-2">
-              <Image
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-                alt="StoreLib"
-                width={20}
-                height={20}
-                className="opacity-80"
-              />
-              <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
-            </div>
+            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">StoreLib Product Analytics</h2>
             <button
               type="button"
               onClick={handleClose}
