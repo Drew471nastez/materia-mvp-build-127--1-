@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, RotateCcw, TrendingUp, ShoppingCart, DollarSign, Users, BarChart3, Calendar, Target, Clock, ArrowUpRight, Percent, Download, FileText, Table } from "lucide-react"
+import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, RotateCcw, Download, FileText, Table } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { getProductUrl } from "@/lib/url-helpers"
@@ -22,21 +22,6 @@ interface Product {
   archived?: boolean
   description?: string | null
   includes_community?: boolean
-}
-
-interface ProductAnalytics {
-  views: number
-  orders: number
-  revenue: number
-  conversionRate: string
-  avgOrderValue: number
-  refunds: number
-  refundRate: string
-  customers: number
-  chartData: { day: string; views: number; orders: number }[]
-  daysLive: number
-  lastSale: string
-  firstSale: string
 }
 
 interface ProductsClientProps {
@@ -192,8 +177,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [notification, setNotification] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" })
-  const [productDetailsOpen, setProductDetailsOpen] = useState(false)
-  const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
@@ -342,16 +325,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       console.error("Error copying to clipboard:", error)
       showNotification("Failed to copy link", "error")
     }
-  }
-
-  const handleProductClick = (product: Product) => {
-    setSelectedProductForDetails(product)
-    setProductDetailsOpen(true)
-  }
-
-  const closeProductDetails = () => {
-    setProductDetailsOpen(false)
-    setTimeout(() => setSelectedProductForDetails(null), 300)
   }
 
   const handleDeleteConfirm = async () => {
@@ -573,9 +546,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 <div key={product.id} className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                   <div className="flex gap-3">
                     {/* Clickable product area */}
-                    <button
-                      type="button"
-                      onClick={() => handleProductClick(product)}
+                    <Link
+                      href={`/app/products/${product.id}`}
                       className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#f3f4f6] cursor-pointer hover:ring-2 hover:ring-[#8b5cf6]/20 transition-all"
                     >
                       {product.thumbnail_url ? (
@@ -590,8 +562,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           <Package className="h-6 w-6 text-[#9ca3af]" />
                         </div>
                       )}
-                    </button>
-                    <button type="button" onClick={() => handleProductClick(product)} className="flex-1 min-w-0 text-left cursor-pointer">
+                    </Link>
+                    <Link href={`/app/products/${product.id}`} className="flex-1 min-w-0 text-left cursor-pointer">
                       <div className="flex items-center gap-2">
                         <span className="text-[14px] font-medium text-[#1a1a2e] hover:text-[#8b5cf6] line-clamp-1 transition-colors">
                           {product.title}
@@ -614,7 +586,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         </div>
                       )}
                       <p className="mt-1.5 text-[13px] font-semibold text-[#1a1a2e]">{formatPrice(product.price_cents)}</p>
-                    </button>
+                    </Link>
                     {/* Action Buttons */}
                     <div className="flex items-center gap-1.5 shrink-0">
                       {/* Edit Button - Light gray */}
@@ -695,7 +667,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                   </thead>
                   <tbody>
                     {filteredProducts.map((product) => (
-                      <tr key={product.id} className="border-b border-[#e5e7eb]/60 last:border-0 hover:bg-[#f9fafb] transition-colors cursor-pointer" onClick={() => handleProductClick(product)}>
+                      <tr key={product.id} className="border-b border-[#e5e7eb]/60 last:border-0 hover:bg-[#f9fafb] transition-colors">
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[#f3f4f6]">
@@ -729,7 +701,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                             {product.archived ? "Archived" : product.status}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             {/* Edit Button - Light gray */}
                             <Link
@@ -753,7 +725,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                             {product.archived || product.status === "archived" ? (
                               <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); handleArchive(product); }}
+                                onClick={() => handleArchive(product)}
                                 className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
                               >
                                 <RotateCcw className="h-3.5 w-3.5" />
@@ -762,7 +734,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                             ) : (
                               <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); handleShare(product); }}
+                                onClick={() => handleShare(product)}
                                 className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
                               >
                                 <Share2 className="h-3.5 w-3.5" />
@@ -903,586 +875,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           </div>
         </div>
       )}
-
-      {/* Product Details Modal */}
-      {productDetailsOpen && selectedProductForDetails && (
-        <ProductDetailsModal
-          isOpen={productDetailsOpen}
-          onClose={closeProductDetails}
-          product={selectedProductForDetails}
-          formatPrice={formatPrice}
-          creatorUsername={creatorUsername}
-        />
-      )}
     </div>
-  )
-}
-
-// Product Details Modal Component with Real Analytics Data
-function ProductDetailsModal({
-  isOpen,
-  onClose,
-  product,
-  formatPrice,
-  creatorUsername,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  product: Product
-  formatPrice: (cents: number) => string
-  creatorUsername: string
-}) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [analytics, setAnalytics] = useState<ProductAnalytics | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const startY = React.useRef(0)
-  const sheetRef = React.useRef<HTMLDivElement>(null)
-
-  // Fetch real analytics data from API endpoint (uses admin client for accurate data)
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      setIsLoading(true)
-      try {
-        const response = await fetch(`/api/product-analytics?productId=${product.id}`)
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch analytics")
-        }
-
-        const data = await response.json()
-
-        setAnalytics({
-          views: data.views,
-          orders: data.orders,
-          revenue: data.revenue,
-          conversionRate: data.conversionRate,
-          avgOrderValue: data.avgOrderValue,
-          refunds: data.refunds,
-          refundRate: data.refundRate,
-          customers: data.customers,
-          chartData: data.chartData,
-          daysLive: data.daysLive,
-          firstSale: data.firstSale,
-          lastSale: data.lastSale,
-        })
-      } catch (error) {
-        console.error("Error fetching analytics:", error)
-        // Set default analytics on error
-        setAnalytics({
-          views: 0,
-          orders: 0,
-          revenue: 0,
-          conversionRate: "0.0",
-          avgOrderValue: 0,
-          refunds: 0,
-          refundRate: "0.0",
-          customers: 0,
-          chartData: Array.from({ length: 7 }, (_, i) => ({
-            day: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'short' }),
-            views: 0,
-            orders: 0,
-          })),
-          daysLive: Math.max(1, Math.floor((Date.now() - new Date(product.created_at).getTime()) / (1000 * 60 * 60 * 24))),
-          firstSale: "No sales yet",
-          lastSale: "No sales yet",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    if (isOpen && product) {
-      fetchAnalytics()
-    }
-  }, [isOpen, product])
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      document.body.style.overflow = ""
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
-    return () => {
-      document.body.style.overflow = ""
-    }
-  }, [isOpen, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setDragY(0)
-    setTimeout(() => {
-      onClose()
-    }, 400)
-  }
-
-  // Handle drag for mobile swipe-to-close
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-
-    if (touchYInSheet <= 60) {
-      startY.current = touch.clientY
-      setIsDragging(true)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startY.current
-    if (diff > 0) {
-      setDragY(diff * 0.8)
-    }
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 80) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
-  }
-
-  if (!isVisible) return null
-
-  const maxChartValue = Math.max(...(analytics?.chartData.map(d => d.views) || [1]), 1)
-
-  return (
-    <>
-      {/* Desktop Modal */}
-      <div className="fixed inset-0 z-50 hidden sm:flex items-center justify-center p-4">
-        <div
-          className={`absolute inset-0 bg-black/50 transition-opacity duration-400 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
-          onClick={handleClose}
-        />
-        <div
-          className={`relative bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl transition-all duration-400 ${
-            isAnimating ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-          }`}
-          style={{ transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
-        >
-          {/* Desktop Header */}
-          <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between z-10">
-            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Desktop Content */}
-          <div className="p-6 space-y-6">
-            {/* Product Header */}
-            <div className="flex items-center gap-4">
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#f3f4f6]">
-                {product.thumbnail_url ? (
-                  <Image
-                    src={product.thumbnail_url}
-                    alt={product.title}
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <Package className="h-7 w-7 text-[#9ca3af]" />
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-[16px] font-semibold text-[#1a1a2e] line-clamp-1">{product.title}</h3>
-                <p className="text-[14px] text-[#6b7280] mt-0.5">{formatPrice(product.price_cents)} · {product.type}</p>
-              </div>
-              <span className={`text-[12px] font-medium px-2.5 py-1 rounded-full capitalize ${
-                product.status === "published"
-                  ? "text-[#8b5cf6] bg-[#f5f3ff]"
-                  : "text-[#6b7280] bg-[#f3f4f6]"
-              }`}>
-                {product.archived ? "Archived" : product.status}
-              </span>
-            </div>
-
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-8 h-8 border-2 border-[#e5e7eb] border-t-[#8b5cf6] rounded-full animate-spin" />
-              </div>
-            ) : analytics && (
-              <>
-                {/* KPI Stats Grid - Matching Sales page styling */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
-                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                        <Eye className="h-4 w-4 text-[#9ca3af]" />
-                      </div>
-                    </div>
-                    <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.views.toLocaleString()}</p>
-                    <p className="text-[11px] text-[#9ca3af] mt-1">Page impressions</p>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[13px] font-medium text-[#6b7280]">Orders</span>
-                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                        <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
-                      </div>
-                    </div>
-                    <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.orders.toLocaleString()}</p>
-                    <p className="text-[11px] text-[#9ca3af] mt-1">Completed orders</p>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[13px] font-medium text-[#6b7280]">Revenue</span>
-                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                        <DollarSign className="h-4 w-4 text-[#9ca3af]" />
-                      </div>
-                    </div>
-                    <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{formatPrice(analytics.revenue)}</p>
-                    <p className="text-[11px] text-[#9ca3af] mt-1">Gross revenue</p>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[13px] font-medium text-[#6b7280]">Conversion</span>
-                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                        <Target className="h-4 w-4 text-[#9ca3af]" />
-                      </div>
-                    </div>
-                    <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.conversionRate}%</p>
-                    <p className="text-[11px] text-[#9ca3af] mt-1">View to order rate</p>
-                  </div>
-                </div>
-
-                {/* Mini Chart - Views over last 7 days */}
-                <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-[#9ca3af]" />
-                      Views (Last 7 Days)
-                    </h4>
-                    <span className="text-[11px] text-[#9ca3af]">Real-time data</span>
-                  </div>
-                  <div className="flex items-end gap-2 h-24">
-                    {analytics.chartData.map((data, index) => (
-                      <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                        <div
-                          className="w-full bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-t-sm transition-all duration-300"
-                          style={{ height: `${Math.max((data.views / maxChartValue) * 100, 4)}%`, minHeight: '4px' }}
-                        />
-                        <span className="text-[10px] text-[#9ca3af]">{data.day}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Additional Stats */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
-                    <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                      <Users className="h-4 w-4 text-[#9ca3af]" />
-                      Customer Insights
-                    </h4>
-                    <div className="space-y-2.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[12px] text-[#6b7280]">Unique Customers</span>
-                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.customers}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[12px] text-[#6b7280]">Avg Order Value</span>
-                        <span className="text-[13px] font-medium text-[#1a1a2e]">{formatPrice(analytics.avgOrderValue)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[12px] text-[#6b7280]">Refund Rate</span>
-                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.refundRate}%</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
-                    <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-[#9ca3af]" />
-                      Timeline
-                    </h4>
-                    <div className="space-y-2.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[12px] text-[#6b7280]">Days Live</span>
-                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.daysLive} days</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[12px] text-[#6b7280]">First Sale</span>
-                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.firstSale}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[12px] text-[#6b7280]">Last Sale</span>
-                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.lastSale}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Performance Metrics */}
-                <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
-                  <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
-                    Performance Metrics
-                  </h4>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <span className="text-[12px] text-[#6b7280]">Revenue/Day</span>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">{analytics.daysLive > 0 ? formatPrice(analytics.revenue / analytics.daysLive) : '$0.00'}</p>
-                    </div>
-                    <div>
-                      <span className="text-[12px] text-[#6b7280]">Orders/Day</span>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">{analytics.daysLive > 0 ? (analytics.orders / analytics.daysLive).toFixed(1) : '0'}</p>
-                    </div>
-                    <div>
-                      <span className="text-[12px] text-[#6b7280]">Views/Day</span>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">{analytics.daysLive > 0 ? Math.round(analytics.views / analytics.daysLive) : '0'}</p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-2">
-              <Link
-                href={`/app/products/${product.id}`}
-                className="flex-1 inline-flex items-center justify-center gap-2 h-11 px-4 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-[14px] font-medium rounded-xl transition-colors"
-              >
-                <Pencil className="h-4 w-4" />
-                Edit Product
-              </Link>
-              <a
-                href={getProductUrl(creatorUsername, product.slug)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 inline-flex items-center justify-center gap-2 h-11 px-4 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[14px] font-medium rounded-xl transition-colors"
-              >
-                <Eye className="h-4 w-4" />
-                View Page
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Bottom Sheet */}
-      <div className="fixed inset-0 z-50 sm:hidden">
-        <div
-          className={`absolute inset-0 bg-black/50 transition-opacity duration-400 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
-          onClick={handleClose}
-        />
-        <div
-          ref={sheetRef}
-          className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] transition-transform duration-400 max-h-[92vh] overflow-hidden ${
-            isAnimating ? 'translate-y-0' : 'translate-y-full'
-          }`}
-          style={{
-            transform: `translateY(${isAnimating ? dragY : '100%'}px)`,
-            transitionTimingFunction: isDragging ? 'linear' : 'cubic-bezier(0.32, 0.72, 0, 1)',
-            transitionDuration: isDragging ? '0ms' : '400ms'
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Drag Handle */}
-          <div className="flex justify-center py-3">
-            <div className="w-10 h-1 rounded-full bg-[#d1d5db]" />
-          </div>
-
-          {/* Mobile Header */}
-          <div className="px-5 pb-4 flex items-center justify-between border-b border-[#e5e7eb]">
-            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="w-8 h-8 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[#6b7280]"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Mobile Content - Scrollable */}
-          <div className="overflow-y-auto max-h-[calc(92vh-80px)] overscroll-contain">
-            <div className="p-5 space-y-5">
-              {/* Product Header */}
-              <div className="flex items-center gap-3">
-                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[#f3f4f6]">
-                  {product.thumbnail_url ? (
-                    <Image
-                      src={product.thumbnail_url}
-                      alt={product.title}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <Package className="h-6 w-6 text-[#9ca3af]" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] line-clamp-1">{product.title}</h3>
-                  <p className="text-[13px] text-[#6b7280]">{formatPrice(product.price_cents)}</p>
-                </div>
-              </div>
-
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-8 h-8 border-2 border-[#e5e7eb] border-t-[#8b5cf6] rounded-full animate-spin" />
-                </div>
-              ) : analytics && (
-                <>
-                  {/* KPI Stats Grid - Matching Sales page styling */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-medium text-[#6b7280]">Views</span>
-                        <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
-                          <Eye className="h-3 w-3 text-[#9ca3af]" />
-                        </div>
-                      </div>
-                      <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.views.toLocaleString()}</p>
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-medium text-[#6b7280]">Orders</span>
-                        <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
-                          <ShoppingCart className="h-3 w-3 text-[#9ca3af]" />
-                        </div>
-                      </div>
-                      <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.orders.toLocaleString()}</p>
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-medium text-[#6b7280]">Revenue</span>
-                        <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
-                          <DollarSign className="h-3 w-3 text-[#9ca3af]" />
-                        </div>
-                      </div>
-                      <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{formatPrice(analytics.revenue)}</p>
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-medium text-[#6b7280]">Conversion</span>
-                        <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
-                          <Target className="h-3 w-3 text-[#9ca3af]" />
-                        </div>
-                      </div>
-                      <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.conversionRate}%</p>
-                    </div>
-                  </div>
-
-                  {/* Mini Chart */}
-                  <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
-                        <BarChart3 className="h-3.5 w-3.5 text-[#9ca3af]" />
-                        Views (7 Days)
-                      </h4>
-                      <span className="text-[10px] text-[#9ca3af]">Real-time</span>
-                    </div>
-                    <div className="flex items-end gap-1.5 h-20">
-                      {analytics.chartData.map((data, index) => (
-                        <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                          <div
-                            className="w-full bg-[#8b5cf6] rounded-t-sm"
-                            style={{ height: `${Math.max((data.views / maxChartValue) * 100, 4)}%`, minHeight: '4px' }}
-                          />
-                          <span className="text-[9px] text-[#9ca3af]">{data.day.slice(0, 1)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Additional Stats */}
-                  <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
-                    <h4 className="text-[12px] font-semibold text-[#1a1a2e]">More Details</h4>
-                    <div className="grid grid-cols-2 gap-y-3 gap-x-4">
-                      <div>
-                        <span className="text-[11px] text-[#6b7280]">Customers</span>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.customers}</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] text-[#6b7280]">Avg Order</span>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">{formatPrice(analytics.avgOrderValue)}</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] text-[#6b7280]">Refund Rate</span>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.refundRate}%</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] text-[#6b7280]">Days Live</span>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.daysLive}</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] text-[#6b7280]">First Sale</span>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.firstSale}</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] text-[#6b7280]">Last Sale</span>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.lastSale}</p>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-1 pb-4">
-                <Link
-                  href={`/app/products/${product.id}`}
-                  className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-4 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-[14px] font-medium rounded-xl transition-colors"
-                >
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Link>
-                <a
-                  href={getProductUrl(creatorUsername, product.slug)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-4 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[14px] font-medium rounded-xl transition-colors"
-                >
-                  <Eye className="h-4 w-4" />
-                  View
-                </a>
-              </div>
-            </div>
-            {/* Safe area padding for iOS */}
-            <div className="h-[env(safe-area-inset-bottom)]" />
-          </div>
-        </div>
-      </div>
-    </>
   )
 }
