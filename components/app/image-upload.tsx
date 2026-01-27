@@ -71,60 +71,95 @@ export function ImageUpload({
       }
 
       try {
-        // For video uploads, use signed URL approach to handle large files
+        // For video uploads, use direct upload via API to bypass RLS issues
         if (isVideoMode) {
           setProgress(10)
 
-          // Get signed upload URL from API
-          const signedUrlResponse = await fetch("/api/storage/upload-video", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              filename: file.name,
-              contentType: file.type,
-              folder: folder,
-            }),
-          })
+          // Try direct upload via PUT endpoint first (more reliable)
+          const formData = new FormData()
+          formData.append("file", file)
+          formData.append("folder", folder)
+          formData.append("bucket", "product-videos")
 
-          if (!signedUrlResponse.ok) {
-            const errorData = await signedUrlResponse.json()
-            throw new Error(errorData.error || "Failed to get upload URL")
-          }
-
-          const { token, path, publicUrl } = await signedUrlResponse.json()
-
-          setProgress(20)
-
-          // Use Supabase client's uploadToSignedUrl for reliable uploads
-          const supabase = createClient()
-
-          // For progress tracking, we'll use a simulated progress since uploadToSignedUrl doesn't support it
+          // Simulate progress during upload
           const progressInterval = setInterval(() => {
-            setProgress((prev) => Math.min(prev + 5, 90))
-          }, 500)
+            setProgress((prev) => Math.min(prev + 3, 85))
+          }, 300)
 
           try {
-            const { error: uploadError } = await supabase.storage
-              .from("store-builder-images")
-              .uploadToSignedUrl(path, token, file, {
-                contentType: file.type,
-                upsert: true,
-              })
+            const uploadResponse = await fetch("/api/storage/upload-video", {
+              method: "PUT",
+              body: formData,
+            })
 
             clearInterval(progressInterval)
 
-            if (uploadError) {
-              console.error("[v0] Signed URL upload error:", uploadError)
-              throw uploadError
+            if (!uploadResponse.ok) {
+              const errorData = await uploadResponse.json()
+              throw new Error(errorData.error || "Upload failed")
             }
-          } catch (uploadErr) {
-            clearInterval(progressInterval)
-            throw uploadErr
-          }
 
-          setProgress(100)
-          console.log("[v0] Video upload successful, URL:", publicUrl)
-          onChange(publicUrl)
+            const { publicUrl } = await uploadResponse.json()
+
+            setProgress(100)
+            console.log("[v0] Video upload successful, URL:", publicUrl)
+            onChange(publicUrl)
+          } catch (directUploadErr) {
+            clearInterval(progressInterval)
+            console.error("[v0] Direct upload failed, trying signed URL method:", directUploadErr)
+
+            // Fallback to signed URL method
+            setProgress(10)
+
+            const signedUrlResponse = await fetch("/api/storage/upload-video", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                filename: file.name,
+                contentType: file.type,
+                folder: folder,
+                bucket: "product-videos",
+              }),
+            })
+
+            if (!signedUrlResponse.ok) {
+              const errorData = await signedUrlResponse.json()
+              throw new Error(errorData.error || "Failed to get upload URL")
+            }
+
+            const { token, path, publicUrl, bucket } = await signedUrlResponse.json()
+
+            setProgress(20)
+
+            const supabase = createClient()
+
+            const fallbackProgressInterval = setInterval(() => {
+              setProgress((prev) => Math.min(prev + 5, 90))
+            }, 500)
+
+            try {
+              const { error: uploadError } = await supabase.storage
+                .from(bucket)
+                .uploadToSignedUrl(path, token, file, {
+                  contentType: file.type,
+                  upsert: true,
+                })
+
+              clearInterval(fallbackProgressInterval)
+
+              if (uploadError) {
+                console.error("[v0] Signed URL upload error:", uploadError)
+                throw uploadError
+              }
+
+              setProgress(100)
+              console.log("[v0] Video upload successful via signed URL, URL:", publicUrl)
+              onChange(publicUrl)
+            } catch (signedUploadErr) {
+              clearInterval(fallbackProgressInterval)
+              throw signedUploadErr
+            }
+          }
         } else {
           // For image uploads, use the standard Supabase client
           const supabase = createClient()

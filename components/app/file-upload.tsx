@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState, useRef, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Upload, X, FileIcon, CheckCircle2, AlertCircle } from "lucide-react"
@@ -51,7 +50,6 @@ export function FileUpload({
       setUploading(true)
       setProgress(0)
 
-      const supabase = createClient()
       const newFiles: UploadedFile[] = []
       const totalFiles = selectedFiles.length
       let completedFiles = 0
@@ -64,51 +62,51 @@ export function FileUpload({
             continue
           }
 
-          // Generate unique path
-          const timestamp = Date.now()
-          const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-          const filePath = `products/${productId}/${timestamp}_${safeName}`
+          // Use the new API route that uses admin client (bypasses RLS)
+          const formData = new FormData()
+          formData.append("file", file)
+          formData.append("productId", productId)
 
-          const { error: uploadError } = await supabase.storage.from("product-files").upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          })
-
-          if (uploadError) {
-            console.error("[v0] Upload error:", uploadError)
-            setError(`Failed to upload "${file.name}": ${uploadError.message}`)
-            continue
-          }
-
-          const { data: urlData } = supabase.storage.from("product-files").getPublicUrl(filePath)
-
-          // Save to digital_assets table
-          const { data: asset, error: dbError } = await supabase
-            .from("digital_assets")
-            .insert({
-              product_id: productId,
-              file_name: file.name,
-              file_path: filePath, // Store the path, not the full URL
-              file_size: file.size,
+          // Start progress simulation
+          const progressInterval = setInterval(() => {
+            setProgress((prev) => {
+              const newProgress = prev + 5
+              return newProgress < 90 ? newProgress : prev
             })
-            .select()
-            .single()
+          }, 200)
 
-          if (dbError) {
-            console.error("[v0] DB error:", dbError)
-            setError(`Failed to save "${file.name}" metadata`)
+          try {
+            const response = await fetch("/api/storage/upload-file", {
+              method: "POST",
+              body: formData,
+            })
+
+            clearInterval(progressInterval)
+
+            if (!response.ok) {
+              const errorData = await response.json()
+              console.error("[v0] Upload error:", errorData)
+              setError(`Failed to upload "${file.name}": ${errorData.error || "Upload failed"}`)
+              continue
+            }
+
+            const { asset } = await response.json()
+
+            newFiles.push({
+              id: asset.id,
+              file_name: asset.file_name,
+              file_path: asset.file_path,
+              file_size: asset.file_size,
+            })
+
+            completedFiles++
+            setProgress(Math.round((completedFiles / totalFiles) * 100))
+          } catch (uploadErr) {
+            clearInterval(progressInterval)
+            console.error("[v0] Upload request error:", uploadErr)
+            setError(`Failed to upload "${file.name}": Network error`)
             continue
           }
-
-          newFiles.push({
-            id: asset.id,
-            file_name: file.name,
-            file_path: filePath,
-            file_size: file.size,
-          })
-
-          completedFiles++
-          setProgress(Math.round((completedFiles / totalFiles) * 100))
         }
 
         const updatedFiles = [...files, ...newFiles]
@@ -128,26 +126,27 @@ export function FileUpload({
   const handleDelete = async (fileToDelete: UploadedFile) => {
     if (!fileToDelete.id) return
 
-    const supabase = createClient()
+    setError(null)
 
-    // Delete from database
-    const { error } = await supabase.from("digital_assets").delete().eq("id", fileToDelete.id)
-
-    if (error) {
-      setError("Failed to delete file")
-      return
-    }
-
-    // Try to delete from storage
     try {
-      await supabase.storage.from("product-files").remove([fileToDelete.file_path])
-    } catch {
-      // Storage deletion is best-effort
-    }
+      // Use the new API route for deletion
+      const response = await fetch(`/api/storage/upload-file?assetId=${fileToDelete.id}`, {
+        method: "DELETE",
+      })
 
-    const updatedFiles = files.filter((f) => f.id !== fileToDelete.id)
-    setFiles(updatedFiles)
-    onUploadComplete?.(updatedFiles)
+      if (!response.ok) {
+        const errorData = await response.json()
+        setError(`Failed to delete file: ${errorData.error || "Delete failed"}`)
+        return
+      }
+
+      const updatedFiles = files.filter((f) => f.id !== fileToDelete.id)
+      setFiles(updatedFiles)
+      onUploadComplete?.(updatedFiles)
+    } catch (err) {
+      console.error("[v0] Delete error:", err)
+      setError("Failed to delete file")
+    }
   }
 
   const handleDrop = useCallback(

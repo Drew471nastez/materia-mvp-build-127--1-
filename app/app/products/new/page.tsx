@@ -640,43 +640,88 @@ export default function NewProductPage() {
           }
         }
 
-        const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-        const folder = productId || "temp"
-        const filePath = `${creatorId}/${folder}/${timestamp}_${safeName}`
+        // For videos, use the dedicated video upload API (bypasses RLS)
+        if (isVideo) {
+          const formData = new FormData()
+          formData.append("file", file)
+          formData.append("folder", productId || "temp")
+          formData.append("bucket", "product-videos")
 
-        const fileStartBytes = uploadedBytes
+          // Simulate progress for video upload
+          const progressInterval = setInterval(() => {
+            setUploadProgress((prev) => Math.min(prev + 3, 90))
+          }, 300)
 
-        const { error: uploadError } = await uploadWithProgress(
-          fileToUpload,
-          filePath,
-          (filePercent) => {
-            // Calculate overall progress based on bytes
-            const currentFileUploaded = (filePercent / 100) * fileToUpload.size
-            const totalUploaded = fileStartBytes + currentFileUploaded
-            const overallPercent = Math.round((totalUploaded / totalBytes) * 100)
-            setUploadProgress(Math.min(overallPercent, 99)) // Cap at 99% until fully done
+          try {
+            const uploadResponse = await fetch("/api/storage/upload-video", {
+              method: "PUT",
+              body: formData,
+            })
+
+            clearInterval(progressInterval)
+
+            if (!uploadResponse.ok) {
+              const errorData = await uploadResponse.json()
+              console.error("Video upload error:", errorData)
+              setError(`Failed to upload ${file.name}: ${errorData.error || "Upload failed"}`)
+              continue
+            }
+
+            const { publicUrl } = await uploadResponse.json()
+
+            newItems.push({
+              id: `${timestamp}-${Math.random().toString(36).slice(2)}`,
+              type: "video",
+              url: publicUrl,
+            })
+
+            completedFiles++
+          } catch (videoErr) {
+            clearInterval(progressInterval)
+            console.error("Video upload request error:", videoErr)
+            setError(`Failed to upload ${file.name}: Network error`)
+            continue
           }
-        )
+        } else {
+          // For images, use the standard upload with progress
+          const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+          const folder = productId || "temp"
+          const filePath = `${creatorId}/${folder}/${timestamp}_${safeName}`
 
-        if (uploadError) {
-          console.error("Upload error:", uploadError)
-          setError(`Failed to upload ${file.name}: ${uploadError.message}`)
-          continue
+          const fileStartBytes = uploadedBytes
+
+          const { error: uploadError } = await uploadWithProgress(
+            fileToUpload,
+            filePath,
+            (filePercent) => {
+              // Calculate overall progress based on bytes
+              const currentFileUploaded = (filePercent / 100) * fileToUpload.size
+              const totalUploaded = fileStartBytes + currentFileUploaded
+              const overallPercent = Math.round((totalUploaded / totalBytes) * 100)
+              setUploadProgress(Math.min(overallPercent, 99)) // Cap at 99% until fully done
+            }
+          )
+
+          if (uploadError) {
+            console.error("Upload error:", uploadError)
+            setError(`Failed to upload ${file.name}: ${uploadError.message}`)
+            continue
+          }
+
+          uploadedBytes += fileToUpload.size
+
+          const { data: { publicUrl } } = supabase.storage
+            .from("product-images")
+            .getPublicUrl(filePath)
+
+          newItems.push({
+            id: `${timestamp}-${Math.random().toString(36).slice(2)}`,
+            type: "image",
+            url: publicUrl,
+          })
+
+          completedFiles++
         }
-
-        uploadedBytes += fileToUpload.size
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("product-images")
-          .getPublicUrl(filePath)
-
-        newItems.push({
-          id: `${timestamp}-${Math.random().toString(36).slice(2)}`,
-          type: isVideo ? "video" : "image",
-          url: publicUrl,
-        })
-
-        completedFiles++
       }
 
       // Show combined warning if multiple images were processed
