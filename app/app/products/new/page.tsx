@@ -43,6 +43,7 @@ import {
   FileText,
   GripVertical,
   Play,
+  Info,
 } from "lucide-react"
 import Link from "next/link"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
@@ -166,6 +167,9 @@ export default function NewProductPage() {
   // External file drag state for media picker
   const [isExternalDragOver, setIsExternalDragOver] = useState(false)
   const dragCounterRef = useRef(0)
+
+  // Ratio warning state for non-widescreen images
+  const [ratioWarning, setRatioWarning] = useState<string | null>(null)
 
   // Track changes for unsaved warning
   useEffect(() => {
@@ -403,6 +407,149 @@ export default function NewProductPage() {
     }
   }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction])
 
+  // Process image to fit 1280x720 canvas (for non-widescreen images)
+  const processImageToWidescreen = async (file: File): Promise<{ processedFile: File; wasProcessed: boolean; originalRatio: string }> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      const reader = new FileReader()
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string
+      }
+
+      img.onload = () => {
+        const targetWidth = 1280
+        const targetHeight = 720
+        const targetRatio = targetWidth / targetHeight // ~1.78 (16:9)
+        const imageRatio = img.width / img.height
+
+        // Determine original ratio description
+        let originalRatio = "landscape"
+        if (imageRatio < 0.95) {
+          originalRatio = "portrait"
+        } else if (imageRatio >= 0.95 && imageRatio <= 1.05) {
+          originalRatio = "square"
+        }
+
+        // Check if image is already close to widescreen ratio (within 10% tolerance)
+        const isWidescreen = imageRatio >= 1.5 && imageRatio <= 2.0
+
+        if (isWidescreen) {
+          // Image is already widescreen, no processing needed
+          resolve({ processedFile: file, wasProcessed: false, originalRatio })
+          return
+        }
+
+        // Create canvas with target dimensions
+        const canvas = document.createElement("canvas")
+        canvas.width = targetWidth
+        canvas.height = targetHeight
+        const ctx = canvas.getContext("2d")
+
+        if (!ctx) {
+          reject(new Error("Could not get canvas context"))
+          return
+        }
+
+        // Fill with dark background (matches the placeholder style)
+        ctx.fillStyle = "#1f1f1f"
+        ctx.fillRect(0, 0, targetWidth, targetHeight)
+
+        // Calculate dimensions to fit image within the canvas while maintaining aspect ratio
+        let drawWidth: number
+        let drawHeight: number
+
+        if (imageRatio > targetRatio) {
+          // Image is wider than target - fit by width
+          drawWidth = targetWidth
+          drawHeight = targetWidth / imageRatio
+        } else {
+          // Image is taller than target - fit by height
+          drawHeight = targetHeight
+          drawWidth = targetHeight * imageRatio
+        }
+
+        // Center the image
+        const x = (targetWidth - drawWidth) / 2
+        const y = (targetHeight - drawHeight) / 2
+
+        // Draw the image centered on the canvas
+        ctx.drawImage(img, x, y, drawWidth, drawHeight)
+
+        // Convert canvas to blob
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Failed to create blob"))
+              return
+            }
+
+            // Create new file with same name but as PNG for lossless quality
+            const processedFile = new File(
+              [blob],
+              file.name.replace(/\.[^/.]+$/, "") + "_processed.jpg",
+              { type: "image/jpeg" }
+            )
+
+            resolve({ processedFile, wasProcessed: true, originalRatio })
+          },
+          "image/jpeg",
+          0.92 // High quality JPEG
+        )
+      }
+
+      img.onerror = () => reject(new Error("Failed to load image"))
+      reader.onerror = () => reject(new Error("Failed to read file"))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  // Upload file with XMLHttpRequest for real progress tracking
+  const uploadWithProgress = async (
+    file: File,
+    filePath: string,
+    onProgress: (percent: number) => void
+  ): Promise<{ error: Error | null }> => {
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session) {
+      return { error: new Error("Not authenticated") }
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const uploadUrl = `${supabaseUrl}/storage/v1/object/product-images/${filePath}`
+
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest()
+
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100)
+          onProgress(percent)
+        }
+      })
+
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve({ error: null })
+        } else {
+          resolve({ error: new Error(`Upload failed: ${xhr.statusText}`) })
+        }
+      })
+
+      xhr.addEventListener("error", () => {
+        resolve({ error: new Error("Upload failed") })
+      })
+
+      xhr.open("POST", uploadUrl)
+      xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`)
+      xhr.setRequestHeader("x-upsert", "false")
+      xhr.setRequestHeader("cache-control", "3600")
+      xhr.send(file)
+    })
+  }
+
   // Handle media upload with progress
   const handleMediaUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -415,10 +562,15 @@ export default function NewProductPage() {
     const totalFiles = files.length
     let completedFiles = 0
 
+    // Calculate total bytes for accurate progress
+    const filesToUpload: File[] = []
+    let totalBytes = 0
+
     // Supported video MIME types
     const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mov', 'video/mpeg', 'video/x-m4v']
 
     try {
+      // First pass: validate files and calculate total size
       for (const file of Array.from(files)) {
         const isImage = file.type.startsWith("image/")
         const isVideo = videoTypes.includes(file.type) || file.type.startsWith("video/")
@@ -442,25 +594,77 @@ export default function NewProductPage() {
         }
 
         const existingImages = mediaItems.filter(m => m.type === "image").length
-        if (!isVideo && existingImages + newItems.filter(m => m.type === "image").length >= MAX_PHOTOS) {
+        if (!isVideo && existingImages + filesToUpload.filter(f => f.type.startsWith("image/")).length >= MAX_PHOTOS) {
           setError(`Maximum ${MAX_PHOTOS} photos allowed`)
           continue
         }
 
+        filesToUpload.push(file)
+        totalBytes += file.size
+      }
+
+      // Second pass: upload files with progress
+      let uploadedBytes = 0
+      let processedCount = 0
+
+      // Clear previous ratio warning
+      setRatioWarning(null)
+
+      for (const file of filesToUpload) {
+        const isVideo = videoTypes.includes(file.type) || file.type.startsWith("video/")
+        const isImage = file.type.startsWith("image/")
         const timestamp = Date.now()
-        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+
+        let fileToUpload = file
+        let originalRatio = "landscape"
+
+        // Process images that are not widescreen
+        if (isImage) {
+          try {
+            const result = await processImageToWidescreen(file)
+            fileToUpload = result.processedFile
+            originalRatio = result.originalRatio
+
+            if (result.wasProcessed) {
+              processedCount++
+              // Show ratio warning
+              if (result.originalRatio === "square") {
+                setRatioWarning(`Image "${file.name}" was square and has been fitted to 1280x720.`)
+              } else if (result.originalRatio === "portrait") {
+                setRatioWarning(`Image "${file.name}" was portrait and has been fitted to 1280x720.`)
+              }
+            }
+          } catch (err) {
+            console.error("Image processing error:", err)
+            // Continue with original file if processing fails
+          }
+        }
+
+        const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, "_")
         const folder = productId || "temp"
         const filePath = `${creatorId}/${folder}/${timestamp}_${safeName}`
 
-        const { error: uploadError } = await supabase.storage
-          .from("product-images")
-          .upload(filePath, file, { cacheControl: "3600", upsert: false })
+        const fileStartBytes = uploadedBytes
+
+        const { error: uploadError } = await uploadWithProgress(
+          fileToUpload,
+          filePath,
+          (filePercent) => {
+            // Calculate overall progress based on bytes
+            const currentFileUploaded = (filePercent / 100) * fileToUpload.size
+            const totalUploaded = fileStartBytes + currentFileUploaded
+            const overallPercent = Math.round((totalUploaded / totalBytes) * 100)
+            setUploadProgress(Math.min(overallPercent, 99)) // Cap at 99% until fully done
+          }
+        )
 
         if (uploadError) {
           console.error("Upload error:", uploadError)
           setError(`Failed to upload ${file.name}: ${uploadError.message}`)
           continue
         }
+
+        uploadedBytes += fileToUpload.size
 
         const { data: { publicUrl } } = supabase.storage
           .from("product-images")
@@ -473,13 +677,20 @@ export default function NewProductPage() {
         })
 
         completedFiles++
-        setUploadProgress(Math.round((completedFiles / totalFiles) * 100))
+      }
+
+      // Show combined warning if multiple images were processed
+      if (processedCount > 1) {
+        setRatioWarning(`${processedCount} images were fitted to 1280x720 (recommended ratio).`)
       }
 
       if (newItems.length > 0) {
+        setUploadProgress(100)
         setMediaItems(prev => [...prev, ...newItems])
       }
     } finally {
+      // Brief delay to show 100% completion
+      await new Promise(resolve => setTimeout(resolve, 300))
       setUploadingMedia(false)
       setUploadProgress(0)
     }
@@ -788,7 +999,7 @@ export default function NewProductPage() {
             <div
               className={`
                 flex items-center gap-2 overflow-hidden
-                ${isScrolled ? 'max-h-0 py-0 opacity-0 pointer-events-none' : 'max-h-16 py-3 opacity-100'}
+                ${isScrolled ? 'max-h-0 py-0 opacity-0 pointer-events-none' : 'max-h-16 pt-[14px] pb-3 sm:py-3 opacity-100'}
               `}
               style={{
                 transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -806,7 +1017,7 @@ export default function NewProductPage() {
             </div>
 
             {/* Pills Row */}
-            <div className={`py-3 ${isScrolled ? '' : 'pt-0'}`}>
+            <div className={`py-3 ${isScrolled ? '' : 'pt-0 sm:pt-0.5'}`}>
               <div
                 ref={pillScrollRef}
                 className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth"
@@ -1147,6 +1358,12 @@ export default function NewProductPage() {
                         Upload
                       </Button>
 
+                      {/* Recommended ratio info */}
+                      <p className="mt-2 text-[10px] sm:text-xs text-gray-400 flex items-center gap-1">
+                        <Info className="h-3 w-3" />
+                        Recommended: horizontal 1280x720px
+                      </p>
+
                       {/* YouTube inline input */}
                       {!showYoutubeInput ? (
                         <button
@@ -1233,6 +1450,24 @@ export default function NewProductPage() {
                 <p className="text-xs text-gray-400">
                   {existingImages}/{MAX_PHOTOS} images · {mediaItems.filter(m => m.type === "video").length}/1 video · {existingYouTube}/{MAX_YOUTUBE_VIDEOS} YouTube
                 </p>
+
+                {/* Ratio warning */}
+                {ratioWarning && (
+                  <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                    <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p>{ratioWarning}</p>
+                      <p className="text-amber-600 mt-1">For best results, use horizontal images (1280x720px or 1920x1080px).</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRatioWarning(null)}
+                      className="ml-auto p-0.5 text-amber-500 hover:text-amber-700 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Content Section */}
