@@ -243,8 +243,33 @@ export default function NewProductPage() {
     checkSectionCompletion()
   }, [checkSectionCompletion])
 
-  // Scroll spy for active section and header hide/show
+  // Scroll to top on page load FIRST - before anything else
   useEffect(() => {
+    // Force scroll to top immediately on all scroll containers
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+
+    // Use requestAnimationFrame to ensure DOM is painted
+    requestAnimationFrame(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0
+      }
+      // Double-check after a small delay
+      setTimeout(() => {
+        if (contentRef.current) {
+          contentRef.current.scrollTop = 0
+        }
+        window.scrollTo(0, 0)
+        setIsPageReady(true)
+      }, 50)
+    })
+  }, [])
+
+  // Scroll spy for active section and header hide/show - only after page is ready
+  useEffect(() => {
+    if (!isPageReady) return // Don't run until page is ready
+
     const handleScroll = () => {
       if (!contentRef.current) return
 
@@ -294,11 +319,11 @@ export default function NewProductPage() {
     const content = contentRef.current
     if (content) {
       content.addEventListener("scroll", handleScroll, { passive: true })
-      // Initial check
-      handleScroll()
+      // Initial check after a small delay to ensure scroll position is correct
+      setTimeout(() => handleScroll(), 100)
       return () => content.removeEventListener("scroll", handleScroll)
     }
-  }, [activeSection])
+  }, [activeSection, isPageReady])
 
   // Scroll to section when pill clicked with smooth animation
   const scrollToSection = (sectionId: SectionId) => {
@@ -314,24 +339,6 @@ export default function NewProductPage() {
       })
     }
   }
-
-  // Scroll to top on page load and show skeleton while loading
-  useEffect(() => {
-    // Immediately scroll to top
-    window.scrollTo(0, 0)
-    document.documentElement.scrollTop = 0
-    document.body.scrollTop = 0
-
-    // Small delay to ensure DOM is ready, then scroll content area
-    const timer = setTimeout(() => {
-      if (contentRef.current) {
-        contentRef.current.scrollTop = 0
-      }
-      setIsPageReady(true)
-    }, 100)
-
-    return () => clearTimeout(timer)
-  }, [])
 
   // Fetch creator on mount
   useEffect(() => {
