@@ -22,6 +22,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
   ChevronLeft,
   Check,
   Plus,
@@ -45,6 +53,10 @@ const SECTIONS = [
 ] as const
 
 type SectionId = typeof SECTIONS[number]["id"]
+
+// Limits
+const MAX_PHOTOS = 12
+const MAX_YOUTUBE_VIDEOS = 2
 
 interface UploadedFile {
   id?: string
@@ -90,6 +102,15 @@ export default function NewProductPage() {
   const [creator, setCreator] = useState<any>(null)
   const [isSticky, setIsSticky] = useState(false)
 
+  // Unsaved changes tracking
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showExitDialog, setShowExitDialog] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+
+  // YouTube modal
+  const [showYoutubeModal, setShowYoutubeModal] = useState(false)
+  const [youtubeInput, setYoutubeInput] = useState("")
+
   // Refs for sections
   const sectionRefs = useRef<{ [key in SectionId]?: HTMLDivElement | null }>({})
   const pillBarRef = useRef<HTMLDivElement>(null)
@@ -101,8 +122,7 @@ export default function NewProductPage() {
   // Media section fields - unified draggable media
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
   const [uploadingMedia, setUploadingMedia] = useState(false)
-  const [youtubeInput, setYoutubeInput] = useState("")
-  const [showYoutubeInput, setShowYoutubeInput] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
 
   // Content tab fields
   const [description, setDescription] = useState("")
@@ -126,6 +146,34 @@ export default function NewProductPage() {
   // Drag state for media
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  // Touch drag state for mobile
+  const [touchDragIndex, setTouchDragIndex] = useState<number | null>(null)
+  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null)
+  const [touchCurrentPos, setTouchCurrentPos] = useState<{ x: number; y: number } | null>(null)
+  const [isTouchDragging, setIsTouchDragging] = useState(false)
+  const touchDragRef = useRef<HTMLDivElement>(null)
+  const mediaGridRef = useRef<HTMLDivElement>(null)
+
+  // Track changes for unsaved warning
+  useEffect(() => {
+    if (title || description || price || mediaItems.length > 0 || digitalFiles.length > 0) {
+      setHasUnsavedChanges(true)
+    }
+  }, [title, description, price, mediaItems, digitalFiles])
+
+  // Handle browser back/refresh with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = ""
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
   // Check section completion
   const checkSectionCompletion = useCallback(() => {
@@ -190,14 +238,14 @@ export default function NewProductPage() {
     }
   }, [])
 
-  // Scroll to section when pill clicked
+  // Scroll to section when pill clicked with smooth animation
   const scrollToSection = (sectionId: SectionId) => {
     const element = sectionRefs.current[sectionId]
     if (element && contentRef.current) {
       const pillBarHeight = pillBarRef.current?.offsetHeight || 0
       const containerRect = contentRef.current.getBoundingClientRect()
       const elementRect = element.getBoundingClientRect()
-      const scrollTop = contentRef.current.scrollTop + (elementRect.top - containerRect.top) - pillBarHeight - 20
+      const scrollTop = contentRef.current.scrollTop + (elementRect.top - containerRect.top) - pillBarHeight - 24
 
       contentRef.current.scrollTo({
         top: scrollTop,
@@ -272,7 +320,7 @@ export default function NewProductPage() {
       // Get photo URLs from media items (images and videos)
       const photoUrls = mediaItems.filter(m => m.type === "image").map(m => m.url)
       const videoItem = mediaItems.find(m => m.type === "video")
-      const youtubeItem = mediaItems.find(m => m.type === "youtube")
+      const youtubeItems = mediaItems.filter(m => m.type === "youtube")
 
       const productData = {
         creator_id: creatorId,
@@ -285,7 +333,7 @@ export default function NewProductPage() {
         compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
         thumbnail_url: mediaItems.length > 0 ? (mediaItems[0].type === "youtube" ? mediaItems[0].thumbnailUrl : mediaItems[0].url) : null,
         gallery_urls: photoUrls.length > 0 ? photoUrls : null,
-        video_url: videoItem?.url || youtubeItem?.url || null,
+        video_url: videoItem?.url || youtubeItems[0]?.url || null,
         show_sales_badge: showSalesBadge,
         refund_policy_enabled: refundPolicyEnabled,
         refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
@@ -310,9 +358,11 @@ export default function NewProductPage() {
 
         if (createError) throw createError
         setProductId(product.id)
+        setHasUnsavedChanges(false)
         return product.id
       }
 
+      setHasUnsavedChanges(false)
       return productId
     } catch (err: any) {
       setError(err.message)
@@ -322,13 +372,16 @@ export default function NewProductPage() {
     }
   }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction])
 
-  // Handle media upload
+  // Handle media upload with progress
   const handleMediaUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
 
     setUploadingMedia(true)
+    setUploadProgress(0)
     const supabase = createClient()
     const newItems: MediaItem[] = []
+    const totalFiles = files.length
+    let completedFiles = 0
 
     try {
       for (const file of Array.from(files)) {
@@ -345,8 +398,8 @@ export default function NewProductPage() {
         }
 
         const existingImages = mediaItems.filter(m => m.type === "image").length
-        if (!isVideo && existingImages + newItems.filter(m => m.type === "image").length >= 20) {
-          setError("Maximum 20 photos allowed")
+        if (!isVideo && existingImages + newItems.filter(m => m.type === "image").length >= MAX_PHOTOS) {
+          setError(`Maximum ${MAX_PHOTOS} photos allowed`)
           continue
         }
 
@@ -373,6 +426,9 @@ export default function NewProductPage() {
           type: isVideo ? "video" : "image",
           url: publicUrl,
         })
+
+        completedFiles++
+        setUploadProgress(Math.round((completedFiles / totalFiles) * 100))
       }
 
       if (newItems.length > 0) {
@@ -380,6 +436,7 @@ export default function NewProductPage() {
       }
     } finally {
       setUploadingMedia(false)
+      setUploadProgress(0)
     }
   }
 
@@ -392,13 +449,13 @@ export default function NewProductPage() {
     }
 
     const existingYouTube = mediaItems.filter(m => m.type === "youtube").length
-    if (existingYouTube >= 1) {
-      setError("Only 1 YouTube video allowed")
+    if (existingYouTube >= MAX_YOUTUBE_VIDEOS) {
+      setError(`Maximum ${MAX_YOUTUBE_VIDEOS} YouTube videos allowed`)
       return
     }
 
     const newItem: MediaItem = {
-      id: `yt-${videoId}`,
+      id: `yt-${videoId}-${Date.now()}`,
       type: "youtube",
       url: `https://www.youtube.com/embed/${videoId}`,
       thumbnailUrl: getYouTubeThumbnail(videoId),
@@ -406,7 +463,7 @@ export default function NewProductPage() {
 
     setMediaItems(prev => [...prev, newItem])
     setYoutubeInput("")
-    setShowYoutubeInput(false)
+    setShowYoutubeModal(false)
     setError(null)
   }
 
@@ -415,7 +472,7 @@ export default function NewProductPage() {
     setMediaItems(prev => prev.filter(m => m.id !== id))
   }
 
-  // Drag and drop handlers
+  // Desktop drag and drop handlers
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index)
     e.dataTransfer.effectAllowed = "move"
@@ -450,6 +507,60 @@ export default function NewProductPage() {
 
   const handleDragEnd = () => {
     setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  // Mobile touch drag handlers
+  const handleTouchStart = (e: React.TouchEvent, index: number) => {
+    const touch = e.touches[0]
+    setTouchDragIndex(index)
+    setTouchStartPos({ x: touch.clientX, y: touch.clientY })
+    setTouchCurrentPos({ x: touch.clientX, y: touch.clientY })
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchDragIndex === null || !touchStartPos) return
+
+    const touch = e.touches[0]
+    const deltaX = Math.abs(touch.clientX - touchStartPos.x)
+    const deltaY = Math.abs(touch.clientY - touchStartPos.y)
+
+    // Start dragging if moved more than 10px
+    if (!isTouchDragging && (deltaX > 10 || deltaY > 10)) {
+      setIsTouchDragging(true)
+    }
+
+    if (isTouchDragging) {
+      e.preventDefault()
+      setTouchCurrentPos({ x: touch.clientX, y: touch.clientY })
+
+      // Find which element we're over
+      const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
+      const dropTarget = elements.find(el => el.getAttribute("data-media-index"))
+
+      if (dropTarget) {
+        const targetIndex = parseInt(dropTarget.getAttribute("data-media-index") || "-1")
+        if (targetIndex !== -1 && targetIndex !== touchDragIndex) {
+          setDragOverIndex(targetIndex)
+        }
+      } else {
+        setDragOverIndex(null)
+      }
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (touchDragIndex !== null && dragOverIndex !== null && touchDragIndex !== dragOverIndex) {
+      const newItems = [...mediaItems]
+      const [draggedItem] = newItems.splice(touchDragIndex, 1)
+      newItems.splice(dragOverIndex, 0, draggedItem)
+      setMediaItems(newItems)
+    }
+
+    setTouchDragIndex(null)
+    setTouchStartPos(null)
+    setTouchCurrentPos(null)
+    setIsTouchDragging(false)
     setDragOverIndex(null)
   }
 
@@ -533,14 +644,37 @@ export default function NewProductPage() {
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
 
+  // Navigation handlers with unsaved changes check
   const handleCancel = () => {
-    router.push("/app/products")
+    if (hasUnsavedChanges) {
+      setPendingNavigation("/app/products")
+      setShowExitDialog(true)
+    } else {
+      router.push("/app/products")
+    }
   }
 
-  const handlePreview = async () => {
-    await saveProduct(false)
-    if (productId) {
-      window.open(`/p/${slug}?preview=true`, "_blank")
+  const handleBackClick = (e: React.MouseEvent) => {
+    if (hasUnsavedChanges) {
+      e.preventDefault()
+      setPendingNavigation("/app/products")
+      setShowExitDialog(true)
+    }
+  }
+
+  const handleConfirmExit = () => {
+    setShowExitDialog(false)
+    setHasUnsavedChanges(false)
+    if (pendingNavigation) {
+      router.push(pendingNavigation)
+    }
+  }
+
+  const handleSaveAndExit = async () => {
+    const savedProductId = await saveProduct(false)
+    setShowExitDialog(false)
+    if (savedProductId) {
+      router.push(`/app/products/${savedProductId}`)
     }
   }
 
@@ -560,19 +694,39 @@ export default function NewProductPage() {
     }
   }
 
+  // Tooltip icon component with purple styling
+  const TooltipIcon = ({ content }: { content: React.ReactNode }) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-600 text-[10px] font-medium cursor-help hover:bg-violet-200 transition-colors">
+            i
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-xs p-3">
+          {content}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+
+  const existingImages = mediaItems.filter(m => m.type === "image").length
+  const existingYouTube = mediaItems.filter(m => m.type === "youtube").length
+
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header - no border-b between title and pills */}
-      <div className="bg-white">
-        <div className="px-8 py-4">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header - White bar */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-2">
             <Link
               href="/app/products"
+              onClick={handleBackClick}
               className="flex items-center text-gray-400 hover:text-gray-600 transition-colors"
             >
               <ChevronLeft className="h-5 w-5" />
             </Link>
-            <h1 className="text-[22px] sm:text-[26px] font-semibold text-gray-900 tracking-tight">New Product</h1>
+            <h1 className="text-lg sm:text-xl lg:text-[22px] font-semibold text-gray-900 tracking-tight">New Product</h1>
           </div>
         </div>
       </div>
@@ -584,8 +738,8 @@ export default function NewProductPage() {
           ref={pillBarRef}
           className={`sticky top-0 z-20 bg-white transition-shadow ${isSticky ? "shadow-sm" : ""}`}
         >
-          <div className="px-8 py-3">
-            <div className="flex items-center gap-2">
+          <div className="px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {SECTIONS.map((section) => {
                 const isCompleted = completedSections.has(section.id)
                 const isActive = activeSection === section.id
@@ -595,22 +749,22 @@ export default function NewProductPage() {
                     key={section.id}
                     onClick={() => scrollToSection(section.id)}
                     className={`
-                      flex items-center gap-2 px-5 py-2 rounded-full text-[15px] font-medium transition-all
+                      flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all whitespace-nowrap flex-shrink-0
                       ${isActive
                         ? "bg-gray-100 text-gray-900"
                         : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                       }
                     `}
                   >
-                    {/* Checkmark circle icon */}
+                    {/* Checkmark circle icon - larger size */}
                     <span className={`
-                      flex items-center justify-center w-5 h-5 rounded-full transition-colors
+                      flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-colors
                       ${isCompleted
                         ? "bg-violet-500"
                         : "bg-gray-200"
                       }
                     `}>
-                      <Check className={`h-3 w-3 ${isCompleted ? "text-white" : "text-gray-400"}`} />
+                      <Check className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${isCompleted ? "text-white" : "text-gray-400"}`} />
                     </span>
                     {section.name}
                   </button>
@@ -618,646 +772,715 @@ export default function NewProductPage() {
               })}
             </div>
           </div>
+          {/* Subtle gray divider */}
+          <div className="h-px bg-gray-100" />
         </div>
 
-        {/* Form Content - All sections on one page */}
-        <div className="px-8 py-6 max-w-3xl pb-32">
-          {/* Error message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-              {error}
-            </div>
-          )}
-
-          {/* About Section */}
-          <div
-            ref={(el) => { sectionRefs.current.about = el }}
-            className="space-y-6 mb-12"
-          >
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">About</h2>
-              <p className="text-sm text-gray-500">
-                Tell the world all about your item and why they'll love it.
-              </p>
-            </div>
-
-            {/* Title Field */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1">
-                <Label htmlFor="title" className="text-sm font-medium text-gray-700">
-                  Title
-                </Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
-                        i
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-xs p-3">
-                      <p className="font-medium mb-2">Title recommendations:</p>
-                      <ul className="text-sm space-y-1 list-disc pl-4">
-                        <li>Keep it clear and descriptive</li>
-                        <li>Include main benefit or outcome</li>
-                        <li>Use keywords customers search for</li>
-                        <li>Avoid all caps or excessive punctuation</li>
-                        <li>Aim for 5-10 words maximum</li>
-                      </ul>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <Input
-                id="title"
-                placeholder="Short sleeve t-shirt"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="h-10 border-gray-200 bg-white"
-              />
-            </div>
-          </div>
-
-          {/* Media Section */}
-          <div
-            ref={(el) => { sectionRefs.current.media = el }}
-            className="space-y-6 mb-12"
-          >
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Photos and video</h2>
-              <p className="text-sm text-gray-500">
-                Add up to 20 photos, 1 video file, or 1 YouTube video. Drag to reorder - first item is the thumbnail.
-              </p>
-            </div>
-
-            {/* Draggable Media Grid */}
-            {mediaItems.length > 0 && (
-              <div className="grid grid-cols-4 gap-3">
-                {mediaItems.map((item, index) => (
-                  <div
-                    key={item.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, index)}
-                    onDragEnd={handleDragEnd}
-                    className={`
-                      relative aspect-square rounded-lg overflow-hidden border group cursor-move
-                      ${dragOverIndex === index
-                        ? "border-violet-500 border-2 scale-105"
-                        : draggedIndex === index
-                          ? "opacity-50 border-dashed border-2"
-                          : "border-gray-200"
-                      }
-                    `}
-                  >
-                    {item.type === "image" && (
-                      <img src={item.url} alt="" className="w-full h-full object-cover" />
-                    )}
-                    {item.type === "video" && (
-                      <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-                        <video src={item.url} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                          <Play className="h-8 w-8 text-white" />
-                        </div>
-                      </div>
-                    )}
-                    {item.type === "youtube" && (
-                      <div className="w-full h-full bg-gray-900">
-                        <img
-                          src={item.thumbnailUrl}
-                          alt="YouTube video"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                          <Youtube className="h-8 w-8 text-red-500" />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Drag handle overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
-                      <GripVertical className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-
-                    {/* Remove button */}
-                    <button
-                      type="button"
-                      onClick={() => removeMedia(item.id)}
-                      className="absolute top-1.5 right-1.5 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3 text-gray-600" />
-                    </button>
-
-                    {/* Position indicator */}
-                    <div className="absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded bg-black/50 text-xs text-white">
-                      {index + 1}
-                    </div>
-
-                    {/* Type label */}
-                    {index === 0 && (
-                      <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[10px] rounded">
-                        Thumbnail
-                      </span>
-                    )}
-                    {item.type === "video" && index !== 0 && (
-                      <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[10px] rounded">
-                        Video
-                      </span>
-                    )}
-                    {item.type === "youtube" && index !== 0 && (
-                      <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-red-600 text-white text-[10px] rounded">
-                        YouTube
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Upload Zone */}
-            <div className="flex gap-3">
-              <div
-                className={`
-                  flex-1 border border-dashed border-gray-300 rounded-lg
-                  flex flex-col items-center justify-center py-8
-                  transition-colors cursor-pointer hover:border-gray-400
-                  ${uploadingMedia ? "pointer-events-none opacity-50" : ""}
-                `}
-                onClick={() => document.getElementById("media-input")?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  handleMediaUpload(e.dataTransfer.files)
-                }}
-              >
-                <input
-                  id="media-input"
-                  type="file"
-                  multiple
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={(e) => handleMediaUpload(e.target.files)}
-                  disabled={uploadingMedia}
-                />
-
-                <p className="text-gray-500 text-sm mb-2">
-                  {uploadingMedia ? "Uploading..." : "Drag and drop or"}
-                </p>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 px-4"
-                  disabled={uploadingMedia}
-                >
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Upload files
-                </Button>
-              </div>
-
-              {/* YouTube Add Button */}
-              <div className="flex flex-col">
-                {!showYoutubeInput ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowYoutubeInput(true)}
-                    className="h-full px-4 border border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 hover:border-gray-400 transition-colors"
-                  >
-                    <Youtube className="h-5 w-5 text-red-500" />
-                    <span className="text-xs text-gray-500">YouTube</span>
-                  </button>
-                ) : (
-                  <div className="flex flex-col gap-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
-                    <Input
-                      placeholder="YouTube URL or video ID"
-                      value={youtubeInput}
-                      onChange={(e) => setYoutubeInput(e.target.value)}
-                      className="h-9 text-sm"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleAddYouTube}
-                        className="bg-red-500 hover:bg-red-600 text-white h-8"
-                      >
-                        Add
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setShowYoutubeInput(false)
-                          setYoutubeInput("")
-                        }}
-                        className="h-8"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <p className="text-xs text-gray-400">
-              {mediaItems.length}/20 images · {mediaItems.filter(m => m.type === "video").length}/1 video · {mediaItems.filter(m => m.type === "youtube").length}/1 YouTube
-            </p>
-          </div>
-
-          {/* Content Section */}
-          <div
-            ref={(el) => { sectionRefs.current.content = el }}
-            className="space-y-6 mb-12"
-          >
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Content</h2>
-              <p className="text-sm text-gray-500">
-                Describe your product and add digital files.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1">
-                <Label className="text-sm font-medium text-gray-700">
-                  Description
-                </Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
-                        i
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Describe what customers will get</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <DescriptionRichEditor
-                value={description}
-                onChange={setDescription}
-                className="min-h-[180px] border border-gray-200 rounded-lg"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1">
-                <Label htmlFor="cta" className="text-sm font-medium text-gray-700">
-                  Call to action
-                </Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
-                        i
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Custom button text (e.g., "Buy Now", "Get Access")</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <Input
-                id="cta"
-                placeholder="Buy Now"
-                value={callToAction}
-                onChange={(e) => setCallToAction(e.target.value)}
-                className="h-10 border-gray-200"
-              />
-            </div>
-
-            {productType === "digital" && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-1">
-                  <Label className="text-sm font-medium text-gray-700">
-                    Digital Files
-                  </Label>
-                  <span className="text-red-500 text-sm">*</span>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
-                          ?
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Files customers receive after purchase</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+        {/* Form Content - White rounded container */}
+        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-32">
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
+              {/* Error message */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                  {error}
                 </div>
-                <p className="text-sm text-gray-500">
-                  Upload files customers will receive (max 1GB each).
-                </p>
+              )}
 
-                {digitalFiles.length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    {digitalFiles.map((file) => (
+              {/* About Section */}
+              <div
+                ref={(el) => { sectionRefs.current.about = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">About</h2>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Tell the world all about your item and why they'll love it.
+                  </p>
+                </div>
+
+                {/* Title Field */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="title" className="text-sm font-medium text-gray-700">
+                      Title
+                    </Label>
+                    <TooltipIcon
+                      content={
+                        <>
+                          <p className="font-medium mb-2">Title recommendations:</p>
+                          <ul className="text-sm space-y-1 list-disc pl-4">
+                            <li>Keep it clear and descriptive</li>
+                            <li>Include main benefit or outcome</li>
+                            <li>Use keywords customers search for</li>
+                            <li>Avoid all caps or excessive punctuation</li>
+                            <li>Aim for 5-10 words maximum</li>
+                          </ul>
+                        </>
+                      }
+                    />
+                  </div>
+                  <Input
+                    id="title"
+                    placeholder="Short sleeve t-shirt"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="h-10 sm:h-11 border-gray-200 bg-white text-sm sm:text-base"
+                  />
+                </div>
+              </div>
+
+              {/* Media Section */}
+              <div
+                ref={(el) => { sectionRefs.current.media = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">Photos and video</h2>
+                    <span className="text-red-500">*</span>
+                    <TooltipIcon
+                      content={
+                        <p>Add photos and videos to showcase your product. The first item becomes the thumbnail.</p>
+                      }
+                    />
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}.
+                  </p>
+                </div>
+
+                {/* Draggable Media Grid */}
+                {mediaItems.length > 0 && (
+                  <div
+                    ref={mediaGridRef}
+                    className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3"
+                  >
+                    {mediaItems.map((item, index) => (
                       <div
-                        key={file.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                        key={item.id}
+                        data-media-index={index}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, index)}
+                        onDragEnd={handleDragEnd}
+                        onTouchStart={(e) => handleTouchStart(e, index)}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        className={`
+                          relative aspect-square rounded-lg overflow-hidden border group cursor-move select-none
+                          transition-all duration-200 ease-out
+                          ${dragOverIndex === index
+                            ? "border-violet-500 border-2 scale-105 shadow-lg"
+                            : draggedIndex === index || touchDragIndex === index
+                              ? "opacity-50 border-dashed border-2 border-violet-300"
+                              : "border-gray-200 hover:border-gray-300"
+                          }
+                          ${isTouchDragging && touchDragIndex === index ? "z-50" : ""}
+                        `}
+                        style={
+                          isTouchDragging && touchDragIndex === index && touchCurrentPos
+                            ? {
+                                position: "fixed",
+                                left: touchCurrentPos.x - 50,
+                                top: touchCurrentPos.y - 50,
+                                width: 100,
+                                height: 100,
+                                zIndex: 9999,
+                                pointerEvents: "none",
+                              }
+                            : undefined
+                        }
                       >
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-5 w-5 text-gray-400" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{file.file_name}</p>
-                            <p className="text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
+                        {item.type === "image" && (
+                          <img src={item.url} alt="" className="w-full h-full object-cover" />
+                        )}
+                        {item.type === "video" && (
+                          <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                            <video src={item.url} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <Play className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                            </div>
                           </div>
+                        )}
+                        {item.type === "youtube" && (
+                          <div className="w-full h-full bg-gray-900">
+                            <img
+                              src={item.thumbnailUrl}
+                              alt="YouTube video"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <Youtube className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Drag handle overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 sm:group-hover:bg-black/30 transition-colors touch-none">
+                          <GripVertical className="h-5 w-5 sm:h-6 sm:w-6 text-white opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 transition-opacity" />
                         </div>
+
+                        {/* Remove button */}
                         <button
-                          onClick={() => handleDeleteFile(file)}
-                          className="p-1 text-gray-400 hover:text-gray-600"
+                          type="button"
+                          onClick={() => removeMedia(item.id)}
+                          className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 p-1 bg-white rounded-full shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-3 w-3 text-gray-600" />
                         </button>
+
+                        {/* Position indicator */}
+                        <div className="absolute left-1 top-1 sm:left-1.5 sm:top-1.5 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded bg-black/50 text-[10px] sm:text-xs text-white">
+                          {index + 1}
+                        </div>
+
+                        {/* Type label */}
+                        {index === 0 && (
+                          <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded">
+                            Thumbnail
+                          </span>
+                        )}
+                        {item.type === "video" && index !== 0 && (
+                          <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded">
+                            Video
+                          </span>
+                        )}
+                        {item.type === "youtube" && index !== 0 && (
+                          <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] sm:text-[10px] rounded">
+                            YouTube
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
 
+                {/* Upload Zone with skeleton loading */}
                 <div
                   className={`
-                    mt-2 border border-dashed border-gray-300 rounded-lg
-                    flex flex-col items-center justify-center py-6
-                    transition-colors cursor-pointer hover:border-gray-400
-                    ${uploadingFiles ? "pointer-events-none opacity-50" : ""}
+                    border border-dashed border-gray-300 rounded-xl
+                    flex flex-col items-center justify-center py-6 sm:py-8
+                    transition-all duration-300 cursor-pointer hover:border-gray-400 hover:bg-gray-50/50
+                    ${uploadingMedia ? "pointer-events-none" : ""}
                   `}
-                  onClick={() => document.getElementById("file-input")?.click()}
+                  onClick={() => !uploadingMedia && document.getElementById("media-input")?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleMediaUpload(e.dataTransfer.files)
+                  }}
                 >
                   <input
-                    id="file-input"
+                    id="media-input"
                     type="file"
                     multiple
+                    accept="image/*,video/*"
                     className="hidden"
-                    onChange={(e) => handleFileUpload(e.target.files)}
-                    disabled={uploadingFiles}
+                    onChange={(e) => handleMediaUpload(e.target.files)}
+                    disabled={uploadingMedia}
                   />
 
-                  <p className="text-gray-500 text-sm mb-2">
-                    {uploadingFiles ? "Uploading..." : "Drag and drop files or"}
+                  {uploadingMedia ? (
+                    <div className="flex flex-col items-center gap-3 animate-pulse">
+                      <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                        <Loader2 className="h-5 w-5 text-violet-600 animate-spin" />
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <p className="text-sm font-medium text-gray-700">Uploading...</p>
+                        <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-violet-500 rounded-full transition-all duration-300 ease-out"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500">{uploadProgress}%</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-gray-500 text-xs sm:text-sm mb-2 sm:mb-3">
+                        Drag and drop files or
+                      </p>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-gray-300 text-gray-700 hover:bg-gray-50 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
+                        disabled={uploadingMedia}
+                      >
+                        <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
+                        Upload
+                      </Button>
+
+                      {/* YouTube text button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowYoutubeModal(true)
+                        }}
+                        className="mt-3 text-xs sm:text-sm text-gray-500 hover:text-violet-600 flex items-center gap-1.5 transition-colors"
+                      >
+                        <Youtube className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        Add YouTube video
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <p className="text-xs text-gray-400">
+                  {existingImages}/{MAX_PHOTOS} images · {mediaItems.filter(m => m.type === "video").length}/1 video · {existingYouTube}/{MAX_YOUTUBE_VIDEOS} YouTube
+                </p>
+              </div>
+
+              {/* Content Section */}
+              <div
+                ref={(el) => { sectionRefs.current.content = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">Content</h2>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Describe your product and add digital files.
                   </p>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="border-gray-300 text-gray-700 h-8"
-                    disabled={uploadingFiles}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Upload
-                  </Button>
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* Settings Section */}
-          <div
-            ref={(el) => { sectionRefs.current.settings = el }}
-            className="space-y-6 mb-12"
-          >
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
-              <p className="text-sm text-gray-500">
-                Configure pricing and product settings.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-900">Pricing</h3>
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="price" className="text-sm font-medium text-gray-700">
-                    Price (USD)
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-sm font-medium text-gray-700">
+                      Description
+                    </Label>
+                    <TooltipIcon
+                      content={<p>Describe what customers will get</p>}
+                    />
+                  </div>
+                  <DescriptionRichEditor
+                    value={description}
+                    onChange={setDescription}
+                    className="min-h-[150px] sm:min-h-[180px] border border-gray-200 rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="cta" className="text-sm font-medium text-gray-700">
+                      Call to action
+                    </Label>
+                    <TooltipIcon
+                      content={<p>Custom button text (e.g., "Buy Now", "Get Access")</p>}
+                    />
+                  </div>
+                  <Input
+                    id="cta"
+                    placeholder="Buy Now"
+                    value={callToAction}
+                    onChange={(e) => setCallToAction(e.target.value)}
+                    className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base"
+                  />
+                </div>
+
+                {productType === "digital" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-gray-700">
+                        Digital Files
+                      </Label>
+                      <span className="text-red-500 text-sm">*</span>
+                      <TooltipIcon
+                        content={<p>Files customers receive after purchase</p>}
+                      />
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-500">
+                      Upload files customers will receive (max 1GB each).
+                    </p>
+
+                    {digitalFiles.length > 0 && (
+                      <div className="space-y-2 mt-2">
+                        {digitalFiles.map((file) => (
+                          <div
+                            key={file.id}
+                            className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200"
+                          >
+                            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
+                                <p className="text-[10px] sm:text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteFile(file)}
+                              className="p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                            >
+                              <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div
+                      className={`
+                        mt-2 border border-dashed border-gray-300 rounded-lg
+                        flex flex-col items-center justify-center py-5 sm:py-6
+                        transition-colors cursor-pointer hover:border-gray-400
+                        ${uploadingFiles ? "pointer-events-none opacity-50" : ""}
+                      `}
+                      onClick={() => document.getElementById("file-input")?.click()}
+                    >
+                      <input
+                        id="file-input"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => handleFileUpload(e.target.files)}
+                        disabled={uploadingFiles}
+                      />
+
+                      <p className="text-gray-500 text-xs sm:text-sm mb-2">
+                        {uploadingFiles ? "Uploading..." : "Drag and drop files or"}
+                      </p>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-gray-300 text-gray-700 h-7 sm:h-8 text-xs sm:text-sm"
+                        disabled={uploadingFiles}
+                      >
+                        <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                        Upload
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Settings Section */}
+              <div
+                ref={(el) => { sectionRefs.current.settings = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">Settings</h2>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Configure pricing and product settings.
+                  </p>
+                </div>
+
+                <div className="space-y-3 sm:space-y-4">
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-900">Pricing</h3>
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">
+                        Price (USD)
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                        <Input
+                          id="price"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={price}
+                          onChange={(e) => setPrice(e.target.value)}
+                          className="h-10 sm:h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">
+                        Compare at price
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                        <Input
+                          id="comparePrice"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={compareAtPrice}
+                          onChange={(e) => setCompareAtPrice(e.target.value)}
+                          className="h-10 sm:h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="slug" className="text-xs sm:text-sm font-medium text-gray-700">
+                    URL slug
                   </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <div className="flex items-center">
+                    <span className="px-2.5 sm:px-3 h-10 sm:h-11 flex items-center bg-gray-50 border border-r-0 border-gray-200 rounded-l-md text-xs sm:text-sm text-gray-500">
+                      /p/
+                    </span>
                     <Input
-                      id="price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      className="h-10 pl-7 border-gray-200"
+                      id="slug"
+                      placeholder="my-product"
+                      value={slug}
+                      onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      className="h-10 sm:h-11 rounded-l-none border-gray-200 text-sm sm:text-base"
                     />
                   </div>
                 </div>
+
                 <div className="space-y-1.5">
-                  <Label htmlFor="comparePrice" className="text-sm font-medium text-gray-700">
-                    Compare at price
+                  <Label className="text-xs sm:text-sm font-medium text-gray-700">
+                    Product type
                   </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                    <Input
-                      id="comparePrice"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={compareAtPrice}
-                      onChange={(e) => setCompareAtPrice(e.target.value)}
-                      className="h-10 pl-7 border-gray-200"
+                  <Select value={productType} onValueChange={(v) => setProductType(v as "digital" | "course")}>
+                    <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="digital">Digital Product</SelectItem>
+                      <SelectItem value="course">Online Course</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-900">Display</h3>
+                  <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div>
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">Show sales count</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">Display number of sales on product page</p>
+                    </div>
+                    <Switch
+                      checked={showSalesBadge}
+                      onCheckedChange={setShowSalesBadge}
                     />
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="slug" className="text-sm font-medium text-gray-700">
-                URL slug
-              </Label>
-              <div className="flex items-center">
-                <span className="px-3 h-10 flex items-center bg-gray-50 border border-r-0 border-gray-200 rounded-l-md text-sm text-gray-500">
-                  /p/
-                </span>
-                <Input
-                  id="slug"
-                  placeholder="my-product"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                  className="h-10 rounded-l-none border-gray-200"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-gray-700">
-                Product type
-              </Label>
-              <Select value={productType} onValueChange={(v) => setProductType(v as "digital" | "course")}>
-                <SelectTrigger className="h-10 border-gray-200">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="digital">Digital Product</SelectItem>
-                  <SelectItem value="course">Online Course</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-900">Display</h3>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Show sales count</p>
-                  <p className="text-xs text-gray-500">Display number of sales on product page</p>
+                <div className="space-y-3">
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-900">Refund policy</h3>
+                  <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div>
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">Enable refund policy</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">Show refund policy on product page</p>
+                    </div>
+                    <Switch
+                      checked={refundPolicyEnabled}
+                      onCheckedChange={setRefundPolicyEnabled}
+                    />
+                  </div>
+                  {refundPolicyEnabled && (
+                    <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
+                      <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no_refunds">No refunds allowed</SelectItem>
+                        <SelectItem value="7_day">7-day money back guarantee</SelectItem>
+                        <SelectItem value="14_day">14-day money back guarantee</SelectItem>
+                        <SelectItem value="30_day">30-day money back guarantee</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
-                <Switch
-                  checked={showSalesBadge}
-                  onCheckedChange={setShowSalesBadge}
-                />
               </div>
-            </div>
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-900">Refund policy</h3>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+              {/* SEO Section */}
+              <div
+                ref={(el) => { sectionRefs.current.seo = el }}
+                className="space-y-4 sm:space-y-6"
+              >
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Enable refund policy</p>
-                  <p className="text-xs text-gray-500">Show refund policy on product page</p>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">SEO</h2>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Optimize your product for search engines.
+                  </p>
                 </div>
-                <Switch
-                  checked={refundPolicyEnabled}
-                  onCheckedChange={setRefundPolicyEnabled}
-                />
-              </div>
-              {refundPolicyEnabled && (
-                <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
-                  <SelectTrigger className="h-10 border-gray-200">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="no_refunds">No refunds allowed</SelectItem>
-                    <SelectItem value="7_day">7-day money back guarantee</SelectItem>
-                    <SelectItem value="14_day">14-day money back guarantee</SelectItem>
-                    <SelectItem value="30_day">30-day money back guarantee</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
 
-          {/* SEO Section */}
-          <div
-            ref={(el) => { sectionRefs.current.seo = el }}
-            className="space-y-6"
-          >
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">SEO</h2>
-              <p className="text-sm text-gray-500">
-                Optimize your product for search engines.
-              </p>
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
+                    SEO title
+                  </Label>
+                  <Input
+                    id="seoTitle"
+                    placeholder="Product title for search engines"
+                    value={seoTitle}
+                    onChange={(e) => setSeoTitle(e.target.value)}
+                    className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base"
+                  />
+                  <p className="text-[10px] sm:text-xs text-gray-400">
+                    {seoTitle.length}/60 characters
+                  </p>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="seoTitle" className="text-sm font-medium text-gray-700">
-                SEO title
-              </Label>
-              <Input
-                id="seoTitle"
-                placeholder="Product title for search engines"
-                value={seoTitle}
-                onChange={(e) => setSeoTitle(e.target.value)}
-                className="h-10 border-gray-200"
-              />
-              <p className="text-xs text-gray-400">
-                {seoTitle.length}/60 characters
-              </p>
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
+                    SEO description
+                  </Label>
+                  <Textarea
+                    id="seoDescription"
+                    placeholder="Brief description for search results"
+                    value={seoDescription}
+                    onChange={(e) => setSeoDescription(e.target.value)}
+                    className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
+                  />
+                  <p className="text-[10px] sm:text-xs text-gray-400">
+                    {seoDescription.length}/160 characters
+                  </p>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="seoDescription" className="text-sm font-medium text-gray-700">
-                SEO description
-              </Label>
-              <Textarea
-                id="seoDescription"
-                placeholder="Brief description for search results"
-                value={seoDescription}
-                onChange={(e) => setSeoDescription(e.target.value)}
-                className="border-gray-200 min-h-[100px]"
-              />
-              <p className="text-xs text-gray-400">
-                {seoDescription.length}/160 characters
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-gray-700">
-                Search preview
-              </Label>
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-blue-700 text-base font-medium truncate">
-                  {seoTitle || title || "Product title"}
-                </p>
-                <p className="text-green-700 text-sm truncate">
-                  yourstore.com/p/{slug || "product-url"}
-                </p>
-                <p className="text-gray-600 text-sm line-clamp-2 mt-0.5">
-                  {seoDescription || description || "Product description will appear here..."}
-                </p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs sm:text-sm font-medium text-gray-700">
+                    Search preview
+                  </Label>
+                  <div className="p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-blue-700 text-sm sm:text-base font-medium truncate">
+                      {seoTitle || title || "Product title"}
+                    </p>
+                    <p className="text-green-700 text-xs sm:text-sm truncate">
+                      yourstore.com/p/{slug || "product-url"}
+                    </p>
+                    <p className="text-gray-600 text-xs sm:text-sm line-clamp-2 mt-0.5">
+                      {seoDescription || description || "Product description will appear here..."}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sticky Bottom Bar */}
+      {/* Sticky Bottom Bar - No Preview button */}
       <div className="fixed bottom-0 left-0 right-0 md:left-[220px] bg-white border-t border-gray-200 z-40">
-        <div className="px-8 py-3">
-          <div className="flex items-center justify-between">
+        <div className="px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between max-w-3xl mx-auto">
             <Button
               type="button"
               variant="outline"
               onClick={handleCancel}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4"
             >
               Cancel
             </Button>
 
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handlePreview}
-                disabled={isLoading || !title.trim()}
-                className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9"
-              >
-                Preview
-              </Button>
-
-              <Button
-                type="button"
-                onClick={handleSaveChanges}
-                disabled={isLoading || !title.trim()}
-                className="bg-violet-600 hover:bg-violet-700 text-white h-9 px-5"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save changes"
-                )}
-              </Button>
-            </div>
+            <Button
+              type="button"
+              onClick={handleSaveChanges}
+              disabled={isLoading || !title.trim()}
+              className="bg-violet-600 hover:bg-violet-700 text-white h-9 sm:h-10 px-4 sm:px-6 text-xs sm:text-sm"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
           </div>
         </div>
       </div>
+
+      {/* YouTube Modal */}
+      <Dialog open={showYoutubeModal} onOpenChange={setShowYoutubeModal}>
+        <DialogContent className="sm:max-w-md mx-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Youtube className="h-5 w-5 text-red-500" />
+              Add YouTube Video
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Paste a YouTube URL or video ID to embed a video.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Input
+              placeholder="https://youtube.com/watch?v=... or video ID"
+              value={youtubeInput}
+              onChange={(e) => setYoutubeInput(e.target.value)}
+              className="h-10 sm:h-11 text-sm sm:text-base"
+            />
+            {youtubeInput && parseYouTubeUrl(youtubeInput) && (
+              <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
+                <img
+                  src={getYouTubeThumbnail(parseYouTubeUrl(youtubeInput)!)}
+                  alt="Video preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowYoutubeModal(false)
+                setYoutubeInput("")
+              }}
+              className="w-full sm:w-auto text-xs sm:text-sm"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAddYouTube}
+              disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
+              className="w-full sm:w-auto bg-gray-900 hover:bg-gray-800 text-white text-xs sm:text-sm"
+            >
+              Add Video
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unsaved Changes Dialog */}
+      <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <DialogContent className="sm:max-w-md mx-4">
+          <DialogHeader>
+            <DialogTitle className="text-base sm:text-lg">Unsaved changes</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              You have unsaved changes. Would you like to save them before leaving?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleConfirmExit}
+              className="w-full sm:w-auto text-xs sm:text-sm"
+            >
+              Discard
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowExitDialog(false)}
+              className="w-full sm:w-auto text-xs sm:text-sm"
+            >
+              Keep editing
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveAndExit}
+              disabled={!title.trim()}
+              className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white text-xs sm:text-sm"
+            >
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
