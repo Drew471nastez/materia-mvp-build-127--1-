@@ -247,8 +247,8 @@ export default function NewProductWizard() {
 
     try {
       for (const file of Array.from(files)) {
-        if (file.size > 1024 * 1024 * 1024) {
-          setError(`File "${file.name}" exceeds 1GB limit`)
+        if (file.size > 5 * 1024 * 1024 * 1024) {
+          setError(`File "${file.name}" exceeds 5GB limit`)
           continue
         }
 
@@ -755,7 +755,7 @@ export default function NewProductWizard() {
                 <CardHeader>
                   <CardTitle>Digital Files *</CardTitle>
                   <CardDescription>
-                    Upload the files customers will receive after purchase (max 1GB each)
+                    Upload the files customers will receive after purchase (max 5GB each)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -778,7 +778,7 @@ export default function NewProductWizard() {
                     <p className="mt-2 text-sm font-medium">
                       {uploadingFiles ? "Uploading..." : "Click to upload or drag and drop"}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">Max file size: 1GB</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Max file size: 5GB</p>
                   </div>
 
                   {/* Upload progress */}

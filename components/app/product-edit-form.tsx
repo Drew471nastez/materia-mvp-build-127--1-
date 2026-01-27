@@ -519,7 +519,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
           <Card className="border-border">
             <CardHeader>
               <CardTitle>Digital Files</CardTitle>
-              <CardDescription>Upload the files customers will receive after purchase (max 1GB each)</CardDescription>
+              <CardDescription>Upload the files customers will receive after purchase (max 5GB each)</CardDescription>
             </CardHeader>
             <CardContent>
               <FileUpload

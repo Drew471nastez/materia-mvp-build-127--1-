@@ -21,11 +21,11 @@ VALUES (
   'product-files',
   'product-files',
   false,
-  1073741824 -- 1GB
+  5368709120 -- 5GB
 )
 ON CONFLICT (id) DO UPDATE SET
   public = false,
-  file_size_limit = 1073741824;
+  file_size_limit = 5368709120;
 
 -- Create avatars bucket (public)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

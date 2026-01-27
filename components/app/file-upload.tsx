@@ -19,14 +19,14 @@ interface FileUploadProps {
   productId: string
   existingFiles?: UploadedFile[]
   onUploadComplete?: (files: UploadedFile[]) => void
-  maxSizeBytes?: number // Default 1GB
+  maxSizeBytes?: number // Default 5GB
 }
 
 export function FileUpload({
   productId,
   existingFiles = [],
   onUploadComplete,
-  maxSizeBytes = 1024 * 1024 * 1024, // 1GB
+  maxSizeBytes = 5 * 1024 * 1024 * 1024, // 5GB
 }: FileUploadProps) {
   const [files, setFiles] = useState<UploadedFile[]>(existingFiles)
   const [uploading, setUploading] = useState(false)
