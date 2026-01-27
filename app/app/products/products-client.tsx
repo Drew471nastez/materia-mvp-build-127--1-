@@ -941,142 +941,32 @@ function ProductDetailsModal({
   const startY = React.useRef(0)
   const sheetRef = React.useRef<HTMLDivElement>(null)
 
-  // Fetch real analytics data from database
+  // Fetch real analytics data from API endpoint (uses admin client for accurate data)
   useEffect(() => {
     const fetchAnalytics = async () => {
       setIsLoading(true)
       try {
-        const supabase = createClient()
+        const response = await fetch(`/api/product-analytics?productId=${product.id}`)
 
-        // Get current user's creator ID first
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          throw new Error("Not authenticated")
+        if (!response.ok) {
+          throw new Error("Failed to fetch analytics")
         }
 
-        const { data: creator } = await supabase
-          .from("creators")
-          .select("id")
-          .eq("user_id", user.id)
-          .single()
-
-        if (!creator) {
-          throw new Error("Creator not found")
-        }
-
-        // Fetch views from analytics_events table (this is where track-view API writes)
-        const { count: totalViews } = await supabase
-          .from("analytics_events")
-          .select("*", { count: "exact", head: true })
-          .eq("product_id", product.id)
-          .eq("event_type", "view")
-          .eq("creator_id", creator.id)
-
-        // Fetch completed orders for this product from orders table
-        const { data: ordersData, count: totalOrders } = await supabase
-          .from("orders")
-          .select("id, buyer_id, amount_cents, created_at", { count: "exact" })
-          .eq("product_id", product.id)
-          .eq("status", "completed")
-
-        // Fetch refunds for this product (completed refunds only)
-        const { count: totalRefunds } = await supabase
-          .from("refunds")
-          .select("*", { count: "exact", head: true })
-          .eq("product_id", product.id)
-          .eq("status", "completed")
-
-        // Get unique customers from orders
-        const uniqueCustomers = new Set(ordersData?.map(o => o.buyer_id) || []).size
-
-        // Calculate revenue from orders
-        const revenue = (ordersData || []).reduce((sum, order) => {
-          return sum + (order.amount_cents || 0)
-        }, 0)
-
-        // Get last 7 days dates
-        const last7Days = Array.from({ length: 7 }, (_, i) => {
-          const date = new Date()
-          date.setDate(date.getDate() - (6 - i))
-          return date.toISOString().split('T')[0]
-        })
-
-        // Get views data for chart from analytics_events
-        const { data: dailyViews } = await supabase
-          .from("analytics_events")
-          .select("created_at")
-          .eq("product_id", product.id)
-          .eq("event_type", "view")
-          .eq("creator_id", creator.id)
-          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-
-        // Get orders data for chart
-        const { data: dailyOrdersData } = await supabase
-          .from("orders")
-          .select("created_at")
-          .eq("product_id", product.id)
-          .eq("status", "completed")
-          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-
-        // Build chart data
-        const chartData = last7Days.map(date => {
-          const dayViews = (dailyViews || []).filter(v =>
-            v.created_at?.startsWith(date)
-          ).length
-          const dayOrders = (dailyOrdersData || []).filter(o =>
-            o.created_at?.startsWith(date)
-          ).length
-          return {
-            day: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
-            views: dayViews,
-            orders: dayOrders,
-          }
-        })
-
-        // Get first and last sale dates from orders
-        const { data: firstSaleData } = await supabase
-          .from("orders")
-          .select("created_at")
-          .eq("product_id", product.id)
-          .eq("status", "completed")
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle()
-
-        const { data: lastSaleData } = await supabase
-          .from("orders")
-          .select("created_at")
-          .eq("product_id", product.id)
-          .eq("status", "completed")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        const views = totalViews || 0
-        const orders = totalOrders || 0
-        const refunds = totalRefunds || 0
-        const conversionRate = views > 0 ? ((orders / views) * 100).toFixed(1) : "0.0"
-        const avgOrderValue = orders > 0 ? Math.round(revenue / orders) : 0
-        const refundRate = orders > 0 ? ((refunds / orders) * 100).toFixed(1) : "0.0"
-        const daysLive = Math.max(1, Math.floor((Date.now() - new Date(product.created_at).getTime()) / (1000 * 60 * 60 * 24)))
+        const data = await response.json()
 
         setAnalytics({
-          views,
-          orders,
-          revenue,
-          conversionRate,
-          avgOrderValue,
-          refunds,
-          refundRate,
-          customers: uniqueCustomers,
-          chartData,
-          daysLive,
-          firstSale: firstSaleData?.created_at
-            ? new Date(firstSaleData.created_at).toLocaleDateString()
-            : "No sales yet",
-          lastSale: lastSaleData?.created_at
-            ? new Date(lastSaleData.created_at).toLocaleDateString()
-            : "No sales yet",
+          views: data.views,
+          orders: data.orders,
+          revenue: data.revenue,
+          conversionRate: data.conversionRate,
+          avgOrderValue: data.avgOrderValue,
+          refunds: data.refunds,
+          refundRate: data.refundRate,
+          customers: data.customers,
+          chartData: data.chartData,
+          daysLive: data.daysLive,
+          firstSale: data.firstSale,
+          lastSale: data.lastSale,
         })
       } catch (error) {
         console.error("Error fetching analytics:", error)
@@ -1194,7 +1084,7 @@ function ProductDetailsModal({
         >
           {/* Desktop Header */}
           <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between z-10">
-            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">StoreLib Product Analytics</h2>
+            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
             <button
               type="button"
               onClick={handleClose}
@@ -1429,7 +1319,7 @@ function ProductDetailsModal({
 
           {/* Mobile Header */}
           <div className="px-5 pb-4 flex items-center justify-between border-b border-[#e5e7eb]">
-            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">StoreLib Product Analytics</h2>
+            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
             <button
               type="button"
               onClick={handleClose}
