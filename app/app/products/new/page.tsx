@@ -100,7 +100,6 @@ export default function NewProductPage() {
   const [creatorId, setCreatorId] = useState<string | null>(null)
   const [productId, setProductId] = useState<string | null>(null)
   const [creator, setCreator] = useState<any>(null)
-  const [isSticky, setIsSticky] = useState(false)
 
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -206,23 +205,18 @@ export default function NewProductPage() {
     const handleScroll = () => {
       if (!contentRef.current) return
 
-      const scrollTop = contentRef.current.scrollTop
-      const pillBarHeight = pillBarRef.current?.offsetHeight || 0
-
-      // Check if should be sticky
-      setIsSticky(scrollTop > 10)
-
       // Find which section is currently in view
       let currentSection: SectionId = "about"
+      const containerRect = contentRef.current.getBoundingClientRect()
 
       for (const section of SECTIONS) {
         const element = sectionRefs.current[section.id]
         if (element) {
           const rect = element.getBoundingClientRect()
-          const containerRect = contentRef.current.getBoundingClientRect()
-          const relativeTop = rect.top - containerRect.top - pillBarHeight - 20
+          // Check if section top is above the middle of the viewport
+          const relativeTop = rect.top - containerRect.top
 
-          if (relativeTop <= 100) {
+          if (relativeTop <= 150) {
             currentSection = section.id
           }
         }
@@ -234,6 +228,8 @@ export default function NewProductPage() {
     const content = contentRef.current
     if (content) {
       content.addEventListener("scroll", handleScroll, { passive: true })
+      // Initial check
+      handleScroll()
       return () => content.removeEventListener("scroll", handleScroll)
     }
   }, [])
@@ -242,13 +238,12 @@ export default function NewProductPage() {
   const scrollToSection = (sectionId: SectionId) => {
     const element = sectionRefs.current[sectionId]
     if (element && contentRef.current) {
-      const pillBarHeight = pillBarRef.current?.offsetHeight || 0
       const containerRect = contentRef.current.getBoundingClientRect()
       const elementRect = element.getBoundingClientRect()
-      const scrollTop = contentRef.current.scrollTop + (elementRect.top - containerRect.top) - pillBarHeight - 24
+      const scrollTop = contentRef.current.scrollTop + (elementRect.top - containerRect.top) - 24
 
       contentRef.current.scrollTo({
-        top: scrollTop,
+        top: Math.max(0, scrollTop),
         behavior: "smooth"
       })
     }
@@ -714,9 +709,9 @@ export default function NewProductPage() {
   const existingYouTube = mediaItems.filter(m => m.type === "youtube").length
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       {/* Header - White bar */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="flex-shrink-0 bg-white border-b border-gray-100">
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-2">
             <Link
@@ -731,57 +726,53 @@ export default function NewProductPage() {
         </div>
       </div>
 
-      {/* Content with sticky pill bar */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto">
-        {/* Sticky Pill Navigation */}
-        <div
-          ref={pillBarRef}
-          className={`sticky top-0 z-30 transition-all duration-200 ${isSticky ? "bg-gray-50 shadow-sm border-b border-gray-100" : "bg-white"}`}
-        >
-          <div className="px-4 sm:px-6 lg:px-8 py-3">
-            <div className="max-w-5xl mx-auto">
-              <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                {SECTIONS.map((section) => {
-                  const isCompleted = completedSections.has(section.id)
-                  const isActive = activeSection === section.id
+      {/* Sticky Pill Navigation - Outside scroll container */}
+      <div
+        ref={pillBarRef}
+        className="flex-shrink-0 bg-white border-b border-gray-200 z-30"
+      >
+        <div className="px-4 sm:px-6 lg:px-8 py-3">
+          <div className="max-w-5xl mx-auto">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {SECTIONS.map((section) => {
+                const isActive = activeSection === section.id
 
-                  return (
-                    <button
-                      key={section.id}
-                      onClick={() => scrollToSection(section.id)}
-                      className={`
-                        flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0
-                        ${isActive
-                          ? "bg-gray-200 text-gray-900"
-                          : "bg-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                        }
-                      `}
-                    >
-                      {/* Checkmark circle icon - larger size */}
-                      <span className={`
-                        flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-colors
-                        ${isCompleted
-                          ? "bg-violet-500"
-                          : "bg-gray-300"
-                        }
-                      `}>
-                        <Check className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${isCompleted ? "text-white" : "text-gray-400"}`} />
-                      </span>
-                      {section.name}
-                    </button>
-                  )
-                })}
-              </div>
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => scrollToSection(section.id)}
+                    className={`
+                      flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0
+                      bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800
+                    `}
+                  >
+                    {/* Checkmark circle icon - purple when active, gray otherwise */}
+                    <span className={`
+                      flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-colors
+                      ${isActive
+                        ? "bg-violet-500"
+                        : "bg-gray-300"
+                      }
+                    `}>
+                      <Check className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${isActive ? "text-white" : "text-gray-500"}`} />
+                    </span>
+                    {section.name}
+                  </button>
+                )
+              })}
             </div>
           </div>
-          {/* Subtle gray divider */}
-          {!isSticky && <div className="h-px bg-gray-100" />}
         </div>
+      </div>
 
+      {/* Scrollable Content Area */}
+      <div ref={contentRef} className="flex-1 overflow-y-auto bg-gray-50">
         {/* Form Content - White rounded container */}
-        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-48">
+        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-32">
           <div className="max-w-5xl mx-auto">
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
+              {/* Form content wrapper - 80% width and left-aligned on desktop */}
+              <div className="lg:w-4/5">
               {/* Error message */}
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
@@ -1356,43 +1347,40 @@ export default function NewProductPage() {
                   </div>
                 </div>
               </div>
+              </div>{/* Close 80% width wrapper */}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sticky Bottom Bar - No Preview button */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-40 px-4 sm:px-6 lg:px-8 pb-4 sm:pb-5">
-        <div className="max-w-5xl mx-auto">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-lg">
-            <div className="px-4 sm:px-6 py-3 sm:py-4">
-              <div className="flex items-center justify-between">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCancel}
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4"
-                >
-                  Cancel
-                </Button>
+      {/* Sticky Bottom Bar - attached to bottom with no gap */}
+      <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-40 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4"
+            >
+              Cancel
+            </Button>
 
-                <Button
-                  type="button"
-                  onClick={handleSaveChanges}
-                  disabled={isLoading || !title.trim()}
-                  className="bg-violet-600 hover:bg-violet-700 text-white h-9 sm:h-10 px-4 sm:px-6 text-xs sm:text-sm"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save changes"
-                  )}
-                </Button>
-              </div>
-            </div>
+            <Button
+              type="button"
+              onClick={handleSaveChanges}
+              disabled={isLoading || !title.trim()}
+              className="bg-violet-500 hover:bg-violet-600 text-white h-9 sm:h-10 px-4 sm:px-6 text-xs sm:text-sm"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
           </div>
         </div>
       </div>
