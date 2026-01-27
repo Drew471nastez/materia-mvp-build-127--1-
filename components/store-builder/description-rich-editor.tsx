@@ -286,7 +286,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       <div
         className="fixed inset-0"
         style={{
-          backgroundColor: isMobileView ? "rgba(0,0,0,0.3)" : "transparent",
+          backgroundColor: isMobileView ? "rgba(0,0,0,0.2)" : "transparent",
           zIndex: 2147483645,
           pointerEvents: "auto",
           opacity: 1,
@@ -298,7 +298,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       <div
         ref={popoverRef}
         className={cn(
-          "rounded-xl shadow-2xl border flex flex-col",
+          "shadow-lg border flex flex-col",
           className
         )}
         style={{
@@ -308,6 +308,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           backgroundColor: bgColor,
           borderColor: borderColorValue,
           color: textColor,
+          borderRadius: "17px", // +5px from default 12px
           // Subtle animation: gentle fade + very slight scale from 98%
           animation: "popoverIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
           ...(isMobileView ? {
@@ -316,14 +317,14 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
             transform: "translate(-50%, -50%)",
             transformOrigin: "center center",
             width: "calc(100vw - 32px)",
-            maxWidth: "340px",
-            maxHeight: "calc(100vh - 48px)",
+            maxWidth: "380px",
+            maxHeight: "calc(100vh - 32px)",
             overflow: "hidden",
           } : {
             top: position.top,
             left: position.left,
             transformOrigin: position.transformOrigin,
-            maxHeight: "min(450px, calc(100vh - 100px))",
+            maxHeight: "min(520px, calc(100vh - 80px))", // 15% taller (from 450px to ~518px)
             overflow: "hidden",
           }),
         }}

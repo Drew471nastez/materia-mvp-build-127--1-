@@ -44,6 +44,11 @@ import {
   GripVertical,
   Info,
   Play,
+  Pencil,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  Layers,
 } from "lucide-react"
 import Link from "next/link"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
@@ -174,6 +179,21 @@ export default function NewProductPage() {
   // Ratio warning state for non-widescreen images
   const [ratioWarning, setRatioWarning] = useState<string | null>(null)
 
+  // File renaming state
+  const [editingFileId, setEditingFileId] = useState<string | null>(null)
+  const [editingFileName, setEditingFileName] = useState("")
+
+  // Variants state
+  interface ProductVariant {
+    id: string
+    name: string
+    description: string
+    additionalPrice: string
+    maxPurchases: string
+    isExpanded: boolean
+  }
+  const [variants, setVariants] = useState<ProductVariant[]>([])
+
   // Track changes for unsaved warning
   useEffect(() => {
     if (title || description || price || mediaItems.length > 0 || digitalFiles.length > 0) {
@@ -292,6 +312,14 @@ export default function NewProductPage() {
     }
   }
 
+  // Scroll to top on page load
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTo({ top: 0, behavior: "instant" })
+    }
+    window.scrollTo({ top: 0, behavior: "instant" })
+  }, [])
+
   // Fetch creator on mount
   useEffect(() => {
     const getCreator = async () => {
@@ -320,7 +348,7 @@ export default function NewProductPage() {
     getCreator()
   }, [router])
 
-  // Auto-generate slug from title
+  // Auto-generate slug and SEO from title
   useEffect(() => {
     if (!title) return
     const generatedSlug = title
@@ -328,10 +356,21 @@ export default function NewProductPage() {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
     setSlug(generatedSlug)
-    if (!seoTitle) {
-      setSeoTitle(title)
-    }
+    // Auto-generate SEO title
+    setSeoTitle(title)
   }, [title])
+
+  // Auto-generate SEO description from product description
+  useEffect(() => {
+    if (!description) return
+    // Strip HTML tags and get plain text for SEO description
+    const plainText = description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+    if (plainText && !seoDescription) {
+      // Truncate to 155 chars for SEO
+      const truncated = plainText.length > 155 ? plainText.substring(0, 152) + '...' : plainText
+      setSeoDescription(truncated)
+    }
+  }, [description])
 
   // Create or update product
   const saveProduct = useCallback(async (publish = false) => {
@@ -1523,16 +1562,26 @@ export default function NewProductPage() {
                       Call to action
                     </Label>
                     <TooltipIcon
-                      content={<p>Custom button text (e.g., "Buy Now", "Get Access")</p>}
+                      content={<p>Button text shown on the product page</p>}
                     />
                   </div>
-                  <Input
-                    id="cta"
-                    placeholder="Buy Now"
-                    value={callToAction}
-                    onChange={(e) => setCallToAction(e.target.value)}
-                    className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base"
-                  />
+                  <Select value={callToAction || "I want this!"} onValueChange={setCallToAction}>
+                    <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
+                      <SelectValue placeholder="Select button text" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="I want this!">I want this!</SelectItem>
+                      <SelectItem value="Buy Now">Buy Now</SelectItem>
+                      <SelectItem value="Get Access">Get Access</SelectItem>
+                      <SelectItem value="Download Now">Download Now</SelectItem>
+                      <SelectItem value="Get Instant Access">Get Instant Access</SelectItem>
+                      <SelectItem value="Purchase">Purchase</SelectItem>
+                      <SelectItem value="Add to Cart">Add to Cart</SelectItem>
+                      <SelectItem value="Get it Now">Get it Now</SelectItem>
+                      <SelectItem value="Unlock Access">Unlock Access</SelectItem>
+                      <SelectItem value="Join Now">Join Now</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -1556,19 +1605,60 @@ export default function NewProductPage() {
                           key={file.id}
                           className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200"
                         >
-                          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                             <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
+                            <div className="min-w-0 flex-1">
+                              {editingFileId === file.id ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={editingFileName}
+                                    onChange={(e) => setEditingFileName(e.target.value)}
+                                    className="h-7 text-xs sm:text-sm border-gray-300"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        setDigitalFiles(prev => prev.map(f =>
+                                          f.id === file.id ? { ...f, file_name: editingFileName } : f
+                                        ))
+                                        setEditingFileId(null)
+                                      }
+                                      if (e.key === 'Escape') {
+                                        setEditingFileId(null)
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      setDigitalFiles(prev => prev.map(f =>
+                                        f.id === file.id ? { ...f, file_name: editingFileName } : f
+                                      ))
+                                      setEditingFileId(null)
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
+                              )}
                               <p className="text-[10px] sm:text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
                             </div>
                           </div>
-                          <button
-                            onClick={() => handleDeleteFile(file)}
-                            className="p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
-                          >
-                            <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          </button>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => {
+                                setEditingFileId(file.id || null)
+                                setEditingFileName(file.file_name)
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                              title="Rename file"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteFile(file)}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                              title="Delete file"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1674,6 +1764,171 @@ export default function NewProductPage() {
                 </div>
               </div>
 
+              {/* Variants Section */}
+              <div className="space-y-4 sm:space-y-6 mb-8 sm:mb-12">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">Variants</h2>
+                    <TooltipIcon
+                      content={<p>Add different versions of your product with different prices</p>}
+                    />
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Offer different versions or tiers of your product.
+                  </p>
+                </div>
+
+                {/* Variants List */}
+                {variants.length > 0 && (
+                  <div className="space-y-3">
+                    {variants.map((variant, index) => (
+                      <div
+                        key={variant.id}
+                        className="border border-gray-200 rounded-xl overflow-hidden bg-white"
+                      >
+                        {/* Variant Header */}
+                        <div
+                          className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => {
+                            setVariants(prev => prev.map(v =>
+                              v.id === variant.id ? { ...v, isExpanded: !v.isExpanded } : v
+                            ))
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-6 h-6 rounded bg-gray-200 text-gray-600">
+                              <GripVertical className="h-3.5 w-3.5" />
+                            </div>
+                            <Layers className="h-4 w-4 text-violet-500" />
+                            <span className="text-sm font-medium text-gray-900">{variant.name || "Untitled"}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setVariants(prev => prev.map(v =>
+                                  v.id === variant.id ? { ...v, isExpanded: !v.isExpanded } : v
+                                ))
+                              }}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                            >
+                              {variant.isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setVariants(prev => prev.filter(v => v.id !== variant.id))
+                              }}
+                              className="p-1.5 hover:bg-red-50 rounded transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Variant Content - Collapsible */}
+                        {variant.isExpanded && (
+                          <div className="p-4 space-y-4 border-t border-gray-200 bg-white">
+                            {/* Name */}
+                            <div className="space-y-1.5">
+                              <Label className="text-xs sm:text-sm font-medium text-gray-700">Name</Label>
+                              <Input
+                                placeholder="Untitled"
+                                value={variant.name}
+                                onChange={(e) => {
+                                  setVariants(prev => prev.map(v =>
+                                    v.id === variant.id ? { ...v, name: e.target.value } : v
+                                  ))
+                                }}
+                                className="h-10 border-gray-200 text-sm"
+                              />
+                            </div>
+
+                            {/* Description */}
+                            <div className="space-y-1.5">
+                              <Label className="text-xs sm:text-sm font-medium text-gray-700">Description</Label>
+                              <Textarea
+                                placeholder="Describe this variant..."
+                                value={variant.description}
+                                onChange={(e) => {
+                                  setVariants(prev => prev.map(v =>
+                                    v.id === variant.id ? { ...v, description: e.target.value } : v
+                                  ))
+                                }}
+                                className="border-gray-200 min-h-[80px] text-sm resize-none"
+                              />
+                            </div>
+
+                            {/* Price and Max Purchases Row */}
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs sm:text-sm font-medium text-gray-700">Additional amount</Label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0"
+                                    value={variant.additionalPrice}
+                                    onChange={(e) => {
+                                      setVariants(prev => prev.map(v =>
+                                        v.id === variant.id ? { ...v, additionalPrice: e.target.value } : v
+                                      ))
+                                    }}
+                                    className="h-10 pl-7 border-gray-200 text-sm"
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs sm:text-sm font-medium text-gray-700">Maximum number of purchases</Label>
+                                <Input
+                                  type="text"
+                                  placeholder="∞"
+                                  value={variant.maxPurchases}
+                                  onChange={(e) => {
+                                    setVariants(prev => prev.map(v =>
+                                      v.id === variant.id ? { ...v, maxPurchases: e.target.value } : v
+                                    ))
+                                  }}
+                                  className="h-10 border-gray-200 text-sm"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add Version Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newVariant: ProductVariant = {
+                      id: `variant-${Date.now()}`,
+                      name: "Untitled",
+                      description: "",
+                      additionalPrice: "0",
+                      maxPurchases: "",
+                      isExpanded: true,
+                    }
+                    setVariants(prev => [...prev, newVariant])
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-3 sm:p-4 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add version
+                </button>
+              </div>
+
               {/* Settings Section */}
               <div
                 ref={(el) => { sectionRefs.current.settings = el }}
@@ -1729,7 +1984,6 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-xs sm:text-sm font-medium text-gray-900">Display</h3>
                   <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-100">
                     <div>
                       <p className="text-xs sm:text-sm font-medium text-gray-900">Show sales count</p>
@@ -1743,7 +1997,6 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-xs sm:text-sm font-medium text-gray-900">Refund policy</h3>
                   <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-100">
                     <div>
                       <p className="text-xs sm:text-sm font-medium text-gray-900">Enable refund policy</p>
