@@ -1,17 +1,13 @@
 "use client"
-import { useState, useEffect } from "react"
+
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Select,
   SelectContent,
@@ -25,88 +21,84 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { AlertTriangle, HelpCircle } from "lucide-react"
-import Link from "next/link"
-import { ImageUpload } from "@/components/app/image-upload"
-import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
-import { CategoriesSelector } from "@/components/app/categories-selector"
 import {
-  ArrowLeft,
-  ArrowRight,
+  ChevronLeft,
   Check,
-  Package,
-  GraduationCap,
+  Info,
+  HelpCircle,
   Plus,
-  X,
-  GripVertical,
   Upload,
-  FileIcon,
+  X,
   Loader2,
+  Image as ImageIcon,
+  FileText,
+  Settings,
+  Search,
+  GripVertical,
 } from "lucide-react"
+import Link from "next/link"
+import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
 
-const STEPS = [
-  { id: 1, name: "Basics", description: "Name and type" },
-  { id: 2, name: "Content", description: "Description and details" },
-  { id: 3, name: "Media", description: "Images and files" },
-  { id: 4, name: "Publish", description: "Review and go live" },
-]
+// Tab definitions matching the design
+const TABS = [
+  { id: "about", name: "About" },
+  { id: "media", name: "Media" },
+  { id: "content", name: "Content" },
+  { id: "settings", name: "Settings" },
+  { id: "seo", name: "SEO" },
+] as const
 
-const DEFAULT_WHATS_INCLUDED = ["Instant download access", "All included files", "Lifetime access"]
-
-const REFUND_POLICY_OPTIONS = [
-  { value: 'no_refunds', label: 'No refunds allowed' },
-  { value: '7_day', label: '7-day money back guarantee' },
-  { value: '14_day', label: '14-day money back guarantee' },
-  { value: '30_day', label: '30-day money back guarantee' },
-  { value: '6_month', label: '6-month money back guarantee' },
-]
+type TabId = typeof TABS[number]["id"]
 
 interface UploadedFile {
   id?: string
   file_name: string
   file_path: string
   file_size: number
+  mime_type?: string
 }
 
-export default function NewProductWizard() {
+export default function NewProductPage() {
   const router = useRouter()
-  const [currentStep, setCurrentStep] = useState(1)
+  const [activeTab, setActiveTab] = useState<TabId>("about")
+  const [completedTabs, setCompletedTabs] = useState<Set<TabId>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [creatorId, setCreatorId] = useState<string | null>(null)
   const [productId, setProductId] = useState<string | null>(null)
   const [creator, setCreator] = useState<any>(null)
-  const [showStripeWarning, setShowStripeWarning] = useState(false)
 
-  // Step 1: Basics
+  // About tab fields
   const [title, setTitle] = useState("")
-  const [slug, setSlug] = useState("")
-  const [productType, setProductType] = useState<"digital" | "course">("digital")
-  const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [photoUrls, setPhotoUrls] = useState<string[]>([])
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [uploadingMedia, setUploadingMedia] = useState(false)
 
-  // Step 2: Content
-  const [description, setDescription] = useState("")
-  const [benefits, setBenefits] = useState<string[]>([])
-  const [newBenefit, setNewBenefit] = useState("")
-  const [whatsIncluded, setWhatsIncluded] = useState<string[]>([...DEFAULT_WHATS_INCLUDED])
-  const [newIncludeItem, setNewIncludeItem] = useState("")
-  const [showSalesBadge, setShowSalesBadge] = useState(true)
-
-  // Refund policy (Step 2)
-  const [refundPolicyEnabled, setRefundPolicyEnabled] = useState(false)
-  const [refundPolicyType, setRefundPolicyType] = useState('7_day')
-  const [refundPolicyFinePrint, setRefundPolicyFinePrint] = useState('')
-
-  // Step 3: Media & Pricing
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
+  // Media tab fields
   const [galleryUrls, setGalleryUrls] = useState<string[]>([])
-  const [price, setPrice] = useState("")
-  const [compareAtPrice, setCompareAtPrice] = useState("")
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
+
+  // Content tab fields
+  const [description, setDescription] = useState("")
+  const [callToAction, setCallToAction] = useState("")
   const [digitalFiles, setDigitalFiles] = useState<UploadedFile[]>([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
+
+  // Settings tab fields
+  const [price, setPrice] = useState("")
+  const [compareAtPrice, setCompareAtPrice] = useState("")
+  const [slug, setSlug] = useState("")
+  const [productType, setProductType] = useState<"digital" | "course">("digital")
+  const [showSalesBadge, setShowSalesBadge] = useState(true)
+  const [refundPolicyEnabled, setRefundPolicyEnabled] = useState(false)
+  const [refundPolicyType, setRefundPolicyType] = useState("7_day")
+
+  // SEO tab fields
+  const [seoTitle, setSeoTitle] = useState("")
+  const [seoDescription, setSeoDescription] = useState("")
+  const [seoKeywords, setSeoKeywords] = useState("")
 
   // Fetch creator on mount
   useEffect(() => {
@@ -138,112 +130,197 @@ export default function NewProductWizard() {
 
   // Auto-generate slug from title
   useEffect(() => {
+    if (!title) return
     const generatedSlug = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
     setSlug(generatedSlug)
+    // Also set SEO title if empty
+    if (!seoTitle) {
+      setSeoTitle(title)
+    }
   }, [title])
 
-  // Create draft product after step 1
-  const createDraftProduct = async () => {
-    if (!creatorId || productId) return null
+  // Mark tab as completed when required fields are filled
+  useEffect(() => {
+    const newCompletedTabs = new Set<TabId>()
+
+    // About tab - requires title
+    if (title.trim()) {
+      newCompletedTabs.add("about")
+    }
+
+    // Media tab - optional but mark if has any media
+    if (photoUrls.length > 0 || galleryUrls.length > 0 || thumbnailUrl) {
+      newCompletedTabs.add("media")
+    }
+
+    // Content tab - optional but mark if has description
+    if (description.trim()) {
+      newCompletedTabs.add("content")
+    }
+
+    // Settings tab - mark if has price
+    if (price) {
+      newCompletedTabs.add("settings")
+    }
+
+    // SEO tab - optional but mark if filled
+    if (seoTitle || seoDescription) {
+      newCompletedTabs.add("seo")
+    }
+
+    setCompletedTabs(newCompletedTabs)
+  }, [title, photoUrls, galleryUrls, thumbnailUrl, description, price, seoTitle, seoDescription])
+
+  // Create or update product
+  const saveProduct = useCallback(async (publish = false) => {
+    if (!creatorId) return null
+    setIsSaving(true)
+    setError(null)
 
     const supabase = createClient()
 
-    // Check slug uniqueness
-    const { data: existing } = await supabase.from("products").select("id").eq("slug", slug).single()
+    try {
+      // Check slug uniqueness if creating new
+      let finalSlug = slug
+      if (!productId) {
+        const { data: existing } = await supabase
+          .from("products")
+          .select("id")
+          .eq("slug", slug)
+          .single()
 
-    let finalSlug = slug
-    if (existing) {
-      finalSlug = `${slug}-${Math.random().toString(36).slice(2, 7)}`
-    }
+        if (existing) {
+          finalSlug = `${slug}-${Math.random().toString(36).slice(2, 7)}`
+        }
+      }
 
-    const { data: product, error } = await supabase
-      .from("products")
-      .insert({
+      const productData = {
         creator_id: creatorId,
         type: productType,
         title,
         slug: finalSlug,
-        status: "draft",
-        price_cents: 0,
-        show_sales_badge: showSalesBadge,
-        whats_included: whatsIncluded,
-        refund_policy_enabled: refundPolicyEnabled,
-        refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
-        refund_policy_fine_print: refundPolicyEnabled ? refundPolicyFinePrint || null : null,
-        refund_policy_updated_at: refundPolicyEnabled ? new Date().toISOString() : null,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      setError(error.message)
-      return null
-    }
-
-    if (categoryId) {
-      await supabase.from("product_categories").insert({
-        product_id: product.id,
-        category_id: categoryId,
-      })
-    }
-
-    setProductId(product.id)
-    return product.id
-  }
-
-  // Auto-save changes
-  const saveProgress = async () => {
-    if (!productId) return
-
-    setIsSaving(true)
-    const supabase = createClient()
-
-    const benefitsText = benefits.length > 0 ? `\n\nWhat you'll get:\n${benefits.map((b) => `- ${b}`).join("\n")}` : ""
-
-    await supabase
-      .from("products")
-      .update({
-        title,
-        description: description + benefitsText,
+        description,
+        status: publish ? "published" : "draft",
         price_cents: Math.round(Number.parseFloat(price || "0") * 100),
         compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
-        thumbnail_url: thumbnailUrl,
-        gallery_urls: galleryUrls.length > 0 ? galleryUrls : null,
-        whats_included: whatsIncluded,
+        thumbnail_url: thumbnailUrl || (photoUrls.length > 0 ? photoUrls[0] : null),
+        gallery_urls: photoUrls.length > 0 ? photoUrls : null,
         show_sales_badge: showSalesBadge,
         refund_policy_enabled: refundPolicyEnabled,
         refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
-        refund_policy_fine_print: refundPolicyEnabled ? refundPolicyFinePrint || null : null,
-        refund_policy_updated_at: refundPolicyEnabled ? new Date().toISOString() : null,
-      })
-      .eq("id", productId)
+        seo_title: seoTitle || null,
+        seo_description: seoDescription || null,
+        call_to_action: callToAction || null,
+      }
 
-    await supabase.from("product_categories").delete().eq("product_id", productId)
+      if (productId) {
+        // Update existing product
+        const { error: updateError } = await supabase
+          .from("products")
+          .update(productData)
+          .eq("id", productId)
 
-    if (categoryId) {
-      await supabase.from("product_categories").insert({
-        product_id: productId,
-        category_id: categoryId,
-      })
+        if (updateError) throw updateError
+      } else {
+        // Create new product
+        const { data: product, error: createError } = await supabase
+          .from("products")
+          .insert(productData)
+          .select()
+          .single()
+
+        if (createError) throw createError
+        setProductId(product.id)
+        return product.id
+      }
+
+      return productId
+    } catch (err: any) {
+      setError(err.message)
+      return null
+    } finally {
+      setIsSaving(false)
     }
+  }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, thumbnailUrl, photoUrls, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction])
 
-    setIsSaving(false)
+  // Handle photo upload
+  const handlePhotoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+
+    setUploadingMedia(true)
+    const supabase = createClient()
+    const newUrls: string[] = []
+
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+          continue
+        }
+
+        // Check if video (only allow 1)
+        if (file.type.startsWith("video/")) {
+          if (videoUrl) {
+            setError("Only 1 video allowed")
+            continue
+          }
+        }
+
+        // Check photo limit
+        if (file.type.startsWith("image/") && photoUrls.length + newUrls.length >= 20) {
+          setError("Maximum 20 photos allowed")
+          continue
+        }
+
+        const timestamp = Date.now()
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+        const folder = productId || "temp"
+        const filePath = `${creatorId}/${folder}/${timestamp}_${safeName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from("product-images")
+          .upload(filePath, file, { cacheControl: "3600", upsert: false })
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError)
+          continue
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("product-images")
+          .getPublicUrl(filePath)
+
+        if (file.type.startsWith("video/")) {
+          setVideoUrl(publicUrl)
+        } else {
+          newUrls.push(publicUrl)
+        }
+      }
+
+      if (newUrls.length > 0) {
+        setPhotoUrls(prev => [...prev, ...newUrls])
+      }
+    } finally {
+      setUploadingMedia(false)
+    }
   }
 
+  // Handle file upload for digital assets
   const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0 || !productId) return
+    if (!files || files.length === 0) return
+
+    // Create product first if needed
+    let currentProductId = productId
+    if (!currentProductId) {
+      currentProductId = await saveProduct(false)
+      if (!currentProductId) return
+    }
 
     setUploadingFiles(true)
-    setUploadProgress(0)
-    setError(null)
-
     const supabase = createClient()
     const newFiles: UploadedFile[] = []
-    const totalFiles = files.length
-    let completed = 0
 
     try {
       for (const file of Array.from(files)) {
@@ -254,7 +331,7 @@ export default function NewProductWizard() {
 
         const timestamp = Date.now()
         const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-        const filePath = `products/${productId}/${timestamp}_${safeName}`
+        const filePath = `products/${currentProductId}/${timestamp}_${safeName}`
 
         const { error: uploadError } = await supabase.storage
           .from("product-files")
@@ -268,7 +345,7 @@ export default function NewProductWizard() {
         const { data: asset, error: dbError } = await supabase
           .from("digital_assets")
           .insert({
-            product_id: productId,
+            product_id: currentProductId,
             file_name: file.name,
             file_path: filePath,
             file_size: file.size,
@@ -284,16 +361,20 @@ export default function NewProductWizard() {
             file_size: file.size,
           })
         }
-
-        completed++
-        setUploadProgress(Math.round((completed / totalFiles) * 100))
       }
 
-      setDigitalFiles([...digitalFiles, ...newFiles])
+      setDigitalFiles(prev => [...prev, ...newFiles])
     } finally {
       setUploadingFiles(false)
-      setUploadProgress(0)
     }
+  }
+
+  const removePhoto = (index: number) => {
+    setPhotoUrls(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const removeVideo = () => {
+    setVideoUrl(null)
   }
 
   const handleDeleteFile = async (file: UploadedFile) => {
@@ -304,7 +385,7 @@ export default function NewProductWizard() {
       .from("product-files")
       .remove([file.file_path])
       .catch(() => {})
-    setDigitalFiles(digitalFiles.filter((f) => f.id !== file.id))
+    setDigitalFiles(prev => prev.filter(f => f.id !== file.id))
   }
 
   const formatFileSize = (bytes: number) => {
@@ -315,455 +396,413 @@ export default function NewProductWizard() {
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
 
-  const handleNext = async () => {
-    setError(null)
-
-    if (currentStep === 1) {
-      if (!title.trim()) {
-        setError("Please enter a product name")
-        return
-      }
-      setIsLoading(true)
-      await createDraftProduct()
-      setIsLoading(false)
-    }
-
-    if (currentStep === 2 || currentStep === 3) {
-      await saveProgress()
-    }
-
-    setCurrentStep((prev) => Math.min(prev + 1, 4))
+  const handleCancel = () => {
+    router.push("/app/products")
   }
 
-  const handleBack = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1))
-  }
-
-  const addBenefit = () => {
-    if (newBenefit.trim() && benefits.length < 8) {
-      setBenefits([...benefits, newBenefit.trim()])
-      setNewBenefit("")
+  const handlePreview = async () => {
+    // Save first then preview
+    await saveProduct(false)
+    if (productId) {
+      window.open(`/p/${slug}?preview=true`, "_blank")
     }
   }
 
-  const removeBenefit = (index: number) => {
-    setBenefits(benefits.filter((_, i) => i !== index))
-  }
-
-  const addIncludeItem = () => {
-    if (newIncludeItem.trim() && whatsIncluded.length < 10) {
-      setWhatsIncluded([...whatsIncluded, newIncludeItem.trim()])
-      setNewIncludeItem("")
-    }
-  }
-
-  const removeIncludeItem = (index: number) => {
-    // Don't allow removing default items
-    if (index < DEFAULT_WHATS_INCLUDED.length) return
-    setWhatsIncluded(whatsIncluded.filter((_, i) => i !== index))
-  }
-
-  const isDefaultItem = (index: number) => index < DEFAULT_WHATS_INCLUDED.length
-
-  const updateIncludeItem = (index: number, value: string) => {
-    const updated = [...whatsIncluded]
-    updated[index] = value
-    setWhatsIncluded(updated)
-  }
-
-  const canPublish = !!thumbnailUrl && (productType !== "digital" || digitalFiles.length > 0)
-
-  const handlePublish = async () => {
-    if (!productId) return
-
-    if (!thumbnailUrl) {
-      setError("Please upload a cover image before publishing")
-      return
-    }
-
-    if (productType === "digital" && digitalFiles.length === 0) {
-      setError("Please upload at least one digital file before publishing")
-      return
-    }
-
-    const priceValue = Number.parseFloat(price || "0")
-    if (priceValue > 0 && (!creator?.stripe_account_id || creator?.stripe_onboarding_status !== "connected")) {
-      setShowStripeWarning(true)
-      setError("You must connect Stripe to sell paid products. Go to Settings > Payments to connect.")
+  const handleSaveChanges = async () => {
+    if (!title.trim()) {
+      setError("Please enter a product title")
+      setActiveTab("about")
       return
     }
 
     setIsLoading(true)
-    await saveProgress()
+    const savedProductId = await saveProduct(false)
+    setIsLoading(false)
 
-    const supabase = createClient()
-    const { error } = await supabase.from("products").update({ status: "published" }).eq("id", productId)
+    if (savedProductId) {
+      router.push(`/app/products/${savedProductId}`)
+    }
+  }
 
-    if (error) {
-      setError(error.message)
-      setIsLoading(false)
+  const handlePublish = async () => {
+    if (!title.trim()) {
+      setError("Please enter a product title")
+      setActiveTab("about")
       return
     }
 
-    router.push(`/app/products/${productId}?published=true`)
+    setIsLoading(true)
+    const savedProductId = await saveProduct(true)
+    setIsLoading(false)
+
+    if (savedProductId) {
+      router.push(`/app/products/${savedProductId}?published=true`)
+    }
   }
 
-  const progressPercent = (currentStep / STEPS.length) * 100
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <div className="border-b border-border">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          <Link
-            href="/app/products"
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to products
-          </Link>
-          {isSaving && <span className="text-sm text-muted-foreground">Saving...</span>}
+      <div className="border-b border-gray-200 bg-white">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/app/products"
+              className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="text-lg font-semibold text-gray-900">New Product</h1>
+          </div>
         </div>
       </div>
 
-      {/* Progress */}
-      <div className="border-b border-border bg-muted/30">
-        <div className="mx-auto max-w-3xl px-4 py-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-foreground">Create New Product</h1>
-            <span className="text-sm text-muted-foreground">
-              Step {currentStep} of {STEPS.length}
-            </span>
-          </div>
-          <Progress value={progressPercent} className="h-2" />
-          <div className="mt-4 flex justify-between">
-            {STEPS.map((step) => (
-              <div
-                key={step.id}
-                className={`flex flex-col items-center ${step.id <= currentStep ? "text-foreground" : "text-muted-foreground"}`}
-              >
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-medium ${
-                    step.id < currentStep
-                      ? "border-green-500 bg-green-500 text-white"
-                      : step.id === currentStep
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-muted-foreground/30"
-                  }`}
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 bg-white">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {TABS.map((tab) => {
+              const isCompleted = completedTabs.has(tab.id)
+              const isActive = activeTab === tab.id
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all
+                    ${isActive
+                      ? "bg-gray-900 text-white"
+                      : isCompleted
+                        ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    }
+                  `}
                 >
-                  {step.id < currentStep ? <Check className="h-4 w-4" /> : step.id}
-                </div>
-                <span className="mt-2 hidden text-xs sm:block">{step.name}</span>
+                  {isCompleted && !isActive && (
+                    <Check className="h-4 w-4 text-gray-500" />
+                  )}
+                  {isActive && isCompleted && (
+                    <Check className="h-4 w-4 text-white" />
+                  )}
+                  {tab.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto pb-24">
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          {/* Error message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          {/* About Tab */}
+          {activeTab === "about" && (
+            <div className="space-y-8">
+              {/* About Section Header */}
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">About</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Tell the world all about your item and why they'll love it.
+                </p>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* Content */}
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        {/* Step 1: Basics */}
-        {currentStep === 1 && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>What are you creating?</CardTitle>
-                <CardDescription>Choose the type of product you want to sell</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup
-                  value={productType}
-                  onValueChange={(v) => setProductType(v as typeof productType)}
-                  className="grid gap-4 sm:grid-cols-2"
-                >
-                  <label
-                    className={`flex cursor-pointer flex-col items-center rounded-lg border-2 p-6 transition-all ${productType === "digital" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50"}`}
-                  >
-                    <RadioGroupItem value="digital" className="sr-only" />
-                    <Package
-                      className={`h-8 w-8 ${productType === "digital" ? "text-primary" : "text-muted-foreground"}`}
-                    />
-                    <span className="mt-3 font-medium">Digital Product</span>
-                    <span className="mt-1 text-center text-xs text-muted-foreground">Templates, ebooks, files</span>
-                  </label>
-                  <label
-                    className={`flex cursor-pointer flex-col items-center rounded-lg border-2 p-6 transition-all ${productType === "course" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50"}`}
-                  >
-                    <RadioGroupItem value="course" className="sr-only" />
-                    <GraduationCap
-                      className={`h-8 w-8 ${productType === "course" ? "text-primary" : "text-muted-foreground"}`}
-                    />
-                    <span className="mt-3 font-medium">Online Course</span>
-                    <span className="mt-1 text-center text-xs text-muted-foreground">Video lessons, modules</span>
-                  </label>
-                </RadioGroup>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Product Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Product Name *</Label>
-                  <Input
-                    id="title"
-                    placeholder="e.g. Social Media Template Pack"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                  />
+              {/* Title Field */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="title" className="text-sm font-medium text-gray-700">
+                    Title
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>The name of your product that customers will see</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="slug">URL Slug</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">/p/</span>
-                    <Input
-                      id="slug"
-                      placeholder="my-product"
-                      value={slug}
-                      onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <CategoriesSelector selectedCategory={categoryId} onChange={setCategoryId} />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Display Settings</CardTitle>
-                <CardDescription>Configure how your product appears to buyers</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div>
-                    <p className="font-medium">Show sales count badge</p>
-                    <p className="text-sm text-muted-foreground">Display number of sales on product page</p>
-                  </div>
-                  <Switch checked={showSalesBadge} onCheckedChange={setShowSalesBadge} />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Step 2: Content */}
-        {currentStep === 2 && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Description</CardTitle>
-                <CardDescription>Tell potential customers what they&apos;re getting</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DescriptionRichEditor
-                  value={description}
-                  onChange={setDescription}
-                  className="min-h-[200px]"
+                <Input
+                  id="title"
+                  placeholder="Short sleeve t-shirt"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="h-11 border-gray-300 focus:border-gray-400 focus:ring-gray-400"
                 />
-              </CardContent>
-            </Card>
+              </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Benefits</CardTitle>
-                <CardDescription>List the key benefits (up to 8) - stored as plain text</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="e.g. 50+ ready-to-use templates"
-                    value={newBenefit}
-                    onChange={(e) => setNewBenefit(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
-                  />
-                  <Button type="button" variant="outline" onClick={addBenefit} disabled={benefits.length >= 8}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
+              {/* Photos and Video Section */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-sm font-medium text-gray-700">
+                    Photos and video
+                  </Label>
+                  <span className="text-red-500">*</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Upload images and videos to showcase your product</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-                {benefits.length > 0 && (
-                  <ul className="space-y-2">
-                    {benefits.map((benefit, index) => (
-                      <li key={index} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <div className="flex items-center gap-2">
-                          <Check className="h-4 w-4 text-green-600" />
-                          <span className="text-sm">{benefit}</span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => removeBenefit(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
+                <p className="text-sm text-gray-500">
+                  Add up to 20 photos and 1 video.
+                </p>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>What&apos;s Included</CardTitle>
-                <CardDescription>
-                  Customize the bullet points shown on the product page. Default items cannot be deleted but can be
-                  edited.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="e.g. 50+ premium templates"
-                    value={newIncludeItem}
-                    onChange={(e) => setNewIncludeItem(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addIncludeItem())}
+                {/* Uploaded Media Preview */}
+                {(photoUrls.length > 0 || videoUrl) && (
+                  <div className="grid grid-cols-4 gap-3 mb-4">
+                    {photoUrls.map((url, index) => (
+                      <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group">
+                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => removePhoto(index)}
+                          className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-4 w-4 text-gray-600" />
+                        </button>
+                        {index === 0 && (
+                          <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-xs rounded">
+                            Cover
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {videoUrl && (
+                      <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group bg-gray-100">
+                        <video src={videoUrl} className="w-full h-full object-cover" />
+                        <button
+                          onClick={removeVideo}
+                          className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-4 w-4 text-gray-600" />
+                        </button>
+                        <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-xs rounded">
+                          Video
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Upload Zone */}
+                <div
+                  className={`
+                    relative border-2 border-dashed border-gray-300 rounded-xl p-8
+                    flex flex-col items-center justify-center min-h-[180px]
+                    transition-colors cursor-pointer hover:border-gray-400
+                    ${uploadingMedia ? "pointer-events-none opacity-50" : ""}
+                  `}
+                  onClick={() => document.getElementById("media-input")?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handlePhotoUpload(e.dataTransfer.files)
+                  }}
+                >
+                  <input
+                    id="media-input"
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={(e) => handlePhotoUpload(e.target.files)}
+                    disabled={uploadingMedia}
                   />
+
+                  <p className="text-gray-500 text-sm mb-4">
+                    {uploadingMedia ? "Uploading..." : "Drag and drop files or"}
+                  </p>
+
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={addIncludeItem}
-                    disabled={whatsIncluded.length >= 10}
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    disabled={uploadingMedia}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-4 w-4 mr-2" />
+                    Upload
                   </Button>
                 </div>
-                {whatsIncluded.length > 0 && (
-                  <ul className="space-y-2">
-                    {whatsIncluded.map((item, index) => (
-                      <li key={index} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <div className="flex items-center gap-2 flex-1">
-                          {isDefaultItem(index) ? (
-                            <X className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <GripVertical className="h-4 w-4 text-muted-foreground" />
-                          )}
-                          <Check className="h-4 w-4 text-green-600" />
-                          <Input
-                            value={item}
-                            onChange={(e) => updateIncludeItem(index, e.target.value)}
-                            className="border-0 p-0 h-auto text-sm focus-visible:ring-0"
-                          />
-                        </div>
-                        {!isDefaultItem(index) && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => removeIncludeItem(index)}
+              </div>
+            </div>
+          )}
+
+          {/* Media Tab */}
+          {activeTab === "media" && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Media</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Add additional gallery images for your product.
+                </p>
+              </div>
+
+              {/* Gallery Upload */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-sm font-medium text-gray-700">
+                    Gallery Images
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Drag to reorder. First image will be the cover.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Drag to reorder images. Add up to 8 gallery images.
+                </p>
+
+                <DraggableGalleryUpload
+                  folder={`${creatorId}/${productId || "temp"}/gallery`}
+                  value={galleryUrls}
+                  onChange={setGalleryUrls}
+                  maxImages={8}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Content Tab */}
+          {activeTab === "content" && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Content</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Describe your product and add digital files.
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-sm font-medium text-gray-700">
+                    Description
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Describe what customers will get</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <DescriptionRichEditor
+                  value={description}
+                  onChange={setDescription}
+                  className="min-h-[200px] border border-gray-300 rounded-lg"
+                />
+              </div>
+
+              {/* Call to Action */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="cta" className="text-sm font-medium text-gray-700">
+                    Call to action
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Custom button text (e.g., "Buy Now", "Get Access")</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Input
+                  id="cta"
+                  placeholder="Buy Now"
+                  value={callToAction}
+                  onChange={(e) => setCallToAction(e.target.value)}
+                  className="h-11 border-gray-300"
+                />
+              </div>
+
+              {/* Digital Files */}
+              {productType === "digital" && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-sm font-medium text-gray-700">
+                      Digital Files
+                    </Label>
+                    <span className="text-red-500">*</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Files customers receive after purchase</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Upload files customers will receive (max 1GB each).
+                  </p>
+
+                  {/* Uploaded files list */}
+                  {digitalFiles.length > 0 && (
+                    <div className="space-y-2">
+                      {digitalFiles.map((file) => (
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-5 w-5 text-gray-400" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{file.file_name}</p>
+                              <p className="text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteFile(file)}
+                            className="p-1.5 text-gray-400 hover:text-gray-600"
                           >
                             <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Refund Policy</CardTitle>
-                <CardDescription>Set your refund policy to build customer trust</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div>
-                    <p className="font-medium">Enable refund policy</p>
-                    <p className="text-sm text-muted-foreground">Show refund policy on product page</p>
-                  </div>
-                  <Switch checked={refundPolicyEnabled} onCheckedChange={setRefundPolicyEnabled} />
-                </div>
-
-                {refundPolicyEnabled && (
-                  <>
-                    <div className="grid gap-2">
-                      <Label htmlFor="refundPolicyType">Refund policy</Label>
-                      <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
-                        <SelectTrigger id="refundPolicyType">
-                          <SelectValue placeholder="Select a refund policy" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {REFUND_POLICY_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          </button>
+                        </div>
+                      ))}
                     </div>
+                  )}
 
-                    <div className="grid gap-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="refundFinePrint">Fine print (optional)</Label>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <p>Extra conditions or details about refunds. Shown to customers in a popup when they click on the refund policy.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                      <Textarea
-                        id="refundFinePrint"
-                        value={refundPolicyFinePrint}
-                        onChange={(e) => setRefundPolicyFinePrint(e.target.value)}
-                        placeholder="e.g. Refunds are only available for unused products. Contact support within the refund period."
-                        rows={3}
-                      />
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Step 3: Media & Pricing */}
-        {currentStep === 3 && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cover Image *</CardTitle>
-                <CardDescription>Required to publish. This is the main image customers will see.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ImageUpload
-                  bucket="product-images"
-                  folder={`${creatorId}/${productId || "temp"}`}
-                  value={thumbnailUrl || undefined}
-                  onChange={(url) => setThumbnailUrl(url)}
-                  aspectRatio="video"
-                  maxSizeMB={10}
-                />
-              </CardContent>
-            </Card>
-
-            {productType === "digital" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Digital Files *</CardTitle>
-                  <CardDescription>
-                    Upload the files customers will receive after purchase (max 1GB each)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Upload zone */}
+                  {/* File Upload Zone */}
                   <div
-                    className={`relative rounded-lg border-2 border-dashed p-6 text-center transition-colors cursor-pointer ${
-                      uploadingFiles ? "pointer-events-none opacity-50" : "hover:border-primary/50"
-                    }`}
+                    className={`
+                      relative border-2 border-dashed border-gray-300 rounded-xl p-6
+                      flex flex-col items-center justify-center
+                      transition-colors cursor-pointer hover:border-gray-400
+                      ${uploadingFiles ? "pointer-events-none opacity-50" : ""}
+                    `}
                     onClick={() => document.getElementById("file-input")?.click()}
                   >
                     <input
@@ -772,222 +811,275 @@ export default function NewProductWizard() {
                       multiple
                       className="hidden"
                       onChange={(e) => handleFileUpload(e.target.files)}
-                      disabled={uploadingFiles || !productId}
+                      disabled={uploadingFiles}
                     />
-                    <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-                    <p className="mt-2 text-sm font-medium">
-                      {uploadingFiles ? "Uploading..." : "Click to upload or drag and drop"}
+
+                    <Upload className="h-6 w-6 text-gray-400 mb-2" />
+                    <p className="text-gray-500 text-sm mb-2">
+                      {uploadingFiles ? "Uploading..." : "Drag and drop files or"}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">Max file size: 1GB</p>
-                  </div>
 
-                  {/* Upload progress */}
-                  {uploadingFiles && (
-                    <div className="space-y-2">
-                      <Progress value={uploadProgress} className="h-2" />
-                      <p className="text-center text-sm text-muted-foreground">{uploadProgress}% uploaded</p>
-                    </div>
-                  )}
-
-                  {/* Uploaded files list */}
-                  {digitalFiles.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Uploaded files</p>
-                      {digitalFiles.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center justify-between rounded-lg border border-border p-3"
-                        >
-                          <div className="flex items-center gap-3">
-                            <FileIcon className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm font-medium">{file.file_name}</p>
-                              <p className="text-xs text-muted-foreground">{formatFileSize(file.file_size)}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Check className="h-4 w-4 text-green-500" />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleDeleteFile(file)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Warning if no files */}
-                  {digitalFiles.length === 0 && !uploadingFiles && (
-                    <div className="flex items-center gap-2 rounded-lg border border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20 p-3 text-sm text-yellow-700 dark:text-yellow-400">
-                      <AlertTriangle className="h-4 w-4 shrink-0" />
-                      <span>Upload at least one file to publish</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Gallery Images</CardTitle>
-                <CardDescription>Optional. Drag to reorder images. First image appears after cover.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DraggableGalleryUpload
-                  folder={`${creatorId}/${productId || "temp"}/gallery`}
-                  value={galleryUrls}
-                  onChange={setGalleryUrls}
-                  maxImages={8}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Pricing</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label htmlFor="price">Price (USD) *</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="29.00"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="compareAtPrice">Compare at price</Label>
-                    <Input
-                      id="compareAtPrice"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="49.00 (optional)"
-                      value={compareAtPrice}
-                      onChange={(e) => setCompareAtPrice(e.target.value)}
-                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-300 text-gray-700"
+                      disabled={uploadingFiles}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Upload
+                    </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Step 4: Review & Publish */}
-        {currentStep === 4 && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Review Your Product</CardTitle>
-                <CardDescription>Make sure everything looks good before publishing</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Product Name</p>
-                    <p className="font-medium">{title}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Type</p>
-                    <Badge variant="secondary" className="mt-1 capitalize">
-                      {productType}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Price</p>
-                    <p className="font-medium">{price ? `$${price}` : "Free"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Cover Image</p>
-                    <p className="font-medium">{thumbnailUrl ? "Uploaded" : "Not uploaded"}</p>
-                  </div>
-                  {productType === "digital" && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Digital Files</p>
-                      <p className="font-medium">{digitalFiles.length} file(s) uploaded</p>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm text-muted-foreground">Show Sales Badge</p>
-                    <p className="font-medium">{showSalesBadge ? "Yes" : "No"}</p>
-                  </div>
-                </div>
-
-                {!canPublish && (
-                  <div className="rounded-lg border border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-400">
-                    <p className="font-medium">Before you can publish:</p>
-                    <ul className="mt-2 list-disc pl-5 space-y-1">
-                      {!thumbnailUrl && <li>Upload a cover image</li>}
-                      {productType === "digital" && digitalFiles.length === 0 && (
-                        <li>Upload at least one digital file</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Navigation */}
-        {error && <div className="my-4 rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
-
-        {/* Stripe warning banner */}
-        {showStripeWarning && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Connect Stripe to sell paid products.</strong>{" "}
-              <a href="/app/settings/payments" className="underline">
-                Go to Settings → Payments
-              </a>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="mt-8 flex items-center justify-between">
-          <Button type="button" variant="outline" onClick={handleBack} disabled={currentStep === 1}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-
-          {currentStep < 4 ? (
-            <Button onClick={handleNext} disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  Next
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </>
               )}
-            </Button>
-          ) : (
-            <Button onClick={handlePublish} disabled={isLoading || !canPublish}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Publishing...
-                </>
-              ) : (
-                <>
-                  <Check className="mr-2 h-4 w-4" />
-                  Publish Product
-                </>
-              )}
-            </Button>
+            </div>
           )}
+
+          {/* Settings Tab */}
+          {activeTab === "settings" && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Settings</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Configure pricing and product settings.
+                </p>
+              </div>
+
+              {/* Pricing */}
+              <div className="space-y-4">
+                <h3 className="text-base font-medium text-gray-900">Pricing</h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price" className="text-sm font-medium text-gray-700">
+                      Price (USD)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        className="h-11 pl-7 border-gray-300"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="comparePrice" className="text-sm font-medium text-gray-700">
+                      Compare at price
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <Input
+                        id="comparePrice"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={compareAtPrice}
+                        onChange={(e) => setCompareAtPrice(e.target.value)}
+                        className="h-11 pl-7 border-gray-300"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* URL Slug */}
+              <div className="space-y-2">
+                <Label htmlFor="slug" className="text-sm font-medium text-gray-700">
+                  URL slug
+                </Label>
+                <div className="flex items-center">
+                  <span className="px-3 py-2 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg text-sm text-gray-500">
+                    /p/
+                  </span>
+                  <Input
+                    id="slug"
+                    placeholder="my-product"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    className="h-11 rounded-l-none border-gray-300"
+                  />
+                </div>
+              </div>
+
+              {/* Product Type */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">
+                  Product type
+                </Label>
+                <Select value={productType} onValueChange={(v) => setProductType(v as "digital" | "course")}>
+                  <SelectTrigger className="h-11 border-gray-300">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="digital">Digital Product</SelectItem>
+                    <SelectItem value="course">Online Course</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Display Options */}
+              <div className="space-y-4">
+                <h3 className="text-base font-medium text-gray-900">Display</h3>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Show sales count</p>
+                    <p className="text-sm text-gray-500">Display number of sales on product page</p>
+                  </div>
+                  <Switch
+                    checked={showSalesBadge}
+                    onCheckedChange={setShowSalesBadge}
+                  />
+                </div>
+              </div>
+
+              {/* Refund Policy */}
+              <div className="space-y-4">
+                <h3 className="text-base font-medium text-gray-900">Refund policy</h3>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Enable refund policy</p>
+                    <p className="text-sm text-gray-500">Show refund policy on product page</p>
+                  </div>
+                  <Switch
+                    checked={refundPolicyEnabled}
+                    onCheckedChange={setRefundPolicyEnabled}
+                  />
+                </div>
+
+                {refundPolicyEnabled && (
+                  <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
+                    <SelectTrigger className="h-11 border-gray-300">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no_refunds">No refunds allowed</SelectItem>
+                      <SelectItem value="7_day">7-day money back guarantee</SelectItem>
+                      <SelectItem value="14_day">14-day money back guarantee</SelectItem>
+                      <SelectItem value="30_day">30-day money back guarantee</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* SEO Tab */}
+          {activeTab === "seo" && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">SEO</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Optimize your product for search engines.
+                </p>
+              </div>
+
+              {/* SEO Title */}
+              <div className="space-y-2">
+                <Label htmlFor="seoTitle" className="text-sm font-medium text-gray-700">
+                  SEO title
+                </Label>
+                <Input
+                  id="seoTitle"
+                  placeholder="Product title for search engines"
+                  value={seoTitle}
+                  onChange={(e) => setSeoTitle(e.target.value)}
+                  className="h-11 border-gray-300"
+                />
+                <p className="text-xs text-gray-500">
+                  {seoTitle.length}/60 characters
+                </p>
+              </div>
+
+              {/* SEO Description */}
+              <div className="space-y-2">
+                <Label htmlFor="seoDescription" className="text-sm font-medium text-gray-700">
+                  SEO description
+                </Label>
+                <Textarea
+                  id="seoDescription"
+                  placeholder="Brief description for search results"
+                  value={seoDescription}
+                  onChange={(e) => setSeoDescription(e.target.value)}
+                  className="border-gray-300 min-h-[100px]"
+                />
+                <p className="text-xs text-gray-500">
+                  {seoDescription.length}/160 characters
+                </p>
+              </div>
+
+              {/* Preview */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">
+                  Search preview
+                </Label>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-blue-600 text-lg truncate">
+                    {seoTitle || title || "Product title"}
+                  </p>
+                  <p className="text-green-700 text-sm truncate">
+                    yourstore.com/p/{slug || "product-url"}
+                  </p>
+                  <p className="text-gray-600 text-sm line-clamp-2 mt-1">
+                    {seoDescription || description || "Product description will appear here..."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sticky Bottom Bar */}
+      <div className="fixed bottom-0 left-0 right-0 md:left-[220px] bg-white border-t border-gray-200 z-40">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </Button>
+
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePreview}
+                disabled={isLoading || !title.trim()}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Preview
+              </Button>
+
+              <Button
+                type="button"
+                onClick={handleSaveChanges}
+                disabled={isLoading || !title.trim()}
+                className="bg-violet-600 hover:bg-violet-700 text-white px-6"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save changes"
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
