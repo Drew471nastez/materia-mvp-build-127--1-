@@ -4,13 +4,23 @@ import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import Image from "next/image"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Play, Pause, Volume2, VolumeX, Maximize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+
+interface MediaItem {
+  url: string
+  type: "image" | "video" | "youtube"
+  thumbnailUrl?: string
+}
 
 interface ProductGalleryProps {
   images: string[]
   title: string
+  // Optional video URL for the product
+  videoUrl?: string | null
+  // YouTube embed URLs
+  youtubeUrls?: string[]
   // Mobile dots navigation mode (hides thumbnails, shows dots, enables autoplay)
   mobileDotsMode?: boolean
   // Desktop dots navigation mode (hides thumbnails, shows dots, enables autoplay)
@@ -33,6 +43,8 @@ interface ProductGalleryProps {
 export function ProductGallery({
   images,
   title,
+  videoUrl,
+  youtubeUrls = [],
   mobileDotsMode = false,
   desktopDotsMode = false,
   autoplayInterval = 7000,
@@ -52,8 +64,99 @@ export function ProductGallery({
   const [isDesktopScreen, setIsDesktopScreen] = useState(true)
   const [isHovering, setIsHovering] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
+
+  // Video player state
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
+  const [isVideoMuted, setIsVideoMuted] = useState(true)
+  const [videoProgress, setVideoProgress] = useState(0)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
   const imageRef = useRef<HTMLDivElement>(null)
   const autoplayRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Build media items array: images first, then video, then YouTube
+  const mediaItems: MediaItem[] = [
+    ...images.map(url => ({ url, type: "image" as const })),
+    ...(videoUrl ? [{ url: videoUrl, type: "video" as const }] : []),
+    ...youtubeUrls.map(url => ({
+      url,
+      type: "youtube" as const,
+      thumbnailUrl: getYouTubeThumbnail(url)
+    }))
+  ]
+
+  // Get YouTube video ID from embed URL
+  function getYouTubeVideoId(url: string): string | null {
+    const patterns = [
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+      /youtu\.be\/([a-zA-Z0-9_-]{11})/
+    ]
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match) return match[1]
+    }
+    return null
+  }
+
+  function getYouTubeThumbnail(url: string): string {
+    const videoId = getYouTubeVideoId(url)
+    return videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : ""
+  }
+
+  // Video controls
+  const toggleVideoPlay = useCallback(() => {
+    if (videoRef.current) {
+      if (isVideoPlaying) {
+        videoRef.current.pause()
+      } else {
+        videoRef.current.play()
+      }
+      setIsVideoPlaying(!isVideoPlaying)
+    }
+  }, [isVideoPlaying])
+
+  const toggleVideoMute = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isVideoMuted
+      setIsVideoMuted(!isVideoMuted)
+    }
+  }, [isVideoMuted])
+
+  const handleVideoTimeUpdate = useCallback(() => {
+    if (videoRef.current) {
+      const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100
+      setVideoProgress(progress)
+    }
+  }, [])
+
+  const handleVideoSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (videoRef.current) {
+      const rect = e.currentTarget.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const percentage = x / rect.width
+      videoRef.current.currentTime = percentage * videoRef.current.duration
+    }
+  }, [])
+
+  const toggleFullscreen = useCallback(() => {
+    if (videoRef.current) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen()
+      } else {
+        videoRef.current.requestFullscreen()
+      }
+    }
+  }, [])
+
+  // Pause video when switching away from video slide
+  useEffect(() => {
+    const currentMedia = mediaItems[currentIndex]
+    if (currentMedia?.type !== "video" && videoRef.current) {
+      videoRef.current.pause()
+      setIsVideoPlaying(false)
+    }
+  }, [currentIndex, mediaItems])
 
   // Minimum swipe distance (in px) to trigger navigation
   const minSwipeDistance = 50
@@ -100,22 +203,23 @@ export function ProductGallery({
   const goToPrevious = useCallback(() => {
     if (isTransitioning) return
     setIsTransitioning(true)
-    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+    setCurrentIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))
     // Reset transition state after animation completes
     setTimeout(() => setIsTransitioning(false), 300)
-  }, [images.length, isTransitioning])
+  }, [mediaItems.length, isTransitioning])
 
   const goToNext = useCallback(() => {
     if (isTransitioning) return
     setIsTransitioning(true)
-    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+    setCurrentIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))
     // Reset transition state after animation completes
     setTimeout(() => setIsTransitioning(false), 300)
-  }, [images.length, isTransitioning])
+  }, [mediaItems.length, isTransitioning])
 
-  // Autoplay for dots mode
+  // Autoplay for dots mode (only for images, pause on video/youtube)
   useEffect(() => {
-    if (!showDotsNavigation || images.length <= 1 || isPaused) return
+    const currentMedia = mediaItems[currentIndex]
+    if (!showDotsNavigation || mediaItems.length <= 1 || isPaused || currentMedia?.type !== "image") return
 
     autoplayRef.current = setInterval(() => {
       goToNext()
@@ -126,7 +230,7 @@ export function ProductGallery({
         clearInterval(autoplayRef.current)
       }
     }
-  }, [showDotsNavigation, images.length, isPaused, autoplayInterval, goToNext])
+  }, [showDotsNavigation, mediaItems.length, mediaItems, currentIndex, isPaused, autoplayInterval, goToNext])
 
   // Pause autoplay on user interaction, resume after delay
   const handleUserInteraction = useCallback(() => {
@@ -201,14 +305,17 @@ export function ProductGallery({
       } else if (e.key === "ArrowRight") {
         goToNext()
         handleUserInteraction()
+      } else if (e.key === " " && mediaItems[currentIndex]?.type === "video") {
+        e.preventDefault()
+        toggleVideoPlay()
       }
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [currentIndex, images.length, goToPrevious, goToNext, handleUserInteraction])
+  }, [currentIndex, mediaItems, goToPrevious, goToNext, handleUserInteraction, toggleVideoPlay])
 
-  if (images.length === 0) return null
+  if (mediaItems.length === 0) return null
 
   return (
     <div className="space-y-3 sm:space-y-4 w-full">
@@ -233,31 +340,135 @@ export function ProductGallery({
         }}
         onMouseEnter={() => setIsHovering(true)}
       >
-        {/* Images with smooth fade transition */}
-        {images.map((image, index) => (
-          <Image
+        {/* Media items with smooth fade transition */}
+        {mediaItems.map((media, index) => (
+          <div
             key={index}
-            src={image || "/placeholder.svg"}
-            alt={`${title} - Image ${index + 1}`}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
             className={cn(
-              "object-cover pointer-events-none select-none transition-opacity duration-300 ease-in-out",
-              currentIndex === index ? "opacity-100" : "opacity-0"
+              "absolute inset-0 transition-opacity duration-300 ease-in-out",
+              currentIndex === index ? "opacity-100 z-10" : "opacity-0 z-0"
             )}
-            priority={index === 0}
-            draggable={false}
-          />
+          >
+            {media.type === "image" && (
+              <Image
+                src={media.url || "/placeholder.svg"}
+                alt={`${title} - Image ${index + 1}`}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
+                className="object-cover pointer-events-none select-none"
+                priority={index === 0}
+                draggable={false}
+              />
+            )}
+            {media.type === "video" && (
+              <div className="relative w-full h-full bg-black">
+                <video
+                  ref={currentIndex === index ? videoRef : undefined}
+                  src={media.url}
+                  className="w-full h-full object-contain"
+                  loop
+                  muted={isVideoMuted}
+                  playsInline
+                  onTimeUpdate={handleVideoTimeUpdate}
+                  onEnded={() => setIsVideoPlaying(false)}
+                  onClick={toggleVideoPlay}
+                />
+                {/* Video Controls Overlay */}
+                <div
+                  className={cn(
+                    "absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-transparent to-transparent transition-opacity duration-300",
+                    isVideoPlaying && !isHovering ? "opacity-0" : "opacity-100"
+                  )}
+                >
+                  {/* Play/Pause Button Center */}
+                  {!isVideoPlaying && (
+                    <button
+                      onClick={toggleVideoPlay}
+                      className="absolute inset-0 flex items-center justify-center"
+                    >
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/90 flex items-center justify-center shadow-lg transform transition-transform hover:scale-105">
+                        <Play className="w-8 h-8 sm:w-10 sm:h-10 text-gray-900 ml-1" fill="currentColor" />
+                      </div>
+                    </button>
+                  )}
+                  {/* Bottom Controls */}
+                  <div className="p-3 sm:p-4 space-y-2">
+                    {/* Progress Bar */}
+                    <div
+                      className="w-full h-1 bg-white/30 rounded-full cursor-pointer overflow-hidden"
+                      onClick={handleVideoSeek}
+                    >
+                      <div
+                        className="h-full bg-white rounded-full transition-all duration-100"
+                        style={{ width: `${videoProgress}%` }}
+                      />
+                    </div>
+                    {/* Control Buttons */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={toggleVideoPlay}
+                          className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                        >
+                          {isVideoPlaying ? (
+                            <Pause className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                          ) : (
+                            <Play className="w-4 h-4 sm:w-5 sm:h-5 text-white ml-0.5" />
+                          )}
+                        </button>
+                        <button
+                          onClick={toggleVideoMute}
+                          className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                        >
+                          {isVideoMuted ? (
+                            <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                          ) : (
+                            <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                          )}
+                        </button>
+                      </div>
+                      <button
+                        onClick={toggleFullscreen}
+                        className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                      >
+                        <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {media.type === "youtube" && currentIndex === index && (
+              <div className="relative w-full h-full bg-black">
+                <iframe
+                  src={`${media.url}?autoplay=0&modestbranding=1&rel=0`}
+                  className="absolute inset-0 w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title={`${title} - Video ${index + 1}`}
+                />
+              </div>
+            )}
+            {media.type === "youtube" && currentIndex !== index && media.thumbnailUrl && (
+              <Image
+                src={media.thumbnailUrl}
+                alt={`${title} - Video thumbnail ${index + 1}`}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
+                className="object-cover"
+              />
+            )}
+          </div>
         ))}
 
         {/* Navigation Arrows - show on hover for desktop, always visible on mobile */}
-        {images.length > 1 && (
+        {mediaItems.length > 1 && (
           <>
             <Button
               variant="secondary"
               size="icon"
               className={cn(
-                "absolute left-2 sm:left-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out",
+                "absolute left-2 sm:left-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out z-20",
                 // Mobile: always visible, Desktop: show on hover with smooth animation
                 "sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
               )}
@@ -266,7 +477,7 @@ export function ProductGallery({
                 goToPrevious()
                 handleUserInteraction()
               }}
-              aria-label="Previous image"
+              aria-label="Previous"
             >
               <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
@@ -274,7 +485,7 @@ export function ProductGallery({
               variant="secondary"
               size="icon"
               className={cn(
-                "absolute right-2 sm:right-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out",
+                "absolute right-2 sm:right-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out z-20",
                 // Mobile: always visible, Desktop: show on hover with smooth animation
                 "sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
               )}
@@ -283,24 +494,24 @@ export function ProductGallery({
                 goToNext()
                 handleUserInteraction()
               }}
-              aria-label="Next image"
+              aria-label="Next"
             >
               <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </>
         )}
 
-        {/* Image Counter (show when not in dots mode) */}
-        {images.length > 1 && !showDotsNavigation && (
-          <div className="absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 text-xs sm:text-sm text-white">
-            {currentIndex + 1} / {images.length}
+        {/* Media Counter (show when not in dots mode) */}
+        {mediaItems.length > 1 && !showDotsNavigation && (
+          <div className="absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 text-xs sm:text-sm text-white z-20">
+            {currentIndex + 1} / {mediaItems.length}
           </div>
         )}
 
         {/* Dots Navigation (when dots mode is active) */}
-        {images.length > 1 && showDotsNavigation && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
-            {images.map((_, index) => (
+        {mediaItems.length > 1 && showDotsNavigation && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
+            {mediaItems.map((_, index) => (
               <button
                 key={index}
                 onClick={(e) => {
@@ -322,10 +533,10 @@ export function ProductGallery({
       </div>
 
       {/* Thumbnail Strip (hide when dots mode is active) */}
-      {images.length > 1 && !showDotsNavigation && (
+      {mediaItems.length > 1 && !showDotsNavigation && (
         <div className="w-full overflow-hidden">
           <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory px-1 scrollbar-hide">
-            {images.map((image, index) => (
+            {mediaItems.map((media, index) => (
               <button
                 key={index}
                 onClick={() => {
@@ -343,15 +554,48 @@ export function ProductGallery({
                   borderColor: selectionColor,
                   boxShadow: `0 0 0 2px ${selectionColor}33`
                 } : undefined}
-                aria-label={`View image ${index + 1}`}
+                aria-label={`View ${media.type === "image" ? "image" : "video"} ${index + 1}`}
               >
-                <Image
-                  src={image || "/placeholder.svg"}
-                  alt={`${title} thumbnail ${index + 1}`}
-                  fill
-                  sizes="(max-width: 640px) 80px, 96px"
-                  className="object-cover"
-                />
+                {media.type === "image" && (
+                  <Image
+                    src={media.url || "/placeholder.svg"}
+                    alt={`${title} thumbnail ${index + 1}`}
+                    fill
+                    sizes="(max-width: 640px) 80px, 96px"
+                    className="object-cover"
+                  />
+                )}
+                {media.type === "video" && (
+                  <div className="relative w-full h-full bg-gray-900">
+                    <video
+                      src={media.url}
+                      className="w-full h-full object-cover"
+                      muted
+                      preload="metadata"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <Play className="h-4 w-4 sm:h-5 sm:w-5 text-white" fill="currentColor" />
+                    </div>
+                  </div>
+                )}
+                {media.type === "youtube" && (
+                  <div className="relative w-full h-full bg-gray-900">
+                    {media.thumbnailUrl && (
+                      <Image
+                        src={media.thumbnailUrl}
+                        alt={`${title} video thumbnail ${index + 1}`}
+                        fill
+                        sizes="(max-width: 640px) 80px, 96px"
+                        className="object-cover"
+                      />
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-red-600 flex items-center justify-center">
+                        <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white ml-0.5" fill="currentColor" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </button>
             ))}
           </div>

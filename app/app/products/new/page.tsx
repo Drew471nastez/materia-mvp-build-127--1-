@@ -30,6 +30,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
   ChevronLeft,
   Check,
   Plus,
@@ -39,6 +44,7 @@ import {
   GripVertical,
   Play,
   Youtube,
+  Link as LinkIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
@@ -106,13 +112,18 @@ export default function NewProductPage() {
   const [showExitDialog, setShowExitDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
 
-  // YouTube modal
-  const [showYoutubeModal, setShowYoutubeModal] = useState(false)
+  // YouTube inline input (no modal)
+  const [showYoutubeInput, setShowYoutubeInput] = useState(false)
   const [youtubeInput, setYoutubeInput] = useState("")
+
+  // Header scroll state
+  const [isScrolled, setIsScrolled] = useState(false)
 
   // Refs for sections
   const sectionRefs = useRef<{ [key in SectionId]?: HTMLDivElement | null }>({})
   const pillBarRef = useRef<HTMLDivElement>(null)
+  const pillScrollRef = useRef<HTMLDivElement>(null)
+  const pillRefs = useRef<{ [key in SectionId]?: HTMLButtonElement | null }>({})
   const contentRef = useRef<HTMLDivElement>(null)
 
   // About section fields
@@ -200,10 +211,14 @@ export default function NewProductPage() {
     checkSectionCompletion()
   }, [checkSectionCompletion])
 
-  // Scroll spy for active section
+  // Scroll spy for active section and header hide/show
   useEffect(() => {
     const handleScroll = () => {
       if (!contentRef.current) return
+
+      // Track scroll position for header
+      const scrollTop = contentRef.current.scrollTop
+      setIsScrolled(scrollTop > 20)
 
       // Find which section is currently in view
       let currentSection: SectionId = "about"
@@ -222,6 +237,25 @@ export default function NewProductPage() {
         }
       }
 
+      // Auto-scroll pills to show active pill on mobile
+      if (currentSection !== activeSection) {
+        const activePill = pillRefs.current[currentSection]
+        const pillScroll = pillScrollRef.current
+        if (activePill && pillScroll) {
+          const pillRect = activePill.getBoundingClientRect()
+          const scrollRect = pillScroll.getBoundingClientRect()
+
+          // Check if pill is outside visible area
+          if (pillRect.left < scrollRect.left || pillRect.right > scrollRect.right) {
+            activePill.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest',
+              inline: 'center'
+            })
+          }
+        }
+      }
+
       setActiveSection(currentSection)
     }
 
@@ -232,7 +266,7 @@ export default function NewProductPage() {
       handleScroll()
       return () => content.removeEventListener("scroll", handleScroll)
     }
-  }, [])
+  }, [activeSection])
 
   // Scroll to section when pill clicked with smooth animation
   const scrollToSection = (sectionId: SectionId) => {
@@ -373,22 +407,35 @@ export default function NewProductPage() {
 
     setUploadingMedia(true)
     setUploadProgress(0)
+    setError(null)
     const supabase = createClient()
     const newItems: MediaItem[] = []
     const totalFiles = files.length
     let completedFiles = 0
 
+    // Supported video MIME types
+    const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mov', 'video/mpeg', 'video/x-m4v']
+
     try {
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+        const isImage = file.type.startsWith("image/")
+        const isVideo = videoTypes.includes(file.type) || file.type.startsWith("video/")
+
+        if (!isImage && !isVideo) {
+          setError(`Unsupported file type: ${file.type}`)
           continue
         }
 
-        const isVideo = file.type.startsWith("video/")
         const existingVideos = mediaItems.filter(m => m.type === "video").length
 
         if (isVideo && existingVideos >= 1) {
           setError("Only 1 video file allowed")
+          continue
+        }
+
+        // Check video file size (max 500MB for better UX)
+        if (isVideo && file.size > 500 * 1024 * 1024) {
+          setError("Video file must be under 500MB")
           continue
         }
 
@@ -409,6 +456,7 @@ export default function NewProductPage() {
 
         if (uploadError) {
           console.error("Upload error:", uploadError)
+          setError(`Failed to upload ${file.name}: ${uploadError.message}`)
           continue
         }
 
@@ -458,7 +506,7 @@ export default function NewProductPage() {
 
     setMediaItems(prev => [...prev, newItem])
     setYoutubeInput("")
-    setShowYoutubeModal(false)
+    setShowYoutubeInput(false)
     setError(null)
   }
 
@@ -689,20 +737,37 @@ export default function NewProductPage() {
     }
   }
 
-  // Tooltip icon component with purple styling
+  // Tooltip icon component with purple styling - responsive for mobile
   const TooltipIcon = ({ content }: { content: React.ReactNode }) => (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-600 text-[10px] font-medium cursor-help hover:bg-violet-200 transition-colors">
+    <>
+      {/* Desktop: Tooltip */}
+      <TooltipProvider>
+        <Tooltip delayDuration={100}>
+          <TooltipTrigger asChild>
+            <span className="hidden sm:flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-600 text-[10px] font-medium cursor-help hover:bg-violet-200 transition-colors">
+              i
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="max-w-xs p-3">
+            {content}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {/* Mobile: Popover */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="sm:hidden flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-600 text-[10px] font-medium cursor-help hover:bg-violet-200 transition-colors"
+          >
             i
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-xs p-3">
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="top" className="max-w-[280px] p-3 text-sm">
           {content}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+        </PopoverContent>
+      </Popover>
+    </>
   )
 
   const existingImages = mediaItems.filter(m => m.type === "image").length
@@ -710,67 +775,20 @@ export default function NewProductPage() {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      {/* Sticky Pill Navigation - Only this stays fixed at top */}
+      {/* Sticky Header with Title and Pills */}
       <div
         ref={pillBarRef}
         className="flex-shrink-0 bg-white border-b border-gray-200 z-30 shadow-sm"
       >
-        <div className="px-4 sm:px-6 lg:px-8 py-3">
+        <div className="px-4 sm:px-6 lg:px-8">
           <div className="max-w-5xl mx-auto">
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {SECTIONS.map((section) => {
-                const isActive = activeSection === section.id
-
-                return (
-                  <button
-                    key={section.id}
-                    onClick={() => scrollToSection(section.id)}
-                    className={`
-                      flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0
-                      bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800
-                    `}
-                  >
-                    {/* Checkmark circle icon - purple when active, gray otherwise - smooth animation */}
-                    <span
-                      className={`
-                        flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full
-                        transition-all duration-500 ease-out
-                        ${isActive
-                          ? "bg-violet-500 scale-100 shadow-sm shadow-violet-200"
-                          : "bg-gray-300 scale-95"
-                        }
-                      `}
-                      style={{
-                        transitionProperty: 'background-color, transform, box-shadow',
-                        transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
-                      }}
-                    >
-                      <Check
-                        className={`
-                          h-3 w-3 sm:h-3.5 sm:w-3.5
-                          transition-all duration-500 ease-out
-                          ${isActive ? "text-white scale-110" : "text-gray-500 scale-100"}
-                        `}
-                        style={{
-                          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
-                        }}
-                      />
-                    </span>
-                    {section.name}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Scrollable Content Area */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto bg-gray-50">
-        {/* Header - Scrolls with content */}
-        <div className="bg-white border-b border-gray-100">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center gap-2">
+            {/* Title Row - Collapses when scrolled */}
+            <div
+              className={`
+                flex items-center gap-2 overflow-hidden transition-all duration-300 ease-out
+                ${isScrolled ? 'max-h-0 py-0 opacity-0' : 'max-h-16 py-3 opacity-100'}
+              `}
+            >
               <Link
                 href="/app/products"
                 onClick={handleBackClick}
@@ -780,8 +798,65 @@ export default function NewProductPage() {
               </Link>
               <h1 className="text-lg sm:text-xl lg:text-[22px] font-semibold text-gray-900 tracking-tight">New Product</h1>
             </div>
+
+            {/* Pills Row */}
+            <div className={`py-3 ${isScrolled ? '' : 'pt-0'}`}>
+              <div
+                ref={pillScrollRef}
+                className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {SECTIONS.map((section) => {
+                  const isActive = activeSection === section.id
+
+                  return (
+                    <button
+                      key={section.id}
+                      ref={(el) => { pillRefs.current[section.id] = el }}
+                      onClick={() => scrollToSection(section.id)}
+                      className={`
+                        flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0
+                        bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800
+                      `}
+                    >
+                      {/* Checkmark circle icon - purple when active, gray otherwise - smooth animation */}
+                      <span
+                        className={`
+                          flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full
+                          transition-all duration-500 ease-out
+                          ${isActive
+                            ? "bg-violet-500 scale-100 shadow-sm shadow-violet-200"
+                            : "bg-gray-300 scale-95"
+                          }
+                        `}
+                        style={{
+                          transitionProperty: 'background-color, transform, box-shadow',
+                          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                        }}
+                      >
+                        <Check
+                          className={`
+                            h-3 w-3 sm:h-3.5 sm:w-3.5
+                            transition-all duration-500 ease-out
+                            ${isActive ? "text-white scale-110" : "text-gray-500 scale-100"}
+                          `}
+                          style={{
+                            transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                          }}
+                        />
+                      </span>
+                      {section.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Scrollable Content Area */}
+      <div ref={contentRef} className="flex-1 overflow-y-auto bg-gray-50">
 
         {/* Form Content - White rounded container */}
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-8">
@@ -990,7 +1065,7 @@ export default function NewProductPage() {
                     id="media-input"
                     type="file"
                     multiple
-                    accept="image/*,video/*"
+                    accept="image/*,video/mp4,video/webm,video/quicktime,video/mov,video/mpeg,video/x-m4v,.mp4,.webm,.mov,.m4v"
                     className="hidden"
                     onChange={(e) => handleMediaUpload(e.target.files)}
                     disabled={uploadingMedia}
@@ -1029,18 +1104,82 @@ export default function NewProductPage() {
                         Upload
                       </Button>
 
-                      {/* YouTube text button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowYoutubeModal(true)
-                        }}
-                        className="mt-3 text-xs sm:text-sm text-gray-500 hover:text-violet-600 flex items-center gap-1.5 transition-colors"
-                      >
-                        <Youtube className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        Add YouTube video
-                      </button>
+                      {/* YouTube inline input */}
+                      {!showYoutubeInput ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowYoutubeInput(true)
+                          }}
+                          className="mt-3 text-xs sm:text-sm text-gray-500 hover:text-violet-600 flex items-center gap-1.5 transition-colors"
+                        >
+                          <Youtube className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          Add YouTube video
+                        </button>
+                      ) : (
+                        <div
+                          className="mt-4 w-full max-w-md animate-in fade-in slide-in-from-top-2 duration-200"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg p-2 shadow-sm">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-md bg-red-50">
+                              <Youtube className="h-4 w-4 text-red-500" />
+                            </div>
+                            <Input
+                              placeholder="Paste YouTube URL..."
+                              value={youtubeInput}
+                              onChange={(e) => setYoutubeInput(e.target.value)}
+                              className="flex-1 h-8 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  handleAddYouTube()
+                                }
+                                if (e.key === 'Escape') {
+                                  setShowYoutubeInput(false)
+                                  setYoutubeInput("")
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAddYouTube}
+                              disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
+                              className="h-8 px-3 bg-violet-500 hover:bg-violet-600 text-white text-xs"
+                            >
+                              <LinkIcon className="h-3.5 w-3.5 mr-1" />
+                              Add
+                            </Button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowYoutubeInput(false)
+                                setYoutubeInput("")
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {youtubeInput && parseYouTubeUrl(youtubeInput) && (
+                            <div className="mt-2 relative aspect-video max-w-[200px] mx-auto rounded-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-200">
+                              <img
+                                src={getYouTubeThumbnail(parseYouTubeUrl(youtubeInput)!)}
+                                alt="Video preview"
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center">
+                                  <Play className="h-5 w-5 text-white ml-0.5" />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -1394,65 +1533,12 @@ export default function NewProductPage() {
                   Saving...
                 </>
               ) : (
-                "Save changes"
+                "Save"
               )}
             </Button>
           </div>
         </div>
       </div>
-
-      {/* YouTube Modal */}
-      <Dialog open={showYoutubeModal} onOpenChange={setShowYoutubeModal}>
-        <DialogContent className="sm:max-w-md mx-4">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Youtube className="h-5 w-5 text-red-500" />
-              Add YouTube Video
-            </DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
-              Paste a YouTube URL or video ID to embed a video.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <Input
-              placeholder="https://youtube.com/watch?v=... or video ID"
-              value={youtubeInput}
-              onChange={(e) => setYoutubeInput(e.target.value)}
-              className="h-10 sm:h-11 text-sm sm:text-base"
-            />
-            {youtubeInput && parseYouTubeUrl(youtubeInput) && (
-              <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
-                <img
-                  src={getYouTubeThumbnail(parseYouTubeUrl(youtubeInput)!)}
-                  alt="Video preview"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-          </div>
-          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowYoutubeModal(false)
-                setYoutubeInput("")
-              }}
-              className="w-full sm:w-auto text-xs sm:text-sm"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleAddYouTube}
-              disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
-              className="w-full sm:w-auto bg-gray-900 hover:bg-gray-800 text-white text-xs sm:text-sm"
-            >
-              Add Video
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Unsaved Changes Dialog */}
       <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>

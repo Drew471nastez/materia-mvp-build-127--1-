@@ -579,6 +579,18 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       ? [product.thumbnail_url]
       : []
 
+  // Extract YouTube URLs from video_url if it's a YouTube embed
+  const youtubeUrls: string[] = []
+  let videoFileUrl: string | null = null
+
+  if (product.video_url) {
+    if (product.video_url.includes('youtube.com') || product.video_url.includes('youtu.be')) {
+      youtubeUrls.push(product.video_url)
+    } else {
+      videoFileUrl = product.video_url
+    }
+  }
+
   const srcParam = src === "platform" ? "?src=platform" : ""
 
   const stickyBarSettings = {
@@ -631,10 +643,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const MainProductContent = (
     <div className="grid gap-8 lg:grid-cols-5 lg:gap-12 lg:items-start w-full">
       <div className="lg:col-span-3 min-w-0 w-full">
-        {galleryImages.length > 0 ? (
+        {galleryImages.length > 0 || videoFileUrl || youtubeUrls.length > 0 ? (
           <ProductGallery
             images={galleryImages}
             title={product.title}
+            videoUrl={videoFileUrl}
+            youtubeUrls={youtubeUrls}
             mobileDotsMode={mobileGalleryDots}
             desktopDotsMode={desktopGalleryDots}
           />

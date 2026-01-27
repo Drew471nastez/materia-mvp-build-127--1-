@@ -322,11 +322,12 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     </div>
   )
 
-  // Check if we should show setup widget (hide on store-builder and onepage)
+  // Check if we should show setup widget (hide on store-builder, onepage, and new product page)
   const showSetupWidget = setupProgress &&
     setupProgress.completed < setupProgress.total &&
     !pathname.startsWith("/store-builder") &&
-    !pathname.startsWith("/app/onepage")
+    !pathname.startsWith("/app/onepage") &&
+    !pathname.startsWith("/app/products/new")
 
   const setupProgressPercent = setupProgress ? Math.round((setupProgress.completed / setupProgress.total) * 100) : 0
 
