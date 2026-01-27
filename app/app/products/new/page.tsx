@@ -710,26 +710,10 @@ export default function NewProductPage() {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      {/* Header - White bar */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-100">
-        <div className="px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-2">
-            <Link
-              href="/app/products"
-              onClick={handleBackClick}
-              className="flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Link>
-            <h1 className="text-lg sm:text-xl lg:text-[22px] font-semibold text-gray-900 tracking-tight">New Product</h1>
-          </div>
-        </div>
-      </div>
-
-      {/* Sticky Pill Navigation - Outside scroll container */}
+      {/* Sticky Pill Navigation - Only this stays fixed at top */}
       <div
         ref={pillBarRef}
-        className="flex-shrink-0 bg-white border-b border-gray-200 z-30"
+        className="flex-shrink-0 bg-white border-b border-gray-200 z-30 shadow-sm"
       >
         <div className="px-4 sm:px-6 lg:px-8 py-3">
           <div className="max-w-5xl mx-auto">
@@ -746,15 +730,31 @@ export default function NewProductPage() {
                       bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800
                     `}
                   >
-                    {/* Checkmark circle icon - purple when active, gray otherwise */}
-                    <span className={`
-                      flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-colors
-                      ${isActive
-                        ? "bg-violet-500"
-                        : "bg-gray-300"
-                      }
-                    `}>
-                      <Check className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${isActive ? "text-white" : "text-gray-500"}`} />
+                    {/* Checkmark circle icon - purple when active, gray otherwise - smooth animation */}
+                    <span
+                      className={`
+                        flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full
+                        transition-all duration-500 ease-out
+                        ${isActive
+                          ? "bg-violet-500 scale-100 shadow-sm shadow-violet-200"
+                          : "bg-gray-300 scale-95"
+                        }
+                      `}
+                      style={{
+                        transitionProperty: 'background-color, transform, box-shadow',
+                        transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
+                    >
+                      <Check
+                        className={`
+                          h-3 w-3 sm:h-3.5 sm:w-3.5
+                          transition-all duration-500 ease-out
+                          ${isActive ? "text-white scale-110" : "text-gray-500 scale-100"}
+                        `}
+                        style={{
+                          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                        }}
+                      />
                     </span>
                     {section.name}
                   </button>
@@ -767,12 +767,28 @@ export default function NewProductPage() {
 
       {/* Scrollable Content Area */}
       <div ref={contentRef} className="flex-1 overflow-y-auto bg-gray-50">
+        {/* Header - Scrolls with content */}
+        <div className="bg-white border-b border-gray-100">
+          <div className="px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center gap-2">
+              <Link
+                href="/app/products"
+                onClick={handleBackClick}
+                className="flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Link>
+              <h1 className="text-lg sm:text-xl lg:text-[22px] font-semibold text-gray-900 tracking-tight">New Product</h1>
+            </div>
+          </div>
+        </div>
+
         {/* Form Content - White rounded container */}
-        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-32">
+        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-8">
           <div className="max-w-5xl mx-auto">
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
-              {/* Form content wrapper - 80% width and left-aligned on desktop */}
-              <div className="lg:w-4/5">
+              {/* Form content wrapper - 60% width and left-aligned on desktop */}
+              <div className="lg:w-3/5">
               {/* Error message */}
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
@@ -1347,21 +1363,21 @@ export default function NewProductPage() {
                   </div>
                 </div>
               </div>
-              </div>{/* Close 80% width wrapper */}
+              </div>{/* Close 60% width wrapper */}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sticky Bottom Bar - attached to bottom with no gap */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-40 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+      {/* Bottom Action Bar - Part of flex layout, not fixed, so scrollbar doesn't overlap */}
+      <div className="flex-shrink-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <Button
               type="button"
               variant="outline"
               onClick={handleCancel}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4"
+              className="bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-700 h-9 sm:h-10 text-xs sm:text-sm px-4 sm:px-5 rounded-lg"
             >
               Cancel
             </Button>
@@ -1370,7 +1386,7 @@ export default function NewProductPage() {
               type="button"
               onClick={handleSaveChanges}
               disabled={isLoading || !title.trim()}
-              className="bg-violet-500 hover:bg-violet-600 text-white h-9 sm:h-10 px-4 sm:px-6 text-xs sm:text-sm"
+              className="bg-violet-500 hover:bg-violet-600 text-white h-9 sm:h-10 px-4 sm:px-6 text-xs sm:text-sm rounded-lg"
             >
               {isLoading ? (
                 <>
