@@ -42,7 +42,6 @@ import {
   Loader2,
   FileText,
   GripVertical,
-  Play,
   Info,
 } from "lucide-react"
 import Link from "next/link"
@@ -73,7 +72,7 @@ interface UploadedFile {
 
 interface MediaItem {
   id: string
-  type: "image" | "video" | "youtube"
+  type: "image" | "youtube"
   url: string
   thumbnailUrl?: string
 }
@@ -352,9 +351,8 @@ export default function NewProductPage() {
         }
       }
 
-      // Get photo URLs from media items (images and videos)
+      // Get photo URLs from media items (images and YouTube)
       const photoUrls = mediaItems.filter(m => m.type === "image").map(m => m.url)
-      const videoItem = mediaItems.find(m => m.type === "video")
       const youtubeItems = mediaItems.filter(m => m.type === "youtube")
 
       const productData = {
@@ -368,7 +366,7 @@ export default function NewProductPage() {
         compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
         thumbnail_url: mediaItems.length > 0 ? (mediaItems[0].type === "youtube" ? mediaItems[0].thumbnailUrl : mediaItems[0].url) : null,
         gallery_urls: photoUrls.length > 0 ? photoUrls : null,
-        video_url: videoItem?.url || youtubeItems[0]?.url || null,
+        video_url: youtubeItems[0]?.url || null,
         show_sales_badge: showSalesBadge,
         refund_policy_enabled: refundPolicyEnabled,
         refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
@@ -550,7 +548,7 @@ export default function NewProductPage() {
     })
   }
 
-  // Handle media upload with progress
+  // Handle media upload with progress (images only)
   const handleMediaUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
 
@@ -559,42 +557,24 @@ export default function NewProductPage() {
     setError(null)
     const supabase = createClient()
     const newItems: MediaItem[] = []
-    const totalFiles = files.length
     let completedFiles = 0
 
     // Calculate total bytes for accurate progress
     const filesToUpload: File[] = []
     let totalBytes = 0
 
-    // Supported video MIME types
-    const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mov', 'video/mpeg', 'video/x-m4v']
-
     try {
       // First pass: validate files and calculate total size
       for (const file of Array.from(files)) {
         const isImage = file.type.startsWith("image/")
-        const isVideo = videoTypes.includes(file.type) || file.type.startsWith("video/")
 
-        if (!isImage && !isVideo) {
-          setError(`Unsupported file type: ${file.type}`)
-          continue
-        }
-
-        const existingVideos = mediaItems.filter(m => m.type === "video").length
-
-        if (isVideo && existingVideos >= 1) {
-          setError("Only 1 video file allowed")
-          continue
-        }
-
-        // Check video file size (max 5GB for videos)
-        if (isVideo && file.size > 5 * 1024 * 1024 * 1024) {
-          setError("Video file is too large")
+        if (!isImage) {
+          setError(`Only images are supported. Use YouTube for videos.`)
           continue
         }
 
         const existingImages = mediaItems.filter(m => m.type === "image").length
-        if (!isVideo && existingImages + filesToUpload.filter(f => f.type.startsWith("image/")).length >= MAX_PHOTOS) {
+        if (existingImages + filesToUpload.length >= MAX_PHOTOS) {
           setError(`Maximum ${MAX_PHOTOS} photos allowed`)
           continue
         }
@@ -611,117 +591,67 @@ export default function NewProductPage() {
       setRatioWarning(null)
 
       for (const file of filesToUpload) {
-        const isVideo = videoTypes.includes(file.type) || file.type.startsWith("video/")
-        const isImage = file.type.startsWith("image/")
         const timestamp = Date.now()
 
         let fileToUpload = file
-        let originalRatio = "landscape"
 
         // Process images that are not widescreen
-        if (isImage) {
-          try {
-            const result = await processImageToWidescreen(file)
-            fileToUpload = result.processedFile
-            originalRatio = result.originalRatio
+        try {
+          const result = await processImageToWidescreen(file)
+          fileToUpload = result.processedFile
 
-            if (result.wasProcessed) {
-              processedCount++
-              // Show ratio warning
-              if (result.originalRatio === "square") {
-                setRatioWarning(`Image "${file.name}" was square and has been fitted to 1280x720.`)
-              } else if (result.originalRatio === "portrait") {
-                setRatioWarning(`Image "${file.name}" was portrait and has been fitted to 1280x720.`)
-              }
+          if (result.wasProcessed) {
+            processedCount++
+            // Show ratio warning
+            if (result.originalRatio === "square") {
+              setRatioWarning(`Image "${file.name}" was square and has been fitted to 1280x720.`)
+            } else if (result.originalRatio === "portrait") {
+              setRatioWarning(`Image "${file.name}" was portrait and has been fitted to 1280x720.`)
             }
-          } catch (err) {
-            console.error("Image processing error:", err)
-            // Continue with original file if processing fails
           }
+        } catch (err) {
+          console.error("Image processing error:", err)
+          // Continue with original file if processing fails
         }
 
-        // For videos, use the dedicated video upload API (bypasses RLS)
-        if (isVideo) {
-          const formData = new FormData()
-          formData.append("file", file)
-          formData.append("folder", productId || "temp")
-          formData.append("bucket", "product-videos")
+        // Upload image with progress
+        const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+        const folder = productId || "temp"
+        const filePath = `${creatorId}/${folder}/${timestamp}_${safeName}`
 
-          // Simulate progress for video upload
-          const progressInterval = setInterval(() => {
-            setUploadProgress((prev) => Math.min(prev + 3, 90))
-          }, 300)
+        const fileStartBytes = uploadedBytes
 
-          try {
-            const uploadResponse = await fetch("/api/storage/upload-video", {
-              method: "PUT",
-              body: formData,
-            })
-
-            clearInterval(progressInterval)
-
-            if (!uploadResponse.ok) {
-              const errorData = await uploadResponse.json()
-              console.error("Video upload error:", errorData)
-              setError(`Failed to upload ${file.name}: ${errorData.error || "Upload failed"}`)
-              continue
-            }
-
-            const { publicUrl } = await uploadResponse.json()
-
-            newItems.push({
-              id: `${timestamp}-${Math.random().toString(36).slice(2)}`,
-              type: "video",
-              url: publicUrl,
-            })
-
-            completedFiles++
-          } catch (videoErr) {
-            clearInterval(progressInterval)
-            console.error("Video upload request error:", videoErr)
-            setError(`Failed to upload ${file.name}: Network error`)
-            continue
+        const { error: uploadError } = await uploadWithProgress(
+          fileToUpload,
+          filePath,
+          (filePercent) => {
+            // Calculate overall progress based on bytes
+            const currentFileUploaded = (filePercent / 100) * fileToUpload.size
+            const totalUploaded = fileStartBytes + currentFileUploaded
+            const overallPercent = Math.round((totalUploaded / totalBytes) * 100)
+            setUploadProgress(Math.min(overallPercent, 99)) // Cap at 99% until fully done
           }
-        } else {
-          // For images, use the standard upload with progress
-          const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-          const folder = productId || "temp"
-          const filePath = `${creatorId}/${folder}/${timestamp}_${safeName}`
+        )
 
-          const fileStartBytes = uploadedBytes
-
-          const { error: uploadError } = await uploadWithProgress(
-            fileToUpload,
-            filePath,
-            (filePercent) => {
-              // Calculate overall progress based on bytes
-              const currentFileUploaded = (filePercent / 100) * fileToUpload.size
-              const totalUploaded = fileStartBytes + currentFileUploaded
-              const overallPercent = Math.round((totalUploaded / totalBytes) * 100)
-              setUploadProgress(Math.min(overallPercent, 99)) // Cap at 99% until fully done
-            }
-          )
-
-          if (uploadError) {
-            console.error("Upload error:", uploadError)
-            setError(`Failed to upload ${file.name}: ${uploadError.message}`)
-            continue
-          }
-
-          uploadedBytes += fileToUpload.size
-
-          const { data: { publicUrl } } = supabase.storage
-            .from("product-images")
-            .getPublicUrl(filePath)
-
-          newItems.push({
-            id: `${timestamp}-${Math.random().toString(36).slice(2)}`,
-            type: "image",
-            url: publicUrl,
-          })
-
-          completedFiles++
+        if (uploadError) {
+          console.error("Upload error:", uploadError)
+          setError(`Failed to upload ${file.name}: ${uploadError.message}`)
+          continue
         }
+
+        uploadedBytes += fileToUpload.size
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("product-images")
+          .getPublicUrl(filePath)
+
+        newItems.push({
+          id: `${timestamp}-${Math.random().toString(36).slice(2)}`,
+          type: "image",
+          url: publicUrl,
+        })
+
+        completedFiles++
       }
 
       // Show combined warning if multiple images were processed
@@ -865,7 +795,7 @@ export default function NewProductPage() {
     setDragOverIndex(null)
   }
 
-  // Handle file upload for digital assets
+  // Handle file upload for digital assets using admin API
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
 
@@ -876,7 +806,6 @@ export default function NewProductPage() {
     }
 
     setUploadingFiles(true)
-    const supabase = createClient()
     const newFiles: UploadedFile[] = []
 
     try {
@@ -886,37 +815,38 @@ export default function NewProductPage() {
           continue
         }
 
-        const timestamp = Date.now()
-        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-        const filePath = `products/${currentProductId}/${timestamp}_${safeName}`
+        // Use admin API route to bypass RLS
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("productId", currentProductId)
 
-        const { error: uploadError } = await supabase.storage
-          .from("product-files")
-          .upload(filePath, file, { cacheControl: "3600", upsert: false })
+        try {
+          const response = await fetch("/api/storage/upload-file", {
+            method: "POST",
+            body: formData,
+          })
 
-        if (uploadError) {
-          setError(`Failed to upload "${file.name}"`)
+          if (!response.ok) {
+            const errorData = await response.json()
+            console.error("Digital file upload error:", errorData)
+            setError(`Failed to upload "${file.name}": ${errorData.error || "Upload failed"}`)
+            continue
+          }
+
+          const { asset } = await response.json()
+
+          if (asset) {
+            newFiles.push({
+              id: asset.id,
+              file_name: asset.file_name,
+              file_path: asset.file_path,
+              file_size: asset.file_size,
+            })
+          }
+        } catch (uploadErr) {
+          console.error("Digital file upload request error:", uploadErr)
+          setError(`Failed to upload "${file.name}": Network error`)
           continue
-        }
-
-        const { data: asset, error: dbError } = await supabase
-          .from("digital_assets")
-          .insert({
-            product_id: currentProductId,
-            file_name: file.name,
-            file_path: filePath,
-            file_size: file.size,
-          })
-          .select()
-          .single()
-
-        if (!dbError && asset) {
-          newFiles.push({
-            id: asset.id,
-            file_name: file.name,
-            file_path: filePath,
-            file_size: file.size,
-          })
         }
       }
 
@@ -928,13 +858,25 @@ export default function NewProductPage() {
 
   const handleDeleteFile = async (file: UploadedFile) => {
     if (!file.id) return
-    const supabase = createClient()
-    await supabase.from("digital_assets").delete().eq("id", file.id)
-    await supabase.storage
-      .from("product-files")
-      .remove([file.file_path])
-      .catch(() => {})
-    setDigitalFiles(prev => prev.filter(f => f.id !== file.id))
+
+    try {
+      // Use admin API route to bypass RLS
+      const response = await fetch(`/api/storage/upload-file?assetId=${file.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Delete file error:", errorData)
+        setError(`Failed to delete "${file.file_name}": ${errorData.error || "Delete failed"}`)
+        return
+      }
+
+      setDigitalFiles(prev => prev.filter(f => f.id !== file.id))
+    } catch (err) {
+      console.error("Delete file request error:", err)
+      setError(`Failed to delete "${file.file_name}": Network error`)
+    }
   }
 
   const formatFileSize = (bytes: number) => {
@@ -1046,10 +988,6 @@ export default function NewProductPage() {
                 flex items-center gap-2 overflow-hidden
                 ${isScrolled ? 'max-h-0 py-0 opacity-0 pointer-events-none' : 'max-h-16 pt-[14px] pb-3 sm:py-3 opacity-100'}
               `}
-              style={{
-                transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                transitionDelay: isScrolled ? '0s, 0s, 0s' : '0s, 0s, 0.15s',
-              }}
             >
               <Link
                 href="/app/products"
@@ -1243,14 +1181,6 @@ export default function NewProductPage() {
                         {item.type === "image" && (
                           <img src={item.url} alt="" className="w-full h-full object-cover" />
                         )}
-                        {item.type === "video" && (
-                          <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-                            <video src={item.url} className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                              <Play className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-                            </div>
-                          </div>
-                        )}
                         {item.type === "youtube" && (
                           <div className="w-full h-full bg-gray-900">
                             <img
@@ -1289,11 +1219,6 @@ export default function NewProductPage() {
                         {index === 0 && (
                           <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded">
                             Thumbnail
-                          </span>
-                        )}
-                        {item.type === "video" && index !== 0 && (
-                          <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded">
-                            Video
                           </span>
                         )}
                         {item.type === "youtube" && index !== 0 && (
@@ -1352,7 +1277,7 @@ export default function NewProductPage() {
                     id="media-input"
                     type="file"
                     multiple
-                    accept="image/*,video/mp4,video/webm,video/quicktime,video/mov,video/mpeg,video/x-m4v,.mp4,.webm,.mov,.m4v"
+                    accept="image/*"
                     className="hidden"
                     onChange={(e) => handleMediaUpload(e.target.files)}
                     disabled={uploadingMedia}
@@ -1493,7 +1418,7 @@ export default function NewProductPage() {
                 </div>
 
                 <p className="text-xs text-gray-400">
-                  {existingImages}/{MAX_PHOTOS} images · {mediaItems.filter(m => m.type === "video").length}/1 video · {existingYouTube}/{MAX_YOUTUBE_VIDEOS} YouTube
+                  {existingImages}/{MAX_PHOTOS} images · {existingYouTube}/{MAX_YOUTUBE_VIDEOS} YouTube videos
                 </p>
 
                 {/* Ratio warning */}
@@ -1561,81 +1486,79 @@ export default function NewProductPage() {
                   />
                 </div>
 
-                {productType === "digital" && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <Label className="text-sm font-medium text-gray-700">
-                        Digital Files
-                      </Label>
-                      <span className="text-red-500 text-sm">*</span>
-                      <TooltipIcon
-                        content={<p>Files customers receive after purchase</p>}
-                      />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-sm font-medium text-gray-700">
+                      Digital Files
+                    </Label>
+                    <span className="text-red-500 text-sm">*</span>
+                    <TooltipIcon
+                      content={<p>Files customers receive after purchase</p>}
+                    />
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Upload files customers will receive (max 1GB each).
+                  </p>
+
+                  {digitalFiles.length > 0 && (
+                    <div className="space-y-2 mt-2">
+                      {digitalFiles.map((file) => (
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200"
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                            <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
+                              <p className="text-[10px] sm:text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteFile(file)}
+                            className="p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                          >
+                            <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      Upload files customers will receive (max 1GB each).
+                  )}
+
+                  <div
+                    className={`
+                      mt-2 border border-dashed border-gray-300 rounded-lg
+                      flex flex-col items-center justify-center py-5 sm:py-6
+                      transition-colors cursor-pointer hover:border-gray-400
+                      ${uploadingFiles ? "pointer-events-none opacity-50" : ""}
+                    `}
+                    onClick={() => document.getElementById("file-input")?.click()}
+                  >
+                    <input
+                      id="file-input"
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e.target.files)}
+                      disabled={uploadingFiles}
+                    />
+
+                    <p className="text-gray-500 text-xs sm:text-sm mb-2">
+                      {uploadingFiles ? "Uploading..." : "Drag and drop files or"}
                     </p>
 
-                    {digitalFiles.length > 0 && (
-                      <div className="space-y-2 mt-2">
-                        {digitalFiles.map((file) => (
-                          <div
-                            key={file.id}
-                            className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200"
-                          >
-                            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
-                              <div className="min-w-0">
-                                <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
-                                <p className="text-[10px] sm:text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteFile(file)}
-                              className="p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
-                            >
-                              <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div
-                      className={`
-                        mt-2 border border-dashed border-gray-300 rounded-lg
-                        flex flex-col items-center justify-center py-5 sm:py-6
-                        transition-colors cursor-pointer hover:border-gray-400
-                        ${uploadingFiles ? "pointer-events-none opacity-50" : ""}
-                      `}
-                      onClick={() => document.getElementById("file-input")?.click()}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-300 text-gray-700 h-7 sm:h-8 text-xs sm:text-sm"
+                      disabled={uploadingFiles}
                     >
-                      <input
-                        id="file-input"
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={(e) => handleFileUpload(e.target.files)}
-                        disabled={uploadingFiles}
-                      />
-
-                      <p className="text-gray-500 text-xs sm:text-sm mb-2">
-                        {uploadingFiles ? "Uploading..." : "Drag and drop files or"}
-                      </p>
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="border-gray-300 text-gray-700 h-7 sm:h-8 text-xs sm:text-sm"
-                        disabled={uploadingFiles}
-                      >
-                        <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                        Upload
-                      </Button>
-                    </div>
+                      <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                      Upload
+                    </Button>
                   </div>
-                )}
+                </div>
               </div>
 
               {/* Settings Section */}
@@ -1690,39 +1613,6 @@ export default function NewProductPage() {
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="slug" className="text-xs sm:text-sm font-medium text-gray-700">
-                    URL slug
-                  </Label>
-                  <div className="flex items-center">
-                    <span className="px-2.5 sm:px-3 h-10 sm:h-11 flex items-center bg-gray-50 border border-r-0 border-gray-200 rounded-l-md text-xs sm:text-sm text-gray-500">
-                      /p/
-                    </span>
-                    <Input
-                      id="slug"
-                      placeholder="my-product"
-                      value={slug}
-                      onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                      className="h-10 sm:h-11 rounded-l-none border-gray-200 text-sm sm:text-base"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs sm:text-sm font-medium text-gray-700">
-                    Product type
-                  </Label>
-                  <Select value={productType} onValueChange={(v) => setProductType(v as "digital" | "course")}>
-                    <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="digital">Digital Product</SelectItem>
-                      <SelectItem value="course">Online Course</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div className="space-y-3">
