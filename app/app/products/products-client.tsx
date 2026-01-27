@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, RotateCcw, TrendingUp, ShoppingCart, DollarSign, Users, BarChart3, Calendar, Target, Clock, ArrowUpRight, Percent, Download } from "lucide-react"
+import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, RotateCcw, TrendingUp, ShoppingCart, DollarSign, Users, BarChart3, Calendar, Target, Clock, ArrowUpRight, Percent, Download, FileText, Table } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { getProductUrl } from "@/lib/url-helpers"
@@ -24,12 +24,27 @@ interface Product {
   includes_community?: boolean
 }
 
+interface ProductAnalytics {
+  views: number
+  orders: number
+  revenue: number
+  conversionRate: string
+  avgOrderValue: number
+  refunds: number
+  refundRate: string
+  customers: number
+  chartData: { day: string; views: number; orders: number }[]
+  daysLive: number
+  lastSale: string
+  firstSale: string
+}
+
 interface ProductsClientProps {
   products: Product[]
   creatorUsername: string
 }
 
-// PDF Export function
+// StoreLib branded PDF Export function
 const generateProductsPDF = (products: Product[], formatPrice: (cents: number) => string) => {
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
@@ -38,11 +53,13 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Products Report</title>
+      <title>Products Report - StoreLib</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1a1a2e; }
         .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+        .logo { margin-bottom: 16px; }
+        .logo img { height: 32px; }
         .header h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; }
         .header p { color: #6b7280; font-size: 14px; }
         .summary { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
@@ -60,10 +77,15 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
         .status-archived { background: #f3f4f6; color: #6b7280; }
         .price { font-weight: 600; color: #1a1a2e; }
         .footer { margin-top: 40px; text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; }
+        .footer img { height: 20px; margin-bottom: 8px; opacity: 0.6; }
+        .branding { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px; }
       </style>
     </head>
     <body>
       <div class="header">
+        <div class="logo">
+          <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="StoreLib" />
+        </div>
         <h1>Products Report</h1>
         <p>Generated on ${today}</p>
       </div>
@@ -111,7 +133,10 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
       </table>
 
       <div class="footer">
-        <p>This report contains ${products.length} product(s)</p>
+        <div class="branding">
+          <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="StoreLib" />
+        </div>
+        <p>This report contains ${products.length} product(s) • Powered by StoreLib</p>
       </div>
     </body>
     </html>
@@ -184,13 +209,17 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleExportPDF = () => {
+  const handleExportPDF = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
     generateProductsPDF(products, formatPrice)
     setExportMenuOpen(false)
     showNotification("PDF report generated")
   }
 
-  const handleExportCSV = () => {
+  const handleExportCSV = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
     generateProductsCSV(products, formatPrice)
     setExportMenuOpen(false)
     showNotification("CSV file downloaded")
@@ -351,6 +380,18 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     }
   }
 
+  const handleSearchClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsSearchOpen(!isSearchOpen)
+  }
+
+  const handleExportToggle = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setExportMenuOpen(!exportMenuOpen)
+  }
+
   const tabCounts = {
     // Active: Only published products (not archived)
     active: products.filter(p => !p.archived && p.status !== "archived" && p.status === "published").length,
@@ -429,41 +470,49 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
             {/* Search & Export Buttons */}
             <div className="flex items-center gap-2">
+              {/* Search Button - Clickable */}
               <button
-                onClick={() => setIsSearchOpen(!isSearchOpen)}
-                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                type="button"
+                onClick={handleSearchClick}
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 cursor-pointer select-none ${
                   isSearchOpen
                     ? "bg-[#8b5cf6] text-white"
-                    : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
+                    : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb] hover:text-[#374151]"
                 } shadow-sm`}
                 title="Search products"
+                aria-label="Search products"
               >
-                <Search className="h-4 w-4" />
+                <Search className="h-4 w-4 pointer-events-none" />
               </button>
 
-              {/* Export Button */}
+              {/* Export Button - Clickable */}
               <div className="relative" ref={exportMenuRef}>
                 <button
-                  onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                  className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                  type="button"
+                  onClick={handleExportToggle}
+                  className={`p-2 rounded-lg transition-colors flex-shrink-0 cursor-pointer select-none ${
                     exportMenuOpen
                       ? "bg-[#8b5cf6] text-white"
-                      : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
+                      : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb] hover:text-[#374151]"
                   } shadow-sm`}
                   title="Export products"
+                  aria-label="Export products"
+                  aria-expanded={exportMenuOpen}
+                  aria-haspopup="true"
                 >
-                  <Download className="h-4 w-4" />
+                  <Download className="h-4 w-4 pointer-events-none" />
                 </button>
 
                 {/* Export Dropdown Menu */}
                 {exportMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-[#e5e7eb] shadow-lg z-50 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200">
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl border border-[#e5e7eb] shadow-lg z-50 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200">
                     <button
+                      type="button"
                       onClick={handleExportPDF}
-                      className="w-full px-4 py-3 text-left text-[14px] text-[#374151] hover:bg-[#f9fafb] transition-colors flex items-center gap-3"
+                      className="w-full px-4 py-3 text-left text-[14px] text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6] transition-colors flex items-center gap-3 cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                        <span className="text-[11px] font-semibold text-[#6b7280]">PDF</span>
+                      <div className="w-8 h-8 rounded-lg bg-[#fef2f2] flex items-center justify-center">
+                        <FileText className="h-4 w-4 text-[#ef4444]" />
                       </div>
                       <div>
                         <p className="font-medium">Export as PDF</p>
@@ -471,11 +520,12 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       </div>
                     </button>
                     <button
+                      type="button"
                       onClick={handleExportCSV}
-                      className="w-full px-4 py-3 text-left text-[14px] text-[#374151] hover:bg-[#f9fafb] transition-colors flex items-center gap-3 border-t border-[#e5e7eb]"
+                      className="w-full px-4 py-3 text-left text-[14px] text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6] transition-colors flex items-center gap-3 border-t border-[#e5e7eb] cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                        <span className="text-[11px] font-semibold text-[#6b7280]">CSV</span>
+                      <div className="w-8 h-8 rounded-lg bg-[#f0fdf4] flex items-center justify-center">
+                        <Table className="h-4 w-4 text-[#22c55e]" />
                       </div>
                       <div>
                         <p className="font-medium">Export as CSV</p>
@@ -503,8 +553,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 />
                 {searchQuery && (
                   <button
+                    type="button"
                     onClick={() => setSearchQuery("")}
-                    className="p-1 text-[#9ca3af] hover:text-[#6b7280] flex-shrink-0"
+                    className="p-1 text-[#9ca3af] hover:text-[#6b7280] flex-shrink-0 cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -523,6 +574,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                   <div className="flex gap-3">
                     {/* Clickable product area */}
                     <button
+                      type="button"
                       onClick={() => handleProductClick(product)}
                       className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#f3f4f6] cursor-pointer hover:ring-2 hover:ring-[#8b5cf6]/20 transition-all"
                     >
@@ -539,7 +591,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         </div>
                       )}
                     </button>
-                    <button onClick={() => handleProductClick(product)} className="flex-1 min-w-0 text-left cursor-pointer">
+                    <button type="button" onClick={() => handleProductClick(product)} className="flex-1 min-w-0 text-left cursor-pointer">
                       <div className="flex items-center gap-2">
                         <span className="text-[14px] font-medium text-[#1a1a2e] hover:text-[#8b5cf6] line-clamp-1 transition-colors">
                           {product.title}
@@ -584,6 +636,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       {/* Restore Button - Only for archived products (light gray) */}
                       {(product.archived || product.status === "archived") && (
                         <button
+                          type="button"
                           onClick={() => handleArchive(product)}
                           className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
                         >
@@ -699,6 +752,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                             {/* Conditional: Share Button for active products, Restore for archived */}
                             {product.archived || product.status === "archived" ? (
                               <button
+                                type="button"
                                 onClick={(e) => { e.stopPropagation(); handleArchive(product); }}
                                 className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
                               >
@@ -707,6 +761,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                               </button>
                             ) : (
                               <button
+                                type="button"
                                 onClick={(e) => { e.stopPropagation(); handleShare(product); }}
                                 className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
                               >
@@ -815,6 +870,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               {/* Actions */}
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => {
                     setDeleteModalOpen(false)
                     setProductToDelete(null)
@@ -825,6 +881,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleDeleteConfirm}
                   disabled={isDeleting}
                   className="flex-1 px-4 py-2.5 text-[14px] font-medium text-white bg-[#1a1a2e] rounded-xl hover:bg-[#2d2d44] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
@@ -861,7 +918,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   )
 }
 
-// Product Details Modal Component with Chart Stats
+// Product Details Modal Component with Real Analytics Data
 function ProductDetailsModal({
   isOpen,
   onClose,
@@ -879,41 +936,151 @@ function ProductDetailsModal({
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [analytics, setAnalytics] = useState<ProductAnalytics | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const startY = React.useRef(0)
   const sheetRef = React.useRef<HTMLDivElement>(null)
 
-  // Generate mock analytics data for demonstration
-  const mockStats = React.useMemo(() => {
-    const baseViews = Math.floor(Math.random() * 5000) + 500
-    const orders = Math.floor(Math.random() * 200) + 10
-    const revenue = orders * (product.price_cents || 0)
-    const conversionRate = ((orders / baseViews) * 100).toFixed(1)
-    const avgOrderValue = orders > 0 ? revenue / orders : 0
-    const refunds = Math.floor(orders * 0.02)
-    const refundRate = orders > 0 ? ((refunds / orders) * 100).toFixed(1) : "0.0"
+  // Fetch real analytics data from database
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setIsLoading(true)
+      try {
+        const supabase = createClient()
 
-    // Mock chart data (last 7 days)
-    const chartData = Array.from({ length: 7 }, (_, i) => ({
-      day: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'short' }),
-      views: Math.floor(Math.random() * (baseViews / 7)) + 50,
-      orders: Math.floor(Math.random() * (orders / 7)) + 1,
-    }))
+        // Fetch product views from product_views table
+        const { data: viewsData, count: totalViews } = await supabase
+          .from("product_views")
+          .select("*", { count: "exact" })
+          .eq("product_id", product.id)
 
-    return {
-      views: baseViews,
-      orders,
-      revenue,
-      conversionRate,
-      avgOrderValue,
-      refunds,
-      refundRate,
-      customers: orders - Math.floor(orders * 0.1), // Some repeat customers
-      chartData,
-      daysLive: Math.floor((Date.now() - new Date(product.created_at).getTime()) / (1000 * 60 * 60 * 24)),
-      lastSale: orders > 0 ? new Date(Date.now() - Math.floor(Math.random() * 7) * 24 * 60 * 60 * 1000).toLocaleDateString() : "No sales yet",
-      firstSale: orders > 0 ? new Date(new Date(product.created_at).getTime() + Math.floor(Math.random() * 7) * 24 * 60 * 60 * 1000).toLocaleDateString() : "No sales yet",
+        // Fetch orders/entitlements for this product
+        const { data: ordersData, count: totalOrders } = await supabase
+          .from("entitlements")
+          .select("*, order:orders(*)", { count: "exact" })
+          .eq("product_id", product.id)
+
+        // Fetch refunds for this product
+        const { data: refundsData, count: totalRefunds } = await supabase
+          .from("refunds")
+          .select("*", { count: "exact" })
+          .eq("product_id", product.id)
+
+        // Get unique customers
+        const uniqueCustomers = new Set(ordersData?.map(o => o.buyer_id) || []).size
+
+        // Calculate revenue from orders
+        const revenue = (ordersData || []).reduce((sum, order) => {
+          return sum + (order.order?.amount_cents || product.price_cents)
+        }, 0)
+
+        // Get views data for chart (last 7 days)
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+          const date = new Date()
+          date.setDate(date.getDate() - (6 - i))
+          return date.toISOString().split('T')[0]
+        })
+
+        const { data: dailyViews } = await supabase
+          .from("product_views")
+          .select("viewed_at")
+          .eq("product_id", product.id)
+          .gte("viewed_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+
+        const { data: dailyOrders } = await supabase
+          .from("entitlements")
+          .select("created_at")
+          .eq("product_id", product.id)
+          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+
+        // Build chart data
+        const chartData = last7Days.map(date => {
+          const dayViews = (dailyViews || []).filter(v =>
+            v.viewed_at?.startsWith(date)
+          ).length
+          const dayOrders = (dailyOrders || []).filter(o =>
+            o.created_at?.startsWith(date)
+          ).length
+          return {
+            day: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
+            views: dayViews,
+            orders: dayOrders,
+          }
+        })
+
+        // Get first and last sale dates
+        const { data: firstSaleData } = await supabase
+          .from("entitlements")
+          .select("created_at")
+          .eq("product_id", product.id)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .single()
+
+        const { data: lastSaleData } = await supabase
+          .from("entitlements")
+          .select("created_at")
+          .eq("product_id", product.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single()
+
+        const views = totalViews || 0
+        const orders = totalOrders || 0
+        const refunds = totalRefunds || 0
+        const conversionRate = views > 0 ? ((orders / views) * 100).toFixed(1) : "0.0"
+        const avgOrderValue = orders > 0 ? revenue / orders : 0
+        const refundRate = orders > 0 ? ((refunds / orders) * 100).toFixed(1) : "0.0"
+        const daysLive = Math.max(1, Math.floor((Date.now() - new Date(product.created_at).getTime()) / (1000 * 60 * 60 * 24)))
+
+        setAnalytics({
+          views,
+          orders,
+          revenue,
+          conversionRate,
+          avgOrderValue,
+          refunds,
+          refundRate,
+          customers: uniqueCustomers,
+          chartData,
+          daysLive,
+          firstSale: firstSaleData?.created_at
+            ? new Date(firstSaleData.created_at).toLocaleDateString()
+            : "No sales yet",
+          lastSale: lastSaleData?.created_at
+            ? new Date(lastSaleData.created_at).toLocaleDateString()
+            : "No sales yet",
+        })
+      } catch (error) {
+        console.error("Error fetching analytics:", error)
+        // Set default analytics on error
+        setAnalytics({
+          views: 0,
+          orders: 0,
+          revenue: 0,
+          conversionRate: "0.0",
+          avgOrderValue: 0,
+          refunds: 0,
+          refundRate: "0.0",
+          customers: 0,
+          chartData: Array.from({ length: 7 }, (_, i) => ({
+            day: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'short' }),
+            views: 0,
+            orders: 0,
+          })),
+          daysLive: Math.max(1, Math.floor((Date.now() - new Date(product.created_at).getTime()) / (1000 * 60 * 60 * 24))),
+          firstSale: "No sales yet",
+          lastSale: "No sales yet",
+        })
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [product])
+
+    if (isOpen && product) {
+      fetchAnalytics()
+    }
+  }, [isOpen, product])
 
   useEffect(() => {
     if (isOpen && !isVisible) {
@@ -982,7 +1149,7 @@ function ProductDetailsModal({
 
   if (!isVisible) return null
 
-  const maxChartValue = Math.max(...mockStats.chartData.map(d => d.views))
+  const maxChartValue = Math.max(...(analytics?.chartData.map(d => d.views) || [1]), 1)
 
   return (
     <>
@@ -1000,8 +1167,18 @@ function ProductDetailsModal({
         >
           {/* Desktop Header */}
           <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between z-10">
-            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
+            <div className="flex items-center gap-3">
+              <Image
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+                alt="StoreLib"
+                width={24}
+                height={24}
+                className="opacity-80"
+              />
+              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
+            </div>
             <button
+              type="button"
               onClick={handleClose}
               className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
             >
@@ -1040,141 +1217,149 @@ function ProductDetailsModal({
               </span>
             </div>
 
-            {/* KPI Stats Grid - Matching Sales page styling */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                    <Eye className="h-4 w-4 text-[#9ca3af]" />
-                  </div>
-                </div>
-                <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.views.toLocaleString()}</p>
-                <p className="text-[11px] text-[#9ca3af] mt-1">Page impressions</p>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 border-2 border-[#e5e7eb] border-t-[#8b5cf6] rounded-full animate-spin" />
               </div>
+            ) : analytics && (
+              <>
+                {/* KPI Stats Grid - Matching Sales page styling */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
+                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                        <Eye className="h-4 w-4 text-[#9ca3af]" />
+                      </div>
+                    </div>
+                    <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.views.toLocaleString()}</p>
+                    <p className="text-[11px] text-[#9ca3af] mt-1">Page impressions</p>
+                  </div>
 
-              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Orders</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                    <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
+                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[13px] font-medium text-[#6b7280]">Orders</span>
+                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                        <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
+                      </div>
+                    </div>
+                    <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.orders.toLocaleString()}</p>
+                    <p className="text-[11px] text-[#9ca3af] mt-1">Completed orders</p>
                   </div>
-                </div>
-                <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.orders.toLocaleString()}</p>
-                <p className="text-[11px] text-[#9ca3af] mt-1">Completed orders</p>
-              </div>
 
-              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Revenue</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                    <DollarSign className="h-4 w-4 text-[#9ca3af]" />
+                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[13px] font-medium text-[#6b7280]">Revenue</span>
+                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                        <DollarSign className="h-4 w-4 text-[#9ca3af]" />
+                      </div>
+                    </div>
+                    <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{formatPrice(analytics.revenue)}</p>
+                    <p className="text-[11px] text-[#9ca3af] mt-1">Gross revenue</p>
                   </div>
-                </div>
-                <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{formatPrice(mockStats.revenue)}</p>
-                <p className="text-[11px] text-[#9ca3af] mt-1">Gross revenue</p>
-              </div>
 
-              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Conversion</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                    <Target className="h-4 w-4 text-[#9ca3af]" />
+                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[13px] font-medium text-[#6b7280]">Conversion</span>
+                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                        <Target className="h-4 w-4 text-[#9ca3af]" />
+                      </div>
+                    </div>
+                    <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.conversionRate}%</p>
+                    <p className="text-[11px] text-[#9ca3af] mt-1">View to order rate</p>
                   </div>
                 </div>
-                <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.conversionRate}%</p>
-                <p className="text-[11px] text-[#9ca3af] mt-1">View to order rate</p>
-              </div>
-            </div>
 
-            {/* Mini Chart - Views over last 7 days */}
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-[#9ca3af]" />
-                  Views (Last 7 Days)
-                </h4>
-                <span className="text-[11px] text-[#9ca3af]">Demo data</span>
-              </div>
-              <div className="flex items-end gap-2 h-24">
-                {mockStats.chartData.map((data, index) => (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                    <div
-                      className="w-full bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-t-sm transition-all duration-300"
-                      style={{ height: `${(data.views / maxChartValue) * 100}%`, minHeight: '8px' }}
-                    />
-                    <span className="text-[10px] text-[#9ca3af]">{data.day}</span>
+                {/* Mini Chart - Views over last 7 days */}
+                <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-[#9ca3af]" />
+                      Views (Last 7 Days)
+                    </h4>
+                    <span className="text-[11px] text-[#9ca3af]">Real-time data</span>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="flex items-end gap-2 h-24">
+                    {analytics.chartData.map((data, index) => (
+                      <div key={index} className="flex-1 flex flex-col items-center gap-1">
+                        <div
+                          className="w-full bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-t-sm transition-all duration-300"
+                          style={{ height: `${Math.max((data.views / maxChartValue) * 100, 4)}%`, minHeight: '4px' }}
+                        />
+                        <span className="text-[10px] text-[#9ca3af]">{data.day}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-            {/* Additional Stats */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
-                <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <Users className="h-4 w-4 text-[#9ca3af]" />
-                  Customer Insights
-                </h4>
-                <div className="space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[12px] text-[#6b7280]">Unique Customers</span>
-                    <span className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.customers}</span>
+                {/* Additional Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
+                    <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                      <Users className="h-4 w-4 text-[#9ca3af]" />
+                      Customer Insights
+                    </h4>
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[12px] text-[#6b7280]">Unique Customers</span>
+                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.customers}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[12px] text-[#6b7280]">Avg Order Value</span>
+                        <span className="text-[13px] font-medium text-[#1a1a2e]">{formatPrice(analytics.avgOrderValue)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[12px] text-[#6b7280]">Refund Rate</span>
+                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.refundRate}%</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[12px] text-[#6b7280]">Avg Order Value</span>
-                    <span className="text-[13px] font-medium text-[#1a1a2e]">{formatPrice(mockStats.avgOrderValue)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[12px] text-[#6b7280]">Refund Rate</span>
-                    <span className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.refundRate}%</span>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
-                <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-[#9ca3af]" />
-                  Timeline
-                </h4>
-                <div className="space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[12px] text-[#6b7280]">Days Live</span>
-                    <span className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.daysLive} days</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[12px] text-[#6b7280]">First Sale</span>
-                    <span className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.firstSale}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[12px] text-[#6b7280]">Last Sale</span>
-                    <span className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.lastSale}</span>
+                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
+                    <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-[#9ca3af]" />
+                      Timeline
+                    </h4>
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[12px] text-[#6b7280]">Days Live</span>
+                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.daysLive} days</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[12px] text-[#6b7280]">First Sale</span>
+                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.firstSale}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[12px] text-[#6b7280]">Last Sale</span>
+                        <span className="text-[13px] font-medium text-[#1a1a2e]">{analytics.lastSale}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Performance Metrics */}
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
-              <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
-                Performance Metrics
-              </h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <span className="text-[12px] text-[#6b7280]">Revenue/Day</span>
-                  <p className="text-[14px] font-medium text-[#1a1a2e]">{mockStats.daysLive > 0 ? formatPrice(mockStats.revenue / mockStats.daysLive) : '$0.00'}</p>
+                {/* Performance Metrics */}
+                <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
+                  <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
+                    Performance Metrics
+                  </h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <span className="text-[12px] text-[#6b7280]">Revenue/Day</span>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">{analytics.daysLive > 0 ? formatPrice(analytics.revenue / analytics.daysLive) : '$0.00'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[12px] text-[#6b7280]">Orders/Day</span>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">{analytics.daysLive > 0 ? (analytics.orders / analytics.daysLive).toFixed(1) : '0'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[12px] text-[#6b7280]">Views/Day</span>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">{analytics.daysLive > 0 ? Math.round(analytics.views / analytics.daysLive) : '0'}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[12px] text-[#6b7280]">Orders/Day</span>
-                  <p className="text-[14px] font-medium text-[#1a1a2e]">{mockStats.daysLive > 0 ? (mockStats.orders / mockStats.daysLive).toFixed(1) : '0'}</p>
-                </div>
-                <div>
-                  <span className="text-[12px] text-[#6b7280]">Views/Day</span>
-                  <p className="text-[14px] font-medium text-[#1a1a2e]">{mockStats.daysLive > 0 ? Math.round(mockStats.views / mockStats.daysLive) : '0'}</p>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-2">
@@ -1226,8 +1411,18 @@ function ProductDetailsModal({
 
           {/* Mobile Header */}
           <div className="px-5 pb-4 flex items-center justify-between border-b border-[#e5e7eb]">
-            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
+            <div className="flex items-center gap-2">
+              <Image
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+                alt="StoreLib"
+                width={20}
+                height={20}
+                className="opacity-80"
+              />
+              <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Product Analytics</h2>
+            </div>
             <button
+              type="button"
               onClick={handleClose}
               className="w-8 h-8 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[#6b7280]"
             >
@@ -1260,101 +1455,109 @@ function ProductDetailsModal({
                 </div>
               </div>
 
-              {/* KPI Stats Grid - Matching Sales page styling */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-medium text-[#6b7280]">Views</span>
-                    <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
-                      <Eye className="h-3 w-3 text-[#9ca3af]" />
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-2 border-[#e5e7eb] border-t-[#8b5cf6] rounded-full animate-spin" />
+                </div>
+              ) : analytics && (
+                <>
+                  {/* KPI Stats Grid - Matching Sales page styling */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-medium text-[#6b7280]">Views</span>
+                        <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
+                          <Eye className="h-3 w-3 text-[#9ca3af]" />
+                        </div>
+                      </div>
+                      <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.views.toLocaleString()}</p>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-medium text-[#6b7280]">Orders</span>
+                        <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
+                          <ShoppingCart className="h-3 w-3 text-[#9ca3af]" />
+                        </div>
+                      </div>
+                      <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.orders.toLocaleString()}</p>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-medium text-[#6b7280]">Revenue</span>
+                        <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
+                          <DollarSign className="h-3 w-3 text-[#9ca3af]" />
+                        </div>
+                      </div>
+                      <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{formatPrice(analytics.revenue)}</p>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-medium text-[#6b7280]">Conversion</span>
+                        <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
+                          <Target className="h-3 w-3 text-[#9ca3af]" />
+                        </div>
+                      </div>
+                      <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{analytics.conversionRate}%</p>
                     </div>
                   </div>
-                  <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.views.toLocaleString()}</p>
-                </div>
 
-                <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-medium text-[#6b7280]">Orders</span>
-                    <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
-                      <ShoppingCart className="h-3 w-3 text-[#9ca3af]" />
+                  {/* Mini Chart */}
+                  <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                        <BarChart3 className="h-3.5 w-3.5 text-[#9ca3af]" />
+                        Views (7 Days)
+                      </h4>
+                      <span className="text-[10px] text-[#9ca3af]">Real-time</span>
+                    </div>
+                    <div className="flex items-end gap-1.5 h-20">
+                      {analytics.chartData.map((data, index) => (
+                        <div key={index} className="flex-1 flex flex-col items-center gap-1">
+                          <div
+                            className="w-full bg-[#8b5cf6] rounded-t-sm"
+                            style={{ height: `${Math.max((data.views / maxChartValue) * 100, 4)}%`, minHeight: '4px' }}
+                          />
+                          <span className="text-[9px] text-[#9ca3af]">{data.day.slice(0, 1)}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.orders.toLocaleString()}</p>
-                </div>
 
-                <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-medium text-[#6b7280]">Revenue</span>
-                    <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
-                      <DollarSign className="h-3 w-3 text-[#9ca3af]" />
+                  {/* Additional Stats */}
+                  <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
+                    <h4 className="text-[12px] font-semibold text-[#1a1a2e]">More Details</h4>
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4">
+                      <div>
+                        <span className="text-[11px] text-[#6b7280]">Customers</span>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.customers}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-[#6b7280]">Avg Order</span>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">{formatPrice(analytics.avgOrderValue)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-[#6b7280]">Refund Rate</span>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.refundRate}%</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-[#6b7280]">Days Live</span>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.daysLive}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-[#6b7280]">First Sale</span>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.firstSale}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-[#6b7280]">Last Sale</span>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">{analytics.lastSale}</p>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{formatPrice(mockStats.revenue)}</p>
-                </div>
-
-                <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-medium text-[#6b7280]">Conversion</span>
-                    <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
-                      <Target className="h-3 w-3 text-[#9ca3af]" />
-                    </div>
-                  </div>
-                  <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.conversionRate}%</p>
-                </div>
-              </div>
-
-              {/* Mini Chart */}
-              <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
-                    <BarChart3 className="h-3.5 w-3.5 text-[#9ca3af]" />
-                    Views (7 Days)
-                  </h4>
-                  <span className="text-[10px] text-[#9ca3af]">Demo data</span>
-                </div>
-                <div className="flex items-end gap-1.5 h-20">
-                  {mockStats.chartData.map((data, index) => (
-                    <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                      <div
-                        className="w-full bg-[#8b5cf6] rounded-t-sm"
-                        style={{ height: `${(data.views / maxChartValue) * 100}%`, minHeight: '6px' }}
-                      />
-                      <span className="text-[9px] text-[#9ca3af]">{data.day.slice(0, 1)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Additional Stats */}
-              <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
-                <h4 className="text-[12px] font-semibold text-[#1a1a2e]">More Details</h4>
-                <div className="grid grid-cols-2 gap-y-3 gap-x-4">
-                  <div>
-                    <span className="text-[11px] text-[#6b7280]">Customers</span>
-                    <p className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.customers}</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-[#6b7280]">Avg Order</span>
-                    <p className="text-[13px] font-medium text-[#1a1a2e]">{formatPrice(mockStats.avgOrderValue)}</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-[#6b7280]">Refund Rate</span>
-                    <p className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.refundRate}%</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-[#6b7280]">Days Live</span>
-                    <p className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.daysLive}</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-[#6b7280]">First Sale</span>
-                    <p className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.firstSale}</p>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-[#6b7280]">Last Sale</span>
-                    <p className="text-[13px] font-medium text-[#1a1a2e]">{mockStats.lastSale}</p>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-3 pt-1 pb-4">
