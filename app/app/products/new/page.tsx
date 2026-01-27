@@ -751,8 +751,8 @@ export default function NewProductPage() {
                     className={`
                       flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all whitespace-nowrap flex-shrink-0
                       ${isActive
-                        ? "bg-gray-100 text-gray-900"
-                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                        ? "bg-transparent text-gray-900"
+                        : "bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200"
                       }
                     `}
                   >
@@ -777,8 +777,8 @@ export default function NewProductPage() {
         </div>
 
         {/* Form Content - White rounded container */}
-        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-32">
-          <div className="max-w-3xl mx-auto">
+        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-40">
+          <div className="max-w-4xl mx-auto">
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
               {/* Error message */}
               {error && (
@@ -1362,7 +1362,7 @@ export default function NewProductPage() {
       {/* Sticky Bottom Bar - No Preview button */}
       <div className="fixed bottom-0 left-0 right-0 md:left-[220px] bg-white border-t border-gray-200 z-40">
         <div className="px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between max-w-3xl mx-auto">
+          <div className="flex items-center justify-between max-w-4xl mx-auto">
             <Button
               type="button"
               variant="outline"
