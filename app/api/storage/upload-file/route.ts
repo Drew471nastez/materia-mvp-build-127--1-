@@ -5,6 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 // Default bucket for digital product files
 const BUCKET_NAME = "product-files"
 
+// 5GB file size limit for digital products
+const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB in bytes = 5368709120
+
 // Helper to ensure bucket exists with proper configuration
 async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminClient>, bucketName: string) {
   try {
@@ -15,7 +18,7 @@ async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminCl
       // Create bucket (private, not public - files are delivered via signed URLs)
       const { error: createError } = await adminSupabase.storage.createBucket(bucketName, {
         public: false,
-        fileSizeLimit: 1073741824, // 1GB
+        fileSizeLimit: MAX_FILE_SIZE, // 5GB
       })
 
       if (createError && !createError.message.includes("already exists")) {
@@ -27,7 +30,7 @@ async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminCl
       try {
         await adminSupabase.storage.updateBucket(bucketName, {
           public: false,
-          fileSizeLimit: 1073741824, // 1GB
+          fileSizeLimit: MAX_FILE_SIZE, // 5GB
         })
       } catch (updateErr) {
         // Ignore update errors - bucket config might be fine
@@ -121,9 +124,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Product not found or access denied" }, { status: 403 })
     }
 
-    // Check file size (1GB limit)
-    if (file.size > 1073741824) {
-      return NextResponse.json({ error: "File exceeds 1GB limit" }, { status: 400 })
+    // Check file size (5GB limit)
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: "File exceeds 5GB limit" }, { status: 400 })
     }
 
     // Ensure bucket exists

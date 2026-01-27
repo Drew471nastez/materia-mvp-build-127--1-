@@ -43,6 +43,7 @@ import {
   FileText,
   GripVertical,
   Info,
+  Play,
 } from "lucide-react"
 import Link from "next/link"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
@@ -828,8 +829,8 @@ export default function NewProductPage() {
 
     try {
       for (const file of Array.from(files)) {
-        if (file.size > 1024 * 1024 * 1024) {
-          setError(`File "${file.name}" exceeds 1GB limit`)
+        if (file.size > 5 * 1024 * 1024 * 1024) {
+          setError(`File "${file.name}" exceeds 5GB limit`)
           continue
         }
 
@@ -1018,19 +1019,21 @@ export default function NewProductPage() {
       >
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="max-w-5xl mx-auto">
-            {/* Title Row - Collapses smoothly when scrolled */}
+            {/* Title Row - Collapses smoothly when scrolled with elegant fade */}
             <div
               className={`
                 flex items-center gap-2 overflow-hidden
-                transition-all duration-300 ease-out
                 ${isScrolled
-                  ? 'max-h-0 py-0 opacity-0 pointer-events-none transform -translate-y-2'
-                  : 'max-h-16 pt-[14px] pb-3 sm:py-3 opacity-100 transform translate-y-0'
+                  ? 'max-h-0 py-0 opacity-0 pointer-events-none scale-95 blur-[2px]'
+                  : 'max-h-16 pt-[14px] pb-3 sm:py-3 opacity-100 scale-100 blur-0'
                 }
               `}
               style={{
-                transitionProperty: 'max-height, padding, opacity, transform',
+                transitionProperty: 'max-height, padding, opacity, transform, filter',
+                transitionDuration: isScrolled ? '400ms' : '350ms',
                 transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                transitionDelay: isScrolled ? '0ms' : '50ms',
+                transformOrigin: 'top center',
               }}
             >
               <Link
@@ -1543,7 +1546,7 @@ export default function NewProductPage() {
                     />
                   </div>
                   <p className="text-xs sm:text-sm text-gray-500">
-                    Upload files customers will receive (max 1GB each).
+                    Upload files customers will receive (max 5GB each).
                   </p>
 
                   {digitalFiles.length > 0 && (

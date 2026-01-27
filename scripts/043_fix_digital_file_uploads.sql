@@ -1,24 +1,24 @@
 -- ============================================
--- FIX DIGITAL FILE UPLOADS
+-- FIX DIGITAL FILE UPLOADS (5GB LIMIT)
 -- ============================================
 -- Run this SQL in your Supabase SQL Editor
 -- This script is idempotent - safe to run multiple times
 
 -- ============================================
--- 1. ENSURE PRODUCT-FILES BUCKET EXISTS
+-- 1. ENSURE PRODUCT-FILES BUCKET EXISTS (5GB LIMIT)
 -- ============================================
 
--- Product Files Bucket (private, 1GB limit - for digital downloads)
+-- Product Files Bucket (private, 5GB limit - for digital downloads)
 INSERT INTO storage.buckets (id, name, public, file_size_limit)
 VALUES (
   'product-files',
   'product-files',
   false,
-  1073741824 -- 1GB
+  5368709120 -- 5GB (5 * 1024 * 1024 * 1024)
 )
 ON CONFLICT (id) DO UPDATE SET
   public = false,
-  file_size_limit = 1073741824;
+  file_size_limit = 5368709120;
 
 -- ============================================
 -- 2. CREATE/UPDATE DIGITAL_ASSETS TABLE
@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.digital_assets (
   file_path TEXT NOT NULL,
   file_name TEXT NOT NULL,
   file_size BIGINT,
+  mime_type TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -44,6 +45,19 @@ BEGIN
     AND column_name = 'file_size'
   ) THEN
     ALTER TABLE public.digital_assets ADD COLUMN file_size BIGINT;
+  END IF;
+END $$;
+
+-- Add mime_type column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'digital_assets'
+    AND column_name = 'mime_type'
+  ) THEN
+    ALTER TABLE public.digital_assets ADD COLUMN mime_type TEXT;
   END IF;
 END $$;
 
@@ -98,23 +112,34 @@ DROP POLICY IF EXISTS "Creators can view their product files" ON storage.objects
 DROP POLICY IF EXISTS "Creators can update product files" ON storage.objects;
 DROP POLICY IF EXISTS "Creators can delete their product files" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can upload product files" ON storage.objects;
+DROP POLICY IF EXISTS "Service role full access product files" ON storage.objects;
 
 -- Create storage policies for product-files bucket
+-- Allow authenticated users to upload to product-files bucket
 CREATE POLICY "Creators can upload product files"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (bucket_id = 'product-files');
 
+-- Allow authenticated users to view files in product-files bucket
 CREATE POLICY "Creators can view their product files"
 ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'product-files');
 
+-- Allow authenticated users to update files in product-files bucket
 CREATE POLICY "Creators can update product files"
 ON storage.objects FOR UPDATE TO authenticated
 USING (bucket_id = 'product-files');
 
+-- Allow authenticated users to delete files in product-files bucket
 CREATE POLICY "Creators can delete their product files"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'product-files');
+
+-- Service role has full access (needed for admin operations)
+CREATE POLICY "Service role full access product files"
+ON storage.objects FOR ALL TO service_role
+USING (bucket_id = 'product-files')
+WITH CHECK (bucket_id = 'product-files');
 
 -- ============================================
 -- 6. GRANT NECESSARY PERMISSIONS
@@ -137,7 +162,65 @@ GRANT ALL ON storage.buckets TO service_role;
 
 -- Grant full access to digital_assets for service_role
 GRANT ALL ON public.digital_assets TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.digital_assets TO authenticated;
 
 -- ============================================
--- DONE! Digital file uploads should now work.
+-- 7. CREATE HELPER FUNCTION FOR SIGNED URLS
+-- ============================================
+
+-- Function to generate signed download URLs for buyers
+CREATE OR REPLACE FUNCTION get_digital_asset_download_url(asset_id UUID)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_file_path TEXT;
+  v_product_id UUID;
+  v_user_id UUID;
+  v_has_access BOOLEAN := FALSE;
+BEGIN
+  -- Get current user
+  v_user_id := auth.uid();
+
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- Get asset details
+  SELECT file_path, product_id INTO v_file_path, v_product_id
+  FROM digital_assets
+  WHERE id = asset_id;
+
+  IF v_file_path IS NULL THEN
+    RAISE EXCEPTION 'Asset not found';
+  END IF;
+
+  -- Check if user is the creator
+  SELECT EXISTS (
+    SELECT 1 FROM products p
+    JOIN creators c ON p.creator_id = c.id
+    WHERE p.id = v_product_id AND c.user_id = v_user_id
+  ) INTO v_has_access;
+
+  -- Check if user has entitlement (purchased the product)
+  IF NOT v_has_access THEN
+    SELECT EXISTS (
+      SELECT 1 FROM entitlements
+      WHERE product_id = v_product_id AND buyer_id = v_user_id
+    ) INTO v_has_access;
+  END IF;
+
+  IF NOT v_has_access THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
+  -- Return the file path (actual signed URL generation happens in application code)
+  RETURN v_file_path;
+END;
+$$;
+
+-- ============================================
+-- DONE! Digital file uploads should now work with 5GB limit.
 -- ============================================
