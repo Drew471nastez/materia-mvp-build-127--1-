@@ -30,11 +30,7 @@ import {
   Upload,
   X,
   Loader2,
-  Image as ImageIcon,
   FileText,
-  Settings,
-  Search,
-  GripVertical,
 } from "lucide-react"
 import Link from "next/link"
 import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
@@ -62,7 +58,7 @@ interface UploadedFile {
 export default function NewProductPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>("about")
-  const [completedTabs, setCompletedTabs] = useState<Set<TabId>>(new Set())
+  const [completedTabs, setCompletedTabs] = useState<Set<TabId>>(new Set(["about", "media", "content", "settings", "seo"]))
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -98,7 +94,6 @@ export default function NewProductPage() {
   // SEO tab fields
   const [seoTitle, setSeoTitle] = useState("")
   const [seoDescription, setSeoDescription] = useState("")
-  const [seoKeywords, setSeoKeywords] = useState("")
 
   // Fetch creator on mount
   useEffect(() => {
@@ -136,43 +131,10 @@ export default function NewProductPage() {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
     setSlug(generatedSlug)
-    // Also set SEO title if empty
     if (!seoTitle) {
       setSeoTitle(title)
     }
   }, [title])
-
-  // Mark tab as completed when required fields are filled
-  useEffect(() => {
-    const newCompletedTabs = new Set<TabId>()
-
-    // About tab - requires title
-    if (title.trim()) {
-      newCompletedTabs.add("about")
-    }
-
-    // Media tab - optional but mark if has any media
-    if (photoUrls.length > 0 || galleryUrls.length > 0 || thumbnailUrl) {
-      newCompletedTabs.add("media")
-    }
-
-    // Content tab - optional but mark if has description
-    if (description.trim()) {
-      newCompletedTabs.add("content")
-    }
-
-    // Settings tab - mark if has price
-    if (price) {
-      newCompletedTabs.add("settings")
-    }
-
-    // SEO tab - optional but mark if filled
-    if (seoTitle || seoDescription) {
-      newCompletedTabs.add("seo")
-    }
-
-    setCompletedTabs(newCompletedTabs)
-  }, [title, photoUrls, galleryUrls, thumbnailUrl, description, price, seoTitle, seoDescription])
 
   // Create or update product
   const saveProduct = useCallback(async (publish = false) => {
@@ -183,7 +145,6 @@ export default function NewProductPage() {
     const supabase = createClient()
 
     try {
-      // Check slug uniqueness if creating new
       let finalSlug = slug
       if (!productId) {
         const { data: existing } = await supabase
@@ -217,7 +178,6 @@ export default function NewProductPage() {
       }
 
       if (productId) {
-        // Update existing product
         const { error: updateError } = await supabase
           .from("products")
           .update(productData)
@@ -225,7 +185,6 @@ export default function NewProductPage() {
 
         if (updateError) throw updateError
       } else {
-        // Create new product
         const { data: product, error: createError } = await supabase
           .from("products")
           .insert(productData)
@@ -260,7 +219,6 @@ export default function NewProductPage() {
           continue
         }
 
-        // Check if video (only allow 1)
         if (file.type.startsWith("video/")) {
           if (videoUrl) {
             setError("Only 1 video allowed")
@@ -268,7 +226,6 @@ export default function NewProductPage() {
           }
         }
 
-        // Check photo limit
         if (file.type.startsWith("image/") && photoUrls.length + newUrls.length >= 20) {
           setError("Maximum 20 photos allowed")
           continue
@@ -311,7 +268,6 @@ export default function NewProductPage() {
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
 
-    // Create product first if needed
     let currentProductId = productId
     if (!currentProductId) {
       currentProductId = await saveProduct(false)
@@ -401,7 +357,6 @@ export default function NewProductPage() {
   }
 
   const handlePreview = async () => {
-    // Save first then preview
     await saveProduct(false)
     if (productId) {
       window.open(`/p/${slug}?preview=true`, "_blank")
@@ -424,43 +379,27 @@ export default function NewProductPage() {
     }
   }
 
-  const handlePublish = async () => {
-    if (!title.trim()) {
-      setError("Please enter a product title")
-      setActiveTab("about")
-      return
-    }
-
-    setIsLoading(true)
-    const savedProductId = await saveProduct(true)
-    setIsLoading(false)
-
-    if (savedProductId) {
-      router.push(`/app/products/${savedProductId}?published=true`)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
       <div className="border-b border-gray-200 bg-white">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="px-8 py-4">
+          <div className="flex items-center gap-2">
             <Link
               href="/app/products"
-              className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+              className="flex items-center text-gray-400 hover:text-gray-600 transition-colors"
             >
               <ChevronLeft className="h-5 w-5" />
             </Link>
-            <h1 className="text-lg font-semibold text-gray-900">New Product</h1>
+            <h1 className="text-base font-semibold text-gray-900">New Product</h1>
           </div>
         </div>
       </div>
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200 bg-white">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="px-8 py-3">
+          <div className="flex items-center gap-2">
             {TABS.map((tab) => {
               const isCompleted = completedTabs.has(tab.id)
               const isActive = activeTab === tab.id
@@ -470,21 +409,23 @@ export default function NewProductPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
-                    flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all
+                    flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all
                     ${isActive
                       ? "bg-gray-900 text-white"
-                      : isCompleted
-                        ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }
                   `}
                 >
-                  {isCompleted && !isActive && (
-                    <Check className="h-4 w-4 text-gray-500" />
-                  )}
-                  {isActive && isCompleted && (
-                    <Check className="h-4 w-4 text-white" />
-                  )}
+                  {/* Checkmark circle icon */}
+                  <span className={`
+                    flex items-center justify-center w-5 h-5 rounded-full
+                    ${isActive
+                      ? "bg-violet-500"
+                      : "bg-gray-300"
+                    }
+                  `}>
+                    <Check className={`h-3 w-3 ${isActive ? "text-white" : "text-gray-500"}`} />
+                  </span>
                   {tab.name}
                 </button>
               )
@@ -494,36 +435,38 @@ export default function NewProductPage() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto pb-24">
-        <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="flex-1 overflow-y-auto pb-20">
+        <div className="px-8 py-6 max-w-3xl">
           {/* Error message */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
               {error}
             </div>
           )}
 
           {/* About Tab */}
           {activeTab === "about" && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* About Section Header */}
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">About</h2>
-                <p className="mt-1 text-sm text-gray-500">
+                <h2 className="text-lg font-semibold text-gray-900">About</h2>
+                <p className="text-sm text-gray-500">
                   Tell the world all about your item and why they'll love it.
                 </p>
               </div>
 
               {/* Title Field */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1">
                   <Label htmlFor="title" className="text-sm font-medium text-gray-700">
                     Title
                   </Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
+                          i
+                        </span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>The name of your product that customers will see</p>
@@ -536,21 +479,23 @@ export default function NewProductPage() {
                   placeholder="Short sleeve t-shirt"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="h-11 border-gray-300 focus:border-gray-400 focus:ring-gray-400"
+                  className="h-10 border-gray-200 bg-white"
                 />
               </div>
 
               {/* Photos and Video Section */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-1.5">
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
                   <Label className="text-sm font-medium text-gray-700">
                     Photos and video
                   </Label>
-                  <span className="text-red-500">*</span>
+                  <span className="text-red-500 text-sm">*</span>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
+                          ?
+                        </span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Upload images and videos to showcase your product</p>
@@ -564,18 +509,18 @@ export default function NewProductPage() {
 
                 {/* Uploaded Media Preview */}
                 {(photoUrls.length > 0 || videoUrl) && (
-                  <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div className="grid grid-cols-4 gap-3 mt-3">
                     {photoUrls.map((url, index) => (
                       <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 group">
                         <img src={url} alt="" className="w-full h-full object-cover" />
                         <button
                           onClick={() => removePhoto(index)}
-                          className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1.5 right-1.5 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <X className="h-4 w-4 text-gray-600" />
+                          <X className="h-3 w-3 text-gray-600" />
                         </button>
                         {index === 0 && (
-                          <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-xs rounded">
+                          <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[10px] rounded">
                             Cover
                           </span>
                         )}
@@ -586,11 +531,11 @@ export default function NewProductPage() {
                         <video src={videoUrl} className="w-full h-full object-cover" />
                         <button
                           onClick={removeVideo}
-                          className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1.5 right-1.5 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <X className="h-4 w-4 text-gray-600" />
+                          <X className="h-3 w-3 text-gray-600" />
                         </button>
-                        <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-xs rounded">
+                        <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[10px] rounded">
                           Video
                         </span>
                       </div>
@@ -601,8 +546,8 @@ export default function NewProductPage() {
                 {/* Upload Zone */}
                 <div
                   className={`
-                    relative border-2 border-dashed border-gray-300 rounded-xl p-8
-                    flex flex-col items-center justify-center min-h-[180px]
+                    mt-3 border border-dashed border-gray-300 rounded-lg
+                    flex flex-col items-center justify-center py-10
                     transition-colors cursor-pointer hover:border-gray-400
                     ${uploadingMedia ? "pointer-events-none opacity-50" : ""}
                   `}
@@ -627,17 +572,18 @@ export default function NewProductPage() {
                     disabled={uploadingMedia}
                   />
 
-                  <p className="text-gray-500 text-sm mb-4">
+                  <p className="text-gray-500 text-sm mb-3">
                     {uploadingMedia ? "Uploading..." : "Drag and drop files or"}
                   </p>
 
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    size="sm"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9 px-4"
                     disabled={uploadingMedia}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-4 w-4 mr-1.5" />
                     Upload
                   </Button>
                 </div>
@@ -647,24 +593,25 @@ export default function NewProductPage() {
 
           {/* Media Tab */}
           {activeTab === "media" && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Media</h2>
-                <p className="mt-1 text-sm text-gray-500">
+                <h2 className="text-lg font-semibold text-gray-900">Media</h2>
+                <p className="text-sm text-gray-500">
                   Add additional gallery images for your product.
                 </p>
               </div>
 
-              {/* Gallery Upload */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-1.5">
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
                   <Label className="text-sm font-medium text-gray-700">
                     Gallery Images
                   </Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
+                          ?
+                        </span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Drag to reorder. First image will be the cover.</p>
@@ -688,24 +635,25 @@ export default function NewProductPage() {
 
           {/* Content Tab */}
           {activeTab === "content" && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Content</h2>
-                <p className="mt-1 text-sm text-gray-500">
+                <h2 className="text-lg font-semibold text-gray-900">Content</h2>
+                <p className="text-sm text-gray-500">
                   Describe your product and add digital files.
                 </p>
               </div>
 
-              {/* Description */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1">
                   <Label className="text-sm font-medium text-gray-700">
                     Description
                   </Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
+                          i
+                        </span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Describe what customers will get</p>
@@ -716,20 +664,21 @@ export default function NewProductPage() {
                 <DescriptionRichEditor
                   value={description}
                   onChange={setDescription}
-                  className="min-h-[200px] border border-gray-300 rounded-lg"
+                  className="min-h-[180px] border border-gray-200 rounded-lg"
                 />
               </div>
 
-              {/* Call to Action */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1">
                   <Label htmlFor="cta" className="text-sm font-medium text-gray-700">
                     Call to action
                   </Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
+                          i
+                        </span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Custom button text (e.g., "Buy Now", "Get Access")</p>
@@ -742,22 +691,23 @@ export default function NewProductPage() {
                   placeholder="Buy Now"
                   value={callToAction}
                   onChange={(e) => setCallToAction(e.target.value)}
-                  className="h-11 border-gray-300"
+                  className="h-10 border-gray-200"
                 />
               </div>
 
-              {/* Digital Files */}
               {productType === "digital" && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-1.5">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
                     <Label className="text-sm font-medium text-gray-700">
                       Digital Files
                     </Label>
-                    <span className="text-red-500">*</span>
+                    <span className="text-red-500 text-sm">*</span>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                          <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-xs cursor-help">
+                            ?
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Files customers receive after purchase</p>
@@ -769,9 +719,8 @@ export default function NewProductPage() {
                     Upload files customers will receive (max 1GB each).
                   </p>
 
-                  {/* Uploaded files list */}
                   {digitalFiles.length > 0 && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 mt-2">
                       {digitalFiles.map((file) => (
                         <div
                           key={file.id}
@@ -786,7 +735,7 @@ export default function NewProductPage() {
                           </div>
                           <button
                             onClick={() => handleDeleteFile(file)}
-                            className="p-1.5 text-gray-400 hover:text-gray-600"
+                            className="p-1 text-gray-400 hover:text-gray-600"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -795,11 +744,10 @@ export default function NewProductPage() {
                     </div>
                   )}
 
-                  {/* File Upload Zone */}
                   <div
                     className={`
-                      relative border-2 border-dashed border-gray-300 rounded-xl p-6
-                      flex flex-col items-center justify-center
+                      mt-2 border border-dashed border-gray-300 rounded-lg
+                      flex flex-col items-center justify-center py-6
                       transition-colors cursor-pointer hover:border-gray-400
                       ${uploadingFiles ? "pointer-events-none opacity-50" : ""}
                     `}
@@ -814,7 +762,6 @@ export default function NewProductPage() {
                       disabled={uploadingFiles}
                     />
 
-                    <Upload className="h-6 w-6 text-gray-400 mb-2" />
                     <p className="text-gray-500 text-sm mb-2">
                       {uploadingFiles ? "Uploading..." : "Drag and drop files or"}
                     </p>
@@ -823,7 +770,7 @@ export default function NewProductPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="border-gray-300 text-gray-700"
+                      className="border-gray-300 text-gray-700 h-8"
                       disabled={uploadingFiles}
                     >
                       <Plus className="h-4 w-4 mr-1" />
@@ -837,25 +784,23 @@ export default function NewProductPage() {
 
           {/* Settings Tab */}
           {activeTab === "settings" && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Settings</h2>
-                <p className="mt-1 text-sm text-gray-500">
+                <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
+                <p className="text-sm text-gray-500">
                   Configure pricing and product settings.
                 </p>
               </div>
 
-              {/* Pricing */}
               <div className="space-y-4">
-                <h3 className="text-base font-medium text-gray-900">Pricing</h3>
-
+                <h3 className="text-sm font-medium text-gray-900">Pricing</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="price" className="text-sm font-medium text-gray-700">
                       Price (USD)
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                       <Input
                         id="price"
                         type="number"
@@ -864,17 +809,16 @@ export default function NewProductPage() {
                         placeholder="0.00"
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
-                        className="h-11 pl-7 border-gray-300"
+                        className="h-10 pl-7 border-gray-200"
                       />
                     </div>
                   </div>
-
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="comparePrice" className="text-sm font-medium text-gray-700">
                       Compare at price
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                       <Input
                         id="comparePrice"
                         type="number"
@@ -883,20 +827,19 @@ export default function NewProductPage() {
                         placeholder="0.00"
                         value={compareAtPrice}
                         onChange={(e) => setCompareAtPrice(e.target.value)}
-                        className="h-11 pl-7 border-gray-300"
+                        className="h-10 pl-7 border-gray-200"
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* URL Slug */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="slug" className="text-sm font-medium text-gray-700">
                   URL slug
                 </Label>
                 <div className="flex items-center">
-                  <span className="px-3 py-2 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg text-sm text-gray-500">
+                  <span className="px-3 h-10 flex items-center bg-gray-50 border border-r-0 border-gray-200 rounded-l-md text-sm text-gray-500">
                     /p/
                   </span>
                   <Input
@@ -904,18 +847,17 @@ export default function NewProductPage() {
                     placeholder="my-product"
                     value={slug}
                     onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                    className="h-11 rounded-l-none border-gray-300"
+                    className="h-10 rounded-l-none border-gray-200"
                   />
                 </div>
               </div>
 
-              {/* Product Type */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-gray-700">
                   Product type
                 </Label>
                 <Select value={productType} onValueChange={(v) => setProductType(v as "digital" | "course")}>
-                  <SelectTrigger className="h-11 border-gray-300">
+                  <SelectTrigger className="h-10 border-gray-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -925,14 +867,12 @@ export default function NewProductPage() {
                 </Select>
               </div>
 
-              {/* Display Options */}
-              <div className="space-y-4">
-                <h3 className="text-base font-medium text-gray-900">Display</h3>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-gray-900">Display</h3>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <div>
                     <p className="text-sm font-medium text-gray-900">Show sales count</p>
-                    <p className="text-sm text-gray-500">Display number of sales on product page</p>
+                    <p className="text-xs text-gray-500">Display number of sales on product page</p>
                   </div>
                   <Switch
                     checked={showSalesBadge}
@@ -941,24 +881,21 @@ export default function NewProductPage() {
                 </div>
               </div>
 
-              {/* Refund Policy */}
-              <div className="space-y-4">
-                <h3 className="text-base font-medium text-gray-900">Refund policy</h3>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-gray-900">Refund policy</h3>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <div>
                     <p className="text-sm font-medium text-gray-900">Enable refund policy</p>
-                    <p className="text-sm text-gray-500">Show refund policy on product page</p>
+                    <p className="text-xs text-gray-500">Show refund policy on product page</p>
                   </div>
                   <Switch
                     checked={refundPolicyEnabled}
                     onCheckedChange={setRefundPolicyEnabled}
                   />
                 </div>
-
                 {refundPolicyEnabled && (
                   <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
-                    <SelectTrigger className="h-11 border-gray-300">
+                    <SelectTrigger className="h-10 border-gray-200">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -975,16 +912,15 @@ export default function NewProductPage() {
 
           {/* SEO Tab */}
           {activeTab === "seo" && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">SEO</h2>
-                <p className="mt-1 text-sm text-gray-500">
+                <h2 className="text-lg font-semibold text-gray-900">SEO</h2>
+                <p className="text-sm text-gray-500">
                   Optimize your product for search engines.
                 </p>
               </div>
 
-              {/* SEO Title */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="seoTitle" className="text-sm font-medium text-gray-700">
                   SEO title
                 </Label>
@@ -993,15 +929,14 @@ export default function NewProductPage() {
                   placeholder="Product title for search engines"
                   value={seoTitle}
                   onChange={(e) => setSeoTitle(e.target.value)}
-                  className="h-11 border-gray-300"
+                  className="h-10 border-gray-200"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-400">
                   {seoTitle.length}/60 characters
                 </p>
               </div>
 
-              {/* SEO Description */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="seoDescription" className="text-sm font-medium text-gray-700">
                   SEO description
                 </Label>
@@ -1010,26 +945,25 @@ export default function NewProductPage() {
                   placeholder="Brief description for search results"
                   value={seoDescription}
                   onChange={(e) => setSeoDescription(e.target.value)}
-                  className="border-gray-300 min-h-[100px]"
+                  className="border-gray-200 min-h-[100px]"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-400">
                   {seoDescription.length}/160 characters
                 </p>
               </div>
 
-              {/* Preview */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-gray-700">
                   Search preview
                 </Label>
                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-blue-600 text-lg truncate">
+                  <p className="text-blue-700 text-base font-medium truncate">
                     {seoTitle || title || "Product title"}
                   </p>
                   <p className="text-green-700 text-sm truncate">
                     yourstore.com/p/{slug || "product-url"}
                   </p>
-                  <p className="text-gray-600 text-sm line-clamp-2 mt-1">
+                  <p className="text-gray-600 text-sm line-clamp-2 mt-0.5">
                     {seoDescription || description || "Product description will appear here..."}
                   </p>
                 </div>
@@ -1041,24 +975,24 @@ export default function NewProductPage() {
 
       {/* Sticky Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 md:left-[220px] bg-white border-t border-gray-200 z-40">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+        <div className="px-8 py-3">
           <div className="flex items-center justify-between">
             <Button
               type="button"
               variant="outline"
               onClick={handleCancel}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9"
             >
               Cancel
             </Button>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handlePreview}
                 disabled={isLoading || !title.trim()}
-                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50 h-9"
               >
                 Preview
               </Button>
@@ -1067,11 +1001,11 @@ export default function NewProductPage() {
                 type="button"
                 onClick={handleSaveChanges}
                 disabled={isLoading || !title.trim()}
-                className="bg-violet-600 hover:bg-violet-700 text-white px-6"
+                className="bg-violet-600 hover:bg-violet-700 text-white h-9 px-5"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                     Saving...
                   </>
                 ) : (
