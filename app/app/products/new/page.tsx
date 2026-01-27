@@ -110,6 +110,7 @@ export default function NewProductPage() {
   const [creatorId, setCreatorId] = useState<string | null>(null)
   const [productId, setProductId] = useState<string | null>(null)
   const [creator, setCreator] = useState<any>(null)
+  const [isPageReady, setIsPageReady] = useState(false)
 
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -183,7 +184,7 @@ export default function NewProductPage() {
   const [editingFileId, setEditingFileId] = useState<string | null>(null)
   const [editingFileName, setEditingFileName] = useState("")
 
-  // Variants state
+  // Variants state (max 3 variants)
   interface ProductVariant {
     id: string
     name: string
@@ -191,8 +192,10 @@ export default function NewProductPage() {
     additionalPrice: string
     maxPurchases: string
     isExpanded: boolean
+    assignedFiles: string[] // IDs of assigned digital files
   }
   const [variants, setVariants] = useState<ProductVariant[]>([])
+  const MAX_VARIANTS = 3
 
   // Track changes for unsaved warning
   useEffect(() => {
@@ -312,12 +315,22 @@ export default function NewProductPage() {
     }
   }
 
-  // Scroll to top on page load
+  // Scroll to top on page load and show skeleton while loading
   useEffect(() => {
-    if (contentRef.current) {
-      contentRef.current.scrollTo({ top: 0, behavior: "instant" })
-    }
-    window.scrollTo({ top: 0, behavior: "instant" })
+    // Immediately scroll to top
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+
+    // Small delay to ensure DOM is ready, then scroll content area
+    const timer = setTimeout(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0
+      }
+      setIsPageReady(true)
+    }, 100)
+
+    return () => clearTimeout(timer)
   }, [])
 
   // Fetch creator on mount
@@ -1049,6 +1062,91 @@ export default function NewProductPage() {
   const existingImages = mediaItems.filter(m => m.type === "image").length
   const existingYouTube = mediaItems.filter(m => m.type === "youtube").length
 
+  // Skeleton loading component
+  if (!isPageReady) {
+    return (
+      <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+        {/* Skeleton Header */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-200 z-30 shadow-sm">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="max-w-5xl mx-auto">
+              {/* Title skeleton */}
+              <div className="flex items-center gap-2 pt-[14px] pb-3 sm:py-3">
+                <div className="h-5 w-5 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+              </div>
+              {/* Pills skeleton */}
+              <div className="py-3 pt-0 sm:pt-0.5">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="h-9 w-20 sm:w-24 bg-gray-200 rounded-full animate-pulse" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Skeleton Content */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 sm:pb-8">
+            <div className="max-w-5xl mx-auto">
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
+                <div className="lg:w-3/5 space-y-8">
+                  {/* About section skeleton */}
+                  <div className="space-y-4">
+                    <div className="h-5 w-16 bg-gray-200 rounded animate-pulse" />
+                    <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+                    <div className="space-y-2">
+                      <div className="h-4 w-12 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-11 w-full bg-gray-100 rounded-lg animate-pulse" />
+                    </div>
+                  </div>
+
+                  {/* Media section skeleton */}
+                  <div className="space-y-4">
+                    <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
+                    <div className="h-4 w-40 bg-gray-100 rounded animate-pulse" />
+                    <div className="h-32 w-full bg-gray-100 rounded-xl border-2 border-dashed border-gray-200 animate-pulse" />
+                  </div>
+
+                  {/* Content section skeleton */}
+                  <div className="space-y-4">
+                    <div className="h-5 w-20 bg-gray-200 rounded animate-pulse" />
+                    <div className="h-4 w-52 bg-gray-100 rounded animate-pulse" />
+                    <div className="space-y-2">
+                      <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-36 w-full bg-gray-100 rounded-lg animate-pulse" />
+                    </div>
+                  </div>
+
+                  {/* Settings section skeleton */}
+                  <div className="space-y-4">
+                    <div className="h-5 w-20 bg-gray-200 rounded animate-pulse" />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="h-11 bg-gray-100 rounded-lg animate-pulse" />
+                      <div className="h-11 bg-gray-100 rounded-lg animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Skeleton Footer */}
+        <div className="fixed bottom-0 left-0 right-0 sm:relative bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+            <div className="flex items-center justify-between">
+              <div className="h-10 w-20 bg-gray-200 rounded-lg animate-pulse" />
+              <div className="h-10 w-28 bg-violet-200 rounded-lg animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       {/* Sticky Header with Title and Pills */}
@@ -1574,11 +1672,8 @@ export default function NewProductPage() {
                       <SelectItem value="Buy Now">Buy Now</SelectItem>
                       <SelectItem value="Get Access">Get Access</SelectItem>
                       <SelectItem value="Download Now">Download Now</SelectItem>
-                      <SelectItem value="Get Instant Access">Get Instant Access</SelectItem>
                       <SelectItem value="Purchase">Purchase</SelectItem>
                       <SelectItem value="Add to Cart">Add to Cart</SelectItem>
-                      <SelectItem value="Get it Now">Get it Now</SelectItem>
-                      <SelectItem value="Unlock Access">Unlock Access</SelectItem>
                       <SelectItem value="Join Now">Join Now</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1603,45 +1698,42 @@ export default function NewProductPage() {
                       {digitalFiles.map((file) => (
                         <div
                           key={file.id}
-                          className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200"
+                          className="flex items-start sm:items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200"
                         >
-                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                            <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              {editingFileId === file.id ? (
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    value={editingFileName}
-                                    onChange={(e) => setEditingFileName(e.target.value)}
-                                    className="h-7 text-xs sm:text-sm border-gray-300"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        setDigitalFiles(prev => prev.map(f =>
-                                          f.id === file.id ? { ...f, file_name: editingFileName } : f
-                                        ))
-                                        setEditingFileId(null)
-                                      }
-                                      if (e.key === 'Escape') {
-                                        setEditingFileId(null)
-                                      }
-                                    }}
-                                    onBlur={() => {
-                                      setDigitalFiles(prev => prev.map(f =>
-                                        f.id === file.id ? { ...f, file_name: editingFileName } : f
-                                      ))
-                                      setEditingFileId(null)
-                                    }}
-                                  />
-                                </div>
-                              ) : (
-                                <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
-                              )}
-                              <p className="text-[10px] sm:text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
-                            </div>
+                          <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0 mt-0.5 sm:mt-0" />
+                          <div className="min-w-0 flex-1 mr-2">
+                            {editingFileId === file.id ? (
+                              <Input
+                                value={editingFileName}
+                                onChange={(e) => setEditingFileName(e.target.value)}
+                                className="h-7 text-xs sm:text-sm border-gray-300 w-full"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setDigitalFiles(prev => prev.map(f =>
+                                      f.id === file.id ? { ...f, file_name: editingFileName } : f
+                                    ))
+                                    setEditingFileId(null)
+                                  }
+                                  if (e.key === 'Escape') {
+                                    setEditingFileId(null)
+                                  }
+                                }}
+                                onBlur={() => {
+                                  setDigitalFiles(prev => prev.map(f =>
+                                    f.id === file.id ? { ...f, file_name: editingFileName } : f
+                                  ))
+                                  setEditingFileId(null)
+                                }}
+                              />
+                            ) : (
+                              <p className="text-xs sm:text-sm font-medium text-gray-900 truncate pr-2">{file.file_name}</p>
+                            )}
+                            <p className="text-[10px] sm:text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
                             <button
+                              type="button"
                               onClick={() => {
                                 setEditingFileId(file.id || null)
                                 setEditingFileName(file.file_name)
@@ -1652,6 +1744,7 @@ export default function NewProductPage() {
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleDeleteFile(file)}
                               className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                               title="Delete file"
@@ -1901,6 +1994,61 @@ export default function NewProductPage() {
                                 />
                               </div>
                             </div>
+
+                            {/* Assigned Digital Files */}
+                            <div className="space-y-2 pt-2 border-t border-gray-100">
+                              <Label className="text-xs sm:text-sm font-medium text-gray-700">
+                                Assigned digital files (optional)
+                              </Label>
+                              <p className="text-[10px] sm:text-xs text-gray-500">
+                                Select files from your uploaded digital products for this variant.
+                              </p>
+
+                              {/* File selection */}
+                              {digitalFiles.length > 0 ? (
+                                <div className="space-y-2">
+                                  {digitalFiles.map((file) => {
+                                    const isAssigned = variant.assignedFiles?.includes(file.id || '')
+                                    return (
+                                      <label
+                                        key={file.id}
+                                        className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                                          isAssigned
+                                            ? 'border-violet-300 bg-violet-50'
+                                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isAssigned}
+                                          onChange={(e) => {
+                                            setVariants(prev => prev.map(v => {
+                                              if (v.id !== variant.id) return v
+                                              const currentFiles = v.assignedFiles || []
+                                              if (e.target.checked) {
+                                                return { ...v, assignedFiles: [...currentFiles, file.id || ''] }
+                                              } else {
+                                                return { ...v, assignedFiles: currentFiles.filter(f => f !== file.id) }
+                                              }
+                                            }))
+                                          }}
+                                          className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                        />
+                                        <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
+                                          <p className="text-[10px] text-gray-500">{formatFileSize(file.file_size)}</p>
+                                        </div>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-400 italic">
+                                  No digital files uploaded yet. Upload files in the Content section above.
+                                </p>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1908,25 +2056,32 @@ export default function NewProductPage() {
                   </div>
                 )}
 
-                {/* Add Version Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newVariant: ProductVariant = {
-                      id: `variant-${Date.now()}`,
-                      name: "Untitled",
-                      description: "",
-                      additionalPrice: "0",
-                      maxPurchases: "",
-                      isExpanded: true,
-                    }
-                    setVariants(prev => [...prev, newVariant])
-                  }}
-                  className="w-full flex items-center justify-center gap-2 p-3 sm:p-4 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add version
-                </button>
+                {/* Add Version Button - Max 3 variants */}
+                {variants.length < MAX_VARIANTS && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (variants.length >= MAX_VARIANTS) return
+                      const newVariant: ProductVariant = {
+                        id: `variant-${Date.now()}`,
+                        name: "Untitled",
+                        description: "",
+                        additionalPrice: "0",
+                        maxPurchases: "",
+                        isExpanded: true,
+                        assignedFiles: [],
+                      }
+                      setVariants(prev => [...prev, newVariant])
+                    }}
+                    className="w-full flex items-center justify-center gap-2 p-3 sm:p-4 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add version
+                  </button>
+                )}
+                {variants.length >= MAX_VARIANTS && (
+                  <p className="text-xs text-gray-400 text-center">Maximum {MAX_VARIANTS} variants allowed</p>
+                )}
               </div>
 
               {/* Settings Section */}
