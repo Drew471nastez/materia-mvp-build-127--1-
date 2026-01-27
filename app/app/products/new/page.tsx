@@ -137,6 +137,9 @@ export default function NewProductPage() {
   const [callToAction, setCallToAction] = useState("")
   const [digitalFiles, setDigitalFiles] = useState<UploadedFile[]>([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
+  const [fileUploadProgress, setFileUploadProgress] = useState(0)
+  const [isFileDragOver, setIsFileDragOver] = useState(false)
+  const fileDragCounterRef = useRef(0)
 
   // Settings tab fields
   const [price, setPrice] = useState("")
@@ -795,18 +798,33 @@ export default function NewProductPage() {
     setDragOverIndex(null)
   }
 
-  // Handle file upload for digital assets using admin API
+  // Handle file upload for digital assets using admin API with progress
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
 
+    // Clear previous errors
+    setError(null)
+
     let currentProductId = productId
     if (!currentProductId) {
+      // First, we need to save the product to get an ID
+      if (!title.trim()) {
+        setError("Please enter a product title before uploading digital files")
+        scrollToSection("about")
+        return
+      }
       currentProductId = await saveProduct(false)
-      if (!currentProductId) return
+      if (!currentProductId) {
+        setError("Failed to create product. Please try again.")
+        return
+      }
     }
 
     setUploadingFiles(true)
+    setFileUploadProgress(0)
     const newFiles: UploadedFile[] = []
+    const totalFiles = Array.from(files).length
+    let completedFiles = 0
 
     try {
       for (const file of Array.from(files)) {
@@ -814,6 +832,9 @@ export default function NewProductPage() {
           setError(`File "${file.name}" exceeds 1GB limit`)
           continue
         }
+
+        // Update progress to show which file we're working on
+        setFileUploadProgress(Math.round((completedFiles / totalFiles) * 100))
 
         // Use admin API route to bypass RLS
         const formData = new FormData()
@@ -827,32 +848,47 @@ export default function NewProductPage() {
           })
 
           if (!response.ok) {
-            const errorData = await response.json()
-            console.error("Digital file upload error:", errorData)
-            setError(`Failed to upload "${file.name}": ${errorData.error || "Upload failed"}`)
+            let errorMessage = "Upload failed"
+            try {
+              const errorData = await response.json()
+              console.error("Digital file upload error:", errorData)
+              errorMessage = errorData.error || errorMessage
+            } catch (e) {
+              console.error("Could not parse error response:", e)
+            }
+            setError(`Failed to upload "${file.name}": ${errorMessage}`)
             continue
           }
 
-          const { asset } = await response.json()
+          const result = await response.json()
 
-          if (asset) {
+          if (result.asset) {
             newFiles.push({
-              id: asset.id,
-              file_name: asset.file_name,
-              file_path: asset.file_path,
-              file_size: asset.file_size,
+              id: result.asset.id,
+              file_name: result.asset.file_name,
+              file_path: result.asset.file_path,
+              file_size: result.asset.file_size,
             })
           }
+
+          completedFiles++
+          setFileUploadProgress(Math.round((completedFiles / totalFiles) * 100))
         } catch (uploadErr) {
           console.error("Digital file upload request error:", uploadErr)
-          setError(`Failed to upload "${file.name}": Network error`)
+          setError(`Failed to upload "${file.name}": Network error. Please check your connection and try again.`)
           continue
         }
       }
 
-      setDigitalFiles(prev => [...prev, ...newFiles])
+      if (newFiles.length > 0) {
+        setDigitalFiles(prev => [...prev, ...newFiles])
+        setFileUploadProgress(100)
+      }
     } finally {
+      // Brief delay to show 100% completion
+      await new Promise(resolve => setTimeout(resolve, 300))
       setUploadingFiles(false)
+      setFileUploadProgress(0)
     }
   }
 
@@ -982,12 +1018,20 @@ export default function NewProductPage() {
       >
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="max-w-5xl mx-auto">
-            {/* Title Row - Collapses when scrolled */}
+            {/* Title Row - Collapses smoothly when scrolled */}
             <div
               className={`
                 flex items-center gap-2 overflow-hidden
-                ${isScrolled ? 'max-h-0 py-0 opacity-0 pointer-events-none' : 'max-h-16 pt-[14px] pb-3 sm:py-3 opacity-100'}
+                transition-all duration-300 ease-out
+                ${isScrolled
+                  ? 'max-h-0 py-0 opacity-0 pointer-events-none transform -translate-y-2'
+                  : 'max-h-16 pt-[14px] pb-3 sm:py-3 opacity-100 transform translate-y-0'
+                }
               `}
+              style={{
+                transitionProperty: 'max-height, padding, opacity, transform',
+                transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
             >
               <Link
                 href="/app/products"
@@ -1000,7 +1044,9 @@ export default function NewProductPage() {
             </div>
 
             {/* Pills Row */}
-            <div className={`py-3 ${isScrolled ? '' : 'pt-0 sm:pt-0.5'}`}>
+            <div
+              className={`py-3 transition-all duration-300 ease-out ${isScrolled ? '' : 'pt-0 sm:pt-0.5'}`}
+            >
               <div
                 ref={pillScrollRef}
                 className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth"
@@ -1527,12 +1573,44 @@ export default function NewProductPage() {
 
                   <div
                     className={`
-                      mt-2 border border-dashed border-gray-300 rounded-lg
+                      mt-2 border-2 border-dashed rounded-xl
                       flex flex-col items-center justify-center py-5 sm:py-6
-                      transition-colors cursor-pointer hover:border-gray-400
-                      ${uploadingFiles ? "pointer-events-none opacity-50" : ""}
+                      transition-all duration-200 cursor-pointer
+                      ${uploadingFiles ? "pointer-events-none border-gray-300" : ""}
+                      ${isFileDragOver
+                        ? "border-violet-500 bg-violet-50 scale-[1.02] shadow-lg shadow-violet-100"
+                        : "border-gray-300 hover:border-gray-400 hover:bg-gray-50/50"
+                      }
                     `}
-                    onClick={() => document.getElementById("file-input")?.click()}
+                    onClick={() => !uploadingFiles && document.getElementById("file-input")?.click()}
+                    onDragEnter={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      fileDragCounterRef.current++
+                      if (e.dataTransfer.types.includes('Files')) {
+                        setIsFileDragOver(true)
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      e.dataTransfer.dropEffect = 'copy'
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      fileDragCounterRef.current--
+                      if (fileDragCounterRef.current === 0) {
+                        setIsFileDragOver(false)
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      fileDragCounterRef.current = 0
+                      setIsFileDragOver(false)
+                      handleFileUpload(e.dataTransfer.files)
+                    }}
                   >
                     <input
                       id="file-input"
@@ -1543,20 +1621,52 @@ export default function NewProductPage() {
                       disabled={uploadingFiles}
                     />
 
-                    <p className="text-gray-500 text-xs sm:text-sm mb-2">
-                      {uploadingFiles ? "Uploading..." : "Drag and drop files or"}
-                    </p>
+                    {uploadingFiles ? (
+                      <div className="flex flex-col items-center gap-3 animate-pulse">
+                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                          <Loader2 className="h-5 w-5 text-violet-600 animate-spin" />
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <p className="text-sm font-medium text-gray-700">Uploading digital files...</p>
+                          <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-violet-500 rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${fileUploadProgress}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">{fileUploadProgress}%</p>
+                        </div>
+                      </div>
+                    ) : isFileDragOver ? (
+                      <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center animate-pulse">
+                          <Plus className="h-6 w-6 text-violet-600" />
+                        </div>
+                        <p className="text-sm font-medium text-violet-600">
+                          Drop files here
+                        </p>
+                        <p className="text-xs text-violet-500">
+                          Release to upload digital files
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-gray-500 text-xs sm:text-sm mb-2">
+                          Drag and drop files or
+                        </p>
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-gray-300 text-gray-700 h-7 sm:h-8 text-xs sm:text-sm"
-                      disabled={uploadingFiles}
-                    >
-                      <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                      Upload
-                    </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-gray-300 text-gray-700 h-7 sm:h-8 text-xs sm:text-sm"
+                          disabled={uploadingFiles}
+                        >
+                          <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                          Upload
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

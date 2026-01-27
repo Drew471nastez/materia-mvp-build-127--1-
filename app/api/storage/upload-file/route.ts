@@ -45,28 +45,55 @@ async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminCl
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const adminSupabase = createAdminClient()
 
     // Get the current user
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser()
+
+    if (authError) {
+      console.error("Auth error:", authError)
+      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
+    }
+
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized - please log in" }, { status: 401 })
+    }
+
+    // Create admin client after auth check
+    let adminSupabase
+    try {
+      adminSupabase = createAdminClient()
+    } catch (adminError) {
+      console.error("Admin client creation error:", adminError)
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
     }
 
     // Verify user is a creator
-    const { data: creator } = await adminSupabase
+    const { data: creator, error: creatorError } = await adminSupabase
       .from("creators")
       .select("id")
       .eq("user_id", user.id)
       .single()
 
+    if (creatorError) {
+      console.error("Creator lookup error:", creatorError)
+    }
+
     if (!creator) {
       return NextResponse.json({ error: "Only creators can upload digital files" }, { status: 403 })
     }
 
-    const formData = await request.formData()
+    // Parse form data
+    let formData
+    try {
+      formData = await request.formData()
+    } catch (formError) {
+      console.error("Form data parse error:", formError)
+      return NextResponse.json({ error: "Invalid form data" }, { status: 400 })
+    }
+
     const file = formData.get("file") as File | null
     const productId = formData.get("productId") as string | null
 
@@ -79,11 +106,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the product belongs to this creator
-    const { data: product } = await adminSupabase
+    const { data: product, error: productError } = await adminSupabase
       .from("products")
       .select("id, creator_id")
       .eq("id", productId)
       .single()
+
+    if (productError) {
+      console.error("Product lookup error:", productError)
+      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    }
 
     if (!product || product.creator_id !== creator.id) {
       return NextResponse.json({ error: "Product not found or access denied" }, { status: 403 })
@@ -95,7 +127,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure bucket exists
-    await ensureBucketExists(adminSupabase, BUCKET_NAME)
+    const bucketReady = await ensureBucketExists(adminSupabase, BUCKET_NAME)
+    if (!bucketReady) {
+      console.error("Bucket creation/verification failed")
+      return NextResponse.json({ error: "Storage not available" }, { status: 500 })
+    }
 
     // Generate unique path
     const timestamp = Date.now()
@@ -103,7 +139,14 @@ export async function POST(request: NextRequest) {
     const filePath = `products/${productId}/${timestamp}_${safeName}`
 
     // Upload using admin client (bypasses RLS)
-    const arrayBuffer = await file.arrayBuffer()
+    let arrayBuffer
+    try {
+      arrayBuffer = await file.arrayBuffer()
+    } catch (bufferError) {
+      console.error("File buffer error:", bufferError)
+      return NextResponse.json({ error: "Failed to read file" }, { status: 400 })
+    }
+
     const { error: uploadError } = await adminSupabase.storage
       .from(BUCKET_NAME)
       .upload(filePath, arrayBuffer, {
