@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, RotateCcw, TrendingUp, ShoppingCart, DollarSign, Users, BarChart3, Calendar, Target, Clock, ArrowUpRight, Percent } from "lucide-react"
+import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, RotateCcw, TrendingUp, ShoppingCart, DollarSign, Users, BarChart3, Calendar, Target, Clock, ArrowUpRight, Percent, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { getProductUrl } from "@/lib/url-helpers"
@@ -29,6 +29,133 @@ interface ProductsClientProps {
   creatorUsername: string
 }
 
+// PDF Export function
+const generateProductsPDF = (products: Product[], formatPrice: (cents: number) => string) => {
+  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Products Report</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1a1a2e; }
+        .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+        .header h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; }
+        .header p { color: #6b7280; font-size: 14px; }
+        .summary { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
+        .summary-card { flex: 1; min-width: 150px; background: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; }
+        .summary-card .label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+        .summary-card .value { font-size: 24px; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #f9fafb; padding: 14px 12px; text-align: left; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; }
+        td { padding: 16px 12px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+        tr:hover { background: #f9fafb; }
+        .product-title { font-weight: 500; color: #1a1a2e; }
+        .status { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; text-transform: capitalize; }
+        .status-published { background: #f5f3ff; color: #8b5cf6; }
+        .status-draft { background: #f3f4f6; color: #6b7280; }
+        .status-archived { background: #f3f4f6; color: #6b7280; }
+        .price { font-weight: 600; color: #1a1a2e; }
+        .footer { margin-top: 40px; text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Products Report</h1>
+        <p>Generated on ${today}</p>
+      </div>
+
+      <div class="summary">
+        <div class="summary-card">
+          <div class="label">Total Products</div>
+          <div class="value">${products.length}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Published</div>
+          <div class="value">${products.filter(p => p.status === 'published' && !p.archived).length}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Drafts</div>
+          <div class="value">${products.filter(p => p.status === 'draft' && !p.archived).length}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Archived</div>
+          <div class="value">${products.filter(p => p.archived).length}</div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Type</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${products.map(product => `
+            <tr>
+              <td class="product-title">${product.title}</td>
+              <td>${product.type}</td>
+              <td class="price">${formatPrice(product.price_cents)}</td>
+              <td><span class="status status-${product.archived ? 'archived' : product.status}">${product.archived ? 'Archived' : product.status}</span></td>
+              <td>${new Date(product.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <p>This report contains ${products.length} product(s)</p>
+      </div>
+    </body>
+    </html>
+  `
+
+  // Open in new window for printing/saving as PDF
+  const printWindow = window.open('', '_blank')
+  if (printWindow) {
+    printWindow.document.write(htmlContent)
+    printWindow.document.close()
+    printWindow.onload = () => {
+      printWindow.print()
+    }
+  }
+}
+
+// CSV Export function
+const generateProductsCSV = (products: Product[], formatPrice: (cents: number) => string) => {
+  const headers = ['Title', 'Type', 'Price', 'Status', 'Slug', 'Created At', 'Description']
+
+  const rows = products.map(product => [
+    `"${product.title.replace(/"/g, '""')}"`,
+    product.type,
+    formatPrice(product.price_cents),
+    product.archived ? 'Archived' : product.status,
+    product.slug,
+    new Date(product.created_at).toISOString(),
+    `"${(product.description || '').replace(/"/g, '""')}"`
+  ])
+
+  const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', `products_${new Date().toISOString().split('T')[0]}.csv`)
+  link.style.visibility = 'hidden'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 type TabType = "active" | "archived" | "all"
 
 export function ProductsClient({ products: initialProducts, creatorUsername }: ProductsClientProps) {
@@ -42,7 +169,32 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const [notification, setNotification] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" })
   const [productDetailsOpen, setProductDetailsOpen] = useState(false)
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setExportMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleExportPDF = () => {
+    generateProductsPDF(products, formatPrice)
+    setExportMenuOpen(false)
+    showNotification("PDF report generated")
+  }
+
+  const handleExportCSV = () => {
+    generateProductsCSV(products, formatPrice)
+    setExportMenuOpen(false)
+    showNotification("CSV file downloaded")
+  }
 
   const tabOptions = [
     { value: "active" as TabType, label: "Active" },
@@ -275,18 +427,65 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               })}
             </div>
 
-            {/* Search Button */}
-            <button
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
-              className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-                isSearchOpen
-                  ? "bg-[#8b5cf6] text-white"
-                  : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
-              } shadow-sm`}
-              title="Search products"
-            >
-              <Search className="h-4 w-4" />
-            </button>
+            {/* Search & Export Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSearchOpen(!isSearchOpen)}
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                  isSearchOpen
+                    ? "bg-[#8b5cf6] text-white"
+                    : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
+                } shadow-sm`}
+                title="Search products"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+
+              {/* Export Button */}
+              <div className="relative" ref={exportMenuRef}>
+                <button
+                  onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                  className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                    exportMenuOpen
+                      ? "bg-[#8b5cf6] text-white"
+                      : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
+                  } shadow-sm`}
+                  title="Export products"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+
+                {/* Export Dropdown Menu */}
+                {exportMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-[#e5e7eb] shadow-lg z-50 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={handleExportPDF}
+                      className="w-full px-4 py-3 text-left text-[14px] text-[#374151] hover:bg-[#f9fafb] transition-colors flex items-center gap-3"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                        <span className="text-[11px] font-semibold text-[#6b7280]">PDF</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">Export as PDF</p>
+                        <p className="text-[11px] text-[#9ca3af]">Printable report</p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={handleExportCSV}
+                      className="w-full px-4 py-3 text-left text-[14px] text-[#374151] hover:bg-[#f9fafb] transition-colors flex items-center gap-3 border-t border-[#e5e7eb]"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                        <span className="text-[11px] font-semibold text-[#6b7280]">CSV</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">Export as CSV</p>
+                        <p className="text-[11px] text-[#9ca3af]">Spreadsheet data</p>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Search Bar */}
@@ -841,66 +1040,67 @@ function ProductDetailsModal({
               </span>
             </div>
 
-            {/* KPI Stats Grid */}
+            {/* KPI Stats Grid - Matching Sales page styling */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-[#f5f3ff] to-[#ede9fe] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#8b5cf6]/10 flex items-center justify-center">
-                    <Eye className="h-4 w-4 text-[#8b5cf6]" />
+              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                    <Eye className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <p className="text-[22px] font-bold text-[#1a1a2e]">{mockStats.views.toLocaleString()}</p>
-                <p className="text-[12px] text-[#6b7280] mt-0.5">Total Views</p>
+                <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.views.toLocaleString()}</p>
+                <p className="text-[11px] text-[#9ca3af] mt-1">Page impressions</p>
               </div>
 
-              <div className="bg-gradient-to-br from-[#ecfdf5] to-[#d1fae5] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                    <ShoppingCart className="h-4 w-4 text-emerald-600" />
+              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-medium text-[#6b7280]">Orders</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                    <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <p className="text-[22px] font-bold text-[#1a1a2e]">{mockStats.orders.toLocaleString()}</p>
-                <p className="text-[12px] text-[#6b7280] mt-0.5">Total Orders</p>
+                <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.orders.toLocaleString()}</p>
+                <p className="text-[11px] text-[#9ca3af] mt-1">Completed orders</p>
               </div>
 
-              <div className="bg-gradient-to-br from-[#fef3c7] to-[#fde68a] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                    <DollarSign className="h-4 w-4 text-amber-600" />
+              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-medium text-[#6b7280]">Revenue</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                    <DollarSign className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <p className="text-[22px] font-bold text-[#1a1a2e]">{formatPrice(mockStats.revenue)}</p>
-                <p className="text-[12px] text-[#6b7280] mt-0.5">Total Revenue</p>
+                <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{formatPrice(mockStats.revenue)}</p>
+                <p className="text-[11px] text-[#9ca3af] mt-1">Gross revenue</p>
               </div>
 
-              <div className="bg-gradient-to-br from-[#fce7f3] to-[#fbcfe8] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center">
-                    <Target className="h-4 w-4 text-pink-600" />
+              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-medium text-[#6b7280]">Conversion</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                    <Target className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <p className="text-[22px] font-bold text-[#1a1a2e]">{mockStats.conversionRate}%</p>
-                <p className="text-[12px] text-[#6b7280] mt-0.5">Conversion Rate</p>
+                <p className="text-[22px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.conversionRate}%</p>
+                <p className="text-[11px] text-[#9ca3af] mt-1">View to order rate</p>
               </div>
             </div>
 
             {/* Mini Chart - Views over last 7 days */}
-            <div className="bg-[#f9fafb] rounded-xl p-4">
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-[#8b5cf6]" />
+                  <BarChart3 className="h-4 w-4 text-[#9ca3af]" />
                   Views (Last 7 Days)
                 </h4>
-                <span className="text-[12px] text-[#6b7280] flex items-center gap-1">
-                  <ArrowUpRight className="h-3 w-3 text-emerald-500" />
-                  +12% vs last week
-                </span>
+                <span className="text-[11px] text-[#9ca3af]">Demo data</span>
               </div>
               <div className="flex items-end gap-2 h-24">
                 {mockStats.chartData.map((data, index) => (
                   <div key={index} className="flex-1 flex flex-col items-center gap-1">
                     <div
-                      className="w-full bg-gradient-to-t from-[#8b5cf6] to-[#a78bfa] rounded-t-sm transition-all duration-300"
+                      className="w-full bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-t-sm transition-all duration-300"
                       style={{ height: `${(data.views / maxChartValue) * 100}%`, minHeight: '8px' }}
                     />
                     <span className="text-[10px] text-[#9ca3af]">{data.day}</span>
@@ -911,9 +1111,9 @@ function ProductDetailsModal({
 
             {/* Additional Stats */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
                 <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <Users className="h-4 w-4 text-[#8b5cf6]" />
+                  <Users className="h-4 w-4 text-[#9ca3af]" />
                   Customer Insights
                 </h4>
                 <div className="space-y-2.5">
@@ -932,9 +1132,9 @@ function ProductDetailsModal({
                 </div>
               </div>
 
-              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
                 <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-[#8b5cf6]" />
+                  <Calendar className="h-4 w-4 text-[#9ca3af]" />
                   Timeline
                 </h4>
                 <div className="space-y-2.5">
@@ -955,9 +1155,9 @@ function ProductDetailsModal({
             </div>
 
             {/* Performance Metrics */}
-            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
               <h4 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-[#8b5cf6]" />
+                <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
                 Performance Metrics
               </h4>
               <div className="grid grid-cols-3 gap-4">
@@ -1060,58 +1260,63 @@ function ProductDetailsModal({
                 </div>
               </div>
 
-              {/* KPI Stats Grid */}
+              {/* KPI Stats Grid - Matching Sales page styling */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gradient-to-br from-[#f5f3ff] to-[#ede9fe] rounded-xl p-3.5">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Eye className="h-4 w-4 text-[#8b5cf6]" />
-                    <span className="text-[11px] text-[#6b7280]">Views</span>
+                <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-medium text-[#6b7280]">Views</span>
+                    <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
+                      <Eye className="h-3 w-3 text-[#9ca3af]" />
+                    </div>
                   </div>
-                  <p className="text-[20px] font-bold text-[#1a1a2e]">{mockStats.views.toLocaleString()}</p>
+                  <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.views.toLocaleString()}</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-[#ecfdf5] to-[#d1fae5] rounded-xl p-3.5">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <ShoppingCart className="h-4 w-4 text-emerald-600" />
-                    <span className="text-[11px] text-[#6b7280]">Orders</span>
+                <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-medium text-[#6b7280]">Orders</span>
+                    <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
+                      <ShoppingCart className="h-3 w-3 text-[#9ca3af]" />
+                    </div>
                   </div>
-                  <p className="text-[20px] font-bold text-[#1a1a2e]">{mockStats.orders.toLocaleString()}</p>
+                  <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.orders.toLocaleString()}</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-[#fef3c7] to-[#fde68a] rounded-xl p-3.5">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <DollarSign className="h-4 w-4 text-amber-600" />
-                    <span className="text-[11px] text-[#6b7280]">Revenue</span>
+                <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-medium text-[#6b7280]">Revenue</span>
+                    <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
+                      <DollarSign className="h-3 w-3 text-[#9ca3af]" />
+                    </div>
                   </div>
-                  <p className="text-[20px] font-bold text-[#1a1a2e]">{formatPrice(mockStats.revenue)}</p>
+                  <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{formatPrice(mockStats.revenue)}</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-[#fce7f3] to-[#fbcfe8] rounded-xl p-3.5">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Target className="h-4 w-4 text-pink-600" />
-                    <span className="text-[11px] text-[#6b7280]">Conversion</span>
+                <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-3.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-medium text-[#6b7280]">Conversion</span>
+                    <div className="w-6 h-6 rounded-md bg-[#f3f4f6] flex items-center justify-center">
+                      <Target className="h-3 w-3 text-[#9ca3af]" />
+                    </div>
                   </div>
-                  <p className="text-[20px] font-bold text-[#1a1a2e]">{mockStats.conversionRate}%</p>
+                  <p className="text-[18px] font-semibold text-[#1a1a2e] tracking-tight">{mockStats.conversionRate}%</p>
                 </div>
               </div>
 
               {/* Mini Chart */}
-              <div className="bg-[#f9fafb] rounded-xl p-4">
+              <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
-                    <BarChart3 className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                    <BarChart3 className="h-3.5 w-3.5 text-[#9ca3af]" />
                     Views (7 Days)
                   </h4>
-                  <span className="text-[11px] text-emerald-600 flex items-center gap-0.5">
-                    <ArrowUpRight className="h-3 w-3" />
-                    +12%
-                  </span>
+                  <span className="text-[10px] text-[#9ca3af]">Demo data</span>
                 </div>
                 <div className="flex items-end gap-1.5 h-20">
                   {mockStats.chartData.map((data, index) => (
                     <div key={index} className="flex-1 flex flex-col items-center gap-1">
                       <div
-                        className="w-full bg-gradient-to-t from-[#8b5cf6] to-[#a78bfa] rounded-t-sm"
+                        className="w-full bg-[#8b5cf6] rounded-t-sm"
                         style={{ height: `${(data.views / maxChartValue) * 100}%`, minHeight: '6px' }}
                       />
                       <span className="text-[9px] text-[#9ca3af]">{data.day.slice(0, 1)}</span>
@@ -1121,7 +1326,7 @@ function ProductDetailsModal({
               </div>
 
               {/* Additional Stats */}
-              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <div className="bg-white rounded-xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 space-y-3">
                 <h4 className="text-[12px] font-semibold text-[#1a1a2e]">More Details</h4>
                 <div className="grid grid-cols-2 gap-y-3 gap-x-4">
                   <div>
