@@ -1183,11 +1183,11 @@ export default function NewProductPage() {
                   </p>
                 </div>
 
-                {/* Draggable Media Grid */}
+                {/* Draggable Media Grid - Horizontal 16:9 ratio, 2 per row */}
                 {mediaItems.length > 0 && (
                   <div
                     ref={mediaGridRef}
-                    className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3"
+                    className="grid grid-cols-2 gap-3 sm:gap-4"
                   >
                     {mediaItems.map((item, index) => (
                       <div
@@ -1203,7 +1203,7 @@ export default function NewProductPage() {
                         onTouchMove={handleTouchMove}
                         onTouchEnd={handleTouchEnd}
                         className={`
-                          relative aspect-square rounded-lg overflow-hidden border group cursor-move select-none
+                          relative aspect-video rounded-lg overflow-hidden border group cursor-move select-none
                           transition-all duration-200 ease-out
                           ${dragOverIndex === index
                             ? "border-violet-500 border-2 scale-105 shadow-lg"
@@ -1217,10 +1217,10 @@ export default function NewProductPage() {
                           isTouchDragging && touchDragIndex === index && touchCurrentPos
                             ? {
                                 position: "fixed",
-                                left: touchCurrentPos.x - 50,
-                                top: touchCurrentPos.y - 50,
-                                width: 100,
-                                height: 100,
+                                left: touchCurrentPos.x - 80,
+                                top: touchCurrentPos.y - 45,
+                                width: 160,
+                                height: 90,
                                 zIndex: 9999,
                                 pointerEvents: "none",
                               }
