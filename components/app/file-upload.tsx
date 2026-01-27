@@ -64,62 +64,86 @@ export function FileUpload({
             continue
           }
 
-          // Generate unique path
-          const timestamp = Date.now()
-          const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-          const filePath = `products/${productId}/${timestamp}_${safeName}`
+          try {
+            // Get signed upload URL from API
+            const signedUrlResponse = await fetch("/api/storage/upload-file", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                filename: file.name,
+                contentType: file.type,
+                productId: productId,
+              }),
+            })
 
-          const { error: uploadError } = await supabase.storage.from("product-files").upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          })
+            if (!signedUrlResponse.ok) {
+              const errorData = await signedUrlResponse.json()
+              throw new Error(errorData.error || "Failed to get upload URL")
+            }
 
-          if (uploadError) {
-            console.error("[v0] Upload error:", uploadError)
-            setError(`Failed to upload "${file.name}": ${uploadError.message}`)
-            continue
-          }
+            const { token, path, filePath } = await signedUrlResponse.json()
 
-          const { data: urlData } = supabase.storage.from("product-files").getPublicUrl(filePath)
+            // Upload using signed URL
+            const { error: uploadError } = await supabase.storage
+              .from("product-files")
+              .uploadToSignedUrl(path, token, file, {
+                contentType: file.type || "application/octet-stream",
+                upsert: false,
+              })
 
-          // Save to digital_assets table
-          const { data: asset, error: dbError } = await supabase
-            .from("digital_assets")
-            .insert({
-              product_id: productId,
+            if (uploadError) {
+              console.error("[FileUpload] Upload error:", uploadError)
+              throw new Error(uploadError.message)
+            }
+
+            // Save to digital_assets table
+            const { data: asset, error: dbError } = await supabase
+              .from("digital_assets")
+              .insert({
+                product_id: productId,
+                file_name: file.name,
+                file_path: filePath,
+                file_size: file.size,
+              })
+              .select()
+              .single()
+
+            if (dbError) {
+              console.error("[FileUpload] DB error:", dbError)
+              setError(`Failed to save "${file.name}" metadata: ${dbError.message}`)
+              continue
+            }
+
+            newFiles.push({
+              id: asset.id,
               file_name: file.name,
-              file_path: filePath, // Store the path, not the full URL
+              file_path: filePath,
               file_size: file.size,
             })
-            .select()
-            .single()
 
-          if (dbError) {
-            console.error("[v0] DB error:", dbError)
-            setError(`Failed to save "${file.name}" metadata`)
+            completedFiles++
+            setProgress(Math.round((completedFiles / totalFiles) * 100))
+          } catch (err) {
+            console.error("[FileUpload] Error uploading file:", err)
+            const errorMessage = err instanceof Error ? err.message : "Upload failed"
+            setError(`Failed to upload "${file.name}": ${errorMessage}`)
             continue
           }
-
-          newFiles.push({
-            id: asset.id,
-            file_name: file.name,
-            file_path: filePath,
-            file_size: file.size,
-          })
-
-          completedFiles++
-          setProgress(Math.round((completedFiles / totalFiles) * 100))
         }
 
         const updatedFiles = [...files, ...newFiles]
         setFiles(updatedFiles)
         onUploadComplete?.(updatedFiles)
       } catch (err) {
-        console.error("[v0] Upload error:", err)
+        console.error("[FileUpload] Upload error:", err)
         setError("An unexpected error occurred during upload")
       } finally {
         setUploading(false)
         setProgress(0)
+        // Reset input so the same file can be selected again
+        if (inputRef.current) {
+          inputRef.current.value = ""
+        }
       }
     },
     [productId, files, maxSizeBytes, onUploadComplete],

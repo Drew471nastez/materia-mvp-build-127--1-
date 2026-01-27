@@ -100,3 +100,12 @@ export interface ApiResponse<T> {
   data: T | null
   error: string | null
 }
+
+export interface DigitalAsset {
+  id: string
+  product_id: string
+  file_name: string
+  file_path: string
+  file_size: number
+  created_at: string
+}

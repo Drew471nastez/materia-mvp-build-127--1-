@@ -75,6 +75,8 @@ export function ImageUpload({
         if (isVideoMode) {
           setProgress(10)
 
+          console.log("[ImageUpload] Starting video upload for:", file.name, "type:", file.type, "size:", file.size)
+
           // Get signed upload URL from API
           const signedUrlResponse = await fetch("/api/storage/upload-video", {
             method: "POST",
@@ -88,12 +90,19 @@ export function ImageUpload({
 
           if (!signedUrlResponse.ok) {
             const errorData = await signedUrlResponse.json()
-            throw new Error(errorData.error || "Failed to get upload URL")
+            console.error("[ImageUpload] Failed to get signed URL:", errorData)
+            throw new Error(errorData.error || errorData.details || "Failed to get upload URL")
           }
 
           const { token, path, publicUrl } = await signedUrlResponse.json()
 
+          if (!token || !path) {
+            console.error("[ImageUpload] Invalid signed URL response - missing token or path")
+            throw new Error("Invalid upload URL response")
+          }
+
           setProgress(20)
+          console.log("[ImageUpload] Got signed URL, uploading to path:", path)
 
           // Use Supabase client's uploadToSignedUrl for reliable uploads
           const supabase = createClient()
@@ -107,23 +116,24 @@ export function ImageUpload({
             const { error: uploadError } = await supabase.storage
               .from("store-builder-images")
               .uploadToSignedUrl(path, token, file, {
-                contentType: file.type,
+                contentType: file.type || "video/mp4",
                 upsert: true,
               })
 
             clearInterval(progressInterval)
 
             if (uploadError) {
-              console.error("[v0] Signed URL upload error:", uploadError)
-              throw uploadError
+              console.error("[ImageUpload] Signed URL upload error:", uploadError)
+              throw new Error(uploadError.message || "Upload failed")
             }
           } catch (uploadErr) {
             clearInterval(progressInterval)
+            console.error("[ImageUpload] Upload exception:", uploadErr)
             throw uploadErr
           }
 
           setProgress(100)
-          console.log("[v0] Video upload successful, URL:", publicUrl)
+          console.log("[ImageUpload] Video upload successful, URL:", publicUrl)
           onChange(publicUrl)
         } else {
           // For image uploads, use the standard Supabase client
