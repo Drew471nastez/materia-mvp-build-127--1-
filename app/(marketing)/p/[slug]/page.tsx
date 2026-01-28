@@ -32,6 +32,7 @@ import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
+import { PriceCardWithVariants } from "@/components/product/price-card-with-variants"
 
 import { themePresets } from "@/lib/store-builder/defaults"
 
@@ -127,6 +128,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // Extract categories from joined data
   const productCategories = product.product_categories?.map((pc: any) => pc.category).filter(Boolean) || []
+
+  // Fetch product variants
+  const { data: productVariants } = await supabase
+    .from("product_variants")
+    .select("*")
+    .eq("product_id", product.id)
+    .order("position", { ascending: true })
+
+  const variants = productVariants || []
+  const hasVariants = variants.length > 0
 
   const { data: creator } = await supabase.from("creators").select("*").eq("id", product.creator_id).maybeSingle()
 
@@ -721,127 +732,32 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
           {/* Mobile: Price card and Creator info ABOVE description */}
           <div className="mt-6 lg:hidden">
-            <div
-              className="rounded-xl border p-4 sm:p-6 shadow-sm"
-              style={{
-                backgroundColor: themeColors.cardBackground || "var(--card)",
-                borderColor: themeColors.cardBorderColor || "var(--border)",
-              }}
-            >
-              <div className="mb-4">
-                <div
-                  className="text-2xl font-bold"
-                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
-                >
-                  {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
-                </div>
-                {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-                  <div className="mt-1 flex items-center gap-2">
-                    <span
-                      className="text-base line-through"
-                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                    >
-                      {formatPrice(product.compare_at_cents)}
-                    </span>
-                    <Badge variant="destructive">
-                      {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
-                    </Badge>
-                  </div>
-                )}
-              </div>
-
-              <PurchaseStatusWrapper
-                productId={product.id}
-                productType={product.type}
-                priceCents={product.price_cents}
-                creatorId={product.creator_id}
-                serverHasPurchased={hasPurchased}
-                serverAssetId={firstAssetId}
-                buyButtonBgColor={buyButtonColor}
-                buyButtonTextColor={buyButtonTextColor}
-                downloadButtonBgColor={downloadButtonBgColor}
-                downloadButtonTextColor={downloadButtonTextColor}
-                purchasedExtraContent={
-                  <>
-                    <ViewInLibraryButton
-                      backgroundColor={themeColors.viewInLibraryBg}
-                      textColor={themeColors.viewInLibraryText}
-                      borderColor={themeColors.viewInLibraryBorder}
-                    />
-                    <RefundPolicyDisplay
-                      enabled={product.refund_policy_enabled}
-                      policyType={product.refund_policy_type}
-                      finePrint={product.refund_policy_fine_print}
-                      updatedAt={product.refund_policy_updated_at}
-                      className="mt-3"
-                      textColor={themeColors.cardTextColor}
-                      themePreset={themePreset}
-                      isDarkTheme={isDarkTheme}
-                    />
-                  </>
-                }
-                notPurchasedExtraContent={
-                  <>
-                    <WishlistButton
-                      productId={product.id}
-                      isLoggedIn={!!user}
-                      backgroundColor={themeColors.cardBackground}
-                      textColor={themeColors.cardTextColor}
-                      borderColor={themeColors.cardBorderColor}
-                      iconColor={themeColors.cardIconColor}
-                    />
-                    <RefundPolicyDisplay
-                      enabled={product.refund_policy_enabled}
-                      policyType={product.refund_policy_type}
-                      finePrint={product.refund_policy_fine_print}
-                      updatedAt={product.refund_policy_updated_at}
-                      className="mt-3"
-                      textColor={themeColors.cardTextColor}
-                      themePreset={themePreset}
-                      isDarkTheme={isDarkTheme}
-                    />
-                  </>
-                }
-              />
-
-              <div
-                className="mt-4 border-t pt-4"
-                style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
-              >
-                <h3
-                  className="font-semibold"
-                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
-                >
-                  What&apos;s included
-                </h3>
-                <ul className="mt-3 space-y-2">
-                  {getWhatsIncluded().map((item: string, idx: number) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2 text-sm"
-                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                    >
-                      {getIncludedItemIcon(item, themeColors.cardIconColor)}
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {showSalesAnnouncement && product.sales_count > 0 && (
-                <div
-                  className="mt-4 pt-4 border-t"
-                  style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
-                >
-                  <p
-                    className="text-sm text-center"
-                    style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                  >
-                    {product.sales_count} {product.sales_count === 1 ? "person has" : "people have"} purchased this
-                  </p>
-                </div>
-              )}
-            </div>
+            <PriceCardWithVariants
+              productId={product.id}
+              productType={product.type}
+              basePrice={product.price_cents}
+              baseCompareAtPrice={product.compare_at_cents}
+              creatorId={product.creator_id}
+              variants={variants}
+              hasPurchased={hasPurchased}
+              firstAssetId={firstAssetId}
+              buyButtonBgColor={buyButtonColor}
+              buyButtonTextColor={buyButtonTextColor}
+              downloadButtonBgColor={downloadButtonBgColor}
+              downloadButtonTextColor={downloadButtonTextColor}
+              isLoggedIn={!!user}
+              whatsIncludedItems={getWhatsIncluded()}
+              refundPolicyEnabled={product.refund_policy_enabled}
+              refundPolicyType={product.refund_policy_type}
+              refundPolicyFinePrint={product.refund_policy_fine_print}
+              refundPolicyUpdatedAt={product.refund_policy_updated_at}
+              showSalesAnnouncement={showSalesAnnouncement}
+              salesCount={product.sales_count}
+              themeColors={themeColors}
+              themePreset={themePreset}
+              isDarkTheme={isDarkTheme}
+              isMobile={true}
+            />
 
             {/* Mobile: Creator info OUTSIDE the card with share button */}
             {creator && (
@@ -995,126 +911,33 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       </div>
 
       <div className="hidden lg:block lg:col-span-2">
-        <div
-          className="sticky top-6 rounded-xl border p-6 shadow-sm"
-          style={{
-            backgroundColor: themeColors.cardBackground || "var(--card)",
-            borderColor: themeColors.cardBorderColor || "var(--border)",
-          }}
-        >
-          <div className="mb-4">
-            <div
-              className="text-3xl font-bold"
-              style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
-            >
-              {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
-            </div>
-            {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-              <div className="mt-1 flex items-center gap-2">
-                <span
-                  className="text-lg line-through"
-                  style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                >
-                  {formatPrice(product.compare_at_cents)}
-                </span>
-                <Badge variant="destructive">
-                  {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
-                </Badge>
-              </div>
-            )}
-          </div>
-
-          <PurchaseStatusWrapper
+        <div className="sticky top-6">
+          <PriceCardWithVariants
             productId={product.id}
             productType={product.type}
-            priceCents={product.price_cents}
+            basePrice={product.price_cents}
+            baseCompareAtPrice={product.compare_at_cents}
             creatorId={product.creator_id}
-            serverHasPurchased={hasPurchased}
-            serverAssetId={firstAssetId}
+            variants={variants}
+            hasPurchased={hasPurchased}
+            firstAssetId={firstAssetId}
             buyButtonBgColor={buyButtonColor}
             buyButtonTextColor={buyButtonTextColor}
             downloadButtonBgColor={downloadButtonBgColor}
             downloadButtonTextColor={downloadButtonTextColor}
-            purchasedExtraContent={
-              <>
-                <ViewInLibraryButton
-                  backgroundColor={themeColors.viewInLibraryBg}
-                  textColor={themeColors.viewInLibraryText}
-                  borderColor={themeColors.viewInLibraryBorder}
-                />
-                <RefundPolicyDisplay
-                  enabled={product.refund_policy_enabled}
-                  policyType={product.refund_policy_type}
-                  finePrint={product.refund_policy_fine_print}
-                  updatedAt={product.refund_policy_updated_at}
-                  className="mt-3"
-                  textColor={themeColors.cardTextColor}
-                  themePreset={themePreset}
-                  isDarkTheme={isDarkTheme}
-                />
-              </>
-            }
-            notPurchasedExtraContent={
-              <>
-                <WishlistButton
-                  productId={product.id}
-                  isLoggedIn={!!user}
-                  backgroundColor={themeColors.cardBackground}
-                  textColor={themeColors.cardTextColor}
-                  borderColor={themeColors.cardBorderColor}
-                  iconColor={themeColors.cardIconColor}
-                />
-                <RefundPolicyDisplay
-                  enabled={product.refund_policy_enabled}
-                  policyType={product.refund_policy_type}
-                  finePrint={product.refund_policy_fine_print}
-                  updatedAt={product.refund_policy_updated_at}
-                  className="mt-3"
-                  textColor={themeColors.cardTextColor}
-                  themePreset={themePreset}
-                  isDarkTheme={isDarkTheme}
-                />
-              </>
-            }
+            isLoggedIn={!!user}
+            whatsIncludedItems={getWhatsIncluded()}
+            refundPolicyEnabled={product.refund_policy_enabled}
+            refundPolicyType={product.refund_policy_type}
+            refundPolicyFinePrint={product.refund_policy_fine_print}
+            refundPolicyUpdatedAt={product.refund_policy_updated_at}
+            showSalesAnnouncement={showSalesAnnouncement}
+            salesCount={product.sales_count}
+            themeColors={themeColors}
+            themePreset={themePreset}
+            isDarkTheme={isDarkTheme}
+            isMobile={false}
           />
-
-          <div
-            className="mt-4 border-t pt-4"
-            style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
-          >
-            <h3
-              className="font-semibold"
-              style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
-            >
-              What&apos;s included
-            </h3>
-            <ul className="mt-3 space-y-2">
-              {getWhatsIncluded().map((item: string, idx: number) => (
-                <li
-                  key={idx}
-                  className="flex items-start gap-2 text-sm"
-                  style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                >
-                  {getIncludedItemIcon(item, themeColors.cardIconColor)}
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {showSalesAnnouncement && product.sales_count > 0 && (
-            <div
-              className="mt-4 pt-4 border-t"
-              style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
-            >
-              <p
-                className="text-sm text-center"
-                style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-              >
-                {product.sales_count} {product.sales_count === 1 ? "person has" : "people have"} purchased this
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

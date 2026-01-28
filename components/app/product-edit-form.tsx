@@ -46,6 +46,7 @@ import { FileUpload } from "@/components/app/file-upload"
 import { ImageUpload } from "@/components/app/image-upload"
 import { DraggableGalleryUpload } from "@/components/app/draggable-gallery-upload"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
+import { ProductVariantsEditor, type ProductVariant } from "@/components/app/product-variants-editor"
 
 interface ProductEditFormProps {
   product: Product & {
@@ -108,6 +109,10 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
 
+  // Variants state
+  const [variants, setVariants] = useState<ProductVariant[]>([])
+  const [isLoadingVariants, setIsLoadingVariants] = useState(true)
+
   useEffect(() => {
     const loadCategories = async () => {
       const supabase = createClient()
@@ -120,6 +125,33 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
     }
 
     loadCategories()
+  }, [product.id])
+
+  // Load existing variants
+  useEffect(() => {
+    const loadVariants = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("product_variants")
+        .select("*")
+        .eq("product_id", product.id)
+        .order("position", { ascending: true })
+
+      if (data) {
+        setVariants(data.map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          description: v.description,
+          price_cents: v.price_cents,
+          compare_at_cents: v.compare_at_cents,
+          position: v.position,
+          is_default: v.is_default,
+        })))
+      }
+      setIsLoadingVariants(false)
+    }
+
+    loadVariants()
   }, [product.id])
 
   const canPublish = !!thumbnailUrl && (product.type !== "digital" || assets.length > 0)
@@ -154,6 +186,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
           refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
           refund_policy_fine_print: refundPolicyEnabled ? refundPolicyFinePrint || null : null,
           refund_policy_updated_at: refundPolicyChanged ? new Date().toISOString() : product.refund_policy_updated_at,
+          has_variants: variants.length > 0,
         })
         .eq("id", product.id)
 
@@ -166,6 +199,58 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
           product_id: product.id,
           category_id: categoryId,
         })
+      }
+
+      // Save variants
+      // Delete removed variants
+      const existingVariantIds = variants.filter(v => v.id).map(v => v.id)
+      if (existingVariantIds.length > 0) {
+        await supabase
+          .from("product_variants")
+          .delete()
+          .eq("product_id", product.id)
+          .not("id", "in", `(${existingVariantIds.join(",")})`)
+      } else {
+        // Delete all variants if none remain
+        await supabase.from("product_variants").delete().eq("product_id", product.id)
+      }
+
+      // Update or insert variants
+      for (const variant of variants) {
+        if (variant.id) {
+          // Update existing variant
+          await supabase
+            .from("product_variants")
+            .update({
+              name: variant.name,
+              description: variant.description || null,
+              price_cents: variant.price_cents,
+              compare_at_cents: variant.compare_at_cents || null,
+              position: variant.position,
+              is_default: variant.is_default,
+            })
+            .eq("id", variant.id)
+        } else {
+          // Insert new variant
+          const { data: newVariant } = await supabase
+            .from("product_variants")
+            .insert({
+              product_id: product.id,
+              name: variant.name,
+              description: variant.description || null,
+              price_cents: variant.price_cents,
+              compare_at_cents: variant.compare_at_cents || null,
+              position: variant.position,
+              is_default: variant.is_default,
+            })
+            .select()
+            .single()
+
+          // Update variant with new ID if successfully inserted
+          if (newVariant) {
+            variant.id = newVariant.id
+          }
+        }
       }
 
       router.refresh()
@@ -455,6 +540,17 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
             </div>
           </CardContent>
         </Card>
+
+        {/* Product Variants */}
+        {product.type === "digital" && (
+          <ProductVariantsEditor
+            productId={product.id}
+            variants={variants}
+            onChange={setVariants}
+            showFileUpload={true}
+            disabled={isLoadingVariants}
+          />
+        )}
 
         <Card className="border-border">
           <CardHeader>

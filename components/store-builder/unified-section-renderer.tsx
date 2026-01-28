@@ -54,6 +54,17 @@ import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 import * as LucideIcons from "lucide-react"
 import { DescriptionEditWrapper, RichDescriptionContent } from "./description-rich-editor"
 
+// Variant type for product variants
+export interface ProductVariantData {
+  id: string
+  name: string
+  description?: string | null
+  price_cents: number
+  compare_at_cents?: number | null
+  position: number
+  is_default: boolean
+}
+
 // Shared product type for consistency
 export interface ProductData {
   id: string
@@ -76,6 +87,9 @@ export interface ProductData {
   refund_policy_type?: 'no_refunds' | '7_day' | '14_day' | '30_day' | '6_month' | null
   refund_policy_fine_print?: string | null
   refund_policy_updated_at?: string | null
+  // Product variants
+  variants?: ProductVariantData[]
+  has_variants?: boolean
 }
 
 // Creator data type
@@ -3291,6 +3305,101 @@ export function UnifiedProductPage({
                       )}
                     </div>
 
+                    {/* Variant Selector (Preview) */}
+                    {product?.variants && product.variants.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Package className="h-4 w-4" style={{ color: priceContainerMuted }} />
+                          <span
+                            className="text-sm font-medium"
+                            style={{ color: priceContainerText }}
+                          >
+                            {product.variants.length === 1 ? "Package" : "Select a package"}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {product.variants.sort((a, b) => a.position - b.position).map((variant, idx) => (
+                            <div
+                              key={variant.id}
+                              className={cn(
+                                "w-full rounded-xl border-2 p-3 text-left transition-all",
+                                idx === 0 ? "ring-2 ring-offset-1" : ""
+                              )}
+                              style={{
+                                backgroundColor: idx === 0 ? "rgba(59, 130, 246, 0.08)" : priceContainerBg,
+                                borderColor: idx === 0 ? "#3b82f6" : priceContainerBorder,
+                              }}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="font-semibold text-sm"
+                                      style={{ color: priceContainerText }}
+                                    >
+                                      {variant.name}
+                                    </span>
+                                    {variant.is_default && product.variants.length > 1 && (
+                                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                        Popular
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {variant.description && (
+                                    <p
+                                      className="mt-1 text-xs line-clamp-2"
+                                      style={{ color: priceContainerMuted }}
+                                    >
+                                      {variant.description}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex flex-col items-end shrink-0">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="font-bold text-base"
+                                      style={{ color: priceContainerText }}
+                                    >
+                                      {formatPrice(variant.price_cents)}
+                                    </span>
+                                    {idx === 0 && (
+                                      <div
+                                        className="flex items-center justify-center w-5 h-5 rounded-full"
+                                        style={{ backgroundColor: "#3b82f6", color: "#ffffff" }}
+                                      >
+                                        <Check className="h-3 w-3" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  {variant.compare_at_cents && variant.compare_at_cents > variant.price_cents && (
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                      <span
+                                        className="text-[10px] line-through"
+                                        style={{ color: priceContainerMuted }}
+                                      >
+                                        {formatPrice(variant.compare_at_cents)}
+                                      </span>
+                                      <Badge variant="destructive" className="text-[9px] px-1 py-0">
+                                        {Math.round((1 - variant.price_cents / variant.compare_at_cents) * 100)}% OFF
+                                      </Badge>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {product.variants.length === 1 && (
+                          <p
+                            className="text-xs text-center mt-2"
+                            style={{ color: priceContainerMuted }}
+                          >
+                            This is the only available package
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {isPreviewMode ? (
                       <div className="space-y-3">
                         <Button
@@ -3778,6 +3887,101 @@ export function UnifiedProductPage({
                     </div>
                   )}
                 </div>
+
+                {/* Variant Selector (Desktop Preview) */}
+                {product?.variants && product.variants.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Package className="h-4 w-4" style={{ color: priceContainerMuted }} />
+                      <span
+                        className="text-sm font-medium"
+                        style={{ color: priceContainerText }}
+                      >
+                        {product.variants.length === 1 ? "Package" : "Select a package"}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {product.variants.sort((a, b) => a.position - b.position).map((variant, idx) => (
+                        <div
+                          key={variant.id}
+                          className={cn(
+                            "w-full rounded-xl border-2 p-4 text-left transition-all",
+                            idx === 0 ? "ring-2 ring-offset-1" : ""
+                          )}
+                          style={{
+                            backgroundColor: idx === 0 ? "rgba(59, 130, 246, 0.08)" : priceContainerBg,
+                            borderColor: idx === 0 ? "#3b82f6" : priceContainerBorder,
+                          }}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="font-semibold"
+                                  style={{ color: priceContainerText }}
+                                >
+                                  {variant.name}
+                                </span>
+                                {variant.is_default && product.variants.length > 1 && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    Popular
+                                  </Badge>
+                                )}
+                              </div>
+                              {variant.description && (
+                                <p
+                                  className="mt-1 text-sm line-clamp-2"
+                                  style={{ color: priceContainerMuted }}
+                                >
+                                  {variant.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end shrink-0">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="font-bold text-lg"
+                                  style={{ color: priceContainerText }}
+                                >
+                                  {formatPrice(variant.price_cents)}
+                                </span>
+                                {idx === 0 && (
+                                  <div
+                                    className="flex items-center justify-center w-5 h-5 rounded-full"
+                                    style={{ backgroundColor: "#3b82f6", color: "#ffffff" }}
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </div>
+                                )}
+                              </div>
+                              {variant.compare_at_cents && variant.compare_at_cents > variant.price_cents && (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span
+                                    className="text-xs line-through"
+                                    style={{ color: priceContainerMuted }}
+                                  >
+                                    {formatPrice(variant.compare_at_cents)}
+                                  </span>
+                                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                                    {Math.round((1 - variant.price_cents / variant.compare_at_cents) * 100)}% OFF
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {product.variants.length === 1 && (
+                      <p
+                        className="text-xs text-center mt-2"
+                        style={{ color: priceContainerMuted }}
+                      >
+                        This is the only available package
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {isPreviewMode ? (
                   <div className="space-y-3">

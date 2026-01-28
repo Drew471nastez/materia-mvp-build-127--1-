@@ -11,9 +11,10 @@ interface BuyButtonProps {
   creatorId?: string
   backgroundColor?: string
   textColor?: string
+  variantId?: string
 }
 
-export function BuyButton({ productId, price, disabled, creatorId, backgroundColor, textColor }: BuyButtonProps) {
+export function BuyButton({ productId, price, disabled, creatorId, backgroundColor, textColor, variantId }: BuyButtonProps) {
   const [loading, setLoading] = useState(false)
 
   const formatPrice = (cents: number) => {
@@ -44,7 +45,10 @@ export function BuyButton({ productId, price, disabled, creatorId, backgroundCol
     }
 
     // Use window.location.href for reliable navigation (works across subdomains)
-    window.location.href = `/checkout?productId=${productId}`
+    const checkoutUrl = variantId
+      ? `/checkout?productId=${productId}&variantId=${variantId}`
+      : `/checkout?productId=${productId}`
+    window.location.href = checkoutUrl
   }
 
   return (

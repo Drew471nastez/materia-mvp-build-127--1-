@@ -44,6 +44,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
+import { ProductVariantsEditor, type ProductVariant } from "@/components/app/product-variants-editor"
 
 const STEPS = [
   { id: 1, name: "Basics", description: "Name and type" },
@@ -107,6 +108,35 @@ export default function NewProductWizard() {
   const [digitalFiles, setDigitalFiles] = useState<UploadedFile[]>([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+
+  // Product variants
+  const [variants, setVariants] = useState<ProductVariant[]>([])
+
+  // Scroll to top on mount - prevent scroll restoration and auto-focus jump
+  useEffect(() => {
+    // Immediately scroll to top
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+
+    // Disable scroll restoration for this page
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
+
+    // Double-check scroll position after a small delay (handles async content)
+    const scrollTimeout = setTimeout(() => {
+      window.scrollTo(0, 0)
+    }, 50)
+
+    return () => {
+      clearTimeout(scrollTimeout)
+      // Restore default scroll restoration when leaving
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'auto'
+      }
+    }
+  }, [])
 
   // Fetch creator on mount
   useEffect(() => {
@@ -218,6 +248,7 @@ export default function NewProductWizard() {
         refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
         refund_policy_fine_print: refundPolicyEnabled ? refundPolicyFinePrint || null : null,
         refund_policy_updated_at: refundPolicyEnabled ? new Date().toISOString() : null,
+        has_variants: variants.length > 0,
       })
       .eq("id", productId)
 
@@ -228,6 +259,69 @@ export default function NewProductWizard() {
         product_id: productId,
         category_id: categoryId,
       })
+    }
+
+    // Save variants
+    if (variants.length > 0) {
+      // Delete existing variants first
+      await supabase.from("product_variants").delete().eq("product_id", productId)
+
+      // Insert new variants
+      for (const variant of variants) {
+        const { data: savedVariant, error: variantError } = await supabase
+          .from("product_variants")
+          .insert({
+            product_id: productId,
+            name: variant.name,
+            description: variant.description || null,
+            price_cents: variant.price_cents,
+            compare_at_cents: variant.compare_at_cents || null,
+            position: variant.position,
+            is_default: variant.is_default,
+          })
+          .select()
+          .single()
+
+        if (!variantError && savedVariant && variant.files && variant.files.length > 0) {
+          // Link digital assets to variant if they exist
+          for (const file of variant.files) {
+            // First create the digital asset if it doesn't exist
+            const { data: existingAsset } = await supabase
+              .from("digital_assets")
+              .select("id")
+              .eq("product_id", productId)
+              .eq("file_path", file.file_path)
+              .single()
+
+            let assetId = existingAsset?.id
+
+            if (!assetId) {
+              const { data: newAsset } = await supabase
+                .from("digital_assets")
+                .insert({
+                  product_id: productId,
+                  file_name: file.file_name,
+                  file_path: file.file_path,
+                  file_size: file.file_size,
+                })
+                .select()
+                .single()
+
+              assetId = newAsset?.id
+            }
+
+            if (assetId) {
+              await supabase.from("variant_digital_assets").insert({
+                variant_id: savedVariant.id,
+                asset_id: assetId,
+              })
+            }
+          }
+        }
+      }
+    } else {
+      // If no variants, clear any existing variants
+      await supabase.from("product_variants").delete().eq("product_id", productId)
     }
 
     setIsSaving(false)
@@ -333,10 +427,19 @@ export default function NewProductWizard() {
     }
 
     setCurrentStep((prev) => Math.min(prev + 1, 4))
+
+    // Scroll to top when changing steps - prevents auto-focus scroll jump
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }, 0)
   }
 
   const handleBack = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1))
+    // Scroll to top when going back
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }, 0)
   }
 
   const addBenefit = () => {
@@ -371,7 +474,9 @@ export default function NewProductWizard() {
     setWhatsIncluded(updated)
   }
 
-  const canPublish = !!thumbnailUrl && (productType !== "digital" || digitalFiles.length > 0)
+  // Can publish if: has thumbnail AND (not digital OR has files OR has variants with files)
+  const variantsHaveFiles = variants.length > 0 && variants.some(v => v.files && v.files.length > 0)
+  const canPublish = !!thumbnailUrl && (productType !== "digital" || digitalFiles.length > 0 || variantsHaveFiles)
 
   const handlePublish = async () => {
     if (!productId) return
@@ -381,13 +486,17 @@ export default function NewProductWizard() {
       return
     }
 
-    if (productType === "digital" && digitalFiles.length === 0) {
-      setError("Please upload at least one digital file before publishing")
+    if (productType === "digital" && digitalFiles.length === 0 && !variantsHaveFiles) {
+      setError("Please upload at least one digital file (in product or variants) before publishing")
       return
     }
 
+    // Check price for stripe requirement (base price or any variant price > 0)
     const priceValue = Number.parseFloat(price || "0")
-    if (priceValue > 0 && (!creator?.stripe_account_id || creator?.stripe_onboarding_status !== "connected")) {
+    const hasAnyPaidVariant = variants.some(v => v.price_cents > 0)
+    const needsStripe = priceValue > 0 || hasAnyPaidVariant
+
+    if (needsStripe && (!creator?.stripe_account_id || creator?.stripe_onboarding_status !== "connected")) {
       setShowStripeWarning(true)
       setError("You must connect Stripe to sell paid products. Go to Settings > Payments to connect.")
       return
@@ -851,20 +960,32 @@ export default function NewProductWizard() {
             <Card>
               <CardHeader>
                 <CardTitle>Pricing</CardTitle>
+                <CardDescription>
+                  {variants.length === 0
+                    ? "Set a base price, or add variants below for multiple pricing tiers"
+                    : "Base price is optional when using variants"}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
-                    <Label htmlFor="price">Price (USD) *</Label>
+                    <Label htmlFor="price">
+                      {variants.length === 0 ? "Price (USD) *" : "Base Price (USD)"}
+                    </Label>
                     <Input
                       id="price"
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder="29.00"
+                      placeholder={variants.length === 0 ? "29.00" : "Optional with variants"}
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
                     />
+                    {variants.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Variant prices will be used when variants are selected
+                      </p>
+                    )}
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="compareAtPrice">Compare at price</Label>
@@ -881,6 +1002,16 @@ export default function NewProductWizard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Product Variants */}
+            {productType === "digital" && (
+              <ProductVariantsEditor
+                productId={productId}
+                variants={variants}
+                onChange={setVariants}
+                showFileUpload={true}
+              />
+            )}
           </div>
         )}
 
@@ -906,7 +1037,11 @@ export default function NewProductWizard() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Price</p>
-                    <p className="font-medium">{price ? `$${price}` : "Free"}</p>
+                    <p className="font-medium">
+                      {variants.length > 0
+                        ? `${variants.length} variant(s) - from $${(Math.min(...variants.map(v => v.price_cents)) / 100).toFixed(2)}`
+                        : price ? `$${price}` : "Free"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Cover Image</p>
@@ -916,6 +1051,19 @@ export default function NewProductWizard() {
                     <div>
                       <p className="text-sm text-muted-foreground">Digital Files</p>
                       <p className="font-medium">{digitalFiles.length} file(s) uploaded</p>
+                    </div>
+                  )}
+                  {variants.length > 0 && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Variants</p>
+                      <div className="mt-1 space-y-1">
+                        {variants.map((v, idx) => (
+                          <p key={idx} className="text-sm font-medium">
+                            {v.name} - ${(v.price_cents / 100).toFixed(2)}
+                            {idx === 0 && <span className="ml-2 text-xs text-muted-foreground">(Default)</span>}
+                          </p>
+                        ))}
+                      </div>
                     </div>
                   )}
                   <div>
@@ -929,8 +1077,8 @@ export default function NewProductWizard() {
                     <p className="font-medium">Before you can publish:</p>
                     <ul className="mt-2 list-disc pl-5 space-y-1">
                       {!thumbnailUrl && <li>Upload a cover image</li>}
-                      {productType === "digital" && digitalFiles.length === 0 && (
-                        <li>Upload at least one digital file</li>
+                      {productType === "digital" && digitalFiles.length === 0 && !variantsHaveFiles && (
+                        <li>Upload at least one digital file (in product or variants)</li>
                       )}
                     </ul>
                   </div>

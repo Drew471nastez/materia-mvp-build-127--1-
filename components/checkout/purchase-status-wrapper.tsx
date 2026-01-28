@@ -22,6 +22,8 @@ interface PurchaseStatusWrapperProps {
   // Content to render after buttons
   purchasedExtraContent?: ReactNode
   notPurchasedExtraContent?: ReactNode
+  // Variant support
+  variantId?: string
 }
 
 /**
@@ -41,6 +43,7 @@ export function PurchaseStatusWrapper({
   downloadButtonTextColor,
   purchasedExtraContent,
   notPurchasedExtraContent,
+  variantId,
 }: PurchaseStatusWrapperProps) {
   const { hasPurchased, assetId, receiptToken, isChecking } = usePurchaseStatus(
     productId,
@@ -97,6 +100,7 @@ export function PurchaseStatusWrapper({
         creatorId={creatorId}
         backgroundColor={buyButtonBgColor}
         textColor={buyButtonTextColor}
+        variantId={variantId}
       />
       {notPurchasedExtraContent}
     </div>
