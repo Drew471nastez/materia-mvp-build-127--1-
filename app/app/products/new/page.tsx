@@ -1410,16 +1410,20 @@ export default function NewProductPage() {
 
       // Save variants if we have a product ID
       if (finalProductId && variants.length > 0) {
-        // SIMPLE APPROACH: Delete ALL variants for this product first, then insert fresh
-        // This avoids complex NOT IN queries that can fail with UUIDs
-        console.log("Saving variants - deleting all existing first, then inserting", variants.length, "variants")
+        console.log("Saving", variants.length, "variants for product", finalProductId)
 
-        // Step 1: Delete all existing variant files for this product's variants
+        // Step 1: Get existing variants from DB
         const { data: existingDbVariants } = await supabase
           .from("product_variants")
-          .select("id")
+          .select("id, position")
           .eq("product_id", finalProductId)
 
+        const existingVariantMap = new Map<number, string>()
+        if (existingDbVariants) {
+          existingDbVariants.forEach(v => existingVariantMap.set(v.position, v.id))
+        }
+
+        // Step 2: Delete variant files for all existing variants (clean slate for files)
         if (existingDbVariants && existingDbVariants.length > 0) {
           const existingIds = existingDbVariants.map(v => v.id)
           await supabase
@@ -1428,38 +1432,56 @@ export default function NewProductPage() {
             .in("variant_id", existingIds)
         }
 
-        // Step 2: Delete ALL existing variants for this product
-        const { error: deleteAllError } = await supabase
-          .from("product_variants")
-          .delete()
-          .eq("product_id", finalProductId)
-
-        if (deleteAllError) {
-          console.error("Error deleting existing variants:", deleteAllError)
-          if (deleteAllError.code === "42P01") {
-            throw new Error("Variants table doesn't exist. Please run the SQL migration.")
+        // Step 3: Delete variants that are beyond our current count (e.g., user removed one)
+        if (existingDbVariants && existingDbVariants.length > variants.length) {
+          const positionsToKeep = variants.map((_, i) => i)
+          const variantsToDelete = existingDbVariants.filter(v => !positionsToKeep.includes(v.position))
+          if (variantsToDelete.length > 0) {
+            await supabase
+              .from("product_variants")
+              .delete()
+              .in("id", variantsToDelete.map(v => v.id))
           }
         }
 
-        // Step 3: Insert all current variants fresh
+        // Step 4: Upsert all current variants (update if exists at position, insert if new)
         const savedVariantIds: string[] = []
         for (let i = 0; i < variants.length; i++) {
           const variant = variants[i]
+          const existingIdAtPosition = existingVariantMap.get(i)
 
           const variantData = {
             product_id: finalProductId,
             name: variant.name || "Untitled",
             description: variant.description || null,
-            price_cents: Math.round(Number.parseFloat(variant.price || "0") * 100), // FINAL price
+            price_cents: Math.round(Number.parseFloat(variant.price || "0") * 100),
             max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
             position: i,
           }
 
-          const { data: savedVariant, error: variantError } = await supabase
-            .from("product_variants")
-            .insert(variantData)
-            .select()
-            .single()
+          let savedVariant: any = null
+          let variantError: any = null
+
+          if (existingIdAtPosition) {
+            // Update existing variant at this position
+            const result = await supabase
+              .from("product_variants")
+              .update(variantData)
+              .eq("id", existingIdAtPosition)
+              .select()
+              .single()
+            savedVariant = result.data
+            variantError = result.error
+          } else {
+            // Insert new variant
+            const result = await supabase
+              .from("product_variants")
+              .insert(variantData)
+              .select()
+              .single()
+            savedVariant = result.data
+            variantError = result.error
+          }
 
           if (variantError) {
             console.error("Error saving variant:", variantError)
