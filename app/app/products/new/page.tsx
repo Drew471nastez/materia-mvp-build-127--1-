@@ -1262,7 +1262,25 @@ export default function NewProductPage() {
       return { productId: finalProductId, slug: finalSlug }
     } catch (err: any) {
       console.error("Error saving product:", err)
-      setError(err.message)
+      // Check for common database errors and provide helpful messages
+      const errorMessage = err.message || "Unknown error"
+
+      // Column doesn't exist error (PostgreSQL error code 42703)
+      if (errorMessage.includes("column") && (errorMessage.includes("does not exist") || errorMessage.includes("undefined"))) {
+        setError("Database schema is outdated. Please run the SQL migration (scripts/049_add_missing_product_columns.sql) in your Supabase SQL Editor.")
+      }
+      // Table doesn't exist
+      else if (errorMessage.includes("relation") && errorMessage.includes("does not exist")) {
+        setError("Required database table is missing. Please run the SQL migration (scripts/049_add_missing_product_columns.sql) in your Supabase SQL Editor.")
+      }
+      // RLS policy error
+      else if (errorMessage.includes("row-level security") || errorMessage.includes("RLS")) {
+        setError("Permission denied. Please check your database RLS policies.")
+      }
+      // Generic error
+      else {
+        setError(errorMessage)
+      }
       return null
     } finally {
       setIsSaving(false)

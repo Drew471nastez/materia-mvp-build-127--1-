@@ -528,6 +528,9 @@ export function DescriptionRichEditor({
   const [redoStack, setRedoStack] = useState<string[]>([])
   const [lastContent, setLastContent] = useState("")
 
+  // Track initial value to detect async loading
+  const initialValueRef = useRef<string>(value)
+
   // Inject dynamic styles for placeholder and theme-aware elements
   useEffect(() => {
     const styleId = "description-editor-dynamic-styles"
@@ -566,13 +569,17 @@ export function DescriptionRichEditor({
     }
   }, [mutedColor, accentColor])
 
-  // Initialize editor content - only once when mounted
+  // Initialize editor content - handles both initial mount and async loading
   useEffect(() => {
-    if (editorRef.current && !isInitialized) {
+    if (!editorRef.current) return
+
+    // Case 1: First initialization (not initialized yet)
+    if (!isInitialized) {
       const htmlContent = textToHtml(value)
       editorRef.current.innerHTML = htmlContent
       setIsInitialized(true)
       setLastContent(htmlContent)
+      initialValueRef.current = value
 
       // Focus editor and place cursor at the end (only if not disabled)
       if (!disableAutoFocus) {
@@ -583,6 +590,25 @@ export function DescriptionRichEditor({
           }
         }, 50)
       }
+      return
+    }
+
+    // Case 2: Async loading detection - value changed from empty to non-empty
+    // This handles the case where the component mounts before data loads
+    const currentEditorContent = editorRef.current.innerHTML
+    const isEditorEmpty = !currentEditorContent ||
+      currentEditorContent === "<br>" ||
+      currentEditorContent === "<p><br></p>" ||
+      currentEditorContent.trim() === ""
+    const wasInitiallyEmpty = !initialValueRef.current || initialValueRef.current.trim() === ""
+    const hasNewValue = value && value.trim() !== ""
+
+    // Re-sync if: editor is empty, it was initially empty, and there's now a value
+    if (isEditorEmpty && wasInitiallyEmpty && hasNewValue) {
+      const htmlContent = textToHtml(value)
+      editorRef.current.innerHTML = htmlContent
+      setLastContent(htmlContent)
+      initialValueRef.current = value
     }
   }, [value, isInitialized, disableAutoFocus])
 
