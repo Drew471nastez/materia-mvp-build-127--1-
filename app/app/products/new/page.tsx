@@ -57,11 +57,17 @@ import {
 import Link from "next/link"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
 
-// Section definitions
+// Section definitions - new order per user request
 const SECTIONS = [
-  { id: "about", name: "About" },
+  { id: "about", name: "Title" },
   { id: "media", name: "Media" },
   { id: "content", name: "Content" },
+  { id: "whatsIncluded", name: "Included" },
+  { id: "faq", name: "FAQ" },
+  { id: "files", name: "Files" },
+  { id: "variants", name: "Variants" },
+  { id: "pricing", name: "Pricing" },
+  { id: "category", name: "Category" },
   { id: "settings", name: "Settings" },
   { id: "seo", name: "SEO" },
 ] as const
@@ -209,6 +215,87 @@ export default function NewProductPage() {
   const [variants, setVariants] = useState<ProductVariant[]>([])
   const MAX_VARIANTS = 3
 
+  // What's Included state (3 defaults + 5 custom max = 8 total)
+  const DEFAULT_WHATS_INCLUDED = [
+    "Instant download access",
+    "All included files",
+    "Lifetime access",
+  ]
+  const [whatsIncluded, setWhatsIncluded] = useState<string[]>(DEFAULT_WHATS_INCLUDED)
+  const MAX_WHATS_INCLUDED = 8
+
+  // FAQ state (3 defaults + unlimited custom)
+  interface FAQItem {
+    id: string
+    question: string
+    answer: string
+    isDefault?: boolean
+  }
+  const DEFAULT_FAQS: FAQItem[] = [
+    { id: "default-1", question: "How do I access my purchase?", answer: "After checkout, download immediately on the download page. You'll also receive an email with the download link.", isDefault: true },
+    { id: "default-2", question: "Is there a refund policy?", answer: "Refund policies are set by individual creators. Check product info or contact the seller for details.", isDefault: true },
+    { id: "default-3", question: "How long do I have access?", answer: "You have lifetime access to all purchased content. Once you buy, it's yours forever.", isDefault: true },
+  ]
+  const [faqs, setFaqs] = useState<FAQItem[]>(DEFAULT_FAQS)
+
+  // Category state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
+  const [categorySearch, setCategorySearch] = useState("")
+
+  // Limit product sales state
+  const [limitSalesEnabled, setLimitSalesEnabled] = useState(false)
+  const [salesLimit, setSalesLimit] = useState("")
+
+  // Categories list (120+ options)
+  const CATEGORIES = [
+    // Digital Products
+    "3D Assets", "Ebooks", "Digital Art", "Stock Photos", "Stock Videos", "Audio Files",
+    "Music Tracks", "Sound Effects", "Fonts", "Icons", "Graphics", "Illustrations",
+    "Templates", "Mockups", "Presentations", "Resume Templates", "Business Cards",
+    "Social Media Templates", "Website Templates", "Mobile App Templates",
+    // Software & Development
+    "Software", "Plugins", "Extensions", "Code Snippets", "Scripts", "APIs",
+    "WordPress Themes", "WordPress Plugins", "Shopify Themes", "Web Apps",
+    "Mobile Apps", "Desktop Apps", "Games", "Game Assets", "Unity Assets",
+    "Unreal Assets", "Source Code", "Databases", "Development Tools",
+    // Design & Creative
+    "Photoshop Actions", "Lightroom Presets", "Procreate Brushes", "Design Systems",
+    "UI Kits", "Wireframes", "Prototypes", "Brand Kits", "Logo Templates",
+    "Pattern Designs", "Textures", "Backgrounds", "Overlays", "Filters",
+    // Education & Courses
+    "Online Courses", "Tutorials", "Workshops", "Masterclasses", "Video Lessons",
+    "Educational Content", "Study Guides", "Cheat Sheets", "Flashcards",
+    "Language Learning", "Test Prep", "Certifications",
+    // Business & Marketing
+    "Business Plans", "Marketing Plans", "Sales Funnels", "Email Templates",
+    "Landing Pages", "Lead Magnets", "Case Studies", "White Papers",
+    "Reports", "Analytics Templates", "CRM Templates", "Project Management",
+    "Spreadsheets", "Financial Models", "Invoices", "Contracts",
+    // Writing & Content
+    "Writing Templates", "Content Calendars", "Blog Posts", "Articles",
+    "Copywriting Templates", "Ad Copy", "Sales Scripts", "Email Sequences",
+    "Newsletter Templates", "Documentation", "Guides", "Manuals",
+    // Health & Fitness
+    "Workout Plans", "Meal Plans", "Nutrition Guides", "Recipe Books",
+    "Fitness Programs", "Meditation Guides", "Wellness Journals", "Health Trackers",
+    // Personal Development
+    "Planners", "Journals", "Trackers", "Goal Setting", "Habit Trackers",
+    "Mindmaps", "Note Taking", "Productivity Systems", "Life Coaching",
+    // Photography & Video
+    "Photo Presets", "Video LUTs", "Video Templates", "Motion Graphics",
+    "Transitions", "Lower Thirds", "Intros", "Outros", "Thumbnails",
+    // Art & Crafts
+    "Printables", "Coloring Pages", "Patterns", "SVG Files", "Cut Files",
+    "Embroidery Designs", "Knitting Patterns", "Sewing Patterns", "Craft Templates",
+    // Music & Audio
+    "Sample Packs", "Drum Kits", "Loops", "MIDI Files", "Presets",
+    "Vocal Samples", "Beats", "Instrumentals", "Podcasts", "Audiobooks",
+    // Other
+    "Memberships", "Subscriptions", "Coaching", "Consulting", "Services",
+    "Physical Products", "Bundles", "Collections", "Other",
+  ].sort()
+
   // Track changes for unsaved warning
   useEffect(() => {
     if (title || description || price || mediaItems.length > 0 || digitalFiles.length > 0) {
@@ -237,7 +324,7 @@ export default function NewProductPage() {
   const checkSectionCompletion = useCallback(() => {
     const completed = new Set<SectionId>()
 
-    // About: title filled
+    // About (Title): title filled
     if (title.trim()) completed.add("about")
 
     // Media: at least one media item
@@ -246,14 +333,32 @@ export default function NewProductPage() {
     // Content: description filled
     if (description.trim()) completed.add("content")
 
-    // Settings: price filled
-    if (price.trim()) completed.add("settings")
+    // What's Included: has items
+    if (whatsIncluded.length > 0) completed.add("whatsIncluded")
+
+    // FAQ: has items
+    if (faqs.length > 0) completed.add("faq")
+
+    // Files: has digital files
+    if (digitalFiles.length > 0) completed.add("files")
+
+    // Variants: has variants
+    if (variants.length > 0) completed.add("variants")
+
+    // Pricing: price filled
+    if (price.trim()) completed.add("pricing")
+
+    // Category: category selected
+    if (selectedCategory) completed.add("category")
+
+    // Settings: any setting configured
+    if (callToAction.trim() || refundPolicyEnabled) completed.add("settings")
 
     // SEO: seo title or description filled
     if (seoTitle.trim() || seoDescription.trim()) completed.add("seo")
 
     setCompletedSections(completed)
-  }, [title, mediaItems, description, price, seoTitle, seoDescription])
+  }, [title, mediaItems, description, whatsIncluded, faqs, digitalFiles, variants, price, selectedCategory, callToAction, refundPolicyEnabled, seoTitle, seoDescription])
 
   useEffect(() => {
     checkSectionCompletion()
@@ -1092,9 +1197,22 @@ export default function NewProductPage() {
         scrollToSection("about")
         return
       }
-      currentProductId = await saveProduct(false)
-      if (!currentProductId) {
-        setError("Failed to create product. Please try again.")
+
+      // Clear any previous error before attempting save
+      setError(null)
+
+      try {
+        currentProductId = await saveProduct(false)
+        if (!currentProductId) {
+          // If saveProduct returns null, get error from state or use default
+          // Small delay to ensure error state is set
+          await new Promise(resolve => setTimeout(resolve, 50))
+          setError(prev => prev || "Failed to create product. Please check your connection and try again.")
+          return
+        }
+      } catch (saveErr) {
+        console.error("Error saving product before file upload:", saveErr)
+        setError(saveErr instanceof Error ? saveErr.message : "Failed to create product. Please try again.")
         return
       }
     }
@@ -1258,10 +1376,10 @@ export default function NewProductPage() {
       setNotificationMessage("Product is live and saved!")
       setShowNotification(true)
 
-      // Hide notification after 5 seconds
+      // Hide notification after 3 seconds
       setTimeout(() => {
         setShowNotification(false)
-      }, 5000)
+      }, 3000)
     }
   }
 
@@ -1287,7 +1405,7 @@ export default function NewProductPage() {
 
       setTimeout(() => {
         setShowNotification(false)
-      }, 5000)
+      }, 3000)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -1494,17 +1612,32 @@ export default function NewProductPage() {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      {/* Success Notification */}
+      {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 fade-in duration-300"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50"
+          style={{
+            animation: 'slideInFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          }}
         >
-          <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-xl shadow-lg">
-            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-            <span className="text-sm font-medium text-green-800">{notificationMessage}</span>
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-900 rounded-xl shadow-2xl shadow-gray-900/20 backdrop-blur-sm border border-gray-800">
+            <CheckCircle className="h-4.5 w-4.5 text-white flex-shrink-0" />
+            <span className="text-sm font-medium text-white tracking-[-0.01em]">{notificationMessage}</span>
           </div>
         </div>
       )}
+      <style jsx>{`
+        @keyframes slideInFadeIn {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -12px);
+          }
+          100% {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+        }
+      `}</style>
 
       {/* Sticky Header with Title and Pills */}
       <div
@@ -1541,45 +1674,50 @@ export default function NewProductPage() {
                 {productId ? "Edit Product" : "New Product"}
               </h1>
 
-              {/* Publish/Unpublish and Redirect buttons - show when product exists */}
+              {/* Publish/Unpublish and View Live buttons - show when product exists */}
               {productId && (
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+                  {/* Status indicator pill */}
+                  <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                    isPublished
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-gray-100 text-gray-500"
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${isPublished ? "bg-emerald-500" : "bg-gray-400"}`} />
+                    {isPublished ? "Live" : "Draft"}
+                  </div>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={handleTogglePublish}
                     disabled={isLoading}
-                    className={`h-8 px-3 text-xs font-medium rounded-lg transition-colors ${
-                      isPublished
-                        ? "text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100"
-                        : "text-green-700 border-green-200 bg-green-50 hover:bg-green-100"
-                    }`}
+                    className="h-8 px-2.5 sm:px-3 text-xs font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
                   >
                     {isLoading ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : isPublished ? (
                       <>
-                        <EyeOff className="h-3.5 w-3.5 mr-1.5" />
-                        Unpublish
+                        <EyeOff className="h-3.5 w-3.5 sm:mr-1.5" />
+                        <span className="hidden sm:inline">Unpublish</span>
                       </>
                     ) : (
                       <>
-                        <Eye className="h-3.5 w-3.5 mr-1.5" />
-                        Publish
+                        <Eye className="h-3.5 w-3.5 sm:mr-1.5" />
+                        <span className="hidden sm:inline">Publish</span>
                       </>
                     )}
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={handleRedirectToProduct}
-                    disabled={!slug}
-                    className="h-8 px-3 text-xs font-medium rounded-lg text-gray-700 border-gray-200 hover:bg-gray-100"
+                    disabled={!slug || !isPublished}
+                    className="h-8 px-2.5 sm:px-3 text-xs font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors disabled:opacity-40"
                   >
-                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                    View Live
+                    <ExternalLink className="h-3.5 w-3.5 sm:mr-1.5" />
+                    <span className="hidden sm:inline">View</span>
                   </Button>
                 </div>
               )}
@@ -1909,8 +2047,12 @@ export default function NewProductPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="border-gray-300 text-gray-700 hover:bg-gray-50 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
+                        className="border-gray-300 text-gray-700 hover:bg-gray-50 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm pointer-events-auto"
                         disabled={uploadingMedia}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          document.getElementById("media-input")?.click()
+                        }}
                       >
                         <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
                         Upload
@@ -2248,8 +2390,12 @@ export default function NewProductPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="border-gray-300 text-gray-700 h-7 sm:h-8 text-xs sm:text-sm"
+                          className="border-gray-300 text-gray-700 h-7 sm:h-8 text-xs sm:text-sm pointer-events-auto"
                           disabled={uploadingFiles}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            document.getElementById("file-input")?.click()
+                          }}
                         >
                           <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
                           Upload
