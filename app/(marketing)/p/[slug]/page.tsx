@@ -320,6 +320,43 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   }
 
   // ---------------------------------------------------------------------------
+  // Product Variants (for variant selection)
+  // ---------------------------------------------------------------------------
+  const { data: productVariants } = await supabase
+    .from("product_variants")
+    .select(`
+      id,
+      name,
+      description,
+      additional_price_cents,
+      max_purchases,
+      position,
+      product_variant_files (
+        digital_asset_id,
+        digital_assets (
+          id,
+          file_name
+        )
+      )
+    `)
+    .eq("product_id", product.id)
+    .order("position")
+
+  // Transform variants data
+  const variants = productVariants?.map(v => ({
+    id: v.id,
+    name: v.name,
+    description: v.description,
+    additional_price_cents: v.additional_price_cents || 0,
+    max_purchases: v.max_purchases,
+    position: v.position,
+    files: v.product_variant_files?.map((pvf: any) => ({
+      id: pvf.digital_assets?.id,
+      file_name: pvf.digital_assets?.file_name,
+    })).filter((f: any) => f.id) || [],
+  })) || []
+
+  // ---------------------------------------------------------------------------
   // More products from seller (for "More from seller" section)
   // ---------------------------------------------------------------------------
   const { data: moreProducts } = await supabase
@@ -742,39 +779,52 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 borderColor: themeColors.cardBorderColor || "var(--border)",
               }}
             >
-              <div className="mb-4">
-                <div
-                  className="text-2xl font-bold"
-                  style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
-                >
-                  {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
-                </div>
-                {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-                  <div className="mt-1 flex items-center gap-2">
-                    <span
-                      className="text-base line-through"
-                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                    >
-                      {formatPrice(product.compare_at_cents)}
-                    </span>
-                    <Badge variant="destructive">
-                      {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
-                    </Badge>
+              {/* Price display - only show static if no variants */}
+              {variants.length === 0 && (
+                <div className="mb-4">
+                  <div
+                    className="text-2xl font-bold"
+                    style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+                  >
+                    {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                   </div>
-                )}
-              </div>
+                  {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span
+                        className="text-base line-through"
+                        style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                      >
+                        {formatPrice(product.compare_at_cents)}
+                      </span>
+                      <Badge variant="destructive">
+                        {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <PurchaseStatusWrapper
                 productId={product.id}
                 productType={product.type}
                 priceCents={product.price_cents}
+                compareAtCents={product.compare_at_cents}
                 creatorId={product.creator_id}
                 serverHasPurchased={hasPurchased}
                 serverAssetId={firstAssetId}
+                variants={variants}
                 buyButtonBgColor={buyButtonColor}
                 buyButtonTextColor={buyButtonTextColor}
                 downloadButtonBgColor={downloadButtonBgColor}
                 downloadButtonTextColor={downloadButtonTextColor}
+                themeColors={{
+                  cardBackground: themeColors.cardBackground,
+                  cardTextColor: themeColors.cardTextColor,
+                  cardBorderColor: themeColors.cardBorderColor,
+                  cardPriceColor: themeColors.cardPriceColor,
+                  accentColor: buyButtonColor || "#000000",
+                }}
+                showPriceDisplay={variants.length > 0}
                 purchasedExtraContent={
                   <>
                     <ViewInLibraryButton
@@ -1016,39 +1066,52 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             borderColor: themeColors.cardBorderColor || "var(--border)",
           }}
         >
-          <div className="mb-4">
-            <div
-              className="text-3xl font-bold"
-              style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
-            >
-              {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
-            </div>
-            {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-              <div className="mt-1 flex items-center gap-2">
-                <span
-                  className="text-lg line-through"
-                  style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                >
-                  {formatPrice(product.compare_at_cents)}
-                </span>
-                <Badge variant="destructive">
-                  {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
-                </Badge>
+          {/* Price display - only show static if no variants */}
+          {variants.length === 0 && (
+            <div className="mb-4">
+              <div
+                className="text-3xl font-bold"
+                style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
+              >
+                {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
               </div>
-            )}
-          </div>
+              {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                <div className="mt-1 flex items-center gap-2">
+                  <span
+                    className="text-lg line-through"
+                    style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
+                  >
+                    {formatPrice(product.compare_at_cents)}
+                  </span>
+                  <Badge variant="destructive">
+                    {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
+                  </Badge>
+                </div>
+              )}
+            </div>
+          )}
 
           <PurchaseStatusWrapper
             productId={product.id}
             productType={product.type}
             priceCents={product.price_cents}
+            compareAtCents={product.compare_at_cents}
             creatorId={product.creator_id}
             serverHasPurchased={hasPurchased}
             serverAssetId={firstAssetId}
+            variants={variants}
             buyButtonBgColor={buyButtonColor}
             buyButtonTextColor={buyButtonTextColor}
             downloadButtonBgColor={downloadButtonBgColor}
             downloadButtonTextColor={downloadButtonTextColor}
+            themeColors={{
+              cardBackground: themeColors.cardBackground,
+              cardTextColor: themeColors.cardTextColor,
+              cardBorderColor: themeColors.cardBorderColor,
+              cardPriceColor: themeColors.cardPriceColor,
+              accentColor: buyButtonColor || "#000000",
+            }}
+            showPriceDisplay={variants.length > 0}
             purchasedExtraContent={
               <>
                 <ViewInLibraryButton

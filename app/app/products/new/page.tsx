@@ -460,6 +460,8 @@ export default function NewProductPage() {
         call_to_action: callToAction || null,
       }
 
+      let finalProductId = productId
+
       if (productId) {
         const { error: updateError } = await supabase
           .from("products")
@@ -476,19 +478,76 @@ export default function NewProductPage() {
 
         if (createError) throw createError
         setProductId(product.id)
-        setHasUnsavedChanges(false)
-        return product.id
+        finalProductId = product.id
+      }
+
+      // Save variants if we have a product ID
+      if (finalProductId && variants.length > 0) {
+        // First, delete all existing variants for this product (they'll be recreated)
+        await supabase
+          .from("product_variants")
+          .delete()
+          .eq("product_id", finalProductId)
+
+        // Insert all variants
+        for (let i = 0; i < variants.length; i++) {
+          const variant = variants[i]
+          const { data: savedVariant, error: variantError } = await supabase
+            .from("product_variants")
+            .insert({
+              product_id: finalProductId,
+              name: variant.name || "Untitled",
+              description: variant.description || null,
+              additional_price_cents: Math.round(Number.parseFloat(variant.additionalPrice || "0") * 100),
+              max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
+              position: i,
+            })
+            .select()
+            .single()
+
+          if (variantError) {
+            console.error("Error saving variant:", variantError)
+            continue
+          }
+
+          // Save variant files if any
+          if (savedVariant && variant.assignedFiles.length > 0) {
+            // Get the actual digital asset IDs from file names
+            const { data: assets } = await supabase
+              .from("digital_assets")
+              .select("id, file_name")
+              .eq("product_id", finalProductId)
+              .in("id", variant.assignedFiles)
+
+            if (assets && assets.length > 0) {
+              const variantFilesData = assets.map(asset => ({
+                variant_id: savedVariant.id,
+                digital_asset_id: asset.id,
+              }))
+
+              await supabase
+                .from("product_variant_files")
+                .insert(variantFilesData)
+            }
+          }
+        }
+      } else if (finalProductId && variants.length === 0) {
+        // If no variants, delete any existing ones
+        await supabase
+          .from("product_variants")
+          .delete()
+          .eq("product_id", finalProductId)
       }
 
       setHasUnsavedChanges(false)
-      return productId
+      return finalProductId
     } catch (err: any) {
       setError(err.message)
       return null
     } finally {
       setIsSaving(false)
     }
-  }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction])
+  }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, variants])
 
   // Process image to fit 1280x720 canvas (for non-widescreen images)
   const processImageToWidescreen = async (file: File): Promise<{ processedFile: File; wasProcessed: boolean; originalRatio: string }> => {
@@ -1749,6 +1808,7 @@ export default function NewProductPage() {
                     value={description}
                     onChange={setDescription}
                     className="min-h-[150px] sm:min-h-[180px] border border-gray-200 rounded-lg"
+                    disableAutoFocus={true}
                   />
                 </div>
 

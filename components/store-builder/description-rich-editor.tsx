@@ -75,6 +75,7 @@ interface DescriptionRichEditorProps {
   textColor?: string
   className?: string
   themeColors?: ThemeColors
+  disableAutoFocus?: boolean
 }
 
 // Stable unique ID generator for embeds
@@ -470,6 +471,7 @@ export function DescriptionRichEditor({
   textColor,
   className,
   themeColors,
+  disableAutoFocus = false,
 }: DescriptionRichEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -572,15 +574,17 @@ export function DescriptionRichEditor({
       setIsInitialized(true)
       setLastContent(htmlContent)
 
-      // Focus editor and place cursor at the end
-      setTimeout(() => {
-        if (editorRef.current) {
-          editorRef.current.focus()
-          placeCursorAtEnd()
-        }
-      }, 50)
+      // Focus editor and place cursor at the end (only if not disabled)
+      if (!disableAutoFocus) {
+        setTimeout(() => {
+          if (editorRef.current) {
+            editorRef.current.focus()
+            placeCursorAtEnd()
+          }
+        }, 50)
+      }
     }
-  }, [value, isInitialized])
+  }, [value, isInitialized, disableAutoFocus])
 
   // Helper to place cursor at end of editor content
   const placeCursorAtEnd = useCallback(() => {
