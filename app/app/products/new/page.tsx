@@ -847,6 +847,14 @@ export default function NewProductPage() {
           .single()
 
         if (product) {
+          console.log("Loaded product for editing:", {
+            id: product.id,
+            title: product.title,
+            descriptionLength: product.description?.length || 0,
+            hasCategory: !!product.category,
+            hasFaqs: !!(product.faqs && product.faqs.length),
+            hasWhatsIncluded: !!(product.whats_included && product.whats_included.length),
+          })
           setProductId(product.id)
           setTitle(product.title || "")
           setDescription(product.description || "")
@@ -917,7 +925,7 @@ export default function NewProductPage() {
           }
 
           // Load variants
-          const { data: productVariants } = await supabase
+          const { data: productVariants, error: variantsLoadError } = await supabase
             .from("product_variants")
             .select(`
               id, name, description, additional_price_cents, max_purchases, position,
@@ -928,7 +936,13 @@ export default function NewProductPage() {
             .eq("product_id", product.id)
             .order("position")
 
-          if (productVariants) {
+          if (variantsLoadError) {
+            console.error("Error loading variants:", variantsLoadError)
+            // Don't throw - variants table might not exist yet
+          }
+
+          if (productVariants && productVariants.length > 0) {
+            console.log("Loaded variants:", productVariants.length)
             setVariants(productVariants.map(v => ({
               id: v.id,
               name: v.name,
@@ -1075,6 +1089,18 @@ export default function NewProductPage() {
         .filter(faq => faq.question.trim() !== "" && faq.answer.trim() !== "")
         .map(faq => ({ question: faq.question, answer: faq.answer }))
 
+      // Log what we're saving for debugging
+      console.log("Saving product data:", {
+        productId,
+        isUpdate: !!productId,
+        title,
+        descriptionLength: description?.length || 0,
+        variantsCount: variants.length,
+        faqsCount: faqs.filter(f => f.question.trim() && f.answer.trim()).length,
+        whatsIncludedCount: whatsIncluded.filter(i => i.trim()).length,
+        category: selectedCategory,
+      })
+
       const productData = {
         creator_id: creatorId,
         type: productType,
@@ -1101,12 +1127,27 @@ export default function NewProductPage() {
       let finalProductId = productId
 
       if (productId) {
-        const { error: updateError } = await supabase
+        // Update existing product - use .select() to verify the update worked
+        const { data: updatedProduct, error: updateError } = await supabase
           .from("products")
           .update(productData)
           .eq("id", productId)
+          .select()
+          .single()
 
-        if (updateError) throw updateError
+        if (updateError) {
+          console.error("Error updating product:", updateError)
+          throw new Error(`Failed to update product: ${updateError.message}`)
+        }
+
+        if (!updatedProduct) {
+          throw new Error("Product update failed - no data returned. Check RLS policies.")
+        }
+
+        // Verify description was saved
+        if (description && updatedProduct.description !== description) {
+          console.warn("Description may not have saved correctly")
+        }
       } else {
         const { data: product, error: createError } = await supabase
           .from("products")
@@ -1114,7 +1155,15 @@ export default function NewProductPage() {
           .select()
           .single()
 
-        if (createError) throw createError
+        if (createError) {
+          console.error("Error creating product:", createError)
+          throw new Error(`Failed to create product: ${createError.message}`)
+        }
+
+        if (!product) {
+          throw new Error("Product creation failed - no data returned")
+        }
+
         setProductId(product.id)
         finalProductId = product.id
         // Update slug state to match what was actually saved (in case of duplicate handling)
@@ -1133,10 +1182,14 @@ export default function NewProductPage() {
 
         if (deleteVariantsError) {
           console.error("Error deleting existing variants:", deleteVariantsError)
-          // Continue anyway - variants table might not exist yet
+          // If error code is 42P01, table doesn't exist - that's a schema issue
+          if (deleteVariantsError.code === "42P01") {
+            throw new Error("Variants table doesn't exist. Please run the SQL migration.")
+          }
         }
 
         // Insert all variants
+        const savedVariantIds: string[] = []
         for (let i = 0; i < variants.length; i++) {
           const variant = variants[i]
           const { data: savedVariant, error: variantError } = await supabase
@@ -1154,8 +1207,12 @@ export default function NewProductPage() {
 
           if (variantError) {
             console.error("Error saving variant:", variantError)
-            // Don't throw - try to save other variants
-            continue
+            // Throw error so user knows variants didn't save
+            throw new Error(`Failed to save variant "${variant.name}": ${variantError.message}`)
+          }
+
+          if (savedVariant) {
+            savedVariantIds.push(savedVariant.id)
           }
 
           // Save variant files if any
@@ -1179,9 +1236,15 @@ export default function NewProductPage() {
 
               if (variantFilesError) {
                 console.error("Error saving variant files:", variantFilesError)
+                // Don't throw for files - variant was saved
               }
             }
           }
+        }
+
+        // Verify all variants were saved
+        if (savedVariantIds.length !== variants.length) {
+          console.warn(`Only ${savedVariantIds.length} of ${variants.length} variants were saved`)
         }
       } else if (finalProductId && variants.length === 0) {
         // If no variants, delete any existing ones
