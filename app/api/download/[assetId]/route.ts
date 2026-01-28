@@ -39,25 +39,44 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
   if (receiptToken) {
     const { data: order } = await admin
       .from("orders")
-      .select("id, product_id, buyer_id, allowed_fingerprints, session_fingerprint")
+      .select("id, product_id, buyer_id, allowed_fingerprints, session_fingerprint, variant_id")
       .eq("receipt_token", receiptToken)
       .single()
 
     if (order && order.product_id === asset.product_id) {
       orderIdForLog = order.id
 
-      // If user owns the order, grant access
-      if (user && order.buyer_id === user.id) {
-        hasAccess = true
-      } else {
-        // Check fingerprint
-        const sessionCookie = cookieStore.get("materia_session")
-        const allowedFingerprints = order.allowed_fingerprints || []
+      // VARIANT ACCESS CHECK: If order has a variant, verify the asset is assigned to that variant
+      let variantAccessOk = true
+      if (order.variant_id) {
+        const { data: variantFile } = await admin
+          .from("product_variant_files")
+          .select("id")
+          .eq("variant_id", order.variant_id)
+          .eq("digital_asset_id", assetId)
+          .maybeSingle()
 
-        if (sessionCookie && allowedFingerprints.includes(sessionCookie.value)) {
+        if (!variantFile) {
+          // Asset is not assigned to this variant - deny access
+          variantAccessOk = false
+          console.log("[download] Asset not assigned to purchased variant:", assetId, order.variant_id)
+        }
+      }
+
+      if (variantAccessOk) {
+        // If user owns the order, grant access
+        if (user && order.buyer_id === user.id) {
           hasAccess = true
-        } else if (order.session_fingerprint && sessionCookie?.value === order.session_fingerprint) {
-          hasAccess = true
+        } else {
+          // Check fingerprint
+          const sessionCookie = cookieStore.get("materia_session")
+          const allowedFingerprints = order.allowed_fingerprints || []
+
+          if (sessionCookie && allowedFingerprints.includes(sessionCookie.value)) {
+            hasAccess = true
+          } else if (order.session_fingerprint && sessionCookie?.value === order.session_fingerprint) {
+            hasAccess = true
+          }
         }
       }
     }
@@ -67,19 +86,38 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
   if (!hasAccess && orderId && accessToken) {
     const { data: order } = await admin
       .from("orders")
-      .select("id, access_token, product_id, allowed_fingerprints, session_fingerprint")
+      .select("id, access_token, product_id, allowed_fingerprints, session_fingerprint, variant_id")
       .eq("id", orderId)
       .single()
 
     if (order && order.access_token === accessToken && order.product_id === asset.product_id) {
       orderIdForLog = order.id
-      const sessionCookie = cookieStore.get("materia_session")
-      const allowedFingerprints = order.allowed_fingerprints || []
 
-      if (sessionCookie && allowedFingerprints.includes(sessionCookie.value)) {
-        hasAccess = true
-      } else if (order.session_fingerprint && sessionCookie?.value === order.session_fingerprint) {
-        hasAccess = true
+      // VARIANT ACCESS CHECK: If order has a variant, verify the asset is assigned to that variant
+      let variantAccessOk = true
+      if (order.variant_id) {
+        const { data: variantFile } = await admin
+          .from("product_variant_files")
+          .select("id")
+          .eq("variant_id", order.variant_id)
+          .eq("digital_asset_id", assetId)
+          .maybeSingle()
+
+        if (!variantFile) {
+          variantAccessOk = false
+          console.log("[download] Asset not assigned to purchased variant (legacy):", assetId, order.variant_id)
+        }
+      }
+
+      if (variantAccessOk) {
+        const sessionCookie = cookieStore.get("materia_session")
+        const allowedFingerprints = order.allowed_fingerprints || []
+
+        if (sessionCookie && allowedFingerprints.includes(sessionCookie.value)) {
+          hasAccess = true
+        } else if (order.session_fingerprint && sessionCookie?.value === order.session_fingerprint) {
+          hasAccess = true
+        }
       }
     }
   }
