@@ -134,8 +134,12 @@ const parseYouTubeUrl = (url: string): string | null => {
   return null
 }
 
-// YouTube embeds do NOT generate thumbnails - they are pure embeds only
-// This ensures no extra media items are created for YouTube videos
+// Helper to get YouTube thumbnail URL from video ID (for product listings only)
+// This is ONLY used when no images exist - YouTube thumbnail becomes the product cover
+const getYouTubeThumbnailUrl = (videoUrl: string): string | null => {
+  const videoId = parseYouTubeUrl(videoUrl)
+  return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null
+}
 
 // Sortable FAQ Item component for drag-and-drop reordering
 interface SortableFAQItemProps {
@@ -1261,8 +1265,11 @@ export default function NewProductPage() {
         status: publish ? "published" : "draft",
         price_cents: Math.round(Number.parseFloat(price || "0") * 100),
         compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
-        // YouTube embeds do NOT set thumbnail - use first image only
-        thumbnail_url: photoUrls.length > 0 ? photoUrls[0] : null,
+        // Thumbnail priority: 1) First image, 2) YouTube thumbnail (if only YouTube exists)
+        // YouTube thumbnail is used for product listings when no images are uploaded
+        thumbnail_url: photoUrls.length > 0
+          ? photoUrls[0]
+          : (youtubeItems[0]?.url ? getYouTubeThumbnailUrl(youtubeItems[0].url) : null),
         gallery_urls: photoUrls.length > 0 ? photoUrls : null,
         video_url: youtubeItems[0]?.url || null,
         show_sales_badge: showSalesBadge,
