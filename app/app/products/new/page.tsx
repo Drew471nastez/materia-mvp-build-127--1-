@@ -1022,7 +1022,11 @@ export default function NewProductPage() {
           }
 
           // Add thumbnail/gallery images AFTER YouTube
-          if (product.thumbnail_url) {
+          // Skip YouTube thumbnail URLs - they should NOT appear as separate image items
+          const isYouTubeThumbnailUrl = (url: string) =>
+            url?.includes('img.youtube.com') || url?.includes('i.ytimg.com')
+
+          if (product.thumbnail_url && !isYouTubeThumbnailUrl(product.thumbnail_url)) {
             mediaList.push({
               id: `image-0`,
               type: "image",
@@ -1031,7 +1035,8 @@ export default function NewProductPage() {
           }
           if (product.gallery_urls && Array.isArray(product.gallery_urls)) {
             product.gallery_urls.forEach((url: string, idx: number) => {
-              if (url !== product.thumbnail_url) {
+              // Skip duplicates and YouTube thumbnail URLs
+              if (url !== product.thumbnail_url && !isYouTubeThumbnailUrl(url)) {
                 mediaList.push({
                   id: `image-${idx + 1}`,
                   type: "image",
