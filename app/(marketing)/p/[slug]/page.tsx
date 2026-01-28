@@ -618,8 +618,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   const creatorUsername = creatorProfile?.username || creator?.slug || "creator"
 
+  // Use gallery_urls directly if available (it already includes the thumbnail as first image)
+  // Only fall back to thumbnail_url if no gallery_urls exist
   const galleryImages = product.gallery_urls?.length
-    ? ([product.thumbnail_url, ...product.gallery_urls].filter(Boolean) as string[])
+    ? (product.gallery_urls.filter(Boolean) as string[])
     : product.thumbnail_url
       ? [product.thumbnail_url]
       : []

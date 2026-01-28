@@ -3084,9 +3084,13 @@ export function UnifiedProductPage({
     },
   ]
 
-  // Use allFaqs if available (preserves user-defined order of all FAQs including defaults)
-  // Otherwise fall back to old behavior for backward compatibility
+  // Priority: Product FAQs (from product form) > Config FAQs > Default FAQs
   const getDisplayFaqs = () => {
+    // HIGHEST PRIORITY: If product has FAQs set in the product form, use those exclusively
+    if (productFaqs.length > 0) {
+      return productFaqs
+    }
+
     // If allFaqs is set (new unified ordering system), use it
     if (faqSettings?.allFaqs && faqSettings.allFaqs.length > 0) {
       return faqSettings.allFaqs
@@ -3099,10 +3103,8 @@ export function UnifiedProductPage({
       .filter(faq => faq.question && faq.answer)
       .map(faq => ({ question: faq.question, answer: faq.answer }))
 
-    // Combine: Default FAQs FIRST, then custom FAQs (matches new behavior where custom added at end)
-    // If there are product-level FAQs, use those instead of defaults
-    const baseFaqs = productFaqs.length > 0 ? productFaqs : defaultFaqs
-    return [...baseFaqs, ...customFaqs]
+    // Combine: Default FAQs FIRST, then custom FAQs
+    return [...defaultFaqs, ...customFaqs]
   }
 
   const displayFaqs = getDisplayFaqs()

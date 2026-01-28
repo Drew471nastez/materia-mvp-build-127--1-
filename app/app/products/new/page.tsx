@@ -139,6 +139,7 @@ export default function NewProductPage() {
   const [showNotification, setShowNotification] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState("")
   const [justSaved, setJustSaved] = useState(false) // Track if just saved (for button state)
+  const savedValuesRef = useRef<string>("") // Track saved values to detect actual changes
 
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -306,13 +307,26 @@ export default function NewProductPage() {
     "Physical Products", "Bundles", "Collections", "Other",
   ].sort()
 
-  // Track changes for unsaved warning
+  // Track changes for unsaved warning - compare against last saved values
   useEffect(() => {
-    if (title || description || price || mediaItems.length > 0 || digitalFiles.length > 0 || variants.length > 0) {
-      setHasUnsavedChanges(true)
-      // If we had just saved and now making changes, reset justSaved so button shows "Save changes" again
-      if (justSaved) {
-        setJustSaved(false)
+    // Create a snapshot of current values
+    const currentValues = JSON.stringify({
+      title, description, price, mediaItems, digitalFiles, variants,
+      whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit
+    })
+
+    // If we have content and it's different from saved values, we have unsaved changes
+    if (title || description || price || mediaItems.length > 0 || digitalFiles.length > 0) {
+      // Only mark as unsaved if different from what was saved
+      if (savedValuesRef.current && currentValues !== savedValuesRef.current) {
+        setHasUnsavedChanges(true)
+        // Reset justSaved when actual changes are made after saving
+        if (justSaved) {
+          setJustSaved(false)
+        }
+      } else if (!savedValuesRef.current) {
+        // First time - mark as unsaved
+        setHasUnsavedChanges(true)
       }
     }
   }, [title, description, price, mediaItems, digitalFiles, variants, whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, justSaved])
@@ -1406,6 +1420,12 @@ export default function NewProductPage() {
       setIsPublished(true)
       setJustSaved(true)
       setHasUnsavedChanges(false)
+
+      // Store current values as saved state for change detection
+      savedValuesRef.current = JSON.stringify({
+        title, description, price, mediaItems, digitalFiles, variants,
+        whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit
+      })
 
       // Smooth scroll to top
       contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })
