@@ -57,7 +57,7 @@ import {
 import Link from "next/link"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
 
-// Section definitions - new order per user request
+// Section definitions - internal refs for all sections
 const SECTIONS = [
   { id: "about", name: "Title" },
   { id: "media", name: "Media" },
@@ -72,7 +72,17 @@ const SECTIONS = [
   { id: "seo", name: "SEO" },
 ] as const
 
+// Pills to show in the navigation bar (only these 5)
+const PILL_SECTIONS = [
+  { id: "about", name: "About" },
+  { id: "media", name: "Media" },
+  { id: "content", name: "Content" },
+  { id: "settings", name: "Settings" },
+  { id: "seo", name: "SEO" },
+] as const
+
 type SectionId = typeof SECTIONS[number]["id"]
+type PillSectionId = typeof PILL_SECTIONS[number]["id"]
 
 // Limits
 const MAX_PHOTOS = 12
@@ -298,14 +308,14 @@ export default function NewProductPage() {
 
   // Track changes for unsaved warning
   useEffect(() => {
-    if (title || description || price || mediaItems.length > 0 || digitalFiles.length > 0) {
+    if (title || description || price || mediaItems.length > 0 || digitalFiles.length > 0 || variants.length > 0) {
       setHasUnsavedChanges(true)
       // If we had just saved and now making changes, reset justSaved so button shows "Save changes" again
       if (justSaved) {
         setJustSaved(false)
       }
     }
-  }, [title, description, price, mediaItems, digitalFiles, justSaved])
+  }, [title, description, price, mediaItems, digitalFiles, variants, whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, justSaved])
 
   // Handle browser back/refresh with unsaved changes
   useEffect(() => {
@@ -621,6 +631,21 @@ export default function NewProductPage() {
             })))
           }
 
+          // Load what's included
+          if (product.whats_included && Array.isArray(product.whats_included)) {
+            setWhatsIncluded(product.whats_included)
+          }
+
+          // Load FAQs
+          if (product.faqs && Array.isArray(product.faqs)) {
+            setFaqs(product.faqs.map((faq: any, idx: number) => ({
+              id: `loaded-${idx}`,
+              question: faq.question || "",
+              answer: faq.answer || "",
+              isDefault: false,
+            })))
+          }
+
           // Mark that there are no unsaved changes initially when editing
           setHasUnsavedChanges(false)
         }
@@ -679,6 +704,14 @@ export default function NewProductPage() {
       const photoUrls = mediaItems.filter(m => m.type === "image").map(m => m.url)
       const youtubeItems = mediaItems.filter(m => m.type === "youtube")
 
+      // Filter out empty items from whatsIncluded
+      const filteredWhatsIncluded = whatsIncluded.filter(item => item.trim() !== "")
+
+      // Format FAQs for database storage (only include non-empty ones)
+      const formattedFaqs = faqs
+        .filter(faq => faq.question.trim() !== "" && faq.answer.trim() !== "")
+        .map(faq => ({ question: faq.question, answer: faq.answer }))
+
       const productData = {
         creator_id: creatorId,
         type: productType,
@@ -697,6 +730,8 @@ export default function NewProductPage() {
         seo_title: seoTitle || null,
         seo_description: seoDescription || null,
         call_to_action: callToAction || null,
+        whats_included: filteredWhatsIncluded.length > 0 ? filteredWhatsIncluded : null,
+        faqs: formattedFaqs.length > 0 ? formattedFaqs : null,
       }
 
       let finalProductId = productId
@@ -786,7 +821,7 @@ export default function NewProductPage() {
     } finally {
       setIsSaving(false)
     }
-  }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, variants])
+  }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, variants, whatsIncluded, faqs])
 
   // Process image to fit 1280x720 canvas (for non-widescreen images)
   const processImageToWidescreen = async (file: File): Promise<{ processedFile: File; wasProcessed: boolean; originalRatio: string }> => {
@@ -1372,6 +1407,9 @@ export default function NewProductPage() {
       setJustSaved(true)
       setHasUnsavedChanges(false)
 
+      // Smooth scroll to top
+      contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+
       // Show success notification
       setNotificationMessage("Product is live and saved!")
       setShowNotification(true)
@@ -1717,14 +1755,14 @@ export default function NewProductPage() {
                 className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                {SECTIONS.map((section) => {
+                {PILL_SECTIONS.map((section) => {
                   const isActive = activeSection === section.id
 
                   return (
                     <button
                       key={section.id}
-                      ref={(el) => { pillRefs.current[section.id] = el }}
-                      onClick={() => scrollToSection(section.id)}
+                      ref={(el) => { pillRefs.current[section.id as SectionId] = el }}
+                      onClick={() => scrollToSection(section.id as SectionId)}
                       className={`
                         flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0
                         bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800
@@ -3088,12 +3126,12 @@ export default function NewProductPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 animate-spin" />
-                  Publishing...
+                  Saving...
                 </>
               ) : justSaved ? (
                 <>
                   <CheckCircle className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5" />
-                  Published
+                  Saved
                 </>
               ) : (
                 <>

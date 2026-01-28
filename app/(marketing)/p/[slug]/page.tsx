@@ -530,13 +530,18 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Apply theme colors to all sections in the product page config
   const themedSections = productPageConfig?.sections ? applySectionThemeColors(productPageConfig.sections) : []
 
-  // Get FAQ section settings for custom FAQs
+  // Get FAQs - prioritize product-specific FAQs, then config FAQs, then defaults
   const faqSection = productPageConfig?.sections?.find((s: Section) => s.type === "faq")
-  const customFaqs = ((faqSection?.settings as any)?.customFaqs || [])
+  const configFaqs = ((faqSection?.settings as any)?.customFaqs || [])
     .filter((faq: any) => faq.question && faq.answer)
     .map((faq: any) => ({ question: faq.question, answer: faq.answer }))
 
-  // Default FAQs
+  // Product-specific FAQs from the product form (highest priority)
+  const productFaqs = (product.faqs || [])
+    .filter((faq: any) => faq.question && faq.answer)
+    .map((faq: any) => ({ question: faq.question, answer: faq.answer }))
+
+  // Default FAQs (fallback if no custom FAQs)
   const defaultFaqs = [
     {
       question: "How do I access my purchase?",
@@ -552,8 +557,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     },
   ]
 
-  // Combine custom FAQs with default FAQs - Custom FAQs appear ABOVE default FAQs
-  const displayFaqs = [...customFaqs, ...defaultFaqs]
+  // Priority: product FAQs > config FAQs > default FAQs
+  // If product has FAQs, use those. Otherwise use config FAQs (if any) + defaults
+  const displayFaqs = productFaqs.length > 0
+    ? productFaqs
+    : (configFaqs.length > 0 ? [...configFaqs, ...defaultFaqs] : defaultFaqs)
 
   const { data: reviews } = await supabase
     .from("reviews")
@@ -1036,7 +1044,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {/* Mobile: add a tiny inner gutter so FAQ isn't edge-to-edge */}
           <div className="px-2 sm:px-0">
             <Accordion type="single" collapsible className="w-full">
-              {displayFaqs.map((faq, idx) => (
+              {displayFaqs.map((faq: { question: string; answer: string }, idx: number) => (
                 <AccordionItem
                   key={`faq-${idx}`}
                   value={`item-${idx}`}
