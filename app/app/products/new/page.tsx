@@ -293,6 +293,7 @@ export default function NewProductPage() {
   const [seoTitle, setSeoTitle] = useState("")
   const [seoDescription, setSeoDescription] = useState("")
   const seoManuallyEditedRef = useRef(false) // Track if user manually edited SEO description
+  const dataLoadedRef = useRef<string | null>(null) // Track which product ID was loaded to prevent duplicates
 
   // Drag state for media
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
@@ -1003,6 +1004,13 @@ export default function NewProductPage() {
 
       // If editing, load the existing product
       if (editProductId) {
+        // Guard against duplicate loading (React Strict Mode can run effects twice)
+        if (dataLoadedRef.current === editProductId) {
+          console.log("Data already loaded for this product, skipping duplicate fetch")
+          return
+        }
+        dataLoadedRef.current = editProductId
+
         const { data: product } = await supabase
           .from("products")
           .select("*")
@@ -1380,36 +1388,76 @@ export default function NewProductPage() {
 
       // Save variants if we have a product ID
       if (finalProductId && variants.length > 0) {
-        // First, delete all existing variants for this product (they'll be recreated)
-        const { error: deleteVariantsError } = await supabase
-          .from("product_variants")
-          .delete()
-          .eq("product_id", finalProductId)
+        // Get existing variant IDs to know which to update vs insert
+        const existingVariantIds = variants
+          .filter(v => v.id && !v.id.startsWith("temp-") && !v.id.startsWith("new-"))
+          .map(v => v.id)
 
-        if (deleteVariantsError) {
-          console.error("Error deleting existing variants:", deleteVariantsError)
-          // If error code is 42P01, table doesn't exist - that's a schema issue
-          if (deleteVariantsError.code === "42P01") {
-            throw new Error("Variants table doesn't exist. Please run the SQL migration.")
+        // Delete variants that are no longer in the list
+        if (existingVariantIds.length > 0) {
+          // Delete variants NOT in our current list (removed ones)
+          const { error: deleteRemovedError } = await supabase
+            .from("product_variants")
+            .delete()
+            .eq("product_id", finalProductId)
+            .not("id", "in", `(${existingVariantIds.join(",")})`)
+
+          if (deleteRemovedError && deleteRemovedError.code !== "42P01") {
+            console.error("Error deleting removed variants:", deleteRemovedError)
+          }
+        } else {
+          // No existing variants to keep - delete all
+          const { error: deleteAllError } = await supabase
+            .from("product_variants")
+            .delete()
+            .eq("product_id", finalProductId)
+
+          if (deleteAllError) {
+            console.error("Error deleting existing variants:", deleteAllError)
+            if (deleteAllError.code === "42P01") {
+              throw new Error("Variants table doesn't exist. Please run the SQL migration.")
+            }
           }
         }
 
-        // Insert all variants
+        // Upsert all variants (update existing, insert new)
         const savedVariantIds: string[] = []
         for (let i = 0; i < variants.length; i++) {
           const variant = variants[i]
-          const { data: savedVariant, error: variantError } = await supabase
-            .from("product_variants")
-            .insert({
-              product_id: finalProductId,
-              name: variant.name || "Untitled",
-              description: variant.description || null,
-              price_cents: Math.round(Number.parseFloat(variant.price || "0") * 100), // FINAL price
-              max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
-              position: i,
-            })
-            .select()
-            .single()
+          const isExisting = variant.id && !variant.id.startsWith("temp-") && !variant.id.startsWith("new-")
+
+          const variantData = {
+            product_id: finalProductId,
+            name: variant.name || "Untitled",
+            description: variant.description || null,
+            price_cents: Math.round(Number.parseFloat(variant.price || "0") * 100), // FINAL price
+            max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
+            position: i,
+          }
+
+          let savedVariant: any = null
+          let variantError: any = null
+
+          if (isExisting) {
+            // Update existing variant
+            const result = await supabase
+              .from("product_variants")
+              .update(variantData)
+              .eq("id", variant.id)
+              .select()
+              .single()
+            savedVariant = result.data
+            variantError = result.error
+          } else {
+            // Insert new variant
+            const result = await supabase
+              .from("product_variants")
+              .insert(variantData)
+              .select()
+              .single()
+            savedVariant = result.data
+            variantError = result.error
+          }
 
           if (variantError) {
             console.error("Error saving variant:", variantError)
@@ -1430,28 +1478,37 @@ export default function NewProductPage() {
             savedVariantIds.push(savedVariant.id)
           }
 
-          // Save variant files if any
-          if (savedVariant && variant.assignedFiles.length > 0) {
-            // Get the actual digital asset IDs from file names
-            const { data: assets } = await supabase
-              .from("digital_assets")
-              .select("id, file_name")
-              .eq("product_id", finalProductId)
-              .in("id", variant.assignedFiles)
+          // Save variant files - first delete old ones, then insert new ones
+          if (savedVariant) {
+            // Always delete existing files for this variant first
+            await supabase
+              .from("product_variant_files")
+              .delete()
+              .eq("variant_id", savedVariant.id)
 
-            if (assets && assets.length > 0) {
-              const variantFilesData = assets.map(asset => ({
-                variant_id: savedVariant.id,
-                digital_asset_id: asset.id,
-              }))
+            // Insert new files if any
+            if (variant.assignedFiles.length > 0) {
+              // Get the actual digital asset IDs from file names
+              const { data: assets } = await supabase
+                .from("digital_assets")
+                .select("id, file_name")
+                .eq("product_id", finalProductId)
+                .in("id", variant.assignedFiles)
 
-              const { error: variantFilesError } = await supabase
-                .from("product_variant_files")
-                .insert(variantFilesData)
+              if (assets && assets.length > 0) {
+                const variantFilesData = assets.map(asset => ({
+                  variant_id: savedVariant.id,
+                  digital_asset_id: asset.id,
+                }))
 
-              if (variantFilesError) {
-                console.error("Error saving variant files:", variantFilesError)
-                // Don't throw for files - variant was saved
+                const { error: variantFilesError } = await supabase
+                  .from("product_variant_files")
+                  .insert(variantFilesData)
+
+                if (variantFilesError) {
+                  console.error("Error saving variant files:", variantFilesError)
+                  // Don't throw for files - variant was saved
+                }
               }
             }
           }
@@ -1460,6 +1517,14 @@ export default function NewProductPage() {
         // Verify all variants were saved
         if (savedVariantIds.length !== variants.length) {
           console.warn(`Only ${savedVariantIds.length} of ${variants.length} variants were saved`)
+        }
+
+        // CRITICAL: Update variants state with saved IDs so next save updates them instead of creating duplicates
+        if (savedVariantIds.length > 0) {
+          setVariants(currentVariants => currentVariants.map((v, i) => ({
+            ...v,
+            id: savedVariantIds[i] || v.id, // Use saved ID if available
+          })))
         }
       } else if (finalProductId && variants.length === 0) {
         // If no variants, delete any existing ones
@@ -3500,7 +3565,7 @@ export default function NewProductPage() {
                     onClick={() => {
                       if (variants.length >= MAX_VARIANTS) return
                       const newVariant: ProductVariant = {
-                        id: `variant-${Date.now()}`,
+                        id: `new-variant-${Date.now()}`,
                         name: "Untitled",
                         description: "",
                         price: "0", // FINAL price for this variant
