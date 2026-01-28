@@ -1241,6 +1241,17 @@ export default function NewProductPage() {
       const photoUrls = mediaItems.filter(m => m.type === "image").map(m => m.url)
       const youtubeItems = mediaItems.filter(m => m.type === "youtube")
 
+      // Determine thumbnail based on FIRST media item position
+      // If YouTube is positioned 1st, use YouTube thumbnail as cover
+      // If image is positioned 1st, use that image as cover
+      const firstMedia = mediaItems[0]
+      let determinedThumbnailUrl: string | null = null
+      if (firstMedia?.type === "youtube") {
+        determinedThumbnailUrl = getYouTubeThumbnailUrl(firstMedia.url)
+      } else if (firstMedia?.type === "image") {
+        determinedThumbnailUrl = firstMedia.url
+      }
+
       // Filter out empty items from whatsIncluded
       const filteredWhatsIncluded = whatsIncluded.filter(item => item.trim() !== "")
 
@@ -1270,11 +1281,9 @@ export default function NewProductPage() {
         status: publish ? "published" : "draft",
         price_cents: Math.round(Number.parseFloat(price || "0") * 100),
         compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
-        // Thumbnail priority: 1) First image, 2) YouTube thumbnail (if only YouTube exists)
-        // YouTube thumbnail is used for product listings when no images are uploaded
-        thumbnail_url: photoUrls.length > 0
-          ? photoUrls[0]
-          : (youtubeItems[0]?.url ? getYouTubeThumbnailUrl(youtubeItems[0].url) : null),
+        // Thumbnail uses the FIRST media item - respects drag-and-drop ordering
+        // If YouTube is 1st, uses YouTube thumbnail. If image is 1st, uses that image.
+        thumbnail_url: determinedThumbnailUrl,
         gallery_urls: photoUrls.length > 0 ? photoUrls : null,
         video_url: youtubeItems[0]?.url || null,
         show_sales_badge: showSalesBadge,
