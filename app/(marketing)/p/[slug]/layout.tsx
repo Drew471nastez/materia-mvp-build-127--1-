@@ -17,12 +17,30 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
 
   try {
     // First get the product to find the creator
-    const { data: product } = await supabase
+    let { data: product } = await supabase
       .from("products")
       .select("creator_id")
       .eq("slug", slug)
       .eq("status", "published")
       .maybeSingle()
+
+    // If not found, check slug history
+    if (!product) {
+      const { data: slugHistory } = await supabase
+        .from("product_slug_history")
+        .select(`
+          products!inner (
+            creator_id,
+            status
+          )
+        `)
+        .eq("old_slug", slug)
+        .maybeSingle()
+
+      if (slugHistory?.products && (slugHistory.products as any).status === "published") {
+        product = slugHistory.products as any
+      }
+    }
 
     if (product?.creator_id) {
       // Get the theme preset from the default product template or shop config

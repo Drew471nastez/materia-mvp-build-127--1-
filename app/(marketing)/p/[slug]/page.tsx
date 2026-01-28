@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
@@ -66,12 +66,35 @@ export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params
   const supabase = await createClient()
 
-  const { data: product } = await supabase
+  // First, try to find product by current slug
+  let { data: product } = await supabase
     .from("products")
-    .select("title, description, creator_id")
+    .select("title, description, creator_id, slug")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle()
+
+  // If not found, check slug history
+  if (!product) {
+    const { data: slugHistory } = await supabase
+      .from("product_slug_history")
+      .select(`
+        product_id,
+        products!inner (
+          title,
+          description,
+          creator_id,
+          slug,
+          status
+        )
+      `)
+      .eq("old_slug", slug)
+      .maybeSingle()
+
+    if (slugHistory?.products && (slugHistory.products as any).status === "published") {
+      product = slugHistory.products as any
+    }
+  }
 
   if (!product) {
     return { title: "Product Not Found | Storelib" }
@@ -103,7 +126,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const { purchase, already_owned, src } = await searchParams
   const supabase = await createClient()
 
-  const { data: product, error: productError } = await supabase
+  // First, try to find product by current slug
+  let { data: product, error: productError } = await supabase
     .from("products")
     .select(`
       *,
@@ -120,6 +144,28 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle()
+
+  // If not found by current slug, check slug history for redirects
+  if (!product) {
+    const { data: slugHistory } = await supabase
+      .from("product_slug_history")
+      .select(`
+        product_id,
+        products!inner (
+          id,
+          slug,
+          status
+        )
+      `)
+      .eq("old_slug", slug)
+      .maybeSingle()
+
+    if (slugHistory?.products && (slugHistory.products as any).status === "published") {
+      // Found in history - 301 redirect to current slug
+      const currentSlug = (slugHistory.products as any).slug
+      redirect(`/p/${currentSlug}`)
+    }
+  }
 
   if (productError || !product) {
     notFound()
