@@ -16,9 +16,10 @@ export async function POST(request: Request) {
     const body = await request.json()
     const cookieStore = await cookies()
 
-    const { productId, firstName, lastName, email, tipCents = 0, isGift = false } = body
+    const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId } = body
 
     console.log("[checkout/process] Starting free checkout for:", firstName, lastName, email)
+    console.log("[checkout/process] Variant ID:", variantId || "none")
 
     if (!productId || !firstName || !lastName || !email) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
@@ -47,7 +48,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
-    const total = (product.price_cents || 0) + (tipCents || 0)
+    // Fetch variant if specified
+    let selectedVariant = null
+    let variantPriceCents = 0
+    if (variantId) {
+      const { data: variant } = await admin
+        .from("product_variants")
+        .select("id, name, price_cents")
+        .eq("id", variantId)
+        .eq("product_id", productId)
+        .single()
+
+      if (variant) {
+        selectedVariant = variant
+        variantPriceCents = variant.price_cents || 0
+      }
+    }
+
+    // Calculate total - use variant price if selected, otherwise product price
+    const basePriceCents = selectedVariant ? variantPriceCents : (product.price_cents || 0)
+    const total = basePriceCents + (tipCents || 0)
 
     if (total > 0) {
       return NextResponse.json({ error: "Paid products must use Stripe checkout" }, { status: 400 })
@@ -87,7 +107,7 @@ export async function POST(request: Request) {
       path: "/",
     })
 
-    // Create order
+    // Create order with variant info
     const orderData = {
       buyer_id: user?.id || null,
       buyer_first_name: firstName.trim(),
@@ -118,6 +138,9 @@ export async function POST(request: Request) {
       buyer_device_type: deviceInfo.deviceType,
       buyer_os: deviceInfo.os,
       buyer_browser: deviceInfo.browser,
+      // Variant info
+      variant_id: selectedVariant?.id || null,
+      variant_name: selectedVariant?.name || null,
     }
 
     console.log("[checkout/process] Creating order for email:", email.toLowerCase().trim())
@@ -183,6 +206,7 @@ export async function POST(request: Request) {
       amountCents: 0,
       feeCents: 0,
       baseUrl,
+      variantName: selectedVariant?.name || null,
     })
 
     console.log("[checkout/process] Email results:", emailResults)

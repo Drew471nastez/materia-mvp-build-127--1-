@@ -56,7 +56,7 @@ export function BuyButton({ productId, price, disabled, creatorId, backgroundCol
     <Button
       type="button"
       size="lg"
-      className="w-full font-medium"
+      className="w-full font-medium min-h-[48px]"
       style={{
         backgroundColor: backgroundColor || "#2563eb",
         color: textColor || "#ffffff",

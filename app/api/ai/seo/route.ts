@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import Anthropic from "@anthropic-ai/sdk"
 
 // AI-powered SEO description generator
-// Uses intelligent text analysis to create optimized meta descriptions
+// Uses Claude AI to create optimized meta descriptions
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,8 +25,9 @@ export async function POST(request: NextRequest) {
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim()
 
-    // Extract key information for SEO
-    const seoDescription = generateSmartSeoDescription(cleanText, title || '')
+    // Try AI generation first, fallback to smart extraction
+    const seoDescription = await generateWithAI(cleanText, title || '')
+      || generateSmartSeoDescription(cleanText, title || '')
 
     return NextResponse.json({ seoDescription })
   } catch (error) {
@@ -34,6 +36,63 @@ export async function POST(request: NextRequest) {
       { error: "Failed to generate SEO description" },
       { status: 500 }
     )
+  }
+}
+
+async function generateWithAI(text: string, title: string): Promise<string | null> {
+  // Check if Anthropic API key is configured
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    console.log("[AI SEO] No ANTHROPIC_API_KEY configured, using fallback")
+    return null
+  }
+
+  try {
+    const client = new Anthropic({ apiKey })
+
+    const message = await client.messages.create({
+      model: "claude-3-haiku-20240307",
+      max_tokens: 200,
+      messages: [
+        {
+          role: "user",
+          content: `You are an SEO expert. Generate a compelling meta description for a digital product.
+
+Product Title: ${title}
+Product Description: ${text}
+
+Requirements:
+- Maximum 155 characters
+- Include key benefits and value proposition
+- Use action-oriented language
+- Make it compelling for search results
+- Do NOT include quotes around the description
+- Output ONLY the meta description, nothing else
+
+Meta description:`
+        }
+      ]
+    })
+
+    // Extract text from response
+    const responseText = message.content[0]?.type === 'text'
+      ? message.content[0].text.trim()
+      : null
+
+    if (responseText && responseText.length > 0 && responseText.length <= 160) {
+      console.log("[AI SEO] Generated with Claude:", responseText.substring(0, 50) + "...")
+      return responseText
+    }
+
+    // If response is too long, truncate smartly
+    if (responseText && responseText.length > 160) {
+      return truncateSmart(responseText, 155)
+    }
+
+    return null
+  } catch (error) {
+    console.error("[AI SEO] Anthropic API error:", error)
+    return null
   }
 }
 
@@ -104,14 +163,6 @@ function generateSmartSeoDescription(text: string, title: string): string {
 
   // Build the SEO description
   let seoDescription = ''
-
-  // Start with title context if available
-  if (title && title.length > 3) {
-    const titleWords = title.split(' ').slice(0, 3).join(' ')
-    if (!bestSentences[0]?.sentence.toLowerCase().includes(titleWords.toLowerCase())) {
-      // Don't add title prefix if the first sentence already mentions it
-    }
-  }
 
   // Add best sentences until we hit ~155 characters
   for (const item of bestSentences) {

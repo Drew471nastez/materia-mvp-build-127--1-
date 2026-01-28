@@ -133,6 +133,7 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
           email: email.trim(),
           tipCents: 0,
           isGift,
+          variantId: selectedVariant?.id || null,
         }),
       })
 
@@ -161,6 +162,7 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
         email,
         tipCents,
         isGift,
+        variantId: selectedVariant?.id || null,
       }),
     })
 
@@ -171,7 +173,7 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
     }
 
     return data.clientSecret
-  }, [product.id, firstName, lastName, email, tipCents, isGift])
+  }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant])
 
   const handlePaidCheckout = async () => {
     if (!firstName.trim()) {

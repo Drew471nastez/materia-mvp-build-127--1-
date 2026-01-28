@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || ""
 
-  const { productId, firstName, lastName, email, tipCents = 0, isGift = false } = body
+  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId } = body
 
   if (!productId || !firstName || !lastName || !email) {
     return NextResponse.json({ error: "All fields are required" }, { status: 400 })
@@ -44,7 +44,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 })
   }
 
-  if (product.price_cents > 0) {
+  // Fetch variant if specified
+  let selectedVariant = null
+  let variantPriceCents = 0
+  if (variantId) {
+    const { data: variant } = await admin
+      .from("product_variants")
+      .select("id, name, price_cents")
+      .eq("id", variantId)
+      .eq("product_id", productId)
+      .single()
+
+    if (variant) {
+      selectedVariant = variant
+      variantPriceCents = variant.price_cents || 0
+    }
+  }
+
+  // Calculate final price - use variant price if selected, otherwise product price
+  const basePriceCents = selectedVariant ? variantPriceCents : (product.price_cents || 0)
+
+  // IMPORTANT: Only require Stripe when the FINAL price (variant or base) is > 0
+  // This allows free variants to work even if seller hasn't connected Stripe
+  if (basePriceCents > 0) {
     if (!product.creator.stripe_account_id) {
       console.error("[v0] Seller has not connected Stripe account")
       return NextResponse.json(
@@ -128,7 +150,7 @@ export async function POST(request: Request) {
     path: "/",
   })
 
-  const totalAmount = (product.price_cents || 0) + (tipCents || 0)
+  const totalAmount = basePriceCents + (tipCents || 0)
 
   if (totalAmount < 50) {
     return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
@@ -141,7 +163,14 @@ export async function POST(request: Request) {
     platformFee,
     sellerReceives: totalAmount - platformFee,
     stripeAccountId: product.creator.stripe_account_id,
+    variantId: selectedVariant?.id || "none",
+    variantName: selectedVariant?.name || "none",
   })
+
+  // Build line item description with variant
+  const productDescription = selectedVariant
+    ? `By ${creatorProfile?.display_name || "Creator"} • ${selectedVariant.name}`
+    : `By ${creatorProfile?.display_name || "Creator"}`
 
   const lineItems: Parameters<typeof stripe.checkout.sessions.create>[0]["line_items"] = [
     {
@@ -149,9 +178,9 @@ export async function POST(request: Request) {
         currency: "usd",
         product_data: {
           name: product.title,
-          description: `By ${creatorProfile?.display_name || "Creator"}`,
+          description: productDescription,
         },
-        unit_amount: product.price_cents,
+        unit_amount: basePriceCents,
       },
       quantity: 1,
     },
@@ -192,6 +221,9 @@ export async function POST(request: Request) {
         session_fingerprint: sessionFingerprint,
         receipt_token: receiptToken,
         platform_fee_cents: platformFee.toString(),
+        // Variant info
+        variant_id: selectedVariant?.id || "",
+        variant_name: selectedVariant?.name || "",
         // Device and geo info
         buyer_country: geoInfo.country,
         buyer_country_code: geoInfo.countryCode,

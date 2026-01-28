@@ -32,7 +32,7 @@ interface PurchaseStatusWrapperProps {
     cardPriceColor?: string
     accentColor?: string
   }
-  // Content to render after buttons
+  // Content to render after buttons (wishlist, refund policy)
   purchasedExtraContent?: ReactNode
   notPurchasedExtraContent?: ReactNode
   // Show price display
@@ -43,6 +43,12 @@ interface PurchaseStatusWrapperProps {
  * PurchaseStatusWrapper - Smart buy/download button that checks localStorage
  * Shows Download if purchased (server or localStorage), Buy otherwise
  * Supports product variants with dynamic pricing
+ *
+ * LAYOUT ORDER (not purchased):
+ * 1. Price display (if showPriceDisplay)
+ * 2. Buy button
+ * 3. Add to wishlist (notPurchasedExtraContent)
+ * 4. Variant selector (UNDER buy button and wishlist)
  */
 export function PurchaseStatusWrapper({
   productId,
@@ -98,7 +104,7 @@ export function PurchaseStatusWrapper({
       <div className="space-y-3">
         <Button
           disabled
-          className="w-full min-h-[44px]"
+          className="w-full min-h-[48px]"
           style={{
             backgroundColor: buyButtonBgColor || undefined,
             color: buyButtonTextColor || undefined,
@@ -118,7 +124,7 @@ export function PurchaseStatusWrapper({
         <DownloadButton
           assetId={assetId}
           receiptToken={receiptToken}
-          className="w-full min-h-[44px]"
+          className="w-full min-h-[48px]"
           size="default"
           style={{
             backgroundColor: downloadButtonBgColor || undefined,
@@ -132,7 +138,7 @@ export function PurchaseStatusWrapper({
     )
   }
 
-  // Not purchased - show variant selector and buy button
+  // Not purchased - show buy button FIRST, then wishlist, then variants UNDER
   return (
     <div className="space-y-3">
       {/* Price display (optional) */}
@@ -160,9 +166,28 @@ export function PurchaseStatusWrapper({
         </div>
       )}
 
-      {/* Variant selector */}
+      {/* Buy button - FIRST */}
+      <BuyButton
+        productId={productId}
+        price={currentPrice}
+        creatorId={creatorId}
+        backgroundColor={buyButtonBgColor}
+        textColor={buyButtonTextColor}
+        variantId={selectedVariant?.id}
+      />
+
+      {/* Extra content (wishlist, refund policy) - AFTER buy button */}
+      {notPurchasedExtraContent}
+
+      {/* Variant selector - UNDER buy button and wishlist */}
       {variants.length > 0 && (
-        <div className="mb-4">
+        <div className="mt-4 pt-4 border-t" style={{ borderColor: themeColors?.cardBorderColor || "var(--border)" }}>
+          <p
+            className="text-sm font-medium mb-3"
+            style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+          >
+            Select option
+          </p>
           <VariantSelector
             variants={variants}
             basePrice={priceCents}
@@ -176,16 +201,6 @@ export function PurchaseStatusWrapper({
           />
         </div>
       )}
-
-      <BuyButton
-        productId={productId}
-        price={currentPrice}
-        creatorId={creatorId}
-        backgroundColor={buyButtonBgColor}
-        textColor={buyButtonTextColor}
-        variantId={selectedVariant?.id}
-      />
-      {notPurchasedExtraContent}
     </div>
   )
 }

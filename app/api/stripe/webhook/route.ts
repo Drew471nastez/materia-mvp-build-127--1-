@@ -156,6 +156,10 @@ export async function POST(request: Request) {
       productTitle = productRow?.title || "Product"
     }
 
+    // Get variant info from metadata
+    const variantId = metadata.variant_id || null
+    const variantName = metadata.variant_name || null
+
     const orderData: any = {
       buyer_id: buyerId || null,
       buyer_first_name: buyerFirstName || null,
@@ -199,6 +203,10 @@ export async function POST(request: Request) {
       buyer_device_type: metadata.buyer_device_type || null,
       buyer_os: metadata.buyer_os || null,
       buyer_browser: metadata.buyer_browser || null,
+
+      // Variant info
+      variant_id: variantId || null,
+      variant_name: variantName || null,
     }
 
     if (!buyerId) {
@@ -308,6 +316,7 @@ export async function POST(request: Request) {
         amountCents: totalAmount,
         feeCents: applicationFeeAmount,
         baseUrl,
+        variantName: variantName || null,
       })
 
       console.log("[v0] ✅ Email result:", emailResult)

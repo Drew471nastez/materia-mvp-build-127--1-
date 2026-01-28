@@ -852,6 +852,7 @@ export async function sendOrderEmails(
     amountCents: number
     feeCents: number
     baseUrl?: string
+    variantName?: string | null
   },
 ): Promise<{ buyerSuccess: boolean; sellerSuccess: boolean }> {
   const {
@@ -865,6 +866,7 @@ export async function sendOrderEmails(
     amountCents,
     feeCents,
     baseUrl,
+    variantName,
   } = params
 
   console.log("[sendOrderEmails] 📧 Processing order emails:", {

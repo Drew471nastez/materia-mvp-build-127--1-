@@ -638,6 +638,13 @@ export default function ReceiptContent({
                   {product?.title}
                 </h2>
 
+                {/* Show variant name if purchased */}
+                {order?.variant_name && (
+                  <p className="text-sm font-medium text-violet-600 mt-0.5">
+                    {order.variant_name}
+                  </p>
+                )}
+
                 {sellerName ? (
                   sellerUsername ? (
                     <a

@@ -125,7 +125,7 @@ export function WishlistButton({
       <button
         disabled
         className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[44px]",
+          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px]",
           className
         )}
         style={buttonStyle}
@@ -142,7 +142,7 @@ export function WishlistButton({
       <div className={cn("space-y-2", className)}>
         <button
           onClick={handleClick}
-          className="w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[44px] hover:opacity-80 transition-colors"
+          className="w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors"
           style={{
             ...buttonStyle,
             borderColor: "#fca5a5",
@@ -172,7 +172,7 @@ export function WishlistButton({
       <button
         onClick={handleWishlistClick}
         className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[44px] hover:opacity-80 transition-colors cursor-pointer",
+          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors cursor-pointer",
           className
         )}
         style={buttonStyle}
@@ -199,7 +199,7 @@ export function WishlistButton({
       onClick={handleClick}
       disabled={isAdding}
       className={cn(
-        "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[44px] hover:opacity-80 transition-colors group",
+        "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors group",
         isAdding && "opacity-70 cursor-not-allowed",
         className
       )}
