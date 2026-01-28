@@ -89,7 +89,18 @@ export default async function ExplorePage({
 
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("*")
+    .select(`
+      *,
+      product_categories (
+        category_id,
+        category:categories (
+          id,
+          name,
+          slug,
+          type
+        )
+      )
+    `)
     .eq("status", "published")
     .order(sortBy === "trending" ? "sales_count" : "created_at", {
       ascending: sortBy === "oldest",
@@ -115,14 +126,17 @@ export default async function ExplorePage({
     productCreatorProfiles = pcProfiles || []
   }
 
-  // Build products with creator info
+  // Build products with creator info and categories
   const productsWithCreators =
     products?.map((product) => {
       const creator = productCreators.find((c) => c.id === product.creator_id)
       const profile = productCreatorProfiles.find((p) => p.id === creator?.user_id)
+      // Extract categories from product_categories join
+      const categories = product.product_categories?.map((pc: any) => pc.category).filter(Boolean) || []
       return {
         ...product,
         creator: creator ? { ...creator, profile } : null,
+        categories,
       }
     }) || []
 

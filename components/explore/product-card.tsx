@@ -12,6 +12,12 @@ interface ProductCardProps {
     compare_at_cents?: number | null
     thumbnail_url?: string | null
     type: string
+    categories?: {
+      id: string
+      name: string
+      slug: string
+      type?: string
+    }[]
     creator?: {
       id?: string
       slug?: string
@@ -69,7 +75,7 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium leading-tight group-hover:text-primary break-words min-w-0">{product.title}</h3>
           <Badge variant="secondary" className="shrink-0 text-xs capitalize">
-            {product.type}
+            {product.categories?.[0]?.name || product.type}
           </Badge>
         </div>
         <p className="mt-1 text-sm text-muted-foreground truncate">by {creatorName}</p>

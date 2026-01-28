@@ -80,7 +80,8 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
     trackCheckoutStart()
   }, [creator.id, product.id])
 
-  const subtotal = product.price_cents
+  // Use variant price if selected, otherwise use product price
+  const subtotal = selectedVariant ? selectedVariant.priceCents : product.price_cents
   const tipCents = Math.round(tipAmount * 100)
   const total = subtotal + tipCents
 
