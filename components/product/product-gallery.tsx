@@ -76,34 +76,16 @@ export function ProductGallery({
 
   // Build media items array: YouTube FIRST (if exists), then images, then video
   // This ensures YouTube embeds show first in the gallery when set by creator
+  // YouTube embeds do NOT generate thumbnails - they are pure embeds only
   const mediaItems: MediaItem[] = [
     ...youtubeUrls.map(url => ({
       url,
       type: "youtube" as const,
-      thumbnailUrl: getYouTubeThumbnail(url)
+      // No thumbnailUrl for YouTube - pure embed only
     })),
     ...images.map(url => ({ url, type: "image" as const })),
     ...(videoUrl ? [{ url: videoUrl, type: "video" as const }] : []),
   ]
-
-  // Get YouTube video ID from embed URL
-  function getYouTubeVideoId(url: string): string | null {
-    const patterns = [
-      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
-      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
-      /youtu\.be\/([a-zA-Z0-9_-]{11})/
-    ]
-    for (const pattern of patterns) {
-      const match = url.match(pattern)
-      if (match) return match[1]
-    }
-    return null
-  }
-
-  function getYouTubeThumbnail(url: string): string {
-    const videoId = getYouTubeVideoId(url)
-    return videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : ""
-  }
 
   // Video controls
   const toggleVideoPlay = useCallback(() => {
@@ -450,14 +432,15 @@ export function ProductGallery({
                 />
               </div>
             )}
-            {media.type === "youtube" && currentIndex !== index && media.thumbnailUrl && (
-              <Image
-                src={media.thumbnailUrl}
-                alt={`${title} - Video thumbnail ${index + 1}`}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
-                className="object-cover"
-              />
+            {media.type === "youtube" && currentIndex !== index && (
+              <div className="relative w-full h-full bg-black flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600 flex items-center justify-center mx-auto">
+                    <Play className="w-8 h-8 sm:w-10 sm:h-10 text-white ml-1" fill="currentColor" />
+                  </div>
+                  <p className="mt-2 text-sm text-white/80">YouTube Video</p>
+                </div>
+              </div>
             )}
           </div>
         ))}
@@ -580,20 +563,9 @@ export function ProductGallery({
                   </div>
                 )}
                 {media.type === "youtube" && (
-                  <div className="relative w-full h-full bg-gray-900">
-                    {media.thumbnailUrl && (
-                      <Image
-                        src={media.thumbnailUrl}
-                        alt={`${title} video thumbnail ${index + 1}`}
-                        fill
-                        sizes="(max-width: 640px) 80px, 96px"
-                        className="object-cover"
-                      />
-                    )}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-red-600 flex items-center justify-center">
-                        <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white ml-0.5" fill="currentColor" />
-                      </div>
+                  <div className="relative w-full h-full bg-gray-900 flex items-center justify-center">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-red-600 flex items-center justify-center">
+                      <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white ml-0.5" fill="currentColor" />
                     </div>
                   </div>
                 )}

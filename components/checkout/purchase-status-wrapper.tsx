@@ -117,10 +117,37 @@ export function PurchaseStatusWrapper({
     )
   }
 
-  // Purchased state - show download button
+  // Purchased state - show download button BUT STILL show price and variants
+  // Price and variants must STILL be visible after purchase
   if (hasPurchased && assetId && productType === "digital") {
     return (
       <div className="space-y-3">
+        {/* Price display - STILL visible after purchase */}
+        {showPriceDisplay && (
+          <div className="mb-4">
+            <div
+              className="text-2xl sm:text-3xl font-bold"
+              style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+            >
+              {currentPrice === 0 ? "Free" : formatPrice(currentPrice)}
+            </div>
+            {effectiveCompareAtPrice && effectiveCompareAtPrice > currentPrice && (
+              <div className="mt-1 flex items-center gap-2">
+                <span
+                  className="text-base sm:text-lg line-through"
+                  style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}
+                >
+                  {formatPrice(effectiveCompareAtPrice)}
+                </span>
+                <Badge variant="destructive">
+                  {Math.round((1 - currentPrice / effectiveCompareAtPrice) * 100)}% OFF
+                </Badge>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Download button */}
         <DownloadButton
           assetId={assetId}
           receiptToken={receiptToken}
@@ -134,6 +161,29 @@ export function PurchaseStatusWrapper({
           Download File
         </DownloadButton>
         {purchasedExtraContent}
+
+        {/* Variants - STILL visible after purchase (display only) */}
+        {variants.length > 0 && (
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: themeColors?.cardBorderColor || "var(--border)" }}>
+            <p
+              className="text-sm font-medium mb-3"
+              style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+            >
+              Available options
+            </p>
+            <VariantSelector
+              variants={variants}
+              basePrice={priceCents}
+              onVariantChange={handleVariantChange}
+              themeColors={{
+                cardBackground: themeColors?.cardBackground,
+                cardTextColor: themeColors?.cardTextColor,
+                cardBorderColor: themeColors?.cardBorderColor,
+                accentColor: themeColors?.accentColor || "#000000",
+              }}
+            />
+          </div>
+        )}
       </div>
     )
   }

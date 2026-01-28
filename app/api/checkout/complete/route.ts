@@ -45,6 +45,9 @@ export async function GET(request: Request) {
     const accessToken = metadata.access_token || null
     const sessionFingerprint = metadata.session_fingerprint || null
     const receiptToken = metadata.receipt_token || null
+    const variantId = metadata.variant_id || null
+    const variantName = metadata.variant_name || null
+    const variantPriceCents = metadata.variant_price_cents ? Number.parseInt(metadata.variant_price_cents, 10) : null
 
     // Check for existing order (idempotency)
     const { data: existingOrder } = await admin
@@ -159,6 +162,16 @@ export async function GET(request: Request) {
         buyer_device_type: metadata.buyer_device_type || requestDeviceInfo.deviceType || null,
         buyer_os: metadata.buyer_os || requestDeviceInfo.os || null,
         buyer_browser: metadata.buyer_browser || requestDeviceInfo.browser || null,
+        // Variant info (full snapshot for historical reference)
+        variant_id: variantId || null,
+        variant_name: variantName || null,
+        variant_price_cents: variantPriceCents || null,
+        variant_currency: "USD",
+        variant_snapshot: variantId && variantName ? {
+          id: variantId,
+          name: variantName,
+          price_cents: variantPriceCents,
+        } : null,
       })
       .select()
       .single()
@@ -252,6 +265,7 @@ export async function GET(request: Request) {
         amountCents: totalAmount,
         feeCents: applicationFeeCents,
         baseUrl,
+        variantName: variantName || null,
       })
 
       console.log("[checkout/complete] Email results:", emailResults)

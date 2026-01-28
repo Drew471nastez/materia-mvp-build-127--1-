@@ -134,9 +134,8 @@ const parseYouTubeUrl = (url: string): string | null => {
   return null
 }
 
-const getYouTubeThumbnail = (videoId: string): string => {
-  return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
-}
+// YouTube embeds do NOT generate thumbnails - they are pure embeds only
+// This ensures no extra media items are created for YouTube videos
 
 // Sortable FAQ Item component for drag-and-drop reordering
 interface SortableFAQItemProps {
@@ -1025,7 +1024,7 @@ export default function NewProductPage() {
             })
           }
 
-          // Add YouTube video
+          // Add YouTube video - pure embed only, no thumbnail
           if (product.video_url) {
             const videoId = parseYouTubeUrl(product.video_url)
             if (videoId) {
@@ -1033,7 +1032,6 @@ export default function NewProductPage() {
                 id: `youtube-${videoId}`,
                 type: "youtube",
                 url: product.video_url,
-                thumbnailUrl: getYouTubeThumbnail(videoId),
               })
             }
           }
@@ -1261,7 +1259,8 @@ export default function NewProductPage() {
         status: publish ? "published" : "draft",
         price_cents: Math.round(Number.parseFloat(price || "0") * 100),
         compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
-        thumbnail_url: mediaItems.length > 0 ? (mediaItems[0].type === "youtube" ? mediaItems[0].thumbnailUrl : mediaItems[0].url) : null,
+        // YouTube embeds do NOT set thumbnail - use first image only
+        thumbnail_url: photoUrls.length > 0 ? photoUrls[0] : null,
         gallery_urls: photoUrls.length > 0 ? photoUrls : null,
         video_url: youtubeItems[0]?.url || null,
         show_sales_badge: showSalesBadge,
@@ -1731,11 +1730,11 @@ export default function NewProductPage() {
       return
     }
 
+    // YouTube embeds do NOT generate thumbnails - pure embed only
     const newItem: MediaItem = {
       id: `yt-${videoId}-${Date.now()}`,
       type: "youtube",
       url: `https://www.youtube.com/embed/${videoId}`,
-      thumbnailUrl: getYouTubeThumbnail(videoId),
     }
 
     setMediaItems(prev => [...prev, newItem])
@@ -2581,16 +2580,12 @@ export default function NewProductPage() {
                           <img src={item.url} alt="" className="w-full h-full object-cover" />
                         )}
                         {item.type === "youtube" && (
-                          <div className="w-full h-full bg-gray-900">
-                            <img
-                              src={item.thumbnailUrl}
-                              alt="YouTube video"
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                              <svg viewBox="0 -7 48 48" className="h-6 w-6 sm:h-8 sm:w-8" fill="none">
+                          <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                            <div className="text-center">
+                              <svg viewBox="0 -7 48 48" className="h-6 w-6 sm:h-8 sm:w-8 mx-auto" fill="none">
                                 <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
                               </svg>
+                              <span className="text-[10px] text-white/70 mt-1 block">YouTube</span>
                             </div>
                           </div>
                         )}
@@ -2801,16 +2796,12 @@ export default function NewProductPage() {
                             </button>
                           </div>
                           {youtubeInput && parseYouTubeUrl(youtubeInput) && (
-                            <div className="mt-3 relative aspect-video max-w-[200px] mx-auto rounded-lg overflow-hidden border border-gray-200 shadow-sm animate-in fade-in zoom-in-95 duration-200">
-                              <img
-                                src={getYouTubeThumbnail(parseYouTubeUrl(youtubeInput)!)}
-                                alt="Video preview"
-                                className="w-full h-full object-cover"
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+                            <div className="mt-3 relative aspect-video max-w-[200px] mx-auto rounded-lg overflow-hidden border border-gray-200 shadow-sm animate-in fade-in zoom-in-95 duration-200 bg-gray-900 flex items-center justify-center">
+                              <div className="text-center">
+                                <div className="w-12 h-12 mx-auto rounded-full bg-red-600 flex items-center justify-center shadow-lg">
                                   <Play className="h-6 w-6 text-white ml-0.5" />
                                 </div>
+                                <p className="mt-2 text-xs text-white/80">YouTube Embed</p>
                               </div>
                             </div>
                           )}

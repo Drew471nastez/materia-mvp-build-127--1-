@@ -20,7 +20,7 @@ function getBaseUrl() {
 
 export async function POST(req: Request) {
   try {
-    const { productId, email, firstName, lastName } = await req.json()
+    const { productId, email, firstName, lastName, variantId } = await req.json()
 
     if (!productId || !isValidEmail(email)) {
       return NextResponse.json({ error: "Missing or invalid productId/email" }, { status: 400 })
@@ -50,6 +50,25 @@ export async function POST(req: Request) {
 
     if (product.price_cents && product.price_cents > 0) {
       return NextResponse.json({ error: "Product is paid. Use /api/checkout/create-intent" }, { status: 400 })
+    }
+
+    // Fetch variant if specified (include description for snapshot)
+    let selectedVariant: { id: string; name: string; description?: string; price_cents?: number; position?: number } | null = null
+    if (variantId) {
+      const { data: variant } = await admin
+        .from("product_variants")
+        .select("id, name, description, price_cents, position")
+        .eq("id", variantId)
+        .eq("product_id", productId)
+        .single()
+
+      if (variant) {
+        selectedVariant = variant
+        // For free products, variant should also be free
+        if (variant.price_cents && variant.price_cents > 0) {
+          return NextResponse.json({ error: "Product variant is paid. Use /api/checkout/create-intent" }, { status: 400 })
+        }
+      }
     }
 
     const accessToken = crypto.randomBytes(24).toString("hex")
@@ -89,6 +108,18 @@ export async function POST(req: Request) {
         allowed_fingerprints: [sessionFingerprint],
         buyer_email_attempt_count: 0,
         seller_email_attempt_count: 0,
+        // Variant info (full snapshot for historical reference)
+        variant_id: selectedVariant?.id || null,
+        variant_name: selectedVariant?.name || null,
+        variant_price_cents: selectedVariant?.price_cents || null,
+        variant_currency: "USD",
+        variant_snapshot: selectedVariant ? {
+          id: selectedVariant.id,
+          name: selectedVariant.name,
+          description: selectedVariant.description,
+          price_cents: selectedVariant.price_cents,
+          position: selectedVariant.position,
+        } : null,
       })
       .select()
       .single()
@@ -137,6 +168,7 @@ export async function POST(req: Request) {
       amountCents: 0,
       feeCents: 0,
       baseUrl,
+      variantName: selectedVariant?.name || null,
     })
 
     console.log("[complete-free] Email results:", emailResults)

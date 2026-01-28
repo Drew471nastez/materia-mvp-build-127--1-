@@ -48,13 +48,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
-    // Fetch variant if specified
+    // Fetch variant if specified (include description for snapshot)
     let selectedVariant = null
     let variantPriceCents = 0
     if (variantId) {
       const { data: variant } = await admin
         .from("product_variants")
-        .select("id, name, price_cents")
+        .select("id, name, description, price_cents, position")
         .eq("id", variantId)
         .eq("product_id", productId)
         .single()
@@ -138,9 +138,18 @@ export async function POST(request: Request) {
       buyer_device_type: deviceInfo.deviceType,
       buyer_os: deviceInfo.os,
       buyer_browser: deviceInfo.browser,
-      // Variant info
+      // Variant info (full snapshot for historical reference)
       variant_id: selectedVariant?.id || null,
       variant_name: selectedVariant?.name || null,
+      variant_price_cents: selectedVariant?.price_cents || null,
+      variant_currency: "USD",
+      variant_snapshot: selectedVariant ? {
+        id: selectedVariant.id,
+        name: selectedVariant.name,
+        description: selectedVariant.description,
+        price_cents: selectedVariant.price_cents,
+        position: selectedVariant.position,
+      } : null,
     }
 
     console.log("[checkout/process] Creating order for email:", email.toLowerCase().trim())

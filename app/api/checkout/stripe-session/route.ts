@@ -221,9 +221,10 @@ export async function POST(request: Request) {
         session_fingerprint: sessionFingerprint,
         receipt_token: receiptToken,
         platform_fee_cents: platformFee.toString(),
-        // Variant info
+        // Variant info (full data for order)
         variant_id: selectedVariant?.id || "",
         variant_name: selectedVariant?.name || "",
+        variant_price_cents: selectedVariant?.price_cents?.toString() || "",
         // Device and geo info
         buyer_country: geoInfo.country,
         buyer_country_code: geoInfo.countryCode,
