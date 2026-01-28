@@ -2402,9 +2402,9 @@ export default function NewProductPage() {
                 {productId ? "Edit Product" : "New Product"}
               </h1>
 
-              {/* Publish/Unpublish and View Live buttons - show when product exists */}
+              {/* Publish/Unpublish and View Live buttons - show on mobile/tablet only in title row */}
               {productId && (
-                <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+                <div className="ml-auto flex lg:hidden items-center gap-1.5 sm:gap-2">
                   {/* Status indicator pill */}
                   <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
                     isPublished
@@ -2455,54 +2455,104 @@ export default function NewProductPage() {
             <div
               className={`py-3 transition-all duration-300 ease-out ${isScrolled ? '' : 'pt-0 sm:pt-0.5'}`}
             >
-              <div
-                ref={pillScrollRef}
-                className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                {PILL_SECTIONS.map((section) => {
-                  const isActive = activeSection === section.id
+              <div className="flex items-center justify-between">
+                <div
+                  ref={pillScrollRef}
+                  className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide scroll-smooth"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {PILL_SECTIONS.map((section) => {
+                    const isActive = activeSection === section.id
 
-                  return (
-                    <button
-                      key={section.id}
-                      ref={(el) => { pillRefs.current[section.id as SectionId] = el }}
-                      onClick={() => scrollToSection(section.id as SectionId)}
-                      className={`
-                        flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0
-                        bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800
-                      `}
-                    >
-                      {/* Checkmark circle icon - purple when active, gray otherwise - smooth animation */}
-                      <span
+                    return (
+                      <button
+                        key={section.id}
+                        ref={(el) => { pillRefs.current[section.id as SectionId] = el }}
+                        onClick={() => scrollToSection(section.id as SectionId)}
                         className={`
-                          flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full
-                          transition-all duration-500 ease-out
-                          ${isActive
-                            ? "bg-violet-500 scale-100 shadow-sm shadow-violet-200"
-                            : "bg-gray-300 scale-95"
-                          }
+                          flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0
+                          bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800
                         `}
-                        style={{
-                          transitionProperty: 'background-color, transform, box-shadow',
-                          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
-                        }}
                       >
-                        <Check
+                        {/* Checkmark circle icon - purple when active, gray otherwise - smooth animation */}
+                        <span
                           className={`
-                            h-3 w-3 sm:h-3.5 sm:w-3.5
+                            flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full
                             transition-all duration-500 ease-out
-                            ${isActive ? "text-white scale-110" : "text-gray-500 scale-100"}
+                            ${isActive
+                              ? "bg-violet-500 scale-100 shadow-sm shadow-violet-200"
+                              : "bg-gray-300 scale-95"
+                            }
                           `}
                           style={{
+                            transitionProperty: 'background-color, transform, box-shadow',
                             transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                           }}
-                        />
-                      </span>
-                      {section.name}
-                    </button>
-                  )
-                })}
+                        >
+                          <Check
+                            className={`
+                              h-3 w-3 sm:h-3.5 sm:w-3.5
+                              transition-all duration-500 ease-out
+                              ${isActive ? "text-white scale-110" : "text-gray-500 scale-100"}
+                            `}
+                            style={{
+                              transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                            }}
+                          />
+                        </span>
+                        {section.name}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Desktop only: Live/Unpublish/View buttons on same row as pills */}
+                {productId && (
+                  <div className="hidden lg:flex items-center gap-2 ml-4 flex-shrink-0">
+                    {/* Status indicator pill */}
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                      isPublished
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${isPublished ? "bg-emerald-500" : "bg-gray-400"}`} />
+                      {isPublished ? "Live" : "Draft"}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleTogglePublish}
+                      disabled={isLoading}
+                      className="h-8 px-3 text-xs font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : isPublished ? (
+                        <>
+                          <EyeOff className="h-3.5 w-3.5 mr-1.5" />
+                          Unpublish
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3.5 w-3.5 mr-1.5" />
+                          Publish
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRedirectToProduct}
+                      disabled={!slug || !isPublished}
+                      className="h-8 px-3 text-xs font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors disabled:opacity-40"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                      View
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
