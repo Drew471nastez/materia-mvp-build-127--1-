@@ -3961,16 +3961,34 @@ function SortableMediaItem({
             className="w-full h-full object-cover"
           />
         ) : (
-          // YouTube embed - clean card only, no thumbnail
-          <div className="w-full h-full flex items-center justify-center bg-gray-900">
-            <div className="text-center">
-              <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center mx-auto shadow-lg">
-                <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1" />
-              </div>
-              <div className="mt-1 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium inline-block">
-                YouTube
-              </div>
-            </div>
+          // YouTube embed - show actual video thumbnail with play button
+          <div className="relative w-full h-full">
+            {(() => {
+              const videoId = extractYouTubeIdForThumbnail(item.url)
+              return videoId ? (
+                <>
+                  <img
+                    src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+                    alt="YouTube video thumbnail"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+                      <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1" />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-medium">
+                    YouTube
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                  <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
+                    <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1" />
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )}
         <button
