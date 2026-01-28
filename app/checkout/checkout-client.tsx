@@ -18,6 +18,13 @@ import { getProductUrl } from "@/lib/url-helpers"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
+interface SelectedVariant {
+  id: string
+  name: string
+  description: string | null
+  additionalPrice: number
+}
+
 interface CheckoutPageClientProps {
   product: {
     id: string
@@ -36,9 +43,10 @@ interface CheckoutPageClientProps {
   }
   userEmail: string | null
   isLoggedIn: boolean
+  selectedVariant?: SelectedVariant | null
 }
 
-export default function CheckoutPageClient({ product, creator, userEmail, isLoggedIn }: CheckoutPageClientProps) {
+export default function CheckoutPageClient({ product, creator, userEmail, isLoggedIn, selectedVariant }: CheckoutPageClientProps) {
   const router = useRouter()
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -255,6 +263,11 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
                     </div>
                     <div className="flex-1 min-w-0">
                       <h2 className="font-semibold text-base sm:text-lg line-clamp-2">{product.title}</h2>
+                      {selectedVariant && (
+                        <p className="text-sm font-medium text-violet-600 mt-0.5">
+                          {selectedVariant.name}
+                        </p>
+                      )}
                       <p className="text-sm text-muted-foreground truncate">{creator.name}</p>
                       <div className="mt-2 flex items-center justify-between gap-2">
                         <span className="text-sm text-muted-foreground">Qty: 1</span>

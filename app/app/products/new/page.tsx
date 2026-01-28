@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,6 +49,10 @@ import {
   ChevronUp,
   ChevronDown,
   Layers,
+  ExternalLink,
+  CheckCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 import Link from "next/link"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
@@ -102,6 +106,8 @@ const getYouTubeThumbnail = (videoId: string): string => {
 
 export default function NewProductPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editProductId = searchParams.get("edit") // Get product ID if editing
   const [activeSection, setActiveSection] = useState<SectionId>("about")
   const [completedSections, setCompletedSections] = useState<Set<SectionId>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
@@ -111,6 +117,12 @@ export default function NewProductPage() {
   const [productId, setProductId] = useState<string | null>(null)
   const [creator, setCreator] = useState<any>(null)
   const [isPageReady, setIsPageReady] = useState(false)
+
+  // Product status tracking
+  const [isPublished, setIsPublished] = useState(false)
+  const [showNotification, setShowNotification] = useState(false)
+  const [notificationMessage, setNotificationMessage] = useState("")
+  const [justSaved, setJustSaved] = useState(false) // Track if just saved (for button state)
 
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -201,8 +213,12 @@ export default function NewProductPage() {
   useEffect(() => {
     if (title || description || price || mediaItems.length > 0 || digitalFiles.length > 0) {
       setHasUnsavedChanges(true)
+      // If we had just saved and now making changes, reset justSaved so button shows "Save changes" again
+      if (justSaved) {
+        setJustSaved(false)
+      }
     }
-  }, [title, description, price, mediaItems, digitalFiles])
+  }, [title, description, price, mediaItems, digitalFiles, justSaved])
 
   // Handle browser back/refresh with unsaved changes
   useEffect(() => {
@@ -397,9 +413,116 @@ export default function NewProductPage() {
       }
       setCreatorId(creatorData.id)
       setCreator(creatorData)
+
+      // If editing, load the existing product
+      if (editProductId) {
+        const { data: product } = await supabase
+          .from("products")
+          .select("*")
+          .eq("id", editProductId)
+          .eq("creator_id", creatorData.id)
+          .single()
+
+        if (product) {
+          setProductId(product.id)
+          setTitle(product.title || "")
+          setDescription(product.description || "")
+          setPrice(product.price_cents ? (product.price_cents / 100).toString() : "")
+          setCompareAtPrice(product.compare_at_cents ? (product.compare_at_cents / 100).toString() : "")
+          setSlug(product.slug || "")
+          setProductType(product.type || "digital")
+          setShowSalesBadge(product.show_sales_badge !== false)
+          setRefundPolicyEnabled(product.refund_policy_enabled || false)
+          setRefundPolicyType(product.refund_policy_type || "7_day")
+          setSeoTitle(product.seo_title || "")
+          setSeoDescription(product.seo_description || "")
+          setCallToAction(product.call_to_action || "")
+          setIsPublished(product.status === "published")
+
+          // Load media items
+          const mediaList: MediaItem[] = []
+
+          // Add thumbnail/gallery images
+          if (product.thumbnail_url) {
+            mediaList.push({
+              id: `image-0`,
+              type: "image",
+              url: product.thumbnail_url,
+            })
+          }
+          if (product.gallery_urls && Array.isArray(product.gallery_urls)) {
+            product.gallery_urls.forEach((url: string, idx: number) => {
+              if (url !== product.thumbnail_url) {
+                mediaList.push({
+                  id: `image-${idx + 1}`,
+                  type: "image",
+                  url: url,
+                })
+              }
+            })
+          }
+
+          // Add YouTube video
+          if (product.video_url) {
+            const videoId = parseYouTubeUrl(product.video_url)
+            if (videoId) {
+              mediaList.push({
+                id: `youtube-${videoId}`,
+                type: "youtube",
+                url: product.video_url,
+                thumbnailUrl: getYouTubeThumbnail(videoId),
+              })
+            }
+          }
+          setMediaItems(mediaList)
+
+          // Load digital files
+          const { data: assets } = await supabase
+            .from("digital_assets")
+            .select("*")
+            .eq("product_id", product.id)
+
+          if (assets) {
+            setDigitalFiles(assets.map(asset => ({
+              id: asset.id,
+              file_name: asset.file_name,
+              file_path: asset.file_path,
+              file_size: asset.file_size,
+              mime_type: asset.mime_type,
+            })))
+          }
+
+          // Load variants
+          const { data: productVariants } = await supabase
+            .from("product_variants")
+            .select(`
+              id, name, description, additional_price_cents, max_purchases, position,
+              product_variant_files (
+                digital_asset_id
+              )
+            `)
+            .eq("product_id", product.id)
+            .order("position")
+
+          if (productVariants) {
+            setVariants(productVariants.map(v => ({
+              id: v.id,
+              name: v.name,
+              description: v.description || "",
+              additionalPrice: v.additional_price_cents ? (v.additional_price_cents / 100).toString() : "0",
+              maxPurchases: v.max_purchases ? v.max_purchases.toString() : "",
+              isExpanded: false,
+              assignedFiles: v.product_variant_files?.map((pvf: any) => pvf.digital_asset_id) || [],
+            })))
+          }
+
+          // Mark that there are no unsaved changes initially when editing
+          setHasUnsavedChanges(false)
+        }
+      }
     }
     getCreator()
-  }, [router])
+  }, [router, editProductId])
 
   // Auto-generate slug and SEO from title
   useEffect(() => {
@@ -604,8 +727,12 @@ export default function NewProductPage() {
           return
         }
 
-        // Fill with dark background (matches the placeholder style)
-        ctx.fillStyle = "#1f1f1f"
+        // Fill with light gray gradient background (smooth white to very light gray)
+        const gradient = ctx.createLinearGradient(0, 0, targetWidth, targetHeight)
+        gradient.addColorStop(0, "#f8f8f8")
+        gradient.addColorStop(0.5, "#f0f0f0")
+        gradient.addColorStop(1, "#e8e8e8")
+        ctx.fillStyle = gradient
         ctx.fillRect(0, 0, targetWidth, targetHeight)
 
         // Calculate dimensions to fit image within the canvas while maintaining aspect ratio
@@ -1117,11 +1244,61 @@ export default function NewProductPage() {
     }
 
     setIsLoading(true)
-    const savedProductId = await saveProduct(false)
+    // Always publish when saving
+    const savedProductId = await saveProduct(true)
     setIsLoading(false)
 
     if (savedProductId) {
-      router.push(`/app/products/${savedProductId}`)
+      // Stay on the same page, don't redirect
+      setIsPublished(true)
+      setJustSaved(true)
+      setHasUnsavedChanges(false)
+
+      // Show success notification
+      setNotificationMessage("Product is live and saved!")
+      setShowNotification(true)
+
+      // Hide notification after 5 seconds
+      setTimeout(() => {
+        setShowNotification(false)
+      }, 5000)
+    }
+  }
+
+  // Handle publish/unpublish toggle
+  const handleTogglePublish = async () => {
+    if (!productId || !creatorId) return
+
+    setIsLoading(true)
+    const supabase = createClient()
+
+    try {
+      const newStatus = isPublished ? "draft" : "published"
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({ status: newStatus })
+        .eq("id", productId)
+
+      if (updateError) throw updateError
+
+      setIsPublished(!isPublished)
+      setNotificationMessage(isPublished ? "Product unpublished" : "Product is live!")
+      setShowNotification(true)
+
+      setTimeout(() => {
+        setShowNotification(false)
+      }, 5000)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Handle redirect to live product page
+  const handleRedirectToProduct = () => {
+    if (slug) {
+      window.open(`/p/${slug}`, "_blank")
     }
   }
 
@@ -1317,6 +1494,18 @@ export default function NewProductPage() {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+      {/* Success Notification */}
+      {showNotification && (
+        <div
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 fade-in duration-300"
+        >
+          <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-xl shadow-lg">
+            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <span className="text-sm font-medium text-green-800">{notificationMessage}</span>
+          </div>
+        </div>
+      )}
+
       {/* Sticky Header with Title and Pills */}
       <div
         ref={pillBarRef}
@@ -1348,7 +1537,52 @@ export default function NewProductPage() {
               >
                 <ChevronLeft className="h-5 w-5" />
               </Link>
-              <h1 className="text-lg sm:text-xl lg:text-[22px] font-semibold text-gray-900 tracking-tight">New Product</h1>
+              <h1 className="text-lg sm:text-xl lg:text-[22px] font-semibold text-gray-900 tracking-tight">
+                {productId ? "Edit Product" : "New Product"}
+              </h1>
+
+              {/* Publish/Unpublish and Redirect buttons - show when product exists */}
+              {productId && (
+                <div className="ml-auto flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTogglePublish}
+                    disabled={isLoading}
+                    className={`h-8 px-3 text-xs font-medium rounded-lg transition-colors ${
+                      isPublished
+                        ? "text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100"
+                        : "text-green-700 border-green-200 bg-green-50 hover:bg-green-100"
+                    }`}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : isPublished ? (
+                      <>
+                        <EyeOff className="h-3.5 w-3.5 mr-1.5" />
+                        Unpublish
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        Publish
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRedirectToProduct}
+                    disabled={!slug}
+                    className="h-8 px-3 text-xs font-medium rounded-lg text-gray-700 border-gray-200 hover:bg-gray-100"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    View Live
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Pills Row */}
@@ -2430,13 +2664,22 @@ export default function NewProductPage() {
             <Button
               type="button"
               onClick={handleSaveChanges}
-              disabled={isLoading || !title.trim()}
-              className="bg-violet-500 hover:bg-violet-600 text-white h-10 sm:h-10 px-6 sm:px-6 text-sm sm:text-sm rounded-lg font-medium"
+              disabled={isLoading || !title.trim() || justSaved}
+              className={`h-10 sm:h-10 px-6 sm:px-6 text-sm sm:text-sm rounded-lg font-medium transition-colors ${
+                justSaved
+                  ? "bg-green-500 text-white cursor-default"
+                  : "bg-violet-500 hover:bg-violet-600 text-white"
+              }`}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 animate-spin" />
-                  Saving...
+                  Publishing...
+                </>
+              ) : justSaved ? (
+                <>
+                  <CheckCircle className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5" />
+                  Published
                 </>
               ) : (
                 <>

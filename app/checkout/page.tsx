@@ -5,11 +5,11 @@ import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
 
 interface CheckoutPageProps {
-  searchParams: Promise<{ productId?: string }>
+  searchParams: Promise<{ productId?: string; variantId?: string }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId } = await searchParams
+  const { productId, variantId } = await searchParams
 
   if (!productId) {
     redirect("/explore")
@@ -43,6 +43,21 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
 
   const creatorUsername = creatorProfile?.username || creator?.slug || ""
 
+  // Fetch variant if specified
+  let selectedVariant = null
+  if (variantId) {
+    const { data: variant } = await supabase
+      .from("product_variants")
+      .select("id, name, description, additional_price_cents")
+      .eq("id", variantId)
+      .eq("product_id", productId)
+      .single()
+
+    if (variant) {
+      selectedVariant = variant
+    }
+  }
+
   // Check if user is logged in and already owns the product
   const {
     data: { user },
@@ -61,6 +76,9 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
+  // Calculate final price with variant additional price
+  const finalPriceCents = product.price_cents + (selectedVariant?.additional_price_cents || 0)
+
   return (
     <CheckoutPageClient
       product={{
@@ -68,7 +86,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         title: product.title,
         slug: product.slug,
         description: product.description,
-        price_cents: product.price_cents,
+        price_cents: finalPriceCents,
         thumbnail_url: product.thumbnail_url,
         type: product.type,
       }}
@@ -80,6 +98,12 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       }}
       userEmail={user?.email || null}
       isLoggedIn={!!user}
+      selectedVariant={selectedVariant ? {
+        id: selectedVariant.id,
+        name: selectedVariant.name,
+        description: selectedVariant.description,
+        additionalPrice: selectedVariant.additional_price_cents,
+      } : null}
     />
   )
 }
