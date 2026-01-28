@@ -2265,7 +2265,7 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {faqs.map((faq, index) => (
+                  {faqs.map((faq) => (
                     <div
                       key={faq.id}
                       className="border border-gray-200 rounded-xl overflow-hidden bg-white"
@@ -2346,9 +2346,8 @@ export default function NewProductPage() {
                   <p className="text-xs sm:text-sm text-gray-500">
                     Upload files customers will receive (max 5GB each).
                   </p>
-                </div>
 
-                {digitalFiles.length > 0 && (
+                  {digitalFiles.length > 0 && (
                     <div className="space-y-2 mt-2">
                       {digitalFiles.map((file) => (
                         <div
