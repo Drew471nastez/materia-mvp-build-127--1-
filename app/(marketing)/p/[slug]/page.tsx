@@ -680,13 +680,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   const creatorUsername = creatorProfile?.username || creator?.slug || "creator"
 
-  // Use gallery_urls directly if available (it already includes the thumbnail as first image)
-  // Only fall back to thumbnail_url if no gallery_urls exist
-  const galleryImages = product.gallery_urls?.length
-    ? (product.gallery_urls.filter(Boolean) as string[])
-    : product.thumbnail_url
-      ? [product.thumbnail_url]
-      : []
+  // Check if a URL is a YouTube thumbnail (used for product listings only, not gallery display)
+  const isYouTubeThumbnailUrl = (url: string | null) => {
+    return url?.includes('img.youtube.com') || url?.includes('i.ytimg.com')
+  }
 
   // Extract YouTube URLs from video_url if it's a YouTube embed
   const youtubeUrls: string[] = []
@@ -699,6 +696,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       videoFileUrl = product.video_url
     }
   }
+
+  // Use gallery_urls directly if available, filtering out YouTube thumbnail URLs
+  // YouTube thumbnails are only for product listings, not for gallery display
+  // If only YouTube embed exists (no real images), galleryImages should be empty
+  // The ProductGallery component will show the YouTube embed from youtubeUrls
+  const galleryImages = product.gallery_urls?.length
+    ? (product.gallery_urls.filter((url: string) => url && !isYouTubeThumbnailUrl(url)) as string[])
+    : (product.thumbnail_url && !isYouTubeThumbnailUrl(product.thumbnail_url))
+      ? [product.thumbnail_url]
+      : []
 
   const srcParam = src === "platform" ? "?src=platform" : ""
 
