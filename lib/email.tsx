@@ -122,6 +122,7 @@ export interface SendBuyerEmailParams {
   receiptToken: string
   sellerReplyTo?: string
   baseUrl?: string
+  variantName?: string | null
 }
 
 export interface SendSellerEmailParams {
@@ -135,6 +136,7 @@ export interface SendSellerEmailParams {
   amountCents: number
   feeCents: number
   baseUrl?: string
+  variantName?: string | null
 }
 
 // -------------------------
@@ -361,9 +363,12 @@ function buyerEmailHtml(params: {
   supportEmail: string
   footerBrand: string
   sellerName?: string
+  variantName?: string | null
 }) {
   const firstName = safeName(params.buyerFirstName) || "there"
   const productTitle = safeText(params.productTitle)
+  const variantName = params.variantName ? safeText(params.variantName) : null
+  const displayTitle = variantName ? `${productTitle} (${variantName})` : productTitle
   const receiptLink = params.receiptLink
   const supportEmail = params.supportEmail
   const footerBrand = safeText(params.footerBrand)
@@ -395,7 +400,7 @@ function buyerEmailHtml(params: {
             <td style="padding:34px 34px 12px;">
               <p style="margin:0 0 16px 0;font-size:16px;color:#111827;">Hi ${firstName},</p>
               <p style="margin:0 0 18px 0;font-size:15px;color:#374151;line-height:1.55;">
-                Thanks for getting <strong>${productTitle}</strong>. Your download is ready.
+                Thanks for getting <strong>${displayTitle}</strong>. Your download is ready.
               </p>
 
               <table role="presentation" style="width:100%;background:#f3f4f6;border-radius:10px;padding:18px;margin:0 0 22px 0;">
@@ -403,6 +408,7 @@ function buyerEmailHtml(params: {
                   <td>
                     <p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.9px;font-weight:700;">Product</p>
                     <p style="margin:0;font-size:18px;font-weight:800;color:#111827;">${productTitle}</p>
+                    ${variantName ? `<p style="margin:4px 0 0 0;font-size:14px;font-weight:600;color:#7c3aed;">${variantName}</p>` : ''}
                   </td>
                 </tr>
               </table>
@@ -441,14 +447,16 @@ function buyerEmailHtml(params: {
 </html>`
 }
 
-function buyerEmailText(params: { buyerFirstName: string; productTitle: string; receiptLink: string }) {
+function buyerEmailText(params: { buyerFirstName: string; productTitle: string; receiptLink: string; variantName?: string | null }) {
   const firstName = safeName(params.buyerFirstName) || "there"
   const productTitle = safeText(params.productTitle)
+  const variantName = params.variantName ? safeText(params.variantName) : null
+  const displayTitle = variantName ? `${productTitle} (${variantName})` : productTitle
   const receiptLink = params.receiptLink
 
   return `Hi ${firstName},
 
-Thanks for getting "${productTitle}". Your download is ready.
+Thanks for getting "${displayTitle}". Your download is ready.
 
 Download: ${receiptLink}
 
@@ -464,8 +472,10 @@ function sellerEmailHtml(params: {
   feeCents: number
   ordersLink: string
   footerBrand: string
+  variantName?: string | null
 }) {
   const productTitle = safeText(params.productTitle)
+  const variantName = params.variantName ? safeText(params.variantName) : null
   const buyerFirstName = safeName(params.buyerFirstName)
   const buyerLastName = safeName(params.buyerLastName)
   const buyerEmail = safeText(params.buyerEmail)
@@ -529,6 +539,7 @@ function sellerEmailHtml(params: {
                   <td>
                     <p style="margin:0 0 6px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">Product Sold</p>
                     <p style="margin:0;font-size:18px;font-weight:700;color:#111827;">${productTitle}</p>
+                    ${variantName ? `<p style="margin:4px 0 0 0;font-size:14px;font-weight:600;color:#7c3aed;">${variantName}</p>` : ''}
                   </td>
                 </tr>
               </table>
@@ -607,15 +618,20 @@ function sellerEmailText(params: {
   amountCents: number
   feeCents: number
   ordersLink: string
+  variantName?: string | null
 }) {
   const isFree = params.amountCents === 0
   const earnings = params.amountCents - params.feeCents
   const formatUSD = (cents: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+  const variantName = params.variantName ? safeText(params.variantName) : null
+  const productLine = variantName
+    ? `Product: ${safeText(params.productTitle)} (${variantName})`
+    : `Product: ${safeText(params.productTitle)}`
 
   return `Cha-Ching! You just made a sale!
 
-Product: ${safeText(params.productTitle)}
+${productLine}
 Customer: ${safeName(params.buyerFirstName)} ${safeName(params.buyerLastName)} (${safeText(params.buyerEmail)})
 ${isFree ? "Type: Free Download" : `Amount: ${formatUSD(params.amountCents)}\nYour Earnings: ${formatUSD(earnings)}`}
 
@@ -633,7 +649,7 @@ export async function sendBuyerDownloadEmail(
   params: SendBuyerEmailParams,
   attempt = 1,
 ): Promise<{ success: boolean; error?: string; logId?: string }> {
-  const { orderId, creatorId, buyerEmail, buyerFirstName, productTitle, receiptToken, sellerReplyTo, baseUrl } = params
+  const { orderId, creatorId, buyerEmail, buyerFirstName, productTitle, receiptToken, sellerReplyTo, baseUrl, variantName } = params
 
   const alreadySent = await wasEmailAlreadySent(admin, orderId, "buyer_download")
   if (alreadySent) return { success: true }
@@ -666,7 +682,8 @@ export async function sendBuyerDownloadEmail(
 
   const receiptLink = buildUrl(`/receipt/${encodeURIComponent(receiptToken)}`, baseUrl)
   const customerEmail = normalizeEmail(buyerEmail)
-  const subject = `Your download is ready - ${safeText(productTitle)}`
+  const displayTitle = variantName ? `${safeText(productTitle)} (${safeText(variantName)})` : safeText(productTitle)
+  const subject = `Your download is ready - ${displayTitle}`
 
   try {
     console.log("[email] 📧 Attempting to send buyer email:", {
@@ -690,8 +707,9 @@ export async function sendBuyerDownloadEmail(
             supportEmail: replyTo,
             footerBrand: fromName,
             sellerName: fromName,
+            variantName,
           }),
-          text: buyerEmailText({ buyerFirstName, productTitle, receiptLink }),
+          text: buyerEmailText({ buyerFirstName, productTitle, receiptLink, variantName }),
         })
 
         if (!response.success) {
@@ -733,6 +751,7 @@ export async function sendSellerNotificationEmail(
     amountCents,
     feeCents,
     baseUrl,
+    variantName,
   } = params
 
   console.log("[email] 🔔 Sending seller notification email:", {
@@ -804,6 +823,7 @@ export async function sendSellerNotificationEmail(
             feeCents,
             ordersLink,
             footerBrand: PLATFORM_BRAND_NAME,
+            variantName,
           }),
           text: sellerEmailText({
             productTitle,
@@ -813,6 +833,7 @@ export async function sendSellerNotificationEmail(
             amountCents,
             feeCents,
             ordersLink,
+            variantName,
           }),
         })
 
@@ -905,6 +926,7 @@ export async function sendOrderEmails(
       receiptToken,
       sellerReplyTo: sellerEmail, // Buyer can reply to seller!
       baseUrl,
+      variantName,
     })
     console.log("[sendOrderEmails] Buyer email result:", buyerResult.success ? "✅ sent" : "❌ failed", buyerResult.error || "")
   } catch (buyerErr: any) {
@@ -927,6 +949,7 @@ export async function sendOrderEmails(
       amountCents,
       feeCents,
       baseUrl,
+      variantName,
     })
     console.log("[sendOrderEmails] Seller email result:", sellerResult.success ? "✅ sent" : "❌ failed", sellerResult.error || "")
   } catch (sellerErr: any) {
