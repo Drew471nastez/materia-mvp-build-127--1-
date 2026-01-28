@@ -893,6 +893,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 serverAssetId={firstAssetId}
                 serverPurchasedVariantId={purchasedVariantId}
                 variants={variants}
+                callToAction={product.call_to_action}
                 buyButtonBgColor={buyButtonColor}
                 buyButtonTextColor={buyButtonTextColor}
                 downloadButtonBgColor={downloadButtonBgColor}
@@ -1181,6 +1182,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             serverAssetId={firstAssetId}
             serverPurchasedVariantId={purchasedVariantId}
             variants={variants}
+            callToAction={product.call_to_action}
             buyButtonBgColor={buyButtonColor}
             buyButtonTextColor={buyButtonTextColor}
             downloadButtonBgColor={downloadButtonBgColor}

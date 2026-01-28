@@ -3052,8 +3052,8 @@ export function UnifiedProductPage({
   // Get category badge text (use first category name, fallback to type)
   const categoryBadgeText = product?.categories?.[0]?.name || productType
 
-  // Determine button text: "Add to cart" if price > 0, else "Get for Free"
-  const buttonText = productPrice === 0 ? "Get for Free" : "Add to cart"
+  // Determine button text: Use call_to_action if set, otherwise default based on price
+  const buttonText = product?.call_to_action || (productPrice === 0 ? "Get for Free" : "I want this!")
 
   const galleryImages = product?.gallery_urls?.length
     ? ([product.thumbnail_url, ...product.gallery_urls].filter(Boolean) as string[])

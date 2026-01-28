@@ -12,9 +12,10 @@ interface BuyButtonProps {
   backgroundColor?: string
   textColor?: string
   variantId?: string
+  callToAction?: string | null
 }
 
-export function BuyButton({ productId, price, disabled, creatorId, backgroundColor, textColor, variantId }: BuyButtonProps) {
+export function BuyButton({ productId, price, disabled, creatorId, backgroundColor, textColor, variantId, callToAction }: BuyButtonProps) {
   const [loading, setLoading] = useState(false)
 
   const formatPrice = (cents: number) => {
@@ -70,9 +71,9 @@ export function BuyButton({ productId, price, disabled, creatorId, backgroundCol
           Loading...
         </>
       ) : price === 0 ? (
-        "Get for Free"
+        callToAction || "Get for Free"
       ) : (
-        "Add to cart"
+        callToAction || "I want this!"
       )}
     </Button>
   )

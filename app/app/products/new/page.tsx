@@ -725,6 +725,38 @@ export default function NewProductPage() {
     }
   }, [description, title])
 
+  // Auto-populate SEO description from product description when not manually edited
+  useEffect(() => {
+    // Skip if user has manually edited the SEO description
+    if (seoManuallyEditedRef.current) return
+
+    // Skip if no description content
+    if (!description || description.length < 10) return
+
+    // Clean HTML tags and normalize whitespace
+    let cleanText = description
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/&nbsp;/g, ' ') // Replace &nbsp;
+      .replace(/&amp;/g, '&') // Replace &amp;
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+
+    // Truncate to fit SEO description length (max 155-160 characters)
+    if (cleanText.length > 155) {
+      cleanText = cleanText.substring(0, 155).trim()
+      const lastSpace = cleanText.lastIndexOf(' ')
+      if (lastSpace > 100) {
+        cleanText = cleanText.substring(0, lastSpace)
+      }
+      cleanText += '...'
+    }
+
+    // Only update if we have content
+    if (cleanText.length > 0) {
+      setSeoDescription(cleanText)
+    }
+  }, [description])
+
   // Track changes for unsaved warning - compare against last saved values
   useEffect(() => {
     // Create a snapshot of current values

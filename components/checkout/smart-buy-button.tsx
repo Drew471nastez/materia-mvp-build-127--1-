@@ -12,6 +12,7 @@ interface SmartBuyButtonProps {
   creatorId?: string
   backgroundColor?: string
   textColor?: string
+  callToAction?: string | null
   // For when server already knows purchase status
   serverHasPurchased?: boolean
   serverAssetId?: string | null
@@ -38,6 +39,7 @@ export function SmartBuyButton({
   creatorId,
   backgroundColor,
   textColor,
+  callToAction,
   serverHasPurchased = false,
   serverAssetId = null,
 }: SmartBuyButtonProps) {
@@ -213,7 +215,7 @@ export function SmartBuyButton({
           Loading...
         </>
       ) : (
-        `Buy - ${formatPrice(price)}`
+        callToAction || (price === 0 ? "Get for Free" : "I want this!")
       )}
     </Button>
   )

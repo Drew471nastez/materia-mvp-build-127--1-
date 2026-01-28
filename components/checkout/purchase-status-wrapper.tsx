@@ -20,6 +20,8 @@ interface PurchaseStatusWrapperProps {
   serverPurchasedVariantId?: string | null // The variant that was purchased (if any)
   // Variants
   variants?: ProductVariant[]
+  // Call to action text for buy button
+  callToAction?: string | null
   // Button colors
   buyButtonBgColor?: string
   buyButtonTextColor?: string
@@ -65,6 +67,7 @@ export function PurchaseStatusWrapper({
   serverAssetId = null,
   serverPurchasedVariantId = null,
   variants = [],
+  callToAction,
   buyButtonBgColor,
   buyButtonTextColor,
   downloadButtonBgColor,
@@ -200,6 +203,7 @@ export function PurchaseStatusWrapper({
             backgroundColor={buyButtonBgColor}
             textColor={buyButtonTextColor}
             variantId={selectedVariant?.id}
+            callToAction={callToAction}
           />
           {notPurchasedExtraContent}
         </>
