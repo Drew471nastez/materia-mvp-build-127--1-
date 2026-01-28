@@ -3507,6 +3507,16 @@ export default function NewProductPage() {
                       </DialogDescription>
                     </DialogHeader>
 
+                    {/* Sticky Search Bar */}
+                    <div className="flex-shrink-0 px-4 sm:px-6 py-3 border-b bg-white">
+                      <Input
+                        placeholder="Search 170+ categories..."
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        className="h-10 sm:h-11 text-sm sm:text-base rounded-lg"
+                      />
+                    </div>
+
                     <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-3 sm:pt-4">
                       {/* AI Suggestion - Modern Badge Style */}
                       {suggestedCategory && (
@@ -3540,15 +3550,6 @@ export default function NewProductPage() {
                           </button>
                         </div>
                       )}
-
-                      <div className="mb-3">
-                        <Input
-                          placeholder="Search 170+ categories..."
-                          value={categorySearch}
-                          onChange={(e) => setCategorySearch(e.target.value)}
-                          className="h-10 sm:h-11 text-sm sm:text-base rounded-lg"
-                        />
-                      </div>
 
                       <div className="space-y-0.5">
                         {CATEGORIES.filter(cat =>

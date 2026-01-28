@@ -74,15 +74,16 @@ export function ProductGallery({
   const imageRef = useRef<HTMLDivElement>(null)
   const autoplayRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Build media items array: images first, then video, then YouTube
+  // Build media items array: YouTube FIRST (if exists), then images, then video
+  // This ensures YouTube embeds show first in the gallery when set by creator
   const mediaItems: MediaItem[] = [
-    ...images.map(url => ({ url, type: "image" as const })),
-    ...(videoUrl ? [{ url: videoUrl, type: "video" as const }] : []),
     ...youtubeUrls.map(url => ({
       url,
       type: "youtube" as const,
       thumbnailUrl: getYouTubeThumbnail(url)
-    }))
+    })),
+    ...images.map(url => ({ url, type: "image" as const })),
+    ...(videoUrl ? [{ url: videoUrl, type: "video" as const }] : []),
   ]
 
   // Get YouTube video ID from embed URL

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { Check } from "lucide-react"
 
 export interface ProductVariant {
   id: string
@@ -85,38 +84,41 @@ export function VariantSelector({
               onClick={() => handleVariantSelect(variant)}
               disabled={variants.length === 1}
               className={cn(
-                "w-full text-left rounded-xl border-2 p-3 sm:p-4 transition-all duration-200",
+                "w-full text-left rounded-xl p-3 sm:p-4 transition-all duration-200",
                 isSelected
-                  ? "border-black bg-gray-50"
-                  : "border-gray-200 hover:border-gray-300 bg-white",
+                  ? "bg-gray-50"
+                  : "bg-white hover:border-gray-300",
                 variants.length === 1 && "cursor-default"
               )}
               style={{
-                borderColor: isSelected
-                  ? themeColors?.accentColor || "#000000"
-                  : themeColors?.cardBorderColor || undefined,
+                border: isSelected
+                  ? `3px solid ${themeColors?.accentColor || "#000000"}B3` // ~70% opacity with thicker border
+                  : `2px solid ${themeColors?.cardBorderColor || "#e5e7eb"}`,
                 backgroundColor: isSelected
                   ? `${themeColors?.accentColor || "#000000"}08`
                   : themeColors?.cardBackground || undefined,
               }}
             >
               <div className="flex items-start gap-3">
-                {/* Selection indicator - themed radio button */}
+                {/* Selection indicator - dot radio button */}
                 <div
                   className={cn(
                     "flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition-colors",
-                    isSelected ? "border-black bg-black" : "border-gray-300"
+                    isSelected ? "border-black" : "border-gray-300"
                   )}
                   style={{
                     borderColor: isSelected
                       ? themeColors?.accentColor || "#000000"
                       : themeColors?.cardBorderColor || "#d1d5db",
-                    backgroundColor: isSelected
-                      ? themeColors?.accentColor || "#000000"
-                      : "transparent",
+                    backgroundColor: "transparent",
                   }}
                 >
-                  {isSelected && <Check className="w-3 h-3 text-white" />}
+                  {isSelected && (
+                    <div
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: themeColors?.accentColor || "#000000" }}
+                    />
+                  )}
                 </div>
 
                 {/* Variant info - only name, price, description */}

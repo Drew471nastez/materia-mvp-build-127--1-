@@ -22,7 +22,7 @@ interface SelectedVariant {
   id: string
   name: string
   description: string | null
-  additionalPrice: number
+  priceCents: number // FINAL price for this variant
 }
 
 interface CheckoutPageClientProps {
