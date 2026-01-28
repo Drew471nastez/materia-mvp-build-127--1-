@@ -258,54 +258,183 @@ export default function NewProductPage() {
   const [limitSalesEnabled, setLimitSalesEnabled] = useState(false)
   const [salesLimit, setSalesLimit] = useState("")
 
-  // Categories list (120+ options)
+  // AI suggestion states
+  const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
+  const [isGeneratingSeo, setIsGeneratingSeo] = useState(false)
+
+  // Categories list (170+ options)
   const CATEGORIES = [
     // Digital Products
-    "3D Assets", "Ebooks", "Digital Art", "Stock Photos", "Stock Videos", "Audio Files",
-    "Music Tracks", "Sound Effects", "Fonts", "Icons", "Graphics", "Illustrations",
-    "Templates", "Mockups", "Presentations", "Resume Templates", "Business Cards",
-    "Social Media Templates", "Website Templates", "Mobile App Templates",
+    "3D Assets", "3D Models", "3D Printing Files", "Ebooks", "Digital Art", "Stock Photos", "Stock Videos", "Audio Files",
+    "Music Tracks", "Sound Effects", "Fonts", "Icons", "Graphics", "Illustrations", "Vector Art", "Clip Art",
+    "Templates", "Mockups", "Presentations", "Resume Templates", "Business Cards", "Flyers", "Posters", "Brochures",
+    "Social Media Templates", "Website Templates", "Mobile App Templates", "Email Templates", "Newsletter Designs",
     // Software & Development
-    "Software", "Plugins", "Extensions", "Code Snippets", "Scripts", "APIs",
-    "WordPress Themes", "WordPress Plugins", "Shopify Themes", "Web Apps",
-    "Mobile Apps", "Desktop Apps", "Games", "Game Assets", "Unity Assets",
-    "Unreal Assets", "Source Code", "Databases", "Development Tools",
+    "Software", "Plugins", "Extensions", "Code Snippets", "Scripts", "APIs", "SDKs", "Libraries", "Frameworks",
+    "WordPress Themes", "WordPress Plugins", "Shopify Themes", "Shopify Apps", "Web Apps", "SaaS Products",
+    "Mobile Apps", "Desktop Apps", "Games", "Game Assets", "Unity Assets", "Sprites", "Tilesets",
+    "Unreal Assets", "Source Code", "Databases", "Development Tools", "CLI Tools", "DevOps Tools",
+    "AI Models", "Machine Learning", "Datasets", "Algorithms", "Bots", "Automation Scripts",
     // Design & Creative
-    "Photoshop Actions", "Lightroom Presets", "Procreate Brushes", "Design Systems",
-    "UI Kits", "Wireframes", "Prototypes", "Brand Kits", "Logo Templates",
-    "Pattern Designs", "Textures", "Backgrounds", "Overlays", "Filters",
+    "Photoshop Actions", "Photoshop Brushes", "Lightroom Presets", "Lightroom Profiles", "Procreate Brushes", "Procreate Stamps",
+    "Design Systems", "UI Kits", "Wireframes", "Prototypes", "Brand Kits", "Brand Guidelines", "Logo Templates", "Logo Packs",
+    "Pattern Designs", "Textures", "Backgrounds", "Overlays", "Filters", "Color Palettes", "Gradients",
+    "Figma Templates", "Sketch Templates", "Adobe XD Templates", "Canva Templates", "Notion Templates",
     // Education & Courses
-    "Online Courses", "Tutorials", "Workshops", "Masterclasses", "Video Lessons",
-    "Educational Content", "Study Guides", "Cheat Sheets", "Flashcards",
-    "Language Learning", "Test Prep", "Certifications",
+    "Online Courses", "Video Courses", "Tutorials", "Workshops", "Masterclasses", "Video Lessons", "Webinars",
+    "Educational Content", "Study Guides", "Cheat Sheets", "Flashcards", "Quizzes",
+    "Language Learning", "Test Prep", "Certifications", "Training Materials", "Curriculum",
     // Business & Marketing
-    "Business Plans", "Marketing Plans", "Sales Funnels", "Email Templates",
-    "Landing Pages", "Lead Magnets", "Case Studies", "White Papers",
-    "Reports", "Analytics Templates", "CRM Templates", "Project Management",
-    "Spreadsheets", "Financial Models", "Invoices", "Contracts",
+    "Business Plans", "Marketing Plans", "Sales Funnels", "Marketing Funnels",
+    "Landing Pages", "Lead Magnets", "Case Studies", "White Papers", "Pitch Decks",
+    "Reports", "Analytics Templates", "CRM Templates", "Project Management", "SOPs",
+    "Spreadsheets", "Financial Models", "Invoices", "Contracts", "Legal Templates", "NDA Templates",
+    "Proposal Templates", "Quotation Templates", "Business Proposals",
     // Writing & Content
-    "Writing Templates", "Content Calendars", "Blog Posts", "Articles",
-    "Copywriting Templates", "Ad Copy", "Sales Scripts", "Email Sequences",
-    "Newsletter Templates", "Documentation", "Guides", "Manuals",
+    "Writing Templates", "Content Calendars", "Blog Posts", "Articles", "Ghostwriting",
+    "Copywriting Templates", "Ad Copy", "Sales Scripts", "Email Sequences", "Cold Email Templates",
+    "Newsletter Templates", "Documentation", "Guides", "Manuals", "SOPs",
+    "Prompts", "AI Prompts", "ChatGPT Prompts", "Midjourney Prompts", "Prompt Packs",
     // Health & Fitness
-    "Workout Plans", "Meal Plans", "Nutrition Guides", "Recipe Books",
-    "Fitness Programs", "Meditation Guides", "Wellness Journals", "Health Trackers",
+    "Workout Plans", "Meal Plans", "Nutrition Guides", "Recipe Books", "Diet Plans",
+    "Fitness Programs", "Meditation Guides", "Wellness Journals", "Health Trackers", "Yoga Guides",
     // Personal Development
-    "Planners", "Journals", "Trackers", "Goal Setting", "Habit Trackers",
-    "Mindmaps", "Note Taking", "Productivity Systems", "Life Coaching",
+    "Planners", "Journals", "Trackers", "Goal Setting", "Habit Trackers", "Budget Planners",
+    "Mindmaps", "Note Taking", "Productivity Systems", "Life Coaching", "Self-Help Guides",
+    "Affirmation Cards", "Vision Boards", "Gratitude Journals",
     // Photography & Video
-    "Photo Presets", "Video LUTs", "Video Templates", "Motion Graphics",
-    "Transitions", "Lower Thirds", "Intros", "Outros", "Thumbnails",
+    "Photo Presets", "Video LUTs", "Video Templates", "Motion Graphics", "After Effects Templates",
+    "Transitions", "Lower Thirds", "Intros", "Outros", "Thumbnails", "YouTube Templates",
+    "Instagram Reels Templates", "TikTok Templates", "Premiere Pro Templates", "DaVinci Resolve Templates",
     // Art & Crafts
-    "Printables", "Coloring Pages", "Patterns", "SVG Files", "Cut Files",
+    "Printables", "Coloring Pages", "Patterns", "SVG Files", "Cut Files", "Cricut Designs",
     "Embroidery Designs", "Knitting Patterns", "Sewing Patterns", "Craft Templates",
+    "Stickers", "Labels", "Invitations", "Greeting Cards", "Wall Art", "Digital Planners",
     // Music & Audio
-    "Sample Packs", "Drum Kits", "Loops", "MIDI Files", "Presets",
-    "Vocal Samples", "Beats", "Instrumentals", "Podcasts", "Audiobooks",
+    "Sample Packs", "Drum Kits", "Loops", "MIDI Files", "Presets", "Synth Presets",
+    "Vocal Samples", "Beats", "Instrumentals", "Podcasts", "Audiobooks", "Sound Libraries",
+    "Ableton Templates", "FL Studio Templates", "Logic Pro Templates",
+    // NFTs & Crypto
+    "NFT Art", "NFT Collections", "Crypto Guides", "Trading Strategies", "DeFi Guides",
     // Other
-    "Memberships", "Subscriptions", "Coaching", "Consulting", "Services",
-    "Physical Products", "Bundles", "Collections", "Other",
+    "Memberships", "Subscriptions", "Coaching", "Consulting", "Services", "Freelance Services",
+    "Physical Products", "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other",
   ].sort()
+
+  // AI Category suggestion based on title and description
+  const suggestCategory = useCallback((text: string) => {
+    if (!text || text.length < 3) {
+      setSuggestedCategory(null)
+      return
+    }
+
+    const lowerText = text.toLowerCase()
+
+    // Category keywords mapping
+    const categoryKeywords: { [key: string]: string[] } = {
+      "Ebooks": ["ebook", "book", "pdf", "guide", "reading", "novel", "story"],
+      "Online Courses": ["course", "learn", "tutorial", "lesson", "training", "masterclass", "class"],
+      "Templates": ["template", "templates"],
+      "Notion Templates": ["notion"],
+      "Figma Templates": ["figma", "ui design"],
+      "Canva Templates": ["canva"],
+      "Social Media Templates": ["instagram", "tiktok", "social media", "facebook", "twitter", "linkedin"],
+      "Resume Templates": ["resume", "cv", "curriculum"],
+      "Lightroom Presets": ["lightroom", "lr preset", "photo preset"],
+      "Photoshop Actions": ["photoshop", "psd", "ps action"],
+      "Procreate Brushes": ["procreate", "brush", "brushes"],
+      "AI Prompts": ["prompt", "prompts", "chatgpt", "midjourney", "ai prompt", "gpt"],
+      "ChatGPT Prompts": ["chatgpt", "gpt prompt"],
+      "Midjourney Prompts": ["midjourney"],
+      "WordPress Themes": ["wordpress", "wp theme"],
+      "WordPress Plugins": ["wordpress plugin", "wp plugin"],
+      "Shopify Themes": ["shopify theme"],
+      "UI Kits": ["ui kit", "user interface", "ui/ux"],
+      "Icons": ["icon", "icons", "icon pack", "icon set"],
+      "Fonts": ["font", "fonts", "typeface", "typography"],
+      "Logos": ["logo", "logos", "branding"],
+      "Stock Photos": ["stock photo", "photo pack", "photography"],
+      "Stock Videos": ["stock video", "footage", "video clip"],
+      "Music Tracks": ["music", "track", "song", "audio"],
+      "Beats": ["beat", "beats", "instrumental", "hip hop", "trap"],
+      "Sample Packs": ["sample pack", "samples", "drum kit", "sounds"],
+      "Sound Effects": ["sound effect", "sfx", "audio effect"],
+      "Video LUTs": ["lut", "luts", "color grade", "color grading"],
+      "Workout Plans": ["workout", "fitness", "exercise", "gym"],
+      "Meal Plans": ["meal plan", "diet", "nutrition", "recipe"],
+      "Planners": ["planner", "planning", "schedule", "organizer"],
+      "Journals": ["journal", "journaling", "diary"],
+      "Spreadsheets": ["spreadsheet", "excel", "google sheets"],
+      "Financial Models": ["financial model", "finance", "investment", "budget"],
+      "Business Plans": ["business plan", "startup"],
+      "Printables": ["printable", "print", "wall art"],
+      "SVG Files": ["svg", "cut file", "cricut", "silhouette"],
+      "3D Assets": ["3d", "3d model", "blender", "maya"],
+      "Game Assets": ["game asset", "sprite", "tileset", "game art"],
+      "Plugins": ["plugin", "extension", "add-on"],
+      "Scripts": ["script", "automation", "code"],
+      "Source Code": ["source code", "github", "repository"],
+      "NFT Art": ["nft", "crypto art", "blockchain"],
+    }
+
+    // Find best matching category
+    let bestMatch: string | null = null
+    let bestScore = 0
+
+    for (const [category, keywords] of Object.entries(categoryKeywords)) {
+      for (const keyword of keywords) {
+        if (lowerText.includes(keyword)) {
+          const score = keyword.length // Longer matches are more specific
+          if (score > bestScore) {
+            bestScore = score
+            bestMatch = category
+          }
+        }
+      }
+    }
+
+    setSuggestedCategory(bestMatch)
+  }, [])
+
+  // Trigger category suggestion when title or description changes
+  useEffect(() => {
+    const text = `${title} ${description}`.trim()
+    suggestCategory(text)
+  }, [title, description, suggestCategory])
+
+  // AI-generated SEO description
+  const generateSeoDescription = useCallback(() => {
+    if (!description || description.length < 10) return
+
+    setIsGeneratingSeo(true)
+
+    // Simple AI-like summary generation (first 160 chars, cleaned up)
+    let summary = description
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+
+    // Truncate to ~155 chars for SEO best practices
+    if (summary.length > 155) {
+      summary = summary.substring(0, 155).trim()
+      // Don't cut off mid-word
+      const lastSpace = summary.lastIndexOf(' ')
+      if (lastSpace > 100) {
+        summary = summary.substring(0, lastSpace)
+      }
+      summary += '...'
+    }
+
+    setSeoDescription(summary)
+    setIsGeneratingSeo(false)
+  }, [description])
+
+  // Auto-generate SEO description when description changes (if SEO description is empty)
+  useEffect(() => {
+    if (description && !seoDescription) {
+      generateSeoDescription()
+    }
+  }, [description]) // Only run when description changes, not on every render
 
   // Track changes for unsaved warning - compare against last saved values
   useEffect(() => {
@@ -2886,24 +3015,44 @@ export default function NewProductPage() {
                   </Button>
                 </div>
 
-                {/* Category Modal */}
+                {/* Category Modal - Responsive */}
                 <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
-                  <DialogContent className="max-w-md max-h-[80vh]">
-                    <DialogHeader>
-                      <DialogTitle>Select Category</DialogTitle>
-                      <DialogDescription>
+                  <DialogContent className="w-[95vw] max-w-lg sm:max-w-xl max-h-[85vh] sm:max-h-[80vh] p-4 sm:p-6">
+                    <DialogHeader className="pb-2">
+                      <DialogTitle className="text-lg sm:text-xl">Select Category</DialogTitle>
+                      <DialogDescription className="text-sm text-gray-500">
                         Choose a category that best describes your product.
                       </DialogDescription>
                     </DialogHeader>
+
+                    {/* AI Suggestion - Subtle */}
+                    {suggestedCategory && !selectedCategory && (
+                      <div className="mt-2 mb-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory(suggestedCategory)
+                            setShowCategoryModal(false)
+                            setCategorySearch("")
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg text-sm transition-colors"
+                        >
+                          <span className="text-violet-600 text-xs font-medium">Suggested:</span>
+                          <span className="text-violet-900 font-medium">{suggestedCategory}</span>
+                          <span className="ml-auto text-violet-400 text-xs">Click to select</span>
+                        </button>
+                      </div>
+                    )}
+
                     <div className="mt-2">
                       <Input
-                        placeholder="Search categories..."
+                        placeholder="Search 170+ categories..."
                         value={categorySearch}
                         onChange={(e) => setCategorySearch(e.target.value)}
-                        className="h-10"
+                        className="h-10 sm:h-11 text-sm sm:text-base"
                       />
                     </div>
-                    <div className="mt-4 max-h-[300px] overflow-y-auto space-y-1">
+                    <div className="mt-3 max-h-[45vh] sm:max-h-[350px] overflow-y-auto space-y-0.5 pr-1">
                       {CATEGORIES.filter(cat =>
                         cat.toLowerCase().includes(categorySearch.toLowerCase())
                       ).map((category) => (
@@ -2915,22 +3064,27 @@ export default function NewProductPage() {
                             setShowCategoryModal(false)
                             setCategorySearch("")
                           }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                          className={`w-full text-left px-3 py-2.5 sm:py-2 rounded-lg text-sm sm:text-base transition-colors ${
                             selectedCategory === category
-                              ? "bg-violet-100 text-violet-900"
-                              : "hover:bg-gray-100 text-gray-700"
+                              ? "bg-violet-100 text-violet-900 font-medium"
+                              : category === suggestedCategory
+                                ? "bg-violet-50/50 text-violet-800 hover:bg-violet-100"
+                                : "hover:bg-gray-100 text-gray-700"
                           }`}
                         >
                           {category}
+                          {category === suggestedCategory && selectedCategory !== category && (
+                            <span className="ml-2 text-xs text-violet-400">• Suggested</span>
+                          )}
                         </button>
                       ))}
                       {CATEGORIES.filter(cat =>
                         cat.toLowerCase().includes(categorySearch.toLowerCase())
                       ).length === 0 && (
-                        <p className="text-sm text-gray-500 text-center py-4">No categories found</p>
+                        <p className="text-sm text-gray-500 text-center py-6">No categories found</p>
                       )}
                     </div>
-                    <DialogFooter className="mt-4">
+                    <DialogFooter className="mt-4 flex-col sm:flex-row gap-2">
                       <Button
                         type="button"
                         variant="outline"
@@ -2939,8 +3093,19 @@ export default function NewProductPage() {
                           setShowCategoryModal(false)
                           setCategorySearch("")
                         }}
+                        className="w-full sm:w-auto order-2 sm:order-1"
                       >
-                        Clear
+                        Clear Selection
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setShowCategoryModal(false)
+                          setCategorySearch("")
+                        }}
+                        className="w-full sm:w-auto bg-violet-500 hover:bg-violet-600 order-1 sm:order-2"
+                      >
+                        Done
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -3082,18 +3247,37 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
-                    SEO description
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
+                      SEO description
+                    </Label>
+                    {description && (
+                      <button
+                        type="button"
+                        onClick={generateSeoDescription}
+                        disabled={isGeneratingSeo}
+                        className="text-xs text-violet-600 hover:text-violet-700 font-medium flex items-center gap-1"
+                      >
+                        {isGeneratingSeo ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>✨ Auto-generate from description</>
+                        )}
+                      </button>
+                    )}
+                  </div>
                   <Textarea
                     id="seoDescription"
-                    placeholder="Brief description for search results"
+                    placeholder="Brief description for search results (auto-generated from your description)"
                     value={seoDescription}
                     onChange={(e) => setSeoDescription(e.target.value)}
                     className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
                   />
                   <p className="text-[10px] sm:text-xs text-gray-400">
-                    {seoDescription.length}/160 characters
+                    {seoDescription.length}/160 characters {seoDescription.length > 160 && <span className="text-amber-500">• Recommended: under 160</span>}
                   </p>
                 </div>
 
@@ -3139,7 +3323,7 @@ export default function NewProductPage() {
               disabled={isLoading || !title.trim() || justSaved}
               className={`h-10 sm:h-10 px-6 sm:px-6 text-sm sm:text-sm rounded-lg font-medium transition-colors ${
                 justSaved
-                  ? "bg-green-500 text-white cursor-default"
+                  ? "bg-green-500 hover:bg-green-500 text-white cursor-default disabled:bg-green-500 disabled:opacity-100"
                   : "bg-violet-500 hover:bg-violet-600 text-white"
               }`}
             >
