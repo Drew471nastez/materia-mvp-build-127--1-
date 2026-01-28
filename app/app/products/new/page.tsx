@@ -1615,29 +1615,14 @@ export default function NewProductPage() {
       {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50"
-          style={{
-            animation: 'slideInFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-          }}
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-3 fade-in duration-300"
         >
           <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-900 rounded-xl shadow-2xl shadow-gray-900/20 backdrop-blur-sm border border-gray-800">
-            <CheckCircle className="h-4.5 w-4.5 text-white flex-shrink-0" />
-            <span className="text-sm font-medium text-white tracking-[-0.01em]">{notificationMessage}</span>
+            <CheckCircle className="h-4 w-4 text-white flex-shrink-0" />
+            <span className="text-sm font-medium text-white tracking-tight">{notificationMessage}</span>
           </div>
         </div>
       )}
-      <style jsx>{`
-        @keyframes slideInFadeIn {
-          0% {
-            opacity: 0;
-            transform: translate(-50%, -12px);
-          }
-          100% {
-            opacity: 1;
-            transform: translate(-50%, 0);
-          }
-        }
-      `}</style>
 
       {/* Sticky Header with Title and Pills */}
       <div
@@ -2178,7 +2163,7 @@ export default function NewProductPage() {
                 <div>
                   <h2 className="text-base sm:text-lg font-semibold text-gray-900">Content</h2>
                   <p className="text-xs sm:text-sm text-gray-500">
-                    Describe your product and add digital files.
+                    Describe your product to attract customers.
                   </p>
                 </div>
 
@@ -2198,37 +2183,161 @@ export default function NewProductPage() {
                     disableAutoFocus={true}
                   />
                 </div>
+              </div>
 
-                <div className="space-y-1.5">
+              {/* What's Included Section */}
+              <div
+                ref={(el) => { sectionRefs.current.whatsIncluded = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div>
                   <div className="flex items-center gap-1.5">
-                    <Label htmlFor="cta" className="text-sm font-medium text-gray-700">
-                      Call to action
-                    </Label>
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">What's Included</h2>
                     <TooltipIcon
-                      content={<p>Button text shown on the product page</p>}
+                      content={<p>List what customers will receive with their purchase</p>}
                     />
                   </div>
-                  <Select value={callToAction || "I want this!"} onValueChange={setCallToAction}>
-                    <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
-                      <SelectValue placeholder="Select button text" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="I want this!">I want this!</SelectItem>
-                      <SelectItem value="Buy Now">Buy Now</SelectItem>
-                      <SelectItem value="Get Access">Get Access</SelectItem>
-                      <SelectItem value="Download Now">Download Now</SelectItem>
-                      <SelectItem value="Purchase">Purchase</SelectItem>
-                      <SelectItem value="Add to Cart">Add to Cart</SelectItem>
-                      <SelectItem value="Join Now">Join Now</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Show customers what they'll get (max {MAX_WHATS_INCLUDED} items).
+                  </p>
                 </div>
 
                 <div className="space-y-2">
+                  {whatsIncluded.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <Input
+                        value={item}
+                        onChange={(e) => {
+                          setWhatsIncluded(prev => prev.map((it, i) =>
+                            i === index ? e.target.value : it
+                          ))
+                        }}
+                        className="flex-1 h-8 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
+                        placeholder="Enter item..."
+                      />
+                      {whatsIncluded.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setWhatsIncluded(prev => prev.filter((_, i) => i !== index))}
+                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          title="Remove item"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {whatsIncluded.length < MAX_WHATS_INCLUDED && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setWhatsIncluded(prev => [...prev, ""])}
+                    className="text-gray-600 border-gray-300 h-9"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add Item
+                  </Button>
+                )}
+              </div>
+
+              {/* FAQ Section */}
+              <div
+                ref={(el) => { sectionRefs.current.faq = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div>
                   <div className="flex items-center gap-1.5">
-                    <Label className="text-sm font-medium text-gray-700">
-                      Digital Files
-                    </Label>
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">FAQ</h2>
+                    <TooltipIcon
+                      content={<p>Add frequently asked questions to help customers</p>}
+                    />
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Answer common questions. Default FAQs are included.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {faqs.map((faq, index) => (
+                    <div
+                      key={faq.id}
+                      className="border border-gray-200 rounded-xl overflow-hidden bg-white"
+                    >
+                      <div className="p-3 sm:p-4 bg-gray-50">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 space-y-2">
+                            <Input
+                              value={faq.question}
+                              onChange={(e) => {
+                                setFaqs(prev => prev.map(f =>
+                                  f.id === faq.id ? { ...f, question: e.target.value } : f
+                                ))
+                              }}
+                              className="h-9 text-sm font-medium border-gray-200"
+                              placeholder="Question..."
+                            />
+                            <Textarea
+                              value={faq.answer}
+                              onChange={(e) => {
+                                setFaqs(prev => prev.map(f =>
+                                  f.id === faq.id ? { ...f, answer: e.target.value } : f
+                                ))
+                              }}
+                              className="text-sm border-gray-200 min-h-[60px]"
+                              placeholder="Answer..."
+                            />
+                          </div>
+                          {!faq.isDefault && (
+                            <button
+                              type="button"
+                              onClick={() => setFaqs(prev => prev.filter(f => f.id !== faq.id))}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                              title="Remove FAQ"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                        {faq.isDefault && (
+                          <p className="text-[10px] text-gray-400 mt-2">Default FAQ (editable)</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFaqs(prev => [...prev, {
+                    id: `custom-${Date.now()}`,
+                    question: "",
+                    answer: "",
+                    isDefault: false,
+                  }])}
+                  className="text-gray-600 border-gray-300 h-9"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add FAQ
+                </Button>
+              </div>
+
+              {/* Digital Files Section */}
+              <div
+                ref={(el) => { sectionRefs.current.files = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">Digital Files</h2>
                     <span className="text-red-500 text-sm">*</span>
                     <TooltipIcon
                       content={<p>Files customers receive after purchase</p>}
@@ -2237,8 +2346,9 @@ export default function NewProductPage() {
                   <p className="text-xs sm:text-sm text-gray-500">
                     Upload files customers will receive (max 5GB each).
                   </p>
+                </div>
 
-                  {digitalFiles.length > 0 && (
+                {digitalFiles.length > 0 && (
                     <div className="space-y-2 mt-2">
                       {digitalFiles.map((file) => (
                         <div
@@ -2407,7 +2517,10 @@ export default function NewProductPage() {
               </div>
 
               {/* Variants Section */}
-              <div className="space-y-4 sm:space-y-6 mb-8 sm:mb-12">
+              <div
+                ref={(el) => { sectionRefs.current.variants = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h2 className="text-base sm:text-lg font-semibold text-gray-900">Variants</h2>
@@ -2633,6 +2746,150 @@ export default function NewProductPage() {
                 )}
               </div>
 
+              {/* Pricing Section */}
+              <div
+                ref={(el) => { sectionRefs.current.pricing = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">Pricing</h2>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Set your product's price.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">
+                      Price (USD)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        className="h-10 sm:h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">
+                      Compare at price
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                      <Input
+                        id="comparePrice"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={compareAtPrice}
+                        onChange={(e) => setCompareAtPrice(e.target.value)}
+                        className="h-10 sm:h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category Section */}
+              <div
+                ref={(el) => { sectionRefs.current.category = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">Category</h2>
+                    <TooltipIcon
+                      content={<p>Help customers find your product</p>}
+                    />
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    Select the best category for your product.
+                  </p>
+                </div>
+
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCategoryModal(true)}
+                    className="w-full h-11 justify-between text-sm border-gray-200"
+                  >
+                    <span className={selectedCategory ? "text-gray-900" : "text-gray-400"}>
+                      {selectedCategory || "Select a category..."}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  </Button>
+                </div>
+
+                {/* Category Modal */}
+                <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
+                  <DialogContent className="max-w-md max-h-[80vh]">
+                    <DialogHeader>
+                      <DialogTitle>Select Category</DialogTitle>
+                      <DialogDescription>
+                        Choose a category that best describes your product.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-2">
+                      <Input
+                        placeholder="Search categories..."
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="mt-4 max-h-[300px] overflow-y-auto space-y-1">
+                      {CATEGORIES.filter(cat =>
+                        cat.toLowerCase().includes(categorySearch.toLowerCase())
+                      ).map((category) => (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory(category)
+                            setShowCategoryModal(false)
+                            setCategorySearch("")
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                            selectedCategory === category
+                              ? "bg-violet-100 text-violet-900"
+                              : "hover:bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {category}
+                        </button>
+                      ))}
+                      {CATEGORIES.filter(cat =>
+                        cat.toLowerCase().includes(categorySearch.toLowerCase())
+                      ).length === 0 && (
+                        <p className="text-sm text-gray-500 text-center py-4">No categories found</p>
+                      )}
+                    </div>
+                    <DialogFooter className="mt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedCategory(null)
+                          setShowCategoryModal(false)
+                          setCategorySearch("")
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
               {/* Settings Section */}
               <div
                 ref={(el) => { sectionRefs.current.settings = el }}
@@ -2641,50 +2898,34 @@ export default function NewProductPage() {
                 <div>
                   <h2 className="text-base sm:text-lg font-semibold text-gray-900">Settings</h2>
                   <p className="text-xs sm:text-sm text-gray-500">
-                    Configure pricing and product settings.
+                    Configure product display and policies.
                   </p>
                 </div>
 
-                <div className="space-y-3 sm:space-y-4">
-                  <h3 className="text-xs sm:text-sm font-medium text-gray-900">Pricing</h3>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">
-                        Price (USD)
-                      </Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
-                        <Input
-                          id="price"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          value={price}
-                          onChange={(e) => setPrice(e.target.value)}
-                          className="h-10 sm:h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">
-                        Compare at price
-                      </Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
-                        <Input
-                          id="comparePrice"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          value={compareAtPrice}
-                          onChange={(e) => setCompareAtPrice(e.target.value)}
-                          className="h-10 sm:h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
-                        />
-                      </div>
-                    </div>
+                {/* Call to Action */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="cta" className="text-sm font-medium text-gray-700">
+                      Call to action
+                    </Label>
+                    <TooltipIcon
+                      content={<p>Button text shown on the product page</p>}
+                    />
                   </div>
+                  <Select value={callToAction || "I want this!"} onValueChange={setCallToAction}>
+                    <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
+                      <SelectValue placeholder="Select button text" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="I want this!">I want this!</SelectItem>
+                      <SelectItem value="Buy Now">Buy Now</SelectItem>
+                      <SelectItem value="Get Access">Get Access</SelectItem>
+                      <SelectItem value="Download Now">Download Now</SelectItem>
+                      <SelectItem value="Purchase">Purchase</SelectItem>
+                      <SelectItem value="Add to Cart">Add to Cart</SelectItem>
+                      <SelectItem value="Join Now">Join Now</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-3">
@@ -2698,6 +2939,34 @@ export default function NewProductPage() {
                       onCheckedChange={setShowSalesBadge}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div>
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">Limit product sales</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">Set a maximum number of sales</p>
+                    </div>
+                    <Switch
+                      checked={limitSalesEnabled}
+                      onCheckedChange={setLimitSalesEnabled}
+                    />
+                  </div>
+                  {limitSalesEnabled && (
+                    <div className="pl-3 sm:pl-4">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 100"
+                          value={salesLimit}
+                          onChange={(e) => setSalesLimit(e.target.value)}
+                          className="h-9 w-32 text-sm border-gray-200"
+                        />
+                        <span className="text-xs text-gray-500">copies</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
