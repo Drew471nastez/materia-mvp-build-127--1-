@@ -729,7 +729,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   borderColor: "#e8dfc9"
                 } : undefined}
               >
-                {productCategories[0]?.name || product.type}
+                {product.category || productCategories[0]?.name || (product.type === "digital" ? "Digital" : product.type)}
               </Badge>
             </div>
           </div>

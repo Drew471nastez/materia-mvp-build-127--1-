@@ -321,7 +321,7 @@ export default function NewProductPage() {
     "Physical Products", "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other",
   ].sort()
 
-  // AI Category suggestion based on title and description
+  // Smart AI Category suggestion based on title and description
   const suggestCategory = useCallback((text: string) => {
     if (!text || text.length < 3) {
       setSuggestedCategory(null)
@@ -330,66 +330,201 @@ export default function NewProductPage() {
 
     const lowerText = text.toLowerCase()
 
-    // Category keywords mapping
-    const categoryKeywords: { [key: string]: string[] } = {
-      "Ebooks": ["ebook", "book", "pdf", "guide", "reading", "novel", "story"],
-      "Online Courses": ["course", "learn", "tutorial", "lesson", "training", "masterclass", "class"],
-      "Templates": ["template", "templates"],
-      "Notion Templates": ["notion"],
-      "Figma Templates": ["figma", "ui design"],
-      "Canva Templates": ["canva"],
-      "Social Media Templates": ["instagram", "tiktok", "social media", "facebook", "twitter", "linkedin"],
-      "Resume Templates": ["resume", "cv", "curriculum"],
-      "Lightroom Presets": ["lightroom", "lr preset", "photo preset"],
-      "Photoshop Actions": ["photoshop", "psd", "ps action"],
-      "Procreate Brushes": ["procreate", "brush", "brushes"],
-      "AI Prompts": ["prompt", "prompts", "chatgpt", "midjourney", "ai prompt", "gpt"],
-      "ChatGPT Prompts": ["chatgpt", "gpt prompt"],
-      "Midjourney Prompts": ["midjourney"],
-      "WordPress Themes": ["wordpress", "wp theme"],
-      "WordPress Plugins": ["wordpress plugin", "wp plugin"],
-      "Shopify Themes": ["shopify theme"],
-      "UI Kits": ["ui kit", "user interface", "ui/ux"],
-      "Icons": ["icon", "icons", "icon pack", "icon set"],
-      "Fonts": ["font", "fonts", "typeface", "typography"],
-      "Logos": ["logo", "logos", "branding"],
-      "Stock Photos": ["stock photo", "photo pack", "photography"],
-      "Stock Videos": ["stock video", "footage", "video clip"],
-      "Music Tracks": ["music", "track", "song", "audio"],
-      "Beats": ["beat", "beats", "instrumental", "hip hop", "trap"],
-      "Sample Packs": ["sample pack", "samples", "drum kit", "sounds"],
-      "Sound Effects": ["sound effect", "sfx", "audio effect"],
-      "Video LUTs": ["lut", "luts", "color grade", "color grading"],
-      "Workout Plans": ["workout", "fitness", "exercise", "gym"],
-      "Meal Plans": ["meal plan", "diet", "nutrition", "recipe"],
-      "Planners": ["planner", "planning", "schedule", "organizer"],
-      "Journals": ["journal", "journaling", "diary"],
-      "Spreadsheets": ["spreadsheet", "excel", "google sheets"],
-      "Financial Models": ["financial model", "finance", "investment", "budget"],
-      "Business Plans": ["business plan", "startup"],
-      "Printables": ["printable", "print", "wall art"],
-      "SVG Files": ["svg", "cut file", "cricut", "silhouette"],
-      "3D Assets": ["3d", "3d model", "blender", "maya"],
-      "Game Assets": ["game asset", "sprite", "tileset", "game art"],
-      "Plugins": ["plugin", "extension", "add-on"],
-      "Scripts": ["script", "automation", "code"],
-      "Source Code": ["source code", "github", "repository"],
-      "NFT Art": ["nft", "crypto art", "blockchain"],
+    // Category keywords mapping with weights (higher weight = more confident match)
+    const categoryKeywords: { [key: string]: { keywords: string[], weight: number }[] } = {
+      // Audio & Sound
+      "Sound Effects": [
+        { keywords: ["sound effect", "sfx", "sound fx"], weight: 10 },
+        { keywords: ["audio effect", "whoosh", "swoosh", "impact", "transition sound"], weight: 8 },
+        { keywords: ["foley", "ambient sound", "noise"], weight: 6 },
+      ],
+      "Sample Packs": [
+        { keywords: ["sample pack", "drum kit", "drum samples"], weight: 10 },
+        { keywords: ["loops", "one shots", "wav samples", "audio samples"], weight: 8 },
+        { keywords: ["producer", "fl studio", "ableton"], weight: 5 },
+      ],
+      "Beats": [
+        { keywords: ["beat", "beats", "instrumental", "type beat"], weight: 10 },
+        { keywords: ["hip hop", "trap", "r&b", "drill", "boom bap"], weight: 7 },
+        { keywords: ["rapper", "vocalist"], weight: 4 },
+      ],
+      "Music Tracks": [
+        { keywords: ["music track", "royalty free music", "background music"], weight: 10 },
+        { keywords: ["soundtrack", "cinematic music", "production music"], weight: 8 },
+        { keywords: ["license", "commercial use"], weight: 3 },
+      ],
+      // Design & Creative
+      "Lightroom Presets": [
+        { keywords: ["lightroom preset", "lr preset", "lightroom"], weight: 10 },
+        { keywords: ["photo preset", "color preset", "mobile preset"], weight: 7 },
+        { keywords: ["instagram filter", "photo editing"], weight: 4 },
+      ],
+      "Photoshop Actions": [
+        { keywords: ["photoshop action", "ps action", "photoshop"], weight: 10 },
+        { keywords: ["psd", "photo manipulation", "retouching"], weight: 6 },
+      ],
+      "Procreate Brushes": [
+        { keywords: ["procreate brush", "procreate"], weight: 10 },
+        { keywords: ["ipad brush", "digital brush", "illustration brush"], weight: 6 },
+      ],
+      "Video LUTs": [
+        { keywords: ["lut", "luts", "color lut"], weight: 10 },
+        { keywords: ["color grade", "color grading", "cinematic look"], weight: 8 },
+        { keywords: ["davinci", "premiere", "final cut"], weight: 4 },
+      ],
+      "Fonts": [
+        { keywords: ["font", "fonts", "typeface"], weight: 10 },
+        { keywords: ["typography", "lettering", "handwritten"], weight: 6 },
+        { keywords: ["otf", "ttf", "woff"], weight: 5 },
+      ],
+      "Icons": [
+        { keywords: ["icon pack", "icon set", "icons"], weight: 10 },
+        { keywords: ["vector icons", "ui icons", "line icons"], weight: 7 },
+      ],
+      // Templates
+      "Notion Templates": [
+        { keywords: ["notion template", "notion"], weight: 10 },
+        { keywords: ["notion workspace", "notion dashboard"], weight: 8 },
+      ],
+      "Figma Templates": [
+        { keywords: ["figma template", "figma"], weight: 10 },
+        { keywords: ["figma ui", "figma design"], weight: 7 },
+      ],
+      "Canva Templates": [
+        { keywords: ["canva template", "canva"], weight: 10 },
+      ],
+      "Social Media Templates": [
+        { keywords: ["instagram template", "social media template"], weight: 10 },
+        { keywords: ["story template", "post template", "reel template"], weight: 8 },
+        { keywords: ["tiktok", "facebook", "twitter", "linkedin"], weight: 5 },
+      ],
+      "Resume Templates": [
+        { keywords: ["resume template", "cv template", "resume"], weight: 10 },
+        { keywords: ["curriculum vitae", "job application"], weight: 6 },
+      ],
+      // AI & Prompts
+      "AI Prompts": [
+        { keywords: ["ai prompt", "prompt pack", "prompts"], weight: 10 },
+        { keywords: ["chatgpt", "midjourney", "dall-e", "stable diffusion"], weight: 8 },
+        { keywords: ["prompt engineering", "gpt"], weight: 5 },
+      ],
+      "ChatGPT Prompts": [
+        { keywords: ["chatgpt prompt", "chatgpt", "gpt prompt"], weight: 10 },
+        { keywords: ["openai", "gpt-4", "gpt-3"], weight: 7 },
+      ],
+      "Midjourney Prompts": [
+        { keywords: ["midjourney prompt", "midjourney", "mj prompt"], weight: 10 },
+        { keywords: ["ai art prompt", "image generation"], weight: 5 },
+      ],
+      // Education
+      "Online Courses": [
+        { keywords: ["online course", "course", "masterclass"], weight: 10 },
+        { keywords: ["video course", "learn", "training", "tutorial"], weight: 7 },
+        { keywords: ["lesson", "module", "curriculum"], weight: 4 },
+      ],
+      "Ebooks": [
+        { keywords: ["ebook", "e-book", "digital book"], weight: 10 },
+        { keywords: ["pdf guide", "pdf book"], weight: 8 },
+        { keywords: ["guide", "handbook", "manual"], weight: 4 },
+      ],
+      // Business
+      "Spreadsheets": [
+        { keywords: ["spreadsheet", "excel template", "google sheets"], weight: 10 },
+        { keywords: ["excel", "xlsx", "csv"], weight: 6 },
+        { keywords: ["calculator", "tracker"], weight: 3 },
+      ],
+      "Business Plans": [
+        { keywords: ["business plan", "startup plan"], weight: 10 },
+        { keywords: ["pitch deck", "investor"], weight: 5 },
+      ],
+      // Art & Crafts
+      "SVG Files": [
+        { keywords: ["svg", "svg file", "cut file"], weight: 10 },
+        { keywords: ["cricut", "silhouette", "vinyl"], weight: 8 },
+        { keywords: ["laser cut", "cnc"], weight: 5 },
+      ],
+      "Printables": [
+        { keywords: ["printable", "print at home"], weight: 10 },
+        { keywords: ["wall art", "poster", "art print"], weight: 6 },
+        { keywords: ["digital download", "instant download"], weight: 3 },
+      ],
+      // Development
+      "WordPress Themes": [
+        { keywords: ["wordpress theme", "wp theme"], weight: 10 },
+        { keywords: ["wordpress"], weight: 5 },
+      ],
+      "Shopify Themes": [
+        { keywords: ["shopify theme", "shopify template"], weight: 10 },
+        { keywords: ["shopify"], weight: 5 },
+      ],
+      "UI Kits": [
+        { keywords: ["ui kit", "design system"], weight: 10 },
+        { keywords: ["user interface", "ui/ux", "component"], weight: 6 },
+      ],
+      "Source Code": [
+        { keywords: ["source code", "github", "repository"], weight: 10 },
+        { keywords: ["script", "code", "api"], weight: 4 },
+      ],
+      // Fitness
+      "Workout Plans": [
+        { keywords: ["workout plan", "fitness program"], weight: 10 },
+        { keywords: ["exercise", "gym", "training plan"], weight: 6 },
+        { keywords: ["weight loss", "muscle", "strength"], weight: 3 },
+      ],
+      "Meal Plans": [
+        { keywords: ["meal plan", "diet plan"], weight: 10 },
+        { keywords: ["nutrition", "recipe", "food"], weight: 5 },
+        { keywords: ["keto", "vegan", "healthy"], weight: 3 },
+      ],
+      // Personal
+      "Planners": [
+        { keywords: ["planner", "digital planner"], weight: 10 },
+        { keywords: ["daily planner", "weekly planner", "monthly"], weight: 7 },
+        { keywords: ["organizer", "schedule"], weight: 4 },
+      ],
+      "Journals": [
+        { keywords: ["journal", "journaling"], weight: 10 },
+        { keywords: ["diary", "gratitude", "reflection"], weight: 5 },
+      ],
+      // 3D & Games
+      "3D Assets": [
+        { keywords: ["3d model", "3d asset"], weight: 10 },
+        { keywords: ["blender", "maya", "c4d", "3ds max"], weight: 7 },
+        { keywords: ["fbx", "obj", "stl"], weight: 5 },
+      ],
+      "Game Assets": [
+        { keywords: ["game asset", "sprite", "tileset"], weight: 10 },
+        { keywords: ["unity", "unreal", "godot"], weight: 7 },
+        { keywords: ["pixel art", "game art", "character"], weight: 5 },
+      ],
+    }
+
+    // Calculate scores for each category
+    const scores: { [key: string]: number } = {}
+
+    for (const [category, keywordGroups] of Object.entries(categoryKeywords)) {
+      let categoryScore = 0
+      for (const group of keywordGroups) {
+        for (const keyword of group.keywords) {
+          if (lowerText.includes(keyword)) {
+            // Add weighted score + bonus for keyword length (specificity)
+            categoryScore += group.weight + (keyword.length * 0.5)
+          }
+        }
+      }
+      if (categoryScore > 0) {
+        scores[category] = categoryScore
+      }
     }
 
     // Find best matching category
     let bestMatch: string | null = null
     let bestScore = 0
 
-    for (const [category, keywords] of Object.entries(categoryKeywords)) {
-      for (const keyword of keywords) {
-        if (lowerText.includes(keyword)) {
-          const score = keyword.length // Longer matches are more specific
-          if (score > bestScore) {
-            bestScore = score
-            bestMatch = category
-          }
-        }
+    for (const [category, score] of Object.entries(scores)) {
+      if (score > bestScore) {
+        bestScore = score
+        bestMatch = category
       }
     }
 
@@ -402,32 +537,54 @@ export default function NewProductPage() {
     suggestCategory(text)
   }, [title, description, suggestCategory])
 
-  // AI-generated SEO description
-  const generateSeoDescription = useCallback(() => {
+  // AI-generated SEO description using API
+  const generateSeoDescription = useCallback(async () => {
     if (!description || description.length < 10) return
 
     setIsGeneratingSeo(true)
 
-    // Simple AI-like summary generation (first 160 chars, cleaned up)
-    let summary = description
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .trim()
+    try {
+      const response = await fetch('/api/ai/seo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, title }),
+      })
 
-    // Truncate to ~155 chars for SEO best practices
-    if (summary.length > 155) {
-      summary = summary.substring(0, 155).trim()
-      // Don't cut off mid-word
-      const lastSpace = summary.lastIndexOf(' ')
-      if (lastSpace > 100) {
-        summary = summary.substring(0, lastSpace)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.seoDescription) {
+          setSeoDescription(data.seoDescription)
+        }
+      } else {
+        // Fallback to simple truncation if API fails
+        let summary = description
+          .replace(/<[^>]*>/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+
+        if (summary.length > 155) {
+          summary = summary.substring(0, 155).trim()
+          const lastSpace = summary.lastIndexOf(' ')
+          if (lastSpace > 100) {
+            summary = summary.substring(0, lastSpace)
+          }
+          summary += '...'
+        }
+        setSeoDescription(summary)
       }
-      summary += '...'
+    } catch (error) {
+      console.error('SEO generation error:', error)
+      // Fallback to simple truncation
+      let summary = description
+        .replace(/<[^>]*>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 155)
+      setSeoDescription(summary + '...')
+    } finally {
+      setIsGeneratingSeo(false)
     }
-
-    setSeoDescription(summary)
-    setIsGeneratingSeo(false)
-  }, [description])
+  }, [description, title])
 
   // Auto-generate SEO description when description changes (if SEO description is empty)
   useEffect(() => {
@@ -661,7 +818,7 @@ export default function NewProductPage() {
 
       const { data: creatorData } = await supabase
         .from("creators")
-        .select("id, stripe_account_id, stripe_onboarding_status")
+        .select("id, stripe_account_id, stripe_onboarding_status, slug")
         .eq("user_id", user.id)
         .single()
 
@@ -669,8 +826,16 @@ export default function NewProductPage() {
         router.push("/onboarding")
         return
       }
+
+      // Also fetch the profile to get the username
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .single()
+
       setCreatorId(creatorData.id)
-      setCreator(creatorData)
+      setCreator({ ...creatorData, username: profileData?.username })
 
       // If editing, load the existing product
       if (editProductId) {
@@ -695,6 +860,7 @@ export default function NewProductPage() {
           setSeoTitle(product.seo_title || "")
           setSeoDescription(product.seo_description || "")
           setCallToAction(product.call_to_action || "")
+          setSelectedCategory(product.category || null)
           setIsPublished(product.status === "published")
 
           // Load media items
@@ -875,6 +1041,7 @@ export default function NewProductPage() {
         call_to_action: callToAction || null,
         whats_included: filteredWhatsIncluded.length > 0 ? filteredWhatsIncluded : null,
         faqs: formattedFaqs.length > 0 ? formattedFaqs : null,
+        category: selectedCategory || null,
       }
 
       let finalProductId = productId
@@ -3015,19 +3182,19 @@ export default function NewProductPage() {
                   </Button>
                 </div>
 
-                {/* Category Modal - Responsive */}
+                {/* Category Modal - Modern Responsive */}
                 <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
                   <DialogContent className="w-[95vw] max-w-lg sm:max-w-xl max-h-[85vh] sm:max-h-[80vh] p-4 sm:p-6">
                     <DialogHeader className="pb-2">
-                      <DialogTitle className="text-lg sm:text-xl">Select Category</DialogTitle>
+                      <DialogTitle className="text-lg sm:text-xl font-semibold">Select Category</DialogTitle>
                       <DialogDescription className="text-sm text-gray-500">
                         Choose a category that best describes your product.
                       </DialogDescription>
                     </DialogHeader>
 
-                    {/* AI Suggestion - Subtle */}
-                    {suggestedCategory && !selectedCategory && (
-                      <div className="mt-2 mb-1">
+                    {/* AI Suggestion - Modern Badge Style */}
+                    {suggestedCategory && (
+                      <div className="mt-3 mb-2">
                         <button
                           type="button"
                           onClick={() => {
@@ -3035,11 +3202,25 @@ export default function NewProductPage() {
                             setShowCategoryModal(false)
                             setCategorySearch("")
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg text-sm transition-colors"
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 ${
+                            selectedCategory === suggestedCategory
+                              ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
+                              : "bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 border border-violet-200"
+                          }`}
                         >
-                          <span className="text-violet-600 text-xs font-medium">Suggested:</span>
-                          <span className="text-violet-900 font-medium">{suggestedCategory}</span>
-                          <span className="ml-auto text-violet-400 text-xs">Click to select</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                            selectedCategory === suggestedCategory
+                              ? "bg-white/20 text-white"
+                              : "bg-violet-500 text-white"
+                          }`}>
+                            ✨ AI Suggested
+                          </span>
+                          <span className={`font-medium ${selectedCategory === suggestedCategory ? "text-white" : "text-violet-900"}`}>
+                            {suggestedCategory}
+                          </span>
+                          {selectedCategory === suggestedCategory && (
+                            <Check className="ml-auto h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     )}
@@ -3049,7 +3230,7 @@ export default function NewProductPage() {
                         placeholder="Search 170+ categories..."
                         value={categorySearch}
                         onChange={(e) => setCategorySearch(e.target.value)}
-                        className="h-10 sm:h-11 text-sm sm:text-base"
+                        className="h-10 sm:h-11 text-sm sm:text-base rounded-lg"
                       />
                     </div>
                     <div className="mt-3 max-h-[45vh] sm:max-h-[350px] overflow-y-auto space-y-0.5 pr-1">
@@ -3064,17 +3245,19 @@ export default function NewProductPage() {
                             setShowCategoryModal(false)
                             setCategorySearch("")
                           }}
-                          className={`w-full text-left px-3 py-2.5 sm:py-2 rounded-lg text-sm sm:text-base transition-colors ${
+                          className={`w-full flex items-center gap-3 text-left px-3 py-2.5 sm:py-2.5 rounded-lg text-sm sm:text-base transition-all duration-150 ${
                             selectedCategory === category
                               ? "bg-violet-100 text-violet-900 font-medium"
-                              : category === suggestedCategory
-                                ? "bg-violet-50/50 text-violet-800 hover:bg-violet-100"
-                                : "hover:bg-gray-100 text-gray-700"
+                              : "hover:bg-gray-50 text-gray-700"
                           }`}
                         >
-                          {category}
-                          {category === suggestedCategory && selectedCategory !== category && (
-                            <span className="ml-2 text-xs text-violet-400">• Suggested</span>
+                          {/* Bullet point */}
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                            selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
+                          }`} />
+                          <span className="flex-1">{category}</span>
+                          {selectedCategory === category && (
+                            <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />
                           )}
                         </button>
                       ))}
@@ -3256,7 +3439,7 @@ export default function NewProductPage() {
                         type="button"
                         onClick={generateSeoDescription}
                         disabled={isGeneratingSeo}
-                        className="text-xs text-violet-600 hover:text-violet-700 font-medium flex items-center gap-1"
+                        className="text-xs text-violet-600 hover:text-violet-700 font-medium flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-violet-50 transition-colors"
                       >
                         {isGeneratingSeo ? (
                           <>
@@ -3264,7 +3447,10 @@ export default function NewProductPage() {
                             Generating...
                           </>
                         ) : (
-                          <>✨ Auto-generate from description</>
+                          <>
+                            <span className="text-sm">✨</span>
+                            Generate AI SEO
+                          </>
                         )}
                       </button>
                     )}
@@ -3290,7 +3476,7 @@ export default function NewProductPage() {
                       {seoTitle || title || "Product title"}
                     </p>
                     <p className="text-green-700 text-xs sm:text-sm truncate">
-                      yourstore.com/p/{slug || "product-url"}
+                      {creator?.username || creator?.slug || "yourstore"}.storelib.com/p/{slug || "product-url"}
                     </p>
                     <p className="text-gray-600 text-xs sm:text-sm line-clamp-2 mt-0.5">
                       {seoDescription || description || "Product description will appear here..."}
