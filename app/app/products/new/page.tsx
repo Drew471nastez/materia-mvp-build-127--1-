@@ -56,6 +56,24 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 // Section definitions - internal refs for all sections
 const SECTIONS = [
@@ -118,6 +136,88 @@ const parseYouTubeUrl = (url: string): string | null => {
 
 const getYouTubeThumbnail = (videoId: string): string => {
   return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+}
+
+// Sortable FAQ Item component for drag-and-drop reordering
+interface SortableFAQItemProps {
+  faq: {
+    id: string
+    question: string
+    answer: string
+    isDefault: boolean
+  }
+  onUpdate: (id: string, updates: { question?: string; answer?: string }) => void
+  onRemove: (id: string) => void
+}
+
+function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: faq.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`border border-gray-200 rounded-xl overflow-hidden bg-white ${
+        isDragging ? "opacity-50 shadow-lg" : ""
+      }`}
+    >
+      <div className="p-3 sm:p-4 bg-gray-50">
+        <div className="flex items-start gap-2 sm:gap-3">
+          {/* Drag handle - touch friendly */}
+          <button
+            {...attributes}
+            {...listeners}
+            className="p-2 -ml-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+            title="Drag to reorder"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+
+          <div className="flex-1 space-y-2 min-w-0">
+            <Input
+              value={faq.question}
+              onChange={(e) => onUpdate(faq.id, { question: e.target.value })}
+              className="h-9 text-sm font-medium border-gray-200"
+              placeholder="Question..."
+            />
+            <Textarea
+              value={faq.answer}
+              onChange={(e) => onUpdate(faq.id, { answer: e.target.value })}
+              className="text-sm border-gray-200 min-h-[60px]"
+              placeholder="Answer..."
+            />
+          </div>
+
+          {!faq.isDefault && (
+            <button
+              type="button"
+              onClick={() => onRemove(faq.id)}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+              title="Remove FAQ"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {faq.isDefault && (
+          <p className="text-[10px] text-gray-400 mt-2 ml-9">Default FAQ (editable)</p>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function NewProductPage() {
@@ -189,6 +289,7 @@ export default function NewProductPage() {
   // SEO tab fields
   const [seoTitle, setSeoTitle] = useState("")
   const [seoDescription, setSeoDescription] = useState("")
+  const seoManuallyEditedRef = useRef(false) // Track if user manually edited SEO description
 
   // Drag state for media
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
@@ -261,6 +362,37 @@ export default function NewProductPage() {
   // AI suggestion states
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
   const [isGeneratingSeo, setIsGeneratingSeo] = useState(false)
+
+  // DnD sensors for FAQ reorder (with touch support for mobile)
+  const faqSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before starting drag
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // 200ms delay before touch drag starts
+        tolerance: 8, // 8px movement tolerance during delay
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // Handle FAQ drag end - reorder FAQs
+  const handleFaqDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      setFaqs((prevFaqs) => {
+        const oldIndex = prevFaqs.findIndex((faq) => faq.id === active.id)
+        const newIndex = prevFaqs.findIndex((faq) => faq.id === over.id)
+        return arrayMove(prevFaqs, oldIndex, newIndex)
+      })
+    }
+  }, [])
 
   // Categories list (170+ options)
   const CATEGORIES = [
@@ -554,6 +686,8 @@ export default function NewProductPage() {
         const data = await response.json()
         if (data.seoDescription) {
           setSeoDescription(data.seoDescription)
+          // Mark as manually edited so auto-update doesn't overwrite AI result
+          seoManuallyEditedRef.current = true
         }
       } else {
         // Fallback to simple truncation if API fails
@@ -571,6 +705,7 @@ export default function NewProductPage() {
           summary += '...'
         }
         setSeoDescription(summary)
+        seoManuallyEditedRef.current = true
       }
     } catch (error) {
       console.error('SEO generation error:', error)
@@ -581,17 +716,11 @@ export default function NewProductPage() {
         .trim()
         .substring(0, 155)
       setSeoDescription(summary + '...')
+      seoManuallyEditedRef.current = true
     } finally {
       setIsGeneratingSeo(false)
     }
   }, [description, title])
-
-  // Auto-generate SEO description when description changes (if SEO description is empty)
-  useEffect(() => {
-    if (description && !seoDescription) {
-      generateSeoDescription()
-    }
-  }, [description]) // Only run when description changes, not on every render
 
   // Track changes for unsaved warning - compare against last saved values
   useEffect(() => {
@@ -867,6 +996,8 @@ export default function NewProductPage() {
           setRefundPolicyType(product.refund_policy_type || "7_day")
           setSeoTitle(product.seo_title || "")
           setSeoDescription(product.seo_description || "")
+          // If product has a saved SEO description, mark as manually edited so auto-update doesn't overwrite
+          seoManuallyEditedRef.current = !!(product.seo_description && product.seo_description.trim())
           setCallToAction(product.call_to_action || "")
           setSelectedCategory(product.category || null)
           setIsPublished(product.status === "published")
@@ -1040,15 +1171,35 @@ export default function NewProductPage() {
     setSeoTitle(title)
   }, [title])
 
-  // Auto-generate SEO description from product description
+  // Auto-generate SEO description from product description in REAL-TIME
+  // Only updates if user hasn't manually edited the SEO description
   useEffect(() => {
-    if (!description) return
-    // Strip HTML tags and get plain text for SEO description
-    const plainText = description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
-    if (plainText && !seoDescription) {
-      // Truncate to 155 chars for SEO
+    // Skip if user has manually edited
+    if (seoManuallyEditedRef.current) return
+
+    if (!description) {
+      setSeoDescription("")
+      return
+    }
+
+    // Strip HTML tags, decode entities, and get plain text for SEO description
+    const plainText = description
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/&nbsp;/g, ' ') // Replace &nbsp;
+      .replace(/&amp;/g, '&')  // Replace &amp;
+      .replace(/&lt;/g, '<')   // Replace &lt;
+      .replace(/&gt;/g, '>')   // Replace &gt;
+      .replace(/&quot;/g, '"') // Replace &quot;
+      .replace(/&#39;/g, "'")  // Replace &#39;
+      .replace(/\s+/g, ' ')    // Normalize whitespace
+      .trim()
+
+    if (plainText) {
+      // Truncate to 155 chars for SEO (meta description limit)
       const truncated = plainText.length > 155 ? plainText.substring(0, 152) + '...' : plainText
       setSeoDescription(truncated)
+    } else {
+      setSeoDescription("")
     }
   }, [description])
 
@@ -1207,8 +1358,17 @@ export default function NewProductPage() {
 
           if (variantError) {
             console.error("Error saving variant:", variantError)
-            // Throw error so user knows variants didn't save
-            throw new Error(`Failed to save variant "${variant.name}": ${variantError.message}`)
+            // Check for schema cache errors
+            const errMsg = variantError.message || ""
+            if (errMsg.includes("schema cache") || errMsg.includes("column") || errMsg.includes("does not exist")) {
+              throw new Error(`Database schema error: Please run scripts/050_complete_product_features.sql in Supabase SQL Editor, then refresh the page. (Error: ${errMsg})`)
+            }
+            // Check for RLS errors
+            if (variantError.code === "42501" || errMsg.includes("row-level security") || errMsg.includes("permission")) {
+              throw new Error(`Permission denied saving variants. Check RLS policies for product_variants table.`)
+            }
+            // Generic error
+            throw new Error(`Failed to save variant "${variant.name}": ${errMsg}`)
           }
 
           if (savedVariant) {
@@ -2792,54 +2952,34 @@ export default function NewProductPage() {
                   </p>
                 </div>
 
-                <div className="space-y-3">
-                  {faqs.map((faq) => (
-                    <div
-                      key={faq.id}
-                      className="border border-gray-200 rounded-xl overflow-hidden bg-white"
-                    >
-                      <div className="p-3 sm:p-4 bg-gray-50">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1 space-y-2">
-                            <Input
-                              value={faq.question}
-                              onChange={(e) => {
-                                setFaqs(prev => prev.map(f =>
-                                  f.id === faq.id ? { ...f, question: e.target.value } : f
-                                ))
-                              }}
-                              className="h-9 text-sm font-medium border-gray-200"
-                              placeholder="Question..."
-                            />
-                            <Textarea
-                              value={faq.answer}
-                              onChange={(e) => {
-                                setFaqs(prev => prev.map(f =>
-                                  f.id === faq.id ? { ...f, answer: e.target.value } : f
-                                ))
-                              }}
-                              className="text-sm border-gray-200 min-h-[60px]"
-                              placeholder="Answer..."
-                            />
-                          </div>
-                          {!faq.isDefault && (
-                            <button
-                              type="button"
-                              onClick={() => setFaqs(prev => prev.filter(f => f.id !== faq.id))}
-                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
-                              title="Remove FAQ"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                        {faq.isDefault && (
-                          <p className="text-[10px] text-gray-400 mt-2">Default FAQ (editable)</p>
-                        )}
-                      </div>
+                <p className="text-xs text-gray-400 mb-2">Drag to reorder FAQs</p>
+                <DndContext
+                  sensors={faqSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleFaqDragEnd}
+                >
+                  <SortableContext
+                    items={faqs.map(faq => faq.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3">
+                      {faqs.map((faq) => (
+                        <SortableFAQItem
+                          key={faq.id}
+                          faq={faq}
+                          onUpdate={(id, updates) => {
+                            setFaqs(prev => prev.map(f =>
+                              f.id === id ? { ...f, ...updates } : f
+                            ))
+                          }}
+                          onRemove={(id) => {
+                            setFaqs(prev => prev.filter(f => f.id !== id))
+                          }}
+                        />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </SortableContext>
+                </DndContext>
 
                 <Button
                   type="button"
@@ -3633,7 +3773,10 @@ export default function NewProductPage() {
                     id="seoDescription"
                     placeholder="Brief description for search results (auto-generated from your description)"
                     value={seoDescription}
-                    onChange={(e) => setSeoDescription(e.target.value)}
+                    onChange={(e) => {
+                      seoManuallyEditedRef.current = true // Track that user manually edited
+                      setSeoDescription(e.target.value)
+                    }}
                     className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
                   />
                   <p className="text-[10px] sm:text-xs text-gray-400">
