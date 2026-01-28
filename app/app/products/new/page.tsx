@@ -1001,10 +1001,23 @@ export default function NewProductPage() {
           setSelectedCategory(product.category || null)
           setIsPublished(product.status === "published")
 
-          // Load media items
+          // Load media items - YouTube FIRST (if exists), then images
+          // This matches the product page display order
           const mediaList: MediaItem[] = []
 
-          // Add thumbnail/gallery images
+          // Add YouTube video FIRST - pure embed only, no thumbnail
+          if (product.video_url) {
+            const videoId = parseYouTubeUrl(product.video_url)
+            if (videoId) {
+              mediaList.push({
+                id: `youtube-${videoId}`,
+                type: "youtube",
+                url: product.video_url,
+              })
+            }
+          }
+
+          // Add thumbnail/gallery images AFTER YouTube
           if (product.thumbnail_url) {
             mediaList.push({
               id: `image-0`,
@@ -1024,17 +1037,6 @@ export default function NewProductPage() {
             })
           }
 
-          // Add YouTube video - pure embed only, no thumbnail
-          if (product.video_url) {
-            const videoId = parseYouTubeUrl(product.video_url)
-            if (videoId) {
-              mediaList.push({
-                id: `youtube-${videoId}`,
-                type: "youtube",
-                url: product.video_url,
-              })
-            }
-          }
           setMediaItems(mediaList)
 
           // Load digital files
@@ -2609,13 +2611,13 @@ export default function NewProductPage() {
                           {index + 1}
                         </div>
 
-                        {/* Type label */}
-                        {index === 0 && (
+                        {/* Type label - YouTube cannot be thumbnail */}
+                        {index === 0 && item.type === "image" && (
                           <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded">
                             Thumbnail
                           </span>
                         )}
-                        {item.type === "youtube" && index !== 0 && (
+                        {item.type === "youtube" && (
                           <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] sm:text-[10px] rounded">
                             YouTube
                           </span>

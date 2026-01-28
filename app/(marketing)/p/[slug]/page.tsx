@@ -296,10 +296,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const downloadButtonTextColor = buyButtonTextColor || themeConfig?.productHeader?.buyButtonTextColor || "#ffffff"
 
   // ---------------------------------------------------------------------------
-  // Purchase state
+  // Purchase state - includes variant-level access control
   // ---------------------------------------------------------------------------
   let hasPurchased = false
   let firstAssetId: string | null = null
+  let purchasedVariantId: string | null = null
   let user: any = null
 
   try {
@@ -318,6 +319,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         .maybeSingle()
 
       hasPurchased = !!entitlement
+
+      // Get the purchased variant ID from the most recent order
+      if (hasPurchased) {
+        const { data: order } = await supabase
+          .from("orders")
+          .select("variant_id")
+          .eq("buyer_id", user.id)
+          .eq("product_id", product.id)
+          .eq("status", "completed")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        purchasedVariantId = order?.variant_id || null
+      }
     }
   } catch {
     // ignore auth errors
@@ -868,6 +884,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 creatorId={product.creator_id}
                 serverHasPurchased={hasPurchased}
                 serverAssetId={firstAssetId}
+                serverPurchasedVariantId={purchasedVariantId}
                 variants={variants}
                 buyButtonBgColor={buyButtonColor}
                 buyButtonTextColor={buyButtonTextColor}
@@ -1155,6 +1172,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             creatorId={product.creator_id}
             serverHasPurchased={hasPurchased}
             serverAssetId={firstAssetId}
+            serverPurchasedVariantId={purchasedVariantId}
             variants={variants}
             buyButtonBgColor={buyButtonColor}
             buyButtonTextColor={buyButtonTextColor}

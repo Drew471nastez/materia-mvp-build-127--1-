@@ -287,6 +287,7 @@ export default function ReceiptContent({
   }, [hasAccess, order?.product_id])
 
   // Save purchase to localStorage for persistence across page refreshes
+  // Includes variant ID for per-variant access control
   useEffect(() => {
     if (!hasAccess || !order?.product_id || !receiptToken) return
 
@@ -300,13 +301,14 @@ export default function ReceiptContent({
         purchases[order.product_id] = {
           receiptToken,
           assets: assets?.map(a => ({ id: a.id, file_name: a.file_name })) || [],
+          variantId: order.variant_id || null, // Store purchased variant for per-variant access
         }
         localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
       }
     } catch (e) {
       console.error("[ReceiptContent] Failed to save purchase to localStorage:", e)
     }
-  }, [hasAccess, order?.product_id, receiptToken, assets])
+  }, [hasAccess, order?.product_id, order?.variant_id, receiptToken, assets])
 
   const handleSendCode = async () => {
     setError("")

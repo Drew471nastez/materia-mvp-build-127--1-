@@ -8,27 +8,32 @@ const PURCHASED_PRODUCTS_KEY = "materia_purchased_products"
 interface PurchaseInfo {
   receiptToken: string
   assets: Array<{ id: string; file_name?: string }>
+  variantId?: string | null // The specific variant purchased (null = no variant / base product)
 }
 
 interface UsePurchaseStatusResult {
   hasPurchased: boolean
   assetId: string | null
   receiptToken: string | null
+  purchasedVariantId: string | null // The variant ID that was purchased
   isChecking: boolean
 }
 
 /**
  * Hook to check if a product has been purchased
  * Checks both server-provided state and localStorage
+ * Returns the specific variant that was purchased for variant-level access control
  */
 export function usePurchaseStatus(
   productId: string,
   serverHasPurchased: boolean = false,
-  serverAssetId: string | null = null
+  serverAssetId: string | null = null,
+  serverPurchasedVariantId: string | null = null
 ): UsePurchaseStatusResult {
   const [hasPurchased, setHasPurchased] = useState(serverHasPurchased)
   const [assetId, setAssetId] = useState<string | null>(serverAssetId)
   const [receiptToken, setReceiptToken] = useState<string | null>(null)
+  const [purchasedVariantId, setPurchasedVariantId] = useState<string | null>(serverPurchasedVariantId)
   const [isChecking, setIsChecking] = useState(!serverHasPurchased)
 
   useEffect(() => {
@@ -46,6 +51,7 @@ export function usePurchaseStatus(
         if (purchaseInfo) {
           setHasPurchased(true)
           setReceiptToken(purchaseInfo.receiptToken)
+          setPurchasedVariantId(purchaseInfo.variantId || null)
           if (purchaseInfo.assets && purchaseInfo.assets.length > 0) {
             setAssetId(purchaseInfo.assets[0].id)
           }
@@ -58,5 +64,5 @@ export function usePurchaseStatus(
     }
   }, [productId, serverHasPurchased])
 
-  return { hasPurchased, assetId, receiptToken, isChecking }
+  return { hasPurchased, assetId, receiptToken, purchasedVariantId, isChecking }
 }

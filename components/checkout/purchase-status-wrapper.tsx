@@ -17,6 +17,7 @@ interface PurchaseStatusWrapperProps {
   creatorId?: string
   serverHasPurchased?: boolean
   serverAssetId?: string | null
+  serverPurchasedVariantId?: string | null // The variant that was purchased (if any)
   // Variants
   variants?: ProductVariant[]
   // Button colors
@@ -42,7 +43,11 @@ interface PurchaseStatusWrapperProps {
 /**
  * PurchaseStatusWrapper - Smart buy/download button that checks localStorage
  * Shows Download if purchased (server or localStorage), Buy otherwise
- * Supports product variants with dynamic pricing
+ * Supports product variants with PER-VARIANT access control
+ *
+ * IMPORTANT: Each variant is a separate purchasable entitlement.
+ * - User can only download the specific variant they purchased
+ * - Switching to a different variant shows Buy button, not Download
  *
  * LAYOUT ORDER (not purchased):
  * 1. Price display (if showPriceDisplay)
@@ -58,6 +63,7 @@ export function PurchaseStatusWrapper({
   creatorId,
   serverHasPurchased = false,
   serverAssetId = null,
+  serverPurchasedVariantId = null,
   variants = [],
   buyButtonBgColor,
   buyButtonTextColor,
@@ -68,10 +74,11 @@ export function PurchaseStatusWrapper({
   notPurchasedExtraContent,
   showPriceDisplay = false,
 }: PurchaseStatusWrapperProps) {
-  const { hasPurchased, assetId, receiptToken, isChecking } = usePurchaseStatus(
+  const { hasPurchased, assetId, receiptToken, purchasedVariantId, isChecking } = usePurchaseStatus(
     productId,
     serverHasPurchased,
-    serverAssetId
+    serverAssetId,
+    serverPurchasedVariantId
   )
 
   // Variant state - if variants exist, use first variant's price as FINAL price
@@ -98,6 +105,26 @@ export function PurchaseStatusWrapper({
   // Compare at price only shown when no variants selected
   const effectiveCompareAtPrice = variants.length === 0 ? compareAtCents : null
 
+  // Per-variant access control:
+  // - If product has NO variants: use product-level purchase status
+  // - If product HAS variants: check if selected variant === purchased variant
+  const hasVariantAccess = (): boolean => {
+    if (!hasPurchased) return false
+
+    // No variants = product-level access
+    if (variants.length === 0) return true
+
+    // If user purchased with no variant (old purchase), give access to first variant only
+    if (!purchasedVariantId) {
+      return selectedVariant?.id === variants[0]?.id
+    }
+
+    // User purchased a specific variant - only that variant has access
+    return selectedVariant?.id === purchasedVariantId
+  }
+
+  const canDownload = hasVariantAccess() && assetId && productType === "digital"
+
   // Loading state
   if (isChecking) {
     return (
@@ -117,75 +144,11 @@ export function PurchaseStatusWrapper({
     )
   }
 
-  // Purchased state - show download button BUT STILL show price and variants
-  // Price and variants must STILL be visible after purchase
-  if (hasPurchased && assetId && productType === "digital") {
-    return (
-      <div className="space-y-3">
-        {/* Price display - STILL visible after purchase */}
-        {showPriceDisplay && (
-          <div className="mb-4">
-            <div
-              className="text-2xl sm:text-3xl font-bold"
-              style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
-            >
-              {currentPrice === 0 ? "Free" : formatPrice(currentPrice)}
-            </div>
-            {effectiveCompareAtPrice && effectiveCompareAtPrice > currentPrice && (
-              <div className="mt-1 flex items-center gap-2">
-                <span
-                  className="text-base sm:text-lg line-through"
-                  style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}
-                >
-                  {formatPrice(effectiveCompareAtPrice)}
-                </span>
-                <Badge variant="destructive">
-                  {Math.round((1 - currentPrice / effectiveCompareAtPrice) * 100)}% OFF
-                </Badge>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Download button */}
-        <DownloadButton
-          assetId={assetId}
-          receiptToken={receiptToken}
-          className="w-full min-h-[48px]"
-          size="default"
-          style={{
-            backgroundColor: downloadButtonBgColor || undefined,
-            color: downloadButtonTextColor || undefined,
-          }}
-        >
-          Download File
-        </DownloadButton>
-        {purchasedExtraContent}
-
-        {/* Variants - STILL visible after purchase (display only) */}
-        {variants.length > 0 && (
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: themeColors?.cardBorderColor || "var(--border)" }}>
-            <VariantSelector
-              variants={variants}
-              basePrice={priceCents}
-              onVariantChange={handleVariantChange}
-              themeColors={{
-                cardBackground: themeColors?.cardBackground,
-                cardTextColor: themeColors?.cardTextColor,
-                cardBorderColor: themeColors?.cardBorderColor,
-                accentColor: themeColors?.accentColor || "#000000",
-              }}
-            />
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // Not purchased - show buy button FIRST, then wishlist, then variants UNDER
+  // Render the component with unified variant selector
+  // Button changes based on whether user can download the CURRENT selected variant
   return (
     <div className="space-y-3">
-      {/* Price display (optional) */}
+      {/* Price display */}
       {showPriceDisplay && (
         <div className="mb-4">
           <div
@@ -210,28 +173,49 @@ export function PurchaseStatusWrapper({
         </div>
       )}
 
-      {/* Buy button - FIRST */}
-      <BuyButton
-        productId={productId}
-        price={currentPrice}
-        creatorId={creatorId}
-        backgroundColor={buyButtonBgColor}
-        textColor={buyButtonTextColor}
-        variantId={selectedVariant?.id}
-      />
+      {/* Download button - ONLY if user purchased THIS specific variant */}
+      {canDownload ? (
+        <>
+          <DownloadButton
+            assetId={assetId}
+            receiptToken={receiptToken}
+            className="w-full min-h-[48px]"
+            size="default"
+            style={{
+              backgroundColor: downloadButtonBgColor || undefined,
+              color: downloadButtonTextColor || undefined,
+            }}
+          >
+            Download File
+          </DownloadButton>
+          {purchasedExtraContent}
+        </>
+      ) : (
+        <>
+          {/* Buy button - shown when user hasn't purchased THIS variant */}
+          <BuyButton
+            productId={productId}
+            price={currentPrice}
+            creatorId={creatorId}
+            backgroundColor={buyButtonBgColor}
+            textColor={buyButtonTextColor}
+            variantId={selectedVariant?.id}
+          />
+          {notPurchasedExtraContent}
+        </>
+      )}
 
-      {/* Extra content (wishlist, refund policy) - AFTER buy button */}
-      {notPurchasedExtraContent}
-
-      {/* Variant selector - UNDER buy button and wishlist */}
+      {/* Variant selector - ALWAYS visible, allows switching between variants */}
       {variants.length > 0 && (
         <div className="mt-4 pt-4 border-t" style={{ borderColor: themeColors?.cardBorderColor || "var(--border)" }}>
-          <p
-            className="text-sm font-medium mb-3"
-            style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
-          >
-            Select option
-          </p>
+          {!canDownload && (
+            <p
+              className="text-sm font-medium mb-3"
+              style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+            >
+              Select option
+            </p>
+          )}
           <VariantSelector
             variants={variants}
             basePrice={priceCents}
