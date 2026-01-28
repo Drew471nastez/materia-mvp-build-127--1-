@@ -165,12 +165,6 @@ export function PurchaseStatusWrapper({
         {/* Variants - STILL visible after purchase (display only) */}
         {variants.length > 0 && (
           <div className="mt-4 pt-4 border-t" style={{ borderColor: themeColors?.cardBorderColor || "var(--border)" }}>
-            <p
-              className="text-sm font-medium mb-3"
-              style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
-            >
-              Available options
-            </p>
             <VariantSelector
               variants={variants}
               basePrice={priceCents}

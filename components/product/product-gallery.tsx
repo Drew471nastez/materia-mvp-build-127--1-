@@ -74,12 +74,35 @@ export function ProductGallery({
   const imageRef = useRef<HTMLDivElement>(null)
   const autoplayRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Helper to convert any YouTube URL to embed format
+  const toYouTubeEmbed = (url: string): string => {
+    // Already in embed format
+    if (url.includes('youtube.com/embed/')) return url
+
+    // Extract video ID from various formats
+    let videoId: string | null = null
+    const patterns = [
+      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+      /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    ]
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match) {
+        videoId = match[1]
+        break
+      }
+    }
+
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : url
+  }
+
   // Build media items array: YouTube FIRST (if exists), then images, then video
   // This ensures YouTube embeds show first in the gallery when set by creator
   // YouTube embeds do NOT generate thumbnails - they are pure embeds only
   const mediaItems: MediaItem[] = [
     ...youtubeUrls.map(url => ({
-      url,
+      url: toYouTubeEmbed(url),
       type: "youtube" as const,
       // No thumbnailUrl for YouTube - pure embed only
     })),
