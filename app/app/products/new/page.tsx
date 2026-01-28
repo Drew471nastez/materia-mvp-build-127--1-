@@ -1117,15 +1117,24 @@ export default function NewProductPage() {
         if (createError) throw createError
         setProductId(product.id)
         finalProductId = product.id
+        // Update slug state to match what was actually saved (in case of duplicate handling)
+        if (product.slug && product.slug !== slug) {
+          setSlug(product.slug)
+        }
       }
 
       // Save variants if we have a product ID
       if (finalProductId && variants.length > 0) {
         // First, delete all existing variants for this product (they'll be recreated)
-        await supabase
+        const { error: deleteVariantsError } = await supabase
           .from("product_variants")
           .delete()
           .eq("product_id", finalProductId)
+
+        if (deleteVariantsError) {
+          console.error("Error deleting existing variants:", deleteVariantsError)
+          // Continue anyway - variants table might not exist yet
+        }
 
         // Insert all variants
         for (let i = 0; i < variants.length; i++) {
@@ -1145,6 +1154,7 @@ export default function NewProductPage() {
 
           if (variantError) {
             console.error("Error saving variant:", variantError)
+            // Don't throw - try to save other variants
             continue
           }
 
@@ -1163,23 +1173,32 @@ export default function NewProductPage() {
                 digital_asset_id: asset.id,
               }))
 
-              await supabase
+              const { error: variantFilesError } = await supabase
                 .from("product_variant_files")
                 .insert(variantFilesData)
+
+              if (variantFilesError) {
+                console.error("Error saving variant files:", variantFilesError)
+              }
             }
           }
         }
       } else if (finalProductId && variants.length === 0) {
         // If no variants, delete any existing ones
-        await supabase
+        const { error: deleteError } = await supabase
           .from("product_variants")
           .delete()
           .eq("product_id", finalProductId)
+
+        if (deleteError) {
+          console.error("Error deleting variants:", deleteError)
+        }
       }
 
       setHasUnsavedChanges(false)
-      return finalProductId
+      return { productId: finalProductId, slug: finalSlug }
     } catch (err: any) {
+      console.error("Error saving product:", err)
       setError(err.message)
       return null
     } finally {
@@ -1601,14 +1620,15 @@ export default function NewProductPage() {
       setError(null)
 
       try {
-        currentProductId = await saveProduct(false)
-        if (!currentProductId) {
+        const saveResult = await saveProduct(false)
+        if (!saveResult) {
           // If saveProduct returns null, get error from state or use default
           // Small delay to ensure error state is set
           await new Promise(resolve => setTimeout(resolve, 50))
           setError(prev => prev || "Failed to create product. Please check your connection and try again.")
           return
         }
+        currentProductId = saveResult.productId
       } catch (saveErr) {
         console.error("Error saving product before file upload:", saveErr)
         setError(saveErr instanceof Error ? saveErr.message : "Failed to create product. Please try again.")
@@ -1746,10 +1766,10 @@ export default function NewProductPage() {
   }
 
   const handleSaveAndExit = async () => {
-    const savedProductId = await saveProduct(false)
+    const result = await saveProduct(false)
     setShowExitDialog(false)
-    if (savedProductId) {
-      router.push(`/app/products/${savedProductId}`)
+    if (result) {
+      router.push(`/app/products/${result.productId}`)
     }
   }
 
@@ -1762,10 +1782,12 @@ export default function NewProductPage() {
 
     setIsLoading(true)
     // Always publish when saving
-    const savedProductId = await saveProduct(true)
+    const result = await saveProduct(true)
     setIsLoading(false)
 
-    if (savedProductId) {
+    if (result) {
+      const { productId: savedProductId, slug: savedSlug } = result
+
       // Update URL to include product ID so refresh works correctly
       // Use replaceState to avoid adding to browser history
       const newUrl = `/app/products/new?edit=${savedProductId}`
@@ -1783,11 +1805,12 @@ export default function NewProductPage() {
       })
 
       // Revalidate the live product page so changes appear immediately
+      // Use the actual saved slug in case it was modified due to duplicates
       try {
         await fetch("/api/revalidate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug, type: "product" }),
+          body: JSON.stringify({ slug: savedSlug, type: "product" }),
         })
       } catch (revalidateErr) {
         console.log("Revalidation skipped:", revalidateErr)
