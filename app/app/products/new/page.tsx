@@ -957,6 +957,57 @@ export default function NewProductPage() {
 
           // Mark that there are no unsaved changes initially when editing
           setHasUnsavedChanges(false)
+
+          // CRITICAL: Set savedValuesRef with loaded values to prevent false "unsaved changes"
+          // This ensures the "Saved" button shows correctly after page refresh
+          const loadedVariants = productVariants?.map(v => ({
+            id: v.id,
+            name: v.name,
+            description: v.description || "",
+            additionalPrice: v.additional_price_cents ? (v.additional_price_cents / 100).toString() : "0",
+            maxPurchases: v.max_purchases ? v.max_purchases.toString() : "",
+            isExpanded: false,
+            assignedFiles: v.product_variant_files?.map((pvf: any) => pvf.digital_asset_id) || [],
+          })) || []
+
+          const loadedWhatsIncluded = product.whats_included && Array.isArray(product.whats_included)
+            ? product.whats_included
+            : DEFAULT_WHATS_INCLUDED
+
+          const loadedFaqs = product.faqs && Array.isArray(product.faqs)
+            ? product.faqs.map((faq: any, idx: number) => ({
+                id: `loaded-${idx}`,
+                question: faq.question || "",
+                answer: faq.answer || "",
+                isDefault: false,
+              }))
+            : DEFAULT_FAQS
+
+          const loadedDigitalFiles = assets?.map(asset => ({
+            id: asset.id,
+            file_name: asset.file_name,
+            file_path: asset.file_path,
+            file_size: asset.file_size,
+            mime_type: asset.mime_type,
+          })) || []
+
+          // Set savedValuesRef with the loaded data so change detection works correctly
+          savedValuesRef.current = JSON.stringify({
+            title: product.title || "",
+            description: product.description || "",
+            price: product.price_cents ? (product.price_cents / 100).toString() : "",
+            mediaItems: mediaList,
+            digitalFiles: loadedDigitalFiles,
+            variants: loadedVariants,
+            whatsIncluded: loadedWhatsIncluded,
+            faqs: loadedFaqs,
+            selectedCategory: product.category || null,
+            limitSalesEnabled: false,
+            salesLimit: ""
+          })
+
+          // Show as "Saved" state since data is already persisted
+          setJustSaved(true)
         }
       }
     }
@@ -1730,6 +1781,17 @@ export default function NewProductPage() {
         title, description, price, mediaItems, digitalFiles, variants,
         whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit
       })
+
+      // Revalidate the live product page so changes appear immediately
+      try {
+        await fetch("/api/revalidate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug, type: "product" }),
+        })
+      } catch (revalidateErr) {
+        console.log("Revalidation skipped:", revalidateErr)
+      }
 
       // Smooth scroll to top
       contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })
