@@ -53,6 +53,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 import * as LucideIcons from "lucide-react"
 import { DescriptionEditWrapper, RichDescriptionContent } from "./description-rich-editor"
+import { VariantSelector, type ProductVariant } from "@/components/product/variant-selector"
 
 // Shared product type for consistency
 export interface ProductData {
@@ -76,6 +77,8 @@ export interface ProductData {
   refund_policy_type?: 'no_refunds' | '7_day' | '14_day' | '30_day' | '6_month' | null
   refund_policy_fine_print?: string | null
   refund_policy_updated_at?: string | null
+  // Product variants
+  variants?: ProductVariant[]
 }
 
 // Creator data type
@@ -3011,6 +3014,20 @@ export function UnifiedProductPage({
   const [showShareModal, setShowShareModal] = useState(false)
   const [isFaqHovered, setIsFaqHovered] = useState(false)
 
+  // Variant state
+  const variants = product?.variants || []
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
+    variants.length > 0 ? variants[0] : null
+  )
+  const [currentDisplayPrice, setCurrentDisplayPrice] = useState(
+    (product?.price_cents ?? 0) + (variants[0]?.additional_price_cents || 0)
+  )
+
+  const handleVariantChange = useCallback((variant: ProductVariant | null, totalPrice: number) => {
+    setSelectedVariant(variant)
+    setCurrentDisplayPrice(totalPrice)
+  }, [])
+
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -3269,27 +3286,72 @@ export function UnifiedProductPage({
                         : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                     }}
                   >
-                    <div className="mb-4">
-                      <div
-                        className={cn("text-xl font-bold", !priceContainerText && "text-foreground")}
-                        style={{ color: priceContainerText }}
-                      >
-                        {productPrice === 0 ? "Free" : formatPrice(productPrice)}
-                      </div>
-                      {compareAtPrice && compareAtPrice > productPrice && (
-                        <div className="mt-1 flex items-center gap-2">
-                          <span
-                            className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
-                            style={{ color: priceContainerMuted }}
-                          >
-                            {formatPrice(compareAtPrice)}
-                          </span>
-                          <Badge variant="destructive">
-                            {Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF
-                          </Badge>
+                    {/* Price display - only show static price if no variants */}
+                    {variants.length === 0 && (
+                      <div className="mb-4">
+                        <div
+                          className={cn("text-xl font-bold", !priceContainerText && "text-foreground")}
+                          style={{ color: priceContainerText }}
+                        >
+                          {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                         </div>
-                      )}
-                    </div>
+                        {compareAtPrice && compareAtPrice > productPrice && (
+                          <div className="mt-1 flex items-center gap-2">
+                            <span
+                              className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
+                              style={{ color: priceContainerMuted }}
+                            >
+                              {formatPrice(compareAtPrice)}
+                            </span>
+                            <Badge variant="destructive">
+                              {Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Dynamic price display when variants exist */}
+                    {variants.length > 0 && (
+                      <div className="mb-4">
+                        <div
+                          className={cn("text-xl font-bold", !priceContainerText && "text-foreground")}
+                          style={{ color: priceContainerText }}
+                        >
+                          {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
+                        </div>
+                        {compareAtPrice && compareAtPrice + (selectedVariant?.additional_price_cents || 0) > currentDisplayPrice && (
+                          <div className="mt-1 flex items-center gap-2">
+                            <span
+                              className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
+                              style={{ color: priceContainerMuted }}
+                            >
+                              {formatPrice(compareAtPrice + (selectedVariant?.additional_price_cents || 0))}
+                            </span>
+                            <Badge variant="destructive">
+                              {Math.round((1 - currentDisplayPrice / (compareAtPrice + (selectedVariant?.additional_price_cents || 0))) * 100)}% OFF
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Variant selector */}
+                    {variants.length > 0 && (
+                      <div className="mb-4">
+                        <VariantSelector
+                          variants={variants}
+                          basePrice={productPrice}
+                          onVariantChange={handleVariantChange}
+                          themeColors={{
+                            cardBackground: priceContainerBg,
+                            cardTextColor: priceContainerText,
+                            cardBorderColor: priceContainerBorder,
+                            accentColor: settings.buyButtonColor || "#000000",
+                          }}
+                        />
+                      </div>
+                    )}
 
                     {isPreviewMode ? (
                       <div className="space-y-3">
@@ -3536,27 +3598,72 @@ export function UnifiedProductPage({
                       : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                   }}
                 >
-                  <div className="mb-4">
-                    <div
-                      className={cn("text-2xl sm:text-3xl font-bold", !priceContainerText && "text-foreground")}
-                      style={{ color: priceContainerText }}
-                    >
-                      {productPrice === 0 ? "Free" : formatPrice(productPrice)}
-                    </div>
-                    {compareAtPrice && compareAtPrice > productPrice && (
-                      <div className="mt-1 flex items-center gap-2">
-                        <span
-                          className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
-                          style={{ color: priceContainerMuted }}
-                        >
-                          {formatPrice(compareAtPrice)}
-                        </span>
-                        <Badge variant="destructive">
-                          {Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF
-                        </Badge>
+                  {/* Price display - only show static price if no variants */}
+                  {variants.length === 0 && (
+                    <div className="mb-4">
+                      <div
+                        className={cn("text-2xl sm:text-3xl font-bold", !priceContainerText && "text-foreground")}
+                        style={{ color: priceContainerText }}
+                      >
+                        {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                       </div>
-                    )}
-                  </div>
+                      {compareAtPrice && compareAtPrice > productPrice && (
+                        <div className="mt-1 flex items-center gap-2">
+                          <span
+                            className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
+                            style={{ color: priceContainerMuted }}
+                          >
+                            {formatPrice(compareAtPrice)}
+                          </span>
+                          <Badge variant="destructive">
+                            {Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Dynamic price display when variants exist */}
+                  {variants.length > 0 && (
+                    <div className="mb-4">
+                      <div
+                        className={cn("text-2xl sm:text-3xl font-bold", !priceContainerText && "text-foreground")}
+                        style={{ color: priceContainerText }}
+                      >
+                        {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
+                      </div>
+                      {compareAtPrice && compareAtPrice + (selectedVariant?.additional_price_cents || 0) > currentDisplayPrice && (
+                        <div className="mt-1 flex items-center gap-2">
+                          <span
+                            className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
+                            style={{ color: priceContainerMuted }}
+                          >
+                            {formatPrice(compareAtPrice + (selectedVariant?.additional_price_cents || 0))}
+                          </span>
+                          <Badge variant="destructive">
+                            {Math.round((1 - currentDisplayPrice / (compareAtPrice + (selectedVariant?.additional_price_cents || 0))) * 100)}% OFF
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Variant selector */}
+                  {variants.length > 0 && (
+                    <div className="mb-4">
+                      <VariantSelector
+                        variants={variants}
+                        basePrice={productPrice}
+                        onVariantChange={handleVariantChange}
+                        themeColors={{
+                          cardBackground: priceContainerBg,
+                          cardTextColor: priceContainerText,
+                          cardBorderColor: priceContainerBorder,
+                          accentColor: settings.buyButtonColor || "#000000",
+                        }}
+                      />
+                    </div>
+                  )}
 
                   {isPreviewMode ? (
                     <div className="space-y-3">
@@ -3759,25 +3866,70 @@ export function UnifiedProductPage({
                     : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
                 }}
               >
-                <div className="mb-4">
-                  <div
-                    className={cn("text-3xl font-bold", !priceContainerText && "text-foreground")}
-                    style={{ color: priceContainerText }}
-                  >
-                    {productPrice === 0 ? "Free" : formatPrice(productPrice)}
-                  </div>
-                  {compareAtPrice && compareAtPrice > productPrice && (
-                    <div className="mt-1 flex items-center gap-2">
-                      <span
-                        className={cn("text-lg line-through", !priceContainerMuted && "text-muted-foreground")}
-                        style={{ color: priceContainerMuted }}
-                      >
-                        {formatPrice(compareAtPrice)}
-                      </span>
-                      <Badge variant="destructive">{Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF</Badge>
+                {/* Price display - only show static price if no variants */}
+                {variants.length === 0 && (
+                  <div className="mb-4">
+                    <div
+                      className={cn("text-3xl font-bold", !priceContainerText && "text-foreground")}
+                      style={{ color: priceContainerText }}
+                    >
+                      {productPrice === 0 ? "Free" : formatPrice(productPrice)}
                     </div>
-                  )}
-                </div>
+                    {compareAtPrice && compareAtPrice > productPrice && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <span
+                          className={cn("text-lg line-through", !priceContainerMuted && "text-muted-foreground")}
+                          style={{ color: priceContainerMuted }}
+                        >
+                          {formatPrice(compareAtPrice)}
+                        </span>
+                        <Badge variant="destructive">{Math.round((1 - productPrice / compareAtPrice) * 100)}% OFF</Badge>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Dynamic price display when variants exist */}
+                {variants.length > 0 && (
+                  <div className="mb-4">
+                    <div
+                      className={cn("text-3xl font-bold", !priceContainerText && "text-foreground")}
+                      style={{ color: priceContainerText }}
+                    >
+                      {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
+                    </div>
+                    {compareAtPrice && compareAtPrice + (selectedVariant?.additional_price_cents || 0) > currentDisplayPrice && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <span
+                          className={cn("text-lg line-through", !priceContainerMuted && "text-muted-foreground")}
+                          style={{ color: priceContainerMuted }}
+                        >
+                          {formatPrice(compareAtPrice + (selectedVariant?.additional_price_cents || 0))}
+                        </span>
+                        <Badge variant="destructive">
+                          {Math.round((1 - currentDisplayPrice / (compareAtPrice + (selectedVariant?.additional_price_cents || 0))) * 100)}% OFF
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Variant selector */}
+                {variants.length > 0 && (
+                  <div className="mb-4">
+                    <VariantSelector
+                      variants={variants}
+                      basePrice={productPrice}
+                      onVariantChange={handleVariantChange}
+                      themeColors={{
+                        cardBackground: priceContainerBg,
+                        cardTextColor: priceContainerText,
+                        cardBorderColor: priceContainerBorder,
+                        accentColor: settings.buyButtonColor || "#000000",
+                      }}
+                    />
+                  </div>
+                )}
 
                 {isPreviewMode ? (
                   <div className="space-y-3">

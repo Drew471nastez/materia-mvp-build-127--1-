@@ -578,7 +578,7 @@ export function DescriptionRichEditor({
       if (!disableAutoFocus) {
         setTimeout(() => {
           if (editorRef.current) {
-            editorRef.current.focus()
+            editorRef.current.focus({ preventScroll: true })
             placeCursorAtEnd()
           }
         }, 50)

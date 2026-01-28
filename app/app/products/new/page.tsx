@@ -250,9 +250,20 @@ export default function NewProductPage() {
       history.scrollRestoration = 'manual'
     }
 
+    // Blur any focused element to prevent scroll-to-focus
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+
     // Force scroll to top on ALL possible scroll containers
     const forceScrollTop = () => {
-      window.scrollTo(0, 0)
+      // Blur again in case something focused during the timeout
+      if (document.activeElement instanceof HTMLElement &&
+          document.activeElement !== document.body) {
+        document.activeElement.blur()
+      }
+
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior })
       document.documentElement.scrollTop = 0
       document.body.scrollTop = 0
       if (contentRef.current) {
@@ -266,17 +277,17 @@ export default function NewProductPage() {
     // Run after RAF to catch any layout shifts
     requestAnimationFrame(forceScrollTop)
 
-    // Run multiple times to override any auto-focus scroll (editor focuses after 50ms)
+    // Run multiple times to override any auto-focus scroll
     const timers = [
       setTimeout(forceScrollTop, 0),
       setTimeout(forceScrollTop, 10),
-      setTimeout(forceScrollTop, 30),
-      setTimeout(forceScrollTop, 60),  // After editor's 50ms focus
-      setTimeout(forceScrollTop, 100), // Extra safety
+      setTimeout(forceScrollTop, 50),
+      setTimeout(forceScrollTop, 100),
+      setTimeout(forceScrollTop, 200),
       setTimeout(() => {
         forceScrollTop()
         setIsPageReady(true)
-      }, 150), // Final scroll and show content
+      }, 300), // Final scroll and show content
     ]
 
     return () => {
