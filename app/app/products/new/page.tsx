@@ -762,7 +762,7 @@ export default function NewProductPage() {
     // Create a snapshot of current values
     const currentValues = JSON.stringify({
       title, description, price, mediaItems, digitalFiles, variants,
-      whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit
+      whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction
     })
 
     // If we have content and it's different from saved values, we have unsaved changes
@@ -779,7 +779,7 @@ export default function NewProductPage() {
         setHasUnsavedChanges(true)
       }
     }
-  }, [title, description, price, mediaItems, digitalFiles, variants, whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, justSaved])
+  }, [title, description, price, mediaItems, digitalFiles, variants, whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction, justSaved])
 
   // Handle browser back/refresh with unsaved changes
   useEffect(() => {
@@ -1189,7 +1189,8 @@ export default function NewProductPage() {
             faqs: loadedFaqs,
             selectedCategory: product.category || null,
             limitSalesEnabled: false,
-            salesLimit: ""
+            salesLimit: "",
+            callToAction: product.call_to_action || ""
           })
 
           // Show as "Saved" state since data is already persisted
@@ -2096,7 +2097,7 @@ export default function NewProductPage() {
       // Store current values as saved state for change detection
       savedValuesRef.current = JSON.stringify({
         title, description, price, mediaItems, digitalFiles, variants,
-        whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit
+        whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction
       })
 
       // Revalidate the live product page so changes appear immediately
