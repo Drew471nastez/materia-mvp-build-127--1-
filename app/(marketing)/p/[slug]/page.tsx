@@ -374,7 +374,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       id,
       name,
       description,
-      additional_price_cents,
+      price_cents,
       max_purchases,
       position,
       product_variant_files (
@@ -388,12 +388,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     .eq("product_id", product.id)
     .order("position")
 
-  // Transform variants data
+  // Transform variants data - price_cents is the FINAL price for the variant
   const variants = productVariants?.map(v => ({
     id: v.id,
     name: v.name,
     description: v.description,
-    additional_price_cents: v.additional_price_cents || 0,
+    price_cents: v.price_cents || 0, // FINAL price, not additional
     max_purchases: v.max_purchases,
     position: v.position,
     files: v.product_variant_files?.map((pvf: any) => ({

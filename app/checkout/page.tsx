@@ -48,7 +48,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   if (variantId) {
     const { data: variant } = await supabase
       .from("product_variants")
-      .select("id, name, description, additional_price_cents")
+      .select("id, name, description, price_cents")
       .eq("id", variantId)
       .eq("product_id", productId)
       .single()
@@ -76,8 +76,10 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
-  // Calculate final price with variant additional price
-  const finalPriceCents = product.price_cents + (selectedVariant?.additional_price_cents || 0)
+  // Calculate final price:
+  // - If variant is selected, use variant's price_cents (FINAL price)
+  // - Otherwise use product's base price
+  const finalPriceCents = selectedVariant ? selectedVariant.price_cents : product.price_cents
 
   return (
     <CheckoutPageClient
@@ -102,7 +104,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         id: selectedVariant.id,
         name: selectedVariant.name,
         description: selectedVariant.description,
-        additionalPrice: selectedVariant.additional_price_cents,
+        priceCents: selectedVariant.price_cents, // FINAL price, not additional
       } : null}
     />
   )

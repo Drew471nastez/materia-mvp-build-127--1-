@@ -3014,18 +3014,18 @@ export function UnifiedProductPage({
   const [showShareModal, setShowShareModal] = useState(false)
   const [isFaqHovered, setIsFaqHovered] = useState(false)
 
-  // Variant state
+  // Variant state - if variants exist, use variant price as FINAL price (not additional)
   const variants = product?.variants || []
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     variants.length > 0 ? variants[0] : null
   )
   const [currentDisplayPrice, setCurrentDisplayPrice] = useState(
-    (product?.price_cents ?? 0) + (variants[0]?.additional_price_cents || 0)
+    variants.length > 0 ? (variants[0]?.price_cents || 0) : (product?.price_cents ?? 0)
   )
 
-  const handleVariantChange = useCallback((variant: ProductVariant | null, totalPrice: number) => {
+  const handleVariantChange = useCallback((variant: ProductVariant | null, finalPrice: number) => {
     setSelectedVariant(variant)
-    setCurrentDisplayPrice(totalPrice)
+    setCurrentDisplayPrice(finalPrice)
   }, [])
 
   const formatPrice = (cents: number) => {
@@ -3322,16 +3322,16 @@ export function UnifiedProductPage({
                         >
                           {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
                         </div>
-                        {compareAtPrice && compareAtPrice + (selectedVariant?.additional_price_cents || 0) > currentDisplayPrice && (
+                        {compareAtPrice && compareAtPrice > currentDisplayPrice && (
                           <div className="mt-1 flex items-center gap-2">
                             <span
                               className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
                               style={{ color: priceContainerMuted }}
                             >
-                              {formatPrice(compareAtPrice + (selectedVariant?.additional_price_cents || 0))}
+                              {formatPrice(compareAtPrice)}
                             </span>
                             <Badge variant="destructive">
-                              {Math.round((1 - currentDisplayPrice / (compareAtPrice + (selectedVariant?.additional_price_cents || 0))) * 100)}% OFF
+                              {Math.round((1 - currentDisplayPrice / (compareAtPrice)) * 100)}% OFF
                             </Badge>
                           </div>
                         )}
@@ -3634,16 +3634,16 @@ export function UnifiedProductPage({
                       >
                         {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
                       </div>
-                      {compareAtPrice && compareAtPrice + (selectedVariant?.additional_price_cents || 0) > currentDisplayPrice && (
+                      {compareAtPrice && compareAtPrice > currentDisplayPrice && (
                         <div className="mt-1 flex items-center gap-2">
                           <span
                             className={cn("text-base line-through", !priceContainerMuted && "text-muted-foreground")}
                             style={{ color: priceContainerMuted }}
                           >
-                            {formatPrice(compareAtPrice + (selectedVariant?.additional_price_cents || 0))}
+                            {formatPrice(compareAtPrice)}
                           </span>
                           <Badge variant="destructive">
-                            {Math.round((1 - currentDisplayPrice / (compareAtPrice + (selectedVariant?.additional_price_cents || 0))) * 100)}% OFF
+                            {Math.round((1 - currentDisplayPrice / (compareAtPrice)) * 100)}% OFF
                           </Badge>
                         </div>
                       )}
@@ -3900,16 +3900,16 @@ export function UnifiedProductPage({
                     >
                       {currentDisplayPrice === 0 ? "Free" : formatPrice(currentDisplayPrice)}
                     </div>
-                    {compareAtPrice && compareAtPrice + (selectedVariant?.additional_price_cents || 0) > currentDisplayPrice && (
+                    {compareAtPrice && compareAtPrice > currentDisplayPrice && (
                       <div className="mt-1 flex items-center gap-2">
                         <span
                           className={cn("text-lg line-through", !priceContainerMuted && "text-muted-foreground")}
                           style={{ color: priceContainerMuted }}
                         >
-                          {formatPrice(compareAtPrice + (selectedVariant?.additional_price_cents || 0))}
+                          {formatPrice(compareAtPrice)}
                         </span>
                         <Badge variant="destructive">
-                          {Math.round((1 - currentDisplayPrice / (compareAtPrice + (selectedVariant?.additional_price_cents || 0))) * 100)}% OFF
+                          {Math.round((1 - currentDisplayPrice / (compareAtPrice)) * 100)}% OFF
                         </Badge>
                       </div>
                     )}

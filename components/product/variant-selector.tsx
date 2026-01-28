@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { Check, Package } from "lucide-react"
+import { Check } from "lucide-react"
 
 export interface ProductVariant {
   id: string
   name: string
   description: string | null
-  additional_price_cents: number
+  price_cents: number // FINAL price for this variant (not additional)
   max_purchases: number | null
   position: number
   files?: Array<{
@@ -19,8 +19,8 @@ export interface ProductVariant {
 
 interface VariantSelectorProps {
   variants: ProductVariant[]
-  basePrice: number
-  onVariantChange: (variant: ProductVariant | null, totalPrice: number) => void
+  basePrice: number // Only used when no variants exist
+  onVariantChange: (variant: ProductVariant | null, finalPrice: number) => void
   themeColors?: {
     cardBackground?: string
     cardTextColor?: string
@@ -37,8 +37,6 @@ export function VariantSelector({
   themeColors,
   className,
 }: VariantSelectorProps) {
-  // If only 1 variant, it's always selected and can't be unselected
-  // If multiple variants, first one is selected by default but can switch
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
     variants.length > 0 ? variants[0].id : null
   )
@@ -47,8 +45,8 @@ export function VariantSelector({
     // Notify parent of initial selection
     if (variants.length > 0) {
       const selectedVariant = variants.find(v => v.id === selectedVariantId) || variants[0]
-      const totalPrice = basePrice + (selectedVariant?.additional_price_cents || 0)
-      onVariantChange(selectedVariant, totalPrice)
+      // Use variant's price_cents directly as the final price
+      onVariantChange(selectedVariant, selectedVariant?.price_cents || 0)
     } else {
       onVariantChange(null, basePrice)
     }
@@ -59,13 +57,14 @@ export function VariantSelector({
     if (variants.length === 1) return
 
     setSelectedVariantId(variant.id)
-    const totalPrice = basePrice + variant.additional_price_cents
-    onVariantChange(variant, totalPrice)
+    // Use variant's price_cents directly as the final price
+    onVariantChange(variant, variant.price_cents)
   }
 
   if (variants.length === 0) return null
 
   const formatPrice = (cents: number) => {
+    if (cents === 0) return "Free"
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -74,16 +73,10 @@ export function VariantSelector({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <p
-        className="text-sm font-medium mb-3"
-        style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
-      >
-        {variants.length === 1 ? "Package" : "Choose a package"}
-      </p>
+      {/* No heading - removed "Package" / "Choose a package" */}
       <div className="space-y-2">
         {variants.map((variant) => {
           const isSelected = selectedVariantId === variant.id
-          const totalPrice = basePrice + variant.additional_price_cents
 
           return (
             <button
@@ -108,7 +101,7 @@ export function VariantSelector({
               }}
             >
               <div className="flex items-start gap-3">
-                {/* Selection indicator */}
+                {/* Selection indicator - themed radio button */}
                 <div
                   className={cn(
                     "flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition-colors",
@@ -126,7 +119,7 @@ export function VariantSelector({
                   {isSelected && <Check className="w-3 h-3 text-white" />}
                 </div>
 
-                {/* Variant info */}
+                {/* Variant info - only name, price, description */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <h4
@@ -139,7 +132,7 @@ export function VariantSelector({
                       className="font-bold text-sm sm:text-base flex-shrink-0"
                       style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
                     >
-                      {formatPrice(totalPrice)}
+                      {formatPrice(variant.price_cents)}
                     </span>
                   </div>
 
@@ -152,28 +145,8 @@ export function VariantSelector({
                     </p>
                   )}
 
-                  {/* File count indicator */}
-                  {variant.files && variant.files.length > 0 && (
-                    <div
-                      className="flex items-center gap-1.5 mt-2 text-xs"
-                      style={{ color: `${themeColors?.cardTextColor || "var(--foreground)"}80` }}
-                    >
-                      <Package className="w-3.5 h-3.5" />
-                      <span>
-                        {variant.files.length} file{variant.files.length !== 1 ? "s" : ""} included
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Additional price indicator */}
-                  {variant.additional_price_cents > 0 && (
-                    <div
-                      className="text-xs mt-1"
-                      style={{ color: `${themeColors?.cardTextColor || "var(--foreground)"}70` }}
-                    >
-                      +{formatPrice(variant.additional_price_cents)} from base price
-                    </div>
-                  )}
+                  {/* Removed: file count indicator */}
+                  {/* Removed: +$X from base price indicator */}
                 </div>
               </div>
             </button>
@@ -196,7 +169,7 @@ export function VariantSelectorCompact({
   variants: ProductVariant[]
   basePrice: number
   selectedVariantId: string | null
-  onVariantChange: (variant: ProductVariant | null, totalPrice: number) => void
+  onVariantChange: (variant: ProductVariant | null, finalPrice: number) => void
   themeColors?: {
     cardBackground?: string
     cardTextColor?: string
@@ -208,6 +181,7 @@ export function VariantSelectorCompact({
   if (variants.length <= 1) return null
 
   const formatPrice = (cents: number) => {
+    if (cents === 0) return "Free"
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -218,14 +192,14 @@ export function VariantSelectorCompact({
     <div className={cn("flex gap-2 overflow-x-auto pb-1 -mx-1 px-1", className)}>
       {variants.map((variant) => {
         const isSelected = selectedVariantId === variant.id
-        const totalPrice = basePrice + variant.additional_price_cents
 
         return (
           <button
             key={variant.id}
             type="button"
             onClick={() => {
-              onVariantChange(variant, totalPrice)
+              // Use variant's price_cents directly as the final price
+              onVariantChange(variant, variant.price_cents)
             }}
             className={cn(
               "flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
@@ -238,10 +212,7 @@ export function VariantSelectorCompact({
               borderColor: isSelected ? themeColors?.accentColor || "#000000" : undefined,
             }}
           >
-            {variant.name}
-            {variant.additional_price_cents > 0 && (
-              <span className="ml-1 opacity-70">+{formatPrice(variant.additional_price_cents)}</span>
-            )}
+            {variant.name} - {formatPrice(variant.price_cents)}
           </button>
         )
       })}

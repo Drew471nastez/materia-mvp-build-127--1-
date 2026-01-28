@@ -319,7 +319,7 @@ export default function NewProductPage() {
     id: string
     name: string
     description: string
-    additionalPrice: string
+    price: string // FINAL price for this variant (not additional)
     maxPurchases: string
     isExpanded: boolean
     assignedFiles: string[] // IDs of assigned digital files
@@ -1059,7 +1059,7 @@ export default function NewProductPage() {
           const { data: productVariants, error: variantsLoadError } = await supabase
             .from("product_variants")
             .select(`
-              id, name, description, additional_price_cents, max_purchases, position,
+              id, name, description, price_cents, max_purchases, position,
               product_variant_files (
                 digital_asset_id
               )
@@ -1078,7 +1078,7 @@ export default function NewProductPage() {
               id: v.id,
               name: v.name,
               description: v.description || "",
-              additionalPrice: v.additional_price_cents ? (v.additional_price_cents / 100).toString() : "0",
+              price: v.price_cents ? (v.price_cents / 100).toString() : "0", // FINAL price
               maxPurchases: v.max_purchases ? v.max_purchases.toString() : "",
               isExpanded: false,
               assignedFiles: v.product_variant_files?.map((pvf: any) => pvf.digital_asset_id) || [],
@@ -1109,7 +1109,7 @@ export default function NewProductPage() {
             id: v.id,
             name: v.name,
             description: v.description || "",
-            additionalPrice: v.additional_price_cents ? (v.additional_price_cents / 100).toString() : "0",
+            price: v.price_cents ? (v.price_cents / 100).toString() : "0", // FINAL price
             maxPurchases: v.max_purchases ? v.max_purchases.toString() : "",
             isExpanded: false,
             assignedFiles: v.product_variant_files?.map((pvf: any) => pvf.digital_asset_id) || [],
@@ -1349,7 +1349,7 @@ export default function NewProductPage() {
               product_id: finalProductId,
               name: variant.name || "Untitled",
               description: variant.description || null,
-              additional_price_cents: Math.round(Number.parseFloat(variant.additionalPrice || "0") * 100),
+              price_cents: Math.round(Number.parseFloat(variant.price || "0") * 100), // FINAL price
               max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
               position: i,
             })
@@ -3290,7 +3290,7 @@ export default function NewProductPage() {
                             {/* Price and Max Purchases Row */}
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-1.5">
-                                <Label className="text-xs sm:text-sm font-medium text-gray-700">Additional amount</Label>
+                                <Label className="text-xs sm:text-sm font-medium text-gray-700">Price</Label>
                                 <div className="relative">
                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                                   <Input
@@ -3298,15 +3298,16 @@ export default function NewProductPage() {
                                     step="0.01"
                                     min="0"
                                     placeholder="0"
-                                    value={variant.additionalPrice}
+                                    value={variant.price}
                                     onChange={(e) => {
                                       setVariants(prev => prev.map(v =>
-                                        v.id === variant.id ? { ...v, additionalPrice: e.target.value } : v
+                                        v.id === variant.id ? { ...v, price: e.target.value } : v
                                       ))
                                     }}
                                     className="h-10 pl-7 border-gray-200 text-sm"
                                   />
                                 </div>
+                                <p className="text-[10px] text-gray-400">Final price for this variant</p>
                               </div>
                               <div className="space-y-1.5">
                                 <Label className="text-xs sm:text-sm font-medium text-gray-700">Maximum number of purchases</Label>
@@ -3395,7 +3396,7 @@ export default function NewProductPage() {
                         id: `variant-${Date.now()}`,
                         name: "Untitled",
                         description: "",
-                        additionalPrice: "0",
+                        price: "0", // FINAL price for this variant
                         maxPurchases: "",
                         isExpanded: true,
                         assignedFiles: [],
@@ -3496,92 +3497,95 @@ export default function NewProductPage() {
                   </Button>
                 </div>
 
-                {/* Category Modal - Modern Responsive */}
+                {/* Category Modal - Mobile Responsive */}
                 <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
-                  <DialogContent className="w-[95vw] max-w-lg sm:max-w-xl max-h-[85vh] sm:max-h-[80vh] p-4 sm:p-6">
-                    <DialogHeader className="pb-2">
+                  <DialogContent className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[calc(100%-2rem)] max-w-lg rounded-xl bg-white shadow-xl border p-0 max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+                    <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
                       <DialogTitle className="text-lg sm:text-xl font-semibold">Select Category</DialogTitle>
                       <DialogDescription className="text-sm text-gray-500">
                         Choose a category that best describes your product.
                       </DialogDescription>
                     </DialogHeader>
 
-                    {/* AI Suggestion - Modern Badge Style */}
-                    {suggestedCategory && (
-                      <div className="mt-3 mb-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategory(suggestedCategory)
-                            setShowCategoryModal(false)
-                            setCategorySearch("")
-                          }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 ${
-                            selectedCategory === suggestedCategory
-                              ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
-                              : "bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 border border-violet-200"
-                          }`}
-                        >
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                            selectedCategory === suggestedCategory
-                              ? "bg-white/20 text-white"
-                              : "bg-violet-500 text-white"
-                          }`}>
-                            ✨ AI Suggested
-                          </span>
-                          <span className={`font-medium ${selectedCategory === suggestedCategory ? "text-white" : "text-violet-900"}`}>
-                            {suggestedCategory}
-                          </span>
-                          {selectedCategory === suggestedCategory && (
-                            <Check className="ml-auto h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="mt-2">
-                      <Input
-                        placeholder="Search 170+ categories..."
-                        value={categorySearch}
-                        onChange={(e) => setCategorySearch(e.target.value)}
-                        className="h-10 sm:h-11 text-sm sm:text-base rounded-lg"
-                      />
-                    </div>
-                    <div className="mt-3 max-h-[45vh] sm:max-h-[350px] overflow-y-auto space-y-0.5 pr-1">
-                      {CATEGORIES.filter(cat =>
-                        cat.toLowerCase().includes(categorySearch.toLowerCase())
-                      ).map((category) => (
-                        <button
-                          key={category}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategory(category)
-                            setShowCategoryModal(false)
-                            setCategorySearch("")
-                          }}
-                          className={`w-full flex items-center gap-3 text-left px-3 py-2.5 sm:py-2.5 rounded-lg text-sm sm:text-base transition-all duration-150 ${
-                            selectedCategory === category
-                              ? "bg-violet-100 text-violet-900 font-medium"
-                              : "hover:bg-gray-50 text-gray-700"
-                          }`}
-                        >
-                          {/* Bullet point */}
-                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                            selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
-                          }`} />
-                          <span className="flex-1">{category}</span>
-                          {selectedCategory === category && (
-                            <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />
-                          )}
-                        </button>
-                      ))}
-                      {CATEGORIES.filter(cat =>
-                        cat.toLowerCase().includes(categorySearch.toLowerCase())
-                      ).length === 0 && (
-                        <p className="text-sm text-gray-500 text-center py-6">No categories found</p>
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-3 sm:pt-4">
+                      {/* AI Suggestion - Modern Badge Style */}
+                      {suggestedCategory && (
+                        <div className="mb-4">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(suggestedCategory)
+                              setShowCategoryModal(false)
+                              setCategorySearch("")
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 ${
+                              selectedCategory === suggestedCategory
+                                ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
+                                : "bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 border border-violet-200"
+                            }`}
+                          >
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                              selectedCategory === suggestedCategory
+                                ? "bg-white/20 text-white"
+                                : "bg-violet-500 text-white"
+                            }`}>
+                              ✨ AI Suggested
+                            </span>
+                            <span className={`font-medium ${selectedCategory === suggestedCategory ? "text-white" : "text-violet-900"}`}>
+                              {suggestedCategory}
+                            </span>
+                            {selectedCategory === suggestedCategory && (
+                              <Check className="ml-auto h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       )}
+
+                      <div className="mb-3">
+                        <Input
+                          placeholder="Search 170+ categories..."
+                          value={categorySearch}
+                          onChange={(e) => setCategorySearch(e.target.value)}
+                          className="h-10 sm:h-11 text-sm sm:text-base rounded-lg"
+                        />
+                      </div>
+
+                      <div className="space-y-0.5">
+                        {CATEGORIES.filter(cat =>
+                          cat.toLowerCase().includes(categorySearch.toLowerCase())
+                        ).map((category) => (
+                          <button
+                            key={category}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(category)
+                              setShowCategoryModal(false)
+                              setCategorySearch("")
+                            }}
+                            className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
+                              selectedCategory === category
+                                ? "bg-violet-100 text-violet-900 font-medium"
+                                : "hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                              selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
+                            }`} />
+                            <span className="flex-1">{category}</span>
+                            {selectedCategory === category && (
+                              <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                        {CATEGORIES.filter(cat =>
+                          cat.toLowerCase().includes(categorySearch.toLowerCase())
+                        ).length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-6">No categories found</p>
+                        )}
+                      </div>
                     </div>
-                    <DialogFooter className="mt-4 flex-col sm:flex-row gap-2">
+
+                    <div className="flex-shrink-0 border-t p-4 sm:p-6 pt-3 sm:pt-4 bg-gray-50 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
                       <Button
                         type="button"
                         variant="outline"
@@ -3590,9 +3594,9 @@ export default function NewProductPage() {
                           setShowCategoryModal(false)
                           setCategorySearch("")
                         }}
-                        className="w-full sm:w-auto order-2 sm:order-1"
+                        className="w-full sm:w-auto"
                       >
-                        Clear Selection
+                        Cancel
                       </Button>
                       <Button
                         type="button"
@@ -3600,11 +3604,11 @@ export default function NewProductPage() {
                           setShowCategoryModal(false)
                           setCategorySearch("")
                         }}
-                        className="w-full sm:w-auto bg-violet-500 hover:bg-violet-600 order-1 sm:order-2"
+                        className="w-full sm:w-auto bg-violet-500 hover:bg-violet-600"
                       >
-                        Done
+                        Save Changes
                       </Button>
-                    </DialogFooter>
+                    </div>
                   </DialogContent>
                 </Dialog>
               </div>

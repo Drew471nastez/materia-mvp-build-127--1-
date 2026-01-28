@@ -68,30 +68,29 @@ export function PurchaseStatusWrapper({
     serverAssetId
   )
 
-  // Variant state
+  // Variant state - if variants exist, use first variant's price as FINAL price
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     variants.length > 0 ? variants[0] : null
   )
   const [currentPrice, setCurrentPrice] = useState(
-    priceCents + (variants[0]?.additional_price_cents || 0)
+    variants.length > 0 ? (variants[0]?.price_cents || 0) : priceCents
   )
 
-  const handleVariantChange = useCallback((variant: ProductVariant | null, totalPrice: number) => {
+  const handleVariantChange = useCallback((variant: ProductVariant | null, finalPrice: number) => {
     setSelectedVariant(variant)
-    setCurrentPrice(totalPrice)
+    setCurrentPrice(finalPrice)
   }, [])
 
   const formatPrice = (cents: number) => {
+    if (cents === 0) return "Free"
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
     }).format(cents / 100)
   }
 
-  // Calculate compare at price with variant additional
-  const effectiveCompareAtPrice = compareAtCents
-    ? compareAtCents + (selectedVariant?.additional_price_cents || 0)
-    : null
+  // Compare at price only shown when no variants selected
+  const effectiveCompareAtPrice = variants.length === 0 ? compareAtCents : null
 
   // Loading state
   if (isChecking) {

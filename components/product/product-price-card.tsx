@@ -40,29 +40,31 @@ export function ProductPriceCard({
   hasPurchased = false,
   className,
 }: ProductPriceCardProps) {
+  // If variants exist, use first variant's price as initial price
+  // Otherwise use base product price
+  const initialPrice = variants.length > 0 ? (variants[0]?.price_cents || 0) : basePrice
+
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     variants.length > 0 ? variants[0] : null
   )
-  const [currentPrice, setCurrentPrice] = useState(
-    basePrice + (variants[0]?.additional_price_cents || 0)
-  )
+  const [currentPrice, setCurrentPrice] = useState(initialPrice)
 
-  const handleVariantChange = useCallback((variant: ProductVariant | null, totalPrice: number) => {
+  const handleVariantChange = useCallback((variant: ProductVariant | null, finalPrice: number) => {
     setSelectedVariant(variant)
-    setCurrentPrice(totalPrice)
+    setCurrentPrice(finalPrice)
   }, [])
 
   const formatPrice = (cents: number) => {
+    if (cents === 0) return "Free"
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
     }).format(cents / 100)
   }
 
-  // Calculate compare at price with variant additional
-  const effectiveCompareAtPrice = compareAtPrice
-    ? compareAtPrice + (selectedVariant?.additional_price_cents || 0)
-    : null
+  // Compare at price logic - only relevant when no variants, or we could compare variant price
+  // For simplicity, only show compare price when no variants selected
+  const showComparePrice = compareAtPrice && compareAtPrice > currentPrice && variants.length === 0
 
   return (
     <div className={className}>
@@ -72,26 +74,33 @@ export function ProductPriceCard({
           className="text-2xl sm:text-3xl font-bold"
           style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
         >
-          {currentPrice === 0 ? "Free" : formatPrice(currentPrice)}
+          {formatPrice(currentPrice)}
         </div>
-        {effectiveCompareAtPrice && effectiveCompareAtPrice > currentPrice && (
+        {showComparePrice && (
           <div className="mt-1 flex items-center gap-2">
             <span
               className="text-base sm:text-lg line-through"
               style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}
             >
-              {formatPrice(effectiveCompareAtPrice)}
+              {formatPrice(compareAtPrice)}
             </span>
             <Badge variant="destructive">
-              {Math.round((1 - currentPrice / effectiveCompareAtPrice) * 100)}% OFF
+              {Math.round((1 - currentPrice / compareAtPrice) * 100)}% OFF
             </Badge>
           </div>
         )}
       </div>
 
-      {/* Variant selector */}
+      {/* Purchase button - ABOVE variants */}
+      {purchaseButton}
+
+      {/* Variants selector - UNDER buy button with divider */}
       {variants.length > 0 && (
-        <div className="mb-4">
+        <>
+          <div
+            className="my-4 border-t"
+            style={{ borderColor: themeColors?.cardBorderColor || "#e5e7eb" }}
+          />
           <VariantSelector
             variants={variants}
             basePrice={basePrice}
@@ -103,11 +112,8 @@ export function ProductPriceCard({
               accentColor: themeColors?.accentColor || "#000000",
             }}
           />
-        </div>
+        </>
       )}
-
-      {/* Purchase button */}
-      {purchaseButton}
 
       {/* Purchased/Not purchased content */}
       {hasPurchased ? purchasedContent : notPurchasedContent}
