@@ -998,14 +998,17 @@ export default function NewProductPage() {
     try {
       let finalSlug = slug
       if (!productId) {
+        // Check for duplicate slug for THIS creator (unique constraint is per-creator)
         const { data: existing } = await supabase
           .from("products")
           .select("id")
           .eq("slug", slug)
-          .single()
+          .eq("creator_id", creatorId)
+          .maybeSingle()
 
         if (existing) {
-          finalSlug = `${slug}-${Math.random().toString(36).slice(2, 7)}`
+          // Add timestamp + random suffix to ensure uniqueness
+          finalSlug = `${slug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
         }
       }
 
@@ -1712,6 +1715,11 @@ export default function NewProductPage() {
     setIsLoading(false)
 
     if (savedProductId) {
+      // Update URL to include product ID so refresh works correctly
+      // Use replaceState to avoid adding to browser history
+      const newUrl = `/app/products/new?edit=${savedProductId}`
+      window.history.replaceState({}, '', newUrl)
+
       // Stay on the same page, don't redirect
       setIsPublished(true)
       setJustSaved(true)
@@ -3509,7 +3517,7 @@ export default function NewProductPage() {
               disabled={isLoading || !title.trim() || justSaved}
               className={`h-10 sm:h-10 px-6 sm:px-6 text-sm sm:text-sm rounded-lg font-medium transition-colors ${
                 justSaved
-                  ? "bg-green-500 hover:bg-green-500 text-white cursor-default disabled:bg-green-500 disabled:opacity-100"
+                  ? "bg-violet-400 hover:bg-violet-400 text-white cursor-default disabled:bg-violet-400 disabled:opacity-100"
                   : "bg-violet-500 hover:bg-violet-600 text-white"
               }`}
             >
