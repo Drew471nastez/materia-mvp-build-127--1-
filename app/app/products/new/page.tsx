@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react"
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -164,6 +164,63 @@ interface SortableFAQItemProps {
   onUpdate: (id: string, updates: { question?: string; answer?: string }) => void
   onRemove: (id: string) => void
 }
+
+// Memoized checkbox component for variant file assignment - prevents re-render issues
+interface VariantFileCheckboxProps {
+  fileId: string
+  variantId: string
+  fileName: string
+  fileSize: number
+  isAssigned: boolean
+  onToggle: (variantId: string, fileId: string) => void
+}
+
+const VariantFileCheckbox = React.memo(function VariantFileCheckbox({
+  fileId,
+  variantId,
+  fileName,
+  fileSize,
+  isAssigned,
+  onToggle
+}: VariantFileCheckboxProps) {
+  const handleClick = useCallback(() => {
+    onToggle(variantId, fileId)
+  }, [onToggle, variantId, fileId])
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+  }
+
+  return (
+    <div
+      onClick={handleClick}
+      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none ${
+        isAssigned
+          ? 'border-violet-200 bg-violet-50/50'
+          : 'border-gray-100 hover:border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+      }`}
+    >
+      <div className={`flex items-center justify-center w-5 h-5 rounded-md border-2 transition-all ${
+        isAssigned
+          ? 'bg-violet-500 border-violet-500'
+          : 'bg-white border-gray-300'
+      }`}>
+        {isAssigned && <Check className="h-3 w-3 text-white" />}
+      </div>
+      <FileText className={`h-4 w-4 flex-shrink-0 ${isAssigned ? 'text-violet-500' : 'text-gray-400'}`} />
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-medium truncate ${isAssigned ? 'text-gray-900' : 'text-gray-600'}`}>
+          {fileName}
+        </p>
+        <p className="text-[10px] text-gray-400">{formatFileSize(fileSize)}</p>
+      </div>
+    </div>
+  )
+})
 
 function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
   const {
@@ -428,6 +485,29 @@ export default function NewProductPage() {
         return arrayMove(prevFaqs, oldIndex, newIndex)
       })
     }
+  }, [])
+
+  // Stable handler for toggling variant assigned files - defined at component level to avoid closure issues
+  const handleToggleVariantFile = useCallback((variantId: string, fileId: string) => {
+    if (!variantId || !fileId) return
+
+    setVariants(currentVariants => {
+      if (!currentVariants || !Array.isArray(currentVariants)) return currentVariants || []
+
+      return currentVariants.map(v => {
+        if (!v || v.id !== variantId) return v
+
+        const currentFiles = Array.isArray(v.assignedFiles) ? v.assignedFiles : []
+        const fileExists = currentFiles.includes(fileId)
+
+        return {
+          ...v,
+          assignedFiles: fileExists
+            ? currentFiles.filter(f => f !== fileId)
+            : [...currentFiles, fileId]
+        }
+      })
+    })
   }, [])
 
   // Categories list (170+ options)
@@ -3665,99 +3745,28 @@ export default function NewProductPage() {
                                 </p>
                               </div>
 
-                              {/* File selection - completely safe with try-catch and defensive checks */}
+                              {/* File selection - uses stable callback handler */}
                               {digitalFiles.length > 0 ? (
                                 <div className="space-y-2">
-                                  {digitalFiles.map((file, fileIndex) => {
-                                    // Defensive: skip invalid files
-                                    if (!file) return null
+                                  {digitalFiles.map((file) => {
+                                    // Skip invalid files
+                                    if (!file || !file.id || !variant || !variant.id) return null
 
-                                    // Use fileIndex as fallback key if id is missing
-                                    const fileId = file.id ? String(file.id) : null
-                                    if (!fileId) return null
-
-                                    // Get variant ID safely
-                                    const varId = variant?.id ? String(variant.id) : null
-                                    if (!varId) return null
-
-                                    // Safely determine if assigned
-                                    const assignedArr = variant?.assignedFiles
-                                    const isAssigned = Array.isArray(assignedArr)
-                                      ? assignedArr.some(aid => String(aid) === fileId)
-                                      : false
-
-                                    // Handler with try-catch to prevent crashes
-                                    const handleToggle = (e: React.MouseEvent | React.ChangeEvent) => {
-                                      e.stopPropagation()
-                                      try {
-                                        // Capture everything we need before state update
-                                        const fid = fileId
-                                        const vid = varId
-                                        const wasAssigned = isAssigned
-
-                                        setVariants(prev => {
-                                          // Defensive: ensure prev is array
-                                          if (!prev || !Array.isArray(prev)) {
-                                            console.warn('[Checkbox] prev is not array:', prev)
-                                            return prev || []
-                                          }
-
-                                          const newVariants = prev.map(v => {
-                                            // Skip if not an object or wrong variant
-                                            if (!v || typeof v !== 'object') return v
-                                            if (String(v.id || '') !== vid) return v
-
-                                            // Get current assigned files safely
-                                            const currentFiles = Array.isArray(v.assignedFiles)
-                                              ? v.assignedFiles.map(f => String(f))
-                                              : []
-
-                                            let newFiles: string[]
-                                            if (wasAssigned) {
-                                              // Remove file
-                                              newFiles = currentFiles.filter(f => f !== fid)
-                                            } else {
-                                              // Add file (only if not already present)
-                                              newFiles = currentFiles.includes(fid)
-                                                ? currentFiles
-                                                : [...currentFiles, fid]
-                                            }
-
-                                            return { ...v, assignedFiles: newFiles }
-                                          })
-
-                                          return newVariants
-                                        })
-                                      } catch (err) {
-                                        console.error('[Checkbox] Error in toggle handler:', err)
-                                      }
-                                    }
+                                    const fileId = String(file.id)
+                                    const variantId = String(variant.id)
+                                    const assignedFiles = Array.isArray(variant.assignedFiles) ? variant.assignedFiles : []
+                                    const isAssigned = assignedFiles.includes(fileId)
 
                                     return (
-                                      <div
-                                        key={`variant-${varId}-file-${fileId}`}
-                                        onClick={handleToggle}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none ${
-                                          isAssigned
-                                            ? 'border-violet-200 bg-violet-50/50'
-                                            : 'border-gray-100 hover:border-gray-200 bg-gray-50/50 hover:bg-gray-50'
-                                        }`}
-                                      >
-                                        <div className={`flex items-center justify-center w-5 h-5 rounded-md border-2 transition-all pointer-events-none ${
-                                          isAssigned
-                                            ? 'bg-violet-500 border-violet-500'
-                                            : 'bg-white border-gray-300'
-                                        }`}>
-                                          {isAssigned && <Check className="h-3 w-3 text-white" />}
-                                        </div>
-                                        <FileText className={`h-4 w-4 flex-shrink-0 pointer-events-none ${isAssigned ? 'text-violet-500' : 'text-gray-400'}`} />
-                                        <div className="min-w-0 flex-1 pointer-events-none">
-                                          <p className={`text-sm font-medium truncate ${isAssigned ? 'text-gray-900' : 'text-gray-600'}`}>
-                                            {file.file_name || 'Unnamed file'}
-                                          </p>
-                                          <p className="text-[10px] text-gray-400">{formatFileSize(file.file_size || 0)}</p>
-                                        </div>
-                                      </div>
+                                      <VariantFileCheckbox
+                                        key={`${variantId}-${fileId}`}
+                                        fileId={fileId}
+                                        variantId={variantId}
+                                        fileName={file.file_name || 'Unnamed file'}
+                                        fileSize={file.file_size || 0}
+                                        isAssigned={isAssigned}
+                                        onToggle={handleToggleVariantFile}
+                                      />
                                     )
                                   })}
                                 </div>
