@@ -23,6 +23,9 @@ function SignUpFormContent() {
   const claim = searchParams.get("claim")
   const receiptToken = searchParams.get("receiptToken")
   const prefilledEmail = searchParams.get("email")
+  // Get redirect URL from search params (for returning to receipt page after signup)
+  const redirectUrl = searchParams.get("redirect")
+  const pendingReview = searchParams.get("pendingReview")
 
   useEffect(() => {
     if (prefilledEmail) {
@@ -125,7 +128,15 @@ function SignUpFormContent() {
         }
 
         // Redirect to verify email page with sent=1 flag
-        router.push(`/verify-email?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}&sent=1`)
+        // Include redirect URL if present for post-verification redirect
+        let verifyUrl = `/verify-email?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}&sent=1`
+        if (redirectUrl) {
+          verifyUrl += `&redirect=${encodeURIComponent(redirectUrl)}`
+        }
+        if (pendingReview === "true") {
+          verifyUrl += `&pendingReview=true`
+        }
+        router.push(verifyUrl)
         router.refresh()
       }
     } catch (error: unknown) {
@@ -146,6 +157,15 @@ function SignUpFormContent() {
     setError(null)
 
     try {
+      // Store redirect URL in localStorage for OAuth callback to use
+      if (redirectUrl) {
+        const redirectData = {
+          url: redirectUrl,
+          pendingReview: pendingReview === "true",
+        }
+        localStorage.setItem("storelib_auth_redirect", JSON.stringify(redirectData))
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {

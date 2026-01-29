@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Star, Loader2, LogIn, CheckCircle, Lock } from "lucide-react"
+import { Star, Loader2, LogIn, CheckCircle, Lock, UserPlus } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ReviewFormProps {
@@ -301,15 +301,45 @@ export function ReviewForm({
         </Button>
       ) : (
         <div className="space-y-3">
-          <Button
-            onClick={handleSubmit}
-            disabled={rating === 0 || content.trim().length < 10}
-            className="w-full h-11 rounded-xl font-medium"
-          >
-            <LogIn className="h-4 w-4 mr-2" />
-            Sign in to post review
-          </Button>
-          <p className="text-xs text-center text-gray-500">You’ll come back here with your review saved.</p>
+          <p className="text-sm text-center text-gray-600 font-medium">Sign in to post your review</p>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                // Store pending review before redirect
+                try {
+                  window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify({ rating, content, ts: Date.now() })
+                  )
+                } catch { /* ignore */ }
+                const currentUrl = redirectUrl || window.location.pathname
+                window.location.href = `/login?redirect=${encodeURIComponent(currentUrl)}&pendingReview=true`
+              }}
+              variant="outline"
+              className="flex-1 h-11 rounded-xl font-medium"
+            >
+              <LogIn className="h-4 w-4 mr-2" />
+              Login
+            </Button>
+            <Button
+              onClick={() => {
+                // Store pending review before redirect
+                try {
+                  window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify({ rating, content, ts: Date.now() })
+                  )
+                } catch { /* ignore */ }
+                const currentUrl = redirectUrl || window.location.pathname
+                window.location.href = `/signup?redirect=${encodeURIComponent(currentUrl)}&pendingReview=true`
+              }}
+              className="flex-1 h-11 rounded-xl font-medium"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Sign up
+            </Button>
+          </div>
+          <p className="text-xs text-center text-gray-500">Your review will be saved and restored after you sign in.</p>
         </div>
       )}
     </div>

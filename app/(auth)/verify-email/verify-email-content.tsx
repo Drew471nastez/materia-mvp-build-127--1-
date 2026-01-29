@@ -22,6 +22,8 @@ export default function VerifyEmailContent() {
   const userId = searchParams.get("userId")
   const email = searchParams.get("email") || ""
   const codeSent = searchParams.get("sent") === "1"
+  const redirectUrl = searchParams.get("redirect")
+  const pendingReview = searchParams.get("pendingReview")
 
   // Start countdown if code was already sent
   useEffect(() => {
@@ -110,9 +112,22 @@ export default function VerifyEmailContent() {
 
       setSuccess(true)
 
+      // PRIORITY: If there's a redirect URL (e.g., returning to receipt page for review), use it
+      if (redirectUrl) {
+        setTimeout(() => {
+          let finalUrl = redirectUrl
+          if (pendingReview === "true" && !finalUrl.includes("pendingReview")) {
+            finalUrl += (finalUrl.includes("?") ? "&" : "?") + "pendingReview=true"
+          }
+          router.push(finalUrl)
+          router.refresh()
+        }, 1500)
+        return
+      }
+
       // User is already logged in from signup, just redirect to app/onboarding
       const supabase = createClient()
-      
+
       // Check if user has a creator record
       const { data: creator } = await supabase
         .from("creators")

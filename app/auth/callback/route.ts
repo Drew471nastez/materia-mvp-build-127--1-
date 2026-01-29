@@ -50,8 +50,9 @@ export async function GET(request: Request) {
           console.error("Profile creation error:", profileError)
         }
 
-        // New users go to signup success to choose creator or buyer
-        return NextResponse.redirect(`${origin}/signup/success`)
+        // New users - redirect to client-side complete page which checks localStorage
+        // for any stored redirect (e.g., returning to receipt page after signup)
+        return NextResponse.redirect(`${origin}/auth/complete?new=1`)
       }
 
       // Update avatar if not set
@@ -62,35 +63,10 @@ export async function GET(request: Request) {
           .eq("id", data.user.id)
       }
 
-      // Check if user has a creator record
-      const { data: creator } = await adminSupabase
-        .from("creators")
-        .select("id, onboarding_completed")
-        .eq("user_id", data.user.id)
-        .single()
-
-      // If creator with completed onboarding, go to /app
-      if (creator?.onboarding_completed === true) {
-        return NextResponse.redirect(`${origin}/app`)
-      }
-
-      // If is_creator but onboarding not completed, go to signup/success to continue
-      if (existingProfile.is_creator === true && (!creator || creator.onboarding_completed !== true)) {
-        return NextResponse.redirect(`${origin}/signup/success`)
-      }
-
-      // If welcome_completed and NOT creator (buyer), go to library
-      if (existingProfile.welcome_completed === true && existingProfile.is_creator === false) {
-        return NextResponse.redirect(`${origin}/library`)
-      }
-
-      // If welcome not completed, go to signup/success
-      if (existingProfile.welcome_completed !== true) {
-        return NextResponse.redirect(`${origin}/signup/success`)
-      }
-
-      // Default to dashboard
-      return NextResponse.redirect(`${origin}/app`)
+      // For existing users, redirect to client-side complete page
+      // This allows the page to check localStorage for any stored redirect URL
+      // (e.g., returning to receipt page after login for review)
+      return NextResponse.redirect(`${origin}/auth/complete`)
     }
   }
 

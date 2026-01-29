@@ -19,6 +19,10 @@ function LoginFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // Get redirect URL from search params (for returning to receipt page after login)
+  const redirectUrl = searchParams.get("redirect")
+  const pendingReview = searchParams.get("pendingReview")
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -55,7 +59,7 @@ function LoginFormContent() {
             .select("id")
             .eq("email", trimmedEmail)
             .single()
-          
+
           if (userData) {
             router.push(`/verify-email?userId=${userData.id}&email=${encodeURIComponent(trimmedEmail)}`)
             router.refresh()
@@ -66,6 +70,20 @@ function LoginFormContent() {
       }
 
       if (data.user) {
+        // PRIORITY: If there's a redirect URL, use it (e.g., returning to receipt page)
+        if (redirectUrl) {
+          // Add pendingReview param if it was set
+          let finalUrl = redirectUrl
+          if (pendingReview === "true" && !finalUrl.includes("pendingReview")) {
+            finalUrl += (finalUrl.includes("?") ? "&" : "?") + "pendingReview=true"
+          }
+          // Clear the stored redirect
+          localStorage.removeItem("storelib_auth_redirect")
+          router.push(finalUrl)
+          router.refresh()
+          return
+        }
+
         // Check if user has completed the welcome selection
         const welcomeShown = localStorage.getItem("storelib_welcome_shown")
 
@@ -122,6 +140,15 @@ function LoginFormContent() {
     setError(null)
 
     try {
+      // Store redirect URL in localStorage for OAuth callback to use
+      if (redirectUrl) {
+        const redirectData = {
+          url: redirectUrl,
+          pendingReview: pendingReview === "true",
+        }
+        localStorage.setItem("storelib_auth_redirect", JSON.stringify(redirectData))
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
