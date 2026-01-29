@@ -173,42 +173,50 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`border border-gray-200 rounded-xl overflow-hidden bg-white ${
-        isDragging ? "opacity-50 shadow-lg" : ""
+      className={`rounded-xl overflow-hidden bg-white border transition-all ${
+        isDragging ? "opacity-50 shadow-xl border-violet-300" : "border-gray-200 hover:border-gray-300"
       }`}
     >
-      <div className="p-3 sm:p-4 bg-gray-50">
-        <div className="flex items-start gap-2 sm:gap-3">
-          {/* Drag handle - touch friendly */}
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Drag handle - clean design */}
           <button
             {...attributes}
             {...listeners}
-            className="p-2 -ml-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+            className="p-1.5 text-gray-300 hover:text-gray-500 hover:bg-gray-100 rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0 mt-1"
             title="Drag to reorder"
           >
             <GripVertical className="h-4 w-4" />
           </button>
 
-          <div className="flex-1 space-y-2 min-w-0">
-            <Input
-              value={faq.question}
-              onChange={(e) => onUpdate(faq.id, { question: e.target.value })}
-              className="h-9 text-sm font-medium border-gray-200"
-              placeholder="Question..."
-            />
-            <Textarea
-              value={faq.answer}
-              onChange={(e) => onUpdate(faq.id, { answer: e.target.value })}
-              className="text-sm border-gray-200 min-h-[60px]"
-              placeholder="Answer..."
-            />
+          <div className="flex-1 space-y-3 min-w-0">
+            {/* Question field */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Question</label>
+              <Input
+                value={faq.question}
+                onChange={(e) => onUpdate(faq.id, { question: e.target.value })}
+                className="h-10 text-sm font-medium border-gray-200 rounded-lg bg-gray-50 focus:bg-white transition-colors"
+                placeholder="Enter your question..."
+              />
+            </div>
+            {/* Answer field */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Answer</label>
+              <Textarea
+                value={faq.answer}
+                onChange={(e) => onUpdate(faq.id, { answer: e.target.value })}
+                className="text-sm border-gray-200 min-h-[70px] rounded-lg bg-gray-50 focus:bg-white transition-colors resize-none"
+                placeholder="Enter your answer..."
+              />
+            </div>
           </div>
 
           {!faq.isDefault && (
             <button
               type="button"
               onClick={() => onRemove(faq.id)}
-              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+              className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
               title="Remove FAQ"
             >
               <Trash2 className="h-4 w-4" />
@@ -216,7 +224,9 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
           )}
         </div>
         {faq.isDefault && (
-          <p className="text-[10px] text-gray-400 mt-2 ml-9">Default FAQ (editable)</p>
+          <div className="mt-3 ml-9">
+            <span className="text-[10px] text-violet-500 font-medium px-2 py-0.5 bg-violet-50 rounded-full">Default FAQ</span>
+          </div>
         )}
       </div>
     </div>
@@ -324,6 +334,7 @@ export default function NewProductPage() {
     name: string
     description: string
     price: string // FINAL price for this variant (not additional)
+    compareAtPrice: string // Compare-at price for showing sale/discount
     maxPurchases: string
     isExpanded: boolean
     assignedFiles: string[] // IDs of assigned digital files
@@ -726,38 +737,6 @@ export default function NewProductPage() {
     }
   }, [description, title])
 
-  // Auto-populate SEO description from product description when not manually edited
-  useEffect(() => {
-    // Skip if user has manually edited the SEO description
-    if (seoManuallyEditedRef.current) return
-
-    // Skip if no description content
-    if (!description || description.length < 10) return
-
-    // Clean HTML tags and normalize whitespace
-    let cleanText = description
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/&nbsp;/g, ' ') // Replace &nbsp;
-      .replace(/&amp;/g, '&') // Replace &amp;
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .trim()
-
-    // Truncate to fit SEO description length (max 155-160 characters)
-    if (cleanText.length > 155) {
-      cleanText = cleanText.substring(0, 155).trim()
-      const lastSpace = cleanText.lastIndexOf(' ')
-      if (lastSpace > 100) {
-        cleanText = cleanText.substring(0, lastSpace)
-      }
-      cleanText += '...'
-    }
-
-    // Only update if we have content
-    if (cleanText.length > 0) {
-      setSeoDescription(cleanText)
-    }
-  }, [description])
-
   // Track changes for unsaved warning - compare against last saved values
   useEffect(() => {
     // Create a snapshot of current values
@@ -1142,6 +1121,7 @@ export default function NewProductPage() {
               name: v.name,
               description: v.description || "",
               price: v.price_cents ? (v.price_cents / 100).toString() : "0", // FINAL price
+              compareAtPrice: v.compare_at_price_cents ? (v.compare_at_price_cents / 100).toString() : "",
               maxPurchases: v.max_purchases ? v.max_purchases.toString() : "",
               isExpanded: false,
               assignedFiles: v.product_variant_files?.map((pvf: any) => pvf.digital_asset_id) || [],
@@ -1181,6 +1161,7 @@ export default function NewProductPage() {
               name: v.name,
               description: v.description || "",
               price: v.price_cents ? (v.price_cents / 100).toString() : "0", // FINAL price
+              compareAtPrice: v.compare_at_price_cents ? (v.compare_at_price_cents / 100).toString() : "",
               maxPurchases: v.max_purchases ? v.max_purchases.toString() : "",
               isExpanded: false,
               assignedFiles: v.product_variant_files?.map((pvf: any) => pvf.digital_asset_id) || [],
@@ -1455,6 +1436,7 @@ export default function NewProductPage() {
             name: variant.name || "Untitled",
             description: variant.description || null,
             price_cents: Math.round(Number.parseFloat(variant.price || "0") * 100),
+            compare_at_price_cents: variant.compareAtPrice ? Math.round(Number.parseFloat(variant.compareAtPrice) * 100) : null,
             max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
             position: i,
           }
@@ -3070,34 +3052,52 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {whatsIncluded.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200"
-                    >
-                      <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
-                      <Input
-                        value={item}
-                        onChange={(e) => {
-                          setWhatsIncluded(prev => prev.map((it, i) =>
-                            i === index ? e.target.value : it
-                          ))
-                        }}
-                        className="flex-1 h-8 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
-                        placeholder="Enter item..."
-                      />
-                      {whatsIncluded.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setWhatsIncluded(prev => prev.filter((_, i) => i !== index))}
-                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                          title="Remove item"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {whatsIncluded.map((item, index) => {
+                    const isDefaultItem = index < DEFAULT_WHATS_INCLUDED.length && DEFAULT_WHATS_INCLUDED[index] === item
+                    return (
+                      <div
+                        key={index}
+                        className={`flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl border transition-colors ${
+                          isDefaultItem
+                            ? 'bg-violet-50/50 border-violet-100'
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div className={`flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0 ${
+                          isDefaultItem ? 'bg-violet-100' : 'bg-green-100'
+                        }`}>
+                          <Check className={`h-3 w-3 ${isDefaultItem ? 'text-violet-500' : 'text-green-600'}`} />
+                        </div>
+                        {isDefaultItem ? (
+                          <span className="flex-1 text-sm text-gray-700">{item}</span>
+                        ) : (
+                          <Input
+                            value={item}
+                            onChange={(e) => {
+                              setWhatsIncluded(prev => prev.map((it, i) =>
+                                i === index ? e.target.value : it
+                              ))
+                            }}
+                            className="flex-1 h-8 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
+                            placeholder="Enter item..."
+                          />
+                        )}
+                        {!isDefaultItem && (
+                          <button
+                            type="button"
+                            onClick={() => setWhatsIncluded(prev => prev.filter((_, i) => i !== index))}
+                            className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Remove item"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {isDefaultItem && (
+                          <span className="text-[10px] text-violet-400 font-medium px-1.5 py-0.5 bg-violet-100 rounded">Default</span>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
 
                 {whatsIncluded.length < MAX_WHATS_INCLUDED && (
@@ -3106,7 +3106,7 @@ export default function NewProductPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setWhatsIncluded(prev => [...prev, ""])}
-                    className="text-gray-600 border-gray-300 h-9"
+                    className="text-gray-600 border-gray-300 h-9 rounded-xl"
                   >
                     <Plus className="h-4 w-4 mr-1.5" />
                     Add Item
@@ -3119,19 +3119,35 @@ export default function NewProductPage() {
                 ref={(el) => { sectionRefs.current.faq = el }}
                 className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
               >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">FAQ</h2>
-                    <TooltipIcon
-                      content={<p>Add frequently asked questions to help customers</p>}
-                    />
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h2 className="text-base sm:text-lg font-semibold text-gray-900">FAQ</h2>
+                      <TooltipIcon
+                        content={<p>Add frequently asked questions to help customers</p>}
+                      />
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-500">
+                      Answer common questions. Drag to reorder.
+                    </p>
                   </div>
-                  <p className="text-xs sm:text-sm text-gray-500">
-                    Answer common questions. Default FAQs are included.
-                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFaqs(prev => [...prev, {
+                      id: `custom-${Date.now()}`,
+                      question: "",
+                      answer: "",
+                      isDefault: false,
+                    }])}
+                    className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Add FAQ
+                  </Button>
                 </div>
 
-                <p className="text-xs text-gray-400 mb-2">Drag to reorder FAQs</p>
                 <DndContext
                   sensors={faqSensors}
                   collisionDetection={closestCenter}
@@ -3159,22 +3175,6 @@ export default function NewProductPage() {
                     </div>
                   </SortableContext>
                 </DndContext>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFaqs(prev => [...prev, {
-                    id: `custom-${Date.now()}`,
-                    question: "",
-                    answer: "",
-                    isDefault: false,
-                  }])}
-                  className="text-gray-600 border-gray-300 h-9"
-                >
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Add FAQ
-                </Button>
               </div>
 
               {/* Digital Files Section */}
@@ -3367,16 +3367,42 @@ export default function NewProductPage() {
                 ref={(el) => { sectionRefs.current.variants = el }}
                 className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
               >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">Variants</h2>
-                    <TooltipIcon
-                      content={<p>Add different versions of your product with different prices</p>}
-                    />
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h2 className="text-base sm:text-lg font-semibold text-gray-900">Variants</h2>
+                      <TooltipIcon
+                        content={<p>Add different versions of your product with different prices</p>}
+                      />
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-500">
+                      Offer different versions or tiers of your product.
+                    </p>
                   </div>
-                  <p className="text-xs sm:text-sm text-gray-500">
-                    Offer different versions or tiers of your product.
-                  </p>
+                  {variants.length < MAX_VARIANTS && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newVariant: ProductVariant = {
+                          id: `new-variant-${Date.now()}`,
+                          name: "Untitled",
+                          description: "",
+                          price: "0",
+                          compareAtPrice: "",
+                          maxPurchases: "",
+                          isExpanded: true,
+                          assignedFiles: [],
+                        }
+                        setVariants(prev => [...prev, newVariant])
+                      }}
+                      className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add Variant
+                    </Button>
+                  )}
                 </div>
 
                 {/* Variants List */}
@@ -3385,11 +3411,11 @@ export default function NewProductPage() {
                     {variants.map((variant, index) => (
                       <div
                         key={variant.id}
-                        className="border border-gray-200 rounded-xl overflow-hidden bg-white"
+                        className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:border-gray-300 transition-colors"
                       >
                         {/* Variant Header */}
                         <div
-                          className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                          className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-white cursor-pointer hover:from-gray-100 hover:to-gray-50 transition-colors"
                           onClick={() => {
                             setVariants(prev => prev.map(v =>
                               v.id === variant.id ? { ...v, isExpanded: !v.isExpanded } : v
@@ -3397,13 +3423,27 @@ export default function NewProductPage() {
                           }}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center w-6 h-6 rounded bg-gray-200 text-gray-600">
-                              <GripVertical className="h-3.5 w-3.5" />
+                            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-violet-100 text-violet-600">
+                              <Layers className="h-4 w-4" />
                             </div>
-                            <Layers className="h-4 w-4 text-violet-500" />
-                            <span className="text-sm font-medium text-gray-900">{variant.name || "Untitled"}</span>
+                            <div>
+                              <span className="text-sm font-medium text-gray-900">{variant.name || "Untitled"}</span>
+                              {variant.price && (
+                                <span className="ml-2 text-xs text-gray-500">${parseFloat(variant.price || "0").toFixed(2)}</span>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setVariants(prev => prev.filter(v => v.id !== variant.id))
+                              }}
+                              className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4 text-gray-300 hover:text-red-500" />
+                            </button>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -3412,106 +3452,118 @@ export default function NewProductPage() {
                                   v.id === variant.id ? { ...v, isExpanded: !v.isExpanded } : v
                                 ))
                               }}
-                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
                             >
                               {variant.isExpanded ? (
-                                <ChevronUp className="h-4 w-4 text-gray-500" />
+                                <ChevronUp className="h-4 w-4 text-gray-400" />
                               ) : (
-                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
                               )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setVariants(prev => prev.filter(v => v.id !== variant.id))
-                              }}
-                              className="p-1.5 hover:bg-red-50 rounded transition-colors"
-                            >
-                              <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
                             </button>
                           </div>
                         </div>
 
                         {/* Variant Content - Collapsible */}
                         {variant.isExpanded && (
-                          <div className="p-4 space-y-4 border-t border-gray-200 bg-white">
+                          <div className="p-4 sm:p-5 space-y-5 border-t border-gray-100 bg-white">
                             {/* Name */}
                             <div className="space-y-1.5">
-                              <Label className="text-xs sm:text-sm font-medium text-gray-700">Name</Label>
+                              <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</Label>
                               <Input
-                                placeholder="Untitled"
+                                placeholder="e.g. Basic, Pro, Enterprise"
                                 value={variant.name}
                                 onChange={(e) => {
                                   setVariants(prev => prev.map(v =>
                                     v.id === variant.id ? { ...v, name: e.target.value } : v
                                   ))
                                 }}
-                                className="h-10 border-gray-200 text-sm"
+                                className="h-11 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors"
                               />
                             </div>
 
                             {/* Description */}
                             <div className="space-y-1.5">
-                              <Label className="text-xs sm:text-sm font-medium text-gray-700">Description</Label>
+                              <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Description</Label>
                               <Textarea
-                                placeholder="Describe this variant..."
+                                placeholder="What's included in this variant..."
                                 value={variant.description}
                                 onChange={(e) => {
                                   setVariants(prev => prev.map(v =>
                                     v.id === variant.id ? { ...v, description: e.target.value } : v
                                   ))
                                 }}
-                                className="border-gray-200 min-h-[80px] text-sm resize-none"
+                                className="border-gray-200 min-h-[80px] text-sm resize-none rounded-lg bg-gray-50 focus:bg-white transition-colors"
                               />
                             </div>
 
-                            {/* Price and Max Purchases Row */}
-                            <div className="grid grid-cols-2 gap-4">
+                            {/* Pricing Row - Price, Compare-at, Max Purchases */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                               <div className="space-y-1.5">
-                                <Label className="text-xs sm:text-sm font-medium text-gray-700">Price</Label>
+                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Price</Label>
                                 <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
                                   <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="0"
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="0.00"
                                     value={variant.price}
                                     onChange={(e) => {
+                                      const value = e.target.value.replace(/[^0-9.]/g, '')
                                       setVariants(prev => prev.map(v =>
-                                        v.id === variant.id ? { ...v, price: e.target.value } : v
+                                        v.id === variant.id ? { ...v, price: value } : v
                                       ))
                                     }}
-                                    className="h-10 pl-7 border-gray-200 text-sm"
+                                    className="h-11 pl-8 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors font-medium"
                                   />
                                 </div>
-                                <p className="text-[10px] text-gray-400">Final price for this variant</p>
                               </div>
                               <div className="space-y-1.5">
-                                <Label className="text-xs sm:text-sm font-medium text-gray-700">Maximum number of purchases</Label>
+                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Compare-at price</Label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="Optional"
+                                    value={variant.compareAtPrice || ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value.replace(/[^0-9.]/g, '')
+                                      setVariants(prev => prev.map(v =>
+                                        v.id === variant.id ? { ...v, compareAtPrice: value } : v
+                                      ))
+                                    }}
+                                    className="h-11 pl-8 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors"
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Max purchases</Label>
                                 <Input
                                   type="text"
-                                  placeholder="∞"
+                                  inputMode="numeric"
+                                  placeholder="Unlimited"
                                   value={variant.maxPurchases}
                                   onChange={(e) => {
+                                    const value = e.target.value.replace(/[^0-9]/g, '')
                                     setVariants(prev => prev.map(v =>
-                                      v.id === variant.id ? { ...v, maxPurchases: e.target.value } : v
+                                      v.id === variant.id ? { ...v, maxPurchases: value } : v
                                     ))
                                   }}
-                                  className="h-10 border-gray-200 text-sm"
+                                  className="h-11 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors"
                                 />
                               </div>
                             </div>
 
                             {/* Assigned Digital Files */}
-                            <div className="space-y-2 pt-2 border-t border-gray-100">
-                              <Label className="text-xs sm:text-sm font-medium text-gray-700">
-                                Assigned digital files (optional)
-                              </Label>
-                              <p className="text-[10px] sm:text-xs text-gray-500">
-                                Select files from your uploaded digital products for this variant.
-                              </p>
+                            <div className="space-y-3 pt-4 border-t border-gray-100">
+                              <div>
+                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                  Assigned Files
+                                </Label>
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                  Select which files buyers of this variant will receive
+                                </p>
+                              </div>
 
                               {/* File selection */}
                               {digitalFiles.length > 0 ? (
@@ -3521,12 +3573,19 @@ export default function NewProductPage() {
                                     return (
                                       <label
                                         key={file.id}
-                                        className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                                           isAssigned
-                                            ? 'border-violet-300 bg-violet-50'
-                                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                            ? 'border-violet-200 bg-violet-50/50'
+                                            : 'border-gray-100 hover:border-gray-200 bg-gray-50/50 hover:bg-gray-50'
                                         }`}
                                       >
+                                        <div className={`flex items-center justify-center w-5 h-5 rounded-md border-2 transition-all ${
+                                          isAssigned
+                                            ? 'bg-violet-500 border-violet-500'
+                                            : 'bg-white border-gray-300'
+                                        }`}>
+                                          {isAssigned && <Check className="h-3 w-3 text-white" />}
+                                        </div>
                                         <input
                                           type="checkbox"
                                           checked={isAssigned}
@@ -3541,21 +3600,24 @@ export default function NewProductPage() {
                                               }
                                             }))
                                           }}
-                                          className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                          className="sr-only"
                                         />
-                                        <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                        <FileText className={`h-4 w-4 flex-shrink-0 ${isAssigned ? 'text-violet-500' : 'text-gray-400'}`} />
                                         <div className="min-w-0 flex-1">
-                                          <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
-                                          <p className="text-[10px] text-gray-500">{formatFileSize(file.file_size)}</p>
+                                          <p className={`text-sm font-medium truncate ${isAssigned ? 'text-gray-900' : 'text-gray-600'}`}>{file.file_name}</p>
+                                          <p className="text-[10px] text-gray-400">{formatFileSize(file.file_size)}</p>
                                         </div>
                                       </label>
                                     )
                                   })}
                                 </div>
                               ) : (
-                                <p className="text-xs text-gray-400 italic">
-                                  No digital files uploaded yet. Upload files in the Content section above.
-                                </p>
+                                <div className="p-4 rounded-xl bg-gray-50 border border-dashed border-gray-200 text-center">
+                                  <FileText className="h-5 w-5 text-gray-300 mx-auto mb-1" />
+                                  <p className="text-xs text-gray-400">
+                                    No files uploaded yet
+                                  </p>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -3565,31 +3627,37 @@ export default function NewProductPage() {
                   </div>
                 )}
 
-                {/* Add Version Button - Max 3 variants */}
-                {variants.length < MAX_VARIANTS && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (variants.length >= MAX_VARIANTS) return
-                      const newVariant: ProductVariant = {
-                        id: `new-variant-${Date.now()}`,
-                        name: "Untitled",
-                        description: "",
-                        price: "0", // FINAL price for this variant
-                        maxPurchases: "",
-                        isExpanded: true,
-                        assignedFiles: [],
-                      }
-                      setVariants(prev => [...prev, newVariant])
-                    }}
-                    className="w-full flex items-center justify-center gap-2 p-3 sm:p-4 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add version
-                  </button>
-                )}
                 {variants.length >= MAX_VARIANTS && (
                   <p className="text-xs text-gray-400 text-center">Maximum {MAX_VARIANTS} variants allowed</p>
+                )}
+
+                {variants.length === 0 && (
+                  <div className="p-6 rounded-xl bg-gray-50 border border-dashed border-gray-200 text-center">
+                    <Layers className="h-6 w-6 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500 mb-3">No variants yet</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newVariant: ProductVariant = {
+                          id: `new-variant-${Date.now()}`,
+                          name: "Untitled",
+                          description: "",
+                          price: "0",
+                          compareAtPrice: "",
+                          maxPurchases: "",
+                          isExpanded: true,
+                          assignedFiles: [],
+                        }
+                        setVariants(prev => [...prev, newVariant])
+                      }}
+                      className="text-gray-600 border-gray-300 h-9 rounded-lg"
+                    >
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Create your first variant
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -3832,27 +3900,31 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center justify-between p-3 sm:p-3.5 bg-gray-50 rounded-xl border border-gray-100">
                     <div>
                       <p className="text-xs sm:text-sm font-medium text-gray-900">Show sales count</p>
                       <p className="text-[10px] sm:text-xs text-gray-500">Display number of sales on product page</p>
                     </div>
-                    <Switch
+                    <input
+                      type="checkbox"
                       checked={showSalesBadge}
-                      onCheckedChange={setShowSalesBadge}
+                      onChange={(e) => setShowSalesBadge(e.target.checked)}
+                      className="theme-checkbox"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center justify-between p-3 sm:p-3.5 bg-gray-50 rounded-xl border border-gray-100">
                     <div>
                       <p className="text-xs sm:text-sm font-medium text-gray-900">Limit product sales</p>
                       <p className="text-[10px] sm:text-xs text-gray-500">Set a maximum number of sales</p>
                     </div>
-                    <Switch
+                    <input
+                      type="checkbox"
                       checked={limitSalesEnabled}
-                      onCheckedChange={setLimitSalesEnabled}
+                      onChange={(e) => setLimitSalesEnabled(e.target.checked)}
+                      className="theme-checkbox"
                     />
                   </div>
                   {limitSalesEnabled && (
@@ -3864,7 +3936,7 @@ export default function NewProductPage() {
                           placeholder="e.g. 100"
                           value={salesLimit}
                           onChange={(e) => setSalesLimit(e.target.value)}
-                          className="h-9 w-32 text-sm border-gray-200"
+                          className="h-9 w-32 text-sm border-gray-200 rounded-lg"
                         />
                         <span className="text-xs text-gray-500">copies</span>
                       </div>
@@ -3873,14 +3945,16 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center justify-between p-3 sm:p-3.5 bg-gray-50 rounded-xl border border-gray-100">
                     <div>
                       <p className="text-xs sm:text-sm font-medium text-gray-900">Enable refund policy</p>
                       <p className="text-[10px] sm:text-xs text-gray-500">Show refund policy on product page</p>
                     </div>
-                    <Switch
+                    <input
+                      type="checkbox"
                       checked={refundPolicyEnabled}
-                      onCheckedChange={setRefundPolicyEnabled}
+                      onChange={(e) => setRefundPolicyEnabled(e.target.checked)}
+                      className="theme-checkbox"
                     />
                   </div>
                   {refundPolicyEnabled && (
