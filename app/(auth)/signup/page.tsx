@@ -19,6 +19,7 @@ function SignUpFormContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const router = useRouter()
   const searchParams = useSearchParams()
   const claim = searchParams.get("claim")
@@ -28,6 +29,29 @@ function SignUpFormContent() {
   const redirectUrl = searchParams.get("redirect")
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
+
+  // Check if user is already authenticated - redirect to /explore if so
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (user) {
+          // User is already logged in, redirect to explore
+          router.replace("/explore")
+          return
+        }
+      } catch (error) {
+        // Ignore errors, just show the signup form
+        console.error("Auth check error:", error)
+      } finally {
+        setIsCheckingAuth(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
 
   useEffect(() => {
     if (prefilledEmail) {
@@ -209,6 +233,18 @@ function SignUpFormContent() {
   }
 
   const isFormValid = agreeToTerms
+
+  // Show loading while checking auth status
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-svh w-full items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
+          <p className="mt-4 text-neutral-500">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-svh w-full">
