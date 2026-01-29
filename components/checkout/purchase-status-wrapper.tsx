@@ -77,20 +77,45 @@ export function PurchaseStatusWrapper({
   notPurchasedExtraContent,
   showPriceDisplay = false,
 }: PurchaseStatusWrapperProps) {
-  const { hasPurchased, assetId, receiptToken, purchasedVariantId, isChecking } = usePurchaseStatus(
+  const { hasPurchased, assetId: hookAssetId, receiptToken, purchasedVariantId, isChecking } = usePurchaseStatus(
     productId,
     serverHasPurchased,
     serverAssetId,
     serverPurchasedVariantId
   )
 
-  // Variant state - if variants exist, use first variant's price as FINAL price
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
-    variants.length > 0 ? variants[0] : null
-  )
+  // Find the initial variant to select:
+  // 1. If user has purchased a variant, default to that variant for instant Download button
+  // 2. Otherwise, default to first variant
+  const getInitialVariant = (): ProductVariant | null => {
+    if (variants.length === 0) return null
+
+    // If user purchased a specific variant, default to it so Download shows immediately
+    if (purchasedVariantId) {
+      const purchasedVariant = variants.find(v => v.id === purchasedVariantId)
+      if (purchasedVariant) return purchasedVariant
+    }
+
+    return variants[0]
+  }
+
+  const initialVariant = getInitialVariant()
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(initialVariant)
   const [currentPrice, setCurrentPrice] = useState(
-    variants.length > 0 ? (variants[0]?.price_cents || 0) : priceCents
+    initialVariant ? (initialVariant.price_cents || 0) : priceCents
   )
+
+  // Get effective asset ID - use variant's files if available, otherwise product-level
+  const getEffectiveAssetId = (): string | null => {
+    // If variant has assigned files, use the first one
+    if (selectedVariant?.files && selectedVariant.files.length > 0) {
+      return selectedVariant.files[0].id
+    }
+    // Fall back to hook's asset ID (product-level or from localStorage)
+    return hookAssetId
+  }
+
+  const effectiveAssetId = getEffectiveAssetId()
 
   const handleVariantChange = useCallback((variant: ProductVariant | null, finalPrice: number) => {
     setSelectedVariant(variant)
@@ -126,7 +151,7 @@ export function PurchaseStatusWrapper({
     return selectedVariant?.id === purchasedVariantId
   }
 
-  const canDownload = hasVariantAccess() && assetId && productType === "digital"
+  const canDownload = hasVariantAccess() && effectiveAssetId && productType === "digital"
 
   // Loading state
   if (isChecking) {
@@ -180,7 +205,7 @@ export function PurchaseStatusWrapper({
       {canDownload ? (
         <>
           <DownloadButton
-            assetId={assetId}
+            assetId={effectiveAssetId}
             receiptToken={receiptToken}
             className="w-full min-h-[48px]"
             size="default"
@@ -224,6 +249,7 @@ export function PurchaseStatusWrapper({
             variants={variants}
             basePrice={priceCents}
             onVariantChange={handleVariantChange}
+            initialSelectedId={purchasedVariantId}
             themeColors={{
               cardBackground: themeColors?.cardBackground,
               cardTextColor: themeColors?.cardTextColor,

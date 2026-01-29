@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense } from "react"
 import Image from "next/image"
+import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 
 function SignUpFormContent() {
   const [email, setEmail] = useState("")
@@ -166,10 +167,12 @@ function SignUpFormContent() {
         localStorage.setItem("storelib_auth_redirect", JSON.stringify(redirectData))
       }
 
+      // Use canonical site URL to ensure OAuth redirects to correct domain
+      const canonicalUrl = getCanonicalSiteUrl()
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${canonicalUrl}/auth/callback`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",

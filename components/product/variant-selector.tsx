@@ -20,6 +20,7 @@ interface VariantSelectorProps {
   variants: ProductVariant[]
   basePrice: number // Only used when no variants exist
   onVariantChange: (variant: ProductVariant | null, finalPrice: number) => void
+  initialSelectedId?: string | null // Pre-select a specific variant (e.g., purchased variant)
   themeColors?: {
     cardBackground?: string
     cardTextColor?: string
@@ -33,12 +34,20 @@ export function VariantSelector({
   variants,
   basePrice,
   onVariantChange,
+  initialSelectedId,
   themeColors,
   className,
 }: VariantSelectorProps) {
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
-    variants.length > 0 ? variants[0].id : null
-  )
+  // Default to initialSelectedId if provided and valid, otherwise first variant
+  const getInitialVariantId = () => {
+    if (variants.length === 0) return null
+    if (initialSelectedId && variants.some(v => v.id === initialSelectedId)) {
+      return initialSelectedId
+    }
+    return variants[0].id
+  }
+
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(getInitialVariantId)
 
   useEffect(() => {
     // Notify parent of initial selection

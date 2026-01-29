@@ -129,7 +129,8 @@ export function ReviewForm({
         // ignore
       }
 
-      const currentUrl = redirectUrl || window.location.href
+      // Use relative path to ensure redirects work on the canonical domain
+      const currentUrl = redirectUrl || window.location.pathname
       const url = `/login?redirect=${encodeURIComponent(currentUrl)}&pendingReview=true`
       window.location.href = url
       return

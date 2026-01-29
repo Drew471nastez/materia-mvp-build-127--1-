@@ -19,6 +19,15 @@ const getMainDomain = () => process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com
 const getSiteUrl = () => process.env.NEXT_PUBLIC_SITE_URL || "https://storelib.com"
 
 /**
+ * Get the canonical site URL for auth redirects
+ * Always returns the correct production domain (storelib.com) regardless of which domain the user is currently on
+ * This prevents OAuth redirects to old/deprecated domains
+ */
+export function getCanonicalSiteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL || "https://storelib.com"
+}
+
+/**
  * Get the base URL for a seller's store (subdomain format)
  * @param username - The seller's username
  * @returns Full URL like "https://username.storelib.com"
