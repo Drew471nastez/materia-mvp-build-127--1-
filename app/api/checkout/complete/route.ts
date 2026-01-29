@@ -59,13 +59,18 @@ export async function GET(request: Request) {
     if (existingOrder) {
       console.log("[checkout/complete] Order already exists, redirecting to receipt")
       if (existingOrder.session_fingerprint) {
+        // Get domain for cross-subdomain cookie support
+        const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+        const isLocalhost = mainDomain.includes("localhost")
+
         const cookieStore = await cookies()
         cookieStore.set("materia_session", existingOrder.session_fingerprint, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
+          secure: !isLocalhost,
           sameSite: "lax",
           maxAge: 60 * 60 * 24 * 365,
           path: "/",
+          domain: isLocalhost ? undefined : `.${mainDomain}`,
         })
       }
       return NextResponse.redirect(`${baseUrl}/receipt/${existingOrder.receipt_token}?emailSent=1`)
@@ -184,13 +189,18 @@ export async function GET(request: Request) {
     console.log("[checkout/complete] ✅ Order created:", order.id)
 
     if (sessionFingerprint) {
+      // Get domain for cross-subdomain cookie support
+      const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+      const isLocalhost = mainDomain.includes("localhost")
+
       const cookieStore = await cookies()
       cookieStore.set("materia_session", sessionFingerprint, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: !isLocalhost,
         sameSite: "lax",
         maxAge: 60 * 60 * 24 * 365,
         path: "/",
+        domain: isLocalhost ? undefined : `.${mainDomain}`,
       })
       console.log("[checkout/complete] ✅ Set materia_session cookie for device recognition")
     }

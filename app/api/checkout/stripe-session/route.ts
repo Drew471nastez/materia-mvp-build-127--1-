@@ -168,13 +168,19 @@ export async function POST(request: Request) {
   // Collect device and geo info
   const { deviceInfo, geoInfo } = collectOrderDeviceInfo(request)
 
+  // Get domain for cross-subdomain cookie support
+  const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+  const isLocalhost = mainDomain.includes("localhost")
+
   const cookieStore = await cookies()
   cookieStore.set("materia_session", sessionFingerprint, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: !isLocalhost,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 365,
     path: "/",
+    // Cross-subdomain support - allows receipt access from any subdomain
+    domain: isLocalhost ? undefined : `.${mainDomain}`,
   })
 
   const totalAmount = basePriceCents + (tipCents || 0)

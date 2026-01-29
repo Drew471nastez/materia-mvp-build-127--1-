@@ -96,13 +96,18 @@ export async function POST(request: Request) {
 
     console.log("[quick-free] Generated receipt token:", receiptToken.substring(0, 10) + "...")
 
-    // Set session cookie
+    // Get domain for cross-subdomain cookie support
+    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+    const isLocalhost = mainDomain.includes("localhost")
+
+    // Set session cookie with cross-subdomain support
     cookieStore.set("materia_session", sessionFingerprint, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: !isLocalhost,
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 365,
       path: "/",
+      domain: isLocalhost ? undefined : `.${mainDomain}`,
     })
 
     // Create order

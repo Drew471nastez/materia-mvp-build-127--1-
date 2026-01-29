@@ -177,13 +177,18 @@ export async function POST(request: Request) {
       }
     }
 
-    // Set secure cookie
+    // Get domain for cross-subdomain cookie support
+    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+    const isLocalhost = mainDomain.includes("localhost")
+
+    // Set secure cookie with cross-subdomain support
     cookieStore.set("materia_session", newFingerprint, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: !isLocalhost,
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 365, // 1 year
       path: "/",
+      domain: isLocalhost ? undefined : `.${mainDomain}`,
     })
 
     // Log successful verification (don't fail if this fails)

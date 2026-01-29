@@ -129,13 +129,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
     }
 
+    // Get domain for cross-subdomain cookie support
+    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+    const isLocalhost = mainDomain.includes("localhost")
+
     const cookieStore = await cookies()
     cookieStore.set("materia_session", sessionFingerprint, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: !isLocalhost,
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 365,
       path: "/",
+      domain: isLocalhost ? undefined : `.${mainDomain}`,
     })
     console.log("[complete-free] ✅ Set materia_session cookie for device recognition")
 
