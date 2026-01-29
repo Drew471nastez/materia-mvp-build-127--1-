@@ -131,12 +131,17 @@ export default async function ExplorePage({
     products?.map((product) => {
       const creator = productCreators.find((c) => c.id === product.creator_id)
       const profile = productCreatorProfiles.find((p) => p.id === creator?.user_id)
-      // Extract categories from product_categories join
-      const categories = product.product_categories?.map((pc: any) => pc.category).filter(Boolean) || []
+      // Extract categories from product_categories join OR use direct category field
+      const categoriesFromJoin = product.product_categories?.map((pc: any) => pc.category).filter(Boolean) || []
+      // If no categories from join table, use the direct category field on the product
+      const categoryName = categoriesFromJoin.length > 0
+        ? categoriesFromJoin[0]?.name
+        : product.category // Use direct category field as fallback
       return {
         ...product,
         creator: creator ? { ...creator, profile } : null,
-        categories,
+        categories: categoriesFromJoin,
+        categoryName, // Direct category name for badge display
       }
     }) || []
 
