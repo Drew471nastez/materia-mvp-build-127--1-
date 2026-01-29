@@ -99,8 +99,20 @@ const PILL_SECTIONS = [
   { id: "seo", name: "SEO" },
 ] as const
 
+// Map child sections to their parent pill - Content pill encompasses these sections
+const CONTENT_CHILD_SECTIONS = ["content", "whatsIncluded", "faq", "files", "variants", "pricing", "category"] as const
+
 type SectionId = typeof SECTIONS[number]["id"]
 type PillSectionId = typeof PILL_SECTIONS[number]["id"]
+
+// Helper to determine which pill is active based on current section
+const getPillForSection = (sectionId: SectionId): PillSectionId => {
+  if ((CONTENT_CHILD_SECTIONS as readonly string[]).includes(sectionId)) {
+    return "content"
+  }
+  // For about, media, settings, seo - they match directly
+  return sectionId as PillSectionId
+}
 
 // Limits
 const MAX_PHOTOS = 12
@@ -328,7 +340,7 @@ export default function NewProductPage() {
   const [editingFileId, setEditingFileId] = useState<string | null>(null)
   const [editingFileName, setEditingFileName] = useState("")
 
-  // Variants state (max 3 variants)
+  // Variants state (max 7 variants)
   interface ProductVariant {
     id: string
     name: string
@@ -338,9 +350,18 @@ export default function NewProductPage() {
     maxPurchases: string
     isExpanded: boolean
     assignedFiles: string[] // IDs of assigned digital files
+    // Pay What You Want fields per variant
+    payWhatYouWant: boolean
+    pwywMinPrice: string
+    pwywSuggestedPrice: string
   }
   const [variants, setVariants] = useState<ProductVariant[]>([])
-  const MAX_VARIANTS = 3
+  const MAX_VARIANTS = 7
+
+  // Pay What You Want state (product-level, used when no variants)
+  const [payWhatYouWant, setPayWhatYouWant] = useState(false)
+  const [pwywMinPrice, setPwywMinPrice] = useState("")
+  const [pwywSuggestedPrice, setPwywSuggestedPrice] = useState("")
 
   // What's Included state (3 defaults + 5 custom max = 8 total)
   const DEFAULT_WHATS_INCLUDED = [
@@ -1024,6 +1045,11 @@ export default function NewProductPage() {
           setSelectedCategory(product.category || null)
           setIsPublished(product.status === "published")
 
+          // Load Pay What You Want settings (product-level)
+          setPayWhatYouWant(product.pay_what_you_want || false)
+          setPwywMinPrice(product.pwyw_min_price_cents ? (product.pwyw_min_price_cents / 100).toString() : "")
+          setPwywSuggestedPrice(product.pwyw_suggested_price_cents ? (product.pwyw_suggested_price_cents / 100).toString() : "")
+
           // Load media items - YouTube FIRST (if exists), then images
           // This matches the product page display order
           const mediaList: MediaItem[] = []
@@ -1083,11 +1109,12 @@ export default function NewProductPage() {
             })))
           }
 
-          // Load variants
+          // Load variants with all fields including PWYW
           const { data: productVariants, error: variantsLoadError } = await supabase
             .from("product_variants")
             .select(`
-              id, name, description, price_cents, max_purchases, position,
+              id, name, description, price_cents, compare_at_price_cents, max_purchases, position,
+              pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents,
               product_variant_files (
                 digital_asset_id
               )
@@ -1125,6 +1152,9 @@ export default function NewProductPage() {
               maxPurchases: v.max_purchases ? v.max_purchases.toString() : "",
               isExpanded: false,
               assignedFiles: v.product_variant_files?.map((pvf: any) => pvf.digital_asset_id) || [],
+              payWhatYouWant: v.pay_what_you_want || false,
+              pwywMinPrice: v.pwyw_min_price_cents ? (v.pwyw_min_price_cents / 100).toString() : "",
+              pwywSuggestedPrice: v.pwyw_suggested_price_cents ? (v.pwyw_suggested_price_cents / 100).toString() : "",
             })))
           }
 
@@ -1165,6 +1195,9 @@ export default function NewProductPage() {
               maxPurchases: v.max_purchases ? v.max_purchases.toString() : "",
               isExpanded: false,
               assignedFiles: v.product_variant_files?.map((pvf: any) => pvf.digital_asset_id) || [],
+              payWhatYouWant: v.pay_what_you_want || false,
+              pwywMinPrice: v.pwyw_min_price_cents ? (v.pwyw_min_price_cents / 100).toString() : "",
+              pwywSuggestedPrice: v.pwyw_suggested_price_cents ? (v.pwyw_suggested_price_cents / 100).toString() : "",
             }))
 
           const loadedWhatsIncluded = product.whats_included && Array.isArray(product.whats_included)
@@ -1339,6 +1372,10 @@ export default function NewProductPage() {
         whats_included: filteredWhatsIncluded.length > 0 ? filteredWhatsIncluded : null,
         faqs: formattedFaqs.length > 0 ? formattedFaqs : null,
         category: selectedCategory || null,
+        // Pay What You Want fields (product-level)
+        pay_what_you_want: payWhatYouWant,
+        pwyw_min_price_cents: payWhatYouWant && pwywMinPrice ? Math.round(Number.parseFloat(pwywMinPrice) * 100) : null,
+        pwyw_suggested_price_cents: payWhatYouWant && pwywSuggestedPrice ? Math.round(Number.parseFloat(pwywSuggestedPrice) * 100) : null,
       }
 
       let finalProductId = productId
@@ -1439,6 +1476,10 @@ export default function NewProductPage() {
             compare_at_price_cents: variant.compareAtPrice ? Math.round(Number.parseFloat(variant.compareAtPrice) * 100) : null,
             max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
             position: i,
+            // Pay What You Want fields per variant
+            pay_what_you_want: variant.payWhatYouWant || false,
+            pwyw_min_price_cents: variant.payWhatYouWant && variant.pwywMinPrice ? Math.round(Number.parseFloat(variant.pwywMinPrice) * 100) : null,
+            pwyw_suggested_price_cents: variant.payWhatYouWant && variant.pwywSuggestedPrice ? Math.round(Number.parseFloat(variant.pwywSuggestedPrice) * 100) : null,
           }
 
           let savedVariant: any = null
@@ -2516,7 +2557,10 @@ export default function NewProductPage() {
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
                   {PILL_SECTIONS.map((section) => {
-                    const isActive = activeSection === section.id
+                    // Use helper to check if this pill should be active
+                    // Content pill is active when any of its child sections are in view
+                    const activePill = getPillForSection(activeSection)
+                    const isActive = activePill === section.id
 
                     return (
                       <button
@@ -2613,8 +2657,8 @@ export default function NewProductPage() {
         </div>
       </div>
 
-      {/* Scrollable Content Area */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto bg-gray-50">
+      {/* Scrollable Content Area - with overscroll protection */}
+      <div ref={contentRef} className="flex-1 overflow-y-auto bg-gray-50 overscroll-contain">
 
         {/* Form Content - White rounded container */}
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 sm:pb-8">
@@ -3394,6 +3438,9 @@ export default function NewProductPage() {
                           maxPurchases: "",
                           isExpanded: true,
                           assignedFiles: [],
+                          payWhatYouWant: false,
+                          pwywMinPrice: "",
+                          pwywSuggestedPrice: "",
                         }
                         setVariants(prev => [...prev, newVariant])
                       }}
@@ -3496,21 +3543,27 @@ export default function NewProductPage() {
                               />
                             </div>
 
-                            {/* Pricing Row - Price, Compare-at, Max Purchases */}
+                            {/* Pricing Row - Price, Compare-at/Suggested, Max Purchases */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                               <div className="space-y-1.5">
-                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Price</Label>
+                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                  {variant.payWhatYouWant ? "Min amount" : "Price"}
+                                </Label>
                                 <div className="relative">
                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
                                   <Input
                                     type="text"
                                     inputMode="decimal"
                                     placeholder="0.00"
-                                    value={variant.price}
+                                    value={variant.payWhatYouWant ? (variant.pwywMinPrice || "") : variant.price}
                                     onChange={(e) => {
                                       const value = e.target.value.replace(/[^0-9.]/g, '')
                                       setVariants(prev => prev.map(v =>
-                                        v.id === variant.id ? { ...v, price: value } : v
+                                        v.id === variant.id
+                                          ? variant.payWhatYouWant
+                                            ? { ...v, pwywMinPrice: value }
+                                            : { ...v, price: value }
+                                          : v
                                       ))
                                     }}
                                     className="h-11 pl-8 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors font-medium"
@@ -3518,18 +3571,24 @@ export default function NewProductPage() {
                                 </div>
                               </div>
                               <div className="space-y-1.5">
-                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Compare-at price</Label>
+                                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                  {variant.payWhatYouWant ? "Suggested" : "Compare-at"}
+                                </Label>
                                 <div className="relative">
                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
                                   <Input
                                     type="text"
                                     inputMode="decimal"
                                     placeholder="Optional"
-                                    value={variant.compareAtPrice || ""}
+                                    value={variant.payWhatYouWant ? (variant.pwywSuggestedPrice || "") : (variant.compareAtPrice || "")}
                                     onChange={(e) => {
                                       const value = e.target.value.replace(/[^0-9.]/g, '')
                                       setVariants(prev => prev.map(v =>
-                                        v.id === variant.id ? { ...v, compareAtPrice: value } : v
+                                        v.id === variant.id
+                                          ? variant.payWhatYouWant
+                                            ? { ...v, pwywSuggestedPrice: value }
+                                            : { ...v, compareAtPrice: value }
+                                          : v
                                       ))
                                     }}
                                     className="h-11 pl-8 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors"
@@ -3554,6 +3613,36 @@ export default function NewProductPage() {
                               </div>
                             </div>
 
+                            {/* Pay What You Want Toggle for this variant */}
+                            <div className="pt-1">
+                              <label className="flex items-center gap-2.5 cursor-pointer group">
+                                <div className="relative">
+                                  <input
+                                    type="checkbox"
+                                    checked={variant.payWhatYouWant || false}
+                                    onChange={(e) => {
+                                      setVariants(prev => prev.map(v =>
+                                        v.id === variant.id ? { ...v, payWhatYouWant: e.target.checked } : v
+                                      ))
+                                    }}
+                                    className="sr-only peer"
+                                  />
+                                  <div className={`w-9 h-5 rounded-full transition-colors ${
+                                    variant.payWhatYouWant
+                                      ? 'bg-violet-500'
+                                      : 'bg-gray-200 group-hover:bg-gray-300'
+                                  }`}>
+                                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
+                                      variant.payWhatYouWant ? 'translate-x-4' : 'translate-x-0'
+                                    }`} />
+                                  </div>
+                                </div>
+                                <span className="text-xs font-medium text-gray-600">
+                                  Pay what you want
+                                </span>
+                              </label>
+                            </div>
+
                             {/* Assigned Digital Files */}
                             <div className="space-y-3 pt-4 border-t border-gray-100">
                               <div>
@@ -3569,10 +3658,17 @@ export default function NewProductPage() {
                               {digitalFiles.length > 0 ? (
                                 <div className="space-y-2">
                                   {digitalFiles.map((file) => {
-                                    const isAssigned = variant.assignedFiles?.includes(file.id || '')
+                                    // Skip files without valid IDs to prevent crashes
+                                    const fileId = file.id
+                                    if (!fileId) return null
+
+                                    // Safely check if file is assigned with proper null guards
+                                    const assignedFiles = Array.isArray(variant.assignedFiles) ? variant.assignedFiles : []
+                                    const isAssigned = assignedFiles.includes(fileId)
+
                                     return (
                                       <label
-                                        key={file.id}
+                                        key={fileId}
                                         className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                                           isAssigned
                                             ? 'border-violet-200 bg-violet-50/50'
@@ -3590,15 +3686,24 @@ export default function NewProductPage() {
                                           type="checkbox"
                                           checked={isAssigned}
                                           onChange={(e) => {
-                                            setVariants(prev => prev.map(v => {
-                                              if (v.id !== variant.id) return v
-                                              const currentFiles = v.assignedFiles || []
-                                              if (e.target.checked) {
-                                                return { ...v, assignedFiles: [...currentFiles, file.id || ''] }
-                                              } else {
-                                                return { ...v, assignedFiles: currentFiles.filter(f => f !== file.id) }
-                                              }
-                                            }))
+                                            const checked = e.target.checked
+                                            setVariants(prev => {
+                                              if (!Array.isArray(prev)) return []
+                                              return prev.map(v => {
+                                                if (!v || v.id !== variant.id) return v
+                                                const currentFiles = Array.isArray(v.assignedFiles) ? v.assignedFiles : []
+                                                if (checked) {
+                                                  // Add file if not already present
+                                                  if (!currentFiles.includes(fileId)) {
+                                                    return { ...v, assignedFiles: [...currentFiles, fileId] }
+                                                  }
+                                                  return v
+                                                } else {
+                                                  // Remove file
+                                                  return { ...v, assignedFiles: currentFiles.filter(f => f !== fileId) }
+                                                }
+                                              })
+                                            })
                                           }}
                                           className="sr-only"
                                         />
@@ -3649,6 +3754,9 @@ export default function NewProductPage() {
                           maxPurchases: "",
                           isExpanded: true,
                           assignedFiles: [],
+                          payWhatYouWant: false,
+                          pwywMinPrice: "",
+                          pwywSuggestedPrice: "",
                         }
                         setVariants(prev => [...prev, newVariant])
                       }}
@@ -3676,7 +3784,7 @@ export default function NewProductPage() {
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">
-                      Price (USD)
+                      {payWhatYouWant ? "Minimum amount" : "Price (USD)"}
                     </Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
@@ -3686,15 +3794,15 @@ export default function NewProductPage() {
                         step="0.01"
                         min="0"
                         placeholder="0.00"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
+                        value={payWhatYouWant ? pwywMinPrice : price}
+                        onChange={(e) => payWhatYouWant ? setPwywMinPrice(e.target.value) : setPrice(e.target.value)}
                         className="h-10 sm:h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
                       />
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">
-                      Compare at price
+                      {payWhatYouWant ? "Suggested amount" : "Compare at price"}
                     </Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
@@ -3704,12 +3812,43 @@ export default function NewProductPage() {
                         step="0.01"
                         min="0"
                         placeholder="0.00"
-                        value={compareAtPrice}
-                        onChange={(e) => setCompareAtPrice(e.target.value)}
+                        value={payWhatYouWant ? pwywSuggestedPrice : compareAtPrice}
+                        onChange={(e) => payWhatYouWant ? setPwywSuggestedPrice(e.target.value) : setCompareAtPrice(e.target.value)}
                         className="h-10 sm:h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* Pay What You Want Toggle */}
+                <div className="pt-2">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={payWhatYouWant}
+                        onChange={(e) => setPayWhatYouWant(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className={`w-11 h-6 rounded-full transition-colors ${
+                        payWhatYouWant
+                          ? 'bg-violet-500'
+                          : 'bg-gray-200 group-hover:bg-gray-300'
+                      }`}>
+                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+                          payWhatYouWant ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">
+                      Allow customers to pay what they want
+                    </span>
+                  </label>
+                  {payWhatYouWant && (
+                    <p className="mt-2 text-xs text-gray-500 ml-14">
+                      Buyers will see "Name a fair price" and can enter any amount above your minimum.
+                    </p>
+                  )}
                 </div>
               </div>
 
