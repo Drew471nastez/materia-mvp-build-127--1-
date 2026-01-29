@@ -3048,6 +3048,13 @@ export function UnifiedProductPage({
   const productType = product?.type || "digital"
   const salesCount = product?.sales_count || 0
   const showSalesBadge = !isPreviewMode && product?.show_sales_badge !== false
+  // Combined sales announcement logic:
+  // 1. If product setting is explicitly ON → always show
+  // 2. If product setting is explicitly OFF → never show
+  // 3. If product setting is not set → follow Store Builder setting
+  const productExplicitlyOn = product?.show_sales_badge === true
+  const productExplicitlyOff = product?.show_sales_badge === false
+  const shouldShowSalesAnnouncement = productExplicitlyOn || (settings.showSalesAnnouncement && !productExplicitlyOff)
 
   // Get category badge text (use first category name, fallback to type)
   const categoryBadgeText = product?.categories?.[0]?.name || productType
@@ -3467,7 +3474,7 @@ export function UnifiedProductPage({
                       </div>
                     )}
 
-                    {settings.showSalesAnnouncement && salesCount > 0 && (
+                    {shouldShowSalesAnnouncement && salesCount > 0 && (
                       <div
                         className={cn("mt-4 pt-4 border-t", !cardBorderColor && "border-border")}
                         style={{ borderColor: cardBorderColor }}
@@ -3777,7 +3784,7 @@ export function UnifiedProductPage({
                     </div>
                   )}
 
-                  {settings.showSalesAnnouncement && salesCount > 0 && (
+                  {shouldShowSalesAnnouncement && salesCount > 0 && (
                     <div
                       className={cn("mt-4 pt-4 border-t", !cardBorderColor && "border-border")}
                       style={{ borderColor: cardBorderColor }}
@@ -4043,7 +4050,7 @@ export function UnifiedProductPage({
                   </div>
                 )}
 
-                {settings.showSalesAnnouncement && salesCount > 0 && (
+                {shouldShowSalesAnnouncement && salesCount > 0 && (
                   <div
                     className={cn("mt-4 pt-4 border-t", !cardBorderColor && "border-border")}
                     style={{ borderColor: cardBorderColor }}

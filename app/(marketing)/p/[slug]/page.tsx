@@ -248,8 +248,18 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const desktopGalleryDots =
     (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.desktopGalleryDots ?? false
   // Extract new toggle settings
-  const showSalesAnnouncement =
+  // Show Sales Announcement from Store Builder setting (global store preference)
+  const storeBuilderShowSalesAnnouncement =
     (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.showSalesAnnouncement ?? false
+  // Product-level show_sales_badge setting (from product Settings tab)
+  // This is the per-product control
+  const productExplicitlyOn = product.show_sales_badge === true
+  const productExplicitlyOff = product.show_sales_badge === false
+  // Combined logic for showing sales count:
+  // 1. If product setting is explicitly ON → always show
+  // 2. If product setting is explicitly OFF → never show
+  // 3. If product setting is not set → follow Store Builder setting
+  const showSalesAnnouncement = productExplicitlyOn || (storeBuilderShowSalesAnnouncement && !productExplicitlyOff)
   const showRatingNextToSeller =
     (productPageConfig?.headerSettings as ProductHeaderSettings | undefined)?.showRatingNextToSeller ?? true
 
