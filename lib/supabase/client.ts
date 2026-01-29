@@ -1,6 +1,10 @@
 import { createBrowserClient } from "@supabase/ssr"
 export { createAdminClient } from "@/lib/supabase/admin"
 
+// Singleton instance to prevent rate limiting from multiple client creations
+// Using ReturnType to infer the correct type from createBrowserClient
+let browserClient: ReturnType<typeof createBrowserClient> | null = null
+
 /**
  * Get the main domain for cross-subdomain cookies
  * Returns the base domain (e.g., "storelib.com") without protocol
@@ -78,11 +82,17 @@ function deleteCookie(name: string) {
 }
 
 export function createClient() {
+  // Return existing client if already created (singleton pattern)
+  // This prevents rate limiting from multiple client creations
+  if (browserClient) {
+    return browserClient
+  }
+
   // Create browser client with custom cookie handling for cross-subdomain PKCE support
   // This ensures the code_verifier cookie is accessible when:
   // 1. User starts OAuth on username.storelib.com
   // 2. OAuth callback happens on storelib.com (canonical URL)
-  return createBrowserClient(
+  browserClient = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -109,4 +119,6 @@ export function createClient() {
       },
     }
   )
+
+  return browserClient
 }
