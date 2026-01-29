@@ -142,14 +142,25 @@ function LoginFormContent() {
     setError(null)
 
     try {
-      // Store redirect URL in localStorage for OAuth callback to use
+      // Store redirect URL in both localStorage and cookie for OAuth callback
+      // Cookie is more reliable for cross-subdomain OAuth flows
       if (redirectUrl) {
         const redirectData = {
           url: redirectUrl,
           pendingReview: pendingReview === "true",
           autoBuyer: autoBuyer === "1", // Auto-select buyer account type
         }
-        localStorage.setItem("storelib_auth_redirect", JSON.stringify(redirectData))
+        const redirectDataStr = JSON.stringify(redirectData)
+        localStorage.setItem("storelib_auth_redirect", redirectDataStr)
+
+        // Also store in cookie for reliability (expires in 10 minutes)
+        const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+        const isLocalhost = mainDomain.includes("localhost")
+        let cookie = `storelib_auth_redirect=${encodeURIComponent(redirectDataStr)}; path=/; max-age=600; samesite=lax`
+        if (!isLocalhost) {
+          cookie += `; domain=.${mainDomain}; secure`
+        }
+        document.cookie = cookie
       }
 
       // If autoBuyer flag is set, pre-set user type as buyer

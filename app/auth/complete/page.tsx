@@ -14,12 +14,37 @@ function AuthCompleteContent() {
     const completeAuth = async () => {
       try {
         // Check if there's a stored redirect URL from before OAuth
-        const storedRedirect = localStorage.getItem("storelib_auth_redirect")
+        // Check both localStorage and cookie for reliability
+        let storedRedirect = localStorage.getItem("storelib_auth_redirect")
+
+        // If not in localStorage, check cookie
+        if (!storedRedirect) {
+          const cookieMatch = document.cookie
+            .split("; ")
+            .find((row) => row.startsWith("storelib_auth_redirect="))
+          if (cookieMatch) {
+            try {
+              storedRedirect = decodeURIComponent(cookieMatch.split("=")[1])
+            } catch {
+              // Ignore decoding errors
+            }
+          }
+        }
 
         if (storedRedirect) {
           try {
             const redirectData = JSON.parse(storedRedirect)
+
+            // Clear both localStorage and cookie
             localStorage.removeItem("storelib_auth_redirect")
+            // Clear cookie
+            const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+            const isLocalhost = mainDomain.includes("localhost")
+            let clearCookie = "storelib_auth_redirect=; max-age=0; path=/"
+            if (!isLocalhost) {
+              clearCookie += `; domain=.${mainDomain}`
+            }
+            document.cookie = clearCookie
 
             // If autoBuyer flag is set, pre-set user type as buyer and skip welcome
             if (redirectData.autoBuyer) {

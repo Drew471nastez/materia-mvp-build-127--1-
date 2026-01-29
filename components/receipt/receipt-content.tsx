@@ -288,6 +288,7 @@ export default function ReceiptContent({
 
   // Save purchase to localStorage for persistence across page refreshes
   // Includes variant ID for per-variant access control
+  // Uses variantIds array to support multiple variant purchases per product
   useEffect(() => {
     if (!hasAccess || !order?.product_id || !receiptToken) return
 
@@ -296,15 +297,30 @@ export default function ReceiptContent({
       const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
       const purchases = stored ? JSON.parse(stored) : {}
 
-      // Only save if not already saved or if assets have changed
-      if (!purchases[order.product_id] || purchases[order.product_id].receiptToken !== receiptToken) {
-        purchases[order.product_id] = {
-          receiptToken,
-          assets: assets?.map(a => ({ id: a.id, file_name: a.file_name })) || [],
-          variantId: order.variant_id || null, // Store purchased variant for per-variant access
-        }
-        localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+      const existingPurchase = purchases[order.product_id]
+      const variantToAdd = order.variant_id || ""
+
+      // Initialize or migrate existing purchase data
+      let variantIds: string[] = []
+      if (existingPurchase?.variantIds && Array.isArray(existingPurchase.variantIds)) {
+        variantIds = [...existingPurchase.variantIds]
+      } else if (existingPurchase?.variantId) {
+        // Migrate legacy single variantId format
+        variantIds = [existingPurchase.variantId]
       }
+
+      // Add new variant if not already present
+      if (!variantIds.includes(variantToAdd)) {
+        variantIds.push(variantToAdd)
+      }
+
+      // Update purchase record
+      purchases[order.product_id] = {
+        receiptToken,
+        assets: assets?.map(a => ({ id: a.id, file_name: a.file_name })) || [],
+        variantIds, // Array of all purchased variant IDs for this product
+      }
+      localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
     } catch (e) {
       console.error("[ReceiptContent] Failed to save purchase to localStorage:", e)
     }
