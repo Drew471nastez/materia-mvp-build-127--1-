@@ -843,7 +843,10 @@ export default function NewProductPage() {
     // Create a snapshot of current values
     const currentValues = JSON.stringify({
       title, description, price, mediaItems, digitalFiles, variants,
-      whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction
+      whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction,
+      // Settings tab toggles - these should also trigger save state
+      showSalesBadge, refundPolicyEnabled, refundPolicyType,
+      payWhatYouWant, pwywMinPrice, pwywSuggestedPrice
     })
 
     // If we have content and it's different from saved values, we have unsaved changes
@@ -860,7 +863,7 @@ export default function NewProductPage() {
         setHasUnsavedChanges(true)
       }
     }
-  }, [title, description, price, mediaItems, digitalFiles, variants, whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction, justSaved])
+  }, [title, description, price, mediaItems, digitalFiles, variants, whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction, justSaved, showSalesBadge, refundPolicyEnabled, refundPolicyType, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice])
 
   // Handle browser back/refresh with unsaved changes
   useEffect(() => {
@@ -1314,7 +1317,14 @@ export default function NewProductPage() {
             selectedCategory: product.category || null,
             limitSalesEnabled: false,
             salesLimit: "",
-            callToAction: product.call_to_action || ""
+            callToAction: product.call_to_action || "",
+            // Settings tab toggles
+            showSalesBadge: product.show_sales_badge !== false,
+            refundPolicyEnabled: product.refund_policy_enabled || false,
+            refundPolicyType: product.refund_policy_type || "7_day",
+            payWhatYouWant: product.pay_what_you_want || false,
+            pwywMinPrice: product.pwyw_min_price_cents ? (product.pwyw_min_price_cents / 100).toString() : "",
+            pwywSuggestedPrice: product.pwyw_suggested_price_cents ? (product.pwyw_suggested_price_cents / 100).toString() : ""
           })
 
           // Show as "Saved" state since data is already persisted
@@ -2272,7 +2282,10 @@ export default function NewProductPage() {
       // Store current values as saved state for change detection
       savedValuesRef.current = JSON.stringify({
         title, description, price, mediaItems, digitalFiles, variants,
-        whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction
+        whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction,
+        // Settings tab toggles
+        showSalesBadge, refundPolicyEnabled, refundPolicyType,
+        payWhatYouWant, pwywMinPrice, pwywSuggestedPrice
       })
 
       // Revalidate the live product page so changes appear immediately
