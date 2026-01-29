@@ -14,6 +14,10 @@ export interface ProductVariant {
     id: string
     file_name: string
   }>
+  // Pay What You Want fields (per-variant)
+  pay_what_you_want?: boolean
+  pwyw_min_price_cents?: number | null
+  pwyw_suggested_price_cents?: number | null
 }
 
 interface VariantSelectorProps {

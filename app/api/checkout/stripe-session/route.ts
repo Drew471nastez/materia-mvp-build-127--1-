@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || ""
 
-  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId } = body
+  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId, customPriceCents = null } = body
 
   if (!productId || !firstName || !lastName || !email) {
     return NextResponse.json({ error: "All fields are required" }, { status: 400 })
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   const { data: product, error: productError } = await admin
     .from("products")
     .select(
-      "*, creator:creators(id, user_id, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled)",
+      "*, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents, creator:creators(id, user_id, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled)",
     )
     .eq("id", productId)
     .eq("status", "published")
@@ -44,13 +44,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 })
   }
 
-  // Fetch variant if specified
+  // Fetch variant if specified (include PWYW fields)
   let selectedVariant = null
   let variantPriceCents = 0
   if (variantId) {
     const { data: variant } = await admin
       .from("product_variants")
-      .select("id, name, price_cents")
+      .select("id, name, price_cents, pay_what_you_want, pwyw_min_price_cents")
       .eq("id", variantId)
       .eq("product_id", productId)
       .single()
@@ -61,8 +61,35 @@ export async function POST(request: Request) {
     }
   }
 
-  // Calculate final price - use variant price if selected, otherwise product price
-  const basePriceCents = selectedVariant ? variantPriceCents : (product.price_cents || 0)
+  // Check if PWYW is active for this purchase
+  const isVariantPwyw = selectedVariant && (selectedVariant as any).pay_what_you_want
+  const isProductPwyw = !selectedVariant && (product as any).pay_what_you_want
+  const isPwywActive = isVariantPwyw || isProductPwyw
+
+  // Get PWYW minimum for validation
+  const pwywMinCents = isVariantPwyw
+    ? ((selectedVariant as any).pwyw_min_price_cents || 0)
+    : ((product as any).pwyw_min_price_cents || 0)
+
+  // Calculate final price
+  // - If PWYW active and custom price provided, use custom price (validated)
+  // - Otherwise use variant price if selected, or product price
+  let basePriceCents = selectedVariant ? variantPriceCents : (product.price_cents || 0)
+
+  // Handle PWYW custom price
+  if (isPwywActive && customPriceCents !== null && customPriceCents !== undefined) {
+    const parsedCustomPrice = parseInt(String(customPriceCents), 10)
+    if (!isNaN(parsedCustomPrice)) {
+      // Validate against minimum
+      if (parsedCustomPrice < pwywMinCents) {
+        return NextResponse.json(
+          { error: `Minimum price is $${(pwywMinCents / 100).toFixed(2)}` },
+          { status: 400 }
+        )
+      }
+      basePriceCents = parsedCustomPrice
+    }
+  }
 
   // IMPORTANT: Only require Stripe when the FINAL price (variant or base) is > 0
   // This allows free variants to work even if seller hasn't connected Stripe

@@ -393,6 +393,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       price_cents,
       max_purchases,
       position,
+      pay_what_you_want,
+      pwyw_min_price_cents,
+      pwyw_suggested_price_cents,
       product_variant_files (
         digital_asset_id,
         digital_assets (
@@ -412,6 +415,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     price_cents: v.price_cents || 0, // FINAL price, not additional
     max_purchases: v.max_purchases,
     position: v.position,
+    // Pay What You Want fields per variant
+    pay_what_you_want: (v as any).pay_what_you_want || false,
+    pwyw_min_price_cents: (v as any).pwyw_min_price_cents || null,
+    pwyw_suggested_price_cents: (v as any).pwyw_suggested_price_cents || null,
     files: v.product_variant_files?.map((pvf: any) => ({
       id: pvf.digital_assets?.id,
       file_name: pvf.digital_assets?.file_name,
@@ -906,6 +913,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   accentColor: buyButtonColor || "#000000",
                 }}
                 showPriceDisplay={variants.length > 0}
+                // Pay What You Want settings (product-level)
+                payWhatYouWant={(product as any).pay_what_you_want || false}
+                pwywMinPriceCents={(product as any).pwyw_min_price_cents || null}
+                pwywSuggestedPriceCents={(product as any).pwyw_suggested_price_cents || null}
                 purchasedExtraContent={
                   <>
                     <ViewInLibraryButton
@@ -1195,6 +1206,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               accentColor: buyButtonColor || "#000000",
             }}
             showPriceDisplay={variants.length > 0}
+            // Pay What You Want settings (product-level)
+            payWhatYouWant={(product as any).pay_what_you_want || false}
+            pwywMinPriceCents={(product as any).pwyw_min_price_cents || null}
+            pwywSuggestedPriceCents={(product as any).pwyw_suggested_price_cents || null}
             purchasedExtraContent={
               <>
                 <ViewInLibraryButton

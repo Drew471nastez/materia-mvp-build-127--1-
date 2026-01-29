@@ -44,9 +44,12 @@ interface CheckoutPageClientProps {
   userEmail: string | null
   isLoggedIn: boolean
   selectedVariant?: SelectedVariant | null
+  // Pay What You Want info
+  isPwyw?: boolean
+  customPriceCents?: number | null
 }
 
-export default function CheckoutPageClient({ product, creator, userEmail, isLoggedIn, selectedVariant }: CheckoutPageClientProps) {
+export default function CheckoutPageClient({ product, creator, userEmail, isLoggedIn, selectedVariant, isPwyw, customPriceCents }: CheckoutPageClientProps) {
   const router = useRouter()
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -135,6 +138,8 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
           tipCents: 0,
           isGift,
           variantId: selectedVariant?.id || null,
+          // Pass PWYW custom price if applicable (for recording $0 PWYW purchases)
+          customPriceCents: isPwyw ? customPriceCents : null,
         }),
       })
 
@@ -164,6 +169,8 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
         tipCents,
         isGift,
         variantId: selectedVariant?.id || null,
+        // Pass PWYW custom price if applicable
+        customPriceCents: isPwyw ? customPriceCents : null,
       }),
     })
 
@@ -174,7 +181,7 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
     }
 
     return data.clientSecret
-  }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant])
+  }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant, isPwyw, customPriceCents])
 
   const handlePaidCheckout = async () => {
     if (!firstName.trim()) {
@@ -285,7 +292,7 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
 
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="text-muted-foreground">{isPwyw ? "Your price" : "Subtotal"}</span>
                       <span>{formatPrice(subtotal)}</span>
                     </div>
 

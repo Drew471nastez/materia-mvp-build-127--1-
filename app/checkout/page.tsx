@@ -5,11 +5,11 @@ import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
 
 interface CheckoutPageProps {
-  searchParams: Promise<{ productId?: string; variantId?: string }>
+  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId, variantId } = await searchParams
+  const { productId, variantId, customPrice } = await searchParams
 
   if (!productId) {
     redirect("/explore")
@@ -43,12 +43,12 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
 
   const creatorUsername = creatorProfile?.username || creator?.slug || ""
 
-  // Fetch variant if specified
+  // Fetch variant if specified (with PWYW fields)
   let selectedVariant = null
   if (variantId) {
     const { data: variant } = await supabase
       .from("product_variants")
-      .select("id, name, description, price_cents")
+      .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents")
       .eq("id", variantId)
       .eq("product_id", productId)
       .single()
@@ -94,10 +94,34 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
+  // Determine if PWYW is active
+  const isVariantPwyw = selectedVariant && (selectedVariant as any).pay_what_you_want
+  const isProductPwyw = !selectedVariant && (product as any).pay_what_you_want
+  const isPwywActive = isVariantPwyw || isProductPwyw
+
+  // Get PWYW min price for validation
+  const pwywMinPriceCents = isVariantPwyw
+    ? ((selectedVariant as any).pwyw_min_price_cents || 0)
+    : ((product as any).pwyw_min_price_cents || 0)
+
   // Calculate final price:
+  // - If PWYW and customPrice provided, use customPrice (validated against minimum)
   // - If variant is selected, use variant's price_cents (FINAL price)
   // - Otherwise use product's base price
-  const finalPriceCents = selectedVariant ? selectedVariant.price_cents : product.price_cents
+  let finalPriceCents = selectedVariant ? selectedVariant.price_cents : product.price_cents
+
+  // Handle PWYW custom price
+  let customPriceCents: number | null = null
+  if (isPwywActive && customPrice) {
+    customPriceCents = parseInt(customPrice, 10)
+    if (!isNaN(customPriceCents) && customPriceCents >= pwywMinPriceCents) {
+      finalPriceCents = customPriceCents
+    } else if (!isNaN(customPriceCents) && customPriceCents < pwywMinPriceCents) {
+      // If custom price is below minimum, use the minimum
+      finalPriceCents = pwywMinPriceCents
+      customPriceCents = pwywMinPriceCents
+    }
+  }
 
   return (
     <CheckoutPageClient
@@ -122,8 +146,11 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         id: selectedVariant.id,
         name: selectedVariant.name,
         description: selectedVariant.description,
-        priceCents: selectedVariant.price_cents, // FINAL price, not additional
+        priceCents: isPwywActive && customPriceCents !== null ? customPriceCents : selectedVariant.price_cents,
       } : null}
+      // Pass PWYW info for display
+      isPwyw={isPwywActive}
+      customPriceCents={customPriceCents}
     />
   )
 }

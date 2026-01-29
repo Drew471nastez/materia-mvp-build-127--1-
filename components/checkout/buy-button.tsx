@@ -13,9 +13,21 @@ interface BuyButtonProps {
   textColor?: string
   variantId?: string
   callToAction?: string | null
+  // Pay What You Want support
+  customPriceCents?: number | null // Custom price entered by buyer (for PWYW)
 }
 
-export function BuyButton({ productId, price, disabled, creatorId, backgroundColor, textColor, variantId, callToAction }: BuyButtonProps) {
+export function BuyButton({
+  productId,
+  price,
+  disabled,
+  creatorId,
+  backgroundColor,
+  textColor,
+  variantId,
+  callToAction,
+  customPriceCents,
+}: BuyButtonProps) {
   const [loading, setLoading] = useState(false)
 
   const formatPrice = (cents: number) => {
@@ -50,8 +62,17 @@ export function BuyButton({ productId, price, disabled, creatorId, backgroundCol
     if (variantId) {
       checkoutUrl += `&variantId=${variantId}`
     }
+    // Add custom price for PWYW
+    if (customPriceCents !== null && customPriceCents !== undefined) {
+      checkoutUrl += `&customPrice=${customPriceCents}`
+    }
     window.location.href = checkoutUrl
   }
+
+  // Display price - use custom price if provided, otherwise regular price
+  const displayPrice = customPriceCents !== null && customPriceCents !== undefined
+    ? customPriceCents
+    : price
 
   return (
     <Button
@@ -70,7 +91,7 @@ export function BuyButton({ productId, price, disabled, creatorId, backgroundCol
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Loading...
         </>
-      ) : price === 0 ? (
+      ) : displayPrice === 0 ? (
         callToAction || "Get for Free"
       ) : (
         callToAction || "I want this!"

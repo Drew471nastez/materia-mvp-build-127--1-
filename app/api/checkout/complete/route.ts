@@ -214,23 +214,33 @@ export async function GET(request: Request) {
       console.log("[checkout/complete] ✅ Customer record upserted")
     }
 
-    // Create entitlement for logged-in users
+    // Create entitlement for logged-in users (with variant_id for per-variant access)
     if (buyerId) {
-      const { data: existingEntitlement } = await admin
+      // Check if user already has entitlement for this specific variant (or product if no variant)
+      let entitlementQuery = admin
         .from("entitlements")
         .select("id")
         .eq("buyer_id", buyerId)
         .eq("product_id", productId)
-        .maybeSingle()
+
+      // If variant specified, check for that specific variant entitlement
+      if (variantId) {
+        entitlementQuery = entitlementQuery.eq("variant_id", variantId)
+      } else {
+        entitlementQuery = entitlementQuery.is("variant_id", null)
+      }
+
+      const { data: existingEntitlement } = await entitlementQuery.maybeSingle()
 
       if (!existingEntitlement) {
         await admin.from("entitlements").insert({
           buyer_id: buyerId,
           creator_id: creatorId,
           product_id: productId,
+          variant_id: variantId || null,
           community_access: false,
         })
-        console.log("[checkout/complete] ✅ Entitlement created")
+        console.log("[checkout/complete] ✅ Entitlement created for variant:", variantId || "none")
       }
     }
 

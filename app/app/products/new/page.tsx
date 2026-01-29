@@ -3615,32 +3615,43 @@ export default function NewProductPage() {
 
                             {/* Pay What You Want Toggle for this variant */}
                             <div className="pt-1">
-                              <label className="flex items-center gap-2.5 cursor-pointer group">
-                                <div className="relative">
-                                  <input
-                                    type="checkbox"
-                                    checked={variant.payWhatYouWant || false}
-                                    onChange={(e) => {
-                                      setVariants(prev => prev.map(v =>
-                                        v.id === variant.id ? { ...v, payWhatYouWant: e.target.checked } : v
-                                      ))
-                                    }}
-                                    className="sr-only peer"
-                                  />
-                                  <div className={`w-9 h-5 rounded-full transition-colors ${
-                                    variant.payWhatYouWant
-                                      ? 'bg-violet-500'
-                                      : 'bg-gray-200 group-hover:bg-gray-300'
-                                  }`}>
-                                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
-                                      variant.payWhatYouWant ? 'translate-x-4' : 'translate-x-0'
-                                    }`} />
+                              <div className="flex items-center gap-2">
+                                <label className="flex items-center gap-2.5 cursor-pointer group">
+                                  <div className="relative">
+                                    <input
+                                      type="checkbox"
+                                      checked={variant.payWhatYouWant || false}
+                                      onChange={(e) => {
+                                        const checked = e.target.checked
+                                        const targetId = variant.id
+                                        setVariants(prev => prev.map(v =>
+                                          v.id === targetId ? { ...v, payWhatYouWant: checked } : v
+                                        ))
+                                      }}
+                                      className="sr-only peer"
+                                    />
+                                    <div className={`w-9 h-5 rounded-full transition-colors ${
+                                      variant.payWhatYouWant
+                                        ? 'bg-violet-500'
+                                        : 'bg-gray-200 group-hover:bg-gray-300'
+                                    }`}>
+                                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
+                                        variant.payWhatYouWant ? 'translate-x-4' : 'translate-x-0'
+                                      }`} />
+                                    </div>
                                   </div>
-                                </div>
-                                <span className="text-xs font-medium text-gray-600">
-                                  Pay what you want
-                                </span>
-                              </label>
+                                  <span className="text-xs font-medium text-gray-600">
+                                    Let customers pay what they want
+                                  </span>
+                                </label>
+                                <TooltipIcon
+                                  content={
+                                    <p className="text-sm">
+                                      Enable flexible pricing for this variant. Buyers can pay any amount above your minimum.
+                                    </p>
+                                  }
+                                />
+                              </div>
                             </div>
 
                             {/* Assigned Digital Files */}
@@ -3654,21 +3665,28 @@ export default function NewProductPage() {
                                 </p>
                               </div>
 
-                              {/* File selection */}
+                              {/* File selection - completely safe with captured IDs */}
                               {digitalFiles.length > 0 ? (
                                 <div className="space-y-2">
                                   {digitalFiles.map((file) => {
-                                    // Skip files without valid IDs to prevent crashes
-                                    const fileId = file.id
-                                    if (!fileId) return null
+                                    // Early return for invalid files
+                                    if (!file || !file.id) return null
 
-                                    // Safely check if file is assigned with proper null guards
-                                    const assignedFiles = Array.isArray(variant.assignedFiles) ? variant.assignedFiles : []
-                                    const isAssigned = assignedFiles.includes(fileId)
+                                    // Capture values in local constants to avoid closure issues
+                                    const currentFileId = String(file.id)
+                                    const currentVariantId = variant?.id ? String(variant.id) : null
+
+                                    // Skip if variant ID is invalid
+                                    if (!currentVariantId) return null
+
+                                    // Safely check if file is assigned
+                                    const variantFiles = variant?.assignedFiles
+                                    const safeAssignedFiles = Array.isArray(variantFiles) ? variantFiles : []
+                                    const isAssigned = safeAssignedFiles.some(f => String(f) === currentFileId)
 
                                     return (
                                       <label
-                                        key={fileId}
+                                        key={`${currentVariantId}-${currentFileId}`}
                                         className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                                           isAssigned
                                             ? 'border-violet-200 bg-violet-50/50'
@@ -3685,22 +3703,38 @@ export default function NewProductPage() {
                                         <input
                                           type="checkbox"
                                           checked={isAssigned}
-                                          onChange={(e) => {
-                                            const checked = e.target.checked
-                                            setVariants(prev => {
-                                              if (!Array.isArray(prev)) return []
-                                              return prev.map(v => {
-                                                if (!v || v.id !== variant.id) return v
-                                                const currentFiles = Array.isArray(v.assignedFiles) ? v.assignedFiles : []
-                                                if (checked) {
+                                          onChange={() => {
+                                            // Use captured constants, not closure variables
+                                            const targetFileId = currentFileId
+                                            const targetVariantId = currentVariantId
+                                            const shouldAdd = !isAssigned
+
+                                            setVariants(prevVariants => {
+                                              // Safety check
+                                              if (!Array.isArray(prevVariants)) return []
+
+                                              return prevVariants.map(v => {
+                                                // Safety check for each variant
+                                                if (!v || typeof v !== 'object') return v
+                                                if (String(v.id) !== targetVariantId) return v
+
+                                                // Get current files safely
+                                                const existingFiles = Array.isArray(v.assignedFiles)
+                                                  ? [...v.assignedFiles]
+                                                  : []
+
+                                                if (shouldAdd) {
                                                   // Add file if not already present
-                                                  if (!currentFiles.includes(fileId)) {
-                                                    return { ...v, assignedFiles: [...currentFiles, fileId] }
+                                                  if (!existingFiles.includes(targetFileId)) {
+                                                    return { ...v, assignedFiles: [...existingFiles, targetFileId] }
                                                   }
                                                   return v
                                                 } else {
                                                   // Remove file
-                                                  return { ...v, assignedFiles: currentFiles.filter(f => f !== fileId) }
+                                                  return {
+                                                    ...v,
+                                                    assignedFiles: existingFiles.filter(fid => String(fid) !== targetFileId)
+                                                  }
                                                 }
                                               })
                                             })
@@ -3709,8 +3743,10 @@ export default function NewProductPage() {
                                         />
                                         <FileText className={`h-4 w-4 flex-shrink-0 ${isAssigned ? 'text-violet-500' : 'text-gray-400'}`} />
                                         <div className="min-w-0 flex-1">
-                                          <p className={`text-sm font-medium truncate ${isAssigned ? 'text-gray-900' : 'text-gray-600'}`}>{file.file_name}</p>
-                                          <p className="text-[10px] text-gray-400">{formatFileSize(file.file_size)}</p>
+                                          <p className={`text-sm font-medium truncate ${isAssigned ? 'text-gray-900' : 'text-gray-600'}`}>
+                                            {file.file_name || 'Unnamed file'}
+                                          </p>
+                                          <p className="text-[10px] text-gray-400">{formatFileSize(file.file_size || 0)}</p>
                                         </div>
                                       </label>
                                     )
@@ -3822,31 +3858,46 @@ export default function NewProductPage() {
 
                 {/* Pay What You Want Toggle */}
                 <div className="pt-2">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={payWhatYouWant}
-                        onChange={(e) => setPayWhatYouWant(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className={`w-11 h-6 rounded-full transition-colors ${
-                        payWhatYouWant
-                          ? 'bg-violet-500'
-                          : 'bg-gray-200 group-hover:bg-gray-300'
-                      }`}>
-                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                          payWhatYouWant ? 'translate-x-5' : 'translate-x-0'
-                        }`} />
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          checked={payWhatYouWant}
+                          onChange={(e) => setPayWhatYouWant(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className={`w-11 h-6 rounded-full transition-colors ${
+                          payWhatYouWant
+                            ? 'bg-violet-500'
+                            : 'bg-gray-200 group-hover:bg-gray-300'
+                        }`}>
+                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+                            payWhatYouWant ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">
-                      Allow customers to pay what they want
-                    </span>
-                  </label>
+                      <span className="text-sm font-medium text-gray-700">
+                        Let customers pay what they want
+                      </span>
+                    </label>
+                    <TooltipIcon
+                      content={
+                        <div className="space-y-2">
+                          <p className="font-medium">Pay What You Want Pricing</p>
+                          <ul className="text-sm space-y-1 list-disc pl-4">
+                            <li>Buyers choose their own price</li>
+                            <li>Set a minimum amount (can be $0 for free)</li>
+                            <li>Set a suggested amount as a hint</li>
+                            <li>Great for tips, donations, or flexible pricing</li>
+                          </ul>
+                        </div>
+                      }
+                    />
+                  </div>
                   {payWhatYouWant && (
                     <p className="mt-2 text-xs text-gray-500 ml-14">
-                      Buyers will see "Name a fair price" and can enter any amount above your minimum.
+                      Buyers will see "Name a fair price" with your suggested amount as the default.
                     </p>
                   )}
                 </div>

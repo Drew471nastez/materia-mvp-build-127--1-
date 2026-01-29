@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const cookieStore = await cookies()
 
-    const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId } = body
+    const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId, customPriceCents = null } = body
 
     console.log("[checkout/process] Starting free checkout for:", firstName, lastName, email)
     console.log("[checkout/process] Variant ID:", variantId || "none")
@@ -178,12 +178,13 @@ export async function POST(request: Request) {
       p_order_amount_cents: 0,
     })
 
-    // Create entitlement for logged-in users
+    // Create entitlement for logged-in users (with variant_id for per-variant access)
     if (user) {
       const { error: entitlementError } = await admin.from("entitlements").insert({
         buyer_id: user.id,
         creator_id: product.creator.id,
         product_id: product.id,
+        variant_id: selectedVariant?.id || null,
         community_access: product.includes_community || false,
       })
 
