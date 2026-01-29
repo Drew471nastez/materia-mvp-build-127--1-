@@ -23,6 +23,7 @@ function LoginFormContent() {
   // Get redirect URL from search params (for returning to receipt page after login)
   const redirectUrl = searchParams.get("redirect")
   const pendingReview = searchParams.get("pendingReview")
+  const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -146,8 +147,15 @@ function LoginFormContent() {
         const redirectData = {
           url: redirectUrl,
           pendingReview: pendingReview === "true",
+          autoBuyer: autoBuyer === "1", // Auto-select buyer account type
         }
         localStorage.setItem("storelib_auth_redirect", JSON.stringify(redirectData))
+      }
+
+      // If autoBuyer flag is set, pre-set user type as buyer
+      if (autoBuyer === "1") {
+        localStorage.setItem("storelib_user_type", "buyer")
+        localStorage.setItem("storelib_welcome_shown", "true")
       }
 
       // Use canonical site URL to ensure OAuth redirects to correct domain

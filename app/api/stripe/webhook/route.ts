@@ -247,30 +247,42 @@ export async function POST(request: Request) {
       console.log("[v0] ✅ Customer record upserted")
     }
 
-    // Entitlement (kept)
+    // Entitlement - with per-variant access control
     if (buyerId) {
-      const { data: existingEntitlement } = await supabaseAdmin
+      // Check for existing entitlement for this SPECIFIC variant (or product if no variant)
+      let entitlementQuery = supabaseAdmin
         .from("entitlements")
         .select("id")
         .eq("buyer_id", buyerId)
         .eq("product_id", productId)
-        .maybeSingle()
+
+      // If variant specified, check for that specific variant entitlement
+      if (variantId) {
+        entitlementQuery = entitlementQuery.eq("variant_id", variantId)
+      } else {
+        entitlementQuery = entitlementQuery.is("variant_id", null)
+      }
+
+      const { data: existingEntitlement } = await entitlementQuery.maybeSingle()
 
       if (!existingEntitlement) {
-        console.log("[v0] Creating entitlement for user:", buyerId)
+        console.log("[v0] Creating entitlement for user:", buyerId, "variant:", variantId || "none")
 
         const { error: entitlementError } = await supabaseAdmin.from("entitlements").insert({
           buyer_id: buyerId,
           creator_id: creatorId,
           product_id: productId,
+          variant_id: variantId || null,
           community_access: metadata.includes_community === "true" || metadata.product_type === "course",
         })
 
         if (entitlementError) {
           console.error("[v0] Entitlement creation failed:", entitlementError)
         } else {
-          console.log("[v0] ✅ Entitlement created")
+          console.log("[v0] ✅ Entitlement created for variant:", variantId || "none")
         }
+      } else {
+        console.log("[v0] ✅ Entitlement already exists for this variant")
       }
     }
 

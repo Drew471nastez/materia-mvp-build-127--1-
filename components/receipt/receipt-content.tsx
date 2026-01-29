@@ -747,13 +747,13 @@ export default function ReceiptContent({
 
               <div className="flex flex-col sm:flex-row gap-2.5">
                 <Button className="flex-1 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 shadow-sm" asChild>
-                  <Link href={`/signup?claim=1&receiptToken=${receiptToken}`}>
+                  <Link href={`/signup?redirect=${encodeURIComponent(`/receipt/${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}>
                     <User className="mr-2 h-4 w-4" />
                     Create Account
                   </Link>
                 </Button>
                 <Button variant="outline" className="flex-1 h-11 rounded-xl bg-white/80 border-gray-200" asChild>
-                  <Link href={`/login?claim=1&receiptToken=${receiptToken}`}>
+                  <Link href={`/login?redirect=${encodeURIComponent(`/receipt/${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}>
                     <LogIn className="mr-2 h-4 w-4" />
                     Log In
                   </Link>

@@ -21,6 +21,12 @@ function AuthCompleteContent() {
             const redirectData = JSON.parse(storedRedirect)
             localStorage.removeItem("storelib_auth_redirect")
 
+            // If autoBuyer flag is set, pre-set user type as buyer and skip welcome
+            if (redirectData.autoBuyer) {
+              localStorage.setItem("storelib_user_type", "buyer")
+              localStorage.setItem("storelib_welcome_shown", "true")
+            }
+
             if (redirectData.url) {
               let finalUrl = redirectData.url
               // Add pendingReview param if it was set
