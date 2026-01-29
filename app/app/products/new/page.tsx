@@ -3665,90 +3665,99 @@ export default function NewProductPage() {
                                 </p>
                               </div>
 
-                              {/* File selection - completely safe with captured IDs */}
+                              {/* File selection - completely safe with try-catch and defensive checks */}
                               {digitalFiles.length > 0 ? (
                                 <div className="space-y-2">
-                                  {digitalFiles.map((file) => {
-                                    // Early return for invalid files
-                                    if (!file || !file.id) return null
+                                  {digitalFiles.map((file, fileIndex) => {
+                                    // Defensive: skip invalid files
+                                    if (!file) return null
 
-                                    // Capture values in local constants to avoid closure issues
-                                    const currentFileId = String(file.id)
-                                    const currentVariantId = variant?.id ? String(variant.id) : null
+                                    // Use fileIndex as fallback key if id is missing
+                                    const fileId = file.id ? String(file.id) : null
+                                    if (!fileId) return null
 
-                                    // Skip if variant ID is invalid
-                                    if (!currentVariantId) return null
+                                    // Get variant ID safely
+                                    const varId = variant?.id ? String(variant.id) : null
+                                    if (!varId) return null
 
-                                    // Safely check if file is assigned
-                                    const variantFiles = variant?.assignedFiles
-                                    const safeAssignedFiles = Array.isArray(variantFiles) ? variantFiles : []
-                                    const isAssigned = safeAssignedFiles.some(f => String(f) === currentFileId)
+                                    // Safely determine if assigned
+                                    const assignedArr = variant?.assignedFiles
+                                    const isAssigned = Array.isArray(assignedArr)
+                                      ? assignedArr.some(aid => String(aid) === fileId)
+                                      : false
+
+                                    // Handler with try-catch to prevent crashes
+                                    const handleToggle = (e: React.MouseEvent | React.ChangeEvent) => {
+                                      e.stopPropagation()
+                                      try {
+                                        // Capture everything we need before state update
+                                        const fid = fileId
+                                        const vid = varId
+                                        const wasAssigned = isAssigned
+
+                                        setVariants(prev => {
+                                          // Defensive: ensure prev is array
+                                          if (!prev || !Array.isArray(prev)) {
+                                            console.warn('[Checkbox] prev is not array:', prev)
+                                            return prev || []
+                                          }
+
+                                          const newVariants = prev.map(v => {
+                                            // Skip if not an object or wrong variant
+                                            if (!v || typeof v !== 'object') return v
+                                            if (String(v.id || '') !== vid) return v
+
+                                            // Get current assigned files safely
+                                            const currentFiles = Array.isArray(v.assignedFiles)
+                                              ? v.assignedFiles.map(f => String(f))
+                                              : []
+
+                                            let newFiles: string[]
+                                            if (wasAssigned) {
+                                              // Remove file
+                                              newFiles = currentFiles.filter(f => f !== fid)
+                                            } else {
+                                              // Add file (only if not already present)
+                                              newFiles = currentFiles.includes(fid)
+                                                ? currentFiles
+                                                : [...currentFiles, fid]
+                                            }
+
+                                            return { ...v, assignedFiles: newFiles }
+                                          })
+
+                                          return newVariants
+                                        })
+                                      } catch (err) {
+                                        console.error('[Checkbox] Error in toggle handler:', err)
+                                      }
+                                    }
 
                                     return (
-                                      <label
-                                        key={`${currentVariantId}-${currentFileId}`}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                                      <div
+                                        key={`variant-${varId}-file-${fileId}`}
+                                        onClick={handleToggle}
+                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none ${
                                           isAssigned
                                             ? 'border-violet-200 bg-violet-50/50'
                                             : 'border-gray-100 hover:border-gray-200 bg-gray-50/50 hover:bg-gray-50'
                                         }`}
                                       >
-                                        <div className={`flex items-center justify-center w-5 h-5 rounded-md border-2 transition-all ${
+                                        <div className={`flex items-center justify-center w-5 h-5 rounded-md border-2 transition-all pointer-events-none ${
                                           isAssigned
                                             ? 'bg-violet-500 border-violet-500'
                                             : 'bg-white border-gray-300'
                                         }`}>
                                           {isAssigned && <Check className="h-3 w-3 text-white" />}
                                         </div>
-                                        <input
-                                          type="checkbox"
-                                          checked={isAssigned}
-                                          onChange={() => {
-                                            // Use captured constants, not closure variables
-                                            const targetFileId = currentFileId
-                                            const targetVariantId = currentVariantId
-                                            const shouldAdd = !isAssigned
-
-                                            setVariants(prevVariants => {
-                                              // Safety check
-                                              if (!Array.isArray(prevVariants)) return []
-
-                                              return prevVariants.map(v => {
-                                                // Safety check for each variant
-                                                if (!v || typeof v !== 'object') return v
-                                                if (String(v.id) !== targetVariantId) return v
-
-                                                // Get current files safely
-                                                const existingFiles = Array.isArray(v.assignedFiles)
-                                                  ? [...v.assignedFiles]
-                                                  : []
-
-                                                if (shouldAdd) {
-                                                  // Add file if not already present
-                                                  if (!existingFiles.includes(targetFileId)) {
-                                                    return { ...v, assignedFiles: [...existingFiles, targetFileId] }
-                                                  }
-                                                  return v
-                                                } else {
-                                                  // Remove file
-                                                  return {
-                                                    ...v,
-                                                    assignedFiles: existingFiles.filter(fid => String(fid) !== targetFileId)
-                                                  }
-                                                }
-                                              })
-                                            })
-                                          }}
-                                          className="sr-only"
-                                        />
-                                        <FileText className={`h-4 w-4 flex-shrink-0 ${isAssigned ? 'text-violet-500' : 'text-gray-400'}`} />
-                                        <div className="min-w-0 flex-1">
+                                        <FileText className={`h-4 w-4 flex-shrink-0 pointer-events-none ${isAssigned ? 'text-violet-500' : 'text-gray-400'}`} />
+                                        <div className="min-w-0 flex-1 pointer-events-none">
                                           <p className={`text-sm font-medium truncate ${isAssigned ? 'text-gray-900' : 'text-gray-600'}`}>
                                             {file.file_name || 'Unnamed file'}
                                           </p>
                                           <p className="text-[10px] text-gray-400">{formatFileSize(file.file_size || 0)}</p>
                                         </div>
-                                      </label>
+                                      </div>
                                     )
                                   })}
                                 </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode, useState, useCallback } from "react"
+import { ReactNode, useState, useCallback, useEffect } from "react"
 import { usePurchaseStatus } from "./use-purchase-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +18,7 @@ interface PurchaseStatusWrapperProps {
   creatorId?: string
   serverHasPurchased?: boolean
   serverAssetId?: string | null
-  serverPurchasedVariantId?: string | null // The variant that was purchased (if any)
+  serverPurchasedVariantIds?: string[] // Array of purchased variant IDs
   // Variants
   variants?: ProductVariant[]
   // Call to action text for buy button
@@ -56,6 +56,7 @@ interface PurchaseStatusWrapperProps {
  * IMPORTANT: Each variant is a separate purchasable entitlement.
  * - User can only download the specific variant they purchased
  * - Switching to a different variant shows Buy button, not Download
+ * - User can purchase MULTIPLE variants and have access to all of them
  *
  * LAYOUT ORDER (not purchased):
  * 1. Price display (if showPriceDisplay) OR PWYW input
@@ -71,7 +72,7 @@ export function PurchaseStatusWrapper({
   creatorId,
   serverHasPurchased = false,
   serverAssetId = null,
-  serverPurchasedVariantId = null,
+  serverPurchasedVariantIds = [],
   variants = [],
   callToAction,
   buyButtonBgColor,
@@ -87,23 +88,32 @@ export function PurchaseStatusWrapper({
   pwywMinPriceCents = null,
   pwywSuggestedPriceCents = null,
 }: PurchaseStatusWrapperProps) {
-  const { hasPurchased, assetId: hookAssetId, receiptToken, purchasedVariantId, isChecking } = usePurchaseStatus(
+  const {
+    hasPurchased,
+    assetId: hookAssetId,
+    receiptToken,
+    purchasedVariantIds,
+    isChecking,
+    hasVariantAccess
+  } = usePurchaseStatus(
     productId,
     serverHasPurchased,
     serverAssetId,
-    serverPurchasedVariantId
+    serverPurchasedVariantIds
   )
 
   // Find the initial variant to select:
-  // 1. If user has purchased a variant, default to that variant for instant Download button
+  // 1. If user has purchased any variant, default to the first purchased one for instant Download button
   // 2. Otherwise, default to first variant
   const getInitialVariant = (): ProductVariant | null => {
     if (variants.length === 0) return null
 
-    // If user purchased a specific variant, default to it so Download shows immediately
-    if (purchasedVariantId) {
-      const purchasedVariant = variants.find(v => v.id === purchasedVariantId)
-      if (purchasedVariant) return purchasedVariant
+    // If user purchased specific variants, default to first purchased one
+    if (purchasedVariantIds.length > 0) {
+      for (const vid of purchasedVariantIds) {
+        const purchasedVariant = variants.find(v => v.id === vid)
+        if (purchasedVariant) return purchasedVariant
+      }
     }
 
     return variants[0]
@@ -115,35 +125,21 @@ export function PurchaseStatusWrapper({
     initialVariant ? (initialVariant.price_cents || 0) : priceCents
   )
 
-  // PWYW state - custom price entered by buyer
-  // Start with suggested price if available, otherwise minimum
-  const getInitialPwywPrice = () => {
-    // Check variant-level PWYW first
-    if (selectedVariant?.pay_what_you_want) {
-      const suggested = selectedVariant.pwyw_suggested_price_cents
-      const min = selectedVariant.pwyw_min_price_cents
-      if (suggested && suggested > 0) return (suggested / 100).toFixed(2)
-      if (min && min > 0) return (min / 100).toFixed(2)
-      return ""
-    }
-    // Product-level PWYW
-    if (payWhatYouWant) {
-      if (pwywSuggestedPriceCents && pwywSuggestedPriceCents > 0) {
-        return (pwywSuggestedPriceCents / 100).toFixed(2)
-      }
-      if (pwywMinPriceCents && pwywMinPriceCents > 0) {
-        return (pwywMinPriceCents / 100).toFixed(2)
-      }
-      return ""
-    }
-    return ""
-  }
+  // Track if user has access to the CURRENTLY selected variant
+  const currentVariantHasAccess = selectedVariant
+    ? hasVariantAccess(selectedVariant.id)
+    : (variants.length === 0 && hasPurchased)
 
-  const [pwywInputValue, setPwywInputValue] = useState(getInitialPwywPrice)
+  // PWYW state - custom price entered by buyer
+  // ALWAYS start empty, never prefilled
+  const [pwywInputValue, setPwywInputValue] = useState("")
   const [pwywError, setPwywError] = useState<string | null>(null)
 
   // Determine if PWYW is active (product-level or variant-level)
-  const isPwywActive = selectedVariant?.pay_what_you_want || (variants.length === 0 && payWhatYouWant)
+  // Only active if user does NOT own the current variant
+  const isPwywActiveForVariant = selectedVariant?.pay_what_you_want || false
+  const isPwywActiveForProduct = variants.length === 0 && payWhatYouWant
+  const isPwywActive = (isPwywActiveForVariant || isPwywActiveForProduct) && !currentVariantHasAccess
 
   // Get PWYW min/suggested for current context (variant or product)
   const getEffectivePwywSettings = () => {
@@ -180,18 +176,8 @@ export function PurchaseStatusWrapper({
     setSelectedVariant(variant)
     setCurrentPrice(finalPrice)
 
-    // Reset PWYW input when variant changes
-    if (variant?.pay_what_you_want) {
-      const suggested = variant.pwyw_suggested_price_cents
-      const min = variant.pwyw_min_price_cents
-      if (suggested && suggested > 0) {
-        setPwywInputValue((suggested / 100).toFixed(2))
-      } else if (min && min > 0) {
-        setPwywInputValue((min / 100).toFixed(2))
-      } else {
-        setPwywInputValue("")
-      }
-    }
+    // Reset PWYW input when variant changes - always empty
+    setPwywInputValue("")
     setPwywError(null)
   }, [])
 
@@ -203,29 +189,10 @@ export function PurchaseStatusWrapper({
     }).format(cents / 100)
   }
 
-  // Validate PWYW input and get the price in cents
-  const validateAndGetPwywPrice = (): { valid: boolean; priceCents: number } => {
-    if (!isPwywActive) {
-      return { valid: true, priceCents: currentPrice }
-    }
-
-    const inputValue = parseFloat(pwywInputValue || "0")
-    const inputCents = Math.round(inputValue * 100)
-    const minCents = pwywSettings.minCents
-
-    // Allow $0 if minimum is 0
-    if (minCents === 0 && inputCents === 0) {
-      return { valid: true, priceCents: 0 }
-    }
-
-    // Check minimum
-    if (inputCents < minCents) {
-      setPwywError(`Minimum amount is ${formatPrice(minCents)}`)
-      return { valid: false, priceCents: 0 }
-    }
-
-    setPwywError(null)
-    return { valid: true, priceCents: inputCents }
+  // Format minimum price as hint text like "$10+"
+  const formatMinHint = (cents: number): string => {
+    if (cents === 0) return "$0+"
+    return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}+`
   }
 
   // Get custom price for buy button
@@ -236,35 +203,18 @@ export function PurchaseStatusWrapper({
     return Math.round(inputValue * 100)
   }
 
-  // Compare at price only shown when no variants selected
-  const effectiveCompareAtPrice = variants.length === 0 ? compareAtCents : null
-
-  // Per-variant access control:
-  // - If product has NO variants: use product-level purchase status
-  // - If product HAS variants: check if selected variant === purchased variant
-  const hasVariantAccess = (): boolean => {
-    if (!hasPurchased) return false
-
-    // No variants = product-level access
-    if (variants.length === 0) return true
-
-    // If user purchased with no variant (old purchase), give access to first variant only
-    if (!purchasedVariantId) {
-      return selectedVariant?.id === variants[0]?.id
-    }
-
-    // User purchased a specific variant - only that variant has access
-    return selectedVariant?.id === purchasedVariantId
-  }
-
-  const canDownload = hasVariantAccess() && effectiveAssetId && productType === "digital"
-
   // Check if buy button should be disabled (PWYW validation)
   const isBuyDisabled = isPwywActive && (() => {
     const inputValue = parseFloat(pwywInputValue || "0")
     const inputCents = Math.round(inputValue * 100)
     return inputCents < pwywSettings.minCents
   })()
+
+  // Compare at price only shown when no variants selected
+  const effectiveCompareAtPrice = variants.length === 0 ? compareAtCents : null
+
+  // Can download if user has access to this specific variant and there's an asset
+  const canDownload = currentVariantHasAccess && effectiveAssetId && productType === "digital"
 
   // Loading state
   if (isChecking) {
@@ -291,7 +241,7 @@ export function PurchaseStatusWrapper({
     <div className="space-y-3">
       {/* Price display OR PWYW input */}
       {isPwywActive ? (
-        // Pay What You Want - show price input
+        // Pay What You Want - show price input (only if user doesn't own this variant)
         <div className="mb-4">
           <p
             className="text-lg font-semibold mb-2"
@@ -310,13 +260,13 @@ export function PurchaseStatusWrapper({
               type="number"
               step="0.01"
               min="0"
-              placeholder={pwywSettings.suggestedCents > 0 ? (pwywSettings.suggestedCents / 100).toFixed(2) : "0.00"}
+              placeholder={formatMinHint(pwywSettings.minCents)}
               value={pwywInputValue}
               onChange={(e) => {
                 setPwywInputValue(e.target.value)
                 setPwywError(null)
               }}
-              className="pl-8 h-12 text-lg font-medium"
+              className="pl-8 h-12 text-lg font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               style={{
                 backgroundColor: themeColors?.cardBackground || undefined,
                 color: themeColors?.cardTextColor || undefined,
@@ -327,15 +277,7 @@ export function PurchaseStatusWrapper({
           {pwywError && (
             <p className="text-sm text-red-500 mt-1">{pwywError}</p>
           )}
-          {pwywSettings.minCents > 0 && !pwywError && (
-            <p
-              className="text-sm mt-1"
-              style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}
-            >
-              Minimum: {formatPrice(pwywSettings.minCents)}
-            </p>
-          )}
-          {pwywSettings.minCents === 0 && (
+          {pwywSettings.minCents === 0 && !pwywError && (
             <p
               className="text-sm mt-1"
               style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}
@@ -344,8 +286,11 @@ export function PurchaseStatusWrapper({
             </p>
           )}
         </div>
-      ) : showPriceDisplay ? (
-        // Fixed price display
+      ) : currentVariantHasAccess ? (
+        // User owns this variant - no price display needed
+        null
+      ) : showPriceDisplay && !(selectedVariant?.pay_what_you_want) ? (
+        // Fixed price display (not for PWYW variants even if not currently in PWYW mode)
         <div className="mb-4">
           <div
             className="text-2xl sm:text-3xl font-bold"
@@ -419,7 +364,8 @@ export function PurchaseStatusWrapper({
             variants={variants}
             basePrice={priceCents}
             onVariantChange={handleVariantChange}
-            initialSelectedId={purchasedVariantId}
+            initialSelectedId={purchasedVariantIds[0] || undefined}
+            purchasedVariantIds={purchasedVariantIds}
             themeColors={{
               cardBackground: themeColors?.cardBackground,
               cardTextColor: themeColors?.cardTextColor,

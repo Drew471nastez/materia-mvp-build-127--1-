@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import { Check } from "lucide-react"
 
 export interface ProductVariant {
   id: string
@@ -25,6 +26,7 @@ interface VariantSelectorProps {
   basePrice: number // Only used when no variants exist
   onVariantChange: (variant: ProductVariant | null, finalPrice: number) => void
   initialSelectedId?: string | null // Pre-select a specific variant (e.g., purchased variant)
+  purchasedVariantIds?: string[] // Array of variant IDs the user has purchased
   themeColors?: {
     cardBackground?: string
     cardTextColor?: string
@@ -39,6 +41,7 @@ export function VariantSelector({
   basePrice,
   onVariantChange,
   initialSelectedId,
+  purchasedVariantIds = [],
   themeColors,
   className,
 }: VariantSelectorProps) {
@@ -83,12 +86,20 @@ export function VariantSelector({
     }).format(cents / 100)
   }
 
+  // Format PWYW min as "$X+"
+  const formatPwywMin = (cents: number | null | undefined): string => {
+    if (!cents || cents === 0) return "$0+"
+    return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}+`
+  }
+
   return (
     <div className={cn("space-y-2", className)}>
       {/* No heading - removed "Package" / "Choose a package" */}
       <div className="space-y-2">
         {variants.map((variant) => {
           const isSelected = selectedVariantId === variant.id
+          const isOwned = purchasedVariantIds.includes(variant.id)
+          const isPwyw = variant.pay_what_you_want
 
           return (
             <button
@@ -134,20 +145,31 @@ export function VariantSelector({
                   )}
                 </div>
 
-                {/* Variant info - only name, price, description */}
+                {/* Variant info - name, price, description, owned badge */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <h4
-                      className="font-semibold text-sm sm:text-base truncate"
-                      style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
-                    >
-                      {variant.name}
-                    </h4>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h4
+                        className="font-semibold text-sm sm:text-base truncate"
+                        style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+                      >
+                        {variant.name}
+                      </h4>
+                      {isOwned && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 flex-shrink-0">
+                          <Check className="h-3 w-3" />
+                          Owned
+                        </span>
+                      )}
+                    </div>
                     <span
                       className="font-bold text-sm sm:text-base flex-shrink-0"
                       style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
                     >
-                      {formatPrice(variant.price_cents)}
+                      {isPwyw
+                        ? formatPwywMin(variant.pwyw_min_price_cents)
+                        : formatPrice(variant.price_cents)
+                      }
                     </span>
                   </div>
 
@@ -159,9 +181,6 @@ export function VariantSelector({
                       {variant.description}
                     </p>
                   )}
-
-                  {/* Removed: file count indicator */}
-                  {/* Removed: +$X from base price indicator */}
                 </div>
               </div>
             </button>
@@ -178,6 +197,7 @@ export function VariantSelectorCompact({
   basePrice,
   selectedVariantId,
   onVariantChange,
+  purchasedVariantIds = [],
   themeColors,
   className,
 }: {
@@ -185,6 +205,7 @@ export function VariantSelectorCompact({
   basePrice: number
   selectedVariantId: string | null
   onVariantChange: (variant: ProductVariant | null, finalPrice: number) => void
+  purchasedVariantIds?: string[]
   themeColors?: {
     cardBackground?: string
     cardTextColor?: string
@@ -207,6 +228,7 @@ export function VariantSelectorCompact({
     <div className={cn("flex gap-2 overflow-x-auto pb-1 -mx-1 px-1", className)}>
       {variants.map((variant) => {
         const isSelected = selectedVariantId === variant.id
+        const isOwned = purchasedVariantIds.includes(variant.id)
 
         return (
           <button
@@ -228,6 +250,7 @@ export function VariantSelectorCompact({
             }}
           >
             {variant.name} - {formatPrice(variant.price_cents)}
+            {isOwned && " ✓"}
           </button>
         )
       })}

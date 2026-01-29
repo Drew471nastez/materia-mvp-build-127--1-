@@ -300,7 +300,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   let hasPurchased = false
   let firstAssetId: string | null = null
-  let purchasedVariantId: string | null = null
+  let purchasedVariantIds: string[] = [] // Array of all purchased variant IDs
   let user: any = null
 
   try {
@@ -311,28 +311,35 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     user = authUser
 
     if (user) {
-      const { data: entitlement } = await supabase
+      // Fetch ALL entitlements for this product (including variant-specific ones)
+      const { data: entitlements } = await supabase
         .from("entitlements")
-        .select("id")
+        .select("id, variant_id")
         .eq("buyer_id", user.id)
         .eq("product_id", product.id)
-        .maybeSingle()
 
-      hasPurchased = !!entitlement
+      if (entitlements && entitlements.length > 0) {
+        hasPurchased = true
+        // Collect all variant IDs the user has purchased
+        purchasedVariantIds = entitlements
+          .map(e => e.variant_id)
+          .filter((id): id is string => id !== null && id !== undefined)
 
-      // Get the purchased variant ID from the most recent order
-      if (hasPurchased) {
-        const { data: order } = await supabase
+        // Also check orders for any variants not yet in entitlements (guest purchases, etc.)
+        const { data: orders } = await supabase
           .from("orders")
           .select("variant_id")
           .eq("buyer_id", user.id)
           .eq("product_id", product.id)
           .eq("status", "completed")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
 
-        purchasedVariantId = order?.variant_id || null
+        if (orders) {
+          const orderVariantIds = orders
+            .map(o => o.variant_id)
+            .filter((id): id is string => id !== null && id !== undefined)
+          // Merge and deduplicate
+          purchasedVariantIds = [...new Set([...purchasedVariantIds, ...orderVariantIds])]
+        }
       }
     }
   } catch {
@@ -898,7 +905,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 creatorId={product.creator_id}
                 serverHasPurchased={hasPurchased}
                 serverAssetId={firstAssetId}
-                serverPurchasedVariantId={purchasedVariantId}
+                serverPurchasedVariantIds={purchasedVariantIds}
                 variants={variants}
                 callToAction={product.call_to_action}
                 buyButtonBgColor={buyButtonColor}
@@ -1191,7 +1198,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             creatorId={product.creator_id}
             serverHasPurchased={hasPurchased}
             serverAssetId={firstAssetId}
-            serverPurchasedVariantId={purchasedVariantId}
+            serverPurchasedVariantIds={purchasedVariantIds}
             variants={variants}
             callToAction={product.call_to_action}
             buyButtonBgColor={buyButtonColor}
