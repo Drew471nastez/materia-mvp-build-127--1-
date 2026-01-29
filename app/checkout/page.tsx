@@ -58,21 +58,39 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
-  // Check if user is logged in and already owns the product
+  // Check if user is logged in and already owns this specific product/variant
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (user) {
-    const { data: existingEntitlement } = await supabase
+    // If a variant is specified, check if user owns that specific variant
+    // If no variant, check if user owns the product at all (for non-variant products)
+    let entitlementQuery = supabase
       .from("entitlements")
-      .select("id")
+      .select("id, variant_id")
       .eq("buyer_id", user.id)
       .eq("product_id", productId)
-      .maybeSingle()
 
-    if (existingEntitlement) {
-      redirect(getProductUrl(creatorUsername, product.slug))
+    const { data: existingEntitlements } = await entitlementQuery
+
+    if (existingEntitlements && existingEntitlements.length > 0) {
+      if (variantId) {
+        // Check if user specifically owns THIS variant
+        const ownsThisVariant = existingEntitlements.some(e => e.variant_id === variantId)
+        if (ownsThisVariant) {
+          redirect(getProductUrl(creatorUsername, product.slug))
+        }
+        // User owns other variants but not this one - allow purchase
+      } else {
+        // No variant specified - check if user owns any entitlement for this product
+        // For non-variant products, any entitlement means they own it
+        const ownsProductWithoutVariant = existingEntitlements.some(e => !e.variant_id)
+        if (ownsProductWithoutVariant) {
+          redirect(getProductUrl(creatorUsername, product.slug))
+        }
+        // User owns specific variants but not the base product - allow purchase
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import { downloadEntitledFile } from "@/components/download-button"
 
 interface SmartBuyButtonProps {
   productId: string
+  variantId?: string | null
   price: number
   disabled?: boolean
   creatorId?: string
@@ -34,6 +35,7 @@ interface PurchaseInfo {
  */
 export function SmartBuyButton({
   productId,
+  variantId,
   price,
   disabled,
   creatorId,
@@ -131,7 +133,11 @@ export function SmartBuyButton({
     }
 
     // Use window.location.href for reliable navigation
-    window.location.href = `/checkout?productId=${productId}`
+    let checkoutUrl = `/checkout?productId=${productId}`
+    if (variantId) {
+      checkoutUrl += `&variantId=${variantId}`
+    }
+    window.location.href = checkoutUrl
   }
 
   const handleDownloadClick = async () => {

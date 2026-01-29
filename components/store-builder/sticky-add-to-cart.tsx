@@ -26,6 +26,7 @@ interface ProductData {
   compare_at_cents?: number
   reviews_count?: number
   reviews_average?: number
+  selectedVariantId?: string | null
 }
 
 interface StickyAddToCartProps {
@@ -77,7 +78,11 @@ export function EditorStickyAddToCart({
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (isEditorPreview) return
-    window.location.href = `/checkout?productId=${product.id}`
+    let checkoutUrl = `/checkout?productId=${product.id}`
+    if (product.selectedVariantId) {
+      checkoutUrl += `&variantId=${product.selectedVariantId}`
+    }
+    window.location.href = checkoutUrl
   }
 
   const handleWrapperClick = () => {
@@ -302,7 +307,11 @@ export function LiveStickyAddToCart({
     if (onAddToCart) {
       onAddToCart()
     } else {
-      window.location.href = `/checkout?productId=${product.id}`
+      let checkoutUrl = `/checkout?productId=${product.id}`
+      if (product.selectedVariantId) {
+        checkoutUrl += `&variantId=${product.selectedVariantId}`
+      }
+      window.location.href = checkoutUrl
     }
   }
 
