@@ -213,8 +213,12 @@ export function PurchaseStatusWrapper({
   // Compare at price only shown when no variants selected
   const effectiveCompareAtPrice = variants.length === 0 ? compareAtCents : null
 
-  // Can download if user has access to this specific variant and there's an asset
-  const canDownload = currentVariantHasAccess && effectiveAssetId && productType === "digital"
+  // User owns this variant (can download if there are files)
+  const hasFiles = !!effectiveAssetId && productType === "digital"
+  const canDownload = currentVariantHasAccess && hasFiles
+
+  // Show owned state even if no files - this hides buy button and shows View in Library
+  const showOwnedState = currentVariantHasAccess
 
   // Loading state
   if (isChecking) {
@@ -314,21 +318,36 @@ export function PurchaseStatusWrapper({
         </div>
       ) : null}
 
-      {/* Download button - ONLY if user purchased THIS specific variant */}
-      {canDownload ? (
+      {/* OWNED STATE - Show Download button (if files) + View in Library */}
+      {showOwnedState ? (
         <>
-          <DownloadButton
-            assetId={effectiveAssetId}
-            receiptToken={receiptToken}
-            className="w-full min-h-[48px]"
-            size="default"
-            style={{
-              backgroundColor: downloadButtonBgColor || undefined,
-              color: downloadButtonTextColor || undefined,
-            }}
-          >
-            Download File
-          </DownloadButton>
+          {canDownload ? (
+            <DownloadButton
+              assetId={effectiveAssetId}
+              receiptToken={receiptToken}
+              className="w-full min-h-[48px]"
+              size="default"
+              style={{
+                backgroundColor: downloadButtonBgColor || undefined,
+                color: downloadButtonTextColor || undefined,
+              }}
+            >
+              Download File
+            </DownloadButton>
+          ) : (
+            // Owned but no files - show a placeholder or the files aren't ready
+            <Button
+              disabled
+              className="w-full min-h-[48px]"
+              style={{
+                backgroundColor: downloadButtonBgColor || undefined,
+                color: downloadButtonTextColor || undefined,
+                opacity: 0.7,
+              }}
+            >
+              No files available yet
+            </Button>
+          )}
           {purchasedExtraContent}
         </>
       ) : (
@@ -352,7 +371,7 @@ export function PurchaseStatusWrapper({
       {/* Variant selector - ALWAYS visible, allows switching between variants */}
       {variants.length > 0 && (
         <div className="mt-4 pt-4 border-t" style={{ borderColor: themeColors?.cardBorderColor || "var(--border)" }}>
-          {!canDownload && (
+          {!showOwnedState && (
             <p
               className="text-sm font-medium mb-3"
               style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}

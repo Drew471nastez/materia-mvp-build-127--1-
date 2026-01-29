@@ -12,52 +12,45 @@ export function createClient() {
       cookies: {
         // Custom cookie handling for cross-subdomain support
         // This ensures PKCE code_verifier and auth tokens work across all subdomains
-        get(name: string) {
-          if (typeof document === "undefined") return undefined
-          const value = document.cookie
-            .split("; ")
-            .find((row) => row.startsWith(`${name}=`))
-            ?.split("=")[1]
-          return value ? decodeURIComponent(value) : undefined
+        getAll() {
+          if (typeof document === "undefined") return []
+
+          return document.cookie.split("; ").map((cookie) => {
+            const [name, ...valueParts] = cookie.split("=")
+            // Join with = in case value contains = characters (common in base64)
+            const value = valueParts.join("=")
+            return {
+              name,
+              value: value ? decodeURIComponent(value) : "",
+            }
+          }).filter(c => c.name) // Filter out empty names
         },
-        set(name: string, value: string, options?: { path?: string; maxAge?: number; domain?: string; secure?: boolean; sameSite?: "lax" | "strict" | "none" }) {
+        setAll(cookies) {
           if (typeof document === "undefined") return
 
-          let cookie = `${name}=${encodeURIComponent(value)}`
+          cookies.forEach(({ name, value, options }) => {
+            let cookie = `${name}=${encodeURIComponent(value)}`
 
-          // Set domain for cross-subdomain support (e.g., .storelib.com)
-          // This is critical for PKCE code_verifier to work when OAuth redirects between subdomains
-          if (!isLocalhost) {
-            cookie += `; domain=.${mainDomain}`
-          }
+            // Set domain for cross-subdomain support (e.g., .storelib.com)
+            // This is critical for PKCE code_verifier to work when OAuth redirects between subdomains
+            if (!isLocalhost) {
+              cookie += `; domain=.${mainDomain}`
+            }
 
-          cookie += `; path=${options?.path || "/"}`
+            cookie += `; path=${options?.path || "/"}`
 
-          if (options?.maxAge) {
-            cookie += `; max-age=${options.maxAge}`
-          }
+            if (options?.maxAge) {
+              cookie += `; max-age=${options.maxAge}`
+            }
 
-          if (!isLocalhost) {
-            cookie += "; secure"
-          }
+            if (!isLocalhost) {
+              cookie += "; secure"
+            }
 
-          cookie += `; samesite=${options?.sameSite || "lax"}`
+            cookie += `; samesite=${options?.sameSite || "lax"}`
 
-          document.cookie = cookie
-        },
-        remove(name: string, options?: { path?: string }) {
-          if (typeof document === "undefined") return
-
-          let cookie = `${name}=; max-age=0`
-
-          if (!isLocalhost) {
-            const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
-            cookie += `; domain=.${mainDomain}`
-          }
-
-          cookie += `; path=${options?.path || "/"}`
-
-          document.cookie = cookie
+            document.cookie = cookie
+          })
         },
       },
     }
