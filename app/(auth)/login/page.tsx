@@ -137,6 +137,9 @@ function LoginFormContent() {
   }
 
   const handleGoogleSignIn = async () => {
+    // Prevent rapid clicks that could cause rate limiting
+    if (isGoogleLoading) return
+
     const supabase = createClient()
     setIsGoogleLoading(true)
     setError(null)
