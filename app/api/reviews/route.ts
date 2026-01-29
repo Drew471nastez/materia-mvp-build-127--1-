@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
 
 // GET - Fetch reviews for a product
 export async function GET(request: NextRequest) {
@@ -107,12 +108,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "You have already reviewed this product" }, { status: 409 })
   }
 
-  // Get product to find creator_id
-  const { data: product } = await admin.from("products").select("creator_id").eq("id", productId).single()
+  // Get product with creator info (including user_id for notifications)
+  const { data: product } = await admin
+    .from("products")
+    .select("id, title, slug, creator_id, creator:creators!inner(id, user_id)")
+    .eq("id", productId)
+    .single()
 
   if (!product) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 })
   }
+
+  // Get reviewer's profile for display name
+  const { data: reviewerProfile } = await admin
+    .from("profiles")
+    .select("display_name, username")
+    .eq("id", user.id)
+    .single()
+
+  const reviewerName = reviewerProfile?.display_name || reviewerProfile?.username || "A customer"
 
   // Create the review
   const { data: review, error } = await admin
@@ -132,8 +146,82 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    console.error("[v0] Error creating review:", error)
+    console.error("[reviews] Error creating review:", error)
     return NextResponse.json({ error: "Failed to create review" }, { status: 500 })
+  }
+
+  console.log("[reviews] ✅ Review created successfully:", review.id)
+
+  // Create notification and send email to seller (don't block response on this)
+  const creatorUserId = (product.creator as any)?.user_id
+  if (creatorUserId) {
+    try {
+      // Get seller email
+      const sellerEmail = await resolveSellerEmail(admin, product.creator_id)
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
+
+      // Create in-app notification
+      const notificationData = {
+        creator_id: product.creator_id,
+        user_id: creatorUserId,
+        type: "new_review",
+        title: `New ${rating}-star review!`,
+        message: `${reviewerName} left a ${rating}-star review on "${product.title}"`,
+        action_url: `/p/${product.slug}#testimonials`,
+        product_id: product.id,
+        review_id: review.id,
+        metadata: {
+          reviewer_name: reviewerName,
+          rating,
+          content_preview: content.trim().substring(0, 100),
+        },
+      }
+
+      const { error: notifError } = await admin
+        .from("seller_notifications")
+        .insert(notificationData)
+
+      if (notifError) {
+        console.error("[reviews] Failed to create notification:", notifError)
+      } else {
+        console.log("[reviews] ✅ Notification created for seller")
+      }
+
+      // Send email notification (async, don't wait)
+      sendReviewNotificationEmail(admin, {
+        sellerEmail,
+        creatorId: product.creator_id,
+        productTitle: product.title,
+        productSlug: product.slug,
+        reviewerName,
+        reviewRating: rating,
+        reviewContent: content.trim(),
+        baseUrl,
+      })
+        .then((result) => {
+          if (result.success) {
+            // Update notification with email sent status
+            admin
+              .from("seller_notifications")
+              .update({ email_sent_at: new Date().toISOString() })
+              .eq("review_id", review.id)
+              .then(() => console.log("[reviews] ✅ Email sent to seller"))
+          } else {
+            // Update notification with email error
+            admin
+              .from("seller_notifications")
+              .update({ email_error: result.error })
+              .eq("review_id", review.id)
+              .then(() => console.log("[reviews] ❌ Email failed:", result.error))
+          }
+        })
+        .catch((err) => {
+          console.error("[reviews] Email sending error:", err)
+        })
+    } catch (notifyErr) {
+      console.error("[reviews] Error in notification flow:", notifyErr)
+      // Don't fail the review creation if notification fails
+    }
   }
 
   return NextResponse.json({ review })

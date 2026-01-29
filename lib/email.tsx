@@ -1317,3 +1317,239 @@ export async function sendWelcomeEmail(
     return { success: false, error: errorMessage }
   }
 }
+
+// -------------------------
+// New Review Notification Email
+// -------------------------
+export interface SendReviewNotificationParams {
+  sellerEmail: string
+  creatorId: string
+  productTitle: string
+  productSlug: string
+  reviewerName: string
+  reviewRating: number
+  reviewContent: string
+  baseUrl?: string
+}
+
+function reviewNotificationEmailHtml(params: {
+  productTitle: string
+  reviewerName: string
+  reviewRating: number
+  reviewContent: string
+  productLink: string
+  footerBrand: string
+}) {
+  const productTitle = safeText(params.productTitle)
+  const reviewerName = safeName(params.reviewerName) || "A customer"
+  const reviewRating = params.reviewRating
+  const reviewContent = safeText(params.reviewContent)
+  const productLink = params.productLink
+  const footerBrand = safeText(params.footerBrand)
+
+  // Generate star rating display
+  const stars = "★".repeat(reviewRating) + "☆".repeat(5 - reviewRating)
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>New Review on ${productTitle}</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
+  <table role="presentation" style="width:100%;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="padding:44px 36px 30px;text-align:center;background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+              <div style="font-size:48px;margin-bottom:12px;">⭐</div>
+              <h1 style="margin:0;font-size:28px;font-weight:800;color:#fff;">New Review!</h1>
+              <p style="margin:12px 0 0 0;font-size:17px;color:rgba(255,255,255,0.95);font-weight:500;">Someone left a review on your product</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:34px 34px 12px;">
+              <!-- Product Info -->
+              <table role="presentation" style="width:100%;background:#f9fafb;border-radius:10px;padding:20px;margin:0 0 20px 0;">
+                <tr>
+                  <td>
+                    <p style="margin:0 0 6px 0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;">Product</p>
+                    <p style="margin:0;font-size:18px;font-weight:700;color:#111827;">${productTitle}</p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Review Card -->
+              <table role="presentation" style="width:100%;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin:0 0 24px 0;">
+                <tr>
+                  <td style="padding:20px;">
+                    <!-- Rating -->
+                    <div style="margin-bottom:12px;">
+                      <span style="font-size:24px;color:#f59e0b;letter-spacing:2px;">${stars}</span>
+                      <span style="margin-left:8px;font-size:14px;color:#6b7280;">(${reviewRating}/5)</span>
+                    </div>
+
+                    <!-- Reviewer -->
+                    <p style="margin:0 0 12px 0;font-size:14px;color:#6b7280;">
+                      <strong style="color:#111827;">${reviewerName}</strong> wrote:
+                    </p>
+
+                    <!-- Review Content -->
+                    <div style="background:#f9fafb;border-left:4px solid #f59e0b;padding:16px;border-radius:0 8px 8px 0;">
+                      <p style="margin:0;font-size:15px;color:#374151;line-height:1.6;font-style:italic;">
+                        "${reviewContent}"
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" style="width:100%;margin:0 0 8px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${productLink}" style="display:inline-block;background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(245, 158, 11, 0.4);">
+                      View Product Page
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 18px 0;" />
+              <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.5;">
+                Great reviews help build trust with potential customers!
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:18px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+              © ${new Date().getFullYear()} Storelib · Helping creators sell digital products
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+function reviewNotificationEmailText(params: {
+  productTitle: string
+  reviewerName: string
+  reviewRating: number
+  reviewContent: string
+  productLink: string
+}) {
+  const stars = "★".repeat(params.reviewRating) + "☆".repeat(5 - params.reviewRating)
+
+  return `New Review on "${safeText(params.productTitle)}"!
+
+${stars} (${params.reviewRating}/5)
+
+${safeName(params.reviewerName) || "A customer"} wrote:
+
+"${safeText(params.reviewContent)}"
+
+View your product page: ${params.productLink}
+
+Great reviews help build trust with potential customers!
+- Storelib`
+}
+
+export async function sendReviewNotificationEmail(
+  admin: any,
+  params: SendReviewNotificationParams,
+): Promise<{ success: boolean; error?: string }> {
+  const {
+    sellerEmail,
+    creatorId,
+    productTitle,
+    productSlug,
+    reviewerName,
+    reviewRating,
+    reviewContent,
+    baseUrl,
+  } = params
+
+  console.log("[email] 📧 Sending review notification email:", {
+    sellerEmail,
+    creatorId,
+    productTitle,
+    reviewRating,
+    smtpConfigured: isSmtpConfigured(),
+  })
+
+  if (!isSmtpConfigured()) {
+    const error = "Email service not configured (SMTP credentials missing)"
+    console.error("[email] ❌ Review notification email failed:", error)
+    return { success: false, error }
+  }
+
+  const identity = creatorId ? await resolveCreatorIdentity(admin, creatorId) : null
+  const replyTo = identity?.replyTo || DEFAULT_SUPPORT
+
+  // Use resolved seller email if provided email is fallback
+  let finalSellerEmail = normalizeEmail(sellerEmail)
+  if (finalSellerEmail === DEFAULT_SUPPORT && identity?.sellerEmail && identity.sellerEmail !== DEFAULT_SUPPORT) {
+    finalSellerEmail = identity.sellerEmail
+    console.log("[email] Using resolved seller email instead of fallback:", finalSellerEmail)
+  }
+
+  const productLink = buildUrl(`/p/${encodeURIComponent(productSlug)}#testimonials`, baseUrl)
+  const subject = `⭐ New ${reviewRating}-star review on "${safeText(productTitle)}"`
+  const fromHeader = buildFromHeaderLocal(PLATFORM_BRAND_NAME)
+
+  console.log("[email] 📧 Attempting to send review notification:", {
+    from: fromHeader,
+    to: finalSellerEmail,
+    replyTo,
+    subject,
+  })
+
+  try {
+    const result = await withRetry(
+      async () => {
+        const response = await sendEmail({
+          from: fromHeader,
+          to: finalSellerEmail,
+          replyTo,
+          subject,
+          html: reviewNotificationEmailHtml({
+            productTitle,
+            reviewerName,
+            reviewRating,
+            reviewContent,
+            productLink,
+            footerBrand: PLATFORM_BRAND_NAME,
+          }),
+          text: reviewNotificationEmailText({
+            productTitle,
+            reviewerName,
+            reviewRating,
+            reviewContent,
+            productLink,
+          }),
+        })
+
+        if (!response.success) {
+          throw new Error(response.error || "Failed to send email")
+        }
+
+        return response
+      },
+      MAX_RETRIES,
+      `review notification to ${finalSellerEmail}`,
+    )
+
+    console.log("[email] ✅ Review notification sent successfully to:", finalSellerEmail, "ID:", result.messageId)
+    return { success: true }
+  } catch (err: any) {
+    const errorMessage = err?.message || err?.error?.message || "Unknown error sending email"
+    console.error("[email] ❌ Review notification failed after retries:", errorMessage, err)
+    return { success: false, error: errorMessage }
+  }
+}

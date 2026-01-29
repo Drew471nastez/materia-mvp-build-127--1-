@@ -1,6 +1,7 @@
-import { createClient } from "@/lib/supabase/server"
+import { createServerClient } from "@supabase/ssr"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -8,18 +9,56 @@ export async function GET(request: Request) {
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
 
+  // Use canonical site URL for redirects (always storelib.com in production)
+  const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL || origin
+  const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+  const isLocalhost = mainDomain.includes("localhost")
+
   if (error) {
     console.error("OAuth error:", error, errorDescription)
-    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || error)}`)
+    return NextResponse.redirect(`${canonicalUrl}/login?error=${encodeURIComponent(errorDescription || error)}`)
   }
 
   if (code) {
-    const supabase = await createClient()
+    const cookieStore = await cookies()
+
+    // Create Supabase client with proper cookie handling for cross-subdomain support
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                cookieStore.set(name, value, {
+                  ...options,
+                  // Set domain for cross-subdomain support
+                  domain: isLocalhost ? undefined : `.${mainDomain}`,
+                  secure: !isLocalhost,
+                  sameSite: "lax",
+                })
+              })
+            } catch {
+              // Ignore errors from Server Components
+            }
+          },
+        },
+      }
+    )
+
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (exchangeError) {
       console.error("Code exchange error:", exchangeError)
-      return NextResponse.redirect(`${origin}/auth/auth-code-error?error=${encodeURIComponent(exchangeError.message)}`)
+      // If PKCE error, provide a clearer message
+      const errorMessage = exchangeError.message.includes("code verifier")
+        ? "Session expired. Please try signing in again."
+        : exchangeError.message
+      return NextResponse.redirect(`${canonicalUrl}/login?error=${encodeURIComponent(errorMessage)}`)
     }
 
     if (data.user) {
@@ -52,7 +91,7 @@ export async function GET(request: Request) {
 
         // New users - redirect to client-side complete page which checks localStorage
         // for any stored redirect (e.g., returning to receipt page after signup)
-        return NextResponse.redirect(`${origin}/auth/complete?new=1`)
+        return NextResponse.redirect(`${canonicalUrl}/auth/complete?new=1`)
       }
 
       // Update avatar if not set
@@ -66,9 +105,9 @@ export async function GET(request: Request) {
       // For existing users, redirect to client-side complete page
       // This allows the page to check localStorage for any stored redirect URL
       // (e.g., returning to receipt page after login for review)
-      return NextResponse.redirect(`${origin}/auth/complete`)
+      return NextResponse.redirect(`${canonicalUrl}/auth/complete`)
     }
   }
 
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  return NextResponse.redirect(`${canonicalUrl}/auth/auth-code-error`)
 }

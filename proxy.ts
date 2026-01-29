@@ -143,6 +143,9 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse
   }
 
+  // Determine if we're on localhost for cookie domain settings
+  const isLocalhost = MAIN_DOMAIN.includes("localhost")
+
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
@@ -172,7 +175,19 @@ export async function proxy(request: NextRequest) {
             request,
           })
         }
-        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
+        // Set cookies with domain for cross-subdomain support
+        // This ensures PKCE code verifier cookies work across subdomains
+        cookiesToSet.forEach(({ name, value, options }) => {
+          supabaseResponse.cookies.set(name, value, {
+            ...options,
+            // Set domain to root domain for subdomain sharing (e.g., .storelib.com)
+            domain: isLocalhost ? undefined : `.${MAIN_DOMAIN}`,
+            // Ensure secure in production
+            secure: !isLocalhost,
+            // Allow cookies to be sent with same-site requests
+            sameSite: "lax",
+          })
+        })
       },
     },
   })

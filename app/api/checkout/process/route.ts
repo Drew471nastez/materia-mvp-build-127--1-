@@ -73,18 +73,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Paid products must use Stripe checkout" }, { status: 400 })
     }
 
-    // Check if user already owns product
+    // Check if user already owns this specific variant (for per-variant access)
+    // We still allow proceeding to create a new order/receipt for re-downloads
+    let alreadyOwnsVariant = false
     if (user) {
-      const { data: existingEntitlement } = await admin
+      let entitlementQuery = admin
         .from("entitlements")
         .select("id")
         .eq("buyer_id", user.id)
         .eq("product_id", productId)
-        .maybeSingle()
 
-      if (existingEntitlement) {
-        console.log("[checkout/process] User already owns this product")
-        return NextResponse.json({ redirectUrl: `/library/my-downloads` }, { status: 200 })
+      // If variant specified, check for that specific variant
+      if (variantId) {
+        entitlementQuery = entitlementQuery.eq("variant_id", variantId)
+      } else {
+        entitlementQuery = entitlementQuery.is("variant_id", null)
+      }
+
+      const { data: existingEntitlement } = await entitlementQuery.maybeSingle()
+      alreadyOwnsVariant = !!existingEntitlement
+
+      if (alreadyOwnsVariant) {
+        console.log("[checkout/process] User already owns this product/variant - will still create receipt")
       }
     }
 
@@ -179,7 +189,8 @@ export async function POST(request: Request) {
     })
 
     // Create entitlement for logged-in users (with variant_id for per-variant access)
-    if (user) {
+    // Skip if user already owns this variant (we checked earlier)
+    if (user && !alreadyOwnsVariant) {
       const { error: entitlementError } = await admin.from("entitlements").insert({
         buyer_id: user.id,
         creator_id: product.creator.id,
@@ -193,6 +204,8 @@ export async function POST(request: Request) {
       } else {
         console.log("[checkout/process] ✅ Entitlement created for user:", user.id)
       }
+    } else if (alreadyOwnsVariant) {
+      console.log("[checkout/process] ✅ Skipped entitlement - user already owns this variant")
     }
 
     // Update sales count and analytics

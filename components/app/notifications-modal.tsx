@@ -1,19 +1,32 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { Bell, CreditCard, ChevronRight, X, Link2 } from "lucide-react"
+import { Bell, CreditCard, ChevronRight, X, Link2, Star, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
 interface Notification {
   id: string
-  type: "action" | "update" | "message" | "opportunity"
+  type: "action" | "update" | "message" | "opportunity" | "new_review"
   title: string
   description: string
   href?: string
   read: boolean
   createdAt: Date
+  // For database notifications
+  isFromDb?: boolean
+}
+
+interface DbNotification {
+  id: string
+  type: string
+  title: string
+  message: string
+  action_url: string | null
+  read_at: string | null
+  created_at: string
+  metadata?: Record<string, any>
 }
 
 interface NotificationsModalProps {
@@ -60,6 +73,8 @@ export function NotificationsModal({
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isMobile, setIsMobile] = useState(false)
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([])
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -73,6 +88,28 @@ export function NotificationsModal({
   useEffect(() => {
     setDismissedIds(getDismissedNotifications())
   }, [])
+
+  // Fetch notifications from database when modal opens
+  const fetchNotifications = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/notifications?limit=20")
+      if (res.ok) {
+        const data = await res.json()
+        setDbNotifications(data.notifications || [])
+      }
+    } catch (err) {
+      console.error("[notifications] Failed to fetch:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      fetchNotifications()
+    }
+  }, [open, fetchNotifications])
 
   // Handle click outside for desktop panel
   useEffect(() => {
@@ -95,7 +132,7 @@ export function NotificationsModal({
     }
   }, [open, isMobile, onOpenChange])
 
-  // Generate notifications based on user state
+  // Combine generated notifications with database notifications
   useEffect(() => {
     const generatedNotifications: Notification[] = []
 
@@ -109,6 +146,7 @@ export function NotificationsModal({
         href: "/app/onepage",
         read: false,
         createdAt: new Date(),
+        isFromDb: false,
       })
     }
 
@@ -122,11 +160,28 @@ export function NotificationsModal({
         href: "/app/settings/payments",
         read: false,
         createdAt: new Date(),
+        isFromDb: false,
       })
     }
 
-    setNotifications(generatedNotifications)
-  }, [stripeConnected, stripeStatus, onePagePublished, dismissedIds])
+    // Transform database notifications to UI format
+    const transformedDbNotifications: Notification[] = dbNotifications.map((n) => ({
+      id: n.id,
+      type: n.type as Notification["type"],
+      title: n.title,
+      description: n.message,
+      href: n.action_url || undefined,
+      read: !!n.read_at,
+      createdAt: new Date(n.created_at),
+      isFromDb: true,
+    }))
+
+    // Combine and sort by date (newest first)
+    const allNotifications = [...generatedNotifications, ...transformedDbNotifications]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
+    setNotifications(allNotifications)
+  }, [stripeConnected, stripeStatus, onePagePublished, dismissedIds, dbNotifications])
 
   const filteredNotifications = notifications.filter((n) => {
     if (activeTab === "all") return true
@@ -143,10 +198,25 @@ export function NotificationsModal({
     { id: "opportunities" as const, label: "Opportunities" },
   ]
 
-  const handleNotificationClick = (notification: Notification) => {
-    // Dismiss the notification permanently
-    dismissNotification(notification.id)
-    setDismissedIds((prev) => [...prev, notification.id])
+  const handleNotificationClick = async (notification: Notification) => {
+    if (notification.isFromDb) {
+      // For database notifications, mark as read and dismissed via API
+      try {
+        await fetch("/api/notifications", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: [notification.id], action: "dismiss" }),
+        })
+        // Remove from local state
+        setDbNotifications((prev) => prev.filter((n) => n.id !== notification.id))
+      } catch (err) {
+        console.error("[notifications] Failed to dismiss:", err)
+      }
+    } else {
+      // For generated notifications, use localStorage
+      dismissNotification(notification.id)
+      setDismissedIds((prev) => [...prev, notification.id])
+    }
 
     // Remove from current notifications list
     setNotifications((prev) => prev.filter((n) => n.id !== notification.id))
@@ -178,7 +248,12 @@ export function NotificationsModal({
 
       {/* Notifications list */}
       <div className="flex-1 overflow-y-auto">
-        {filteredNotifications.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-full py-12 px-4">
+            <Loader2 className="w-8 h-8 text-neutral-400 animate-spin mb-4" />
+            <p className="text-sm text-neutral-500">Loading notifications...</p>
+          </div>
+        ) : filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4">
               <Bell className="w-8 h-8 text-neutral-400" />
@@ -262,11 +337,15 @@ function NotificationItem({
       )}
       onClick={onClick}
     >
-      <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
+      <div className={cn(
+        "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+        notification.type === "new_review" ? "bg-amber-100" : "bg-violet-100"
+      )}>
         {notification.type === "action" && <CreditCard className="w-5 h-5 text-violet-600" />}
         {notification.type === "update" && <Bell className="w-5 h-5 text-violet-600" />}
         {notification.type === "message" && <Bell className="w-5 h-5 text-violet-600" />}
         {notification.type === "opportunity" && <Link2 className="w-5 h-5 text-violet-600" />}
+        {notification.type === "new_review" && <Star className="w-5 h-5 text-amber-600" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className={cn(
