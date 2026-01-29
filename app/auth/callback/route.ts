@@ -1,7 +1,6 @@
-import { createServerClient } from "@supabase/ssr"
+import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -11,8 +10,6 @@ export async function GET(request: Request) {
 
   // Use canonical site URL for redirects (always storelib.com in production)
   const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL || origin
-  const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
-  const isLocalhost = mainDomain.includes("localhost")
 
   if (error) {
     console.error("OAuth error:", error, errorDescription)
@@ -20,35 +17,8 @@ export async function GET(request: Request) {
   }
 
   if (code) {
-    const cookieStore = await cookies()
-
-    // Create Supabase client with proper cookie handling for cross-subdomain support
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, {
-                  ...options,
-                  // Set domain for cross-subdomain support
-                  domain: isLocalhost ? undefined : `.${mainDomain}`,
-                  secure: !isLocalhost,
-                  sameSite: "lax",
-                })
-              })
-            } catch {
-              // Ignore errors from Server Components
-            }
-          },
-        },
-      }
-    )
+    // Use shared server client which has proper cross-subdomain cookie handling
+    const supabase = await createClient()
 
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
