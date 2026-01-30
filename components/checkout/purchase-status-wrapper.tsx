@@ -242,7 +242,7 @@ export function PurchaseStatusWrapper({
   // Render the component with unified variant selector
   // Button changes based on whether user can download the CURRENT selected variant
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 relative z-10">
       {/* Price display OR PWYW input */}
       {isPwywActive ? (
         // Pay What You Want - show price input (only if user doesn't own this variant)

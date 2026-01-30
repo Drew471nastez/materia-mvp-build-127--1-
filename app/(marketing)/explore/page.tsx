@@ -31,7 +31,14 @@ export default async function ExplorePage({
 }: {
   searchParams: Promise<{ tab?: string; q?: string; category?: string; sort?: string; src?: string }>
 }) {
-  const params = await searchParams
+  let params: { tab?: string; q?: string; category?: string; sort?: string; src?: string }
+  try {
+    params = await searchParams
+  } catch (e) {
+    console.error("[ExplorePage] Error awaiting searchParams:", e)
+    params = {}
+  }
+
   const supabase = await createClient()
   const searchQuery = params.q?.toLowerCase() || ""
   const category = params.category || "All"
@@ -39,113 +46,132 @@ export default async function ExplorePage({
   const activeTab = params.tab || "products"
   const src = params.src || "platform"
 
-  const { data: creators, error: creatorsError } = await supabase
-    .from("creators")
-    .select("*")
-    .eq("store_published", true)
-    .order("created_at", { ascending: sortBy === "oldest" })
-    .limit(24)
-
-  if (creatorsError) {
-    console.error("[v0] Creators query error:", creatorsError)
-  }
-
-  const creatorUserIds = creators?.map((c) => c.user_id).filter(Boolean) || []
+  // Initialize all data arrays with safe defaults
+  let creators: any[] = []
   let creatorProfiles: any[] = []
-  if (creatorUserIds.length > 0) {
-    const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
-      .select("*")
-      .in("id", creatorUserIds)
-
-    if (profilesError) {
-      console.error("[v0] Creator profiles error:", profilesError)
-    }
-    creatorProfiles = profiles || []
-  }
-
-  const creatorIds = creators?.map((c) => c.id) || []
   let productCounts: any[] = []
-  if (creatorIds.length > 0) {
-    const { data: counts } = await supabase
-      .from("products")
-      .select("creator_id")
-      .in("creator_id", creatorIds)
-      .eq("status", "published")
-    productCounts = counts || []
+  let products: any[] = []
+  let productCreators: any[] = []
+  let productCreatorProfiles: any[] = []
+
+  try {
+    // Fetch creators
+    const { data: creatorsData, error: creatorsError } = await supabase
+      .from("creators")
+      .select("*")
+      .eq("store_published", true)
+      .order("created_at", { ascending: sortBy === "oldest" })
+      .limit(24)
+
+    if (creatorsError) {
+      console.error("[ExplorePage] Creators query error:", creatorsError)
+    }
+    creators = creatorsData || []
+
+    // Fetch creator profiles
+    const creatorUserIds = creators.map((c) => c.user_id).filter(Boolean)
+    if (creatorUserIds.length > 0) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", creatorUserIds)
+
+      if (profilesError) {
+        console.error("[ExplorePage] Creator profiles error:", profilesError)
+      }
+      creatorProfiles = profiles || []
+    }
+
+    // Fetch product counts per creator
+    const creatorIds = creators.map((c) => c.id) || []
+    if (creatorIds.length > 0) {
+      const { data: counts, error: countsError } = await supabase
+        .from("products")
+        .select("creator_id")
+        .in("creator_id", creatorIds)
+        .eq("status", "published")
+
+      if (countsError) {
+        console.error("[ExplorePage] Product counts error:", countsError)
+      }
+      productCounts = counts || []
+    }
+  } catch (e) {
+    console.error("[ExplorePage] Error fetching creators:", e)
   }
 
   // Build creator data with profiles and product counts
-  const creatorsWithProfiles =
-    creators?.map((creator) => {
-      const profile = creatorProfiles.find((p) => p.id === creator.user_id)
-      const products = productCounts.filter((p) => p.creator_id === creator.id)
-      return {
-        ...creator,
-        profile,
-        products_count: products.length,
+  const creatorsWithProfiles = creators.map((creator) => {
+    const profile = creatorProfiles.find((p) => p.id === creator.user_id)
+    const creatorProducts = productCounts.filter((p) => p.creator_id === creator.id)
+    return {
+      ...creator,
+      profile,
+      products_count: creatorProducts.length,
+    }
+  })
+
+  try {
+    // Fetch products - simplified query without nested joins that might cause issues
+    const { data: productsData, error: productsError } = await supabase
+      .from("products")
+      .select("*")
+      .eq("status", "published")
+      .order(sortBy === "trending" ? "sales_count" : "created_at", {
+        ascending: sortBy === "oldest",
+        nullsFirst: false,
+      })
+      .limit(24)
+
+    if (productsError) {
+      console.error("[ExplorePage] Products query error:", productsError)
+    }
+    products = productsData || []
+
+    // Fetch product creators
+    const productCreatorIds = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
+    if (productCreatorIds.length > 0) {
+      const { data: pCreators, error: pCreatorsError } = await supabase
+        .from("creators")
+        .select("*")
+        .in("id", productCreatorIds)
+
+      if (pCreatorsError) {
+        console.error("[ExplorePage] Product creators error:", pCreatorsError)
       }
-    }) || []
+      productCreators = pCreators || []
+    }
 
-  const { data: products, error: productsError } = await supabase
-    .from("products")
-    .select(`
-      *,
-      product_categories (
-        category_id,
-        category:categories (
-          id,
-          name,
-          slug,
-          type
-        )
-      )
-    `)
-    .eq("status", "published")
-    .order(sortBy === "trending" ? "sales_count" : "created_at", {
-      ascending: sortBy === "oldest",
-      nullsFirst: false,
-    })
-    .limit(24)
+    // Fetch product creator profiles
+    const productCreatorUserIds = productCreators.map((c) => c.user_id).filter(Boolean)
+    if (productCreatorUserIds.length > 0) {
+      const { data: pcProfiles, error: pcProfilesError } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", productCreatorUserIds)
 
-  if (productsError) {
-    console.error("[v0] Products query error:", productsError)
-  }
-
-  const productCreatorIds = [...new Set(products?.map((p) => p.creator_id).filter(Boolean) || [])]
-  let productCreators: any[] = []
-  if (productCreatorIds.length > 0) {
-    const { data: pCreators } = await supabase.from("creators").select("*").in("id", productCreatorIds)
-    productCreators = pCreators || []
-  }
-
-  const productCreatorUserIds = productCreators.map((c) => c.user_id).filter(Boolean)
-  let productCreatorProfiles: any[] = []
-  if (productCreatorUserIds.length > 0) {
-    const { data: pcProfiles } = await supabase.from("profiles").select("*").in("id", productCreatorUserIds)
-    productCreatorProfiles = pcProfiles || []
-  }
-
-  // Build products with creator info and categories
-  const productsWithCreators =
-    products?.map((product) => {
-      const creator = productCreators.find((c) => c.id === product.creator_id)
-      const profile = productCreatorProfiles.find((p) => p.id === creator?.user_id)
-      // Extract categories from product_categories join OR use direct category field
-      const categoriesFromJoin = product.product_categories?.map((pc: any) => pc.category).filter(Boolean) || []
-      // If no categories from join table, use the direct category field on the product
-      const categoryName = categoriesFromJoin.length > 0
-        ? categoriesFromJoin[0]?.name
-        : product.category // Use direct category field as fallback
-      return {
-        ...product,
-        creator: creator ? { ...creator, profile } : null,
-        categories: categoriesFromJoin,
-        categoryName, // Direct category name for badge display
-        reviews_count: 0,
-        reviews_average: 0,
+      if (pcProfilesError) {
+        console.error("[ExplorePage] Product creator profiles error:", pcProfilesError)
       }
-    }) || []
+      productCreatorProfiles = pcProfiles || []
+    }
+  } catch (e) {
+    console.error("[ExplorePage] Error fetching products:", e)
+  }
+
+  // Build products with creator info
+  const productsWithCreators = products.map((product) => {
+    const creator = productCreators.find((c) => c.id === product.creator_id)
+    const profile = productCreatorProfiles.find((p) => p.id === creator?.user_id)
+    return {
+      ...product,
+      creator: creator ? { ...creator, profile } : null,
+      categories: [],
+      categoryName: product.category || null,
+      reviews_count: 0,
+      reviews_average: 0,
+    }
+  })
 
   // Filter by search and category
   const filteredCreators = creatorsWithProfiles.filter((c) => {

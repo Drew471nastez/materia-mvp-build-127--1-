@@ -123,9 +123,10 @@ export function WishlistButton({
   if (isLoading) {
     return (
       <button
+        type="button"
         disabled
         className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px]",
+          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] relative z-10",
           className
         )}
         style={buttonStyle}
@@ -141,8 +142,9 @@ export function WishlistButton({
     return (
       <div className={cn("space-y-2", className)}>
         <button
+          type="button"
           onClick={handleClick}
-          className="w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors"
+          className="w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors cursor-pointer relative z-10"
           style={{
             ...buttonStyle,
             borderColor: "#fca5a5",
@@ -170,9 +172,10 @@ export function WishlistButton({
 
     return (
       <button
+        type="button"
         onClick={handleWishlistClick}
         className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors cursor-pointer",
+          "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors cursor-pointer relative z-10",
           className
         )}
         style={buttonStyle}
@@ -196,10 +199,11 @@ export function WishlistButton({
   // Default state - add to wishlist
   return (
     <button
+      type="button"
       onClick={handleClick}
       disabled={isAdding}
       className={cn(
-        "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors group",
+        "w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors group cursor-pointer relative z-10",
         isAdding && "opacity-70 cursor-not-allowed",
         className
       )}

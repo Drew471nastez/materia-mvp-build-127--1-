@@ -876,7 +876,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {/* Mobile: Price card and Creator info ABOVE description */}
           <div className="mt-6 lg:hidden">
             <div
-              className="rounded-xl border p-4 sm:p-6 shadow-sm"
+              className="rounded-xl border p-4 sm:p-6 shadow-sm relative z-20"
               style={{
                 backgroundColor: themeColors.cardBackground || "var(--card)",
                 borderColor: themeColors.cardBorderColor || "var(--border)",
@@ -1169,7 +1169,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
       <div className="hidden lg:block lg:col-span-2">
         <div
-          className="sticky top-6 rounded-xl border p-6 shadow-sm"
+          className="sticky top-6 rounded-xl border p-6 shadow-sm relative z-20"
           style={{
             backgroundColor: themeColors.cardBackground || "var(--card)",
             borderColor: themeColors.cardBorderColor || "var(--border)",

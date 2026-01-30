@@ -26,8 +26,9 @@ export function ViewInLibraryButton({
 
   return (
     <Button
+      type="button"
       variant="outline"
-      className={className}
+      className={`cursor-pointer relative z-10 ${className}`}
       onClick={handleClick}
       style={{
         backgroundColor: backgroundColor || "transparent",

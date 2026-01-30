@@ -78,7 +78,7 @@ export function BuyButton({
     <Button
       type="button"
       size="lg"
-      className="w-full font-medium min-h-[48px]"
+      className="w-full font-medium min-h-[48px] cursor-pointer relative z-10"
       style={{
         backgroundColor: backgroundColor || "#2563eb",
         color: textColor || "#ffffff",

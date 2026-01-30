@@ -108,11 +108,11 @@ export function VariantSelector({
               onClick={() => handleVariantSelect(variant)}
               disabled={variants.length === 1}
               className={cn(
-                "w-full text-left rounded-xl p-3 sm:p-4 transition-all duration-200",
+                "w-full text-left rounded-xl p-3 sm:p-4 transition-all duration-200 relative z-10",
                 isSelected
                   ? "bg-gray-50"
                   : "bg-white hover:border-gray-300",
-                variants.length === 1 && "cursor-default"
+                variants.length === 1 ? "cursor-default" : "cursor-pointer"
               )}
               style={{
                 border: isSelected

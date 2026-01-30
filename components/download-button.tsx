@@ -128,11 +128,12 @@ export function DownloadButton({
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col relative z-10">
       <Button
+        type="button"
         variant={variant}
         size={size}
-        className={className}
+        className={`cursor-pointer ${className || ""}`}
         style={style}
         onClick={handleDownload}
         disabled={status === "loading"}
