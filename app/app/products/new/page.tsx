@@ -2615,10 +2615,12 @@ export default function NewProductPage() {
     }
   }
 
-  // Handle redirect to live product page
+  // Handle redirect to live product page on seller's subdomain
   const handleRedirectToProduct = () => {
-    if (slug) {
-      window.open(`/p/${slug}`, "_blank")
+    if (slug && creator) {
+      const sellerSubdomain = creator.username || creator.slug || 'store'
+      const productUrl = `https://${sellerSubdomain}.storelib.com/p/${slug}`
+      window.open(productUrl, "_blank")
     }
   }
 
