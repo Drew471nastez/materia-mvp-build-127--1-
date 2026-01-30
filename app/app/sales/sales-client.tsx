@@ -1788,7 +1788,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
 
       {/* Stripe Connection Announcement Bar */}
       {showPayoutsBanner && (
-        <div className="bg-[#8b5cf6] text-white">
+        <div className="bg-[#8b5cf6] text-white border-b border-[#7c3aed]">
           <div className="py-2 px-4 md:py-2.5">
             <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
               <AlertCircle className="h-4 w-4 text-white/80 shrink-0" />
@@ -1813,6 +1813,25 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           </div>
         </div>
       )}
+
+      {/* Pro Plan Announcement Bar */}
+      <div className="bg-[#8b5cf6] text-white border-b border-[#7c3aed]">
+        <div className="py-2 px-4 md:py-2.5">
+          <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
+            <span className="text-[12px] md:text-[14px] text-white/90">
+              <span className="font-semibold text-white">Try Pro free</span>
+              <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
+              <span className="md:hidden"> — most popular for creators.</span>
+            </span>
+            <Link
+              href="/app/settings/billing"
+              className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
+            >
+              Upgrade
+            </Link>
+          </div>
+        </div>
+      </div>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}

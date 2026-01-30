@@ -254,16 +254,16 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <button
         onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
         className={cn(
-          "flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-all duration-200 ease-out",
+          "flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-colors duration-200 ease-out",
           profileDropdownOpen ? "bg-neutral-100/80" : "hover:bg-neutral-100/50",
         )}
       >
-        <Avatar className="h-10 w-10 shrink-0 bg-neutral-200">
+        <Avatar className="h-10 w-10 shrink-0 bg-neutral-200 overflow-hidden">
           {avatarUrl ? (
             <AvatarImage
               src={avatarUrl}
               alt={userDisplayName}
-              className="object-cover"
+              className="object-cover w-full h-full"
               loading="eager"
             />
           ) : null}

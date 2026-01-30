@@ -2857,7 +2857,7 @@ export default function NewProductPage() {
                 flex items-center gap-2 overflow-hidden
                 ${isScrolled
                   ? 'max-h-0 py-0 opacity-0 pointer-events-none scale-95 blur-[2px]'
-                  : 'max-h-16 pt-[14px] pb-3 sm:py-3 opacity-100 scale-100 blur-0'
+                  : 'max-h-16 pt-[16px] pb-3 sm:py-3 opacity-100 scale-100 blur-0'
                 }
               `}
               style={{
