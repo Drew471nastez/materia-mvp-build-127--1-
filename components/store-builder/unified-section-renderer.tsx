@@ -1171,13 +1171,16 @@ export function UnifiedSectionRenderer({
     color: colors.textColor || "inherit",
   }
 
+  // isEditorMode is true when onSelect is provided - allows selection even in preview mode
+  const isEditorMode = !!onSelect
+
   return (
     <div
-      onClick={isPreviewMode ? undefined : onSelect}
+      onClick={onSelect}
       className={cn(
         "transition-all relative",
-        !isPreviewMode && onSelect && "cursor-pointer",
-        !isPreviewMode && isSelected && "ring-2 ring-sky-500 ring-inset",
+        isEditorMode && "cursor-pointer",
+        isEditorMode && isSelected && "ring-2 ring-sky-500 ring-inset",
       )}
       style={style}
     >

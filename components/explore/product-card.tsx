@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
-import { getProductUrl } from "@/lib/url-helpers"
+import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
+import { Star } from "lucide-react"
 
 interface ProductCardProps {
   product: {
@@ -14,6 +15,8 @@ interface ProductCardProps {
     type: string
     category?: string | null // Direct category field from product
     categoryName?: string | null // Pre-computed category name for display
+    reviews_count?: number | null
+    reviews_average?: number | null
     categories?: {
       id: string
       name: string
@@ -44,14 +47,16 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
 
   const creatorName = product.creator?.profile?.display_name || "Creator"
   const creatorUsername = product.creator?.profile?.username || product.creator?.slug || ""
+  const creatorAvatarUrl = product.creator?.profile?.avatar_url
   const productUrl = getProductUrl(creatorUsername, product.slug)
+  const storeUrl = getStoreUrl(creatorUsername)
+
+  const hasReviews = (product.reviews_count ?? 0) > 0
+  const reviewsAverage = product.reviews_average ?? 0
 
   return (
-    <a
-      href={productUrl}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-colors hover:border-border"
-    >
-      <div className="relative aspect-video bg-muted overflow-hidden">
+    <div className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-colors hover:border-border">
+      <a href={productUrl} className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (
           <Image
             src={product.thumbnail_url || "/placeholder.svg"}
@@ -72,24 +77,62 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
             {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
           </Badge>
         )}
-      </div>
+      </a>
       <div className="flex flex-1 flex-col p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-medium leading-tight group-hover:text-primary break-words min-w-0">{product.title}</h3>
-          <Badge variant="secondary" className="shrink-0 text-xs capitalize">
-            {product.categoryName || product.categories?.[0]?.name || product.category || product.type}
-          </Badge>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground truncate">by {creatorName}</p>
-        <div className="mt-auto pt-4">
-          <span className="font-semibold">{product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}</span>
-          {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-            <span className="ml-2 text-sm text-muted-foreground line-through">
-              {formatPrice(product.compare_at_cents)}
+        {/* Seller info row - avatar, name (clickable), divider, rating */}
+        <div className="flex items-center gap-2 mb-2">
+          <a
+            href={storeUrl}
+            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {creatorAvatarUrl ? (
+              <Image
+                src={creatorAvatarUrl}
+                alt={creatorName}
+                width={20}
+                height={20}
+                className="rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground shrink-0">
+                {creatorName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="text-[13px] text-muted-foreground hover:text-foreground transition-colors truncate max-w-[120px]">
+              {creatorName}
             </span>
+          </a>
+          {hasReviews && (
+            <>
+              <span className="h-3.5 w-px bg-border/60 shrink-0" />
+              <div className="flex items-center gap-1">
+                <Star className="h-3.5 w-3.5 fill-current text-foreground" />
+                <span className="text-[13px] text-muted-foreground">
+                  {reviewsAverage.toFixed(1)}
+                </span>
+              </div>
+            </>
           )}
         </div>
+
+        <a href={productUrl} className="flex-1 flex flex-col">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-medium leading-tight group-hover:text-primary break-words min-w-0">{product.title}</h3>
+            <Badge variant="secondary" className="shrink-0 text-xs capitalize">
+              {product.categoryName || product.categories?.[0]?.name || product.category || product.type}
+            </Badge>
+          </div>
+          <div className="mt-auto pt-4">
+            <span className="font-semibold">{product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}</span>
+            {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+              <span className="ml-2 text-sm text-muted-foreground line-through">
+                {formatPrice(product.compare_at_cents)}
+              </span>
+            )}
+          </div>
+        </a>
       </div>
-    </a>
+    </div>
   )
 }

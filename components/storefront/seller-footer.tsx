@@ -30,14 +30,14 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
       <div className="flex items-center justify-center gap-1.5 w-full">
         <span className="text-[11px] text-gray-400 whitespace-nowrap">Powered by</span>
         <a
-          href="/"
+          href="/explore"
           className="inline-flex items-center shrink-0"
-          aria-label="Go to Storelib homepage"
+          aria-label="Explore Storelib"
         >
           <img
             src="/images/design-mode/storelib.png"
             alt="Storelib"
-            className="h-[14px] w-auto"
+            className="h-[19px] w-auto"
           />
         </a>
       </div>
@@ -67,9 +67,9 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
       <div className="flex items-center gap-1.5">
         <span className="text-sm text-gray-500 whitespace-nowrap">Powered by</span>
         <a
-          href="/"
+          href="/explore"
           className="inline-flex items-center shrink-0"
-          aria-label="Go to Storelib homepage"
+          aria-label="Explore Storelib"
         >
           <img
             src="/images/design-mode/storelib.png"
@@ -106,14 +106,14 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
       )}>
         <span className="text-[11px] sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap">Powered by</span>
         <a
-          href="/"
+          href="/explore"
           className="inline-flex items-center shrink-0"
-          aria-label="Go to Storelib homepage"
+          aria-label="Explore Storelib"
         >
           <img
             src="/images/design-mode/storelib.png"
             alt="Storelib"
-            className="h-[14px] sm:h-[28px] w-auto sm:translate-y-[1px]"
+            className="h-[19px] sm:h-[28px] w-auto sm:translate-y-[1px]"
           />
         </a>
       </div>
