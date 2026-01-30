@@ -1,29 +1,21 @@
 -- ============================================
 -- FIX VARIANT DELETION - COMPLETE FIX
 -- ============================================
--- Fixes the unique constraint issue on entitlements table
--- ============================================
 
--- Step 1: Drop the problematic unique constraint on entitlements
+-- Step 1: Drop ALL problematic unique constraints on entitlements
 DROP INDEX IF EXISTS idx_entitlements_unique_buyer_product_variant;
+DROP INDEX IF EXISTS idx_entitlements_unique_buyer_product_no_variant;
 DROP INDEX IF EXISTS entitlements_unique_buyer_product_variant;
 
--- Step 2: Create a partial unique index that only applies when variant_id is NOT NULL
--- This allows multiple NULL variant_ids for the same buyer+product
-CREATE UNIQUE INDEX IF NOT EXISTS idx_entitlements_unique_buyer_product_variant
+-- Step 2: Create partial unique index ONLY for non-NULL variant_ids
+-- No constraint for NULL variant_ids - allows multiple purchases to have variant_id cleared
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entitlements_unique_with_variant
 ON public.entitlements (buyer_id, product_id, variant_id)
 WHERE variant_id IS NOT NULL;
 
--- Step 3: Also create an index for buyer+product only (for products without variants)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_entitlements_unique_buyer_product_no_variant
-ON public.entitlements (buyer_id, product_id)
-WHERE variant_id IS NULL;
-
--- ============================================
--- FIX ORDERS UNIQUE CONSTRAINT (if exists)
--- ============================================
+-- Step 3: Drop orders constraints too
 DROP INDEX IF EXISTS idx_orders_unique_buyer_product_variant;
-DROP INDEX IF EXISTS orders_unique_buyer_product_variant;
+DROP INDEX IF EXISTS idx_orders_unique_buyer_product_no_variant;
 
 -- ============================================
 -- ENSURE TABLES EXIST
