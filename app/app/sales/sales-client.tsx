@@ -957,6 +957,11 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
 
   // KPI Modal states
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
+
+  // Announcement bar state - rotating between messages
+  const [announcementType, setAnnouncementType] = useState<"upgrade" | "payouts">(showPayoutsBanner ? "payouts" : "upgrade")
+  const [announcementVisible, setAnnouncementVisible] = useState(true)
+  const [progressWidth, setProgressWidth] = useState(0)
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
 
@@ -1682,6 +1687,45 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  // Rotate announcements every 15 seconds with progress bar
+  useEffect(() => {
+    const DURATION = 15000 // 15 seconds
+    const PROGRESS_INTERVAL = 50 // Update progress every 50ms
+
+    // Reset progress when announcement changes
+    setProgressWidth(0)
+
+    // Progress bar animation
+    const progressTimer = setInterval(() => {
+      setProgressWidth((prev) => {
+        const newWidth = prev + (100 / (DURATION / PROGRESS_INTERVAL))
+        return newWidth >= 100 ? 100 : newWidth
+      })
+    }, PROGRESS_INTERVAL)
+
+    // Rotate announcements
+    const rotateTimer = setTimeout(() => {
+      setAnnouncementVisible(false)
+      setTimeout(() => {
+        setAnnouncementType((prev) => {
+          if (prev === "upgrade") {
+            if (showPayoutsBanner) return "payouts"
+            return "upgrade"
+          } else {
+            return "upgrade"
+          }
+        })
+        setProgressWidth(0)
+        setAnnouncementVisible(true)
+      }, 300)
+    }, DURATION)
+
+    return () => {
+      clearInterval(progressTimer)
+      clearTimeout(rotateTimer)
+    }
+  }, [announcementType, showPayoutsBanner])
+
   const selectedOption = timeframeOptions.find((o) => o.value === timeframe)
 
   const handleApplyFilters = () => {
@@ -1786,50 +1830,51 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         </div>
       )}
 
-      {/* Stripe Connection Announcement Bar */}
-      {showPayoutsBanner && (
-        <div className="bg-[#8b5cf6] text-white border-b border-[#7c3aed]">
-          <div className="py-2 px-4 md:py-2.5">
-            <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
-              <AlertCircle className="h-4 w-4 text-white/80 shrink-0" />
-              <span className="text-[12px] md:text-[14px] text-white/90">
-                <span className="font-semibold text-white">Get paid</span>
-                <span className="hidden md:inline"> — Connect your payouts to receive payments.</span>
-              </span>
-              <Link
-                href="/app/payouts"
-                className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
-              >
-                <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                Connect
-              </Link>
-              <button
-                onClick={handleDismissBanner}
-                className="ml-2 p-1 hover:bg-white/10 rounded-full transition-colors"
-              >
-                <X className="h-3.5 w-3.5 text-white/70 hover:text-white" />
-              </button>
-            </div>
+      {/* Rotating Announcement Bar */}
+      <div className="bg-[#8b5cf6] text-white">
+        <div className="py-2 px-4 md:py-2.5">
+          <div
+            className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${
+              announcementVisible ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {announcementType === "upgrade" && (
+              <>
+                <span className="text-[12px] md:text-[14px] text-white/90">
+                  <span className="font-semibold text-white">Try Pro free</span>
+                  <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
+                </span>
+                <Link
+                  href="/upgrade"
+                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
+                >
+                  Upgrade
+                </Link>
+              </>
+            )}
+            {announcementType === "payouts" && (
+              <>
+                <span className="text-[12px] md:text-[14px] text-white/90">
+                  <span className="font-semibold text-white">Get paid</span>
+                  <span className="hidden md:inline"> — Connect your payouts to receive payments.</span>
+                </span>
+                <Link
+                  href="/app/payouts"
+                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
+                >
+                  <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                  Connect
+                </Link>
+              </>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Pro Plan Announcement Bar */}
-      <div className="bg-[#8b5cf6] text-white border-b border-[#7c3aed]">
-        <div className="py-2 px-4 md:py-2.5">
-          <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
-            <span className="text-[12px] md:text-[14px] text-white/90">
-              <span className="font-semibold text-white">Try Pro free</span>
-              <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
-              <span className="md:hidden"> — most popular for creators.</span>
-            </span>
-            <Link
-              href="/app/settings/billing"
-              className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
-            >
-              Upgrade
-            </Link>
-          </div>
+        {/* Subtle progress bar */}
+        <div className="h-[2px] bg-white/10">
+          <div
+            className="h-full bg-white/30 transition-all duration-50 ease-linear"
+            style={{ width: `${progressWidth}%` }}
+          />
         </div>
       </div>
 

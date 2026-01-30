@@ -258,19 +258,21 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           profileDropdownOpen ? "bg-neutral-100/80" : "hover:bg-neutral-100/50",
         )}
       >
-        <Avatar className="h-10 w-10 shrink-0 bg-neutral-200 overflow-hidden">
-          {avatarUrl ? (
-            <AvatarImage
-              src={avatarUrl}
-              alt={userDisplayName}
-              className="object-cover w-full h-full"
-              loading="eager"
-            />
-          ) : null}
-          <AvatarFallback className="bg-neutral-200 text-neutral-600 text-sm font-medium">
-            {userInitials}
-          </AvatarFallback>
-        </Avatar>
+        <div className="relative h-10 w-10 shrink-0 rounded-full bg-neutral-200 overflow-hidden">
+          <Avatar className="h-full w-full">
+            {avatarUrl ? (
+              <AvatarImage
+                src={avatarUrl}
+                alt={userDisplayName}
+                className="object-cover w-full h-full"
+                loading="eager"
+              />
+            ) : null}
+            <AvatarFallback className="bg-neutral-200 text-neutral-600 text-sm font-medium">
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
+        </div>
         <span className="flex-1 text-[14px] font-medium text-neutral-900 truncate">{userDisplayName}</span>
         <ChevronDown
           className={cn(
@@ -282,11 +284,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
       <div
         className={cn(
-          "absolute left-0 right-0 top-full mt-1.5 z-50 transition-all duration-200 ease-out origin-top",
+          "absolute left-0 right-0 top-full mt-1.5 z-50 origin-top",
+          "transition-[opacity,transform] duration-250 ease-out",
           profileDropdownOpen
             ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
-            : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+            : "opacity-0 scale-[0.97] -translate-y-1 pointer-events-none"
         )}
+        style={{ transitionDuration: '250ms' }}
       >
         <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-lg shadow-black/5">
           {profileDropdownItems.map((item) => {
