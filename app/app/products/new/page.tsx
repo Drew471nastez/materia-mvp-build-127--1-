@@ -1764,9 +1764,11 @@ export default function NewProductPage() {
           .select("id")
           .eq("product_id", finalProductId)
 
-        // Step 2: Clear variant references in entitlements (required before deleting variants)
+        // Step 2: Clear variant references in entitlements and orders (required before deleting variants)
         if (existingDbVariants && existingDbVariants.length > 0) {
           const existingIds = existingDbVariants.map(v => v.id)
+
+          // Clear entitlements
           console.log("Clearing entitlement references for", existingIds.length, "existing variants")
           const { error: clearEntitlementsError } = await supabase
             .from("entitlements")
@@ -1775,6 +1777,17 @@ export default function NewProductPage() {
 
           if (clearEntitlementsError) {
             console.error("Error clearing entitlement variant references:", clearEntitlementsError)
+          }
+
+          // Clear orders
+          console.log("Clearing order references for", existingIds.length, "existing variants")
+          const { error: clearOrdersError } = await supabase
+            .from("orders")
+            .update({ variant_id: null })
+            .in("variant_id", existingIds)
+
+          if (clearOrdersError) {
+            console.error("Error clearing order variant references:", clearOrdersError)
           }
         }
 
