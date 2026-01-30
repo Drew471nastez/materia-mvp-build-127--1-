@@ -458,9 +458,6 @@ export default function NewProductPage() {
   const [limitSalesEnabled, setLimitSalesEnabled] = useState(false)
   const [salesLimit, setSalesLimit] = useState("")
 
-  // Publish to marketplace state (recommended for more reach)
-  const [publishToMarketplace, setPublishToMarketplace] = useState(true)
-
   // AI suggestion states
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
 
@@ -1080,7 +1077,7 @@ export default function NewProductPage() {
       whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction,
       // Settings tab toggles - these should also trigger save state
       showSalesBadge, refundPolicyEnabled, refundPolicyType,
-      payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, publishToMarketplace
+      payWhatYouWant, pwywMinPrice, pwywSuggestedPrice
     })
 
     // If we have content and it's different from saved values, we have unsaved changes
@@ -1097,7 +1094,7 @@ export default function NewProductPage() {
         setHasUnsavedChanges(true)
       }
     }
-  }, [title, description, price, mediaItems, digitalFiles, variants, whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction, justSaved, showSalesBadge, refundPolicyEnabled, refundPolicyType, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, publishToMarketplace])
+  }, [title, description, price, mediaItems, digitalFiles, variants, whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction, justSaved, showSalesBadge, refundPolicyEnabled, refundPolicyType, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice])
 
   // Handle browser back/refresh with unsaved changes
   useEffect(() => {
@@ -1352,7 +1349,6 @@ export default function NewProductPage() {
           setSlug(product.slug || "")
           setProductType(product.type || "digital")
           setShowSalesBadge(product.show_sales_badge !== false)
-          setPublishToMarketplace(product.publish_to_marketplace !== false)
           setRefundPolicyEnabled(product.refund_policy_enabled || false)
           setRefundPolicyType(product.refund_policy_type || "7_day")
           setSeoTitle(product.seo_title || "")
@@ -1559,8 +1555,7 @@ export default function NewProductPage() {
             refundPolicyType: product.refund_policy_type || "7_day",
             payWhatYouWant: product.pay_what_you_want || false,
             pwywMinPrice: product.pwyw_min_price_cents ? (product.pwyw_min_price_cents / 100).toString() : "",
-            pwywSuggestedPrice: product.pwyw_suggested_price_cents ? (product.pwyw_suggested_price_cents / 100).toString() : "",
-            publishToMarketplace: product.publish_to_marketplace !== false
+            pwywSuggestedPrice: product.pwyw_suggested_price_cents ? (product.pwyw_suggested_price_cents / 100).toString() : ""
           })
 
           // Show as "Saved" state since data is already persisted
@@ -1697,7 +1692,6 @@ export default function NewProductPage() {
         gallery_urls: photoUrls.length > 0 ? photoUrls : null,
         video_url: youtubeItems[0]?.url || null,
         show_sales_badge: showSalesBadge,
-        publish_to_marketplace: publishToMarketplace,
         refund_policy_enabled: refundPolicyEnabled,
         refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
         seo_title: seoTitle || null,
@@ -1855,8 +1849,19 @@ export default function NewProductPage() {
           if (savedVariant) {
             savedVariantIds.push(savedVariant.id)
 
+            // CRITICAL: First delete any existing variant files for this variant
+            // This ensures we can update file assignments without duplicate key errors
+            const { error: deleteFilesError } = await supabase
+              .from("product_variant_files")
+              .delete()
+              .eq("variant_id", savedVariant.id)
+
+            if (deleteFilesError) {
+              console.error("Error deleting old variant files:", deleteFilesError)
+            }
+
             // Save variant files if any
-            if (variant.assignedFiles.length > 0) {
+            if (variant.assignedFiles && variant.assignedFiles.length > 0) {
               const { data: assets } = await supabase
                 .from("digital_assets")
                 .select("id, file_name")
@@ -2562,7 +2567,7 @@ export default function NewProductPage() {
         whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction,
         // Settings tab toggles
         showSalesBadge, refundPolicyEnabled, refundPolicyType,
-        payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, publishToMarketplace
+        payWhatYouWant, pwywMinPrice, pwywSuggestedPrice
       })
 
       // Revalidate the live product page so changes appear immediately
@@ -4521,33 +4526,6 @@ export default function NewProductPage() {
                       </div>
                     </div>
                   )}
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 sm:p-3.5 bg-gray-50 rounded-xl border border-gray-100">
-                    <div className="flex items-center gap-1.5">
-                      <div>
-                        <p className="text-xs sm:text-sm font-medium text-gray-900">List on Marketplace</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500">Show product on the public marketplace</p>
-                      </div>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-3.5 h-3.5 text-gray-400 cursor-help flex-shrink-0" />
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[220px] text-xs">
-                            <p>Recommended for more reach and traffic. When enabled, your product will be discoverable on the marketplace. When disabled, it's only accessible via direct link.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={publishToMarketplace}
-                      onChange={(e) => setPublishToMarketplace(e.target.checked)}
-                      className="theme-checkbox"
-                    />
-                  </div>
                 </div>
 
                 <div className="space-y-3">
