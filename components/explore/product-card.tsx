@@ -1,3 +1,5 @@
+"use client"
+
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
@@ -38,17 +40,20 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
+  // Safety check - if product is null/undefined, don't render
+  if (!product) return null
+
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(cents / 100)
+    }).format((cents || 0) / 100)
   }
 
   const creatorName = product.creator?.profile?.display_name || "Creator"
   const creatorUsername = product.creator?.profile?.username || product.creator?.slug || ""
   const creatorAvatarUrl = product.creator?.profile?.avatar_url
-  const productUrl = getProductUrl(creatorUsername, product.slug)
+  const productUrl = getProductUrl(creatorUsername, product.slug || "")
   const storeUrl = getStoreUrl(creatorUsername)
 
   const hasReviews = (product.reviews_count ?? 0) > 0
@@ -59,8 +64,8 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
       <a href={productUrl} className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (
           <Image
-            src={product.thumbnail_url || "/placeholder.svg"}
-            alt={product.title}
+            src={product.thumbnail_url}
+            alt={product.title || "Product"}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover transition-transform group-hover:scale-105"

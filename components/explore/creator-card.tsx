@@ -1,3 +1,5 @@
+"use client"
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { getStoreUrl } from "@/lib/url-helpers"
@@ -19,13 +21,16 @@ interface CreatorCardProps {
 }
 
 export function CreatorCard({ creator }: CreatorCardProps) {
+  // Safety check - if creator is null/undefined, don't render
+  if (!creator) return null
+
   const initials = creator.profile?.display_name
     ?.split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase()
 
-  const username = creator.profile?.username || creator.slug
+  const username = creator.profile?.username || creator.slug || ""
 
   return (
     <a
