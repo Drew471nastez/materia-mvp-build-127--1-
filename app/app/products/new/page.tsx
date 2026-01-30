@@ -1754,7 +1754,7 @@ export default function NewProductPage() {
         }
       }
 
-      // Save variants - use delete-all-then-insert approach for reliability
+      // Save variants - smart update/delete/insert to preserve IDs and foreign key references
       if (finalProductId) {
         console.log("Managing variants for product", finalProductId, "- UI has", variants.length, "variants")
 
@@ -1764,140 +1764,131 @@ export default function NewProductPage() {
           .select("id")
           .eq("product_id", finalProductId)
 
-        // Step 2: Clear variant references in entitlements and orders (required before deleting variants)
-        if (existingDbVariants && existingDbVariants.length > 0) {
-          const existingIds = existingDbVariants.map(v => v.id)
+        const existingDbIds = new Set((existingDbVariants || []).map(v => v.id))
+        const uiVariantIds = new Set(variants.filter(v => v.id).map(v => v.id))
 
-          // Clear entitlements
-          console.log("Clearing entitlement references for", existingIds.length, "existing variants")
-          const { error: clearEntitlementsError } = await supabase
-            .from("entitlements")
-            .update({ variant_id: null })
-            .in("variant_id", existingIds)
+        // Step 2: Find variants to delete (in DB but not in UI)
+        const variantIdsToDelete = [...existingDbIds].filter(id => !uiVariantIds.has(id))
 
-          if (clearEntitlementsError) {
-            console.error("Error clearing entitlement variant references:", clearEntitlementsError)
-          }
+        // Step 3: Delete removed variants (and their files via cascade)
+        if (variantIdsToDelete.length > 0) {
+          console.log("Deleting", variantIdsToDelete.length, "removed variants")
 
-          // Clear orders
-          console.log("Clearing order references for", existingIds.length, "existing variants")
-          const { error: clearOrdersError } = await supabase
-            .from("orders")
-            .update({ variant_id: null })
-            .in("variant_id", existingIds)
-
-          if (clearOrdersError) {
-            console.error("Error clearing order variant references:", clearOrdersError)
-          }
-        }
-
-        // Step 3: Delete ALL existing variant files (required before deleting variants)
-        if (existingDbVariants && existingDbVariants.length > 0) {
-          const existingIds = existingDbVariants.map(v => v.id)
-          console.log("Deleting variant files for", existingIds.length, "existing variants")
-          const { error: deleteFilesError } = await supabase
+          // Delete variant files first
+          await supabase
             .from("product_variant_files")
             .delete()
-            .in("variant_id", existingIds)
+            .in("variant_id", variantIdsToDelete)
 
-          if (deleteFilesError) {
-            console.error("Error deleting variant files:", deleteFilesError)
-          }
-        }
-
-        // Step 4: Delete ALL existing variants (clean slate approach)
-        if (existingDbVariants && existingDbVariants.length > 0) {
-          console.log("Deleting", existingDbVariants.length, "existing variants")
-          const { error: deleteVariantsError } = await supabase
+          // Delete the variants
+          const { error: deleteError } = await supabase
             .from("product_variants")
             .delete()
-            .eq("product_id", finalProductId)
+            .in("id", variantIdsToDelete)
 
-          if (deleteVariantsError) {
-            console.error("Error deleting variants:", deleteVariantsError)
-            throw new Error(`Failed to delete existing variants: ${deleteVariantsError.message}`)
+          if (deleteError) {
+            console.error("Error deleting variants:", deleteError)
+            throw new Error(`Failed to delete variants: ${deleteError.message}`)
           }
         }
 
-        // Step 5: Insert all current variants fresh (if any)
-        if (variants.length > 0) {
-          console.log("Inserting", variants.length, "variants")
-          const savedVariantIds: string[] = []
+        // Step 4: Update existing variants and insert new ones
+        const savedVariantIds: string[] = []
 
-          for (let i = 0; i < variants.length; i++) {
-            const variant = variants[i]
+        for (let i = 0; i < variants.length; i++) {
+          const variant = variants[i]
 
-            const variantData = {
-              product_id: finalProductId,
-              name: variant.name || "Untitled",
-              description: variant.description || null,
-              price_cents: Math.round(Number.parseFloat(variant.price || "0") * 100),
-              compare_at_price_cents: variant.compareAtPrice ? Math.round(Number.parseFloat(variant.compareAtPrice) * 100) : null,
-              max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
-              position: i,
-              pay_what_you_want: variant.payWhatYouWant || false,
-              pwyw_min_price_cents: variant.payWhatYouWant && variant.pwywMinPrice ? Math.round(Number.parseFloat(variant.pwywMinPrice) * 100) : null,
-              pwyw_suggested_price_cents: variant.payWhatYouWant && variant.pwywSuggestedPrice ? Math.round(Number.parseFloat(variant.pwywSuggestedPrice) * 100) : null,
-            }
+          const variantData = {
+            product_id: finalProductId,
+            name: variant.name || "Untitled",
+            description: variant.description || null,
+            price_cents: Math.round(Number.parseFloat(variant.price || "0") * 100),
+            compare_at_price_cents: variant.compareAtPrice ? Math.round(Number.parseFloat(variant.compareAtPrice) * 100) : null,
+            max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
+            position: i,
+            pay_what_you_want: variant.payWhatYouWant || false,
+            pwyw_min_price_cents: variant.payWhatYouWant && variant.pwywMinPrice ? Math.round(Number.parseFloat(variant.pwywMinPrice) * 100) : null,
+            pwyw_suggested_price_cents: variant.payWhatYouWant && variant.pwywSuggestedPrice ? Math.round(Number.parseFloat(variant.pwywSuggestedPrice) * 100) : null,
+          }
 
-            const { data: savedVariant, error: variantError } = await supabase
+          let savedVariant: any = null
+          let variantError: any = null
+
+          if (variant.id && existingDbIds.has(variant.id)) {
+            // Update existing variant
+            const result = await supabase
+              .from("product_variants")
+              .update(variantData)
+              .eq("id", variant.id)
+              .select()
+              .single()
+            savedVariant = result.data
+            variantError = result.error
+          } else {
+            // Insert new variant
+            const result = await supabase
               .from("product_variants")
               .insert(variantData)
               .select()
               .single()
+            savedVariant = result.data
+            variantError = result.error
+          }
 
-            if (variantError) {
-              console.error("Error saving variant:", variantError)
-              const errMsg = variantError.message || ""
-              if (errMsg.includes("schema cache") || errMsg.includes("column") || errMsg.includes("does not exist")) {
-                throw new Error(`Database schema error: Please run scripts/050_complete_product_features.sql in Supabase SQL Editor, then refresh the page. (Error: ${errMsg})`)
-              }
-              if (variantError.code === "42501" || errMsg.includes("row-level security") || errMsg.includes("permission")) {
-                throw new Error(`Permission denied saving variants. Check RLS policies for product_variants table.`)
-              }
-              throw new Error(`Failed to save variant "${variant.name}": ${errMsg}`)
+          if (variantError) {
+            console.error("Error saving variant:", variantError)
+            const errMsg = variantError.message || ""
+            if (errMsg.includes("schema cache") || errMsg.includes("column") || errMsg.includes("does not exist")) {
+              throw new Error(`Database schema error: Please run scripts/050_complete_product_features.sql in Supabase SQL Editor, then refresh the page. (Error: ${errMsg})`)
             }
+            if (variantError.code === "42501" || errMsg.includes("row-level security") || errMsg.includes("permission")) {
+              throw new Error(`Permission denied saving variants. Check RLS policies for product_variants table.`)
+            }
+            throw new Error(`Failed to save variant "${variant.name}": ${errMsg}`)
+          }
 
-            if (savedVariant) {
-              savedVariantIds.push(savedVariant.id)
+          if (savedVariant) {
+            savedVariantIds.push(savedVariant.id)
 
-              // Save variant files if any
-              if (variant.assignedFiles && variant.assignedFiles.length > 0) {
-                const { data: assets } = await supabase
-                  .from("digital_assets")
-                  .select("id, file_name")
-                  .eq("product_id", finalProductId)
-                  .in("id", variant.assignedFiles)
+            // Update variant files - delete old and insert new
+            await supabase
+              .from("product_variant_files")
+              .delete()
+              .eq("variant_id", savedVariant.id)
 
-                if (assets && assets.length > 0) {
-                  const variantFilesData = assets.map(asset => ({
-                    variant_id: savedVariant.id,
-                    digital_asset_id: asset.id,
-                  }))
+            if (variant.assignedFiles && variant.assignedFiles.length > 0) {
+              const { data: assets } = await supabase
+                .from("digital_assets")
+                .select("id, file_name")
+                .eq("product_id", finalProductId)
+                .in("id", variant.assignedFiles)
 
-                  const { error: variantFilesError } = await supabase
-                    .from("product_variant_files")
-                    .insert(variantFilesData)
+              if (assets && assets.length > 0) {
+                const variantFilesData = assets.map(asset => ({
+                  variant_id: savedVariant.id,
+                  digital_asset_id: asset.id,
+                }))
 
-                  if (variantFilesError) {
-                    console.error("Error saving variant files:", variantFilesError)
-                  }
+                const { error: variantFilesError } = await supabase
+                  .from("product_variant_files")
+                  .insert(variantFilesData)
+
+                if (variantFilesError) {
+                  console.error("Error saving variant files:", variantFilesError)
                 }
               }
             }
           }
+        }
 
-          console.log("Saved", savedVariantIds.length, "variants with IDs:", savedVariantIds)
+        console.log("Saved", savedVariantIds.length, "variants with IDs:", savedVariantIds)
 
-          // Update variants state with saved IDs
-          if (savedVariantIds.length > 0) {
-            setVariants(currentVariants => currentVariants.map((v, i) => ({
-              ...v,
-              id: savedVariantIds[i] || v.id,
-            })))
-          }
-        } else {
-          console.log("No variants to save - all variants deleted")
+        // Update variants state with saved IDs
+        if (savedVariantIds.length > 0) {
+          setVariants(currentVariants => currentVariants.map((v, i) => ({
+            ...v,
+            id: savedVariantIds[i] || v.id,
+          })))
         }
       }
 
