@@ -126,40 +126,7 @@ export default async function ExplorePage({
     productCreatorProfiles = pcProfiles || []
   }
 
-  // Fetch reviews stats for all products (with error handling)
-  const productIds = products?.map((p) => p.id) || []
-  let reviewsStats: { product_id: string; reviews_count: number; reviews_average: number }[] = []
-  if (productIds.length > 0) {
-    try {
-      const { data: reviews, error: reviewsError } = await supabase
-        .from("reviews")
-        .select("product_id, rating")
-        .in("product_id", productIds)
-        .eq("status", "approved")
-
-      if (!reviewsError && reviews && reviews.length > 0) {
-        // Group reviews by product_id and calculate stats
-        const reviewsByProduct = reviews.reduce((acc: Record<string, number[]>, review: any) => {
-          if (!acc[review.product_id]) {
-            acc[review.product_id] = []
-          }
-          acc[review.product_id].push(review.rating)
-          return acc
-        }, {})
-
-        reviewsStats = Object.entries(reviewsByProduct).map(([product_id, ratings]) => ({
-          product_id,
-          reviews_count: ratings.length,
-          reviews_average: ratings.reduce((sum, r) => sum + r, 0) / ratings.length,
-        }))
-      }
-    } catch (err) {
-      // Silently fail - reviews are optional
-      console.error("[Explore] Failed to fetch reviews:", err)
-    }
-  }
-
-  // Build products with creator info, categories, and reviews
+  // Build products with creator info and categories
   const productsWithCreators =
     products?.map((product) => {
       const creator = productCreators.find((c) => c.id === product.creator_id)
@@ -170,15 +137,13 @@ export default async function ExplorePage({
       const categoryName = categoriesFromJoin.length > 0
         ? categoriesFromJoin[0]?.name
         : product.category // Use direct category field as fallback
-      // Find reviews stats for this product
-      const productReviews = reviewsStats.find((r) => r.product_id === product.id)
       return {
         ...product,
         creator: creator ? { ...creator, profile } : null,
         categories: categoriesFromJoin,
         categoryName, // Direct category name for badge display
-        reviews_count: productReviews?.reviews_count || 0,
-        reviews_average: productReviews?.reviews_average || 0,
+        reviews_count: 0,
+        reviews_average: 0,
       }
     }) || []
 
