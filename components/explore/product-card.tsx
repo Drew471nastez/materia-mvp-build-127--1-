@@ -62,7 +62,7 @@ export function ProductCard({ product, srcParam = "", priority = false }: Produc
   const reviewsAverage = product.reviews_average ?? 0
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-colors hover:border-border">
+    <div className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]">
       <a href={productUrl} className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (
           <Image

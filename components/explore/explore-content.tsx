@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useTransition, useCallback, memo } from "react"
+import { useState, useTransition, useCallback, memo, useEffect } from "react"
 import { ProductCard } from "./product-card"
 import { CreatorCard } from "./creator-card"
 import { ProductCardSkeleton } from "./product-card-skeleton"
@@ -39,6 +39,9 @@ const CreatorSkeletonGrid = memo(function CreatorSkeletonGrid() {
   )
 })
 
+// Key for storing scroll position
+const SCROLL_KEY = "explore-scroll-position"
+
 export function ExploreContent({
   products,
   creators,
@@ -53,10 +56,46 @@ export function ExploreContent({
   const [isPending, startTransition] = useTransition()
   const [currentTab, setCurrentTab] = useState(activeTab)
 
+  // Restore scroll position on mount
+  useEffect(() => {
+    const savedScroll = sessionStorage.getItem(SCROLL_KEY)
+    if (savedScroll) {
+      const scrollY = parseInt(savedScroll, 10)
+      // Use requestAnimationFrame for smoother restoration
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY)
+      })
+    }
+  }, [])
+
+  // Save scroll position before unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY))
+    }
+
+    const handleScroll = () => {
+      // Throttled scroll save for tab switches
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY))
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    window.addEventListener("scroll", handleScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      window.removeEventListener("scroll", handleScroll)
+    }
+  }, [])
+
   const handleTabChange = useCallback((newTab: string) => {
     setCurrentTab(newTab)
     startTransition(() => {
-      router.push(`/explore?tab=${newTab}&category=${category}&q=${searchQuery}&sort=${sortBy}&src=${src}`)
+      // Use scroll: false to prevent scrolling to top
+      router.push(
+        `/explore?tab=${newTab}&category=${category}&q=${searchQuery}&sort=${sortBy}&src=${src}`,
+        { scroll: false }
+      )
     })
   }, [router, category, searchQuery, sortBy, src])
 

@@ -847,26 +847,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   </p>
                 </a>
                 {showRatingNextToSeller && reviewsCount > 0 && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    {[1, 2, 3, 4, 5].map((star) => (
+                  <>
+                    <span className="h-4 w-px bg-gray-300 shrink-0" />
+                    <div className="flex items-center gap-1 shrink-0">
                       <Star
-                        key={star}
-                        className="h-4 w-4"
-                        style={{
-                          color: star <= Math.round(reviewsAverage)
-                            ? (themeColors.reviewsStarColor || "#000000")
-                            : "rgb(209, 213, 219)",
-                          fill: star <= Math.round(reviewsAverage) ? "currentColor" : "none",
-                        }}
+                        className="h-4 w-4 fill-current"
+                        style={{ color: isDarkTheme ? "#fafafa" : "#000000" }}
                       />
-                    ))}
-                    <span
-                      className="text-sm ml-1"
-                      style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                    >
-                      ({reviewsCount})
-                    </span>
-                  </div>
+                      <span
+                        className="text-sm"
+                        style={{ color: themeColors.cardPriceColor || "rgb(156, 163, 175)" }}
+                      >
+                        {reviewsAverage.toFixed(1)}
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
               <ShareButton productTitle={product.title} productSlug={product.slug} className="shrink-0" />
@@ -1039,26 +1034,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     </p>
                   </a>
                   {showRatingNextToSeller && reviewsCount > 0 && (
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {[1, 2, 3, 4, 5].map((star) => (
+                    <>
+                      <span className="h-3.5 w-px bg-gray-300 shrink-0" />
+                      <div className="flex items-center gap-1 shrink-0">
                         <Star
-                          key={star}
-                          className="h-3 w-3"
-                          style={{
-                            color: star <= Math.round(reviewsAverage)
-                              ? (themeColors.reviewsStarColor || "#000000")
-                              : "rgb(209, 213, 219)",
-                            fill: star <= Math.round(reviewsAverage) ? "currentColor" : "none",
-                          }}
+                          className="h-3.5 w-3.5 fill-current"
+                          style={{ color: isDarkTheme ? "#fafafa" : "#000000" }}
                         />
-                      ))}
-                      <span
-                        className="text-xs ml-1"
-                        style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
-                      >
-                        ({reviewsCount})
-                      </span>
-                    </div>
+                        <span
+                          className="text-xs"
+                          style={{ color: themeColors.cardPriceColor || "rgb(156, 163, 175)" }}
+                        >
+                          {reviewsAverage.toFixed(1)}
+                        </span>
+                      </div>
+                    </>
                   )}
                 </div>
                 <ShareButton
