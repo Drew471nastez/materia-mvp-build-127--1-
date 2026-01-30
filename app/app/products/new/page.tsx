@@ -1764,7 +1764,21 @@ export default function NewProductPage() {
           .select("id")
           .eq("product_id", finalProductId)
 
-        // Step 2: Delete ALL existing variant files first (required before deleting variants)
+        // Step 2: Clear variant references in entitlements (required before deleting variants)
+        if (existingDbVariants && existingDbVariants.length > 0) {
+          const existingIds = existingDbVariants.map(v => v.id)
+          console.log("Clearing entitlement references for", existingIds.length, "existing variants")
+          const { error: clearEntitlementsError } = await supabase
+            .from("entitlements")
+            .update({ variant_id: null })
+            .in("variant_id", existingIds)
+
+          if (clearEntitlementsError) {
+            console.error("Error clearing entitlement variant references:", clearEntitlementsError)
+          }
+        }
+
+        // Step 3: Delete ALL existing variant files (required before deleting variants)
         if (existingDbVariants && existingDbVariants.length > 0) {
           const existingIds = existingDbVariants.map(v => v.id)
           console.log("Deleting variant files for", existingIds.length, "existing variants")
@@ -1778,7 +1792,7 @@ export default function NewProductPage() {
           }
         }
 
-        // Step 3: Delete ALL existing variants (clean slate approach)
+        // Step 4: Delete ALL existing variants (clean slate approach)
         if (existingDbVariants && existingDbVariants.length > 0) {
           console.log("Deleting", existingDbVariants.length, "existing variants")
           const { error: deleteVariantsError } = await supabase
@@ -1792,7 +1806,7 @@ export default function NewProductPage() {
           }
         }
 
-        // Step 4: Insert all current variants fresh (if any)
+        // Step 5: Insert all current variants fresh (if any)
         if (variants.length > 0) {
           console.log("Inserting", variants.length, "variants")
           const savedVariantIds: string[] = []

@@ -23,6 +23,49 @@ ALTER TABLE public.product_variants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_variant_files ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
+-- FIX ENTITLEMENTS FOREIGN KEY CONSTRAINT
+-- ============================================
+-- Change the foreign key to ON DELETE SET NULL so deleting variants
+-- doesn't fail when there are existing purchases/entitlements
+
+-- First, drop the existing constraint if it exists
+DO $$
+BEGIN
+  -- Try to drop the constraint (it may have different names)
+  ALTER TABLE public.entitlements DROP CONSTRAINT IF EXISTS entitlements_variant_id_fkey;
+  ALTER TABLE public.entitlements DROP CONSTRAINT IF EXISTS fk_entitlements_variant;
+EXCEPTION WHEN OTHERS THEN
+  -- Constraint doesn't exist, that's fine
+  NULL;
+END $$;
+
+-- Add the variant_id column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'entitlements'
+    AND column_name = 'variant_id'
+  ) THEN
+    ALTER TABLE public.entitlements ADD COLUMN variant_id UUID;
+  END IF;
+END $$;
+
+-- Recreate the foreign key with ON DELETE SET NULL
+DO $$
+BEGIN
+  ALTER TABLE public.entitlements
+    ADD CONSTRAINT entitlements_variant_id_fkey
+    FOREIGN KEY (variant_id)
+    REFERENCES public.product_variants(id)
+    ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN
+  -- Constraint already exists
+  NULL;
+END $$;
+
+-- ============================================
 -- PRODUCT_VARIANTS RLS POLICIES
 -- ============================================
 DROP POLICY IF EXISTS "Anyone can view variants for published products" ON public.product_variants;
@@ -125,6 +168,32 @@ CREATE POLICY "Creators can manage their own variant files"
   );
 
 -- ============================================
+-- ENTITLEMENTS RLS POLICIES FOR UPDATE
+-- ============================================
+-- Ensure creators can update entitlements (to set variant_id to null)
+DROP POLICY IF EXISTS "Creators can update their entitlements" ON public.entitlements;
+
+CREATE POLICY "Creators can update their entitlements"
+  ON public.entitlements FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.products p
+      JOIN public.creators c ON p.creator_id = c.id
+      WHERE p.id = entitlements.product_id
+      AND c.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.products p
+      JOIN public.creators c ON p.creator_id = c.id
+      WHERE p.id = entitlements.product_id
+      AND c.user_id = auth.uid()
+    )
+  );
+
+-- ============================================
 -- GRANT PERMISSIONS
 -- ============================================
 GRANT SELECT ON public.product_variants TO anon;
@@ -135,6 +204,8 @@ GRANT SELECT ON public.product_variant_files TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_variant_files TO authenticated;
 GRANT ALL ON public.product_variant_files TO service_role;
 
+GRANT UPDATE ON public.entitlements TO authenticated;
+
 -- Refresh schema cache
 NOTIFY pgrst, 'reload schema';
 
@@ -143,9 +214,10 @@ NOTIFY pgrst, 'reload schema';
 -- ============================================
 -- Run these to verify:
 --
--- SELECT tablename, policyname FROM pg_policies
--- WHERE tablename IN ('product_variants', 'product_variant_files');
+-- SELECT conname, confdeltype FROM pg_constraint
+-- WHERE conname = 'entitlements_variant_id_fkey';
+-- (confdeltype should be 'n' for SET NULL)
 --
--- SELECT has_table_privilege('authenticated', 'product_variants', 'DELETE');
--- SELECT has_table_privilege('authenticated', 'product_variant_files', 'DELETE');
+-- SELECT tablename, policyname FROM pg_policies
+-- WHERE tablename IN ('product_variants', 'product_variant_files', 'entitlements');
 -- ============================================
