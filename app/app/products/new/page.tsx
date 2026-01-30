@@ -519,7 +519,7 @@ export default function NewProductPage() {
   // Grouped categories structure
   const CATEGORY_GROUPS: Record<string, { icon: string; categories: string[] }> = {
     "Design & Creative": {
-      icon: "🎨",
+      icon: "•",
       categories: [
         "Digital Art", "Graphics", "Illustrations", "Vector Art", "Icons", "Fonts", "Clip Art",
         "Photoshop Actions", "Photoshop Brushes", "Lightroom Presets", "Lightroom Profiles",
@@ -530,7 +530,7 @@ export default function NewProductPage() {
       ]
     },
     "VFX & Motion": {
-      icon: "🎬",
+      icon: "•",
       categories: [
         "Motion Graphics", "After Effects Templates", "Premiere Pro Templates", "DaVinci Resolve Templates",
         "Transitions", "Lower Thirds", "Intros", "Outros", "Video Templates", "Video LUTs",
@@ -539,7 +539,7 @@ export default function NewProductPage() {
       ]
     },
     "Audio & Music": {
-      icon: "🎵",
+      icon: "•",
       categories: [
         "Sample Packs", "Drum Kits", "Loops", "MIDI Files", "Presets", "Synth Presets",
         "Vocal Samples", "Beats", "Instrumentals", "Sound Effects", "Music Tracks", "Audio Files",
@@ -549,7 +549,7 @@ export default function NewProductPage() {
       ]
     },
     "Software & Development": {
-      icon: "💻",
+      icon: "•",
       categories: [
         "Software", "Plugins", "Extensions", "Code Snippets", "Scripts", "APIs", "SDKs",
         "Libraries", "Frameworks", "WordPress Themes", "WordPress Plugins", "Shopify Themes",
@@ -559,7 +559,7 @@ export default function NewProductPage() {
       ]
     },
     "AI & Automation": {
-      icon: "🤖",
+      icon: "•",
       categories: [
         "AI Tools", "AI Assistants", "AI Agents", "AI Models", "Machine Learning", "Datasets",
         "Algorithms", "GPT Templates", "ChatGPT Prompts", "Claude Prompts", "Gemini Prompts",
@@ -569,7 +569,7 @@ export default function NewProductPage() {
       ]
     },
     "Gaming & Esports": {
-      icon: "🎮",
+      icon: "•",
       categories: [
         "Games", "Game Assets", "Unity Assets", "Unreal Assets", "Sprites", "Tilesets",
         "Gaming Guides", "Strategy Guides", "Walkthroughs", "Cheat Codes", "Modding Tools", "Game Mods",
@@ -579,7 +579,7 @@ export default function NewProductPage() {
       ]
     },
     "3D & Assets": {
-      icon: "🎲",
+      icon: "•",
       categories: [
         "3D Assets", "3D Models", "3D Printing Files", "3D Characters", "3D Environments",
         "3D Props", "3D Textures", "3D Materials", "Blender Assets", "Maya Assets",
@@ -587,7 +587,7 @@ export default function NewProductPage() {
       ]
     },
     "Photography & Video": {
-      icon: "📷",
+      icon: "•",
       categories: [
         "Stock Photos", "Stock Videos", "Photo Presets", "Thumbnails", "YouTube Templates",
         "Instagram Reels Templates", "TikTok Templates", "Travel Photography", "Food Photography Presets",
@@ -595,7 +595,7 @@ export default function NewProductPage() {
       ]
     },
     "Templates & Mockups": {
-      icon: "📄",
+      icon: "•",
       categories: [
         "Templates", "Mockups", "Presentations", "Resume Templates", "Business Cards", "Flyers",
         "Posters", "Brochures", "Social Media Templates", "Website Templates", "Mobile App Templates",
@@ -604,7 +604,7 @@ export default function NewProductPage() {
       ]
     },
     "Education & Courses": {
-      icon: "📚",
+      icon: "•",
       categories: [
         "Online Courses", "Video Courses", "Tutorials", "Workshops", "Masterclasses", "Video Lessons",
         "Webinars", "Educational Content", "Study Guides", "Cheat Sheets", "Flashcards", "Quizzes",
@@ -613,7 +613,7 @@ export default function NewProductPage() {
       ]
     },
     "Business & Marketing": {
-      icon: "💼",
+      icon: "•",
       categories: [
         "Business Plans", "Marketing Plans", "Sales Funnels", "Marketing Funnels", "Landing Pages",
         "Lead Magnets", "Case Studies", "White Papers", "Pitch Decks", "Reports", "Analytics Templates",
@@ -623,7 +623,7 @@ export default function NewProductPage() {
       ]
     },
     "Startup & Entrepreneurship": {
-      icon: "🚀",
+      icon: "•",
       categories: [
         "Startup Templates", "Investor Decks", "Fundraising Guides", "Startup Playbooks",
         "Growth Hacking", "MVP Templates", "Product Roadmaps", "OKR Templates",
@@ -631,7 +631,7 @@ export default function NewProductPage() {
       ]
     },
     "Ecommerce & Sales": {
-      icon: "🛒",
+      icon: "•",
       categories: [
         "Ecommerce Templates", "Dropshipping Guides", "Product Research", "Supplier Lists",
         "Store Setups", "Amazon FBA Guides", "Etsy Templates", "Gumroad Templates",
@@ -640,7 +640,7 @@ export default function NewProductPage() {
       ]
     },
     "Writing & Content": {
-      icon: "✍️",
+      icon: "•",
       categories: [
         "Ebooks", "Writing Templates", "Content Calendars", "Blog Posts", "Articles", "Ghostwriting",
         "Copywriting Templates", "Ad Copy", "Sales Scripts", "Email Sequences", "Cold Email Templates",
@@ -648,7 +648,7 @@ export default function NewProductPage() {
       ]
     },
     "Social Media": {
-      icon: "📱",
+      icon: "•",
       categories: [
         "Instagram Templates", "Pinterest Templates", "LinkedIn Posts", "Twitter Templates",
         "Social Media Planners", "Content Planners", "Hashtag Guides", "Bio Templates",
@@ -657,7 +657,7 @@ export default function NewProductPage() {
       ]
     },
     "Email Marketing": {
-      icon: "📧",
+      icon: "•",
       categories: [
         "Email Funnels", "Drip Campaigns", "Welcome Sequences", "Launch Sequences",
         "Re-engagement Emails", "Substack Templates", "ConvertKit Templates", "Mailchimp Templates",
@@ -665,14 +665,14 @@ export default function NewProductPage() {
       ]
     },
     "No-Code & Tools": {
-      icon: "🔧",
+      icon: "•",
       categories: [
         "No-Code Templates", "Bubble Templates", "Webflow Templates", "Airtable Bases", "Glide Apps",
         "Softr Templates", "Adalo Templates", "FlutterFlow Templates", "Retool Templates", "Xano Templates"
       ]
     },
     "Finance & Investing": {
-      icon: "💰",
+      icon: "•",
       categories: [
         "Investment Templates", "Stock Analysis", "Portfolio Trackers", "Crypto Trackers", "Tax Templates",
         "Expense Trackers", "Savings Planners", "Debt Payoff", "Financial Literacy", "Money Guides",
@@ -680,14 +680,14 @@ export default function NewProductPage() {
       ]
     },
     "Health & Fitness": {
-      icon: "💪",
+      icon: "•",
       categories: [
         "Workout Plans", "Meal Plans", "Nutrition Guides", "Recipe Books", "Diet Plans",
         "Fitness Programs", "Meditation Guides", "Wellness Journals", "Health Trackers", "Yoga Guides"
       ]
     },
     "Personal Development": {
-      icon: "🌱",
+      icon: "•",
       categories: [
         "Planners", "Journals", "Trackers", "Goal Setting", "Habit Trackers", "Budget Planners",
         "Mindmaps", "Note Taking", "Productivity Systems", "Life Coaching", "Self-Help Guides",
@@ -695,14 +695,14 @@ export default function NewProductPage() {
       ]
     },
     "Spirituality & Mindfulness": {
-      icon: "🧘",
+      icon: "•",
       categories: [
         "Tarot Guides", "Astrology Charts", "Horoscope Templates", "Crystal Guides", "Energy Healing",
         "Chakra Guides", "Manifestation Guides", "Law of Attraction", "Spiritual Journals", "Prayer Guides"
       ]
     },
     "Art & Crafts": {
-      icon: "🎭",
+      icon: "•",
       categories: [
         "Printables", "Coloring Pages", "Patterns", "SVG Files", "Cut Files", "Cricut Designs",
         "Embroidery Designs", "Knitting Patterns", "Sewing Patterns", "Craft Templates",
@@ -710,14 +710,14 @@ export default function NewProductPage() {
       ]
     },
     "Print on Demand": {
-      icon: "👕",
+      icon: "•",
       categories: [
         "T-Shirt Designs", "Mug Designs", "Phone Case Designs", "Poster Designs", "Tote Bag Designs",
         "Sticker Designs", "Print Designs", "Apparel Graphics", "Merchandise Templates"
       ]
     },
     "Fashion & Beauty": {
-      icon: "👗",
+      icon: "•",
       categories: [
         "Fashion Lookbooks", "Outfit Guides", "Style Guides", "Fashion Illustrations", "Fashion Sketches",
         "Makeup Tutorials", "Beauty Guides", "Skincare Routines", "Hair Care Guides", "Nail Art Designs",
@@ -725,7 +725,7 @@ export default function NewProductPage() {
       ]
     },
     "Real Estate": {
-      icon: "🏠",
+      icon: "•",
       categories: [
         "Real Estate Flyers", "Property Listings", "Real Estate Templates", "Property Management",
         "Rental Agreements", "Real Estate Guides", "Investment Guides", "Property Analysis",
@@ -733,7 +733,7 @@ export default function NewProductPage() {
       ]
     },
     "Events & Weddings": {
-      icon: "💒",
+      icon: "•",
       categories: [
         "Wedding Templates", "Wedding Invitations", "Save the Date", "Event Flyers", "Party Invitations",
         "Event Planning", "Wedding Planning", "Event Checklists", "Seating Charts", "Menu Templates",
@@ -741,73 +741,73 @@ export default function NewProductPage() {
       ]
     },
     "Food & Cooking": {
-      icon: "🍳",
+      icon: "•",
       categories: [
         "Cookbook", "Recipe Cards", "Meal Prep Guides", "Cooking Tutorials", "Baking Recipes",
         "Restaurant Menus", "Food Blogs", "Cocktail Recipes", "Smoothie Recipes"
       ]
     },
     "Travel & Adventure": {
-      icon: "✈️",
+      icon: "•",
       categories: [
         "Travel Guides", "Itinerary Templates", "Packing Lists", "Travel Journals", "Destination Guides",
         "Travel Presets", "Adventure Guides", "Hiking Guides", "Camping Guides"
       ]
     },
     "Parenting & Family": {
-      icon: "👶",
+      icon: "•",
       categories: [
         "Parenting Guides", "Baby Planners", "Pregnancy Journals", "Family Budgets", "Chore Charts",
         "Kids Activities", "Childcare Templates"
       ]
     },
     "Home & Interior": {
-      icon: "🏡",
+      icon: "•",
       categories: [
         "Interior Design", "Home Decor", "Room Planners", "Floor Plans", "Furniture Layouts",
         "DIY Home Projects", "Organization Templates", "Cleaning Checklists", "Home Inventory", "Renovation Guides"
       ]
     },
     "Career & Job Search": {
-      icon: "👔",
+      icon: "•",
       categories: [
         "Cover Letters", "Portfolio Templates", "LinkedIn Templates", "Interview Prep", "Career Guides",
         "Salary Negotiation", "Job Search Trackers", "Networking Templates", "Personal Branding", "Career Coaching"
       ]
     },
     "Agency & Freelance": {
-      icon: "🏢",
+      icon: "•",
       categories: [
         "Agency Templates", "Client Onboarding", "Project Briefs", "Scope of Work", "Retainer Agreements",
         "Freelance Contracts", "Rate Calculators", "Time Trackers", "Client Portals", "Service Packages"
       ]
     },
     "Community & Membership": {
-      icon: "👥",
+      icon: "•",
       categories: [
         "Community Templates", "Membership Sites", "Circle Templates", "Skool Templates", "Mighty Networks",
         "Community Playbooks", "Engagement Strategies", "Onboarding Sequences", "Welcome Emails", "Community Guidelines"
       ]
     },
     "Data & Analytics": {
-      icon: "📊",
+      icon: "•",
       categories: [
         "Dashboard Templates", "Data Visualization", "Excel Templates", "Google Sheets", "Power BI Templates",
         "Tableau Templates", "SQL Queries", "Data Analysis", "KPI Trackers", "Reporting Templates"
       ]
     },
     "Pet & Animals": {
-      icon: "🐾",
+      icon: "•",
       categories: [
         "Pet Care Guides", "Dog Training", "Cat Care", "Pet Health", "Animal Illustrations",
         "Pet Journals", "Vet Records", "Pet Planners"
       ]
     },
     "Other": {
-      icon: "📦",
+      icon: "•",
       categories: [
         "Memberships", "Subscriptions", "Coaching", "Consulting", "Services", "Freelance Services",
-        "Physical Products", "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other"
+        "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other"
       ]
     }
   }
@@ -1085,11 +1085,52 @@ export default function NewProductPage() {
 
     // Need at least 10 characters of actual content
     if (cleanedDescription.length < 10) {
-      console.log('[AI SEO] Description too short after cleaning:', cleanedDescription.length, 'chars')
+      showToast("Please add more content to your description first")
       return
     }
 
     setIsGeneratingSeo(true)
+
+    // Helper function to create smart SEO description
+    const createSmartSeo = (text: string): string => {
+      // Extract key phrases and sentences
+      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10)
+
+      // Value and benefit keywords for scoring
+      const valueKeywords = ['includes', 'features', 'get', 'access', 'download', 'instant', 'professional', 'premium', 'complete', 'exclusive', 'powerful']
+      const benefitKeywords = ['save', 'boost', 'improve', 'create', 'build', 'grow', 'maximize', 'streamline', 'simplify']
+
+      let bestSentence = sentences[0] || text
+      let bestScore = 0
+
+      for (const sentence of sentences) {
+        const lower = sentence.toLowerCase()
+        let score = 0
+        for (const kw of valueKeywords) if (lower.includes(kw)) score += 2
+        for (const kw of benefitKeywords) if (lower.includes(kw)) score += 3
+        if (/\d+/.test(sentence)) score += 2
+        if (sentence.length < 100) score += 1
+        if (score > bestScore) {
+          bestScore = score
+          bestSentence = sentence.trim()
+        }
+      }
+
+      // Truncate smartly
+      if (bestSentence.length > 155) {
+        bestSentence = bestSentence.substring(0, 152)
+        const lastSpace = bestSentence.lastIndexOf(' ')
+        if (lastSpace > 100) bestSentence = bestSentence.substring(0, lastSpace)
+        bestSentence += '...'
+      }
+
+      // Ensure proper ending
+      if (!bestSentence.endsWith('.') && !bestSentence.endsWith('!') && !bestSentence.endsWith('?') && !bestSentence.endsWith('...')) {
+        if (bestSentence.length < 153) bestSentence += '.'
+      }
+
+      return bestSentence
+    }
 
     try {
       const response = await fetch('/api/ai/seo', {
@@ -1100,42 +1141,31 @@ export default function NewProductPage() {
 
       if (response.ok) {
         const data = await response.json()
-        if (data.seoDescription) {
+        if (data.seoDescription && data.seoDescription.trim()) {
           setSeoDescription(data.seoDescription)
-          // Mark as manually edited so auto-update doesn't overwrite AI result
+          seoManuallyEditedRef.current = true
+        } else {
+          // API returned empty - use smart fallback
+          const smartSeo = createSmartSeo(cleanedDescription)
+          setSeoDescription(smartSeo)
           seoManuallyEditedRef.current = true
         }
       } else {
-        // Fallback to smart truncation if API fails
-        let summary = cleanedDescription
-        if (summary.length > 155) {
-          summary = summary.substring(0, 155).trim()
-          const lastSpace = summary.lastIndexOf(' ')
-          if (lastSpace > 100) {
-            summary = summary.substring(0, lastSpace)
-          }
-          summary += '...'
-        }
-        if (summary) {
-          setSeoDescription(summary)
-          seoManuallyEditedRef.current = true
-        }
+        // API failed - use smart fallback
+        const smartSeo = createSmartSeo(cleanedDescription)
+        setSeoDescription(smartSeo)
+        seoManuallyEditedRef.current = true
       }
     } catch (error) {
       console.error('SEO generation error:', error)
-      // Fallback to smart truncation
-      let summary = cleanedDescription
-      if (summary.length > 155) {
-        summary = summary.substring(0, 152) + '...'
-      }
-      if (summary) {
-        setSeoDescription(summary)
-        seoManuallyEditedRef.current = true
-      }
+      // Network error - use smart fallback
+      const smartSeo = createSmartSeo(cleanedDescription)
+      setSeoDescription(smartSeo)
+      seoManuallyEditedRef.current = true
     } finally {
       setIsGeneratingSeo(false)
     }
-  }, [description, title])
+  }, [description, title, showToast])
 
   // Track changes for unsaved warning - compare against last saved values
   useEffect(() => {
@@ -2593,8 +2623,9 @@ export default function NewProductPage() {
     if (variants.length > 0 && digitalFiles.length > 1) {
       const variantWithoutFiles = variants.find(v => !v.assetId)
       if (variantWithoutFiles) {
-        showToast(`Please assign a file to variant "${variantWithoutFiles.name || 'Untitled'}"`)
-        scrollToSection("content")
+        const variantName = variantWithoutFiles.name?.trim() || `Variant ${variants.indexOf(variantWithoutFiles) + 1}`
+        showToast(`Please assign a file to "${variantName}"`)
+        scrollToSection("variants")
         return
       }
     }
