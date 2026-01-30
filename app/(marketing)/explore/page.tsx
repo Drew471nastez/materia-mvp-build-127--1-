@@ -108,7 +108,7 @@ export default async function ExplorePage({
     // Fetch published products
     const { data: products, error: productsError } = await supabase
       .from("products")
-      .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count")
+      .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
       .eq("status", "published")
       .order("created_at", { ascending: false })
       .limit(24)
@@ -152,8 +152,8 @@ export default async function ExplorePage({
           creator: creator ? { ...creator, profile } : null,
           categories: [],
           categoryName: product.category || null,
-          reviews_count: 0,
-          reviews_average: 0,
+          reviews_count: (product as any).reviews_count || 0,
+          reviews_average: (product as any).reviews_average || 0,
         }
       })
     }

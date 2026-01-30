@@ -107,17 +107,19 @@ export function ExploreContent({
       {/* Tab buttons */}
       <div className="mb-6 inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
         <button
+          type="button"
           onClick={() => handleTabChange("products")}
-          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all ${
-            showProducts ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all cursor-pointer ${
+            showProducts ? "bg-background text-foreground shadow-sm" : "hover:text-foreground hover:bg-background/50"
           }`}
         >
           Products ({products.length})
         </button>
         <button
+          type="button"
           onClick={() => handleTabChange("creators")}
-          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all ${
-            showCreators ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all cursor-pointer ${
+            showCreators ? "bg-background text-foreground shadow-sm" : "hover:text-foreground hover:bg-background/50"
           }`}
         >
           Creators ({creators.length})

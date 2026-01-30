@@ -128,7 +128,7 @@ export function ProductCard({ product, srcParam = "", priority = false }: Produc
 
         <a href={productUrl} className="flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-[15px] font-medium leading-tight break-words min-w-0">{product.title}</h3>
+            <h3 className="text-[17px] font-medium leading-tight break-words min-w-0">{product.title}</h3>
             <Badge variant="secondary" className="shrink-0 text-xs capitalize">
               {product.categoryName || product.categories?.[0]?.name || product.category || product.type}
             </Badge>
