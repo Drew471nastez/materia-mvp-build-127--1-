@@ -198,7 +198,7 @@ function ShareModal({
       <div className="absolute inset-0 bg-black/50" />
       {/* Modal */}
       <div
-        className="relative bg-background max-w-[280px] w-full mx-4 p-4 rounded-2xl shadow-xl"
+        className="relative bg-background max-w-[240px] w-full mx-4 p-4 rounded-2xl shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col gap-3">

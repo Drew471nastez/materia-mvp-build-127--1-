@@ -64,7 +64,7 @@ export function ShareButton({
         <Share2 className={iconSize} />
       </Button>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-[280px] p-4 rounded-2xl">
+        <DialogContent className="max-w-[240px] p-4 rounded-2xl">
           <div className="flex flex-col gap-3">
             <Button
               className="w-full justify-center gap-2 h-14 rounded-xl bg-black text-white hover:bg-black/90 text-base font-medium"

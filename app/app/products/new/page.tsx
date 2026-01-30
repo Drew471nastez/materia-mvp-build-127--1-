@@ -541,7 +541,7 @@ export default function NewProductPage() {
     // Writing & Content
     "Writing Templates", "Content Calendars", "Blog Posts", "Articles", "Ghostwriting",
     "Copywriting Templates", "Ad Copy", "Sales Scripts", "Email Sequences", "Cold Email Templates",
-    "Newsletter Templates", "Documentation", "Guides", "Manuals", "SOPs",
+    "Newsletter Templates", "Documentation", "Guides", "Manuals",
     "Prompts", "AI Prompts", "ChatGPT Prompts", "Midjourney Prompts", "Prompt Packs",
     // Health & Fitness
     "Workout Plans", "Meal Plans", "Nutrition Guides", "Recipe Books", "Diet Plans",
@@ -567,7 +567,6 @@ export default function NewProductPage() {
     // Other
     "Memberships", "Subscriptions", "Coaching", "Consulting", "Services", "Freelance Services",
     "Physical Products", "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other",
-    // Additional Categories (100+ more)
     // Gaming & Esports
     "Gaming Guides", "Strategy Guides", "Walkthroughs", "Cheat Codes", "Modding Tools", "Game Mods",
     "Esports Coaching", "Gaming Overlays", "Stream Overlays", "Twitch Panels", "Twitch Emotes", "Discord Assets",
@@ -605,7 +604,7 @@ export default function NewProductPage() {
     "Cover Letters", "Portfolio Templates", "LinkedIn Templates", "Interview Prep", "Career Guides",
     "Salary Negotiation", "Job Search Trackers", "Networking Templates", "Personal Branding", "Career Coaching",
     // Social Media
-    "Instagram Templates", "TikTok Templates", "Pinterest Templates", "LinkedIn Posts", "Twitter Templates",
+    "Instagram Templates", "Pinterest Templates", "LinkedIn Posts", "Twitter Templates",
     "Social Media Planners", "Content Planners", "Hashtag Guides", "Bio Templates", "Link in Bio Templates",
     // Podcasting & Audio
     "Podcast Templates", "Show Notes", "Podcast Artwork", "Podcast Intros", "Audio Branding",
@@ -623,6 +622,37 @@ export default function NewProductPage() {
     "Pet Journals", "Vet Records", "Pet Planners",
     // Environment & Sustainability
     "Eco Guides", "Sustainability Tips", "Zero Waste", "Green Living", "Environmental Templates",
+    // NEW CATEGORIES - AI & Automation (50+ new unique categories)
+    "AI Tools", "AI Assistants", "AI Agents", "GPT Templates", "Claude Prompts", "Gemini Prompts",
+    "AI Workflows", "Automation Workflows", "Zapier Templates", "Make Templates", "n8n Workflows",
+    "AI Art Generators", "Stable Diffusion Prompts", "DALL-E Prompts", "AI Voice Tools", "Text to Speech",
+    // Startup & Entrepreneurship
+    "Startup Templates", "Investor Decks", "Fundraising Guides", "Startup Playbooks", "Growth Hacking",
+    "MVP Templates", "Product Roadmaps", "OKR Templates", "Lean Canvas", "Business Model Canvas",
+    // Ecommerce & Dropshipping
+    "Ecommerce Templates", "Dropshipping Guides", "Product Research", "Supplier Lists", "Store Setups",
+    "Amazon FBA Guides", "Etsy Templates", "Gumroad Templates", "Product Descriptions", "Pricing Strategies",
+    // Influencer & Creator Economy
+    "Creator Toolkits", "Sponsorship Templates", "Media Kits", "Brand Deal Templates", "UGC Templates",
+    "Influencer Contracts", "Collaboration Templates", "Rate Cards", "Creator Guides", "Monetization Strategies",
+    // No-Code & Low-Code
+    "No-Code Templates", "Bubble Templates", "Webflow Templates", "Airtable Bases", "Glide Apps",
+    "Softr Templates", "Adalo Templates", "FlutterFlow Templates", "Retool Templates", "Xano Templates",
+    // Community & Membership
+    "Community Templates", "Membership Sites", "Circle Templates", "Skool Templates", "Mighty Networks",
+    "Community Playbooks", "Engagement Strategies", "Onboarding Sequences", "Welcome Emails", "Community Guidelines",
+    // Sales & CRM
+    "Sales Playbooks", "CRM Setups", "HubSpot Templates", "Salesforce Templates", "Pipeline Templates",
+    "Objection Handling", "Discovery Call Scripts", "Follow-up Templates", "Proposal Decks", "Closing Scripts",
+    // Notion & Productivity
+    "Notion Dashboards", "Notion Databases", "Notion Wikis", "Second Brain Templates", "PARA Templates",
+    "GTD Templates", "Weekly Reviews", "Daily Planners", "Notion Integrations", "Knowledge Management",
+    // Agency & Freelance
+    "Agency Templates", "Client Onboarding", "Project Briefs", "Scope of Work", "Retainer Agreements",
+    "Freelance Contracts", "Rate Calculators", "Time Trackers", "Client Portals", "Service Packages",
+    // Newsletter & Email Marketing
+    "Email Funnels", "Drip Campaigns", "Welcome Sequences", "Launch Sequences", "Re-engagement Emails",
+    "Substack Templates", "ConvertKit Templates", "Mailchimp Templates", "Beehiiv Templates", "Newsletter Growth",
   ].sort()
 
   // Smart AI Category suggestion based on title and description
@@ -843,7 +873,23 @@ export default function NewProductPage() {
 
   // AI-generated SEO description using API
   const generateSeoDescription = useCallback(async () => {
-    if (!description || description.length < 10) return
+    // Clean HTML before checking if content is valid
+    const cleanedDescription = description
+      ?.replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim() || ''
+
+    // Need at least 10 characters of actual content
+    if (cleanedDescription.length < 10) {
+      console.log('[AI SEO] Description too short after cleaning:', cleanedDescription.length, 'chars')
+      return
+    }
 
     setIsGeneratingSeo(true)
 
@@ -851,7 +897,7 @@ export default function NewProductPage() {
       const response = await fetch('/api/ai/seo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, title }),
+        body: JSON.stringify({ description: cleanedDescription, title }),
       })
 
       if (response.ok) {
@@ -862,12 +908,8 @@ export default function NewProductPage() {
           seoManuallyEditedRef.current = true
         }
       } else {
-        // Fallback to simple truncation if API fails
-        let summary = description
-          .replace(/<[^>]*>/g, '')
-          .replace(/\s+/g, ' ')
-          .trim()
-
+        // Fallback to smart truncation if API fails
+        let summary = cleanedDescription
         if (summary.length > 155) {
           summary = summary.substring(0, 155).trim()
           const lastSpace = summary.lastIndexOf(' ')
@@ -876,19 +918,22 @@ export default function NewProductPage() {
           }
           summary += '...'
         }
-        setSeoDescription(summary)
-        seoManuallyEditedRef.current = true
+        if (summary) {
+          setSeoDescription(summary)
+          seoManuallyEditedRef.current = true
+        }
       }
     } catch (error) {
       console.error('SEO generation error:', error)
-      // Fallback to simple truncation
-      let summary = description
-        .replace(/<[^>]*>/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .substring(0, 155)
-      setSeoDescription(summary + '...')
-      seoManuallyEditedRef.current = true
+      // Fallback to smart truncation
+      let summary = cleanedDescription
+      if (summary.length > 155) {
+        summary = summary.substring(0, 152) + '...'
+      }
+      if (summary) {
+        setSeoDescription(summary)
+        seoManuallyEditedRef.current = true
+      }
     } finally {
       setIsGeneratingSeo(false)
     }
@@ -1404,9 +1449,9 @@ export default function NewProductPage() {
   }, [title])
 
   // Auto-generate SEO description from product description in REAL-TIME
-  // Only updates if user hasn't manually edited the SEO description
+  // Only updates if user hasn't manually edited the SEO description field directly
   useEffect(() => {
-    // Skip if user has manually edited
+    // Skip if user has manually edited the SEO description field
     if (seoManuallyEditedRef.current) return
 
     if (!description) {
@@ -1434,6 +1479,13 @@ export default function NewProductPage() {
       setSeoDescription("")
     }
   }, [description])
+
+  // Reset the manually edited flag when creating a new product (no edit param)
+  useEffect(() => {
+    if (!editProductId) {
+      seoManuallyEditedRef.current = false
+    }
+  }, [editProductId])
 
   // Create or update product
   const saveProduct = useCallback(async (publish = false) => {
@@ -2311,10 +2363,42 @@ export default function NewProductPage() {
   }
 
   const handleSaveChanges = async () => {
+    // Validation 1: Title is required
     if (!title.trim()) {
-      setError("Please enter a product title")
+      setError("Please add a product title")
       scrollToSection("about")
       return
+    }
+
+    // Validation 2: At least 1 media (photo or video) is required
+    if (mediaItems.length === 0) {
+      setError("Please add at least one photo or video")
+      scrollToSection("media")
+      return
+    }
+
+    // Validation 3: At least 1 digital file is required
+    if (digitalFiles.length === 0) {
+      setError("Please upload at least one digital product file")
+      scrollToSection("content")
+      return
+    }
+
+    // Validation 4: Category is required
+    if (!selectedCategory) {
+      setError("Please select a category")
+      scrollToSection("about")
+      return
+    }
+
+    // Validation 5: If variants exist with multiple files, each variant should have a file assigned
+    if (variants.length > 0 && digitalFiles.length > 1) {
+      const variantWithoutFiles = variants.find(v => !v.assetId)
+      if (variantWithoutFiles) {
+        setError(`Please assign a file to variant "${variantWithoutFiles.name || 'Untitled'}"`)
+        scrollToSection("content")
+        return
+      }
     }
 
     setIsLoading(true)
@@ -4283,7 +4367,7 @@ export default function NewProductPage() {
                     <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
                       SEO description
                     </Label>
-                    {description && (
+                    {description && description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length >= 10 && (
                       <button
                         type="button"
                         onClick={generateSeoDescription}
