@@ -37,9 +37,11 @@ interface ProductCardProps {
     } | null
   }
   srcParam?: string
+  /** Set to true for above-the-fold images for faster LCP */
+  priority?: boolean
 }
 
-export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
+export function ProductCard({ product, srcParam = "", priority = false }: ProductCardProps) {
   // Safety check - if product is null/undefined, don't render
   if (!product) return null
 
@@ -69,6 +71,8 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover transition-transform group-hover:scale-105"
+            priority={priority}
+            loading={priority ? undefined : "lazy"}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -88,7 +92,7 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
         <div className="flex items-center gap-2 mb-2">
           <a
             href={storeUrl}
-            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+            className="group/seller flex items-center gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
             {creatorAvatarUrl ? (
@@ -97,14 +101,15 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
                 alt={creatorName}
                 width={20}
                 height={20}
-                className="rounded-full object-cover shrink-0"
+                className="rounded-full object-cover shrink-0 aspect-square"
+                loading="lazy"
               />
             ) : (
-              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground shrink-0">
+              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground shrink-0 aspect-square">
                 {creatorName.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="text-[13px] text-muted-foreground hover:text-foreground transition-colors truncate max-w-[120px]">
+            <span className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline">
               {creatorName}
             </span>
           </a>
@@ -123,7 +128,7 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
 
         <a href={productUrl} className="flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-medium leading-tight group-hover:text-primary break-words min-w-0">{product.title}</h3>
+            <h3 className="text-[15px] font-medium leading-tight break-words min-w-0">{product.title}</h3>
             <Badge variant="secondary" className="shrink-0 text-xs capitalize">
               {product.categoryName || product.categories?.[0]?.name || product.category || product.type}
             </Badge>

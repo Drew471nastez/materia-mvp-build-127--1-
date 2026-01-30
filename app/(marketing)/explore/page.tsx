@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { CreatorCard } from "@/components/explore/creator-card"
-import { ProductCard } from "@/components/explore/product-card"
+import { ExploreContent } from "@/components/explore/explore-content"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search } from "lucide-react"
@@ -195,9 +194,6 @@ export default async function ExplorePage({
     return true
   })
 
-  const showProducts = activeTab === "products"
-  const showCreators = activeTab === "creators"
-
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 min-h-screen page-scroll">
       <div className="mb-8">
@@ -248,71 +244,17 @@ export default async function ExplorePage({
         </Link>
       </div>
 
-      {/* Tab buttons */}
-      <div className="mb-6 inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
-        <Link
-          href={`/explore?tab=products&category=${category}&q=${searchQuery}&sort=${sortBy}&src=${src}`}
-          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all ${
-            showProducts ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
-          }`}
-        >
-          Products ({filteredProducts.length})
-        </Link>
-        <Link
-          href={`/explore?tab=creators&category=${category}&q=${searchQuery}&sort=${sortBy}&src=${src}`}
-          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all ${
-            showCreators ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
-          }`}
-        >
-          Creators ({filteredCreators.length})
-        </Link>
-      </div>
-
-      {/* Products tab */}
-      {showProducts && (
-        <div className="mt-6">
-          {filteredProducts.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} srcParam="?src=platform" />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border p-12 text-center">
-              <p className="text-muted-foreground">
-                {dbError
-                  ? "Unable to load products. Please try again later."
-                  : searchQuery
-                    ? `No products found for "${searchQuery}"`
-                    : "No products found yet."}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Creators tab */}
-      {showCreators && (
-        <div className="mt-6">
-          {filteredCreators.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredCreators.map((creator) => (
-                <CreatorCard key={creator.id} creator={creator} />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border p-12 text-center">
-              <p className="text-muted-foreground">
-                {dbError
-                  ? "Unable to load creators. Please try again later."
-                  : searchQuery
-                    ? `No creators found for "${searchQuery}"`
-                    : "No creators found yet."}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Tab content with smooth skeleton loading */}
+      <ExploreContent
+        products={filteredProducts}
+        creators={filteredCreators}
+        activeTab={activeTab}
+        category={category}
+        searchQuery={searchQuery}
+        sortBy={sortBy}
+        src={src}
+        dbError={dbError}
+      />
     </div>
   )
 }

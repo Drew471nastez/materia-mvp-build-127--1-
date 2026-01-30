@@ -38,17 +38,18 @@ export function CreatorCard({ creator }: CreatorCardProps) {
       className="group flex flex-col rounded-lg border border-border/60 bg-card p-6 transition-colors hover:border-border"
     >
       <div className="flex items-start gap-4">
-        <Avatar className="h-14 w-14">
+        <Avatar className="h-14 w-14 aspect-square shrink-0">
           {creator.profile?.avatar_url ? (
             <AvatarImage
-              src={creator.profile.avatar_url || "/placeholder.svg"}
-              alt={creator.profile?.display_name || ""}
+              src={creator.profile.avatar_url}
+              alt={creator.profile?.display_name || "Creator"}
+              loading="lazy"
             />
           ) : null}
           <AvatarFallback>{initials || "?"}</AvatarFallback>
         </Avatar>
         <div className="flex-1 overflow-hidden">
-          <h3 className="truncate font-medium group-hover:text-primary">
+          <h3 className="truncate font-medium">
             {creator.profile?.display_name || "Creator"}
           </h3>
           {creator.headline && <p className="mt-0.5 truncate text-sm text-muted-foreground">{creator.headline}</p>}
