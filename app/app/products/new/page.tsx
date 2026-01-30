@@ -460,7 +460,6 @@ export default function NewProductPage() {
 
   // AI suggestion states
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
-  const [isGeneratingSeo, setIsGeneratingSeo] = useState(false)
 
   // DnD sensors for FAQ reorder (with touch support for mobile)
   const faqSensors = useSensors(
@@ -1069,103 +1068,6 @@ export default function NewProductPage() {
     suggestCategory(text)
   }, [title, description, suggestCategory])
 
-  // AI-generated SEO description using API
-  const generateSeoDescription = useCallback(async () => {
-    // Clean HTML before checking if content is valid
-    const cleanedDescription = description
-      ?.replace(/<[^>]*>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/\s+/g, ' ')
-      .trim() || ''
-
-    // Need at least 10 characters of actual content
-    if (cleanedDescription.length < 10) {
-      showToast("Please add more content to your description first")
-      return
-    }
-
-    setIsGeneratingSeo(true)
-
-    // Helper function to create smart SEO description
-    const createSmartSeo = (text: string): string => {
-      // Extract key phrases and sentences
-      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10)
-
-      // Value and benefit keywords for scoring
-      const valueKeywords = ['includes', 'features', 'get', 'access', 'download', 'instant', 'professional', 'premium', 'complete', 'exclusive', 'powerful']
-      const benefitKeywords = ['save', 'boost', 'improve', 'create', 'build', 'grow', 'maximize', 'streamline', 'simplify']
-
-      let bestSentence = sentences[0] || text
-      let bestScore = 0
-
-      for (const sentence of sentences) {
-        const lower = sentence.toLowerCase()
-        let score = 0
-        for (const kw of valueKeywords) if (lower.includes(kw)) score += 2
-        for (const kw of benefitKeywords) if (lower.includes(kw)) score += 3
-        if (/\d+/.test(sentence)) score += 2
-        if (sentence.length < 100) score += 1
-        if (score > bestScore) {
-          bestScore = score
-          bestSentence = sentence.trim()
-        }
-      }
-
-      // Truncate smartly
-      if (bestSentence.length > 155) {
-        bestSentence = bestSentence.substring(0, 152)
-        const lastSpace = bestSentence.lastIndexOf(' ')
-        if (lastSpace > 100) bestSentence = bestSentence.substring(0, lastSpace)
-        bestSentence += '...'
-      }
-
-      // Ensure proper ending
-      if (!bestSentence.endsWith('.') && !bestSentence.endsWith('!') && !bestSentence.endsWith('?') && !bestSentence.endsWith('...')) {
-        if (bestSentence.length < 153) bestSentence += '.'
-      }
-
-      return bestSentence
-    }
-
-    try {
-      const response = await fetch('/api/ai/seo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: cleanedDescription, title }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.seoDescription && data.seoDescription.trim()) {
-          setSeoDescription(data.seoDescription)
-          seoManuallyEditedRef.current = true
-        } else {
-          // API returned empty - use smart fallback
-          const smartSeo = createSmartSeo(cleanedDescription)
-          setSeoDescription(smartSeo)
-          seoManuallyEditedRef.current = true
-        }
-      } else {
-        // API failed - use smart fallback
-        const smartSeo = createSmartSeo(cleanedDescription)
-        setSeoDescription(smartSeo)
-        seoManuallyEditedRef.current = true
-      }
-    } catch (error) {
-      console.error('SEO generation error:', error)
-      // Network error - use smart fallback
-      const smartSeo = createSmartSeo(cleanedDescription)
-      setSeoDescription(smartSeo)
-      seoManuallyEditedRef.current = true
-    } finally {
-      setIsGeneratingSeo(false)
-    }
-  }, [description, title, showToast])
 
   // Track changes for unsaved warning - compare against last saved values
   useEffect(() => {
@@ -2621,7 +2523,7 @@ export default function NewProductPage() {
 
     // Validation 5: If variants exist with multiple files, each variant should have a file assigned
     if (variants.length > 0 && digitalFiles.length > 1) {
-      const variantWithoutFiles = variants.find(v => !v.assetId)
+      const variantWithoutFiles = variants.find(v => !v.assignedFiles || v.assignedFiles.length === 0)
       if (variantWithoutFiles) {
         const variantName = variantWithoutFiles.name?.trim() || `Variant ${variants.indexOf(variantWithoutFiles) + 1}`
         showToast(`Please assign a file to "${variantName}"`)
@@ -4671,34 +4573,12 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
-                      SEO description
-                    </Label>
-                    {description && description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length >= 10 && (
-                      <button
-                        type="button"
-                        onClick={generateSeoDescription}
-                        disabled={isGeneratingSeo}
-                        className="text-xs text-violet-600 hover:text-violet-700 font-medium flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-violet-50 transition-colors"
-                      >
-                        {isGeneratingSeo ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-sm">✨</span>
-                            Generate AI SEO
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
+                  <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
+                    SEO description
+                  </Label>
                   <Textarea
                     id="seoDescription"
-                    placeholder="Brief description for search results (auto-generated from your description)"
+                    placeholder="Auto-generated from your product description"
                     value={seoDescription}
                     onChange={(e) => {
                       seoManuallyEditedRef.current = true // Track that user manually edited
