@@ -393,9 +393,10 @@ export function LiveStickyAddToCart({
             </p>
           </div>
           <Button
+            type="button"
             size="sm"
             onClick={handleClick}
-            className="shrink-0 h-10 px-5 text-sm font-medium"
+            className="shrink-0 h-10 px-5 text-sm font-medium cursor-pointer relative z-10"
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
               color: settings.buttonTextColor || "#ffffff",
@@ -422,9 +423,10 @@ export function LiveStickyAddToCart({
           <div className="flex items-center gap-5 shrink-0">
             <StarsDisplay />
             <Button
+              type="button"
               size="sm"
               onClick={handleClick}
-              className="shrink-0 h-11 px-7 text-[15px] font-medium"
+              className="shrink-0 h-11 px-7 text-[15px] font-medium cursor-pointer relative z-10"
               style={{
                 backgroundColor: settings.buttonColor || "#2563eb",
                 color: settings.buttonTextColor || "#ffffff",
