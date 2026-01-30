@@ -126,31 +126,36 @@ export default async function ExplorePage({
     productCreatorProfiles = pcProfiles || []
   }
 
-  // Fetch reviews stats for all products
+  // Fetch reviews stats for all products (with error handling)
   const productIds = products?.map((p) => p.id) || []
   let reviewsStats: { product_id: string; reviews_count: number; reviews_average: number }[] = []
   if (productIds.length > 0) {
-    const { data: reviews } = await supabase
-      .from("reviews")
-      .select("product_id, rating")
-      .in("product_id", productIds)
-      .eq("status", "approved")
+    try {
+      const { data: reviews, error: reviewsError } = await supabase
+        .from("reviews")
+        .select("product_id, rating")
+        .in("product_id", productIds)
+        .eq("status", "approved")
 
-    if (reviews && reviews.length > 0) {
-      // Group reviews by product_id and calculate stats
-      const reviewsByProduct = reviews.reduce((acc: Record<string, number[]>, review: any) => {
-        if (!acc[review.product_id]) {
-          acc[review.product_id] = []
-        }
-        acc[review.product_id].push(review.rating)
-        return acc
-      }, {})
+      if (!reviewsError && reviews && reviews.length > 0) {
+        // Group reviews by product_id and calculate stats
+        const reviewsByProduct = reviews.reduce((acc: Record<string, number[]>, review: any) => {
+          if (!acc[review.product_id]) {
+            acc[review.product_id] = []
+          }
+          acc[review.product_id].push(review.rating)
+          return acc
+        }, {})
 
-      reviewsStats = Object.entries(reviewsByProduct).map(([product_id, ratings]) => ({
-        product_id,
-        reviews_count: ratings.length,
-        reviews_average: ratings.reduce((sum, r) => sum + r, 0) / ratings.length,
-      }))
+        reviewsStats = Object.entries(reviewsByProduct).map(([product_id, ratings]) => ({
+          product_id,
+          reviews_count: ratings.length,
+          reviews_average: ratings.reduce((sum, r) => sum + r, 0) / ratings.length,
+        }))
+      }
+    } catch (err) {
+      // Silently fail - reviews are optional
+      console.error("[Explore] Failed to fetch reviews:", err)
     }
   }
 

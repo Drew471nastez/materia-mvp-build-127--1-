@@ -1997,6 +1997,11 @@ function ShopHeaderSettingsForm({
             checked={settings.showTotalSalesBadge}
             onChange={(checked) => onChange({ showTotalSalesBadge: checked })}
           />
+          <ToggleField
+            label="Show Category"
+            checked={settings.showCategory ?? true}
+            onChange={(checked) => onChange({ showCategory: checked })}
+          />
         </div>
       </div>
 

@@ -338,6 +338,7 @@ export interface ShopHeaderSettings {
   showNicheTags: boolean
   showStats: boolean
   showTotalSalesBadge: boolean
+  showCategory?: boolean // Toggle to show/hide profile category badge
   showSocialMedia?: boolean
   showSocialIconsOnMobile?: boolean // Added toggle for mobile social icons
   socialMediaIconColor?: string

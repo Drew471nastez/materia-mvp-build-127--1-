@@ -2891,7 +2891,7 @@ export function UnifiedShopHeader({
             </p>
           )}
 
-          {settings.showNicheTags && creator?.niche_tags && creator.niche_tags.length > 0 && (
+          {(settings.showCategory ?? settings.showNicheTags) && creator?.niche_tags && creator.niche_tags.length > 0 && (
             <div className={cn("flex flex-wrap justify-center gap-2", isMobile ? "mt-3" : "mt-4")}>
               {creator.niche_tags.map((tag) => (
                 <Badge key={tag} variant="secondary" className={isMobile ? "text-xs" : ""}>

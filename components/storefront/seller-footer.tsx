@@ -30,7 +30,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
       <div className="flex items-center justify-center gap-1.5 w-full">
         <span className="text-[11px] text-gray-400 whitespace-nowrap">Powered by</span>
         <a
-          href="/explore"
+          href="https://storelib.com/explore"
           className="inline-flex items-center shrink-0"
           aria-label="Explore Storelib"
         >
@@ -67,7 +67,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
       <div className="flex items-center gap-1.5">
         <span className="text-sm text-gray-500 whitespace-nowrap">Powered by</span>
         <a
-          href="/explore"
+          href="https://storelib.com/explore"
           className="inline-flex items-center shrink-0"
           aria-label="Explore Storelib"
         >
@@ -106,7 +106,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
       )}>
         <span className="text-[11px] sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap">Powered by</span>
         <a
-          href="/explore"
+          href="https://storelib.com/explore"
           className="inline-flex items-center shrink-0"
           aria-label="Explore Storelib"
         >
