@@ -1416,7 +1416,7 @@ export function DescriptionRichEditor({
   return (
     <div
       ref={containerRef}
-      className={cn("flex flex-col border rounded-lg shadow-lg overflow-hidden", className)}
+      className={cn("flex flex-col border rounded-lg shadow-sm overflow-hidden", className)}
       style={{
         backgroundColor: bgColor,
         borderColor: borderColor,

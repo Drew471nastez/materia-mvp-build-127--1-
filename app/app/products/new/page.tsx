@@ -116,7 +116,7 @@ const getPillForSection = (sectionId: SectionId): PillSectionId => {
 
 // Limits
 const MAX_PHOTOS = 12
-const MAX_YOUTUBE_VIDEOS = 2
+const MAX_YOUTUBE_VIDEOS = 5
 
 interface UploadedFile {
   id?: string
@@ -567,6 +567,62 @@ export default function NewProductPage() {
     // Other
     "Memberships", "Subscriptions", "Coaching", "Consulting", "Services", "Freelance Services",
     "Physical Products", "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other",
+    // Additional Categories (100+ more)
+    // Gaming & Esports
+    "Gaming Guides", "Strategy Guides", "Walkthroughs", "Cheat Codes", "Modding Tools", "Game Mods",
+    "Esports Coaching", "Gaming Overlays", "Stream Overlays", "Twitch Panels", "Twitch Emotes", "Discord Assets",
+    "Discord Bots", "Gaming Avatars", "Gaming Banners", "Controller Skins", "Gaming Templates",
+    // Fashion & Beauty
+    "Fashion Lookbooks", "Outfit Guides", "Style Guides", "Fashion Illustrations", "Fashion Sketches",
+    "Makeup Tutorials", "Beauty Guides", "Skincare Routines", "Hair Care Guides", "Nail Art Designs",
+    "Fashion Presets", "Beauty Presets", "Fashion Templates", "Lookbook Templates",
+    // Real Estate
+    "Real Estate Flyers", "Property Listings", "Real Estate Templates", "Property Management", "Rental Agreements",
+    "Real Estate Guides", "Investment Guides", "Property Analysis", "Real Estate Marketing", "Open House Templates",
+    // Events & Weddings
+    "Wedding Templates", "Wedding Invitations", "Save the Date", "Event Flyers", "Party Invitations",
+    "Event Planning", "Wedding Planning", "Event Checklists", "Seating Charts", "Menu Templates",
+    "RSVP Templates", "Thank You Cards", "Event Programs", "Wedding Programs",
+    // Food & Cooking
+    "Cookbook", "Recipe Cards", "Meal Prep Guides", "Cooking Tutorials", "Baking Recipes",
+    "Restaurant Menus", "Food Photography Presets", "Food Blogs", "Cocktail Recipes", "Smoothie Recipes",
+    // Travel & Adventure
+    "Travel Guides", "Itinerary Templates", "Packing Lists", "Travel Journals", "Destination Guides",
+    "Travel Photography", "Travel Presets", "Adventure Guides", "Hiking Guides", "Camping Guides",
+    // Parenting & Family
+    "Parenting Guides", "Baby Planners", "Pregnancy Journals", "Family Budgets", "Chore Charts",
+    "Educational Games", "Kids Activities", "Homeschool Resources", "Learning Materials", "Childcare Templates",
+    // Home & Interior
+    "Interior Design", "Home Decor", "Room Planners", "Floor Plans", "Furniture Layouts",
+    "DIY Home Projects", "Organization Templates", "Cleaning Checklists", "Home Inventory", "Renovation Guides",
+    // Spirituality & Mindfulness
+    "Tarot Guides", "Astrology Charts", "Horoscope Templates", "Crystal Guides", "Energy Healing",
+    "Chakra Guides", "Manifestation Guides", "Law of Attraction", "Spiritual Journals", "Prayer Guides",
+    // Finance & Investing
+    "Investment Templates", "Stock Analysis", "Portfolio Trackers", "Crypto Trackers", "Tax Templates",
+    "Expense Trackers", "Savings Planners", "Debt Payoff", "Financial Literacy", "Money Guides",
+    // Career & Job Search
+    "Cover Letters", "Portfolio Templates", "LinkedIn Templates", "Interview Prep", "Career Guides",
+    "Salary Negotiation", "Job Search Trackers", "Networking Templates", "Personal Branding", "Career Coaching",
+    // Social Media
+    "Instagram Templates", "TikTok Templates", "Pinterest Templates", "LinkedIn Posts", "Twitter Templates",
+    "Social Media Planners", "Content Planners", "Hashtag Guides", "Bio Templates", "Link in Bio Templates",
+    // Podcasting & Audio
+    "Podcast Templates", "Show Notes", "Podcast Artwork", "Podcast Intros", "Audio Branding",
+    "Interview Questions", "Podcast Planners", "Episode Outlines", "Transcription Templates",
+    // Print on Demand
+    "T-Shirt Designs", "Mug Designs", "Phone Case Designs", "Poster Designs", "Tote Bag Designs",
+    "Sticker Designs", "Print Designs", "Apparel Graphics", "Merchandise Templates",
+    // Data & Analytics
+    "Dashboard Templates", "Data Visualization", "Excel Templates", "Google Sheets", "Power BI Templates",
+    "Tableau Templates", "SQL Queries", "Data Analysis", "KPI Trackers", "Reporting Templates",
+    // Automotive
+    "Car Maintenance", "Vehicle Trackers", "Car Care Guides", "Automotive Templates", "Driving Guides",
+    // Pet & Animals
+    "Pet Care Guides", "Dog Training", "Cat Care", "Pet Health", "Animal Illustrations",
+    "Pet Journals", "Vet Records", "Pet Planners",
+    // Environment & Sustainability
+    "Eco Guides", "Sustainability Tips", "Zero Waste", "Green Living", "Environmental Templates",
   ].sort()
 
   // Smart AI Category suggestion based on title and description
@@ -3524,9 +3580,9 @@ export default function NewProductPage() {
                       onClick={() => {
                         const newVariant: ProductVariant = {
                           id: `new-variant-${Date.now()}`,
-                          name: "Untitled",
+                          name: "",
                           description: "",
-                          price: "0",
+                          price: "",
                           compareAtPrice: "",
                           maxPurchases: "",
                           isExpanded: true,
@@ -3814,9 +3870,9 @@ export default function NewProductPage() {
                       onClick={() => {
                         const newVariant: ProductVariant = {
                           id: `new-variant-${Date.now()}`,
-                          name: "Untitled",
+                          name: "",
                           description: "",
-                          price: "0",
+                          price: "",
                           compareAtPrice: "",
                           maxPurchases: "",
                           isExpanded: true,
@@ -4260,6 +4316,37 @@ export default function NewProductPage() {
                   />
                   <p className="text-[10px] sm:text-xs text-gray-400">
                     {seoDescription.length}/160 characters {seoDescription.length > 160 && <span className="text-amber-500">• Recommended: under 160</span>}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="productUrl" className="text-xs sm:text-sm font-medium text-gray-700">
+                    Product URL
+                  </Label>
+                  <div className="flex items-center gap-0">
+                    <div className="h-10 sm:h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center">
+                      <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                        https://{creator?.username || creator?.slug || "yourstore"}.storelib.com/p/
+                      </span>
+                    </div>
+                    <Input
+                      id="productUrl"
+                      placeholder="product-url"
+                      value={slug}
+                      onChange={(e) => {
+                        // Only allow lowercase letters, numbers, and hyphens
+                        const newSlug = e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]/g, '-')
+                          .replace(/--+/g, '-')
+                          .replace(/^-|-$/g, '')
+                        setSlug(newSlug)
+                      }}
+                      className="h-10 sm:h-11 border-gray-200 rounded-l-none text-sm sm:text-base flex-1"
+                    />
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-gray-400">
+                    Customize your product's URL. Use lowercase letters, numbers, and hyphens only.
                   </p>
                 </div>
 
