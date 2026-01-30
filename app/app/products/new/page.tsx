@@ -51,6 +51,7 @@ import {
   Layers,
   ExternalLink,
   CheckCircle,
+  AlertCircle,
   Eye,
   EyeOff,
 } from "lucide-react"
@@ -447,6 +448,11 @@ export default function NewProductPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [categorySearch, setCategorySearch] = useState("")
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
+  // Toast notification state for validation errors
+  const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Limit product sales state
   const [limitSalesEnabled, setLimitSalesEnabled] = useState(false)
@@ -510,150 +516,342 @@ export default function NewProductPage() {
     })
   }, [])
 
-  // Categories list (170+ options)
-  const CATEGORIES = [
-    // Digital Products
-    "3D Assets", "3D Models", "3D Printing Files", "Ebooks", "Digital Art", "Stock Photos", "Stock Videos", "Audio Files",
-    "Music Tracks", "Sound Effects", "Fonts", "Icons", "Graphics", "Illustrations", "Vector Art", "Clip Art",
-    "Templates", "Mockups", "Presentations", "Resume Templates", "Business Cards", "Flyers", "Posters", "Brochures",
-    "Social Media Templates", "Website Templates", "Mobile App Templates", "Email Templates", "Newsletter Designs",
-    // Software & Development
-    "Software", "Plugins", "Extensions", "Code Snippets", "Scripts", "APIs", "SDKs", "Libraries", "Frameworks",
-    "WordPress Themes", "WordPress Plugins", "Shopify Themes", "Shopify Apps", "Web Apps", "SaaS Products",
-    "Mobile Apps", "Desktop Apps", "Games", "Game Assets", "Unity Assets", "Sprites", "Tilesets",
-    "Unreal Assets", "Source Code", "Databases", "Development Tools", "CLI Tools", "DevOps Tools",
-    "AI Models", "Machine Learning", "Datasets", "Algorithms", "Bots", "Automation Scripts",
-    // Design & Creative
-    "Photoshop Actions", "Photoshop Brushes", "Lightroom Presets", "Lightroom Profiles", "Procreate Brushes", "Procreate Stamps",
-    "Design Systems", "UI Kits", "Wireframes", "Prototypes", "Brand Kits", "Brand Guidelines", "Logo Templates", "Logo Packs",
-    "Pattern Designs", "Textures", "Backgrounds", "Overlays", "Filters", "Color Palettes", "Gradients",
-    "Figma Templates", "Sketch Templates", "Adobe XD Templates", "Canva Templates", "Notion Templates",
-    // Education & Courses
-    "Online Courses", "Video Courses", "Tutorials", "Workshops", "Masterclasses", "Video Lessons", "Webinars",
-    "Educational Content", "Study Guides", "Cheat Sheets", "Flashcards", "Quizzes",
-    "Language Learning", "Test Prep", "Certifications", "Training Materials", "Curriculum",
-    // Business & Marketing
-    "Business Plans", "Marketing Plans", "Sales Funnels", "Marketing Funnels",
-    "Landing Pages", "Lead Magnets", "Case Studies", "White Papers", "Pitch Decks",
-    "Reports", "Analytics Templates", "CRM Templates", "Project Management", "SOPs",
-    "Spreadsheets", "Financial Models", "Invoices", "Contracts", "Legal Templates", "NDA Templates",
-    "Proposal Templates", "Quotation Templates", "Business Proposals",
-    // Writing & Content
-    "Writing Templates", "Content Calendars", "Blog Posts", "Articles", "Ghostwriting",
-    "Copywriting Templates", "Ad Copy", "Sales Scripts", "Email Sequences", "Cold Email Templates",
-    "Newsletter Templates", "Documentation", "Guides", "Manuals",
-    "Prompts", "AI Prompts", "ChatGPT Prompts", "Midjourney Prompts", "Prompt Packs",
-    // Health & Fitness
-    "Workout Plans", "Meal Plans", "Nutrition Guides", "Recipe Books", "Diet Plans",
-    "Fitness Programs", "Meditation Guides", "Wellness Journals", "Health Trackers", "Yoga Guides",
-    // Personal Development
-    "Planners", "Journals", "Trackers", "Goal Setting", "Habit Trackers", "Budget Planners",
-    "Mindmaps", "Note Taking", "Productivity Systems", "Life Coaching", "Self-Help Guides",
-    "Affirmation Cards", "Vision Boards", "Gratitude Journals",
-    // Photography & Video
-    "Photo Presets", "Video LUTs", "Video Templates", "Motion Graphics", "After Effects Templates",
-    "Transitions", "Lower Thirds", "Intros", "Outros", "Thumbnails", "YouTube Templates",
-    "Instagram Reels Templates", "TikTok Templates", "Premiere Pro Templates", "DaVinci Resolve Templates",
-    // Art & Crafts
-    "Printables", "Coloring Pages", "Patterns", "SVG Files", "Cut Files", "Cricut Designs",
-    "Embroidery Designs", "Knitting Patterns", "Sewing Patterns", "Craft Templates",
-    "Stickers", "Labels", "Invitations", "Greeting Cards", "Wall Art", "Digital Planners",
-    // Music & Audio
-    "Sample Packs", "Drum Kits", "Loops", "MIDI Files", "Presets", "Synth Presets",
-    "Vocal Samples", "Beats", "Instrumentals", "Podcasts", "Audiobooks", "Sound Libraries",
-    "Ableton Templates", "FL Studio Templates", "Logic Pro Templates",
-    // NFTs & Crypto
-    "NFT Art", "NFT Collections", "Crypto Guides", "Trading Strategies", "DeFi Guides",
-    // Other
-    "Memberships", "Subscriptions", "Coaching", "Consulting", "Services", "Freelance Services",
-    "Physical Products", "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other",
-    // Gaming & Esports
-    "Gaming Guides", "Strategy Guides", "Walkthroughs", "Cheat Codes", "Modding Tools", "Game Mods",
-    "Esports Coaching", "Gaming Overlays", "Stream Overlays", "Twitch Panels", "Twitch Emotes", "Discord Assets",
-    "Discord Bots", "Gaming Avatars", "Gaming Banners", "Controller Skins", "Gaming Templates",
-    // Fashion & Beauty
-    "Fashion Lookbooks", "Outfit Guides", "Style Guides", "Fashion Illustrations", "Fashion Sketches",
-    "Makeup Tutorials", "Beauty Guides", "Skincare Routines", "Hair Care Guides", "Nail Art Designs",
-    "Fashion Presets", "Beauty Presets", "Fashion Templates", "Lookbook Templates",
-    // Real Estate
-    "Real Estate Flyers", "Property Listings", "Real Estate Templates", "Property Management", "Rental Agreements",
-    "Real Estate Guides", "Investment Guides", "Property Analysis", "Real Estate Marketing", "Open House Templates",
-    // Events & Weddings
-    "Wedding Templates", "Wedding Invitations", "Save the Date", "Event Flyers", "Party Invitations",
-    "Event Planning", "Wedding Planning", "Event Checklists", "Seating Charts", "Menu Templates",
-    "RSVP Templates", "Thank You Cards", "Event Programs", "Wedding Programs",
-    // Food & Cooking
-    "Cookbook", "Recipe Cards", "Meal Prep Guides", "Cooking Tutorials", "Baking Recipes",
-    "Restaurant Menus", "Food Photography Presets", "Food Blogs", "Cocktail Recipes", "Smoothie Recipes",
-    // Travel & Adventure
-    "Travel Guides", "Itinerary Templates", "Packing Lists", "Travel Journals", "Destination Guides",
-    "Travel Photography", "Travel Presets", "Adventure Guides", "Hiking Guides", "Camping Guides",
-    // Parenting & Family
-    "Parenting Guides", "Baby Planners", "Pregnancy Journals", "Family Budgets", "Chore Charts",
-    "Educational Games", "Kids Activities", "Homeschool Resources", "Learning Materials", "Childcare Templates",
-    // Home & Interior
-    "Interior Design", "Home Decor", "Room Planners", "Floor Plans", "Furniture Layouts",
-    "DIY Home Projects", "Organization Templates", "Cleaning Checklists", "Home Inventory", "Renovation Guides",
-    // Spirituality & Mindfulness
-    "Tarot Guides", "Astrology Charts", "Horoscope Templates", "Crystal Guides", "Energy Healing",
-    "Chakra Guides", "Manifestation Guides", "Law of Attraction", "Spiritual Journals", "Prayer Guides",
-    // Finance & Investing
-    "Investment Templates", "Stock Analysis", "Portfolio Trackers", "Crypto Trackers", "Tax Templates",
-    "Expense Trackers", "Savings Planners", "Debt Payoff", "Financial Literacy", "Money Guides",
-    // Career & Job Search
-    "Cover Letters", "Portfolio Templates", "LinkedIn Templates", "Interview Prep", "Career Guides",
-    "Salary Negotiation", "Job Search Trackers", "Networking Templates", "Personal Branding", "Career Coaching",
-    // Social Media
-    "Instagram Templates", "Pinterest Templates", "LinkedIn Posts", "Twitter Templates",
-    "Social Media Planners", "Content Planners", "Hashtag Guides", "Bio Templates", "Link in Bio Templates",
-    // Podcasting & Audio
-    "Podcast Templates", "Show Notes", "Podcast Artwork", "Podcast Intros", "Audio Branding",
-    "Interview Questions", "Podcast Planners", "Episode Outlines", "Transcription Templates",
-    // Print on Demand
-    "T-Shirt Designs", "Mug Designs", "Phone Case Designs", "Poster Designs", "Tote Bag Designs",
-    "Sticker Designs", "Print Designs", "Apparel Graphics", "Merchandise Templates",
-    // Data & Analytics
-    "Dashboard Templates", "Data Visualization", "Excel Templates", "Google Sheets", "Power BI Templates",
-    "Tableau Templates", "SQL Queries", "Data Analysis", "KPI Trackers", "Reporting Templates",
-    // Automotive
-    "Car Maintenance", "Vehicle Trackers", "Car Care Guides", "Automotive Templates", "Driving Guides",
-    // Pet & Animals
-    "Pet Care Guides", "Dog Training", "Cat Care", "Pet Health", "Animal Illustrations",
-    "Pet Journals", "Vet Records", "Pet Planners",
-    // Environment & Sustainability
-    "Eco Guides", "Sustainability Tips", "Zero Waste", "Green Living", "Environmental Templates",
-    // NEW CATEGORIES - AI & Automation (50+ new unique categories)
-    "AI Tools", "AI Assistants", "AI Agents", "GPT Templates", "Claude Prompts", "Gemini Prompts",
-    "AI Workflows", "Automation Workflows", "Zapier Templates", "Make Templates", "n8n Workflows",
-    "AI Art Generators", "Stable Diffusion Prompts", "DALL-E Prompts", "AI Voice Tools", "Text to Speech",
-    // Startup & Entrepreneurship
-    "Startup Templates", "Investor Decks", "Fundraising Guides", "Startup Playbooks", "Growth Hacking",
-    "MVP Templates", "Product Roadmaps", "OKR Templates", "Lean Canvas", "Business Model Canvas",
-    // Ecommerce & Dropshipping
-    "Ecommerce Templates", "Dropshipping Guides", "Product Research", "Supplier Lists", "Store Setups",
-    "Amazon FBA Guides", "Etsy Templates", "Gumroad Templates", "Product Descriptions", "Pricing Strategies",
-    // Influencer & Creator Economy
-    "Creator Toolkits", "Sponsorship Templates", "Media Kits", "Brand Deal Templates", "UGC Templates",
-    "Influencer Contracts", "Collaboration Templates", "Rate Cards", "Creator Guides", "Monetization Strategies",
-    // No-Code & Low-Code
-    "No-Code Templates", "Bubble Templates", "Webflow Templates", "Airtable Bases", "Glide Apps",
-    "Softr Templates", "Adalo Templates", "FlutterFlow Templates", "Retool Templates", "Xano Templates",
-    // Community & Membership
-    "Community Templates", "Membership Sites", "Circle Templates", "Skool Templates", "Mighty Networks",
-    "Community Playbooks", "Engagement Strategies", "Onboarding Sequences", "Welcome Emails", "Community Guidelines",
-    // Sales & CRM
-    "Sales Playbooks", "CRM Setups", "HubSpot Templates", "Salesforce Templates", "Pipeline Templates",
-    "Objection Handling", "Discovery Call Scripts", "Follow-up Templates", "Proposal Decks", "Closing Scripts",
-    // Notion & Productivity
-    "Notion Dashboards", "Notion Databases", "Notion Wikis", "Second Brain Templates", "PARA Templates",
-    "GTD Templates", "Weekly Reviews", "Daily Planners", "Notion Integrations", "Knowledge Management",
-    // Agency & Freelance
-    "Agency Templates", "Client Onboarding", "Project Briefs", "Scope of Work", "Retainer Agreements",
-    "Freelance Contracts", "Rate Calculators", "Time Trackers", "Client Portals", "Service Packages",
-    // Newsletter & Email Marketing
-    "Email Funnels", "Drip Campaigns", "Welcome Sequences", "Launch Sequences", "Re-engagement Emails",
-    "Substack Templates", "ConvertKit Templates", "Mailchimp Templates", "Beehiiv Templates", "Newsletter Growth",
-  ].sort()
+  // Grouped categories structure
+  const CATEGORY_GROUPS: Record<string, { icon: string; categories: string[] }> = {
+    "Design & Creative": {
+      icon: "🎨",
+      categories: [
+        "Digital Art", "Graphics", "Illustrations", "Vector Art", "Icons", "Fonts", "Clip Art",
+        "Photoshop Actions", "Photoshop Brushes", "Lightroom Presets", "Lightroom Profiles",
+        "Procreate Brushes", "Procreate Stamps", "Design Systems", "UI Kits", "Wireframes",
+        "Prototypes", "Brand Kits", "Brand Guidelines", "Logo Templates", "Logo Packs",
+        "Pattern Designs", "Textures", "Backgrounds", "Overlays", "Filters", "Color Palettes", "Gradients",
+        "Figma Templates", "Sketch Templates", "Adobe XD Templates", "Canva Templates"
+      ]
+    },
+    "VFX & Motion": {
+      icon: "🎬",
+      categories: [
+        "Motion Graphics", "After Effects Templates", "Premiere Pro Templates", "DaVinci Resolve Templates",
+        "Transitions", "Lower Thirds", "Intros", "Outros", "Video Templates", "Video LUTs",
+        "Visual Effects", "VFX Presets", "Animation Templates", "Animated Elements", "Title Templates",
+        "Green Screen Assets", "Particle Effects", "Light Leaks", "Glitch Effects", "Cinematic LUTs"
+      ]
+    },
+    "Audio & Music": {
+      icon: "🎵",
+      categories: [
+        "Sample Packs", "Drum Kits", "Loops", "MIDI Files", "Presets", "Synth Presets",
+        "Vocal Samples", "Beats", "Instrumentals", "Sound Effects", "Music Tracks", "Audio Files",
+        "Sound Libraries", "Ableton Templates", "FL Studio Templates", "Logic Pro Templates",
+        "Podcasts", "Audiobooks", "Podcast Templates", "Podcast Artwork", "Podcast Intros",
+        "Audio Branding", "Voice Overs", "Jingles", "Ringtones", "Ambient Sounds"
+      ]
+    },
+    "Software & Development": {
+      icon: "💻",
+      categories: [
+        "Software", "Plugins", "Extensions", "Code Snippets", "Scripts", "APIs", "SDKs",
+        "Libraries", "Frameworks", "WordPress Themes", "WordPress Plugins", "Shopify Themes",
+        "Shopify Apps", "Web Apps", "SaaS Products", "Mobile Apps", "Desktop Apps",
+        "Source Code", "Databases", "Development Tools", "CLI Tools", "DevOps Tools",
+        "Bots", "Automation Scripts", "Browser Extensions", "App Templates"
+      ]
+    },
+    "AI & Automation": {
+      icon: "🤖",
+      categories: [
+        "AI Tools", "AI Assistants", "AI Agents", "AI Models", "Machine Learning", "Datasets",
+        "Algorithms", "GPT Templates", "ChatGPT Prompts", "Claude Prompts", "Gemini Prompts",
+        "AI Prompts", "Midjourney Prompts", "Stable Diffusion Prompts", "DALL-E Prompts",
+        "AI Workflows", "Automation Workflows", "Zapier Templates", "Make Templates", "n8n Workflows",
+        "AI Art Generators", "AI Voice Tools", "Text to Speech", "Prompt Packs"
+      ]
+    },
+    "Gaming & Esports": {
+      icon: "🎮",
+      categories: [
+        "Games", "Game Assets", "Unity Assets", "Unreal Assets", "Sprites", "Tilesets",
+        "Gaming Guides", "Strategy Guides", "Walkthroughs", "Cheat Codes", "Modding Tools", "Game Mods",
+        "Esports Coaching", "Gaming Overlays", "Stream Overlays", "Twitch Panels", "Twitch Emotes",
+        "Discord Assets", "Discord Bots", "Gaming Avatars", "Gaming Banners", "Gaming Templates",
+        "Controller Skins", "Character Models", "Game UI Kits"
+      ]
+    },
+    "3D & Assets": {
+      icon: "🎲",
+      categories: [
+        "3D Assets", "3D Models", "3D Printing Files", "3D Characters", "3D Environments",
+        "3D Props", "3D Textures", "3D Materials", "Blender Assets", "Maya Assets",
+        "Cinema 4D Assets", "HDRI Images", "PBR Materials", "CAD Files", "Architectural Models"
+      ]
+    },
+    "Photography & Video": {
+      icon: "📷",
+      categories: [
+        "Stock Photos", "Stock Videos", "Photo Presets", "Thumbnails", "YouTube Templates",
+        "Instagram Reels Templates", "TikTok Templates", "Travel Photography", "Food Photography Presets",
+        "Portrait Presets", "Landscape Presets", "Film Emulation", "Photo Overlays", "Photo Frames"
+      ]
+    },
+    "Templates & Mockups": {
+      icon: "📄",
+      categories: [
+        "Templates", "Mockups", "Presentations", "Resume Templates", "Business Cards", "Flyers",
+        "Posters", "Brochures", "Social Media Templates", "Website Templates", "Mobile App Templates",
+        "Email Templates", "Newsletter Designs", "Notion Templates", "Notion Dashboards",
+        "Notion Databases", "Notion Wikis", "Second Brain Templates", "PARA Templates", "GTD Templates"
+      ]
+    },
+    "Education & Courses": {
+      icon: "📚",
+      categories: [
+        "Online Courses", "Video Courses", "Tutorials", "Workshops", "Masterclasses", "Video Lessons",
+        "Webinars", "Educational Content", "Study Guides", "Cheat Sheets", "Flashcards", "Quizzes",
+        "Language Learning", "Test Prep", "Certifications", "Training Materials", "Curriculum",
+        "Homeschool Resources", "Learning Materials", "Educational Games"
+      ]
+    },
+    "Business & Marketing": {
+      icon: "💼",
+      categories: [
+        "Business Plans", "Marketing Plans", "Sales Funnels", "Marketing Funnels", "Landing Pages",
+        "Lead Magnets", "Case Studies", "White Papers", "Pitch Decks", "Reports", "Analytics Templates",
+        "CRM Templates", "Project Management", "SOPs", "Spreadsheets", "Financial Models",
+        "Invoices", "Contracts", "Legal Templates", "NDA Templates", "Proposal Templates",
+        "Quotation Templates", "Business Proposals", "Business Model Canvas", "Lean Canvas"
+      ]
+    },
+    "Startup & Entrepreneurship": {
+      icon: "🚀",
+      categories: [
+        "Startup Templates", "Investor Decks", "Fundraising Guides", "Startup Playbooks",
+        "Growth Hacking", "MVP Templates", "Product Roadmaps", "OKR Templates",
+        "Venture Capital", "Angel Investing", "Pitch Templates", "Startup Guides"
+      ]
+    },
+    "Ecommerce & Sales": {
+      icon: "🛒",
+      categories: [
+        "Ecommerce Templates", "Dropshipping Guides", "Product Research", "Supplier Lists",
+        "Store Setups", "Amazon FBA Guides", "Etsy Templates", "Gumroad Templates",
+        "Product Descriptions", "Pricing Strategies", "Sales Playbooks", "CRM Setups",
+        "HubSpot Templates", "Salesforce Templates", "Pipeline Templates", "Closing Scripts"
+      ]
+    },
+    "Writing & Content": {
+      icon: "✍️",
+      categories: [
+        "Ebooks", "Writing Templates", "Content Calendars", "Blog Posts", "Articles", "Ghostwriting",
+        "Copywriting Templates", "Ad Copy", "Sales Scripts", "Email Sequences", "Cold Email Templates",
+        "Newsletter Templates", "Documentation", "Guides", "Manuals"
+      ]
+    },
+    "Social Media": {
+      icon: "📱",
+      categories: [
+        "Instagram Templates", "Pinterest Templates", "LinkedIn Posts", "Twitter Templates",
+        "Social Media Planners", "Content Planners", "Hashtag Guides", "Bio Templates",
+        "Link in Bio Templates", "Creator Toolkits", "Sponsorship Templates", "Media Kits",
+        "Brand Deal Templates", "UGC Templates", "Influencer Contracts", "Rate Cards"
+      ]
+    },
+    "Email Marketing": {
+      icon: "📧",
+      categories: [
+        "Email Funnels", "Drip Campaigns", "Welcome Sequences", "Launch Sequences",
+        "Re-engagement Emails", "Substack Templates", "ConvertKit Templates", "Mailchimp Templates",
+        "Beehiiv Templates", "Newsletter Growth", "Cold Outreach Templates"
+      ]
+    },
+    "No-Code & Tools": {
+      icon: "🔧",
+      categories: [
+        "No-Code Templates", "Bubble Templates", "Webflow Templates", "Airtable Bases", "Glide Apps",
+        "Softr Templates", "Adalo Templates", "FlutterFlow Templates", "Retool Templates", "Xano Templates"
+      ]
+    },
+    "Finance & Investing": {
+      icon: "💰",
+      categories: [
+        "Investment Templates", "Stock Analysis", "Portfolio Trackers", "Crypto Trackers", "Tax Templates",
+        "Expense Trackers", "Savings Planners", "Debt Payoff", "Financial Literacy", "Money Guides",
+        "Trading Strategies", "DeFi Guides", "Crypto Guides", "NFT Art", "NFT Collections"
+      ]
+    },
+    "Health & Fitness": {
+      icon: "💪",
+      categories: [
+        "Workout Plans", "Meal Plans", "Nutrition Guides", "Recipe Books", "Diet Plans",
+        "Fitness Programs", "Meditation Guides", "Wellness Journals", "Health Trackers", "Yoga Guides"
+      ]
+    },
+    "Personal Development": {
+      icon: "🌱",
+      categories: [
+        "Planners", "Journals", "Trackers", "Goal Setting", "Habit Trackers", "Budget Planners",
+        "Mindmaps", "Note Taking", "Productivity Systems", "Life Coaching", "Self-Help Guides",
+        "Affirmation Cards", "Vision Boards", "Gratitude Journals", "Daily Planners", "Weekly Reviews"
+      ]
+    },
+    "Spirituality & Mindfulness": {
+      icon: "🧘",
+      categories: [
+        "Tarot Guides", "Astrology Charts", "Horoscope Templates", "Crystal Guides", "Energy Healing",
+        "Chakra Guides", "Manifestation Guides", "Law of Attraction", "Spiritual Journals", "Prayer Guides"
+      ]
+    },
+    "Art & Crafts": {
+      icon: "🎭",
+      categories: [
+        "Printables", "Coloring Pages", "Patterns", "SVG Files", "Cut Files", "Cricut Designs",
+        "Embroidery Designs", "Knitting Patterns", "Sewing Patterns", "Craft Templates",
+        "Stickers", "Labels", "Invitations", "Greeting Cards", "Wall Art", "Digital Planners"
+      ]
+    },
+    "Print on Demand": {
+      icon: "👕",
+      categories: [
+        "T-Shirt Designs", "Mug Designs", "Phone Case Designs", "Poster Designs", "Tote Bag Designs",
+        "Sticker Designs", "Print Designs", "Apparel Graphics", "Merchandise Templates"
+      ]
+    },
+    "Fashion & Beauty": {
+      icon: "👗",
+      categories: [
+        "Fashion Lookbooks", "Outfit Guides", "Style Guides", "Fashion Illustrations", "Fashion Sketches",
+        "Makeup Tutorials", "Beauty Guides", "Skincare Routines", "Hair Care Guides", "Nail Art Designs",
+        "Fashion Presets", "Beauty Presets", "Fashion Templates", "Lookbook Templates"
+      ]
+    },
+    "Real Estate": {
+      icon: "🏠",
+      categories: [
+        "Real Estate Flyers", "Property Listings", "Real Estate Templates", "Property Management",
+        "Rental Agreements", "Real Estate Guides", "Investment Guides", "Property Analysis",
+        "Real Estate Marketing", "Open House Templates"
+      ]
+    },
+    "Events & Weddings": {
+      icon: "💒",
+      categories: [
+        "Wedding Templates", "Wedding Invitations", "Save the Date", "Event Flyers", "Party Invitations",
+        "Event Planning", "Wedding Planning", "Event Checklists", "Seating Charts", "Menu Templates",
+        "RSVP Templates", "Thank You Cards", "Event Programs", "Wedding Programs"
+      ]
+    },
+    "Food & Cooking": {
+      icon: "🍳",
+      categories: [
+        "Cookbook", "Recipe Cards", "Meal Prep Guides", "Cooking Tutorials", "Baking Recipes",
+        "Restaurant Menus", "Food Blogs", "Cocktail Recipes", "Smoothie Recipes"
+      ]
+    },
+    "Travel & Adventure": {
+      icon: "✈️",
+      categories: [
+        "Travel Guides", "Itinerary Templates", "Packing Lists", "Travel Journals", "Destination Guides",
+        "Travel Presets", "Adventure Guides", "Hiking Guides", "Camping Guides"
+      ]
+    },
+    "Parenting & Family": {
+      icon: "👶",
+      categories: [
+        "Parenting Guides", "Baby Planners", "Pregnancy Journals", "Family Budgets", "Chore Charts",
+        "Kids Activities", "Childcare Templates"
+      ]
+    },
+    "Home & Interior": {
+      icon: "🏡",
+      categories: [
+        "Interior Design", "Home Decor", "Room Planners", "Floor Plans", "Furniture Layouts",
+        "DIY Home Projects", "Organization Templates", "Cleaning Checklists", "Home Inventory", "Renovation Guides"
+      ]
+    },
+    "Career & Job Search": {
+      icon: "👔",
+      categories: [
+        "Cover Letters", "Portfolio Templates", "LinkedIn Templates", "Interview Prep", "Career Guides",
+        "Salary Negotiation", "Job Search Trackers", "Networking Templates", "Personal Branding", "Career Coaching"
+      ]
+    },
+    "Agency & Freelance": {
+      icon: "🏢",
+      categories: [
+        "Agency Templates", "Client Onboarding", "Project Briefs", "Scope of Work", "Retainer Agreements",
+        "Freelance Contracts", "Rate Calculators", "Time Trackers", "Client Portals", "Service Packages"
+      ]
+    },
+    "Community & Membership": {
+      icon: "👥",
+      categories: [
+        "Community Templates", "Membership Sites", "Circle Templates", "Skool Templates", "Mighty Networks",
+        "Community Playbooks", "Engagement Strategies", "Onboarding Sequences", "Welcome Emails", "Community Guidelines"
+      ]
+    },
+    "Data & Analytics": {
+      icon: "📊",
+      categories: [
+        "Dashboard Templates", "Data Visualization", "Excel Templates", "Google Sheets", "Power BI Templates",
+        "Tableau Templates", "SQL Queries", "Data Analysis", "KPI Trackers", "Reporting Templates"
+      ]
+    },
+    "Pet & Animals": {
+      icon: "🐾",
+      categories: [
+        "Pet Care Guides", "Dog Training", "Cat Care", "Pet Health", "Animal Illustrations",
+        "Pet Journals", "Vet Records", "Pet Planners"
+      ]
+    },
+    "Other": {
+      icon: "📦",
+      categories: [
+        "Memberships", "Subscriptions", "Coaching", "Consulting", "Services", "Freelance Services",
+        "Physical Products", "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other"
+      ]
+    }
+  }
+
+  // Flat list of all categories for search and AI suggestion
+  const ALL_CATEGORIES = Object.values(CATEGORY_GROUPS).flatMap(g => g.categories).sort()
+
+  // Toggle category group expansion
+  const toggleGroupExpansion = (groupName: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(groupName)) {
+        next.delete(groupName)
+      } else {
+        next.add(groupName)
+      }
+      return next
+    })
+  }
+
+  // Find which group a category belongs to
+  const findCategoryGroup = (category: string): string | null => {
+    for (const [groupName, group] of Object.entries(CATEGORY_GROUPS)) {
+      if (group.categories.includes(category)) {
+        return groupName
+      }
+    }
+    return null
+  }
+
+  // Show toast notification
+  const showToast = useCallback((message: string) => {
+    // Clear any existing timeout
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current)
+    }
+
+    setToast({ message, visible: true })
+
+    // Hide toast after 6 seconds
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(prev => ({ ...prev, visible: false }))
+    }, 6000)
+  }, [])
 
   // Smart AI Category suggestion based on title and description
   const suggestCategory = useCallback((text: string) => {
@@ -2200,7 +2398,7 @@ export default function NewProductPage() {
     if (!currentProductId) {
       // First, we need to save the product to get an ID
       if (!title.trim()) {
-        setError("Please enter a product title before uploading digital files")
+        showToast("Please enter a product title before uploading digital files")
         scrollToSection("about")
         return
       }
@@ -2365,29 +2563,29 @@ export default function NewProductPage() {
   const handleSaveChanges = async () => {
     // Validation 1: Title is required
     if (!title.trim()) {
-      setError("Please add a product title")
+      showToast("Please add a product title")
       scrollToSection("about")
       return
     }
 
     // Validation 2: At least 1 media (photo or video) is required
     if (mediaItems.length === 0) {
-      setError("Please add at least one photo or video")
+      showToast("Please add at least one photo or video")
       scrollToSection("media")
       return
     }
 
     // Validation 3: At least 1 digital file is required
     if (digitalFiles.length === 0) {
-      setError("Please upload at least one digital product file")
+      showToast("Please upload at least one digital product file")
       scrollToSection("content")
       return
     }
 
     // Validation 4: Category is required
     if (!selectedCategory) {
-      setError("Please select a category")
-      scrollToSection("about")
+      showToast("Please select a category")
+      scrollToSection("category")
       return
     }
 
@@ -2395,7 +2593,7 @@ export default function NewProductPage() {
     if (variants.length > 0 && digitalFiles.length > 1) {
       const variantWithoutFiles = variants.find(v => !v.assetId)
       if (variantWithoutFiles) {
-        setError(`Please assign a file to variant "${variantWithoutFiles.name || 'Untitled'}"`)
+        showToast(`Please assign a file to variant "${variantWithoutFiles.name || 'Untitled'}"`)
         scrollToSection("content")
         return
       }
@@ -2691,6 +2889,26 @@ export default function NewProductPage() {
           <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-900 rounded-xl shadow-2xl shadow-gray-900/20 backdrop-blur-sm border border-gray-800">
             <CheckCircle className="h-4 w-4 text-white flex-shrink-0" />
             <span className="text-sm font-medium text-white tracking-tight">{notificationMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Validation Toast Notification - Red warning style */}
+      {toast.visible && (
+        <div
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out ${
+            toast.visible ? "animate-in slide-in-from-top-3 fade-in" : "animate-out slide-out-to-top-3 fade-out"
+          }`}
+        >
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-red-500 rounded-xl shadow-2xl shadow-red-500/30 backdrop-blur-sm border border-red-400">
+            <AlertCircle className="h-4 w-4 text-white flex-shrink-0" />
+            <span className="text-sm font-medium text-white tracking-tight">{toast.message}</span>
+            <button
+              onClick={() => setToast(prev => ({ ...prev, visible: false }))}
+              className="ml-2 p-0.5 hover:bg-red-400/50 rounded transition-colors"
+            >
+              <X className="h-3.5 w-3.5 text-white" />
+            </button>
           </div>
         </div>
       )}
@@ -4118,7 +4336,7 @@ export default function NewProductPage() {
                     {/* Sticky Search Bar */}
                     <div className="flex-shrink-0 px-4 sm:px-6 py-3 border-b bg-white">
                       <Input
-                        placeholder="Search 170+ categories..."
+                        placeholder="Search 300+ categories..."
                         value={categorySearch}
                         onChange={(e) => setCategorySearch(e.target.value)}
                         className="h-10 sm:h-11 text-sm sm:text-base rounded-lg"
@@ -4127,7 +4345,7 @@ export default function NewProductPage() {
 
                     <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-3 sm:pt-4">
                       {/* AI Suggestion - Modern Badge Style */}
-                      {suggestedCategory && (
+                      {suggestedCategory && !categorySearch && (
                         <div className="mb-4">
                           <button
                             type="button"
@@ -4159,39 +4377,98 @@ export default function NewProductPage() {
                         </div>
                       )}
 
-                      <div className="space-y-0.5">
-                        {CATEGORIES.filter(cat =>
-                          cat.toLowerCase().includes(categorySearch.toLowerCase())
-                        ).map((category) => (
-                          <button
-                            key={category}
-                            type="button"
-                            onClick={() => {
-                              setSelectedCategory(category)
-                              setShowCategoryModal(false)
-                              setCategorySearch("")
-                            }}
-                            className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
-                              selectedCategory === category
-                                ? "bg-violet-100 text-violet-900 font-medium"
-                                : "hover:bg-gray-50 text-gray-700"
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                              selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
-                            }`} />
-                            <span className="flex-1">{category}</span>
-                            {selectedCategory === category && (
-                              <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />
-                            )}
-                          </button>
-                        ))}
-                        {CATEGORIES.filter(cat =>
-                          cat.toLowerCase().includes(categorySearch.toLowerCase())
-                        ).length === 0 && (
-                          <p className="text-sm text-gray-500 text-center py-6">No categories found</p>
-                        )}
-                      </div>
+                      {/* Search Results - Flat List */}
+                      {categorySearch ? (
+                        <div className="space-y-0.5">
+                          {ALL_CATEGORIES.filter(cat =>
+                            cat.toLowerCase().includes(categorySearch.toLowerCase())
+                          ).map((category) => (
+                            <button
+                              key={category}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCategory(category)
+                                setShowCategoryModal(false)
+                                setCategorySearch("")
+                              }}
+                              className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
+                                selectedCategory === category
+                                  ? "bg-violet-100 text-violet-900 font-medium"
+                                  : "hover:bg-gray-50 text-gray-700"
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
+                              }`} />
+                              <span className="flex-1">{category}</span>
+                              <span className="text-xs text-gray-400">{findCategoryGroup(category)}</span>
+                              {selectedCategory === category && (
+                                <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />
+                              )}
+                            </button>
+                          ))}
+                          {ALL_CATEGORIES.filter(cat =>
+                            cat.toLowerCase().includes(categorySearch.toLowerCase())
+                          ).length === 0 && (
+                            <p className="text-sm text-gray-500 text-center py-6">No categories found</p>
+                          )}
+                        </div>
+                      ) : (
+                        /* Grouped Categories */
+                        <div className="space-y-1">
+                          {Object.entries(CATEGORY_GROUPS).map(([groupName, group]) => (
+                            <div key={groupName} className="rounded-lg border border-gray-100 overflow-hidden">
+                              {/* Group Header */}
+                              <button
+                                type="button"
+                                onClick={() => toggleGroupExpansion(groupName)}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm font-medium transition-all duration-150 ${
+                                  expandedGroups.has(groupName)
+                                    ? "bg-gray-50 text-gray-900"
+                                    : "bg-white hover:bg-gray-50 text-gray-700"
+                                }`}
+                              >
+                                <span className="text-lg">{group.icon}</span>
+                                <span className="flex-1">{groupName}</span>
+                                <span className="text-xs text-gray-400 mr-1">{group.categories.length}</span>
+                                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                                  expandedGroups.has(groupName) ? "rotate-180" : ""
+                                }`} />
+                              </button>
+
+                              {/* Expanded Categories */}
+                              {expandedGroups.has(groupName) && (
+                                <div className="border-t border-gray-100 bg-gray-50/50 p-2 space-y-0.5">
+                                  {group.categories.map((category) => (
+                                    <button
+                                      key={category}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedCategory(category)
+                                        setShowCategoryModal(false)
+                                        setCategorySearch("")
+                                      }}
+                                      className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-md text-sm transition-all duration-150 ${
+                                        selectedCategory === category
+                                          ? "bg-violet-100 text-violet-900 font-medium"
+                                          : "hover:bg-white text-gray-600"
+                                      }`}
+                                    >
+                                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                        selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
+                                      }`} />
+                                      <span className="flex-1">{category}</span>
+                                      {selectedCategory === category && (
+                                        <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex-shrink-0 border-t p-4 sm:p-6 pt-3 sm:pt-4 bg-gray-50 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
