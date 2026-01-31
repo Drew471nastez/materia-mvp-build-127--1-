@@ -5,7 +5,6 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
 import {
   Eye, ShoppingCart, DollarSign, Globe, TrendingUp, TrendingDown,
   Smartphone, Monitor, Tablet, ArrowUpRight,
@@ -589,6 +588,16 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
 
   return (
     <div className="h-full overflow-y-auto bg-[#fafafa]">
+      {/* Announcement Bar */}
+      <div className="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white py-2.5 px-4 text-center">
+        <p className="text-[13px] font-medium">
+          Try Pro free — our most popular plan for content creators and businesses.{" "}
+          <Link href="/app/settings/billing" className="underline hover:no-underline font-semibold">
+            Upgrade
+          </Link>
+        </p>
+      </div>
+
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         {/* Page Title */}
         <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">Analytics</h1>
@@ -722,129 +731,7 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           </div>
         )}
 
-        {/* Activity Card - Bar Chart with Stats */}
-        <Card className="border-[#e5e7eb] bg-white shadow-sm">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Activity</CardTitle>
-                <Badge variant="outline" className="text-[10px] font-normal border-[#e5e7eb] text-[#9ca3af] bg-[#f9fafb]">
-                  Sample data
-                </Badge>
-              </div>
-              <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-[200px] w-full" />
-            ) : (
-              <div className="space-y-4">
-                {/* Stats Header */}
-                <div className="flex items-center gap-8">
-                  <div>
-                    <p className="text-[28px] font-bold text-[#1a1a2e]">{totalViewsInChart.toLocaleString()}</p>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-[#6366f1]" />
-                      <p className="text-[13px] text-[#6b7280]">Views</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[28px] font-bold text-[#1a1a2e]">{totalClicksInChart.toLocaleString()}</p>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-[#a78bfa]" />
-                      <p className="text-[13px] text-[#6b7280]">Clicks</p>
-                    </div>
-                  </div>
-                  {analyticsMode === "store" && (
-                    <div>
-                      <p className="text-[28px] font-bold text-[#1a1a2e]">{totalOrdersInChart.toLocaleString()}</p>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
-                        <p className="text-[13px] text-[#6b7280]">Orders</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Bar Chart */}
-                {trendData.length > 0 ? (
-                  <div className="h-[180px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={2}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                        <XAxis
-                          dataKey="date"
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fill: "#9ca3af", fontSize: 11 }}
-                          dy={10}
-                        />
-                        <YAxis
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fill: "#9ca3af", fontSize: 11 }}
-                          dx={-5}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "white",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: "8px",
-                            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                            fontSize: "12px"
-                          }}
-                          formatter={(value: number, name: string) => {
-                            const labels: Record<string, string> = {
-                              views: "Views",
-                              clicks: "Clicks",
-                              sales: "Orders",
-                              revenue: "Revenue"
-                            }
-                            if (name === "revenue") return [`$${(value / 100).toFixed(2)}`, labels[name] || name]
-                            return [value.toLocaleString(), labels[name] || name]
-                          }}
-                        />
-                        <Bar dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
-                        <Bar dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
-                        {analyticsMode === "store" && (
-                          <Bar dataKey="sales" fill={CHART_COLORS.orders} radius={[4, 4, 0, 0]} name="sales" />
-                        )}
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="h-[180px] flex items-center justify-center">
-                    <div className="text-center">
-                      <BarChart3 className="h-10 w-10 mx-auto text-[#e5e7eb] mb-2" />
-                      <p className="text-[13px] text-[#9ca3af]">No data for this timeframe</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Legend */}
-                <div className="flex items-center justify-center gap-6 pt-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#6366f1]" />
-                    <span className="text-[12px] text-[#6b7280]">Total views</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#a78bfa]" />
-                    <span className="text-[12px] text-[#6b7280]">Total clicks</span>
-                  </div>
-                  {analyticsMode === "store" && (
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />
-                      <span className="text-[12px] text-[#6b7280]">Total orders</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* KPI Cards Grid */}
+        {/* KPI Cards Grid - Above Activity Chart */}
         {analyticsMode === "store" ? (
           <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 ${isLoading ? "opacity-60" : ""}`}>
             {/* Total Views */}
@@ -1088,19 +975,151 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           </div>
         )}
 
+        {/* Activity Card - Bar Chart with Stats */}
+        <Card className="border-[#e5e7eb] bg-white shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Activity</CardTitle>
+              <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-[200px] w-full" />
+            ) : (
+              <div className="space-y-4">
+                {/* Stats Header */}
+                <div className="flex items-center gap-8">
+                  <div>
+                    <p className="text-[28px] font-bold text-[#1a1a2e]">{totalViewsInChart.toLocaleString()}</p>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-[#6366f1]" />
+                      <p className="text-[13px] text-[#6b7280]">Views</p>
+                    </div>
+                  </div>
+                  {analyticsMode === "store" ? (
+                    <>
+                      <div>
+                        <p className="text-[28px] font-bold text-[#1a1a2e]">{totalOrdersInChart.toLocaleString()}</p>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
+                          <p className="text-[13px] text-[#6b7280]">Orders</p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[28px] font-bold text-[#1a1a2e]">{formatPrice(trendData.reduce((sum, d) => sum + d.revenue, 0))}</p>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-[#c4b5fd]" />
+                          <p className="text-[13px] text-[#6b7280]">Revenue</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <p className="text-[28px] font-bold text-[#1a1a2e]">{totalClicksInChart.toLocaleString()}</p>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-[#a78bfa]" />
+                        <p className="text-[13px] text-[#6b7280]">Clicks</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bar Chart */}
+                {trendData.length > 0 ? (
+                  <div className="h-[180px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barCategoryGap="20%">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                        <XAxis
+                          dataKey="date"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: "#9ca3af", fontSize: 11 }}
+                          dy={10}
+                        />
+                        <YAxis
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: "#9ca3af", fontSize: 11 }}
+                          dx={-5}
+                        />
+                        <Tooltip
+                          cursor={false}
+                          contentStyle={{
+                            backgroundColor: "white",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                            fontSize: "12px"
+                          }}
+                          formatter={(value: number, name: string) => {
+                            const labels: Record<string, string> = {
+                              views: "Views",
+                              clicks: "Clicks",
+                              sales: "Orders",
+                              revenue: "Revenue"
+                            }
+                            if (name === "revenue") return [`$${(value / 100).toFixed(2)}`, labels[name] || name]
+                            return [value.toLocaleString(), labels[name] || name]
+                          }}
+                        />
+                        <Bar dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
+                        {analyticsMode === "store" ? (
+                          <>
+                            <Bar dataKey="sales" fill={CHART_COLORS.orders} radius={[4, 4, 0, 0]} name="sales" />
+                            <Bar dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
+                          </>
+                        ) : (
+                          <Bar dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
+                        )}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-[180px] flex items-center justify-center">
+                    <div className="text-center">
+                      <BarChart3 className="h-10 w-10 mx-auto text-[#e5e7eb] mb-2" />
+                      <p className="text-[13px] text-[#9ca3af]">No data for this timeframe</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Legend */}
+                <div className="flex items-center justify-center gap-6 pt-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#6366f1]" />
+                    <span className="text-[12px] text-[#6b7280]">Views</span>
+                  </div>
+                  {analyticsMode === "store" ? (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />
+                        <span className="text-[12px] text-[#6b7280]">Orders</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#c4b5fd]" />
+                        <span className="text-[12px] text-[#6b7280]">Revenue</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#a78bfa]" />
+                      <span className="text-[12px] text-[#6b7280]">Clicks</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Charts Row: Traffic & Device Distribution */}
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Traffic Sources */}
           <Card className="border-[#e5e7eb] bg-white">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Traffic Distribution</CardTitle>
-                  <Badge variant="outline" className="text-[10px] font-normal border-[#e5e7eb] text-[#9ca3af] bg-[#f9fafb]">
-                    Sample data
-                  </Badge>
-                </div>
-              </div>
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Traffic Distribution</CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -1152,12 +1171,7 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           {/* Device Distribution */}
           <Card className="border-[#e5e7eb] bg-white">
             <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Device Breakdown</CardTitle>
-                <Badge variant="outline" className="text-[10px] font-normal border-[#e5e7eb] text-[#9ca3af] bg-[#f9fafb]">
-                  Sample data
-                </Badge>
-              </div>
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Device Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -1195,14 +1209,9 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
         <Card className="border-[#e5e7eb] bg-white">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
-                  {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
-                </CardTitle>
-                <Badge variant="outline" className="text-[10px] font-normal border-[#e5e7eb] text-[#9ca3af] bg-[#f9fafb]">
-                  Sample data
-                </Badge>
-              </div>
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
+                {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
+              </CardTitle>
               <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
             </div>
           </CardHeader>
@@ -1267,12 +1276,7 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
         <Card className="border-[#e5e7eb] bg-white">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors</CardTitle>
-                <Badge variant="outline" className="text-[10px] font-normal border-[#e5e7eb] text-[#9ca3af] bg-[#f9fafb]">
-                  Sample data
-                </Badge>
-              </div>
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors</CardTitle>
               <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
             </div>
           </CardHeader>
