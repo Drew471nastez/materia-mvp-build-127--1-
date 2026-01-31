@@ -389,7 +389,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Products</h1>
+            <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">Products</h1>
             <p className="text-[14px] text-[#6b7280] mt-1">Manage your digital products</p>
           </div>
           <Button
