@@ -95,7 +95,7 @@ interface DeviceData {
 interface TopProductData {
   id: string
   title: string
-  cover_image: string | null
+  thumbnail_url: string | null
   views: number
   orders: number
   revenue: number
@@ -765,20 +765,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           }
         })
 
-        // Fetch product details with cover images
+        // Fetch product details with thumbnail images
         const { data: productDetails } = await supabase
           .from("products")
-          .select("id, title, cover_image")
+          .select("id, title, thumbnail_url")
           .eq("creator_id", creatorId)
 
-        const productMap = new Map((productDetails || []).map((p: { id: string; title: string; cover_image: string | null }) => [p.id, p]))
+        const productMap = new Map((productDetails || []).map((p: { id: string; title: string; thumbnail_url: string | null }) => [p.id, p]))
 
         const topProductsArray = products.map(p => {
-          const details = productMap.get(p.id) as { id: string; title: string; cover_image: string | null } | undefined
+          const details = productMap.get(p.id) as { id: string; title: string; thumbnail_url: string | null } | undefined
           return {
             id: p.id,
             title: p.title,
-            cover_image: details?.cover_image || null,
+            thumbnail_url: details?.thumbnail_url || null,
             views: productViews[p.id] || 0,
             orders: filteredOrders.filter(o => o.product_id === p.id).length,
             revenue: filteredOrders.filter(o => o.product_id === p.id).reduce((sum, o) => sum + o.amount_cents, 0),
@@ -1411,9 +1411,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Activity Card - Bar/Line Chart with Switcher */}
         <Card className="border-[#e5e7eb] bg-white shadow-sm">
-          <CardHeader className="pb-4">
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Activity</CardTitle>
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e] hidden sm:block">Activity</CardTitle>
               <div className="flex items-center gap-3">
                 {/* Metric Filter Selector */}
                 {analyticsMode === "store" && (
@@ -1492,9 +1492,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             {isLoading ? (
               <Skeleton className="h-[200px] w-full" />
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Stats Header - Same values as KPI cards */}
-                <div className="flex items-center gap-8 flex-wrap">
+                <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
                   <div>
                     <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalViewsInChart)}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
@@ -1541,7 +1541,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             // Add minimum placeholder values for empty bars (very small value for visibility)
                             placeholder: (d.views === 0 && d.sales === 0 && d.revenue === 0) ? 0.3 : 0
                           }))}
-                          margin={{ top: 10, right: (analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue")) ? 50 : 10, left: -20, bottom: 0 }}
+                          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                           barCategoryGap="20%"
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
@@ -1553,16 +1553,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             tick={{ fill: "#9ca3af", fontSize: 11 }}
                             dx={-5}
                           />
-                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-                            <YAxis
-                              yAxisId="right"
-                              orientation="right"
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fill: "#9ca3af", fontSize: 10 }}
-                              tickFormatter={(value) => `$${(value / 100).toFixed(0)}`}
-                            />
-                          )}
+                          {/* Revenue uses left axis with formatted values - no dual axis needed */}
                           <Tooltip
                             cursor={false}
                             contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
@@ -1586,14 +1577,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                           )}
                           {/* Revenue bar */}
                           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-                            <Bar yAxisId={chartMetricFilter === "revenue" ? "left" : "right"} dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
+                            <Bar yAxisId="left" dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
                           )}
                           {analyticsMode === "onepage" && (
                             <Bar yAxisId="left" dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
                           )}
                         </BarChart>
                       ) : (
-                        <LineChart data={trendData} margin={{ top: 10, right: (analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue")) ? 50 : 10, left: -20, bottom: 0 }}>
+                        <LineChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                           <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
                           <YAxis
@@ -1603,16 +1594,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             tick={{ fill: "#9ca3af", fontSize: 11 }}
                             dx={-5}
                           />
-                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-                            <YAxis
-                              yAxisId="right"
-                              orientation="right"
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fill: "#9ca3af", fontSize: 10 }}
-                              tickFormatter={(value) => `$${(value / 100).toFixed(0)}`}
-                            />
-                          )}
+                          {/* Revenue uses left axis with formatted values - no dual axis needed */}
                           <Tooltip
                             contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
                             formatter={(value: number, name: string) => {
@@ -1650,7 +1632,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                           {/* Revenue line */}
                           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
                             <Line
-                              yAxisId={chartMetricFilter === "revenue" ? "left" : "right"}
+                              yAxisId="left"
                               type="monotone"
                               dataKey="revenue"
                               stroke={CHART_COLORS.revenue}
@@ -1801,9 +1783,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {topProducts.slice(0, 5).map((product, idx) => (
                     <div key={product.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
                       <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {product.cover_image ? (
+                        {product.thumbnail_url ? (
                           <img
-                            src={product.cover_image}
+                            src={product.thumbnail_url}
                             alt={product.title}
                             className="w-full h-full object-cover"
                             onError={(e) => {
@@ -1816,7 +1798,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             }}
                           />
                         ) : null}
-                        <span className={`text-lg ${product.cover_image ? 'hidden' : 'flex'}`}>📦</span>
+                        <span className={`text-lg ${product.thumbnail_url ? 'hidden' : 'flex'}`}>📦</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium text-[#1a1a2e] truncate">{product.title}</p>
