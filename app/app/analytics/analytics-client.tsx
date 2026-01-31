@@ -393,35 +393,47 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           .maybeSingle()
 
         if (onepage?.id) {
-          // Fetch OnePage views with country data
-          const { data: onePageViews } = await supabase
+          // Fetch OnePage views (select * to handle missing columns gracefully)
+          const { data: onePageViews, error: viewsError } = await supabase
             .from("onepage_views")
-            .select("id, visitor_id, created_at, country_code, country_name, user_agent")
+            .select("*")
             .eq("onepage_id", onepage.id)
             .gte("created_at", start.toISOString())
             .lte("created_at", end.toISOString())
+
+          if (viewsError) {
+            console.error("Error fetching onepage_views:", viewsError)
+          }
 
           viewOnlyEvents = onePageViews || []
           periodViews = viewOnlyEvents.length
 
-          // Fetch OnePage clicks with country data
-          const { data: onePageClicks } = await supabase
+          // Fetch OnePage clicks (select * to handle missing columns gracefully)
+          const { data: onePageClicks, error: clicksError } = await supabase
             .from("onepage_clicks")
-            .select("id, block_id, url, visitor_id, created_at, country_code, country_name, user_agent")
+            .select("*")
             .eq("onepage_id", onepage.id)
             .gte("created_at", start.toISOString())
             .lte("created_at", end.toISOString())
+
+          if (clicksError) {
+            console.error("Error fetching onepage_clicks:", clicksError)
+          }
 
           clickEvents = onePageClicks || []
           periodClicks = clickEvents.length
 
-          // Fetch OnePage leads/subscribers with country data
-          const { data: onePageLeads } = await supabase
+          // Fetch OnePage leads/subscribers (select * to handle missing columns gracefully)
+          const { data: onePageLeads, error: leadsError } = await supabase
             .from("onepage_leads")
-            .select("id, created_at, country_code, country_name")
+            .select("*")
             .eq("onepage_id", onepage.id)
             .gte("created_at", start.toISOString())
             .lte("created_at", end.toISOString())
+
+          if (leadsError) {
+            console.error("Error fetching onepage_leads:", leadsError)
+          }
 
           leadEvents = onePageLeads || []
           periodSubscribers = leadEvents.length
@@ -459,16 +471,16 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             onePageCountryStats[code].subscribers++
           })
 
+          // Convert to array and rename Unknown to "Other Locations"
           const onePageCountryData = Object.entries(onePageCountryStats)
             .map(([code, data]) => ({
-              code,
-              name: data.name,
+              code: code === "XX" ? "OTHER" : code,
+              name: (code === "XX" || data.name === "Unknown") ? "Other Locations" : data.name,
               views: data.views,
               orders: data.clicks, // Use clicks for OnePage "orders" column
               revenue: data.subscribers, // Use subscribers count as a number in revenue column
               conversionRate: data.views > 0 ? (data.clicks / data.views) * 100 : 0,
             }))
-            .filter(c => c.code !== "XX" && c.name !== "Unknown")
             .sort((a, b) => b.views - a.views)
 
           setCountryData(onePageCountryData)
@@ -2384,7 +2396,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-[200px] w-full" />
-            ) : countryData.filter(c => c.code !== "XX" && c.name !== "Unknown").length > 0 ? (
+            ) : countryData.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -2400,29 +2412,31 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </tr>
                   </thead>
                   <tbody>
-                    {countryData
-                      .filter(c => c.code !== "XX" && c.name !== "Unknown")
-                      .map((country) => (
-                        <tr key={country.code} className="border-b border-[#f3f4f6] last:border-0">
-                          <td className="py-2.5">
-                            <div className="flex items-center gap-2">
+                    {countryData.map((country) => (
+                      <tr key={country.code} className="border-b border-[#f3f4f6] last:border-0">
+                        <td className="py-2.5">
+                          <div className="flex items-center gap-2">
+                            {country.code === "OTHER" ? (
+                              <Globe className="h-4 w-4 text-[#9ca3af]" />
+                            ) : (
                               <span className="text-[16px]">{getCountryFlag(country.code)}</span>
-                              <span className="text-[13px] font-medium text-[#1a1a2e]">{country.name}</span>
-                            </div>
-                          </td>
-                          <td className="text-right py-2.5">
-                            <span className="text-[13px] text-[#6b7280]">{country.views.toLocaleString()}</span>
-                          </td>
-                          <td className="text-right py-2.5">
-                            <span className="text-[13px] text-[#6b7280]">{country.orders.toLocaleString()}</span>
-                          </td>
-                          <td className="text-right py-2.5">
-                            <span className="text-[13px] text-[#6b7280]">
-                              {analyticsMode === "onepage" ? country.revenue.toLocaleString() : formatPrice(country.revenue)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                            )}
+                            <span className="text-[13px] font-medium text-[#1a1a2e]">{country.name}</span>
+                          </div>
+                        </td>
+                        <td className="text-right py-2.5">
+                          <span className="text-[13px] text-[#6b7280]">{country.views.toLocaleString()}</span>
+                        </td>
+                        <td className="text-right py-2.5">
+                          <span className="text-[13px] text-[#6b7280]">{country.orders.toLocaleString()}</span>
+                        </td>
+                        <td className="text-right py-2.5">
+                          <span className="text-[13px] text-[#6b7280]">
+                            {analyticsMode === "onepage" ? country.revenue.toLocaleString() : formatPrice(country.revenue)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
