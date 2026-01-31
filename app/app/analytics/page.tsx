@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { AnalyticsClient } from "./analytics-client"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export const metadata = {
   title: "Analytics | Storelib",
@@ -10,6 +12,7 @@ export const metadata = {
 
 export default async function AnalyticsPage() {
   const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   const {
     data: { user },
@@ -19,7 +22,7 @@ export default async function AnalyticsPage() {
     redirect("/login")
   }
 
-  const { data: creator, error: creatorError } = await supabase
+  const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")
     .select("id, views")
     .eq("user_id", user.id)
@@ -29,18 +32,31 @@ export default async function AnalyticsPage() {
     redirect("/onboarding")
   }
 
-  const { data: products = [] } = await supabase.from("products").select("id, title").eq("creator_id", creator.id)
+  const { data: productsData } = await adminSupabase
+    .from("products")
+    .select("id, title")
+    .eq("creator_id", creator.id)
 
-  return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
-        <div>
-          <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Analytics</h1>
-          <p className="text-[14px] text-[#6b7280] mt-1">Track your store performance</p>
-        </div>
+  const products = productsData || []
 
-        <AnalyticsClient creatorId={creator.id} products={products} />
-      </div>
-    </div>
-  )
+  // Fetch orders for this creator's products (like Sales page does)
+  let initialOrders: any[] = []
+  if (products.length > 0) {
+    const productIds = products.map((p: any) => p.id)
+    const { data: ordersData } = await adminSupabase
+      .from("orders")
+      .select("*")
+      .in("product_id", productIds)
+      .order("created_at", { ascending: false })
+
+    initialOrders = (ordersData || []).map((order: any) => {
+      const product = products.find((p: any) => p.id === order.product_id)
+      return {
+        ...order,
+        product: product ? { id: product.id, title: product.title } : null
+      }
+    })
+  }
+
+  return <AnalyticsClient creatorId={creator.id} products={products} initialOrders={initialOrders} />
 }

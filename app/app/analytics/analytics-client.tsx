@@ -25,9 +25,22 @@ interface Product {
   title: string
 }
 
+interface Order {
+  id: string
+  product_id: string
+  amount_cents: number
+  status: string
+  created_at: string
+  product?: {
+    id: string
+    title: string
+  } | null
+}
+
 interface AnalyticsClientProps {
   creatorId: string
   products: Product[]
+  initialOrders: Order[]
 }
 
 interface Summary {
@@ -111,11 +124,12 @@ const CHART_COLORS = {
 
 const PIE_COLORS = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"]
 
-export function AnalyticsClient({ creatorId, products }: AnalyticsClientProps) {
+export function AnalyticsClient({ creatorId, products, initialOrders }: AnalyticsClientProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [timeframe, setTimeframe] = useState("last_7_days")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
+  const [isProductsOpen, setIsProductsOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState("all")
   const [customStart, setCustomStart] = useState("")
   const [customEnd, setCustomEnd] = useState("")
@@ -127,6 +141,9 @@ export function AnalyticsClient({ creatorId, products }: AnalyticsClientProps) {
     products: true,
   })
 
+  // Orders state (from server)
+  const [orders, setOrders] = useState<Order[]>(initialOrders)
+
   // KPI Modal state
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
   const [kpiChartData, setKpiChartData] = useState<{ label: string; value: number }[]>([])
@@ -136,6 +153,9 @@ export function AnalyticsClient({ creatorId, products }: AnalyticsClientProps) {
   const [announcementType, setAnnouncementType] = useState<"analytics" | "upgrade">("analytics")
   const [announcementVisible, setAnnouncementVisible] = useState(true)
   const [progressWidth, setProgressWidth] = useState(0)
+
+  // Hovering country for map
+  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
 
   const [summary, setSummary] = useState<Summary>({
     totalViews: 0,
@@ -247,35 +267,130 @@ export function AnalyticsClient({ creatorId, products }: AnalyticsClientProps) {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
-  // Generate KPI chart data based on trend data
+  // Generate KPI chart data based on trend data and actual orders
   const generateKpiChartData = useCallback((kpiType: KPIType) => {
-    if (!kpiType || trendData.length === 0) {
+    if (!kpiType) {
       setKpiChartData([])
       return
     }
 
     setIsKpiChartLoading(true)
 
-    // Simulate a brief loading state for better UX
+    // Use actual orders for orders and revenue KPIs
     setTimeout(() => {
-      const data = trendData.map(item => {
-        let value = 0
-        if (kpiType === "views") {
-          value = item.views
-        } else if (kpiType === "orders") {
-          value = item.sales
-        } else if (kpiType === "revenue") {
-          value = item.revenue / 100
-        } else if (kpiType === "conversion") {
-          value = item.views > 0 ? (item.sales / item.views) * 100 : 0
+      if (kpiType === "orders" || kpiType === "revenue") {
+        // Get timeframe dates
+        const option = timeframeOptions.find(o => o.value === timeframe)
+        if (!option) {
+          setKpiChartData([])
+          setIsKpiChartLoading(false)
+          return
         }
-        return { label: item.date, value }
-      })
 
-      setKpiChartData(data)
+        // Parse timeframe to get date range
+        const now = new Date()
+        let startDate = new Date()
+        let groupBy: "hour" | "day" | "week" | "month" = "day"
+
+        switch (timeframe) {
+          case "last_30_minutes":
+            startDate.setMinutes(startDate.getMinutes() - 30)
+            groupBy = "hour"
+            break
+          case "today":
+            startDate.setHours(0, 0, 0, 0)
+            groupBy = "hour"
+            break
+          case "yesterday":
+            startDate.setDate(startDate.getDate() - 1)
+            startDate.setHours(0, 0, 0, 0)
+            groupBy = "hour"
+            break
+          case "last_7_days":
+            startDate.setDate(startDate.getDate() - 7)
+            groupBy = "day"
+            break
+          case "last_30_days":
+          case "this_month":
+            startDate.setDate(startDate.getDate() - 30)
+            groupBy = "day"
+            break
+          case "last_month":
+            startDate.setMonth(startDate.getMonth() - 1)
+            groupBy = "day"
+            break
+          case "last_6_months":
+            startDate.setMonth(startDate.getMonth() - 6)
+            groupBy = "week"
+            break
+          case "last_year":
+            startDate.setFullYear(startDate.getFullYear() - 1)
+            groupBy = "month"
+            break
+          default:
+            startDate.setDate(startDate.getDate() - 7)
+        }
+
+        // Filter orders by timeframe and status
+        const completedOrders = initialOrders.filter(o => {
+          const orderDate = new Date(o.created_at)
+          return o.status === "completed" && orderDate >= startDate && orderDate <= now
+        })
+
+        // Group orders by time period
+        const groupedData: Record<string, { orders: number; revenue: number }> = {}
+
+        completedOrders.forEach(order => {
+          const orderDate = new Date(order.created_at)
+          let key: string
+
+          if (groupBy === "hour") {
+            key = orderDate.toLocaleTimeString("en-US", { hour: "2-digit", hour12: false })
+          } else if (groupBy === "day") {
+            key = orderDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          } else if (groupBy === "week") {
+            const weekStart = new Date(orderDate)
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+            key = weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          } else {
+            key = orderDate.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
+          }
+
+          if (!groupedData[key]) {
+            groupedData[key] = { orders: 0, revenue: 0 }
+          }
+          groupedData[key].orders++
+          groupedData[key].revenue += order.amount_cents
+        })
+
+        // Convert to array and sort
+        const data = Object.entries(groupedData)
+          .map(([label, values]) => ({
+            label,
+            value: kpiType === "orders" ? values.orders : values.revenue / 100
+          }))
+          .slice(-10) // Last 10 data points
+
+        setKpiChartData(data.length > 0 ? data : [{ label: "No data", value: 0 }])
+      } else if (trendData.length > 0) {
+        // Use trend data for views and conversion
+        const data = trendData.map(item => {
+          let value = 0
+          if (kpiType === "views") {
+            value = item.views
+          } else if (kpiType === "conversion") {
+            value = item.views > 0 ? (item.sales / item.views) * 100 : 0
+          }
+          return { label: item.date, value }
+        })
+        setKpiChartData(data)
+      } else {
+        setKpiChartData([])
+      }
+
       setIsKpiChartLoading(false)
     }, 200)
-  }, [trendData])
+  }, [trendData, initialOrders, timeframe])
 
   // Fetch chart data when KPI modal opens
   useEffect(() => {
@@ -284,12 +399,15 @@ export function AnalyticsClient({ creatorId, products }: AnalyticsClientProps) {
     }
   }, [openKPIModal, generateKpiChartData])
 
-  // Close timeframe dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
       if (!target.closest(".timeframe-dropdown")) {
         setIsTimeframeOpen(false)
+      }
+      if (!target.closest(".products-dropdown")) {
+        setIsProductsOpen(false)
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
@@ -458,8 +576,6 @@ export function AnalyticsClient({ creatorId, products }: AnalyticsClientProps) {
         {/* Header */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3.5">
-            <h1 className="text-[20px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">Analytics</h1>
-
             {/* Timeframe Dropdown */}
             <div className="relative timeframe-dropdown">
               <button
@@ -492,19 +608,59 @@ export function AnalyticsClient({ creatorId, products }: AnalyticsClientProps) {
             </div>
           </div>
 
-          {/* Product Filter */}
-          <div className="relative">
-            <select
-              value={selectedProduct}
-              onChange={(e) => setSelectedProduct(e.target.value)}
-              className="appearance-none px-3 py-2 pr-8 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
+          {/* Products Dropdown (Modal-style like timeframe) */}
+          <div className="relative products-dropdown">
+            <button
+              onClick={() => setIsProductsOpen(!isProductsOpen)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
             >
-              <option value="all">All products</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9ca3af] pointer-events-none" />
+              {selectedProduct === "all" ? "All products" : products.find(p => p.id === selectedProduct)?.title || "All products"}
+              <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isProductsOpen ? "rotate-180" : ""}`} />
+            </button>
+            {isProductsOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100 max-h-[300px] overflow-y-auto">
+                <button
+                  onClick={() => {
+                    setSelectedProduct("all")
+                    setIsProductsOpen(false)
+                  }}
+                  className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors flex items-center gap-2 ${
+                    selectedProduct === "all"
+                      ? "bg-[#f5f3ff] text-[#8b5cf6] font-medium"
+                      : "text-[#374151] hover:bg-[#f9fafb]"
+                  }`}
+                >
+                  <span className="w-5 h-5 rounded-md bg-violet-100 flex items-center justify-center">
+                    <BarChart3 className="w-3 h-3 text-violet-600" />
+                  </span>
+                  All products
+                </button>
+                {products.length > 0 && (
+                  <div className="border-t border-[#e5e7eb] my-1" />
+                )}
+                {products.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedProduct(p.id)
+                      setIsProductsOpen(false)
+                    }}
+                    className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors truncate ${
+                      selectedProduct === p.id
+                        ? "bg-[#f5f3ff] text-[#8b5cf6] font-medium"
+                        : "text-[#374151] hover:bg-[#f9fafb]"
+                    }`}
+                  >
+                    {p.title}
+                  </button>
+                ))}
+                {products.length === 0 && (
+                  <div className="px-4 py-3 text-[12px] text-[#9ca3af] text-center">
+                    No products yet
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1127,135 +1283,338 @@ export function AnalyticsClient({ creatorId, products }: AnalyticsClientProps) {
             ) : countryData.length > 0 ? (
               <div className="space-y-6">
                 {/* Interactive World Map Visualization */}
-                <div className="relative bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] rounded-xl p-6 overflow-hidden">
+                <div className="relative bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] rounded-xl p-4 sm:p-6 overflow-hidden">
                   {/* Map Grid Background */}
-                  <div className="absolute inset-0 opacity-[0.03]" style={{
+                  <div className="absolute inset-0 opacity-[0.02]" style={{
                     backgroundImage: `radial-gradient(circle, #000 1px, transparent 1px)`,
-                    backgroundSize: '20px 20px'
+                    backgroundSize: '16px 16px'
                   }} />
 
-                  {/* World Map SVG - Simplified */}
-                  <div className="relative h-[200px] sm:h-[280px]">
-                    <svg viewBox="0 0 1000 500" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-                      {/* World map outline - simplified continents */}
-                      <g fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.5">
+                  {/* Interactive World Map SVG - Accurate Natural Earth projection */}
+                  <div className="relative h-[220px] sm:h-[320px]">
+                    <svg viewBox="0 0 2000 1000" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+                      <defs>
+                        <linearGradient id="oceanGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#f1f5f9" />
+                          <stop offset="100%" stopColor="#e2e8f0" />
+                        </linearGradient>
+                        <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.15"/>
+                        </filter>
+                      </defs>
+
+                      {/* Ocean background */}
+                      <rect x="0" y="0" width="2000" height="1000" fill="url(#oceanGradient)" />
+
+                      {/* World Map Countries - Simplified but accurate shapes */}
+                      <g filter="url(#dropShadow)">
                         {/* North America */}
-                        <path d="M150,120 Q200,80 250,100 L280,130 Q320,160 280,200 L250,220 Q180,250 150,200 Q120,160 150,120Z" />
+                        <path id="CA" d="M280,120 L380,100 L450,120 L480,180 L420,200 L380,240 L320,260 L280,240 L240,200 L220,160 L240,130 Z"
+                          fill={countryData.find(c => c.code === "CA") ? getCountryColor("CA", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("CA")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="US" d="M240,260 L380,240 L450,280 L500,320 L480,380 L420,400 L340,380 L280,340 L220,300 L200,280 Z"
+                          fill={countryData.find(c => c.code === "US") ? getCountryColor("US", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("US")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="MX" d="M240,400 L340,380 L380,420 L360,480 L300,500 L240,480 L200,440 Z"
+                          fill={countryData.find(c => c.code === "MX") ? getCountryColor("MX", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("MX")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+
+                        {/* Central America & Caribbean */}
+                        <path id="CENTRAL" d="M340,500 L400,520 L420,580 L380,600 L320,580 L300,540 Z"
+                          fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1"
+                        />
+
                         {/* South America */}
-                        <path d="M250,260 Q290,240 300,280 L310,340 Q300,400 270,420 L240,400 Q210,350 220,300 Q230,270 250,260Z" />
+                        <path id="BR" d="M440,580 L560,560 L620,620 L640,720 L580,800 L500,820 L440,780 L400,700 L420,620 Z"
+                          fill={countryData.find(c => c.code === "BR") ? getCountryColor("BR", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("BR")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="AR" d="M440,780 L500,820 L520,900 L480,940 L420,920 L400,860 L420,800 Z"
+                          fill={countryData.find(c => c.code === "AR") ? getCountryColor("AR", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("AR")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="CO" d="M380,540 L440,560 L440,620 L400,640 L360,600 L360,560 Z"
+                          fill={countryData.find(c => c.code === "CO") ? getCountryColor("CO", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("CO")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="CL" d="M400,780 L420,800 L400,920 L380,940 L360,900 L380,820 Z"
+                          fill={countryData.find(c => c.code === "CL") ? getCountryColor("CL", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("CL")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+
                         {/* Europe */}
-                        <path d="M450,100 Q500,80 530,100 L550,130 Q560,160 530,180 L490,190 Q450,180 440,150 Q430,120 450,100Z" />
+                        <path id="GB" d="M900,200 L920,180 L940,200 L930,240 L900,240 Z"
+                          fill={countryData.find(c => c.code === "GB") ? getCountryColor("GB", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("GB")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="FR" d="M920,260 L980,240 L1000,280 L980,320 L940,320 L920,290 Z"
+                          fill={countryData.find(c => c.code === "FR") ? getCountryColor("FR", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("FR")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="ES" d="M880,320 L940,320 L960,360 L920,380 L880,360 Z"
+                          fill={countryData.find(c => c.code === "ES") ? getCountryColor("ES", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("ES")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="DE" d="M1000,220 L1040,200 L1080,220 L1080,280 L1040,300 L1000,280 Z"
+                          fill={countryData.find(c => c.code === "DE") ? getCountryColor("DE", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("DE")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="IT" d="M1020,300 L1060,320 L1060,380 L1040,400 L1000,380 L1000,340 Z"
+                          fill={countryData.find(c => c.code === "IT") ? getCountryColor("IT", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("IT")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="PL" d="M1080,220 L1140,200 L1160,240 L1140,280 L1080,280 Z"
+                          fill={countryData.find(c => c.code === "PL") ? getCountryColor("PL", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("PL")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="NL" d="M980,220 L1000,200 L1000,240 L980,250 Z"
+                          fill={countryData.find(c => c.code === "NL") ? getCountryColor("NL", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("NL")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="SE" d="M1040,120 L1080,100 L1100,160 L1080,200 L1040,180 Z"
+                          fill={countryData.find(c => c.code === "SE") ? getCountryColor("SE", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("SE")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="NO" d="M1000,100 L1040,80 L1060,120 L1040,160 L1000,140 Z"
+                          fill={countryData.find(c => c.code === "NO") ? getCountryColor("NO", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("NO")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+
+                        {/* Russia */}
+                        <path id="RU" d="M1160,100 L1600,80 L1700,200 L1680,320 L1500,340 L1300,300 L1200,240 L1160,180 Z"
+                          fill={countryData.find(c => c.code === "RU") ? getCountryColor("RU", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("RU")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+
                         {/* Africa */}
-                        <path d="M470,200 Q520,190 550,220 L560,300 Q540,380 500,400 L460,380 Q430,320 440,260 Q450,220 470,200Z" />
+                        <path id="EG" d="M1080,380 L1140,360 L1160,420 L1120,460 L1060,440 Z"
+                          fill={countryData.find(c => c.code === "EG") ? getCountryColor("EG", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("EG")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="NG" d="M1000,520 L1060,500 L1080,560 L1040,600 L980,580 Z"
+                          fill={countryData.find(c => c.code === "NG") ? getCountryColor("NG", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("NG")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="ZA" d="M1060,720 L1140,700 L1160,780 L1100,820 L1040,800 L1040,760 Z"
+                          fill={countryData.find(c => c.code === "ZA") ? getCountryColor("ZA", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("ZA")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="KE" d="M1140,580 L1180,560 L1200,620 L1160,660 L1120,640 Z"
+                          fill={countryData.find(c => c.code === "KE") ? getCountryColor("KE", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("KE")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+
+                        {/* Middle East */}
+                        <path id="SA" d="M1160,420 L1240,400 L1280,480 L1220,540 L1140,520 L1140,460 Z"
+                          fill={countryData.find(c => c.code === "SA") ? getCountryColor("SA", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("SA")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="AE" d="M1260,480 L1300,460 L1320,500 L1280,520 Z"
+                          fill={countryData.find(c => c.code === "AE") ? getCountryColor("AE", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("AE")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="TR" d="M1100,320 L1180,300 L1200,340 L1160,380 L1080,380 Z"
+                          fill={countryData.find(c => c.code === "TR") ? getCountryColor("TR", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("TR")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+
                         {/* Asia */}
-                        <path d="M580,80 Q680,60 780,100 L820,160 Q840,220 800,260 L720,280 Q640,260 600,200 L580,140 Q560,100 580,80Z" />
-                        {/* Australia */}
-                        <path d="M780,340 Q830,320 860,350 L870,390 Q860,420 820,430 L780,420 Q750,400 760,370 Q770,350 780,340Z" />
+                        <path id="IN" d="M1340,420 L1420,380 L1480,440 L1460,540 L1380,580 L1320,520 Z"
+                          fill={countryData.find(c => c.code === "IN") ? getCountryColor("IN", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("IN")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="CN" d="M1480,280 L1640,260 L1720,340 L1680,440 L1560,480 L1480,440 Z"
+                          fill={countryData.find(c => c.code === "CN") ? getCountryColor("CN", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("CN")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="JP" d="M1760,320 L1800,300 L1820,360 L1800,400 L1760,380 Z"
+                          fill={countryData.find(c => c.code === "JP") ? getCountryColor("JP", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("JP")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="KR" d="M1740,360 L1760,340 L1780,380 L1760,400 L1740,380 Z"
+                          fill={countryData.find(c => c.code === "KR") ? getCountryColor("KR", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("KR")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="TH" d="M1540,520 L1580,500 L1600,560 L1560,600 L1520,580 Z"
+                          fill={countryData.find(c => c.code === "TH") ? getCountryColor("TH", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("TH")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="VN" d="M1580,520 L1620,500 L1640,580 L1600,620 L1560,600 Z"
+                          fill={countryData.find(c => c.code === "VN") ? getCountryColor("VN", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("VN")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="ID" d="M1580,640 L1720,620 L1760,680 L1680,720 L1560,700 Z"
+                          fill={countryData.find(c => c.code === "ID") ? getCountryColor("ID", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("ID")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="PH" d="M1700,520 L1740,500 L1760,560 L1720,600 L1680,580 Z"
+                          fill={countryData.find(c => c.code === "PH") ? getCountryColor("PH", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("PH")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="SG" d="M1560,620 L1580,610 L1590,630 L1570,640 Z"
+                          fill={countryData.find(c => c.code === "SG") ? getCountryColor("SG", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("SG")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+
+                        {/* Australia & Oceania */}
+                        <path id="AU" d="M1660,740 L1820,700 L1880,780 L1840,880 L1720,900 L1640,840 Z"
+                          fill={countryData.find(c => c.code === "AU") ? getCountryColor("AU", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("AU")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
+                        <path id="NZ" d="M1900,860 L1940,840 L1960,900 L1920,940 L1880,920 Z"
+                          fill={countryData.find(c => c.code === "NZ") ? getCountryColor("NZ", countryData) : "#e2e8f0"}
+                          stroke="#cbd5e1" strokeWidth="1"
+                          className="cursor-pointer transition-all duration-200 hover:brightness-95"
+                          onMouseEnter={() => setHoveredCountry("NZ")}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                        />
                       </g>
 
-                      {/* Country markers with data */}
-                      {countryData.slice(0, 10).map((country, idx) => {
-                        // Approximate country positions
-                        const positions: Record<string, { x: number; y: number }> = {
-                          US: { x: 200, y: 160 },
-                          CA: { x: 180, y: 120 },
-                          MX: { x: 190, y: 200 },
-                          BR: { x: 280, y: 340 },
-                          AR: { x: 260, y: 400 },
-                          GB: { x: 470, y: 120 },
-                          DE: { x: 510, y: 130 },
-                          FR: { x: 480, y: 145 },
-                          ES: { x: 460, y: 160 },
-                          IT: { x: 510, y: 155 },
-                          NL: { x: 495, y: 125 },
-                          BE: { x: 490, y: 130 },
-                          CH: { x: 505, y: 145 },
-                          AT: { x: 520, y: 140 },
-                          PL: { x: 530, y: 125 },
-                          RU: { x: 650, y: 100 },
-                          CN: { x: 750, y: 180 },
-                          JP: { x: 830, y: 170 },
-                          KR: { x: 800, y: 175 },
-                          IN: { x: 680, y: 230 },
-                          AU: { x: 820, y: 380 },
-                          NZ: { x: 890, y: 420 },
-                          ZA: { x: 520, y: 380 },
-                          NG: { x: 490, y: 280 },
-                          EG: { x: 540, y: 220 },
-                          AE: { x: 600, y: 230 },
-                          SA: { x: 580, y: 240 },
-                          SG: { x: 740, y: 280 },
-                          HK: { x: 770, y: 220 },
-                          TW: { x: 790, y: 210 },
-                        }
-                        const pos = positions[country.code] || { x: 500, y: 250 }
-                        const maxViews = Math.max(...countryData.map(c => c.views))
-                        const size = Math.max(8, Math.min(24, (country.views / maxViews) * 24))
-                        const opacity = 0.6 + (country.views / maxViews) * 0.4
-
+                      {/* Hover tooltip */}
+                      {hoveredCountry && countryData.find(c => c.code === hoveredCountry) && (() => {
+                        const country = countryData.find(c => c.code === hoveredCountry)!
+                        const pos = getCountryCenter(hoveredCountry)
                         return (
-                          <g key={country.code} className="cursor-pointer group">
-                            {/* Pulse animation ring */}
-                            <circle
-                              cx={pos.x}
-                              cy={pos.y}
-                              r={size + 4}
-                              fill="none"
-                              stroke="#8b5cf6"
-                              strokeWidth="2"
-                              opacity={0.3}
-                              className="animate-ping"
-                              style={{ animationDuration: '2s', animationDelay: `${idx * 0.2}s` }}
+                          <g className="pointer-events-none animate-in fade-in-0 duration-150">
+                            <rect
+                              x={pos.x - 60}
+                              y={pos.y - 55}
+                              width="120"
+                              height="45"
+                              rx="8"
+                              fill="#1a1a2e"
+                              fillOpacity="0.95"
                             />
-                            {/* Main marker */}
-                            <circle
-                              cx={pos.x}
-                              cy={pos.y}
-                              r={size}
-                              fill="#8b5cf6"
-                              opacity={opacity}
-                              className="transition-all duration-300 group-hover:opacity-100"
-                            />
-                            {/* Inner highlight */}
-                            <circle
-                              cx={pos.x - size * 0.3}
-                              cy={pos.y - size * 0.3}
-                              r={size * 0.25}
-                              fill="white"
-                              opacity={0.4}
-                            />
-                            {/* Tooltip on hover */}
-                            <g className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                              <rect
-                                x={pos.x - 40}
-                                y={pos.y - 50}
-                                width="80"
-                                height="38"
-                                rx="6"
-                                fill="#1a1a2e"
-                              />
-                              <text x={pos.x} y={pos.y - 34} textAnchor="middle" fill="white" fontSize="10" fontWeight="600">
-                                {getCountryFlag(country.code)} {country.name}
-                              </text>
-                              <text x={pos.x} y={pos.y - 20} textAnchor="middle" fill="#a5b4fc" fontSize="9">
-                                {country.views.toLocaleString()} views
-                              </text>
-                            </g>
+                            <text x={pos.x} y={pos.y - 32} textAnchor="middle" fill="white" fontSize="12" fontWeight="600">
+                              {getCountryFlag(country.code)} {country.name}
+                            </text>
+                            <text x={pos.x} y={pos.y - 16} textAnchor="middle" fill="#a5b4fc" fontSize="11">
+                              {country.views.toLocaleString()} views
+                            </text>
                           </g>
                         )
-                      })}
+                      })()}
                     </svg>
                   </div>
 
                   {/* Legend */}
-                  <div className="flex items-center justify-center gap-4 mt-4 text-[11px] text-[#6b7280]">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-[#8b5cf6] opacity-60" />
+                  <div className="flex items-center justify-center gap-6 mt-4 text-[11px] text-[#6b7280]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded bg-[#ddd6fe]" />
                       <span>Fewer visits</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-4 h-4 rounded-full bg-[#8b5cf6]" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded bg-[#8b5cf6]" />
                       <span>More visits</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded bg-[#e2e8f0]" />
+                      <span>No data</span>
                     </div>
                   </div>
                 </div>
@@ -1394,4 +1753,64 @@ function getCountryFlag(code: string): string {
     .split("")
     .map((char) => 127397 + char.charCodeAt(0))
   return String.fromCodePoint(...codePoints)
+}
+
+// Get color intensity based on view count
+function getCountryColor(code: string, countryData: CountryData[]): string {
+  const country = countryData.find(c => c.code === code)
+  if (!country) return "#e2e8f0"
+
+  const maxViews = Math.max(...countryData.map(c => c.views))
+  if (maxViews === 0) return "#e2e8f0"
+
+  const intensity = country.views / maxViews
+
+  // Gradient from light violet to dark violet
+  if (intensity > 0.8) return "#7c3aed" // Very high
+  if (intensity > 0.6) return "#8b5cf6" // High
+  if (intensity > 0.4) return "#a78bfa" // Medium-high
+  if (intensity > 0.2) return "#c4b5fd" // Medium
+  return "#ddd6fe" // Low
+}
+
+// Get country center coordinates for tooltip positioning
+function getCountryCenter(code: string): { x: number; y: number } {
+  const centers: Record<string, { x: number; y: number }> = {
+    CA: { x: 350, y: 170 },
+    US: { x: 350, y: 320 },
+    MX: { x: 290, y: 440 },
+    BR: { x: 520, y: 700 },
+    AR: { x: 460, y: 860 },
+    CO: { x: 400, y: 590 },
+    CL: { x: 390, y: 860 },
+    GB: { x: 920, y: 210 },
+    FR: { x: 960, y: 280 },
+    ES: { x: 920, y: 350 },
+    DE: { x: 1040, y: 250 },
+    IT: { x: 1030, y: 350 },
+    PL: { x: 1110, y: 240 },
+    NL: { x: 990, y: 225 },
+    SE: { x: 1070, y: 150 },
+    NO: { x: 1030, y: 120 },
+    RU: { x: 1400, y: 200 },
+    EG: { x: 1110, y: 420 },
+    NG: { x: 1030, y: 550 },
+    ZA: { x: 1100, y: 760 },
+    KE: { x: 1160, y: 610 },
+    SA: { x: 1200, y: 470 },
+    AE: { x: 1290, y: 490 },
+    TR: { x: 1140, y: 350 },
+    IN: { x: 1400, y: 480 },
+    CN: { x: 1580, y: 370 },
+    JP: { x: 1790, y: 350 },
+    KR: { x: 1760, y: 370 },
+    TH: { x: 1560, y: 560 },
+    VN: { x: 1600, y: 560 },
+    ID: { x: 1660, y: 670 },
+    PH: { x: 1720, y: 550 },
+    SG: { x: 1575, y: 625 },
+    AU: { x: 1760, y: 810 },
+    NZ: { x: 1920, y: 890 },
+  }
+  return centers[code] || { x: 1000, y: 500 }
 }
