@@ -101,6 +101,9 @@ export async function POST(request: NextRequest) {
           block_id,
           url: url?.slice(0, 2000),
           visitor_id: visitorId,
+          country_code: countryCode,
+          country_name: countryName,
+          user_agent: userAgent.slice(0, 500),
         })
       }
     }

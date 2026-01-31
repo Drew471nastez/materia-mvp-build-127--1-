@@ -67,6 +67,7 @@ interface TrendData {
   sales: number
   revenue: number
   clicks?: number
+  subscribers?: number
 }
 
 interface TrafficSource {
@@ -98,6 +99,8 @@ interface MostClickedBlock {
   url: string
   clicks: number
   icon?: string | null
+  thumbnail?: string | null
+  blockType?: string | null
 }
 
 interface TopProductData {
@@ -371,6 +374,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
       let viewOnlyEvents: any[] = []
       let clickEvents: any[] = []
+      let leadEvents: any[] = []
       let periodViews = 0
       let periodClicks = 0
       let periodSubscribers = 0
@@ -396,15 +400,59 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           viewOnlyEvents = onePageViews || []
           periodViews = viewOnlyEvents.length
 
-          // Aggregate country data for OnePage
-          const onePageCountryStats: Record<string, { views: number; name: string }> = {}
+          // Fetch OnePage clicks with country data
+          const { data: onePageClicks } = await supabase
+            .from("onepage_clicks")
+            .select("id, block_id, url, visitor_id, created_at, country_code, country_name, user_agent")
+            .eq("onepage_id", onepage.id)
+            .gte("created_at", start.toISOString())
+            .lte("created_at", end.toISOString())
+
+          clickEvents = onePageClicks || []
+          periodClicks = clickEvents.length
+
+          // Fetch OnePage leads/subscribers with country data
+          const { data: onePageLeads } = await supabase
+            .from("onepage_leads")
+            .select("id, created_at, country_code, country_name")
+            .eq("onepage_id", onepage.id)
+            .gte("created_at", start.toISOString())
+            .lte("created_at", end.toISOString())
+
+          leadEvents = onePageLeads || []
+          periodSubscribers = leadEvents.length
+
+          // Aggregate country data for OnePage (views + clicks + subscribers)
+          const onePageCountryStats: Record<string, { views: number; clicks: number; subscribers: number; name: string }> = {}
+
+          // Add views by country
           viewOnlyEvents.forEach((view: any) => {
             const code = view.country_code || "XX"
             const name = view.country_name || "Unknown"
             if (!onePageCountryStats[code]) {
-              onePageCountryStats[code] = { views: 0, name }
+              onePageCountryStats[code] = { views: 0, clicks: 0, subscribers: 0, name }
             }
             onePageCountryStats[code].views++
+          })
+
+          // Add clicks by country
+          clickEvents.forEach((click: any) => {
+            const code = click.country_code || "XX"
+            const name = click.country_name || "Unknown"
+            if (!onePageCountryStats[code]) {
+              onePageCountryStats[code] = { views: 0, clicks: 0, subscribers: 0, name }
+            }
+            onePageCountryStats[code].clicks++
+          })
+
+          // Add subscribers by country
+          leadEvents.forEach((lead: any) => {
+            const code = lead.country_code || "XX"
+            const name = lead.country_name || "Unknown"
+            if (!onePageCountryStats[code]) {
+              onePageCountryStats[code] = { views: 0, clicks: 0, subscribers: 0, name }
+            }
+            onePageCountryStats[code].subscribers++
           })
 
           const onePageCountryData = Object.entries(onePageCountryStats)
@@ -412,19 +460,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               code,
               name: data.name,
               views: data.views,
-              orders: 0,
-              revenue: 0,
-              conversionRate: 0,
+              orders: data.clicks, // Use clicks for OnePage "orders" column
+              revenue: data.subscribers, // Use subscribers count as a number in revenue column
+              conversionRate: data.views > 0 ? (data.clicks / data.views) * 100 : 0,
             }))
             .filter(c => c.code !== "XX" && c.name !== "Unknown")
             .sort((a, b) => b.views - a.views)
 
           setCountryData(onePageCountryData)
 
-          // Calculate device breakdown for OnePage from user_agent
+          // Calculate device breakdown for OnePage from user_agent (views + clicks)
           const deviceCounts: Record<string, number> = { mobile: 0, desktop: 0, tablet: 0 }
-          viewOnlyEvents.forEach((view: any) => {
-            const ua = (view.user_agent || "").toLowerCase()
+          const allEventsWithUA = [...viewOnlyEvents, ...clickEvents]
+          allEventsWithUA.forEach((event: any) => {
+            const ua = (event.user_agent || "").toLowerCase()
             if (/ipad|tablet|playbook|silk/i.test(ua)) {
               deviceCounts.tablet++
             } else if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(ua)) {
@@ -442,17 +491,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           }))
           setDeviceData(onePageDeviceData)
 
-          // Fetch OnePage clicks with url
-          const { data: onePageClicks } = await supabase
-            .from("onepage_clicks")
-            .select("id, block_id, url, visitor_id, created_at")
-            .eq("onepage_id", onepage.id)
-            .gte("created_at", start.toISOString())
-            .lte("created_at", end.toISOString())
-
-          clickEvents = onePageClicks || []
-          periodClicks = clickEvents.length
-
           // Aggregate clicks by block_id for Most Clicked
           const clicksByBlock: Record<string, { clicks: number; url: string }> = {}
           clickEvents.forEach((click: any) => {
@@ -468,32 +506,27 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           const blocks = (onepage.published_blocks || onepage.draft_blocks || []) as any[]
           const blockMap = new Map(blocks.map((b: any) => [b.id, b]))
 
-          // Create most clicked blocks array
+          // Create most clicked blocks array with proper thumbnails
           const mostClicked = Object.entries(clicksByBlock)
             .map(([blockId, data]) => {
               const block = blockMap.get(blockId)
+              const blockType = block?.type || null
+              // Get thumbnail from block data (image, thumbnail, or avatar)
+              const thumbnail = block?.data?.image || block?.data?.thumbnail || block?.data?.avatar || null
               return {
                 id: blockId,
-                label: block?.data?.label || block?.data?.title || "Link",
+                label: block?.data?.label || block?.data?.title || block?.data?.name || "Link",
                 url: data.url || block?.data?.url || "",
                 clicks: data.clicks,
                 icon: block?.data?.icon || null,
+                thumbnail,
+                blockType,
               }
             })
             .sort((a, b) => b.clicks - a.clicks)
             .slice(0, 5)
 
           setMostClickedBlocks(mostClicked)
-
-          // Fetch OnePage leads/subscribers
-          const { data: onePageLeads } = await supabase
-            .from("onepage_leads")
-            .select("id, created_at")
-            .eq("onepage_id", onepage.id)
-            .gte("created_at", start.toISOString())
-            .lte("created_at", end.toISOString())
-
-          periodSubscribers = (onePageLeads || []).length
         }
 
         // Calculate CTR
@@ -760,6 +793,16 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             const dateKey = getDateKey(e.created_at)
             if (trendDataByKey[dateKey]) {
               trendDataByKey[dateKey].clicks = (trendDataByKey[dateKey].clicks || 0) + 1
+            }
+          })
+        }
+
+        // Add subscribers data for OnePage Analytics
+        if (analyticsMode === "onepage" && leadEvents.length > 0) {
+          leadEvents.forEach((e: any) => {
+            const dateKey = getDateKey(e.created_at)
+            if (trendDataByKey[dateKey]) {
+              trendDataByKey[dateKey].subscribers = (trendDataByKey[dateKey].subscribers || 0) + 1
             }
           })
         }
@@ -1771,7 +1814,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
                             formatter={(value: number, name: string) => {
                               if (name === "placeholder") return [null, null]
-                              const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue" }
+                              const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers" }
                               if (name === "revenue") return [formatPrice(value), labels[name] || name]
                               return [value.toLocaleString(), labels[name] || name]
                             }}
@@ -1815,7 +1858,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                           <Tooltip
                             contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
                             formatter={(value: number, name: string) => {
-                              const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue" }
+                              const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers" }
                               if (name === "revenue") return [formatPrice(value), labels[name] || name]
                               return [value.toLocaleString(), labels[name] || name]
                             }}
@@ -2064,20 +2107,61 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               )
             ) : mostClickedBlocks.length > 0 ? (
               <div className="space-y-2">
-                {mostClickedBlocks.map((block) => (
-                  <div key={block.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
-                    <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm text-lg">
-                      {block.icon || "🔗"}
+                {mostClickedBlocks.map((block) => {
+                  // Format display URL - hide Supabase storage URLs
+                  const isSupabaseUrl = block.url?.includes('supabase.co/storage')
+                  const displayUrl = isSupabaseUrl
+                    ? (block.blockType === 'file' || block.blockType === 'pdf' ? 'Digital Download' : 'Media File')
+                    : block.url
+
+                  // Get icon based on block type
+                  const getBlockIcon = () => {
+                    if (block.thumbnail) return null // Will show image instead
+                    if (block.icon) return block.icon
+                    switch (block.blockType) {
+                      case 'youtube': return '🎬'
+                      case 'video': return '📹'
+                      case 'file': case 'pdf': return '📄'
+                      case 'image': return '🖼️'
+                      case 'music': case 'audio': return '🎵'
+                      case 'calendar': return '📅'
+                      case 'shop': case 'product': return '🛍️'
+                      case 'social': return '📱'
+                      default: return '🔗'
+                    }
+                  }
+
+                  return (
+                    <div key={block.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
+                      {block.thumbnail ? (
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-[#f3f4f6]">
+                          <img
+                            src={block.thumbnail}
+                            alt={block.label}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to icon on error
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                              target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-lg">${getBlockIcon()}</div>`
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm text-lg flex-shrink-0">
+                          {getBlockIcon()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium text-[#1a1a2e] truncate">{block.label}</p>
+                        <p className="text-[11px] text-[#9ca3af] truncate">{displayUrl}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-[13px] font-semibold text-[#1a1a2e]">{block.clicks.toLocaleString()} clicks</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-[#1a1a2e] truncate">{block.label}</p>
-                      <p className="text-[11px] text-[#9ca3af] truncate">{block.url}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[13px] font-semibold text-[#1a1a2e]">{block.clicks.toLocaleString()} clicks</p>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="py-8 text-center">
@@ -2102,8 +2186,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     <tr className="border-b border-[#e5e7eb]">
                       <th className="text-left text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Country</th>
                       <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Views</th>
-                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Orders</th>
-                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Revenue</th>
+                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">
+                        {analyticsMode === "onepage" ? "Clicks" : "Orders"}
+                      </th>
+                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">
+                        {analyticsMode === "onepage" ? "Subscribers" : "Revenue"}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2124,7 +2212,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             <span className="text-[13px] text-[#6b7280]">{country.orders.toLocaleString()}</span>
                           </td>
                           <td className="text-right py-2.5">
-                            <span className="text-[13px] text-[#6b7280]">{formatPrice(country.revenue)}</span>
+                            <span className="text-[13px] text-[#6b7280]">
+                              {analyticsMode === "onepage" ? country.revenue.toLocaleString() : formatPrice(country.revenue)}
+                            </span>
                           </td>
                         </tr>
                       ))}

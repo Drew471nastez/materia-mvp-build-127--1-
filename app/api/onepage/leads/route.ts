@@ -1,7 +1,23 @@
 import { NextResponse } from "next/server"
+import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { v4 as uuidv4 } from "uuid"
+
+// Country code to name mapping
+const countryNames: Record<string, string> = {
+  US: "United States", GB: "United Kingdom", CA: "Canada", AU: "Australia",
+  DE: "Germany", FR: "France", ES: "Spain", IT: "Italy", NL: "Netherlands",
+  BR: "Brazil", MX: "Mexico", JP: "Japan", KR: "South Korea", IN: "India",
+  CN: "China", RU: "Russia", SE: "Sweden", NO: "Norway", DK: "Denmark",
+  FI: "Finland", PL: "Poland", PT: "Portugal", BE: "Belgium", AT: "Austria",
+  CH: "Switzerland", IE: "Ireland", NZ: "New Zealand", SG: "Singapore",
+  HK: "Hong Kong", TW: "Taiwan", TH: "Thailand", MY: "Malaysia", ID: "Indonesia",
+  PH: "Philippines", VN: "Vietnam", AE: "United Arab Emirates", SA: "Saudi Arabia",
+  ZA: "South Africa", NG: "Nigeria", EG: "Egypt", AR: "Argentina", CL: "Chile",
+  CO: "Colombia", PE: "Peru", IL: "Israel", TR: "Turkey", GR: "Greece",
+  CZ: "Czech Republic", HU: "Hungary", RO: "Romania", UA: "Ukraine",
+}
 
 // POST - Submit a lead (public, no auth required)
 export async function POST(request: Request) {
@@ -10,6 +26,11 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
+    const headersList = await headers()
+
+    // Get country from headers (Vercel provides these)
+    const countryCode = headersList.get("x-vercel-ip-country") || null
+    const countryName = countryCode ? (countryNames[countryCode] || countryCode) : null
 
     const body = await request.json()
     const {
@@ -97,6 +118,8 @@ export async function POST(request: Request) {
         utm_campaign: utm_campaign || null,
         lead_magnet_id: lead_magnet_id || null,
         delivery_status: hasDigitalProduct ? "not_applicable" : "not_applicable",
+        country_code: countryCode,
+        country_name: countryName,
       })
       .select()
       .single()
