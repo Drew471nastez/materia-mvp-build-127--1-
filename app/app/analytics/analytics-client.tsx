@@ -304,11 +304,13 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
       const supabase = createClient()
       const { start, end } = getTimeframeDates()
 
-      // Build query for analytics events - SAME SOURCE AS DASHBOARD
+      // Build query for analytics events - EXACT SAME AS DASHBOARD
+      // Note: Database only has event_types: 'view' and 'purchase' (no 'click')
       let viewsQuery = supabase
         .from("analytics_events")
-        .select("id, visitor_id, session_id, product_id, created_at, event_type, referrer_source")
+        .select("id, visitor_id, session_id, product_id, created_at, source_category")
         .eq("creator_id", creatorId)
+        .eq("event_type", "view")  // Filter at query level like Dashboard
         .gte("created_at", start.toISOString())
         .lte("created_at", end.toISOString())
 
@@ -332,23 +334,19 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
         console.error("Error fetching analytics events:", viewError)
       }
 
-      // Separate view and click events
-      const viewOnlyEvents = (viewEvents || []).filter((e: any) => e.event_type === "view")
-      const clickEvents = (viewEvents || []).filter((e: any) => e.event_type === "click")
+      // All events are already view events (filtered at query level)
+      const viewOnlyEvents = viewEvents || []
 
-      // Calculate views - count all view events (fallback to total count if no visitor_id/session_id)
-      // First try unique views by visitor/session, then fallback to all views
+      // Calculate unique views - EXACT SAME LOGIC AS DASHBOARD
       const uniqueViewKeys = new Set(
         viewOnlyEvents.map((e: any) => {
-          const identity = e.visitor_id || e.session_id || e.id // Use event id as fallback
-          return `${identity}__${e.product_id || "onepage"}`
-        })
+          const identity = e.visitor_id || e.session_id
+          if (!identity) return null
+          return `${identity}__${e.product_id || "store"}`
+        }).filter(Boolean)
       )
 
-      // Use unique count if we have visitor tracking, otherwise count all events
-      const hasVisitorTracking = viewOnlyEvents.some((e: any) => e.visitor_id || e.session_id)
-      const periodViews = hasVisitorTracking ? uniqueViewKeys.size : viewOnlyEvents.length
-      const periodClicks = clickEvents.length || 0
+      const periodViews = uniqueViewKeys.size || 0
 
       // Get orders from initialOrders (same source as Sales page)
       const filteredOrders = getFilteredOrders()
@@ -369,13 +367,13 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
       })
 
       // Set OnePage specific metrics
+      // Note: No 'click' event type in database, so clicks = 0 for now
       if (analyticsMode === "onepage") {
-        const ctr = periodViews > 0 ? (periodClicks / periodViews) * 100 : 0
         setOnePageMetrics({
           views: periodViews,
-          clicks: periodClicks,
-          subscribers: Math.round(periodViews * 0.08),
-          ctr: ctr,
+          clicks: 0,  // Database doesn't track clicks separately
+          subscribers: 0,  // Would need separate tracking
+          ctr: 0,
         })
       }
 
@@ -389,15 +387,6 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           trendDataByDate[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
         }
         trendDataByDate[dateKey].views++
-      })
-
-      clickEvents.forEach((e: any) => {
-        const date = new Date(e.created_at)
-        const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        if (!trendDataByDate[dateKey]) {
-          trendDataByDate[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
-        }
-        trendDataByDate[dateKey].clicks = (trendDataByDate[dateKey].clicks || 0) + 1
       })
 
       filteredOrders.forEach(order => {
@@ -418,10 +407,10 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
 
       setTrendData(trendArray)
 
-      // Traffic sources
+      // Traffic sources (use source_category column from database)
       const trafficBySource: Record<string, { views: number; orders: number }> = {}
       viewOnlyEvents.forEach((e: any) => {
-        const source = e.referrer_source || "direct"
+        const source = e.source_category || "direct"
         if (!trafficBySource[source]) {
           trafficBySource[source] = { views: 0, orders: 0 }
         }
@@ -520,11 +509,13 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
       const isYear = timeframe === "last_year"
       const is90Days = timeframe === "last_90_days"
 
-      if (kpiType === "views" || kpiType === "clicks") {
+      if (kpiType === "views") {
+        // Database only has 'view' event type - filter at query level like Dashboard
         let query = supabase
           .from("analytics_events")
-          .select("id, visitor_id, session_id, product_id, created_at, event_type")
+          .select("id, visitor_id, session_id, product_id, created_at")
           .eq("creator_id", creatorId)
+          .eq("event_type", "view")  // Filter at query level
           .gte("created_at", start.toISOString())
           .lte("created_at", end.toISOString())
 
@@ -542,8 +533,8 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
 
         const { data: events } = await query
 
-        const eventType = kpiType === "views" ? "view" : "click"
-        const filteredEvents = (events || []).filter((e: any) => e.event_type === eventType)
+        // All events are views (filtered at query level)
+        const filteredEvents = events || []
 
         if (isToday || isYesterday) {
           for (let hour = 0; hour <= (isToday ? new Date().getHours() : 23); hour++) {
