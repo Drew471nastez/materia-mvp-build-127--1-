@@ -39,6 +39,7 @@ interface Order {
 
 interface AnalyticsClientProps {
   creatorId: string
+  userId: string
   products: Product[]
   initialOrders: Order[]
 }
@@ -223,7 +224,7 @@ const CHART_COLORS = {
 
 const PIE_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f5f3ff"]
 
-export function AnalyticsClient({ creatorId, products, initialOrders }: AnalyticsClientProps) {
+export function AnalyticsClient({ creatorId, userId, products, initialOrders }: AnalyticsClientProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [timeframe, setTimeframe] = useState("last_7_days")
@@ -312,11 +313,11 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
 
       if (analyticsMode === "onepage") {
         // OnePage Analytics - fetch from dedicated onepage tables
-        // First get the creator's onepage
+        // First get the user's onepage (owner_id is user.id, not creator.id)
         const { data: onepage } = await supabase
           .from("onepages")
           .select("id")
-          .eq("owner_id", creatorId)
+          .eq("owner_id", userId)
           .maybeSingle()
 
         if (onepage?.id) {
@@ -502,13 +503,24 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
         }
       } else {
         // Generate daily trend data for other timeframes
+        // First, initialize all dates in the timeframe with 0 values
+        const startDate = new Date(start)
+        const endDate = new Date(end)
+        const currentDate = new Date(startDate)
+
+        while (currentDate <= endDate) {
+          const dateKey = currentDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+          currentDate.setDate(currentDate.getDate() + 1)
+        }
+
+        // Populate with view data
         viewOnlyEvents.forEach((e: any) => {
           const date = new Date(e.created_at)
           const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-          if (!trendDataByKey[dateKey]) {
-            trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+          if (trendDataByKey[dateKey]) {
+            trendDataByKey[dateKey].views++
           }
-          trendDataByKey[dateKey].views++
         })
 
         // Add clicks data for OnePage Analytics
@@ -516,10 +528,9 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           clickEvents.forEach((e: any) => {
             const date = new Date(e.created_at)
             const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-            if (!trendDataByKey[dateKey]) {
-              trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+            if (trendDataByKey[dateKey]) {
+              trendDataByKey[dateKey].clicks = (trendDataByKey[dateKey].clicks || 0) + 1
             }
-            trendDataByKey[dateKey].clicks = (trendDataByKey[dateKey].clicks || 0) + 1
           })
         }
 
@@ -528,11 +539,10 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           filteredOrders.forEach(order => {
             const date = new Date(order.created_at)
             const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-            if (!trendDataByKey[dateKey]) {
-              trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+            if (trendDataByKey[dateKey]) {
+              trendDataByKey[dateKey].sales++
+              trendDataByKey[dateKey].revenue += order.amount_cents
             }
-            trendDataByKey[dateKey].sales++
-            trendDataByKey[dateKey].revenue += order.amount_cents
           })
         }
       }
@@ -616,7 +626,7 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [creatorId, getTimeframeDates, selectedProduct, analyticsMode, getFilteredOrders, products])
+  }, [creatorId, userId, getTimeframeDates, selectedProduct, analyticsMode, getFilteredOrders, products])
 
   useEffect(() => {
     fetchAnalytics()

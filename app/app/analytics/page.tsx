@@ -58,5 +58,5 @@ export default async function AnalyticsPage() {
     })
   }
 
-  return <AnalyticsClient creatorId={creator.id} products={products} initialOrders={initialOrders} />
+  return <AnalyticsClient creatorId={creator.id} userId={user.id} products={products} initialOrders={initialOrders} />
 }
