@@ -956,41 +956,43 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       }))
       setDeviceData(deviceDataArray)
 
-      // Country data from analytics events
-      const countryStats: Record<string, { views: number; orders: number; revenue: number; name: string }> = {}
-      viewOnlyEvents.forEach((e: any) => {
-        const code = e.country_code || "XX"
-        const name = e.country_name || "Unknown"
-        if (!countryStats[code]) {
-          countryStats[code] = { views: 0, orders: 0, revenue: 0, name }
-        }
-        countryStats[code].views++
-      })
+      // Country data from analytics events (ONLY for Store mode - OnePage sets its own country data)
+      if (analyticsMode === "store") {
+        const countryStats: Record<string, { views: number; orders: number; revenue: number; name: string }> = {}
+        viewOnlyEvents.forEach((e: any) => {
+          const code = e.country_code || "XX"
+          const name = e.country_name || "Unknown"
+          if (!countryStats[code]) {
+            countryStats[code] = { views: 0, orders: 0, revenue: 0, name }
+          }
+          countryStats[code].views++
+        })
 
-      // Add order data by country from filtered orders
-      filteredOrders.forEach((order: any) => {
-        const code = order.buyer_country_code || "XX"
-        const name = order.buyer_country || "Unknown"
-        if (!countryStats[code]) {
-          countryStats[code] = { views: 0, orders: 0, revenue: 0, name }
-        }
-        countryStats[code].orders++
-        countryStats[code].revenue += order.amount_cents || 0
-      })
+        // Add order data by country from filtered orders
+        filteredOrders.forEach((order: any) => {
+          const code = order.buyer_country_code || "XX"
+          const name = order.buyer_country || "Unknown"
+          if (!countryStats[code]) {
+            countryStats[code] = { views: 0, orders: 0, revenue: 0, name }
+          }
+          countryStats[code].orders++
+          countryStats[code].revenue += order.amount_cents || 0
+        })
 
-      const countryDataArray = Object.entries(countryStats)
-        .map(([code, data]) => ({
-          code,
-          name: data.name,
-          views: data.views,
-          orders: data.orders,
-          revenue: data.revenue,
-          conversionRate: data.views > 0 ? (data.orders / data.views) * 100 : 0,
-        }))
-        .filter(c => c.code !== "XX" && c.name !== "Unknown")
-        .sort((a, b) => b.views - a.views)
+        const countryDataArray = Object.entries(countryStats)
+          .map(([code, data]) => ({
+            code,
+            name: data.name,
+            views: data.views,
+            orders: data.orders,
+            revenue: data.revenue,
+            conversionRate: data.views > 0 ? (data.orders / data.views) * 100 : 0,
+          }))
+          .filter(c => c.code !== "XX" && c.name !== "Unknown")
+          .sort((a, b) => b.views - a.views)
 
-      setCountryData(countryDataArray)
+        setCountryData(countryDataArray)
+      }
 
       // Top products (for store analytics) - fetch with cover images
       if (analyticsMode === "store") {
