@@ -304,7 +304,7 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
       const supabase = createClient()
       const { start, end } = getTimeframeDates()
 
-      // Build query for analytics events
+      // Build query for analytics events - SAME SOURCE AS DASHBOARD
       let viewsQuery = supabase
         .from("analytics_events")
         .select("id, visitor_id, session_id, product_id, created_at, event_type, referrer_source")
@@ -312,14 +312,13 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
         .gte("created_at", start.toISOString())
         .lte("created_at", end.toISOString())
 
-      // For store analytics - get events WITH product_id (store product views)
+      // For store analytics - match Dashboard behavior (get ALL views)
       if (analyticsMode === "store") {
         if (selectedProduct !== "all") {
+          // Filter by specific product when selected
           viewsQuery = viewsQuery.eq("product_id", selectedProduct)
-        } else {
-          // For "All products" in store mode, get all events with a product_id
-          viewsQuery = viewsQuery.not("product_id", "is", null)
         }
+        // When "All products" is selected, DON'T filter by product_id (same as Dashboard)
       }
 
       // For OnePage analytics - filter for onepage views (null product_id)
@@ -529,13 +528,12 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           .gte("created_at", start.toISOString())
           .lte("created_at", end.toISOString())
 
-        // For store analytics - get events WITH product_id
+        // For store analytics - match Dashboard behavior (get ALL views when "All products")
         if (analyticsMode === "store") {
           if (selectedProduct !== "all") {
             query = query.eq("product_id", selectedProduct)
-          } else {
-            query = query.not("product_id", "is", null)
           }
+          // When "All products", DON'T filter - get ALL views like Dashboard
         }
         // For OnePage analytics - get events WITHOUT product_id
         if (analyticsMode === "onepage") {
