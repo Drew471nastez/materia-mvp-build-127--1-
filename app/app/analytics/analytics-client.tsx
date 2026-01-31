@@ -506,17 +506,69 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           const blocks = (onepage.published_blocks || onepage.draft_blocks || []) as any[]
           const blockMap = new Map(blocks.map((b: any) => [b.id, b]))
 
+          // Helper function to extract thumbnail based on block type
+          const getBlockThumbnail = (block: any): string | null => {
+            if (!block?.data) return null
+            const data = block.data
+            const type = block.type
+
+            switch (type) {
+              case 'link_button':
+                // Check for streaming service thumbnails first, then custom thumbnail
+                return data.thumbnail_url || data.spotify_thumbnail || data.apple_music_thumbnail || data.soundcloud_thumbnail || null
+              case 'product':
+                // Custom thumbnail overrides product thumbnail
+                return data.custom_thumbnail || data.product_thumbnail || null
+              case 'email_capture':
+                return data.product_image || data.digital_product_thumbnail || null
+              case 'pdf_document':
+              case 'food_menu':
+              case 'calendly':
+                return data.thumbnail_url || null
+              case 'image':
+                // For image blocks, use the main image
+                return data.image_url || (data.images?.[0]?.image_url) || null
+              default:
+                return data.thumbnail_url || data.thumbnail || data.image || data.image_url || null
+            }
+          }
+
+          // Helper function to get block label
+          const getBlockLabel = (block: any): string => {
+            if (!block?.data) return "Link"
+            const data = block.data
+            const type = block.type
+
+            switch (type) {
+              case 'link_button':
+                return data.label || data.spotify_title || data.apple_music_title || data.soundcloud_title || "Link"
+              case 'product':
+                return data.product_title || "Product"
+              case 'email_capture':
+                return data.headline || data.digital_product_title || "Subscribe"
+              case 'pdf_document':
+              case 'food_menu':
+              case 'calendly':
+                return data.title || "Link"
+              case 'image':
+                return data.alt_text || data.images?.[0]?.title || "Image"
+              case 'text':
+                return data.content?.slice(0, 30) || "Text"
+              default:
+                return data.label || data.title || data.name || "Link"
+            }
+          }
+
           // Create most clicked blocks array with proper thumbnails
           const mostClicked = Object.entries(clicksByBlock)
             .map(([blockId, data]) => {
               const block = blockMap.get(blockId)
               const blockType = block?.type || null
-              // Get thumbnail from block data (image, thumbnail, or avatar)
-              const thumbnail = block?.data?.image || block?.data?.thumbnail || block?.data?.avatar || null
+              const thumbnail = getBlockThumbnail(block)
               return {
                 id: blockId,
-                label: block?.data?.label || block?.data?.title || block?.data?.name || "Link",
-                url: data.url || block?.data?.url || "",
+                label: getBlockLabel(block),
+                url: data.url || block?.data?.url || block?.data?.calendly_url || "",
                 clicks: data.clicks,
                 icon: block?.data?.icon || null,
                 thumbnail,
@@ -2111,25 +2163,63 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             ) : mostClickedBlocks.length > 0 ? (
               <div className="space-y-2">
                 {mostClickedBlocks.map((block) => {
-                  // Format display URL - hide Supabase storage URLs
-                  const isSupabaseUrl = block.url?.includes('supabase.co/storage')
-                  const displayUrl = isSupabaseUrl
-                    ? (block.blockType === 'file' || block.blockType === 'pdf' ? 'Digital Download' : 'Media File')
-                    : block.url
+                  // Format display URL - hide Supabase storage URLs and clean up display
+                  const url = block.url || ""
+                  const isSupabaseUrl = url.includes('supabase.co/storage')
+                  const isPdfUrl = url.toLowerCase().endsWith('.pdf')
 
-                  // Get icon based on block type
+                  // Determine friendly display URL
+                  let displayUrl = url
+                  if (isSupabaseUrl || isPdfUrl) {
+                    displayUrl = block.blockType === 'pdf_document' || block.blockType === 'food_menu'
+                      ? 'PDF Document'
+                      : 'Digital Download'
+                  } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                    displayUrl = 'youtube.com'
+                  } else if (url.includes('spotify.com')) {
+                    displayUrl = 'spotify.com'
+                  } else if (url.includes('soundcloud.com')) {
+                    displayUrl = 'soundcloud.com'
+                  } else if (url.includes('apple.com/music') || url.includes('music.apple.com')) {
+                    displayUrl = 'music.apple.com'
+                  } else if (url.includes('calendly.com')) {
+                    displayUrl = 'calendly.com'
+                  } else if (url.length > 40) {
+                    // Truncate long URLs
+                    try {
+                      const urlObj = new URL(url)
+                      displayUrl = urlObj.hostname
+                    } catch {
+                      displayUrl = url.slice(0, 40) + '...'
+                    }
+                  }
+
+                  // Get icon based on block type and URL patterns
                   const getBlockIcon = () => {
-                    if (block.thumbnail) return null // Will show image instead
                     if (block.icon) return block.icon
+
+                    // Check URL patterns first
+                    if (url.includes('youtube.com') || url.includes('youtu.be')) return '🎬'
+                    if (url.includes('spotify.com')) return '🎵'
+                    if (url.includes('soundcloud.com')) return '🎵'
+                    if (url.includes('apple.com/music') || url.includes('music.apple.com')) return '🎵'
+                    if (url.includes('tiktok.com')) return '📱'
+                    if (url.includes('instagram.com')) return '📷'
+                    if (url.includes('twitter.com') || url.includes('x.com')) return '🐦'
+                    if (url.includes('calendly.com')) return '📅'
+                    if (url.includes('amazon.com') || url.includes('amzn.')) return '🛒'
+                    if (url.includes('gumroad.com') || url.includes('stan.store') || url.includes('shopify')) return '🛍️'
+
+                    // Check block type
                     switch (block.blockType) {
-                      case 'youtube': return '🎬'
-                      case 'video': return '📹'
-                      case 'file': case 'pdf': return '📄'
+                      case 'link_button': return '🔗'
+                      case 'product': return '🛍️'
+                      case 'pdf_document': return '📄'
+                      case 'food_menu': return '🍽️'
+                      case 'calendly': return '📅'
+                      case 'email_capture': return '📧'
                       case 'image': return '🖼️'
-                      case 'music': case 'audio': return '🎵'
-                      case 'calendar': return '📅'
-                      case 'shop': case 'product': return '🛍️'
-                      case 'social': return '📱'
+                      case 'social_row': return '📱'
                       default: return '🔗'
                     }
                   }
