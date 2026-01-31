@@ -9,7 +9,11 @@ import {
   Eye, ShoppingCart, DollarSign, Globe, TrendingUp, TrendingDown,
   Smartphone, Monitor, Tablet, ArrowUpRight,
   ArrowDownRight, Users, Target, MousePointer, BarChart3, PieChart as PieChartIcon,
-  Zap, Clock, ChevronDown, ChevronUp, X, Wallet, MousePointerClick, UserPlus, Percent, Link2, Sparkles
+  Zap, Clock, ChevronDown, ChevronUp, X, Wallet, MousePointerClick, UserPlus, Percent, Link2, Sparkles,
+  Youtube, Music, Instagram, Twitter, Facebook, Linkedin, Github, MessageCircle,
+  Calendar, FileText, Image, Mail, ExternalLink, Download, ShoppingBag,
+  Video, Headphones, Mic, Heart, Star, Gift, Ticket, Coffee, Pizza, UtensilsCrossed,
+  Send, Hash, Camera, Play, Radio, Gamepad2, BookOpen, Rocket, DollarSign as Dollar
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -2194,117 +2198,144 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     }
                   }
 
-                  // Map text-based icons to emojis
-                  const textToEmoji: Record<string, string> = {
-                    'spotify': '🎵',
-                    'youtube': '🎬',
-                    'soundcloud': '🎵',
-                    'apple_music': '🎵',
-                    'applemusic': '🎵',
-                    'tiktok': '📱',
-                    'instagram': '📷',
-                    'twitter': '🐦',
-                    'x': '🐦',
-                    'facebook': '👥',
-                    'linkedin': '💼',
-                    'github': '💻',
-                    'discord': '💬',
-                    'twitch': '🎮',
-                    'pinterest': '📌',
-                    'snapchat': '👻',
-                    'whatsapp': '💬',
-                    'telegram': '✈️',
-                    'reddit': '🔴',
-                    'email': '📧',
-                    'mail': '📧',
-                    'calendar': '📅',
-                    'calendly': '📅',
-                    'shop': '🛍️',
-                    'store': '🛍️',
-                    'cart': '🛒',
-                    'pdf': '📄',
-                    'document': '📄',
-                    'file': '📁',
-                    'download': '⬇️',
-                    'link': '🔗',
-                    'website': '🌐',
-                    'globe': '🌐',
-                    'music': '🎵',
-                    'video': '🎬',
-                    'photo': '📷',
-                    'image': '🖼️',
-                    'book': '📚',
-                    'podcast': '🎙️',
-                    'microphone': '🎤',
-                    'headphones': '🎧',
-                    'heart': '❤️',
-                    'star': '⭐',
-                    'fire': '🔥',
-                    'rocket': '🚀',
-                    'money': '💰',
-                    'dollar': '💵',
-                    'gift': '🎁',
-                    'ticket': '🎫',
-                    'food': '🍽️',
-                    'menu': '🍽️',
-                    'coffee': '☕',
-                    'pizza': '🍕',
-                  }
+                  // Get SVG icon component based on block icon, URL, or type
+                  const getBlockIconComponent = () => {
+                    const iconClass = "h-5 w-5 text-[#6b7280]"
+                    const iconLower = (block.icon || "").toLowerCase().trim()
 
-                  // Get icon based on block type and URL patterns
-                  const getBlockIcon = (): string => {
-                    // Convert text-based icon to emoji if exists
-                    if (block.icon) {
-                      const iconLower = block.icon.toLowerCase().trim()
-                      // Check if it's already an emoji (starts with non-ASCII character)
-                      if (iconLower.charCodeAt(0) > 127) {
-                        return block.icon
-                      }
-                      // Convert text to emoji
-                      if (textToEmoji[iconLower]) {
-                        return textToEmoji[iconLower]
-                      }
-                      // Check if text contains known platform
-                      for (const [key, emoji] of Object.entries(textToEmoji)) {
-                        if (iconLower.includes(key)) {
-                          return emoji
-                        }
-                      }
+                    // Check text-based icon names first
+                    if (iconLower.includes('spotify') || iconLower.includes('music')) {
+                      return <Music className={iconClass} />
+                    }
+                    if (iconLower.includes('youtube') || iconLower.includes('video')) {
+                      return <Youtube className={iconClass} />
+                    }
+                    if (iconLower.includes('instagram')) {
+                      return <Instagram className={iconClass} />
+                    }
+                    if (iconLower.includes('twitter') || iconLower.includes('x')) {
+                      return <Twitter className={iconClass} />
+                    }
+                    if (iconLower.includes('facebook')) {
+                      return <Facebook className={iconClass} />
+                    }
+                    if (iconLower.includes('linkedin')) {
+                      return <Linkedin className={iconClass} />
+                    }
+                    if (iconLower.includes('github')) {
+                      return <Github className={iconClass} />
+                    }
+                    if (iconLower.includes('discord') || iconLower.includes('chat') || iconLower.includes('message')) {
+                      return <MessageCircle className={iconClass} />
+                    }
+                    if (iconLower.includes('twitch') || iconLower.includes('game')) {
+                      return <Gamepad2 className={iconClass} />
+                    }
+                    if (iconLower.includes('calendar') || iconLower.includes('calendly')) {
+                      return <Calendar className={iconClass} />
+                    }
+                    if (iconLower.includes('mail') || iconLower.includes('email')) {
+                      return <Mail className={iconClass} />
+                    }
+                    if (iconLower.includes('shop') || iconLower.includes('store') || iconLower.includes('cart')) {
+                      return <ShoppingBag className={iconClass} />
+                    }
+                    if (iconLower.includes('pdf') || iconLower.includes('document') || iconLower.includes('file')) {
+                      return <FileText className={iconClass} />
+                    }
+                    if (iconLower.includes('download')) {
+                      return <Download className={iconClass} />
+                    }
+                    if (iconLower.includes('image') || iconLower.includes('photo')) {
+                      return <Image className={iconClass} />
+                    }
+                    if (iconLower.includes('headphone') || iconLower.includes('audio')) {
+                      return <Headphones className={iconClass} />
+                    }
+                    if (iconLower.includes('mic') || iconLower.includes('podcast')) {
+                      return <Mic className={iconClass} />
+                    }
+                    if (iconLower.includes('heart')) {
+                      return <Heart className={iconClass} />
+                    }
+                    if (iconLower.includes('star')) {
+                      return <Star className={iconClass} />
+                    }
+                    if (iconLower.includes('gift')) {
+                      return <Gift className={iconClass} />
+                    }
+                    if (iconLower.includes('ticket')) {
+                      return <Ticket className={iconClass} />
+                    }
+                    if (iconLower.includes('food') || iconLower.includes('menu') || iconLower.includes('restaurant')) {
+                      return <UtensilsCrossed className={iconClass} />
+                    }
+                    if (iconLower.includes('coffee')) {
+                      return <Coffee className={iconClass} />
+                    }
+                    if (iconLower.includes('book')) {
+                      return <BookOpen className={iconClass} />
+                    }
+                    if (iconLower.includes('rocket')) {
+                      return <Rocket className={iconClass} />
+                    }
+                    if (iconLower.includes('globe') || iconLower.includes('website') || iconLower.includes('web')) {
+                      return <Globe className={iconClass} />
                     }
 
                     // Check URL patterns
-                    if (url.includes('youtube.com') || url.includes('youtu.be')) return '🎬'
-                    if (url.includes('spotify.com')) return '🎵'
-                    if (url.includes('soundcloud.com')) return '🎵'
-                    if (url.includes('apple.com/music') || url.includes('music.apple.com')) return '🎵'
-                    if (url.includes('tiktok.com')) return '📱'
-                    if (url.includes('instagram.com')) return '📷'
-                    if (url.includes('twitter.com') || url.includes('x.com')) return '🐦'
-                    if (url.includes('facebook.com')) return '👥'
-                    if (url.includes('linkedin.com')) return '💼'
-                    if (url.includes('calendly.com')) return '📅'
-                    if (url.includes('amazon.com') || url.includes('amzn.')) return '🛒'
-                    if (url.includes('gumroad.com') || url.includes('stan.store') || url.includes('shopify')) return '🛍️'
-                    if (url.includes('patreon.com')) return '💰'
-                    if (url.includes('discord.com') || url.includes('discord.gg')) return '💬'
-                    if (url.includes('twitch.tv')) return '🎮'
-                    if (url.includes('github.com')) return '💻'
+                    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                      return <Youtube className={iconClass} />
+                    }
+                    if (url.includes('spotify.com') || url.includes('soundcloud.com') || url.includes('music.apple.com')) {
+                      return <Music className={iconClass} />
+                    }
+                    if (url.includes('instagram.com')) {
+                      return <Instagram className={iconClass} />
+                    }
+                    if (url.includes('twitter.com') || url.includes('x.com')) {
+                      return <Twitter className={iconClass} />
+                    }
+                    if (url.includes('facebook.com')) {
+                      return <Facebook className={iconClass} />
+                    }
+                    if (url.includes('linkedin.com')) {
+                      return <Linkedin className={iconClass} />
+                    }
+                    if (url.includes('github.com')) {
+                      return <Github className={iconClass} />
+                    }
+                    if (url.includes('discord.com') || url.includes('discord.gg')) {
+                      return <MessageCircle className={iconClass} />
+                    }
+                    if (url.includes('twitch.tv')) {
+                      return <Gamepad2 className={iconClass} />
+                    }
+                    if (url.includes('calendly.com')) {
+                      return <Calendar className={iconClass} />
+                    }
+                    if (url.includes('tiktok.com')) {
+                      return <Video className={iconClass} />
+                    }
+                    if (url.includes('amazon.com') || url.includes('amzn.') || url.includes('gumroad.com') || url.includes('shopify')) {
+                      return <ShoppingBag className={iconClass} />
+                    }
+                    if (url.includes('patreon.com')) {
+                      return <Dollar className={iconClass} />
+                    }
 
                     // Check block type
                     switch (block.blockType) {
-                      case 'link_button': return '🔗'
-                      case 'product': return '🛍️'
-                      case 'pdf_document': return '📄'
-                      case 'food_menu': return '🍽️'
-                      case 'calendly': return '📅'
-                      case 'email_capture': return '📧'
-                      case 'image': return '🖼️'
-                      case 'social_row': return '📱'
-                      default: return '🔗'
+                      case 'product': return <ShoppingBag className={iconClass} />
+                      case 'pdf_document': return <FileText className={iconClass} />
+                      case 'food_menu': return <UtensilsCrossed className={iconClass} />
+                      case 'calendly': return <Calendar className={iconClass} />
+                      case 'email_capture': return <Mail className={iconClass} />
+                      case 'image': return <Image className={iconClass} />
+                      case 'social_row': return <Users className={iconClass} />
+                      default: return <ExternalLink className={iconClass} />
                     }
                   }
-
-                  const iconEmoji = getBlockIcon()
 
                   return (
                     <div key={block.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
@@ -2315,16 +2346,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             alt={block.label}
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                              // Fallback to icon on error
+                              // Hide broken image
                               const target = e.target as HTMLImageElement
                               target.style.display = 'none'
-                              target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-lg">${iconEmoji}</div>`
                             }}
                           />
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm text-lg flex-shrink-0">
-                          {iconEmoji}
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm flex-shrink-0">
+                          {getBlockIconComponent()}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
