@@ -110,6 +110,7 @@ interface ChartDataPoint {
 type AnalyticsMode = "store" | "onepage"
 type KPIType = "views" | "orders" | "revenue" | "conversion" | "clicks" | "subscribers" | "ctr" | null
 type ChartMetricFilter = "all" | "views" | "orders" | "revenue"
+type OnePageChartFilter = "all" | "views" | "clicks" | "subscribers"
 
 type TimeframeOption = {
   value: string
@@ -282,6 +283,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [analyticsMode, setAnalyticsMode] = useState<AnalyticsMode>("store")
   const [chartViewType, setChartViewType] = useState<"bars" | "line">("line")
   const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("views")
+  const [onePageChartFilter, setOnePageChartFilter] = useState<OnePageChartFilter>("views")
 
   // KPI Modal state
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
@@ -787,8 +789,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           revenue: data.revenue,
           conversionRate: data.views > 0 ? (data.orders / data.views) * 100 : 0,
         }))
+        .filter(c => c.code !== "XX" && c.name !== "Unknown")
         .sort((a, b) => b.views - a.views)
-        .slice(0, 10)
 
       setCountryData(countryDataArray)
 
@@ -1480,11 +1482,11 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Activity Card - Bar/Line Chart with Switcher */}
         <Card className="border-[#e5e7eb] bg-white shadow-sm">
-          <CardHeader className="pb-2 sm:pb-1">
+          <CardHeader className="pb-1 sm:pb-0">
             <div className="flex items-center justify-between">
               <CardTitle className="text-[15px] font-semibold text-[#1a1a2e] hidden sm:block">Activity</CardTitle>
               <div className="flex items-center gap-3">
-                {/* Metric Filter Selector */}
+                {/* Metric Filter Selector - Store */}
                 {analyticsMode === "store" && (
                   <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
                     <button
@@ -1529,6 +1531,51 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </button>
                   </div>
                 )}
+                {/* Metric Filter Selector - OnePage */}
+                {analyticsMode === "onepage" && (
+                  <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
+                    <button
+                      onClick={() => setOnePageChartFilter("all")}
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
+                        onePageChartFilter === "all"
+                          ? "bg-white text-[#8b5cf6] shadow-sm"
+                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setOnePageChartFilter("views")}
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
+                        onePageChartFilter === "views"
+                          ? "bg-white text-[#6366f1] shadow-sm"
+                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
+                      }`}
+                    >
+                      Views
+                    </button>
+                    <button
+                      onClick={() => setOnePageChartFilter("clicks")}
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
+                        onePageChartFilter === "clicks"
+                          ? "bg-white text-[#a78bfa] shadow-sm"
+                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
+                      }`}
+                    >
+                      Clicks
+                    </button>
+                    <button
+                      onClick={() => setOnePageChartFilter("subscribers")}
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
+                        onePageChartFilter === "subscribers"
+                          ? "bg-white text-[#10b981] shadow-sm"
+                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
+                      }`}
+                    >
+                      Subscribers
+                    </button>
+                  </div>
+                )}
                 {/* Chart View Switcher */}
                 <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
                   <button
@@ -1561,7 +1608,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             {isLoading ? (
               <Skeleton className="h-[200px] w-full" />
             ) : (
-              <div className="space-y-3 sm:space-y-2">
+              <div className="space-y-2 sm:space-y-1">
                 {/* Stats Header - Same values as KPI cards */}
                 <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
                   <div>
@@ -1589,13 +1636,22 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       </div>
                     </>
                   ) : (
-                    <div>
-                      <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalClicksInChart)}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <div className="w-2 h-2 rounded-full bg-[#a78bfa]" />
-                        <p className="text-[13px] text-[#6b7280]">Clicks</p>
+                    <>
+                      <div>
+                        <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalClicksInChart)}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <div className="w-2 h-2 rounded-full bg-[#a78bfa]" />
+                          <p className="text-[13px] text-[#6b7280]">Clicks</p>
+                        </div>
                       </div>
-                    </div>
+                      <div>
+                        <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(onePageMetrics.subscribers)}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <div className="w-2 h-2 rounded-full bg-[#10b981]" />
+                          <p className="text-[13px] text-[#6b7280]">Subscribers</p>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -1611,7 +1667,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             placeholder: (d.views === 0 && d.sales === 0 && d.revenue === 0) ? 0.3 : 0
                           }))}
                           margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                          barCategoryGap="10%"
+                          barCategoryGap="5%"
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                           <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
@@ -1648,8 +1704,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
                             <Bar yAxisId="left" dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
                           )}
-                          {analyticsMode === "onepage" && (
+                          {/* OnePage bars */}
+                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
+                            <Bar yAxisId="left" dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
+                          )}
+                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
                             <Bar yAxisId="left" dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
+                          )}
+                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
+                            <Bar yAxisId="left" dataKey="subscribers" fill="#10b981" radius={[4, 4, 0, 0]} name="subscribers" />
                           )}
                         </BarChart>
                       ) : (
@@ -1711,7 +1774,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               name="revenue"
                             />
                           )}
-                          {analyticsMode === "onepage" && (
+                          {/* OnePage lines */}
+                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
+                            <Line
+                              yAxisId="left"
+                              type="monotone"
+                              dataKey="views"
+                              stroke={CHART_COLORS.views}
+                              strokeWidth={2}
+                              dot={{ fill: CHART_COLORS.views, strokeWidth: 0, r: 3 }}
+                              activeDot={{ r: 5 }}
+                              name="views"
+                            />
+                          )}
+                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
                             <Line
                               yAxisId="left"
                               type="monotone"
@@ -1721,6 +1797,18 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               dot={{ fill: CHART_COLORS.clicks, strokeWidth: 0, r: 3 }}
                               activeDot={{ r: 5 }}
                               name="clicks"
+                            />
+                          )}
+                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
+                            <Line
+                              yAxisId="left"
+                              type="monotone"
+                              dataKey="subscribers"
+                              stroke="#10b981"
+                              strokeWidth={2}
+                              dot={{ fill: "#10b981", strokeWidth: 0, r: 3 }}
+                              activeDot={{ r: 5 }}
+                              name="subscribers"
                             />
                           )}
                         </LineChart>
@@ -1754,10 +1842,16 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       </div>
                     </>
                   ) : (
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-[#a78bfa]" />
-                      <span className="text-[12px] text-[#6b7280]">Clicks</span>
-                    </div>
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#a78bfa]" />
+                        <span className="text-[12px] text-[#6b7280]">Clicks</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
+                        <span className="text-[12px] text-[#6b7280]">Subscribers</span>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -1801,14 +1895,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </Card>
 
           <Card className="border-[#e5e7eb] bg-white">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-1">
               <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Device Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <Skeleton className="h-[200px] w-full" />
               ) : deviceData.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {deviceData.map((device, idx) => {
                     const percentage = totalDeviceViews > 0 ? (device.views / totalDeviceViews) * 100 : 0
                     return (
@@ -1915,42 +2009,41 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-[200px] w-full" />
-            ) : countryData.length > 0 ? (
-              <div className="space-y-2">
-                {countryData.slice(0, 5).map((country, idx) => {
-                  const maxViews = countryData[0]?.views || 1
-                  const barWidth = (country.views / maxViews) * 100
-                  return (
-                    <div key={country.code} className="flex items-center gap-3">
-                      <div className="w-8 text-center text-[18px]">{getCountryFlag(country.code)}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[13px] font-medium text-[#1a1a2e] truncate">{country.name}</span>
-                          <span className="text-[12px] text-[#6b7280] ml-2 shrink-0">{country.views.toLocaleString()} views</span>
-                        </div>
-                        <div className="h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-300"
-                            style={{
-                              width: `${barWidth}%`,
-                              backgroundColor: PIE_COLORS[idx % PIE_COLORS.length]
-                            }}
-                          />
-                        </div>
-                        {(country.orders > 0 || country.revenue > 0) && (
-                          <div className="flex items-center gap-3 mt-1">
-                            {country.orders > 0 && (
-                              <span className="text-[11px] text-[#9ca3af]">{country.orders} orders</span>
-                            )}
-                            {country.revenue > 0 && (
-                              <span className="text-[11px] text-[#9ca3af]">{formatPrice(country.revenue)}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+            ) : countryData.filter(c => c.code !== "XX" && c.name !== "Unknown").length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#e5e7eb]">
+                      <th className="text-left text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Country</th>
+                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Views</th>
+                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Orders</th>
+                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {countryData
+                      .filter(c => c.code !== "XX" && c.name !== "Unknown")
+                      .map((country) => (
+                        <tr key={country.code} className="border-b border-[#f3f4f6] last:border-0">
+                          <td className="py-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[16px]">{getCountryFlag(country.code)}</span>
+                              <span className="text-[13px] font-medium text-[#1a1a2e]">{country.name}</span>
+                            </div>
+                          </td>
+                          <td className="text-right py-2.5">
+                            <span className="text-[13px] text-[#6b7280]">{country.views.toLocaleString()}</span>
+                          </td>
+                          <td className="text-right py-2.5">
+                            <span className="text-[13px] text-[#6b7280]">{country.orders.toLocaleString()}</span>
+                          </td>
+                          <td className="text-right py-2.5">
+                            <span className="text-[13px] text-[#6b7280]">{formatPrice(country.revenue)}</span>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <div className="py-6 text-center">
