@@ -1245,16 +1245,16 @@ export function DashboardClient({
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
+                  <span className="text-[13px] font-medium text-[#6b7280]">Views</span>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <Eye className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCompactNumber(analyticsData.totalViews)}</span>
+                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCompactNumber(analyticsData.periodViews)}</span>
                   <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
                 </div>
-                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(analyticsData.periodViews)} {formatPeriodText(timeframe)}</p>
+                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(analyticsData.totalViews)} all time</p>
               </>
             )}
           </div>
@@ -1315,16 +1315,16 @@ export function DashboardClient({
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
+                  <span className="text-[13px] font-medium text-[#6b7280]">Orders</span>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCompactNumber(analyticsData.totalOrders)}</span>
+                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCompactNumber(analyticsData.periodOrders)}</span>
                   <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
                 </div>
-                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(analyticsData.periodOrders)} {formatPeriodText(timeframe)}</p>
+                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(analyticsData.totalOrders)} all time</p>
               </>
             )}
           </div>
@@ -1385,7 +1385,7 @@ export function DashboardClient({
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
+                  <span className="text-[13px] font-medium text-[#6b7280]">Revenue</span>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <DollarSign className="h-4 w-4 text-[#9ca3af]" />
                   </div>
