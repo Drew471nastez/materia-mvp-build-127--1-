@@ -227,7 +227,9 @@ const PIE_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f5f
 // Helper function to normalize date to local date string for consistent key generation
 function getDateKey(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  // Use explicit month names to avoid locale issues
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${months[d.getMonth()]} ${d.getDate()}`
 }
 
 export function AnalyticsClient({ creatorId, userId, products, initialOrders }: AnalyticsClientProps) {
@@ -473,7 +475,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           }
           const hourKey = `${hourDate.getHours().toString().padStart(2, '0')}:00`
           const dateLabel = timeframe === "last_48_hours"
-            ? `${hourDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
+            ? `${getDateKey(hourDate)} ${hourKey}`
             : hourKey
           trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0 }
         }
@@ -483,7 +485,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           const date = new Date(e.created_at)
           const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
           const dateLabel = timeframe === "last_48_hours"
-            ? `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
+            ? `${getDateKey(date)} ${hourKey}`
             : hourKey
           if (trendDataByKey[dateLabel]) {
             trendDataByKey[dateLabel].views++
@@ -496,7 +498,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             const date = new Date(e.created_at)
             const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
             const dateLabel = timeframe === "last_48_hours"
-              ? `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
+              ? `${getDateKey(date)} ${hourKey}`
               : hourKey
             if (trendDataByKey[dateLabel]) {
               trendDataByKey[dateLabel].clicks = (trendDataByKey[dateLabel].clicks || 0) + 1
@@ -553,25 +555,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         // Add orders/revenue data for Store Analytics
         if (analyticsMode === "store") {
-          console.log('[Analytics Debug] Adding orders to trend data:', {
-            filteredOrdersCount: filteredOrders.length,
-            trendDataKeys: Object.keys(trendDataByKey),
-            sampleOrders: filteredOrders.slice(0, 3).map(o => ({
-              created_at: o.created_at,
-              dateKey: getDateKey(o.created_at)
-            }))
-          })
           filteredOrders.forEach(order => {
             const dateKey = getDateKey(order.created_at)
             // Ensure the date key exists, create if missing (handles edge cases)
             if (!trendDataByKey[dateKey]) {
-              console.log('[Analytics Debug] Creating missing date key:', dateKey)
               trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
             }
             trendDataByKey[dateKey].sales++
             trendDataByKey[dateKey].revenue += (order.amount_cents || 0)
           })
-          console.log('[Analytics Debug] After adding orders:', Object.entries(trendDataByKey).map(([k, v]) => ({ date: k, sales: v.sales })))
         }
       }
 
@@ -1326,14 +1318,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       </div>
                     </div>
                   )}
-                </div>
-
-                {/* DEBUG: Show raw data */}
-                <div className="mb-4 p-2 bg-yellow-100 rounded text-xs overflow-auto max-h-32">
-                  <strong>Debug - Orders per day:</strong>
-                  {trendData.map(d => (
-                    <span key={d.date} className="ml-2">{d.date}:{d.sales}</span>
-                  ))}
                 </div>
 
                 {/* Chart - Bar or Line based on selection */}
