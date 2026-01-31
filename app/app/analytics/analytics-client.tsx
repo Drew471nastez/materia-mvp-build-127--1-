@@ -51,6 +51,14 @@ interface Summary {
   conversionRate: number
   avgOrderValue: number
   uniqueVisitors: number
+  // Previous period for comparison
+  prevPeriodViews: number
+  prevPeriodOrders: number
+  prevPeriodRevenue: number
+  // All-time values
+  allTimeViews: number
+  allTimeOrders: number
+  allTimeRevenue: number
 }
 
 interface TrendData {
@@ -225,6 +233,34 @@ const CHART_COLORS = {
 
 const PIE_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f5f3ff"]
 
+// Helper function to calculate percentage change
+const calculatePercentChange = (current: number, previous: number): { value: number; isPositive: boolean; isZero: boolean } => {
+  if (previous === 0 && current === 0) return { value: 0, isPositive: true, isZero: true }
+  if (previous === 0) return { value: 100, isPositive: true, isZero: false }
+  const change = ((current - previous) / previous) * 100
+  return { value: Math.abs(change), isPositive: change >= 0, isZero: change === 0 }
+}
+
+// Small percentage change indicator component
+function PercentChangeIndicator({ current, previous }: { current: number; previous: number }) {
+  const { value, isPositive, isZero } = calculatePercentChange(current, previous)
+
+  if (isZero) return null
+
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
+      isPositive ? "text-emerald-600" : "text-rose-500"
+    }`}>
+      {isPositive ? (
+        <TrendingUp className="h-3 w-3" />
+      ) : (
+        <TrendingDown className="h-3 w-3" />
+      )}
+      {value.toFixed(1)}%
+    </span>
+  )
+}
+
 // Helper function to normalize date to local date string for consistent key generation
 function getDateKey(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
@@ -244,8 +280,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [customEnd, setCustomEnd] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [analyticsMode, setAnalyticsMode] = useState<AnalyticsMode>("store")
-  const [chartViewType, setChartViewType] = useState<"bars" | "line">("bars")
-  const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("all")
+  const [chartViewType, setChartViewType] = useState<"bars" | "line">("line")
+  const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("views")
 
   // KPI Modal state
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
@@ -259,6 +295,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     conversionRate: 0,
     avgOrderValue: 0,
     uniqueVisitors: 0,
+    prevPeriodViews: 0,
+    prevPeriodOrders: 0,
+    prevPeriodRevenue: 0,
+    allTimeViews: 0,
+    allTimeOrders: 0,
+    allTimeRevenue: 0,
   })
 
   // OnePage specific metrics
@@ -383,6 +425,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           conversionRate: ctr,
           avgOrderValue: 0,
           uniqueVisitors: periodViews,
+          prevPeriodViews: 0,
+          prevPeriodOrders: 0,
+          prevPeriodRevenue: 0,
+          allTimeViews: periodViews,
+          allTimeOrders: 0,
+          allTimeRevenue: 0,
         })
       } else {
         // Store Analytics - fetch from analytics_events (same as Dashboard)
@@ -438,6 +486,72 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         // Calculate conversion rate
         const conversionRate = periodViews > 0 ? (totalOrdersFromLocal / periodViews) * 100 : 0
 
+        // Calculate previous period dates (same duration, immediately before)
+        const periodDuration = end.getTime() - start.getTime()
+        const prevEnd = new Date(start.getTime() - 1)
+        const prevStart = new Date(prevEnd.getTime() - periodDuration)
+
+        // Fetch previous period views
+        let prevViewsQuery = supabase
+          .from("analytics_events")
+          .select("id, visitor_id, session_id, product_id")
+          .eq("creator_id", creatorId)
+          .eq("event_type", "view")
+          .gte("created_at", prevStart.toISOString())
+          .lte("created_at", prevEnd.toISOString())
+
+        if (selectedProduct !== "all") {
+          prevViewsQuery = prevViewsQuery.eq("product_id", selectedProduct)
+        }
+
+        const { data: prevViewEvents } = await prevViewsQuery
+
+        const prevUniqueViewKeys = new Set(
+          (prevViewEvents || []).map((e: any) => {
+            const identity = e.visitor_id || e.session_id
+            return identity ? `${identity}__${e.product_id || "store"}` : null
+          }).filter(Boolean)
+        )
+        const prevPeriodViews = prevUniqueViewKeys.size || 0
+
+        // Previous period orders
+        const prevPeriodOrdersData = initialOrders.filter(o => {
+          const orderDate = new Date(o.created_at)
+          const matchesProduct = selectedProduct === "all" || o.product_id === selectedProduct
+          return o.status === "completed" && orderDate >= prevStart && orderDate <= prevEnd && matchesProduct
+        })
+        const prevPeriodOrders = prevPeriodOrdersData.length
+        const prevPeriodRevenue = prevPeriodOrdersData.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+
+        // Fetch all-time views
+        let allTimeViewsQuery = supabase
+          .from("analytics_events")
+          .select("id, visitor_id, session_id, product_id")
+          .eq("creator_id", creatorId)
+          .eq("event_type", "view")
+
+        if (selectedProduct !== "all") {
+          allTimeViewsQuery = allTimeViewsQuery.eq("product_id", selectedProduct)
+        }
+
+        const { data: allTimeViewEvents } = await allTimeViewsQuery
+
+        const allTimeUniqueViewKeys = new Set(
+          (allTimeViewEvents || []).map((e: any) => {
+            const identity = e.visitor_id || e.session_id
+            return identity ? `${identity}__${e.product_id || "store"}` : null
+          }).filter(Boolean)
+        )
+        const allTimeViews = allTimeUniqueViewKeys.size || 0
+
+        // All-time orders
+        const allTimeOrdersData = initialOrders.filter(o => {
+          const matchesProduct = selectedProduct === "all" || o.product_id === selectedProduct
+          return o.status === "completed" && matchesProduct
+        })
+        const allTimeOrders = allTimeOrdersData.length
+        const allTimeRevenue = allTimeOrdersData.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+
         // Set summary for Store Analytics
         setSummary({
           totalViews: periodViews,
@@ -446,6 +560,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           conversionRate: conversionRate,
           avgOrderValue: totalOrdersFromLocal > 0 ? (totalRevenueFromLocal / totalOrdersFromLocal) : 0,
           uniqueVisitors: periodViews,
+          prevPeriodViews,
+          prevPeriodOrders,
+          prevPeriodRevenue,
+          allTimeViews,
+          allTimeOrders,
+          allTimeRevenue,
         })
       }
 
@@ -651,10 +771,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           .select("id, title, cover_image")
           .eq("creator_id", creatorId)
 
-        const productMap = new Map((productDetails || []).map(p => [p.id, p]))
+        const productMap = new Map((productDetails || []).map((p: { id: string; title: string; cover_image: string | null }) => [p.id, p]))
 
         const topProductsArray = products.map(p => {
-          const details = productMap.get(p.id)
+          const details = productMap.get(p.id) as { id: string; title: string; cover_image: string | null } | undefined
           return {
             id: p.id,
             title: p.title,
@@ -1129,9 +1249,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <Eye className="h-4 w-4 text-[#9ca3af]" />
                     </div>
                   </div>
-                  <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                    {isLoading ? <Skeleton className="h-7 w-16" /> : formatCompactNumber(summary.totalViews)}
+                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                      {isLoading ? <Skeleton className="h-7 w-16" /> : formatCompactNumber(summary.totalViews)}
+                    </span>
+                    {!isLoading && <PercentChangeIndicator current={summary.totalViews} previous={summary.prevPeriodViews} />}
                   </div>
+                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(summary.allTimeViews)} all time</p>
                 </>
               )}
             </div>
@@ -1153,9 +1277,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
                     </div>
                   </div>
-                  <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                    {isLoading ? <Skeleton className="h-7 w-14" /> : formatCompactNumber(summary.totalOrders)}
+                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                      {isLoading ? <Skeleton className="h-7 w-14" /> : formatCompactNumber(summary.totalOrders)}
+                    </span>
+                    {!isLoading && <PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
                   </div>
+                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(summary.allTimeOrders)} all time</p>
                 </>
               )}
             </div>
@@ -1177,9 +1305,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <DollarSign className="h-4 w-4 text-[#9ca3af]" />
                     </div>
                   </div>
-                  <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                    {isLoading ? <Skeleton className="h-7 w-20" /> : formatPrice(summary.totalRevenue)}
+                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                      {isLoading ? <Skeleton className="h-7 w-20" /> : formatPrice(summary.totalRevenue)}
+                    </span>
+                    {!isLoading && <PercentChangeIndicator current={summary.totalRevenue} previous={summary.prevPeriodRevenue} />}
                   </div>
+                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatPrice(summary.allTimeRevenue)} all time</p>
                 </>
               )}
             </div>
@@ -1195,6 +1327,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
                 {isLoading ? <Skeleton className="h-7 w-14" /> : `${summary.conversionRate.toFixed(1)}%`}
               </div>
+              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
             </div>
           </div>
         ) : (
@@ -1287,40 +1420,40 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
                     <button
                       onClick={() => setChartMetricFilter("all")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 ${
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
                         chartMetricFilter === "all"
                           ? "bg-white text-[#8b5cf6] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280]"
+                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
                       }`}
                     >
                       All
                     </button>
                     <button
                       onClick={() => setChartMetricFilter("views")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 ${
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
                         chartMetricFilter === "views"
                           ? "bg-white text-[#6366f1] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280]"
+                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
                       }`}
                     >
                       Views
                     </button>
                     <button
                       onClick={() => setChartMetricFilter("orders")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 ${
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
                         chartMetricFilter === "orders"
                           ? "bg-white text-[#8b5cf6] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280]"
+                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
                       }`}
                     >
                       Orders
                     </button>
                     <button
                       onClick={() => setChartMetricFilter("revenue")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 ${
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
                         chartMetricFilter === "revenue"
                           ? "bg-white text-[#c4b5fd] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280]"
+                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
                       }`}
                     >
                       Revenue
@@ -1331,10 +1464,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
                   <button
                     onClick={() => setChartViewType("bars")}
-                    className={`p-1.5 rounded transition-all duration-200 ${
+                    className={`p-1.5 rounded transition-all duration-200 cursor-pointer ${
                       chartViewType === "bars"
                         ? "bg-white text-[#8b5cf6] shadow-sm"
-                        : "text-[#9ca3af] hover:text-[#6b7280]"
+                        : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
                     }`}
                     title="Bar chart"
                   >
@@ -1342,10 +1475,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   </button>
                   <button
                     onClick={() => setChartViewType("line")}
-                    className={`p-1.5 rounded transition-all duration-200 ${
+                    className={`p-1.5 rounded transition-all duration-200 cursor-pointer ${
                       chartViewType === "line"
                         ? "bg-white text-[#8b5cf6] shadow-sm"
-                        : "text-[#9ca3af] hover:text-[#6b7280]"
+                        : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
                     }`}
                     title="Line chart"
                   >
@@ -1363,8 +1496,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* Stats Header - Same values as KPI cards */}
                 <div className="flex items-center gap-8 flex-wrap">
                   <div>
-                    <p className="text-[28px] font-bold text-[#1a1a2e]">{formatCompactNumber(totalViewsInChart)}</p>
-                    <div className="flex items-center gap-1.5">
+                    <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalViewsInChart)}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
                       <div className="w-2 h-2 rounded-full bg-[#6366f1]" />
                       <p className="text-[13px] text-[#6b7280]">Views</p>
                     </div>
@@ -1372,15 +1505,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {analyticsMode === "store" ? (
                     <>
                       <div>
-                        <p className="text-[28px] font-bold text-[#1a1a2e]">{formatCompactNumber(totalOrdersInChart)}</p>
-                        <div className="flex items-center gap-1.5">
+                        <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalOrdersInChart)}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
                           <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
                           <p className="text-[13px] text-[#6b7280]">Orders</p>
                         </div>
                       </div>
                       <div>
-                        <p className="text-[28px] font-bold text-[#1a1a2e]">{formatPrice(totalRevenueInChart)}</p>
-                        <div className="flex items-center gap-1.5">
+                        <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatPrice(totalRevenueInChart)}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
                           <div className="w-2 h-2 rounded-full bg-[#c4b5fd]" />
                           <p className="text-[13px] text-[#6b7280]">Revenue</p>
                         </div>
@@ -1388,8 +1521,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </>
                   ) : (
                     <div>
-                      <p className="text-[28px] font-bold text-[#1a1a2e]">{formatCompactNumber(totalClicksInChart)}</p>
-                      <div className="flex items-center gap-1.5">
+                      <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalClicksInChart)}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
                         <div className="w-2 h-2 rounded-full bg-[#a78bfa]" />
                         <p className="text-[13px] text-[#6b7280]">Clicks</p>
                       </div>
@@ -1434,11 +1567,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             cursor={false}
                             contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
                             formatter={(value: number, name: string) => {
-                              if (name === "placeholder") return null
+                              if (name === "placeholder") return [null, null]
                               const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue" }
                               if (name === "revenue") return [formatPrice(value), labels[name] || name]
                               return [value.toLocaleString(), labels[name] || name]
                             }}
+                            filterNull={true}
                           />
                           {/* Placeholder bar for empty data points */}
                           <Bar yAxisId="left" dataKey="placeholder" fill="#e5e7eb" radius={[4, 4, 0, 0]} name="placeholder" />
@@ -1666,22 +1800,29 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 <div className="space-y-2">
                   {topProducts.slice(0, 5).map((product, idx) => (
                     <div key={product.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
-                      <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center overflow-hidden">
+                      <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center overflow-hidden flex-shrink-0">
                         {product.cover_image ? (
                           <img
                             src={product.cover_image}
                             alt={product.title}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback if image fails to load
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                              if (target.nextSibling) {
+                                (target.nextSibling as HTMLElement).style.display = 'flex'
+                              }
+                            }}
                           />
-                        ) : (
-                          <span className="text-lg">📦</span>
-                        )}
+                        ) : null}
+                        <span className={`text-lg ${product.cover_image ? 'hidden' : 'flex'}`}>📦</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium text-[#1a1a2e] truncate">{product.title}</p>
                         <p className="text-[11px] text-[#9ca3af]">{product.views.toLocaleString()} views • {product.orders} orders</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex-shrink-0">
                         <p className="text-[13px] font-semibold text-[#1a1a2e]">{formatPrice(product.revenue)}</p>
                       </div>
                     </div>
