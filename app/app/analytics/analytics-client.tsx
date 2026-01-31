@@ -312,9 +312,14 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
         .gte("created_at", start.toISOString())
         .lte("created_at", end.toISOString())
 
-      // For store analytics with specific product selected
-      if (analyticsMode === "store" && selectedProduct !== "all") {
-        viewsQuery = viewsQuery.eq("product_id", selectedProduct)
+      // For store analytics - get events WITH product_id (store product views)
+      if (analyticsMode === "store") {
+        if (selectedProduct !== "all") {
+          viewsQuery = viewsQuery.eq("product_id", selectedProduct)
+        } else {
+          // For "All products" in store mode, get all events with a product_id
+          viewsQuery = viewsQuery.not("product_id", "is", null)
+        }
       }
 
       // For OnePage analytics - filter for onepage views (null product_id)
@@ -322,22 +327,28 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
         viewsQuery = viewsQuery.is("product_id", null)
       }
 
-      const { data: viewEvents } = await viewsQuery
+      const { data: viewEvents, error: viewError } = await viewsQuery
+
+      if (viewError) {
+        console.error("Error fetching analytics events:", viewError)
+      }
 
       // Separate view and click events
       const viewOnlyEvents = (viewEvents || []).filter((e: any) => e.event_type === "view")
       const clickEvents = (viewEvents || []).filter((e: any) => e.event_type === "click")
 
-      // Calculate unique views (same logic as Dashboard)
+      // Calculate views - count all view events (fallback to total count if no visitor_id/session_id)
+      // First try unique views by visitor/session, then fallback to all views
       const uniqueViewKeys = new Set(
         viewOnlyEvents.map((e: any) => {
-          const identity = e.visitor_id || e.session_id
-          if (!identity) return null
+          const identity = e.visitor_id || e.session_id || e.id // Use event id as fallback
           return `${identity}__${e.product_id || "onepage"}`
-        }).filter(Boolean)
+        })
       )
 
-      const periodViews = uniqueViewKeys.size || 0
+      // Use unique count if we have visitor tracking, otherwise count all events
+      const hasVisitorTracking = viewOnlyEvents.some((e: any) => e.visitor_id || e.session_id)
+      const periodViews = hasVisitorTracking ? uniqueViewKeys.size : viewOnlyEvents.length
       const periodClicks = clickEvents.length || 0
 
       // Get orders from initialOrders (same source as Sales page)
@@ -518,9 +529,15 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           .gte("created_at", start.toISOString())
           .lte("created_at", end.toISOString())
 
-        if (analyticsMode === "store" && selectedProduct !== "all") {
-          query = query.eq("product_id", selectedProduct)
+        // For store analytics - get events WITH product_id
+        if (analyticsMode === "store") {
+          if (selectedProduct !== "all") {
+            query = query.eq("product_id", selectedProduct)
+          } else {
+            query = query.not("product_id", "is", null)
+          }
         }
+        // For OnePage analytics - get events WITHOUT product_id
         if (analyticsMode === "onepage") {
           query = query.is("product_id", null)
         }

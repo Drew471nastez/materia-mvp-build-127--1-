@@ -952,12 +952,14 @@ export function DashboardClient({
     }
   }
 
-  // Fetch chart data when modal opens
+  // Fetch chart data when modal opens or timeframe changes
   useEffect(() => {
     if (openKPIModal) {
+      // Reset chart data and re-fetch when timeframe changes
+      setChartData([])
       fetchChartData(openKPIModal)
     }
-  }, [openKPIModal, timeframe])
+  }, [openKPIModal, timeframe, creatorId])
 
   useEffect(() => {
     fetchAnalytics(timeframe)
