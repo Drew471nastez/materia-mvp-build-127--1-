@@ -377,29 +377,93 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
         })
       }
 
-      // Generate trend data for chart
-      const trendDataByDate: Record<string, TrendData> = {}
+      // Generate trend data for chart - use hourly for today/yesterday/48h, daily for others
+      const isHourlyTimeframe = timeframe === "today" || timeframe === "yesterday" || timeframe === "last_48_hours"
+      const trendDataByKey: Record<string, TrendData> = {}
 
-      viewOnlyEvents.forEach((e: any) => {
-        const date = new Date(e.created_at)
-        const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        if (!trendDataByDate[dateKey]) {
-          trendDataByDate[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+      if (isHourlyTimeframe) {
+        // Generate hourly trend data
+        const hoursToShow = timeframe === "last_48_hours" ? 48 : 24
+        const baseDate = timeframe === "yesterday"
+          ? new Date(new Date().setDate(new Date().getDate() - 1))
+          : new Date()
+
+        // Initialize all hours with 0 values
+        for (let i = 0; i < hoursToShow; i++) {
+          let hourDate: Date
+          if (timeframe === "last_48_hours") {
+            hourDate = new Date()
+            hourDate.setHours(hourDate.getHours() - (hoursToShow - 1 - i))
+          } else if (timeframe === "yesterday") {
+            hourDate = new Date(baseDate)
+            hourDate.setHours(i, 0, 0, 0)
+          } else {
+            // today - only show hours up to current hour
+            if (i > new Date().getHours()) continue
+            hourDate = new Date(baseDate)
+            hourDate.setHours(i, 0, 0, 0)
+          }
+          const hourKey = `${hourDate.getHours().toString().padStart(2, '0')}:00`
+          const dateLabel = timeframe === "last_48_hours"
+            ? `${hourDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
+            : hourKey
+          trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0 }
         }
-        trendDataByDate[dateKey].views++
-      })
 
-      filteredOrders.forEach(order => {
-        const date = new Date(order.created_at)
-        const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        if (!trendDataByDate[dateKey]) {
-          trendDataByDate[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+        // Populate with actual data
+        viewOnlyEvents.forEach((e: any) => {
+          const date = new Date(e.created_at)
+          const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
+          const dateLabel = timeframe === "last_48_hours"
+            ? `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
+            : hourKey
+          if (trendDataByKey[dateLabel]) {
+            trendDataByKey[dateLabel].views++
+          }
+        })
+
+        filteredOrders.forEach(order => {
+          const date = new Date(order.created_at)
+          const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
+          const dateLabel = timeframe === "last_48_hours"
+            ? `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
+            : hourKey
+          if (trendDataByKey[dateLabel]) {
+            trendDataByKey[dateLabel].sales++
+            trendDataByKey[dateLabel].revenue += order.amount_cents
+          }
+        })
+      } else {
+        // Generate daily trend data for other timeframes
+        viewOnlyEvents.forEach((e: any) => {
+          const date = new Date(e.created_at)
+          const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          if (!trendDataByKey[dateKey]) {
+            trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+          }
+          trendDataByKey[dateKey].views++
+        })
+
+        filteredOrders.forEach(order => {
+          const date = new Date(order.created_at)
+          const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          if (!trendDataByKey[dateKey]) {
+            trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+          }
+          trendDataByKey[dateKey].sales++
+          trendDataByKey[dateKey].revenue += order.amount_cents
+        })
+      }
+
+      // Sort trend data
+      const trendArray = Object.values(trendDataByKey).sort((a, b) => {
+        if (isHourlyTimeframe && timeframe !== "last_48_hours") {
+          // Sort by hour for today/yesterday
+          const hourA = parseInt(a.date.split(':')[0])
+          const hourB = parseInt(b.date.split(':')[0])
+          return hourA - hourB
         }
-        trendDataByDate[dateKey].sales++
-        trendDataByDate[dateKey].revenue += order.amount_cents
-      })
-
-      const trendArray = Object.values(trendDataByDate).sort((a, b) => {
+        // Sort by date for other timeframes
         const dateA = new Date(a.date + ", 2024")
         const dateB = new Date(b.date + ", 2024")
         return dateA.getTime() - dateB.getTime()
