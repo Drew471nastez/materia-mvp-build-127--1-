@@ -721,7 +721,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           const dateLabel = timeframe === "last_48_hours"
             ? `${getDateKey(hourDate)} ${hourKey}`
             : hourKey
-          trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0 }
+          trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }
         }
 
         // Populate with actual view data
@@ -760,7 +760,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               : hourKey
             // Ensure the date key exists, create if missing (handles edge cases)
             if (!trendDataByKey[dateLabel]) {
-              trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0 }
+              trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }
             }
             trendDataByKey[dateLabel].sales++
             trendDataByKey[dateLabel].revenue += (order.amount_cents || 0)
@@ -775,7 +775,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         while (currentDate <= endDate) {
           const dateKey = getDateKey(currentDate)
-          trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+          trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }
           currentDate.setDate(currentDate.getDate() + 1)
         }
 
@@ -816,7 +816,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             const dateKey = getDateKey(order.created_at)
             // Ensure the date key exists, create if missing (handles edge cases)
             if (!trendDataByKey[dateKey]) {
-              trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+              trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }
             }
             trendDataByKey[dateKey].sales++
             trendDataByKey[dateKey].revenue += (order.amount_cents || 0)
@@ -1698,7 +1698,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       onClick={() => setOnePageChartFilter("subscribers")}
                       className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
                         onePageChartFilter === "subscribers"
-                          ? "bg-white text-[#10b981] shadow-sm"
+                          ? "bg-white text-[#8b5cf6] shadow-sm"
                           : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
                       }`}
                     >
@@ -1777,7 +1777,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <div>
                         <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(onePageMetrics.subscribers)}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <div className="w-2 h-2 rounded-full bg-[#10b981]" />
+                          <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
                           <p className="text-[13px] text-[#6b7280]">Subscribers</p>
                         </div>
                       </div>
@@ -1840,7 +1840,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             <Bar yAxisId="left" dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
                           )}
                           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-                            <Bar yAxisId="left" dataKey="subscribers" fill="#10b981" radius={[4, 4, 0, 0]} name="subscribers" />
+                            <Bar yAxisId="left" dataKey="subscribers" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="subscribers" />
                           )}
                         </BarChart>
                       ) : (
@@ -1912,6 +1912,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               dot={{ fill: CHART_COLORS.views, strokeWidth: 0, r: 3 }}
                               activeDot={{ r: 5 }}
                               name="views"
+                              connectNulls={true}
                             />
                           )}
                           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
@@ -1924,6 +1925,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               dot={{ fill: CHART_COLORS.clicks, strokeWidth: 0, r: 3 }}
                               activeDot={{ r: 5 }}
                               name="clicks"
+                              connectNulls={true}
                             />
                           )}
                           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
@@ -1931,11 +1933,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               yAxisId="left"
                               type="monotone"
                               dataKey="subscribers"
-                              stroke="#10b981"
+                              stroke="#8b5cf6"
                               strokeWidth={2}
-                              dot={{ fill: "#10b981", strokeWidth: 0, r: 3 }}
-                              activeDot={{ r: 5 }}
+                              dot={{ fill: "#8b5cf6", strokeWidth: 0, r: 4 }}
+                              activeDot={{ r: 6 }}
                               name="subscribers"
+                              connectNulls={true}
                             />
                           )}
                         </LineChart>
@@ -1975,7 +1978,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                         <span className="text-[12px] text-[#6b7280]">Clicks</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />
                         <span className="text-[12px] text-[#6b7280]">Subscribers</span>
                       </div>
                     </>
