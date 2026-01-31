@@ -405,9 +405,22 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         )
 
         periodViews = uniqueViewKeys.size || 0
+      }
 
-        // Get orders from initialOrders (same source as Sales page)
-        const filteredOrders = getFilteredOrders()
+      // Get filtered orders for Store Analytics - use the same start/end dates as trend data
+      // Filter orders once and use for both summary and trend data
+      const filteredOrders = analyticsMode === "store"
+        ? initialOrders.filter(order => {
+            const orderDate = new Date(order.created_at)
+            const isInTimeframe = orderDate >= start && orderDate <= end
+            const isCompleted = order.status === "completed"
+            const matchesProduct = selectedProduct === "all" || order.product_id === selectedProduct
+            return isInTimeframe && isCompleted && matchesProduct
+          })
+        : []
+
+      // Set summary based on analytics mode
+      if (analyticsMode === "store") {
         const totalOrdersFromLocal = filteredOrders.length
         const totalRevenueFromLocal = filteredOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
@@ -424,9 +437,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           uniqueVisitors: periodViews,
         })
       }
-
-      // Get filtered orders for Store Analytics
-      const filteredOrders = analyticsMode === "store" ? getFilteredOrders() : []
 
       // Generate trend data for chart - use hourly for today/yesterday/48h, daily for others
       const isHourlyTimeframe = timeframe === "today" || timeframe === "yesterday" || timeframe === "last_48_hours"
@@ -626,7 +636,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [creatorId, userId, getTimeframeDates, selectedProduct, analyticsMode, getFilteredOrders, products])
+  }, [creatorId, userId, getTimeframeDates, selectedProduct, analyticsMode, initialOrders, products, timeframe])
 
   useEffect(() => {
     fetchAnalytics()
