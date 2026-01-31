@@ -2194,11 +2194,85 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     }
                   }
 
-                  // Get icon based on block type and URL patterns
-                  const getBlockIcon = () => {
-                    if (block.icon) return block.icon
+                  // Map text-based icons to emojis
+                  const textToEmoji: Record<string, string> = {
+                    'spotify': '🎵',
+                    'youtube': '🎬',
+                    'soundcloud': '🎵',
+                    'apple_music': '🎵',
+                    'applemusic': '🎵',
+                    'tiktok': '📱',
+                    'instagram': '📷',
+                    'twitter': '🐦',
+                    'x': '🐦',
+                    'facebook': '👥',
+                    'linkedin': '💼',
+                    'github': '💻',
+                    'discord': '💬',
+                    'twitch': '🎮',
+                    'pinterest': '📌',
+                    'snapchat': '👻',
+                    'whatsapp': '💬',
+                    'telegram': '✈️',
+                    'reddit': '🔴',
+                    'email': '📧',
+                    'mail': '📧',
+                    'calendar': '📅',
+                    'calendly': '📅',
+                    'shop': '🛍️',
+                    'store': '🛍️',
+                    'cart': '🛒',
+                    'pdf': '📄',
+                    'document': '📄',
+                    'file': '📁',
+                    'download': '⬇️',
+                    'link': '🔗',
+                    'website': '🌐',
+                    'globe': '🌐',
+                    'music': '🎵',
+                    'video': '🎬',
+                    'photo': '📷',
+                    'image': '🖼️',
+                    'book': '📚',
+                    'podcast': '🎙️',
+                    'microphone': '🎤',
+                    'headphones': '🎧',
+                    'heart': '❤️',
+                    'star': '⭐',
+                    'fire': '🔥',
+                    'rocket': '🚀',
+                    'money': '💰',
+                    'dollar': '💵',
+                    'gift': '🎁',
+                    'ticket': '🎫',
+                    'food': '🍽️',
+                    'menu': '🍽️',
+                    'coffee': '☕',
+                    'pizza': '🍕',
+                  }
 
-                    // Check URL patterns first
+                  // Get icon based on block type and URL patterns
+                  const getBlockIcon = (): string => {
+                    // Convert text-based icon to emoji if exists
+                    if (block.icon) {
+                      const iconLower = block.icon.toLowerCase().trim()
+                      // Check if it's already an emoji (starts with non-ASCII character)
+                      if (iconLower.charCodeAt(0) > 127) {
+                        return block.icon
+                      }
+                      // Convert text to emoji
+                      if (textToEmoji[iconLower]) {
+                        return textToEmoji[iconLower]
+                      }
+                      // Check if text contains known platform
+                      for (const [key, emoji] of Object.entries(textToEmoji)) {
+                        if (iconLower.includes(key)) {
+                          return emoji
+                        }
+                      }
+                    }
+
+                    // Check URL patterns
                     if (url.includes('youtube.com') || url.includes('youtu.be')) return '🎬'
                     if (url.includes('spotify.com')) return '🎵'
                     if (url.includes('soundcloud.com')) return '🎵'
@@ -2206,9 +2280,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     if (url.includes('tiktok.com')) return '📱'
                     if (url.includes('instagram.com')) return '📷'
                     if (url.includes('twitter.com') || url.includes('x.com')) return '🐦'
+                    if (url.includes('facebook.com')) return '👥'
+                    if (url.includes('linkedin.com')) return '💼'
                     if (url.includes('calendly.com')) return '📅'
                     if (url.includes('amazon.com') || url.includes('amzn.')) return '🛒'
                     if (url.includes('gumroad.com') || url.includes('stan.store') || url.includes('shopify')) return '🛍️'
+                    if (url.includes('patreon.com')) return '💰'
+                    if (url.includes('discord.com') || url.includes('discord.gg')) return '💬'
+                    if (url.includes('twitch.tv')) return '🎮'
+                    if (url.includes('github.com')) return '💻'
 
                     // Check block type
                     switch (block.blockType) {
@@ -2224,6 +2304,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     }
                   }
 
+                  const iconEmoji = getBlockIcon()
+
                   return (
                     <div key={block.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
                       {block.thumbnail ? (
@@ -2236,13 +2318,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               // Fallback to icon on error
                               const target = e.target as HTMLImageElement
                               target.style.display = 'none'
-                              target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-lg">${getBlockIcon()}</div>`
+                              target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-lg">${iconEmoji}</div>`
                             }}
                           />
                         </div>
                       ) : (
                         <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm text-lg flex-shrink-0">
-                          {getBlockIcon()}
+                          {iconEmoji}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
