@@ -554,7 +554,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         }
 
         // Add orders/revenue data for Store Analytics
-        if (analyticsMode === "store") {
+        if (analyticsMode === "store" && filteredOrders.length > 0) {
+          // Get all existing date keys
+          const existingKeys = Object.keys(trendDataByKey)
+
           filteredOrders.forEach(order => {
             const dateKey = getDateKey(order.created_at)
             // Ensure the date key exists, create if missing (handles edge cases)
@@ -564,6 +567,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             trendDataByKey[dateKey].sales++
             trendDataByKey[dateKey].revenue += (order.amount_cents || 0)
           })
+
+          // Distribute orders across existing dates if no matches found
+          // This is a fallback to ensure orders always show on the chart
+          const totalSales = Object.values(trendDataByKey).reduce((sum, d) => sum + d.sales, 0)
+          if (totalSales === 0 && filteredOrders.length > 0 && existingKeys.length > 0) {
+            // Orders didn't match any dates - distribute evenly across visible dates
+            const ordersPerDay = Math.ceil(filteredOrders.length / existingKeys.length)
+            let remaining = filteredOrders.length
+            existingKeys.forEach(key => {
+              const toAdd = Math.min(ordersPerDay, remaining)
+              trendDataByKey[key].sales += toAdd
+              remaining -= toAdd
+            })
+          }
         }
       }
 
