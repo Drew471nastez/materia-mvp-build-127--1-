@@ -304,78 +304,128 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
       const supabase = createClient()
       const { start, end } = getTimeframeDates()
 
-      // Build query for analytics events - EXACT SAME AS DASHBOARD
-      // Note: Database only has event_types: 'view' and 'purchase' (no 'click')
-      let viewsQuery = supabase
-        .from("analytics_events")
-        .select("id, visitor_id, session_id, product_id, created_at, source_category")
-        .eq("creator_id", creatorId)
-        .eq("event_type", "view")  // Filter at query level like Dashboard
-        .gte("created_at", start.toISOString())
-        .lte("created_at", end.toISOString())
+      let viewOnlyEvents: any[] = []
+      let clickEvents: any[] = []
+      let periodViews = 0
+      let periodClicks = 0
+      let periodSubscribers = 0
 
-      // For store analytics - match Dashboard behavior (get ALL views)
-      if (analyticsMode === "store") {
-        if (selectedProduct !== "all") {
-          // Filter by specific product when selected
-          viewsQuery = viewsQuery.eq("product_id", selectedProduct)
+      if (analyticsMode === "onepage") {
+        // OnePage Analytics - fetch from dedicated onepage tables
+        // First get the creator's onepage
+        const { data: onepage } = await supabase
+          .from("onepages")
+          .select("id")
+          .eq("owner_id", creatorId)
+          .maybeSingle()
+
+        if (onepage?.id) {
+          // Fetch OnePage views
+          const { data: onePageViews } = await supabase
+            .from("onepage_views")
+            .select("id, visitor_id, created_at")
+            .eq("onepage_id", onepage.id)
+            .gte("created_at", start.toISOString())
+            .lte("created_at", end.toISOString())
+
+          viewOnlyEvents = onePageViews || []
+          periodViews = viewOnlyEvents.length
+
+          // Fetch OnePage clicks
+          const { data: onePageClicks } = await supabase
+            .from("onepage_clicks")
+            .select("id, block_id, visitor_id, created_at")
+            .eq("onepage_id", onepage.id)
+            .gte("created_at", start.toISOString())
+            .lte("created_at", end.toISOString())
+
+          clickEvents = onePageClicks || []
+          periodClicks = clickEvents.length
+
+          // Fetch OnePage leads/subscribers
+          const { data: onePageLeads } = await supabase
+            .from("onepage_leads")
+            .select("id, created_at")
+            .eq("onepage_id", onepage.id)
+            .gte("created_at", start.toISOString())
+            .lte("created_at", end.toISOString())
+
+          periodSubscribers = (onePageLeads || []).length
         }
-        // When "All products" is selected, DON'T filter by product_id (same as Dashboard)
-      }
 
-      // For OnePage analytics - filter for onepage views (null product_id)
-      if (analyticsMode === "onepage") {
-        viewsQuery = viewsQuery.is("product_id", null)
-      }
+        // Calculate CTR
+        const ctr = periodViews > 0 ? (periodClicks / periodViews) * 100 : 0
 
-      const { data: viewEvents, error: viewError } = await viewsQuery
-
-      if (viewError) {
-        console.error("Error fetching analytics events:", viewError)
-      }
-
-      // All events are already view events (filtered at query level)
-      const viewOnlyEvents = viewEvents || []
-
-      // Calculate unique views - EXACT SAME LOGIC AS DASHBOARD
-      const uniqueViewKeys = new Set(
-        viewOnlyEvents.map((e: any) => {
-          const identity = e.visitor_id || e.session_id
-          if (!identity) return null
-          return `${identity}__${e.product_id || "store"}`
-        }).filter(Boolean)
-      )
-
-      const periodViews = uniqueViewKeys.size || 0
-
-      // Get orders from initialOrders (same source as Sales page)
-      const filteredOrders = getFilteredOrders()
-      const totalOrdersFromLocal = filteredOrders.length
-      const totalRevenueFromLocal = filteredOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-
-      // Calculate conversion rate
-      const conversionRate = periodViews > 0 ? (totalOrdersFromLocal / periodViews) * 100 : 0
-
-      // Set summary for Store Analytics
-      setSummary({
-        totalViews: periodViews,
-        totalOrders: totalOrdersFromLocal,
-        totalRevenue: totalRevenueFromLocal,
-        conversionRate: conversionRate,
-        avgOrderValue: totalOrdersFromLocal > 0 ? (totalRevenueFromLocal / totalOrdersFromLocal) : 0,
-        uniqueVisitors: periodViews,
-      })
-
-      // Set OnePage specific metrics
-      // Note: No 'click' event type in database, so clicks = 0 for now
-      if (analyticsMode === "onepage") {
         setOnePageMetrics({
           views: periodViews,
-          clicks: 0,  // Database doesn't track clicks separately
-          subscribers: 0,  // Would need separate tracking
-          ctr: 0,
+          clicks: periodClicks,
+          subscribers: periodSubscribers,
+          ctr: ctr,
+        })
+
+        // Set summary for OnePage
+        setSummary({
+          totalViews: periodViews,
+          totalOrders: 0,
+          totalRevenue: 0,
+          conversionRate: ctr,
+          avgOrderValue: 0,
+          uniqueVisitors: periodViews,
+        })
+      } else {
+        // Store Analytics - fetch from analytics_events (same as Dashboard)
+        let viewsQuery = supabase
+          .from("analytics_events")
+          .select("id, visitor_id, session_id, product_id, created_at, source_category")
+          .eq("creator_id", creatorId)
+          .eq("event_type", "view")
+          .gte("created_at", start.toISOString())
+          .lte("created_at", end.toISOString())
+
+        if (selectedProduct !== "all") {
+          viewsQuery = viewsQuery.eq("product_id", selectedProduct)
+        }
+
+        const { data: viewEvents, error: viewError } = await viewsQuery
+
+        if (viewError) {
+          console.error("Error fetching analytics events:", viewError)
+        }
+
+        viewOnlyEvents = viewEvents || []
+
+        // Calculate unique views - EXACT SAME LOGIC AS DASHBOARD
+        const uniqueViewKeys = new Set(
+          viewOnlyEvents.map((e: any) => {
+            const identity = e.visitor_id || e.session_id
+            if (!identity) return null
+            return `${identity}__${e.product_id || "store"}`
+          }).filter(Boolean)
+        )
+
+        periodViews = uniqueViewKeys.size || 0
+
+        // Get orders from initialOrders (same source as Sales page)
+        const filteredOrders = getFilteredOrders()
+        const totalOrdersFromLocal = filteredOrders.length
+        const totalRevenueFromLocal = filteredOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+
+        // Calculate conversion rate
+        const conversionRate = periodViews > 0 ? (totalOrdersFromLocal / periodViews) * 100 : 0
+
+        // Set summary for Store Analytics
+        setSummary({
+          totalViews: periodViews,
+          totalOrders: totalOrdersFromLocal,
+          totalRevenue: totalRevenueFromLocal,
+          conversionRate: conversionRate,
+          avgOrderValue: totalOrdersFromLocal > 0 ? (totalRevenueFromLocal / totalOrdersFromLocal) : 0,
+          uniqueVisitors: periodViews,
         })
       }
+
+      // Get filtered orders for Store Analytics
+      const filteredOrders = analyticsMode === "store" ? getFilteredOrders() : []
 
       // Generate trend data for chart - use hourly for today/yesterday/48h, daily for others
       const isHourlyTimeframe = timeframe === "today" || timeframe === "yesterday" || timeframe === "last_48_hours"
@@ -410,7 +460,7 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0 }
         }
 
-        // Populate with actual data
+        // Populate with actual view data
         viewOnlyEvents.forEach((e: any) => {
           const date = new Date(e.created_at)
           const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
@@ -422,17 +472,34 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           }
         })
 
-        filteredOrders.forEach(order => {
-          const date = new Date(order.created_at)
-          const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
-          const dateLabel = timeframe === "last_48_hours"
-            ? `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
-            : hourKey
-          if (trendDataByKey[dateLabel]) {
-            trendDataByKey[dateLabel].sales++
-            trendDataByKey[dateLabel].revenue += order.amount_cents
-          }
-        })
+        // Add clicks data for OnePage Analytics
+        if (analyticsMode === "onepage" && clickEvents.length > 0) {
+          clickEvents.forEach((e: any) => {
+            const date = new Date(e.created_at)
+            const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
+            const dateLabel = timeframe === "last_48_hours"
+              ? `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
+              : hourKey
+            if (trendDataByKey[dateLabel]) {
+              trendDataByKey[dateLabel].clicks = (trendDataByKey[dateLabel].clicks || 0) + 1
+            }
+          })
+        }
+
+        // Add orders/revenue data for Store Analytics
+        if (analyticsMode === "store") {
+          filteredOrders.forEach(order => {
+            const date = new Date(order.created_at)
+            const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
+            const dateLabel = timeframe === "last_48_hours"
+              ? `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
+              : hourKey
+            if (trendDataByKey[dateLabel]) {
+              trendDataByKey[dateLabel].sales++
+              trendDataByKey[dateLabel].revenue += order.amount_cents
+            }
+          })
+        }
       } else {
         // Generate daily trend data for other timeframes
         viewOnlyEvents.forEach((e: any) => {
@@ -444,15 +511,30 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
           trendDataByKey[dateKey].views++
         })
 
-        filteredOrders.forEach(order => {
-          const date = new Date(order.created_at)
-          const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-          if (!trendDataByKey[dateKey]) {
-            trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
-          }
-          trendDataByKey[dateKey].sales++
-          trendDataByKey[dateKey].revenue += order.amount_cents
-        })
+        // Add clicks data for OnePage Analytics
+        if (analyticsMode === "onepage" && clickEvents.length > 0) {
+          clickEvents.forEach((e: any) => {
+            const date = new Date(e.created_at)
+            const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            if (!trendDataByKey[dateKey]) {
+              trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+            }
+            trendDataByKey[dateKey].clicks = (trendDataByKey[dateKey].clicks || 0) + 1
+          })
+        }
+
+        // Add orders/revenue data for Store Analytics
+        if (analyticsMode === "store") {
+          filteredOrders.forEach(order => {
+            const date = new Date(order.created_at)
+            const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            if (!trendDataByKey[dateKey]) {
+              trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
+            }
+            trendDataByKey[dateKey].sales++
+            trendDataByKey[dateKey].revenue += order.amount_cents
+          })
+        }
       }
 
       // Sort trend data
@@ -895,7 +977,7 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
             <div className="flex items-center bg-[#f3f4f6] rounded-full p-0.5">
               <button
                 onClick={() => setAnalyticsMode("store")}
-                className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-all duration-200 ${
+                className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
                   analyticsMode === "store" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
                 }`}
               >
@@ -903,7 +985,7 @@ export function AnalyticsClient({ creatorId, products, initialOrders }: Analytic
               </button>
               <button
                 onClick={() => setAnalyticsMode("onepage")}
-                className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-all duration-200 ${
+                className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
                   analyticsMode === "onepage" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
                 }`}
               >
