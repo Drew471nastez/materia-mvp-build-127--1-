@@ -1372,12 +1372,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             }}
                           />
                           <Bar yAxisId="left" dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
-                          {analyticsMode === "store" ? (
-                            <>
-                              <Bar yAxisId="left" dataKey="sales" fill={CHART_COLORS.orders} radius={[4, 4, 0, 0]} name="sales" />
-                              <Bar yAxisId="right" dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
-                            </>
-                          ) : (
+                          {analyticsMode === "store" && (
+                            <Bar yAxisId="left" dataKey="sales" fill={CHART_COLORS.orders} radius={[4, 4, 0, 0]} name="sales" />
+                          )}
+                          {analyticsMode === "store" && (
+                            <Bar yAxisId="right" dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
+                          )}
+                          {analyticsMode === "onepage" && (
                             <Bar yAxisId="left" dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
                           )}
                         </BarChart>
@@ -1420,30 +1421,31 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             activeDot={{ r: 5 }}
                             name="views"
                           />
-                          {analyticsMode === "store" ? (
-                            <>
-                              <Line
-                                yAxisId="left"
-                                type="monotone"
-                                dataKey="sales"
-                                stroke={CHART_COLORS.orders}
-                                strokeWidth={2}
-                                dot={{ fill: CHART_COLORS.orders, strokeWidth: 0, r: 3 }}
-                                activeDot={{ r: 5 }}
-                                name="sales"
-                              />
-                              <Line
-                                yAxisId="right"
-                                type="monotone"
-                                dataKey="revenue"
-                                stroke={CHART_COLORS.revenue}
-                                strokeWidth={2}
-                                dot={{ fill: CHART_COLORS.revenue, strokeWidth: 0, r: 3 }}
-                                activeDot={{ r: 5 }}
-                                name="revenue"
-                              />
-                            </>
-                          ) : (
+                          {analyticsMode === "store" && (
+                            <Line
+                              yAxisId="left"
+                              type="monotone"
+                              dataKey="sales"
+                              stroke={CHART_COLORS.orders}
+                              strokeWidth={2}
+                              dot={{ fill: CHART_COLORS.orders, strokeWidth: 0, r: 3 }}
+                              activeDot={{ r: 5 }}
+                              name="sales"
+                            />
+                          )}
+                          {analyticsMode === "store" && (
+                            <Line
+                              yAxisId="right"
+                              type="monotone"
+                              dataKey="revenue"
+                              stroke={CHART_COLORS.revenue}
+                              strokeWidth={2}
+                              dot={{ fill: CHART_COLORS.revenue, strokeWidth: 0, r: 3 }}
+                              activeDot={{ r: 5 }}
+                              name="revenue"
+                            />
+                          )}
+                          {analyticsMode === "onepage" && (
                             <Line
                               yAxisId="left"
                               type="monotone"
