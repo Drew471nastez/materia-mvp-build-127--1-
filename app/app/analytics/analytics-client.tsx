@@ -9,7 +9,7 @@ import {
   Eye, ShoppingCart, DollarSign, Globe, TrendingUp, TrendingDown,
   Smartphone, Monitor, Tablet, ArrowUpRight,
   ArrowDownRight, Users, Target, MousePointer, BarChart3, PieChart as PieChartIcon,
-  Zap, Clock, ChevronDown, ChevronUp, X, Wallet, MousePointerClick, UserPlus, Percent, Link2
+  Zap, Clock, ChevronDown, ChevronUp, X, Wallet, MousePointerClick, UserPlus, Percent, Link2, Sparkles
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -436,7 +436,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         // Store Analytics - fetch from analytics_events (same as Dashboard)
         let viewsQuery = supabase
           .from("analytics_events")
-          .select("id, visitor_id, session_id, product_id, created_at, source_category")
+          .select("id, visitor_id, session_id, product_id, created_at, source_category, country_code, country_name")
           .eq("creator_id", creatorId)
           .eq("event_type", "view")
           .gte("created_at", start.toISOString())
@@ -755,6 +755,42 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         conversionRate: 0,
       }))
       setDeviceData(deviceDataArray)
+
+      // Country data from analytics events
+      const countryStats: Record<string, { views: number; orders: number; revenue: number; name: string }> = {}
+      viewOnlyEvents.forEach((e: any) => {
+        const code = e.country_code || "XX"
+        const name = e.country_name || "Unknown"
+        if (!countryStats[code]) {
+          countryStats[code] = { views: 0, orders: 0, revenue: 0, name }
+        }
+        countryStats[code].views++
+      })
+
+      // Add order data by country from filtered orders
+      filteredOrders.forEach((order: any) => {
+        const code = order.buyer_country_code || "XX"
+        const name = order.buyer_country || "Unknown"
+        if (!countryStats[code]) {
+          countryStats[code] = { views: 0, orders: 0, revenue: 0, name }
+        }
+        countryStats[code].orders++
+        countryStats[code].revenue += order.amount_cents || 0
+      })
+
+      const countryDataArray = Object.entries(countryStats)
+        .map(([code, data]) => ({
+          code,
+          name: data.name,
+          views: data.views,
+          orders: data.orders,
+          revenue: data.revenue,
+          conversionRate: data.views > 0 ? (data.orders / data.views) * 100 : 0,
+        }))
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 10)
+
+      setCountryData(countryDataArray)
 
       // Top products (for store analytics) - fetch with cover images
       if (analyticsMode === "store") {
@@ -1113,16 +1149,50 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
   return (
     <div className="h-full overflow-y-auto bg-[#fafafa]">
-      {/* Announcement Bar */}
-      <div className="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white py-2.5 px-4 text-center">
-        <p className="text-[13px] font-medium">
-          Try Pro free — our most popular plan for content creators and businesses.{" "}
-          <Link href="/app/settings/billing" className="underline hover:no-underline font-semibold">Upgrade</Link>
-        </p>
+      {/* Announcement Bar - matching dashboard style */}
+      <div className="bg-[#8b5cf6] text-white">
+        <div className="py-2 px-4 md:py-2.5">
+          <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
+            <span className="text-[12px] md:text-[14px] text-white/90">
+              <span className="font-semibold text-white">Try Pro free</span>
+              <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
+            </span>
+            <Link
+              href="/upgrade"
+              className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
+            >
+              <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
+              <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
+              <span className="relative z-10">Upgrade</span>
+            </Link>
+          </div>
+        </div>
       </div>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
-        <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">Analytics</h1>
+        {/* Analytics title with Store/OnePage switcher on mobile */}
+        <div className="flex items-center justify-between sm:justify-start gap-3">
+          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">Analytics</h1>
+          {/* Analytics Mode Switcher - visible next to title on mobile */}
+          <div className="flex sm:hidden items-center bg-[#f3f4f6] rounded-full p-0.5">
+            <button
+              onClick={() => setAnalyticsMode("store")}
+              className={`px-3 py-1 text-[12px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
+                analyticsMode === "store" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
+              }`}
+            >
+              Store
+            </button>
+            <button
+              onClick={() => setAnalyticsMode("onepage")}
+              className={`px-3 py-1 text-[12px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
+                analyticsMode === "onepage" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
+              }`}
+            >
+              OnePage
+            </button>
+          </div>
+        </div>
 
         {/* Header with Timeframe, Mode Switcher, and Products */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1153,8 +1223,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               )}
             </div>
 
-            {/* Analytics Mode Switcher */}
-            <div className="flex items-center bg-[#f3f4f6] rounded-full p-0.5">
+            {/* Analytics Mode Switcher - hidden on mobile (shown next to title instead) */}
+            <div className="hidden sm:flex items-center bg-[#f3f4f6] rounded-full p-0.5">
               <button
                 onClick={() => setAnalyticsMode("store")}
                 className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
@@ -1185,7 +1255,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isProductsOpen ? "rotate-180" : ""}`} />
               </button>
               {isProductsOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 max-h-[300px] overflow-y-auto">
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 max-h-[300px] overflow-y-auto">
                   <button
                     onClick={() => { setSelectedProduct("all"); setIsProductsOpen(false) }}
                     className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors ${
@@ -1194,7 +1264,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   >
                     All products
                   </button>
-                  {products.length > 0 && <div className="border-t border-[#e5e7eb] my-1" />}
                   {products.map((p) => (
                     <button
                       key={p.id}
@@ -1411,7 +1480,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Activity Card - Bar/Line Chart with Switcher */}
         <Card className="border-[#e5e7eb] bg-white shadow-sm">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 sm:pb-1">
             <div className="flex items-center justify-between">
               <CardTitle className="text-[15px] font-semibold text-[#1a1a2e] hidden sm:block">Activity</CardTitle>
               <div className="flex items-center gap-3">
@@ -1492,7 +1561,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             {isLoading ? (
               <Skeleton className="h-[200px] w-full" />
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 sm:space-y-2">
                 {/* Stats Header - Same values as KPI cards */}
                 <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
                   <div>
@@ -1542,7 +1611,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             placeholder: (d.views === 0 && d.sales === 0 && d.revenue === 0) ? 0.3 : 0
                           }))}
                           margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                          barCategoryGap="20%"
+                          barCategoryGap="10%"
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                           <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
@@ -1838,54 +1907,55 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </CardContent>
         </Card>
 
-        {/* Visitors */}
+        {/* Visitors by Country */}
         <Card className="border-[#e5e7eb] bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors</CardTitle>
+            <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-[120px] w-full" />
-            ) : trafficSources.length > 0 || deviceData.some(d => d.views > 0) ? (
-              <div className="flex items-start gap-4">
-                <div className="flex-1">
-                  <p className="text-[13px] text-[#6b7280] leading-relaxed">
-                    {trafficSources.length > 0 ? (
-                      <>
-                        Most of your traffic comes from{" "}
-                        <span className="font-medium text-[#1a1a2e]">{formatSourceName(trafficSources[0]?.source)}</span>
-                        {trafficSources.length > 1 && trafficSources[1]?.views > 0 && (
-                          <> and <span className="font-medium text-[#1a1a2e]">{formatSourceName(trafficSources[1]?.source)}</span></>
+              <Skeleton className="h-[200px] w-full" />
+            ) : countryData.length > 0 ? (
+              <div className="space-y-2">
+                {countryData.slice(0, 5).map((country, idx) => {
+                  const maxViews = countryData[0]?.views || 1
+                  const barWidth = (country.views / maxViews) * 100
+                  return (
+                    <div key={country.code} className="flex items-center gap-3">
+                      <div className="w-8 text-center text-[18px]">{getCountryFlag(country.code)}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[13px] font-medium text-[#1a1a2e] truncate">{country.name}</span>
+                          <span className="text-[12px] text-[#6b7280] ml-2 shrink-0">{country.views.toLocaleString()} views</span>
+                        </div>
+                        <div className="h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{
+                              width: `${barWidth}%`,
+                              backgroundColor: PIE_COLORS[idx % PIE_COLORS.length]
+                            }}
+                          />
+                        </div>
+                        {(country.orders > 0 || country.revenue > 0) && (
+                          <div className="flex items-center gap-3 mt-1">
+                            {country.orders > 0 && (
+                              <span className="text-[11px] text-[#9ca3af]">{country.orders} orders</span>
+                            )}
+                            {country.revenue > 0 && (
+                              <span className="text-[11px] text-[#9ca3af]">{formatPrice(country.revenue)}</span>
+                            )}
+                          </div>
                         )}
-                      </>
-                    ) : (
-                      <>Your visitors are finding you</>
-                    )}
-                    {deviceData.length > 0 && deviceData[0]?.views > 0 && (
-                      <>, primarily on <span className="font-medium text-[#1a1a2e]">
-                        {deviceData[0]?.device === "mobile" ? "📱" : deviceData[0]?.device === "desktop" ? "💻" : "📱"} {formatDeviceName(deviceData[0]?.device)} devices
-                      </span></>
-                    )}
-                    .
-                  </p>
-                  {/* Traffic source breakdown */}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {trafficSources.slice(0, 4).map((source, idx) => (
-                      <div key={source.source} className="flex items-center gap-1.5 px-2 py-1 bg-[#f3f4f6] rounded-md">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                        <span className="text-[11px] text-[#6b7280]">{formatSourceName(source.source)}: {source.views}</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="w-[100px] h-[80px] bg-[#f9fafb] rounded-lg flex items-center justify-center">
-                  <Globe className="h-8 w-8 text-[#d1d5db]" />
-                </div>
+                    </div>
+                  )
+                })}
               </div>
             ) : (
               <div className="py-6 text-center">
                 <Globe className="h-8 w-8 mx-auto mb-2 text-[#e5e7eb]" />
-                <p className="text-[#9ca3af] text-[13px]">No visitor data yet</p>
+                <p className="text-[#9ca3af] text-[13px]">No visitor location data yet</p>
               </div>
             )}
           </CardContent>
