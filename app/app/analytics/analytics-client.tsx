@@ -101,6 +101,7 @@ interface ChartDataPoint {
 
 type AnalyticsMode = "store" | "onepage"
 type KPIType = "views" | "orders" | "revenue" | "conversion" | "clicks" | "subscribers" | "ctr" | null
+type ChartMetricFilter = "all" | "views" | "orders" | "revenue"
 
 type TimeframeOption = {
   value: string
@@ -244,6 +245,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [analyticsMode, setAnalyticsMode] = useState<AnalyticsMode>("store")
   const [chartViewType, setChartViewType] = useState<"bars" | "line">("bars")
+  const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("all")
 
   // KPI Modal state
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
@@ -634,7 +636,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       }))
       setDeviceData(deviceDataArray)
 
-      // Top products (for store analytics)
+      // Top products (for store analytics) - fetch with cover images
       if (analyticsMode === "store") {
         const productViews: Record<string, number> = {}
         viewOnlyEvents.forEach((e: any) => {
@@ -643,15 +645,26 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           }
         })
 
-        const topProductsArray = products.map(p => ({
-          id: p.id,
-          title: p.title,
-          cover_image: null,
-          views: productViews[p.id] || 0,
-          orders: filteredOrders.filter(o => o.product_id === p.id).length,
-          revenue: filteredOrders.filter(o => o.product_id === p.id).reduce((sum, o) => sum + o.amount_cents, 0),
-          conversionRate: 0,
-        })).sort((a, b) => b.views - a.views).slice(0, 5)
+        // Fetch product details with cover images
+        const { data: productDetails } = await supabase
+          .from("products")
+          .select("id, title, cover_image")
+          .eq("creator_id", creatorId)
+
+        const productMap = new Map((productDetails || []).map(p => [p.id, p]))
+
+        const topProductsArray = products.map(p => {
+          const details = productMap.get(p.id)
+          return {
+            id: p.id,
+            title: p.title,
+            cover_image: details?.cover_image || null,
+            views: productViews[p.id] || 0,
+            orders: filteredOrders.filter(o => o.product_id === p.id).length,
+            revenue: filteredOrders.filter(o => o.product_id === p.id).reduce((sum, o) => sum + o.amount_cents, 0),
+            conversionRate: 0,
+          }
+        }).sort((a, b) => b.views - a.views).slice(0, 5)
 
         setTopProducts(topProductsArray)
       }
@@ -1268,30 +1281,77 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Activity</CardTitle>
-              {/* Subtle Chart View Switcher */}
-              <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
-                <button
-                  onClick={() => setChartViewType("bars")}
-                  className={`p-1.5 rounded transition-all duration-200 ${
-                    chartViewType === "bars"
-                      ? "bg-white text-[#8b5cf6] shadow-sm"
-                      : "text-[#9ca3af] hover:text-[#6b7280]"
-                  }`}
-                  title="Bar chart"
-                >
-                  <BarChart3 className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setChartViewType("line")}
-                  className={`p-1.5 rounded transition-all duration-200 ${
-                    chartViewType === "line"
-                      ? "bg-white text-[#8b5cf6] shadow-sm"
-                      : "text-[#9ca3af] hover:text-[#6b7280]"
-                  }`}
-                  title="Line chart"
-                >
-                  <TrendingUp className="h-3.5 w-3.5" />
-                </button>
+              <div className="flex items-center gap-3">
+                {/* Metric Filter Selector */}
+                {analyticsMode === "store" && (
+                  <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
+                    <button
+                      onClick={() => setChartMetricFilter("all")}
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 ${
+                        chartMetricFilter === "all"
+                          ? "bg-white text-[#8b5cf6] shadow-sm"
+                          : "text-[#9ca3af] hover:text-[#6b7280]"
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setChartMetricFilter("views")}
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 ${
+                        chartMetricFilter === "views"
+                          ? "bg-white text-[#6366f1] shadow-sm"
+                          : "text-[#9ca3af] hover:text-[#6b7280]"
+                      }`}
+                    >
+                      Views
+                    </button>
+                    <button
+                      onClick={() => setChartMetricFilter("orders")}
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 ${
+                        chartMetricFilter === "orders"
+                          ? "bg-white text-[#8b5cf6] shadow-sm"
+                          : "text-[#9ca3af] hover:text-[#6b7280]"
+                      }`}
+                    >
+                      Orders
+                    </button>
+                    <button
+                      onClick={() => setChartMetricFilter("revenue")}
+                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 ${
+                        chartMetricFilter === "revenue"
+                          ? "bg-white text-[#c4b5fd] shadow-sm"
+                          : "text-[#9ca3af] hover:text-[#6b7280]"
+                      }`}
+                    >
+                      Revenue
+                    </button>
+                  </div>
+                )}
+                {/* Chart View Switcher */}
+                <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
+                  <button
+                    onClick={() => setChartViewType("bars")}
+                    className={`p-1.5 rounded transition-all duration-200 ${
+                      chartViewType === "bars"
+                        ? "bg-white text-[#8b5cf6] shadow-sm"
+                        : "text-[#9ca3af] hover:text-[#6b7280]"
+                    }`}
+                    title="Bar chart"
+                  >
+                    <BarChart3 className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setChartViewType("line")}
+                    className={`p-1.5 rounded transition-all duration-200 ${
+                      chartViewType === "line"
+                        ? "bg-white text-[#8b5cf6] shadow-sm"
+                        : "text-[#9ca3af] hover:text-[#6b7280]"
+                    }`}
+                    title="Line chart"
+                  >
+                    <TrendingUp className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -1342,7 +1402,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   <div className="h-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
                       {chartViewType === "bars" ? (
-                        <BarChart data={trendData} margin={{ top: 10, right: analyticsMode === "store" ? 50 : 10, left: -20, bottom: 0 }} barCategoryGap="20%">
+                        <BarChart
+                          data={trendData.map(d => ({
+                            ...d,
+                            // Add minimum placeholder values for empty bars (very small value for visibility)
+                            placeholder: (d.views === 0 && d.sales === 0 && d.revenue === 0) ? 0.3 : 0
+                          }))}
+                          margin={{ top: 10, right: (analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue")) ? 50 : 10, left: -20, bottom: 0 }}
+                          barCategoryGap="20%"
+                        >
                           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                           <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
                           <YAxis
@@ -1352,7 +1420,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             tick={{ fill: "#9ca3af", fontSize: 11 }}
                             dx={-5}
                           />
-                          {analyticsMode === "store" && (
+                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
                             <YAxis
                               yAxisId="right"
                               orientation="right"
@@ -1366,24 +1434,32 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             cursor={false}
                             contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
                             formatter={(value: number, name: string) => {
+                              if (name === "placeholder") return null
                               const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue" }
                               if (name === "revenue") return [formatPrice(value), labels[name] || name]
                               return [value.toLocaleString(), labels[name] || name]
                             }}
                           />
-                          <Bar yAxisId="left" dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
-                          {analyticsMode === "store" && (
+                          {/* Placeholder bar for empty data points */}
+                          <Bar yAxisId="left" dataKey="placeholder" fill="#e5e7eb" radius={[4, 4, 0, 0]} name="placeholder" />
+                          {/* Views bar */}
+                          {(chartMetricFilter === "all" || chartMetricFilter === "views") && (
+                            <Bar yAxisId="left" dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
+                          )}
+                          {/* Orders bar */}
+                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
                             <Bar yAxisId="left" dataKey="sales" fill={CHART_COLORS.orders} radius={[4, 4, 0, 0]} name="sales" />
                           )}
-                          {analyticsMode === "store" && (
-                            <Bar yAxisId="right" dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
+                          {/* Revenue bar */}
+                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
+                            <Bar yAxisId={chartMetricFilter === "revenue" ? "left" : "right"} dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
                           )}
                           {analyticsMode === "onepage" && (
                             <Bar yAxisId="left" dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
                           )}
                         </BarChart>
                       ) : (
-                        <LineChart data={trendData} margin={{ top: 10, right: analyticsMode === "store" ? 50 : 10, left: -20, bottom: 0 }}>
+                        <LineChart data={trendData} margin={{ top: 10, right: (analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue")) ? 50 : 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                           <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
                           <YAxis
@@ -1393,7 +1469,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                             tick={{ fill: "#9ca3af", fontSize: 11 }}
                             dx={-5}
                           />
-                          {analyticsMode === "store" && (
+                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
                             <YAxis
                               yAxisId="right"
                               orientation="right"
@@ -1411,17 +1487,21 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               return [value.toLocaleString(), labels[name] || name]
                             }}
                           />
-                          <Line
-                            yAxisId="left"
-                            type="monotone"
-                            dataKey="views"
-                            stroke={CHART_COLORS.views}
-                            strokeWidth={2}
-                            dot={{ fill: CHART_COLORS.views, strokeWidth: 0, r: 3 }}
-                            activeDot={{ r: 5 }}
-                            name="views"
-                          />
-                          {analyticsMode === "store" && (
+                          {/* Views line */}
+                          {(chartMetricFilter === "all" || chartMetricFilter === "views") && (
+                            <Line
+                              yAxisId="left"
+                              type="monotone"
+                              dataKey="views"
+                              stroke={CHART_COLORS.views}
+                              strokeWidth={2}
+                              dot={{ fill: CHART_COLORS.views, strokeWidth: 0, r: 3 }}
+                              activeDot={{ r: 5 }}
+                              name="views"
+                            />
+                          )}
+                          {/* Orders line */}
+                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
                             <Line
                               yAxisId="left"
                               type="monotone"
@@ -1433,9 +1513,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               name="sales"
                             />
                           )}
-                          {analyticsMode === "store" && (
+                          {/* Revenue line */}
+                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
                             <Line
-                              yAxisId="right"
+                              yAxisId={chartMetricFilter === "revenue" ? "left" : "right"}
                               type="monotone"
                               dataKey="revenue"
                               stroke={CHART_COLORS.revenue}
@@ -1517,7 +1598,11 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                           <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => [`${value.toLocaleString()} views`, ""]} contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", fontSize: "12px" }} />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [`${value.toLocaleString()} views`, name]}
+                        contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", fontSize: "12px" }}
+                        labelFormatter={(label) => ""}
+                      />
                       <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} formatter={(value) => <span className="text-[11px] text-[#6b7280]">{value}</span>} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1581,8 +1666,16 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 <div className="space-y-2">
                   {topProducts.slice(0, 5).map((product, idx) => (
                     <div key={product.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
-                      <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
-                        <span className="text-lg">📦</span>
+                      <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center overflow-hidden">
+                        {product.cover_image ? (
+                          <img
+                            src={product.cover_image}
+                            alt={product.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-lg">📦</span>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium text-[#1a1a2e] truncate">{product.title}</p>
@@ -1630,20 +1723,40 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-[120px] w-full" />
-            ) : countryData.length > 0 ? (
+            ) : trafficSources.length > 0 || deviceData.some(d => d.views > 0) ? (
               <div className="flex items-start gap-4">
                 <div className="flex-1">
                   <p className="text-[13px] text-[#6b7280] leading-relaxed">
-                    Most commonly your visitors are based in{" "}
-                    <span className="font-medium text-[#1a1a2e]">{getCountryFlag(countryData[0]?.code)} {countryData[0]?.name}</span>
-                    {countryData.length > 1 && (
-                      <> and <span className="font-medium text-[#1a1a2e]">{getCountryFlag(countryData[1]?.code)} {countryData[1]?.name}</span></>
+                    {trafficSources.length > 0 ? (
+                      <>
+                        Most of your traffic comes from{" "}
+                        <span className="font-medium text-[#1a1a2e]">{formatSourceName(trafficSources[0]?.source)}</span>
+                        {trafficSources.length > 1 && trafficSources[1]?.views > 0 && (
+                          <> and <span className="font-medium text-[#1a1a2e]">{formatSourceName(trafficSources[1]?.source)}</span></>
+                        )}
+                      </>
+                    ) : (
+                      <>Your visitors are finding you</>
                     )}
-                    , and find you on <span className="font-medium text-[#1a1a2e]">📱 mobile devices</span>.
+                    {deviceData.length > 0 && deviceData[0]?.views > 0 && (
+                      <>, primarily on <span className="font-medium text-[#1a1a2e]">
+                        {deviceData[0]?.device === "mobile" ? "📱" : deviceData[0]?.device === "desktop" ? "💻" : "📱"} {formatDeviceName(deviceData[0]?.device)} devices
+                      </span></>
+                    )}
+                    .
                   </p>
+                  {/* Traffic source breakdown */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {trafficSources.slice(0, 4).map((source, idx) => (
+                      <div key={source.source} className="flex items-center gap-1.5 px-2 py-1 bg-[#f3f4f6] rounded-md">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                        <span className="text-[11px] text-[#6b7280]">{formatSourceName(source.source)}: {source.views}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="w-[140px] h-[80px] bg-[#f9fafb] rounded-lg flex items-center justify-center">
-                  <Globe className="h-10 w-10 text-[#d1d5db]" />
+                <div className="w-[100px] h-[80px] bg-[#f9fafb] rounded-lg flex items-center justify-center">
+                  <Globe className="h-8 w-8 text-[#d1d5db]" />
                 </div>
               </div>
             ) : (
