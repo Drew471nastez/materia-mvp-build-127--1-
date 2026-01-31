@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Legend, PieChart, Pie, Cell
+  Legend, PieChart, Pie, Cell, LineChart, Line
 } from "recharts"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -235,6 +235,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [customEnd, setCustomEnd] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [analyticsMode, setAnalyticsMode] = useState<AnalyticsMode>("store")
+  const [chartViewType, setChartViewType] = useState<"bars" | "line">("bars")
 
   // KPI Modal state
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
@@ -1236,10 +1237,37 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </div>
         )}
 
-        {/* Activity Card - Bar Chart */}
+        {/* Activity Card - Bar/Line Chart with Switcher */}
         <Card className="border-[#e5e7eb] bg-white shadow-sm">
           <CardHeader className="pb-4">
-            <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Activity</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Activity</CardTitle>
+              {/* Subtle Chart View Switcher */}
+              <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
+                <button
+                  onClick={() => setChartViewType("bars")}
+                  className={`p-1.5 rounded transition-all duration-200 ${
+                    chartViewType === "bars"
+                      ? "bg-white text-[#8b5cf6] shadow-sm"
+                      : "text-[#9ca3af] hover:text-[#6b7280]"
+                  }`}
+                  title="Bar chart"
+                >
+                  <BarChart3 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setChartViewType("line")}
+                  className={`p-1.5 rounded transition-all duration-200 ${
+                    chartViewType === "line"
+                      ? "bg-white text-[#8b5cf6] shadow-sm"
+                      : "text-[#9ca3af] hover:text-[#6b7280]"
+                  }`}
+                  title="Line chart"
+                >
+                  <TrendingUp className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -1283,33 +1311,126 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   )}
                 </div>
 
-                {/* Bar Chart */}
+                {/* Chart - Bar or Line based on selection */}
                 {trendData.length > 0 ? (
                   <div className="h-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barCategoryGap="20%">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dx={-5} />
-                        <Tooltip
-                          cursor={false}
-                          contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
-                          formatter={(value: number, name: string) => {
-                            const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue" }
-                            if (name === "revenue") return [formatPrice(value), labels[name] || name]
-                            return [value.toLocaleString(), labels[name] || name]
-                          }}
-                        />
-                        <Bar dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
-                        {analyticsMode === "store" ? (
-                          <>
-                            <Bar dataKey="sales" fill={CHART_COLORS.orders} radius={[4, 4, 0, 0]} name="sales" />
-                            <Bar dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
-                          </>
-                        ) : (
-                          <Bar dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
-                        )}
-                      </BarChart>
+                      {chartViewType === "bars" ? (
+                        <BarChart data={trendData} margin={{ top: 10, right: analyticsMode === "store" ? 50 : 10, left: -20, bottom: 0 }} barCategoryGap="20%">
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
+                          <YAxis
+                            yAxisId="left"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: "#9ca3af", fontSize: 11 }}
+                            dx={-5}
+                          />
+                          {analyticsMode === "store" && (
+                            <YAxis
+                              yAxisId="right"
+                              orientation="right"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fill: "#9ca3af", fontSize: 10 }}
+                              tickFormatter={(value) => `$${(value / 100).toFixed(0)}`}
+                            />
+                          )}
+                          <Tooltip
+                            cursor={false}
+                            contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
+                            formatter={(value: number, name: string) => {
+                              const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue" }
+                              if (name === "revenue") return [formatPrice(value), labels[name] || name]
+                              return [value.toLocaleString(), labels[name] || name]
+                            }}
+                          />
+                          <Bar yAxisId="left" dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
+                          {analyticsMode === "store" ? (
+                            <>
+                              <Bar yAxisId="left" dataKey="sales" fill={CHART_COLORS.orders} radius={[4, 4, 0, 0]} name="sales" />
+                              <Bar yAxisId="right" dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
+                            </>
+                          ) : (
+                            <Bar yAxisId="left" dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
+                          )}
+                        </BarChart>
+                      ) : (
+                        <LineChart data={trendData} margin={{ top: 10, right: analyticsMode === "store" ? 50 : 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
+                          <YAxis
+                            yAxisId="left"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: "#9ca3af", fontSize: 11 }}
+                            dx={-5}
+                          />
+                          {analyticsMode === "store" && (
+                            <YAxis
+                              yAxisId="right"
+                              orientation="right"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fill: "#9ca3af", fontSize: 10 }}
+                              tickFormatter={(value) => `$${(value / 100).toFixed(0)}`}
+                            />
+                          )}
+                          <Tooltip
+                            contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
+                            formatter={(value: number, name: string) => {
+                              const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue" }
+                              if (name === "revenue") return [formatPrice(value), labels[name] || name]
+                              return [value.toLocaleString(), labels[name] || name]
+                            }}
+                          />
+                          <Line
+                            yAxisId="left"
+                            type="monotone"
+                            dataKey="views"
+                            stroke={CHART_COLORS.views}
+                            strokeWidth={2}
+                            dot={{ fill: CHART_COLORS.views, strokeWidth: 0, r: 3 }}
+                            activeDot={{ r: 5 }}
+                            name="views"
+                          />
+                          {analyticsMode === "store" ? (
+                            <>
+                              <Line
+                                yAxisId="left"
+                                type="monotone"
+                                dataKey="sales"
+                                stroke={CHART_COLORS.orders}
+                                strokeWidth={2}
+                                dot={{ fill: CHART_COLORS.orders, strokeWidth: 0, r: 3 }}
+                                activeDot={{ r: 5 }}
+                                name="sales"
+                              />
+                              <Line
+                                yAxisId="right"
+                                type="monotone"
+                                dataKey="revenue"
+                                stroke={CHART_COLORS.revenue}
+                                strokeWidth={2}
+                                dot={{ fill: CHART_COLORS.revenue, strokeWidth: 0, r: 3 }}
+                                activeDot={{ r: 5 }}
+                                name="revenue"
+                              />
+                            </>
+                          ) : (
+                            <Line
+                              yAxisId="left"
+                              type="monotone"
+                              dataKey="clicks"
+                              stroke={CHART_COLORS.clicks}
+                              strokeWidth={2}
+                              dot={{ fill: CHART_COLORS.clicks, strokeWidth: 0, r: 3 }}
+                              activeDot={{ r: 5 }}
+                              name="clicks"
+                            />
+                          )}
+                        </LineChart>
+                      )}
                     </ResponsiveContainer>
                   </div>
                 ) : (
