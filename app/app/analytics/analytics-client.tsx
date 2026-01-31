@@ -224,6 +224,12 @@ const CHART_COLORS = {
 
 const PIE_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f5f3ff"]
 
+// Helper function to normalize date to local date string for consistent key generation
+function getDateKey(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
 export function AnalyticsClient({ creatorId, userId, products, initialOrders }: AnalyticsClientProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -504,12 +510,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             const date = new Date(order.created_at)
             const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
             const dateLabel = timeframe === "last_48_hours"
-              ? `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${hourKey}`
+              ? `${getDateKey(order.created_at)} ${hourKey}`
               : hourKey
-            if (trendDataByKey[dateLabel]) {
-              trendDataByKey[dateLabel].sales++
-              trendDataByKey[dateLabel].revenue += order.amount_cents
+            // Ensure the date key exists, create if missing (handles edge cases)
+            if (!trendDataByKey[dateLabel]) {
+              trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0 }
             }
+            trendDataByKey[dateLabel].sales++
+            trendDataByKey[dateLabel].revenue += (order.amount_cents || 0)
           })
         }
       } else {
@@ -520,15 +528,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         const currentDate = new Date(startDate)
 
         while (currentDate <= endDate) {
-          const dateKey = currentDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          const dateKey = getDateKey(currentDate)
           trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
           currentDate.setDate(currentDate.getDate() + 1)
         }
 
         // Populate with view data
         viewOnlyEvents.forEach((e: any) => {
-          const date = new Date(e.created_at)
-          const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          const dateKey = getDateKey(e.created_at)
           if (trendDataByKey[dateKey]) {
             trendDataByKey[dateKey].views++
           }
@@ -537,8 +544,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         // Add clicks data for OnePage Analytics
         if (analyticsMode === "onepage" && clickEvents.length > 0) {
           clickEvents.forEach((e: any) => {
-            const date = new Date(e.created_at)
-            const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            const dateKey = getDateKey(e.created_at)
             if (trendDataByKey[dateKey]) {
               trendDataByKey[dateKey].clicks = (trendDataByKey[dateKey].clicks || 0) + 1
             }
@@ -548,12 +554,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         // Add orders/revenue data for Store Analytics
         if (analyticsMode === "store") {
           filteredOrders.forEach(order => {
-            const date = new Date(order.created_at)
-            const dateKey = date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-            if (trendDataByKey[dateKey]) {
-              trendDataByKey[dateKey].sales++
-              trendDataByKey[dateKey].revenue += order.amount_cents
+            const dateKey = getDateKey(order.created_at)
+            // Ensure the date key exists, create if missing (handles edge cases)
+            if (!trendDataByKey[dateKey]) {
+              trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0 }
             }
+            trendDataByKey[dateKey].sales++
+            trendDataByKey[dateKey].revenue += (order.amount_cents || 0)
           })
         }
       }
