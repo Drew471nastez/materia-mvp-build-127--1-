@@ -92,6 +92,14 @@ interface DeviceData {
   conversionRate: number
 }
 
+interface MostClickedBlock {
+  id: string
+  label: string
+  url: string
+  clicks: number
+  icon?: string | null
+}
+
 interface TopProductData {
   id: string
   title: string
@@ -318,6 +326,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [countryData, setCountryData] = useState<CountryData[]>([])
   const [deviceData, setDeviceData] = useState<DeviceData[]>([])
   const [topProducts, setTopProducts] = useState<TopProductData[]>([])
+  const [mostClickedBlocks, setMostClickedBlocks] = useState<MostClickedBlock[]>([])
 
   const selectedTimeframeOption = timeframeOptions.find((o) => o.value === timeframe)
 
@@ -371,15 +380,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         // First get the user's onepage (owner_id is user.id, not creator.id)
         const { data: onepage } = await supabase
           .from("onepages")
-          .select("id")
+          .select("id, published_blocks, draft_blocks")
           .eq("owner_id", userId)
           .maybeSingle()
 
         if (onepage?.id) {
-          // Fetch OnePage views
+          // Fetch OnePage views with country data
           const { data: onePageViews } = await supabase
             .from("onepage_views")
-            .select("id, visitor_id, created_at")
+            .select("id, visitor_id, created_at, country_code, country_name, user_agent")
             .eq("onepage_id", onepage.id)
             .gte("created_at", start.toISOString())
             .lte("created_at", end.toISOString())
@@ -387,16 +396,94 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           viewOnlyEvents = onePageViews || []
           periodViews = viewOnlyEvents.length
 
-          // Fetch OnePage clicks
+          // Aggregate country data for OnePage
+          const onePageCountryStats: Record<string, { views: number; name: string }> = {}
+          viewOnlyEvents.forEach((view: any) => {
+            const code = view.country_code || "XX"
+            const name = view.country_name || "Unknown"
+            if (!onePageCountryStats[code]) {
+              onePageCountryStats[code] = { views: 0, name }
+            }
+            onePageCountryStats[code].views++
+          })
+
+          const onePageCountryData = Object.entries(onePageCountryStats)
+            .map(([code, data]) => ({
+              code,
+              name: data.name,
+              views: data.views,
+              orders: 0,
+              revenue: 0,
+              conversionRate: 0,
+            }))
+            .filter(c => c.code !== "XX" && c.name !== "Unknown")
+            .sort((a, b) => b.views - a.views)
+
+          setCountryData(onePageCountryData)
+
+          // Calculate device breakdown for OnePage from user_agent
+          const deviceCounts: Record<string, number> = { mobile: 0, desktop: 0, tablet: 0 }
+          viewOnlyEvents.forEach((view: any) => {
+            const ua = (view.user_agent || "").toLowerCase()
+            if (/ipad|tablet|playbook|silk/i.test(ua)) {
+              deviceCounts.tablet++
+            } else if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(ua)) {
+              deviceCounts.mobile++
+            } else {
+              deviceCounts.desktop++
+            }
+          })
+
+          const onePageDeviceData = Object.entries(deviceCounts).map(([device, views]) => ({
+            device,
+            views,
+            orders: 0,
+            conversionRate: 0,
+          }))
+          setDeviceData(onePageDeviceData)
+
+          // Fetch OnePage clicks with url
           const { data: onePageClicks } = await supabase
             .from("onepage_clicks")
-            .select("id, block_id, visitor_id, created_at")
+            .select("id, block_id, url, visitor_id, created_at")
             .eq("onepage_id", onepage.id)
             .gte("created_at", start.toISOString())
             .lte("created_at", end.toISOString())
 
           clickEvents = onePageClicks || []
           periodClicks = clickEvents.length
+
+          // Aggregate clicks by block_id for Most Clicked
+          const clicksByBlock: Record<string, { clicks: number; url: string }> = {}
+          clickEvents.forEach((click: any) => {
+            if (click.block_id) {
+              if (!clicksByBlock[click.block_id]) {
+                clicksByBlock[click.block_id] = { clicks: 0, url: click.url || "" }
+              }
+              clicksByBlock[click.block_id].clicks++
+            }
+          })
+
+          // Get block data from onepage (draft_blocks or published_blocks)
+          const blocks = (onepage.published_blocks || onepage.draft_blocks || []) as any[]
+          const blockMap = new Map(blocks.map((b: any) => [b.id, b]))
+
+          // Create most clicked blocks array
+          const mostClicked = Object.entries(clicksByBlock)
+            .map(([blockId, data]) => {
+              const block = blockMap.get(blockId)
+              return {
+                id: blockId,
+                label: block?.data?.label || block?.data?.title || "Link",
+                url: data.url || block?.data?.url || "",
+                clicks: data.clicks,
+                icon: block?.data?.icon || null,
+              }
+            })
+            .sort((a, b) => b.clicks - a.clicks)
+            .slice(0, 5)
+
+          setMostClickedBlocks(mostClicked)
 
           // Fetch OnePage leads/subscribers
           const { data: onePageLeads } = await supabase
@@ -1692,15 +1779,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                           />
                           {/* Placeholder bar for empty data points */}
                           <Bar yAxisId="left" dataKey="placeholder" fill="#e5e7eb" radius={[4, 4, 0, 0]} name="placeholder" />
-                          {/* Views bar */}
-                          {(chartMetricFilter === "all" || chartMetricFilter === "views") && (
+                          {/* Store bars */}
+                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
                             <Bar yAxisId="left" dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
                           )}
-                          {/* Orders bar */}
                           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
                             <Bar yAxisId="left" dataKey="sales" fill={CHART_COLORS.orders} radius={[4, 4, 0, 0]} name="sales" />
                           )}
-                          {/* Revenue bar */}
                           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
                             <Bar yAxisId="left" dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
                           )}
@@ -1735,8 +1820,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               return [value.toLocaleString(), labels[name] || name]
                             }}
                           />
-                          {/* Views line */}
-                          {(chartMetricFilter === "all" || chartMetricFilter === "views") && (
+                          {/* Store lines */}
+                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
                             <Line
                               yAxisId="left"
                               type="monotone"
@@ -1748,7 +1833,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                               name="views"
                             />
                           )}
-                          {/* Orders line */}
                           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
                             <Line
                               yAxisId="left"
@@ -1978,24 +2062,26 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   <p className="text-[#9ca3af] text-[13px]">No product data</p>
                 </div>
               )
-            ) : (
+            ) : mostClickedBlocks.length > 0 ? (
               <div className="space-y-2">
-                {[
-                  { name: "YouTube Video", url: "youtube.com/watch?v=abc123", clicks: Math.round(onePageMetrics.clicks * 0.4), icon: "🎬" },
-                  { name: "Shop Merch", url: "store.com/merch", clicks: Math.round(onePageMetrics.clicks * 0.25), icon: "🛍️" },
-                  { name: "Book a Call", url: "calendly.com/user", clicks: Math.round(onePageMetrics.clicks * 0.15), icon: "📅" },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
-                    <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm text-lg">{item.icon}</div>
+                {mostClickedBlocks.map((block) => (
+                  <div key={block.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
+                    <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm text-lg">
+                      {block.icon || "🔗"}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-[#1a1a2e] truncate">{item.name}</p>
-                      <p className="text-[11px] text-[#9ca3af] truncate">{item.url}</p>
+                      <p className="text-[13px] font-medium text-[#1a1a2e] truncate">{block.label}</p>
+                      <p className="text-[11px] text-[#9ca3af] truncate">{block.url}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[13px] font-semibold text-[#1a1a2e]">{item.clicks.toLocaleString()}</p>
+                      <p className="text-[13px] font-semibold text-[#1a1a2e]">{block.clicks.toLocaleString()} clicks</p>
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center">
+                <p className="text-[#9ca3af] text-[13px]">No click data yet</p>
               </div>
             )}
           </CardContent>

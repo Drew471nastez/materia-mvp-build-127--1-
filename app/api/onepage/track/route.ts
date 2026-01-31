@@ -27,6 +27,23 @@ export async function POST(request: NextRequest) {
     const userAgent = headersList.get("user-agent") || ""
     const referrer = headersList.get("referer") || ""
 
+    // Get country from headers (Vercel provides these)
+    const countryCode = headersList.get("x-vercel-ip-country") || null
+    const countryNames: Record<string, string> = {
+      US: "United States", GB: "United Kingdom", CA: "Canada", AU: "Australia",
+      DE: "Germany", FR: "France", ES: "Spain", IT: "Italy", NL: "Netherlands",
+      BR: "Brazil", MX: "Mexico", JP: "Japan", KR: "South Korea", IN: "India",
+      CN: "China", RU: "Russia", SE: "Sweden", NO: "Norway", DK: "Denmark",
+      FI: "Finland", PL: "Poland", PT: "Portugal", BE: "Belgium", AT: "Austria",
+      CH: "Switzerland", IE: "Ireland", NZ: "New Zealand", SG: "Singapore",
+      HK: "Hong Kong", TW: "Taiwan", TH: "Thailand", MY: "Malaysia", ID: "Indonesia",
+      PH: "Philippines", VN: "Vietnam", AE: "United Arab Emirates", SA: "Saudi Arabia",
+      ZA: "South Africa", NG: "Nigeria", EG: "Egypt", AR: "Argentina", CL: "Chile",
+      CO: "Colombia", PE: "Peru", IL: "Israel", TR: "Turkey", GR: "Greece",
+      CZ: "Czech Republic", HU: "Hungary", RO: "Romania", UA: "Ukraine",
+    }
+    const countryName = countryCode ? (countryNames[countryCode] || countryCode) : null
+
     // Generate visitor ID from IP hash + user agent (for deduplication)
     const visitorId = crypto
       .createHash("sha256")
@@ -55,6 +72,8 @@ export async function POST(request: NextRequest) {
           referrer,
           user_agent: userAgent.slice(0, 500),
           ip_hash: ipHash,
+          country_code: countryCode,
+          country_name: countryName,
         })
       }
     } else if (event_type === "click") {
