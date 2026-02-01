@@ -1167,14 +1167,14 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       <div
         className={cn("relative flex-shrink-0", className)}
         style={{
-          width: "280px",
-          minWidth: "280px",
-          maxWidth: "280px",
-          height: "580px",
-          minHeight: "580px",
-          maxHeight: "580px",
+          width: "308px",
+          minWidth: "308px",
+          maxWidth: "308px",
+          height: "638px",
+          minHeight: "638px",
+          maxHeight: "638px",
           overflow: "hidden",
-          borderRadius: "44px",
+          borderRadius: "48px",
         }}
       >
         {/* Animation keyframes - subtle animation */}
@@ -1194,12 +1194,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           position: "absolute",
           top: 0,
           left: 0,
-          width: "280px",
-          height: "580px",
+          width: "308px",
+          height: "638px",
           backgroundColor: "#1a1a1a",
-          borderRadius: "44px",
+          borderRadius: "48px",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-          padding: "10px",
+          padding: "11px",
           overflow: "hidden",
         }}
       >
@@ -3160,8 +3160,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           avatarFallback: "text-[16px]",
           title: "text-[16px]",
           bio: "text-[11px] max-w-[180px]",
-          button: "py-[15.5px] px-[12px] text-[12px]",
-          buttonThumb: "w-[24.5px] h-[24.5px]",
+          button: "py-[14.5px] px-[12px] text-[12px]",
+          buttonThumb: "w-[25.5px] h-[25.5px]",
           text: "text-[11px]",
           input: "px-[10px] py-[8px] text-[11px]",
           inputBtn: "px-[12px] py-[8px] text-[11px]",
@@ -3177,8 +3177,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           avatarFallback: "text-2xl",
           title: "text-xl",
           bio: "text-sm max-w-xs",
-          button: "py-[17.5px] px-4 text-[15px]",
-          buttonThumb: "w-[32.5px] h-[32.5px]",
+          button: "py-[16.5px] px-4 text-[15px]",
+          buttonThumb: "w-[33.5px] h-[33.5px]",
           text: "text-sm",
           input: "px-4 py-3 text-base",
           inputBtn: "px-5 py-3 text-base",
@@ -4026,8 +4026,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               />
             ) : iconPath ? (
               <svg
-                width="16.5"
-                height="16.5"
+                width="17.5"
+                height="17.5"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4102,8 +4102,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               />
             ) : iconPath ? (
               <svg
-                width="16.5"
-                height="16.5"
+                width="17.5"
+                height="17.5"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
