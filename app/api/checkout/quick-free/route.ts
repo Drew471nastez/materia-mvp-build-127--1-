@@ -137,15 +137,20 @@ export async function POST(request: Request) {
     order = result1.data
     orderError = result1.error
 
-    // If full insert fails, try with minimal fields only
+    // If full insert fails, try with minimal fields only (including required receipt_token)
     if (orderError) {
       console.log("[quick-free] Full insert failed, trying minimal fields:", orderError.message)
 
-      const minimalOrderData = {
-        buyer_id: user?.id || null,
+      const minimalOrderData: Record<string, any> = {
         product_id: product.id,
         amount_cents: 0,
         status: "completed",
+        receipt_token: receiptToken,
+        buyer_email: email.toLowerCase().trim(),
+      }
+
+      if (user?.id) {
+        minimalOrderData.buyer_id = user.id
       }
 
       const result2 = await admin.from("orders").insert(minimalOrderData).select().single()

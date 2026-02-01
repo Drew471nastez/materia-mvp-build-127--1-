@@ -226,17 +226,22 @@ export async function POST(request: Request) {
     order = result1.data
     orderInsertError = result1.error
 
-    // If full insert fails, try with minimal fields only
+    // If full insert fails, try with minimal fields only (including required receipt_token)
     if (orderInsertError) {
       console.log("[v0] Full insert failed, trying minimal fields:", orderInsertError.message)
 
-      const minimalOrderData = {
-        buyer_id: buyerId || null,
+      const minimalOrderData: Record<string, any> = {
         product_id: productId,
         amount_cents: totalAmount,
         status: "completed",
         stripe_session_id: session.id,
         stripe_payment_intent_id: session.payment_intent as string,
+        receipt_token: receiptToken,
+        buyer_email: buyerEmail || null,
+      }
+
+      if (buyerId) {
+        minimalOrderData.buyer_id = buyerId
       }
 
       const result2 = await supabaseAdmin.from("orders").insert(minimalOrderData).select().single()

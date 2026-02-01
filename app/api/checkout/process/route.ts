@@ -161,7 +161,7 @@ export async function POST(request: Request) {
     orderError = result1.error
     insertStrategy = "full"
 
-    // Strategy 2: Minimal fields with buyer_id if logged in
+    // Strategy 2: Minimal fields with required columns
     if (orderError) {
       console.log("[checkout/process] Strategy 1 failed:", orderError.message, orderError.code)
 
@@ -169,40 +169,19 @@ export async function POST(request: Request) {
         product_id: product.id,
         amount_cents: 0,
         status: "completed",
+        receipt_token: receiptToken,
+        buyer_email: email.toLowerCase().trim(),
       }
 
       if (user?.id) {
         minimalOrderData.buyer_id = user.id
       }
 
-      console.log("[checkout/process] Attempting Strategy 2: Minimal insert")
+      console.log("[checkout/process] Attempting Strategy 2: Minimal insert with receipt_token")
       const result2 = await admin.from("orders").insert(minimalOrderData).select().single()
       order = result2.data
       orderError = result2.error
       insertStrategy = "minimal"
-    }
-
-    // Strategy 3: Absolute minimum - just product_id (relies on defaults)
-    if (orderError) {
-      console.log("[checkout/process] Strategy 2 failed:", orderError.message, orderError.code)
-
-      // Check if it's a buyer_id constraint issue
-      if (orderError.message?.includes("buyer_id") || orderError.message?.includes("null") || orderError.code === "23502") {
-        console.log("[checkout/process] Detected buyer_id constraint issue - trying without buyer_id")
-
-        const absoluteMinimalData = {
-          product_id: product.id,
-          amount_cents: 0,
-          status: "completed",
-          buyer_email: email.toLowerCase().trim(),
-        }
-
-        console.log("[checkout/process] Attempting Strategy 3: Without buyer_id")
-        const result3 = await admin.from("orders").insert(absoluteMinimalData).select().single()
-        order = result3.data
-        orderError = result3.error
-        insertStrategy = "no_buyer_id"
-      }
     }
 
     if (orderError || !order) {
