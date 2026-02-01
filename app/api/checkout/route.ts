@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { nanoid } from "nanoid"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
+  const admin = createAdminClient()
   const { searchParams } = new URL(request.url)
   const productId = searchParams.get("product_id")
 
@@ -85,12 +87,14 @@ export async function POST(request: Request) {
 
     // Logged-in user getting free product - create order and entitlement directly
     try {
-      // Create order
-      const { error: orderError } = await supabase.from("orders").insert({
+      // Create order using admin client to bypass RLS
+      const { error: orderError } = await admin.from("orders").insert({
         buyer_id: user.id,
         product_id: product.id,
         amount_cents: 0,
         status: "completed",
+        provider: "free",
+        buyer_email: user.email || null,
       })
 
       if (orderError) {
@@ -98,8 +102,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
       }
 
-      // Create entitlement
-      const { error: entitlementError } = await supabase.from("entitlements").insert({
+      // Create entitlement using admin client
+      const { error: entitlementError } = await admin.from("entitlements").insert({
         buyer_id: user.id,
         creator_id: creator.id,
         product_id: product.id,
@@ -113,10 +117,10 @@ export async function POST(request: Request) {
       }
 
       // Increment sales count
-      await supabase.rpc("increment_sales_count", { product_uuid: productId })
+      await admin.rpc("increment_product_sales", { p_product_id: productId })
 
       // Record analytics
-      await supabase.from("analytics_events").insert({
+      await admin.from("analytics_events").insert({
         creator_id: creator.id,
         product_id: product.id,
         event_type: "purchase",
