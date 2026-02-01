@@ -3160,8 +3160,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           avatarFallback: "text-[16px]",
           title: "text-[16px]",
           bio: "text-[11px] max-w-[180px]",
-          button: "py-[10px] px-[12px] text-[12px]",
-          buttonThumb: "w-[26px] h-[26px]",
+          button: "py-[11.5px] px-[12px] text-[12px]",
+          buttonThumb: "w-[24.5px] h-[24.5px]",
           text: "text-[11px]",
           input: "px-[10px] py-[8px] text-[11px]",
           inputBtn: "px-[12px] py-[8px] text-[11px]",
@@ -3177,8 +3177,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           avatarFallback: "text-2xl",
           title: "text-xl",
           bio: "text-sm max-w-xs",
-          button: "py-3 px-4 text-[15px]",
-          buttonThumb: "w-[34px] h-[34px]",
+          button: "py-[13.5px] px-4 text-[15px]",
+          buttonThumb: "w-[32.5px] h-[32.5px]",
           text: "text-sm",
           input: "px-4 py-3 text-base",
           inputBtn: "px-5 py-3 text-base",
@@ -4026,8 +4026,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               />
             ) : iconPath ? (
               <svg
-                width="18"
-                height="18"
+                width="16.5"
+                height="16.5"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4102,8 +4102,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               />
             ) : iconPath ? (
               <svg
-                width="18"
-                height="18"
+                width="16.5"
+                height="16.5"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4116,7 +4116,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className="flex flex-col min-w-0 text-center px-8">
+            <div className="flex flex-col min-w-0 text-center px-10">
               <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
@@ -4176,8 +4176,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             />
           ) : iconPath ? (
             <svg
-              width="18"
-              height="18"
+              width="16.5"
+              height="16.5"
               viewBox="0 0 24 24"
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4190,7 +4190,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", hasIconOnly ? "text-center px-8" : (data.thumbnail_url ? "flex-1 text-center" : ""))}>
+          <div className={cn("flex flex-col min-w-0", hasIconOnly ? "text-center px-10" : (data.thumbnail_url ? "flex-1 text-center" : ""))}>
             <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
