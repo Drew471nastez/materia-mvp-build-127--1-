@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -10,7 +11,7 @@ import {
   Smartphone, Monitor, Tablet, ArrowUpRight,
   ArrowDownRight, Users, Target, MousePointer, BarChart3, PieChart as PieChartIcon,
   Zap, Clock, ChevronDown, ChevronUp, X, Wallet, MousePointerClick, UserPlus, Percent, Link2, Sparkles,
-  Youtube, Music, Instagram, Twitter, Facebook, Linkedin, Github, MessageCircle,
+  Music, Instagram, Twitter, Facebook, Linkedin, Github, MessageCircle,
   Calendar, FileText, Image, Mail, ExternalLink, Download, ShoppingBag,
   Video, Headphones, Mic, Heart, Star, Gift, Ticket, Coffee, Pizza, UtensilsCrossed,
   Send, Hash, Camera, Play, Radio, Gamepad2, BookOpen, Rocket, DollarSign as Dollar
@@ -23,6 +24,27 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+
+// Custom Spotify Icon (brand SVG)
+const SpotifyIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" className={className} fill="currentColor">
+    <path d="M10 0C4.477 0 0 4.477 0 10s4.477 10 10 10 10-4.477 10-10S15.523 0 10 0zm4.586 14.424a.622.622 0 01-.857.207c-2.348-1.435-5.304-1.76-8.785-.964a.622.622 0 11-.277-1.214c3.808-.87 7.076-.496 9.712 1.115a.622.622 0 01.207.856zm1.224-2.719a.778.778 0 01-1.07.256c-2.687-1.652-6.785-2.131-9.965-1.166a.778.778 0 01-.452-1.49c3.632-1.102 8.147-.568 11.234 1.328a.778.778 0 01.253 1.072zm.105-2.835c-3.223-1.914-8.54-2.09-11.618-1.156a.933.933 0 11-.542-1.785c3.532-1.072 9.404-.865 13.115 1.338a.933.933 0 01-.955 1.603z"/>
+  </svg>
+)
+
+// Custom YouTube Icon (brand SVG)
+const YoutubeIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 48 34" className={className} fill="#FF0000">
+    <path d="M47.52 7.334s-.47-3.33-1.908-4.797C43.786 .61 41.74.6 40.803.49 34.086 0 24.01 0 24.01 0h-.02S13.914 0 7.197.49C6.258.6 4.214.61 2.387 2.537.948 4.004.48 7.334.48 7.334S0 11.247 0 15.158v3.668c0 3.912.48 7.823.48 7.823s.47 3.331 1.908 4.798c1.826 1.926 4.224 1.865 5.292 2.066C11.52 33.885 24 34 24 34s10.086-.016 16.803-.505c.94-.112 2.984-.122 4.81-2.048 1.438-1.467 1.907-4.797 1.907-4.797s.48-3.911.48-7.823v-3.668c0-3.911-.48-7.824-.48-7.824zM19.044 23.27V10.687l12.967 6.315-12.967 6.27z"/>
+  </svg>
+)
+
+// Custom TikTok Icon (brand SVG)
+const TiktokIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+    <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
+  </svg>
+)
 
 interface Product {
   id: string
@@ -286,6 +308,9 @@ function getDateKey(date: Date | string): string {
 }
 
 export function AnalyticsClient({ creatorId, userId, products, initialOrders }: AnalyticsClientProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [timeframe, setTimeframe] = useState("last_7_days")
@@ -295,7 +320,18 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [customStart, setCustomStart] = useState("")
   const [customEnd, setCustomEnd] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [analyticsMode, setAnalyticsMode] = useState<AnalyticsMode>("store")
+  // Initialize analytics mode from URL param (?mode=onepage or ?mode=store)
+  const initialMode = searchParams.get("mode") as AnalyticsMode | null
+  const [analyticsMode, setAnalyticsModeState] = useState<AnalyticsMode>(initialMode === "onepage" ? "onepage" : "store")
+
+  // Wrapper function to update both state and URL when mode changes
+  const setAnalyticsMode = useCallback((mode: AnalyticsMode) => {
+    setAnalyticsModeState(mode)
+    // Update URL without full page reload
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("mode", mode)
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }, [router, searchParams])
   const [chartViewType, setChartViewType] = useState<"bars" | "line">("line")
   const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("views")
   const [onePageChartFilter, setOnePageChartFilter] = useState<OnePageChartFilter>("views")
@@ -818,6 +854,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           })
         }
 
+        // Add subscribers data for OnePage Analytics (hourly)
+        if (analyticsMode === "onepage" && leadEvents.length > 0) {
+          leadEvents.forEach((e: any) => {
+            const date = new Date(e.created_at)
+            const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`
+            const dateLabel = timeframe === "last_48_hours"
+              ? `${getDateKey(date)} ${hourKey}`
+              : hourKey
+            if (trendDataByKey[dateLabel]) {
+              trendDataByKey[dateLabel].subscribers = (trendDataByKey[dateLabel].subscribers || 0) + 1
+            }
+          })
+        }
+
         // Add orders/revenue data for Store Analytics
         if (analyticsMode === "store") {
           filteredOrders.forEach(order => {
@@ -1214,6 +1264,11 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             })
           }
         }
+      } else if (kpiType === "clicks") {
+        // For OnePage clicks, use trendData which has clicks per day
+        for (const item of trendData) {
+          points.push({ label: item.date, value: item.clicks || 0 })
+        }
       } else if (kpiType === "conversion" || kpiType === "ctr") {
         for (const item of trendData) {
           const rate = item.views > 0 ? ((item.clicks || 0) / item.views) * 100 : 0
@@ -1221,7 +1276,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         }
       } else if (kpiType === "subscribers") {
         for (const item of trendData) {
-          points.push({ label: item.date, value: Math.round(item.views * 0.08) })
+          points.push({ label: item.date, value: item.subscribers || 0 })
         }
       }
 
@@ -2214,42 +2269,51 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
                   // Get SVG icon component based on block icon, URL, or type
                   const getBlockIconComponent = () => {
-                    const iconClass = "h-5 w-5 text-[#6b7280]"
+                    const iconClass = "h-5 w-5"
                     const iconLower = (block.icon || "").toLowerCase().trim()
 
-                    // Check text-based icon names first
-                    if (iconLower.includes('spotify') || iconLower.includes('music')) {
-                      return <Music className={iconClass} />
+                    // Check text-based icon names first - use brand icons for platforms
+                    if (iconLower.includes('spotify')) {
+                      return <SpotifyIcon className={`${iconClass} text-[#1DB954]`} />
                     }
-                    if (iconLower.includes('youtube') || iconLower.includes('video')) {
-                      return <Youtube className={iconClass} />
+                    if (iconLower.includes('youtube')) {
+                      return <YoutubeIcon className={iconClass} />
+                    }
+                    if (iconLower.includes('tiktok')) {
+                      return <TiktokIcon className={`${iconClass} text-[#000000]`} />
+                    }
+                    if (iconLower.includes('music') || iconLower.includes('soundcloud') || iconLower.includes('apple_music')) {
+                      return <Music className={`${iconClass} text-[#6b7280]`} />
+                    }
+                    if (iconLower.includes('video')) {
+                      return <Video className={`${iconClass} text-[#6b7280]`} />
                     }
                     if (iconLower.includes('instagram')) {
-                      return <Instagram className={iconClass} />
+                      return <Instagram className={`${iconClass} text-[#E4405F]`} />
                     }
                     if (iconLower.includes('twitter') || iconLower.includes('x')) {
-                      return <Twitter className={iconClass} />
+                      return <Twitter className={`${iconClass} text-[#1DA1F2]`} />
                     }
                     if (iconLower.includes('facebook')) {
-                      return <Facebook className={iconClass} />
+                      return <Facebook className={`${iconClass} text-[#1877F2]`} />
                     }
                     if (iconLower.includes('linkedin')) {
-                      return <Linkedin className={iconClass} />
+                      return <Linkedin className={`${iconClass} text-[#0A66C2]`} />
                     }
                     if (iconLower.includes('github')) {
-                      return <Github className={iconClass} />
+                      return <Github className={`${iconClass} text-[#181717]`} />
                     }
                     if (iconLower.includes('discord') || iconLower.includes('chat') || iconLower.includes('message')) {
-                      return <MessageCircle className={iconClass} />
+                      return <MessageCircle className={`${iconClass} text-[#5865F2]`} />
                     }
                     if (iconLower.includes('twitch') || iconLower.includes('game')) {
-                      return <Gamepad2 className={iconClass} />
+                      return <Gamepad2 className={`${iconClass} text-[#9146FF]`} />
                     }
                     if (iconLower.includes('calendar') || iconLower.includes('calendly')) {
-                      return <Calendar className={iconClass} />
+                      return <Calendar className={`${iconClass} text-[#006BFF]`} />
                     }
                     if (iconLower.includes('mail') || iconLower.includes('email')) {
-                      return <Mail className={iconClass} />
+                      return <Mail className={`${iconClass} text-[#6b7280]`} />
                     }
                     if (iconLower.includes('shop') || iconLower.includes('store') || iconLower.includes('cart')) {
                       return <ShoppingBag className={iconClass} />
@@ -2297,45 +2361,48 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       return <Globe className={iconClass} />
                     }
 
-                    // Check URL patterns
+                    // Check URL patterns - use brand icons for platforms
                     if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                      return <Youtube className={iconClass} />
+                      return <YoutubeIcon className={iconClass} />
                     }
-                    if (url.includes('spotify.com') || url.includes('soundcloud.com') || url.includes('music.apple.com')) {
-                      return <Music className={iconClass} />
+                    if (url.includes('spotify.com')) {
+                      return <SpotifyIcon className={`${iconClass} text-[#1DB954]`} />
+                    }
+                    if (url.includes('soundcloud.com') || url.includes('music.apple.com')) {
+                      return <Music className={`${iconClass} text-[#6b7280]`} />
                     }
                     if (url.includes('instagram.com')) {
-                      return <Instagram className={iconClass} />
+                      return <Instagram className={`${iconClass} text-[#E4405F]`} />
                     }
                     if (url.includes('twitter.com') || url.includes('x.com')) {
-                      return <Twitter className={iconClass} />
+                      return <Twitter className={`${iconClass} text-[#1DA1F2]`} />
                     }
                     if (url.includes('facebook.com')) {
-                      return <Facebook className={iconClass} />
+                      return <Facebook className={`${iconClass} text-[#1877F2]`} />
                     }
                     if (url.includes('linkedin.com')) {
-                      return <Linkedin className={iconClass} />
+                      return <Linkedin className={`${iconClass} text-[#0A66C2]`} />
                     }
                     if (url.includes('github.com')) {
-                      return <Github className={iconClass} />
+                      return <Github className={`${iconClass} text-[#181717]`} />
                     }
                     if (url.includes('discord.com') || url.includes('discord.gg')) {
-                      return <MessageCircle className={iconClass} />
+                      return <MessageCircle className={`${iconClass} text-[#5865F2]`} />
                     }
                     if (url.includes('twitch.tv')) {
-                      return <Gamepad2 className={iconClass} />
+                      return <Gamepad2 className={`${iconClass} text-[#9146FF]`} />
                     }
                     if (url.includes('calendly.com')) {
-                      return <Calendar className={iconClass} />
+                      return <Calendar className={`${iconClass} text-[#006BFF]`} />
                     }
                     if (url.includes('tiktok.com')) {
-                      return <Video className={iconClass} />
+                      return <TiktokIcon className={`${iconClass} text-[#000000]`} />
                     }
                     if (url.includes('amazon.com') || url.includes('amzn.') || url.includes('gumroad.com') || url.includes('shopify')) {
-                      return <ShoppingBag className={iconClass} />
+                      return <ShoppingBag className={`${iconClass} text-[#6b7280]`} />
                     }
                     if (url.includes('patreon.com')) {
-                      return <Dollar className={iconClass} />
+                      return <Dollar className={`${iconClass} text-[#6b7280]`} />
                     }
 
                     // Check block type
