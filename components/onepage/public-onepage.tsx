@@ -4239,7 +4239,7 @@ function PublicBlockRenderer({
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className="flex flex-col min-w-0 text-center">
+            <div className="flex flex-col min-w-0 text-center px-10">
               <span className="truncate">{data.label || "Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
@@ -4312,7 +4312,7 @@ function PublicBlockRenderer({
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", hasIconOnly ? "text-center" : (data.thumbnail_url ? "flex-1 text-center" : ""))}>
+          <div className={cn("flex flex-col min-w-0", hasIconOnly ? "text-center px-8" : (data.thumbnail_url ? "flex-1 text-center" : ""))}>
             <span className="truncate">{data.label || "Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (

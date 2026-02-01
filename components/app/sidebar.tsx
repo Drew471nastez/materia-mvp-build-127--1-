@@ -33,10 +33,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 
-// Custom Store Builder "S" icon - stylized italic S like Storelib logo
+// Custom Store Builder "S" icon - accurate Storelib logo S
 const StoreBuilderIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 6.5C17 4.01 14.76 2 12 2C9.24 2 7 4.01 7 6.5C7 8.99 9.24 11 12 11H12.5C14.43 11 16 12.57 16 14.5V15C16 17.21 14.21 19 12 19C9.79 19 8 17.21 8 15"/>
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M7.5 7.2C7.5 4.88 9.51 3 12 3s4.5 1.88 4.5 4.2c0 .35-.28.63-.64.63-.35 0-.64-.28-.64-.63 0-1.62-1.44-2.94-3.22-2.94S8.78 5.58 8.78 7.2c0 .87.42 1.68 1.15 2.22l4.92 3.6c1.22.9 1.93 2.26 1.93 3.72 0 2.32-2.01 4.2-4.5 4.2s-4.5-1.88-4.5-4.2c0-.35.29-.63.64-.63.36 0 .64.28.64.63 0 1.62 1.44 2.94 3.22 2.94s3.22-1.32 3.22-2.94c0-1.02-.5-1.98-1.36-2.61l-4.92-3.6c-1.03-.76-1.64-1.93-1.64-3.18-.07-.05-.08-.1-.08-.15z"/>
   </svg>
 )
 

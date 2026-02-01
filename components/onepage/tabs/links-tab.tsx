@@ -3748,7 +3748,10 @@ function BlockItem({
         const data = block.data as LinkButtonBlockData
         // Truncate URL for display - show just the domain/path without full URL
         const displayUrl = data.url ? (data.url.length > 40 ? data.url.slice(0, 40) + "..." : data.url) : "https://..."
-        return { title: data.label || "My Link", subtitle: displayUrl, icon: Link, thumbnail_url: data.thumbnail_url, iconId: data.icon }
+        // Auto-detect Notion URLs and show Notion icon
+        const isNotionUrl = data.url?.toLowerCase().includes('notion.so') || data.url?.toLowerCase().includes('notion.site')
+        const effectiveIconId = data.icon || (isNotionUrl ? 'notion' : undefined)
+        return { title: data.label || "My Link", subtitle: displayUrl, icon: Link, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId }
       }
       case "header":
         return { title: "Header", subtitle: "Profile section", icon: User }
@@ -3867,9 +3870,9 @@ function BlockItem({
                 width="20"
                 height="20"
                 viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+                fill={filledIcons?.has((preview as any).iconId) ? "currentColor" : "none"}
+                stroke={filledIcons?.has((preview as any).iconId) ? "none" : "currentColor"}
+                strokeWidth={filledIcons?.has((preview as any).iconId) ? "0" : "2"}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className="text-gray-500"
@@ -3899,9 +3902,9 @@ function BlockItem({
                 width="20"
                 height="20"
                 viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+                fill={filledIcons?.has((preview as any).iconId) ? "currentColor" : "none"}
+                stroke={filledIcons?.has((preview as any).iconId) ? "none" : "currentColor"}
+                strokeWidth={filledIcons?.has((preview as any).iconId) ? "0" : "2"}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className="text-gray-500"
