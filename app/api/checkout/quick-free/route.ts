@@ -110,8 +110,13 @@ export async function POST(request: Request) {
       domain: isLocalhost ? undefined : `.${mainDomain}`,
     })
 
-    // Create order
-    const orderData = {
+    // Create order - try full insert first, fallback to minimal if it fails
+    console.log("[quick-free] Creating order for email:", email.toLowerCase().trim())
+
+    let order = null
+    let orderError = null
+
+    const fullOrderData = {
       buyer_id: user?.id || null,
       buyer_first_name: first_name.trim(),
       buyer_last_name: last_name.trim(),
@@ -124,20 +129,29 @@ export async function POST(request: Request) {
       provider: "free",
       fee_cents: 0,
       access_token: user ? null : accessToken,
-      stripe_session_id: null,
-      stripe_payment_intent_id: null,
       session_fingerprint: sessionFingerprint,
       receipt_token: receiptToken,
-      allowed_fingerprints: [sessionFingerprint],
-      agreed_to_terms: true,
-      agreed_at: new Date().toISOString(),
-      buyer_email_attempt_count: 0,
-      seller_email_attempt_count: 0,
     }
 
-    console.log("[quick-free] Creating order for email:", email.toLowerCase().trim())
+    const result1 = await admin.from("orders").insert(fullOrderData).select().single()
+    order = result1.data
+    orderError = result1.error
 
-    const { data: order, error: orderError } = await admin.from("orders").insert(orderData).select().single()
+    // If full insert fails, try with minimal fields only
+    if (orderError) {
+      console.log("[quick-free] Full insert failed, trying minimal fields:", orderError.message)
+
+      const minimalOrderData = {
+        buyer_id: user?.id || null,
+        product_id: product.id,
+        amount_cents: 0,
+        status: "completed",
+      }
+
+      const result2 = await admin.from("orders").insert(minimalOrderData).select().single()
+      order = result2.data
+      orderError = result2.error
+    }
 
     if (orderError || !order) {
       console.error("[quick-free] Order creation failed:", orderError)

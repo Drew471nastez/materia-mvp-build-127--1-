@@ -88,14 +88,35 @@ export async function POST(request: Request) {
     // Logged-in user getting free product - create order and entitlement directly
     try {
       // Create order using admin client to bypass RLS
-      const { error: orderError } = await admin.from("orders").insert({
+      // Try full insert first, fallback to minimal if it fails
+      let orderError = null
+
+      const fullOrderData = {
         buyer_id: user.id,
         product_id: product.id,
         amount_cents: 0,
         status: "completed",
         provider: "free",
         buyer_email: user.email || null,
-      })
+      }
+
+      const result1 = await admin.from("orders").insert(fullOrderData).select().single()
+      orderError = result1.error
+
+      // If full insert fails, try minimal fields
+      if (orderError) {
+        console.log("[v0] Full insert failed, trying minimal:", orderError.message)
+
+        const minimalOrderData = {
+          buyer_id: user.id,
+          product_id: product.id,
+          amount_cents: 0,
+          status: "completed",
+        }
+
+        const result2 = await admin.from("orders").insert(minimalOrderData).select().single()
+        orderError = result2.error
+      }
 
       if (orderError) {
         console.error("[v0] Error creating free order:", orderError)

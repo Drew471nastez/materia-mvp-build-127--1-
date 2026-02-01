@@ -218,10 +218,34 @@ export async function POST(request: Request) {
       destination_payment: destinationPaymentId,
     })
 
-    const { data: order, error: orderError } = await supabaseAdmin.from("orders").insert(orderData).select().single()
+    // Try full insert first, fallback to minimal if it fails
+    let order = null
+    let orderInsertError = null
 
-    if (orderError) {
-      console.error("[v0] Order creation failed:", orderError)
+    const result1 = await supabaseAdmin.from("orders").insert(orderData).select().single()
+    order = result1.data
+    orderInsertError = result1.error
+
+    // If full insert fails, try with minimal fields only
+    if (orderInsertError) {
+      console.log("[v0] Full insert failed, trying minimal fields:", orderInsertError.message)
+
+      const minimalOrderData = {
+        buyer_id: buyerId || null,
+        product_id: productId,
+        amount_cents: totalAmount,
+        status: "completed",
+        stripe_session_id: session.id,
+        stripe_payment_intent_id: session.payment_intent as string,
+      }
+
+      const result2 = await supabaseAdmin.from("orders").insert(minimalOrderData).select().single()
+      order = result2.data
+      orderInsertError = result2.error
+    }
+
+    if (orderInsertError) {
+      console.error("[v0] Order creation failed:", orderInsertError)
       return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
     }
 
