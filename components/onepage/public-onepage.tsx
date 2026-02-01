@@ -4277,7 +4277,6 @@ function PublicBlockRenderer({
       const isAppleMusic = isAppleMusicUrl(data.url)
       // Use centered layout for both icons and thumbnails
       const hasIconOnly = iconPath && !data.thumbnail_url
-      const hasThumbnail = !!data.thumbnail_url
 
       return (
         <a
