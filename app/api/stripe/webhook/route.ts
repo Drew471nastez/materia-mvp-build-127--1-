@@ -166,7 +166,6 @@ export async function POST(request: Request) {
       buyer_last_name: buyerLastName || null,
       buyer_email: buyerEmail || null,
 
-      creator_id: creatorId, // IMPORTANT (some flows need it)
       product_id: productId,
 
       amount_cents: totalAmount,
