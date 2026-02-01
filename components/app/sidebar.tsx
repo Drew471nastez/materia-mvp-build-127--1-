@@ -13,7 +13,6 @@ import {
   Mail,
   CreditCard,
   Menu,
-  Store,
   Link2,
   HelpCircle,
   Zap,
@@ -33,6 +32,13 @@ import { useState, useEffect, useRef } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
+
+// Custom Store Builder "S" icon - stylized italic S like Storelib logo
+const StoreBuilderIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 6.5C17 4.01 14.76 2 12 2C9.24 2 7 4.01 7 6.5C7 8.99 9.24 11 12 11H12.5C14.43 11 16 12.57 16 14.5V15C16 17.21 14.21 19 12 19C9.79 19 8 17.21 8 15"/>
+  </svg>
+)
 
 // Progress circle component for setup widget
 function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
@@ -152,7 +158,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/products", label: "Products", icon: Package },
     { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/app/onepage", label: "OnePage", icon: Link2, forceNavigation: true },
-    { href: "/store-builder", label: "Store Builder", icon: Store, forceNavigation: true },
+    { href: "/store-builder", label: "Store Builder", icon: StoreBuilderIcon, forceNavigation: true },
     { href: "/app/emails", label: "Emails", icon: Mail },
     { href: "/app/payouts", label: "Payouts", icon: Wallet },
   ]

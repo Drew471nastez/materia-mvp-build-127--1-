@@ -4275,6 +4275,8 @@ function PublicBlockRenderer({
 
       // Check if this is an Apple Music URL for special centering
       const isAppleMusic = isAppleMusicUrl(data.url)
+      // Use centered layout for icons (no thumbnail), left-aligned for thumbnails
+      const hasIconOnly = iconPath && !data.thumbnail_url
 
       return (
         <a
@@ -4285,8 +4287,8 @@ function PublicBlockRenderer({
           className={cn(
             "w-full flex items-center py-3.5 sm:py-4 px-5 sm:px-6 font-medium text-sm sm:text-base transition-all",
             hoverEffect,
-            // Apple Music always centered, others use standard layout
-            isAppleMusic ? "relative justify-center" : (hasThumbnail ? "gap-3 justify-start" : "justify-center"),
+            // Icons use centered layout with absolute positioning, thumbnails use left-aligned
+            hasIconOnly ? "relative justify-center" : (data.thumbnail_url ? "gap-3 justify-start" : "justify-center"),
             getDefaultAnimationClass(data.animation_type)
           )}
           style={buttonStyles}
@@ -4295,11 +4297,11 @@ function PublicBlockRenderer({
             <img
               src={data.thumbnail_url}
               alt=""
-              className={cn("w-10 h-10 sm:w-11 sm:h-11 rounded object-cover shrink-0", isAppleMusic && "absolute left-5")}
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded object-cover shrink-0"
             />
           ) : iconPath ? (
             <svg
-              className={cn("w-10 h-10 sm:w-11 sm:h-11 shrink-0", isAppleMusic && "absolute left-5")}
+              className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 absolute left-5"
               viewBox="0 0 24 24"
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4310,7 +4312,7 @@ function PublicBlockRenderer({
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", isAppleMusic ? "text-center" : (hasThumbnail ? "flex-1 text-center" : ""))}>
+          <div className={cn("flex flex-col min-w-0", hasIconOnly ? "text-center" : (data.thumbnail_url ? "flex-1 text-center" : ""))}>
             <span className="truncate">{data.label || "Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (

@@ -48,23 +48,38 @@ export default async function SalesPage() {
 
   const products = productsData || []
 
-  // Step 3b: Get view counts from product_analytics_daily
+  // Step 3b: Get view counts from analytics_events table
   const productIds = products.map(p => p.id)
   let viewCountsMap: Record<string, number> = {}
 
   if (productIds.length > 0) {
-    const { data: analyticsData } = await adminSupabase
-      .from("product_analytics_daily")
-      .select("product_id, views_count")
+    // Query unique views per product from analytics_events
+    const { data: viewEvents } = await adminSupabase
+      .from("analytics_events")
+      .select("product_id, visitor_id, session_id")
+      .eq("creator_id", creator.id)
+      .eq("event_type", "view")
       .in("product_id", productIds)
 
-    // Sum up views per product
-    if (analyticsData) {
-      analyticsData.forEach(row => {
-        if (!viewCountsMap[row.product_id]) {
-          viewCountsMap[row.product_id] = 0
+    // Count unique views per product (dedupe by visitor_id or session_id)
+    if (viewEvents) {
+      const viewedKeys = new Map<string, Set<string>>()
+
+      viewEvents.forEach(ev => {
+        if (!ev.product_id) return
+
+        const identity = ev.visitor_id || ev.session_id || "unknown"
+        const key = `${identity}__${ev.product_id}`
+
+        if (!viewedKeys.has(ev.product_id)) {
+          viewedKeys.set(ev.product_id, new Set())
         }
-        viewCountsMap[row.product_id] += row.views_count || 0
+
+        const productKeys = viewedKeys.get(ev.product_id)!
+        if (!productKeys.has(key)) {
+          productKeys.add(key)
+          viewCountsMap[ev.product_id] = (viewCountsMap[ev.product_id] || 0) + 1
+        }
       })
     }
   }
