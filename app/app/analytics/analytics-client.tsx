@@ -65,15 +65,8 @@ const NotionIcon = ({ className }: { className?: string }) => (
 
 // Custom Apple Music Icon (brand SVG)
 const AppleMusicIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 512 512" className={className}>
-    <defs>
-      <linearGradient id="appleMusicGrad" x1=".5" y1=".99" x2=".5" y2=".02">
-        <stop offset="0" stopColor="#FA233B"/>
-        <stop offset="1" stopColor="#FB5C74"/>
-      </linearGradient>
-    </defs>
-    <rect width="512" height="512" rx="15%" fill="url(#appleMusicGrad)"/>
-    <path fill="#ffffff" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+    <path d="m24 6.124c0-.029.001-.063.001-.097 0-.743-.088-1.465-.253-2.156l.013.063c-.312-1.291-1.1-2.359-2.163-3.031l-.02-.012c-.536-.35-1.168-.604-1.847-.723l-.03-.004c-.463-.084-1.003-.138-1.553-.15h-.011c-.04 0-.083-.01-.124-.013h-12.025c-.152.01-.3.017-.455.026-.791.016-1.542.161-2.242.415l.049-.015c-1.306.501-2.327 1.495-2.853 2.748l-.012.033c-.17.409-.297.885-.36 1.38l-.003.028c-.051.343-.087.751-.1 1.165v.016c0 .032-.007.062-.01.093v12.224c.01.14.017.283.027.424.02.861.202 1.673.516 2.416l-.016-.043c.609 1.364 1.774 2.387 3.199 2.792l.035.009c.377.111.817.192 1.271.227l.022.001c.555.053 1.11.06 1.667.06h11.028c.554 0 1.099-.037 1.633-.107l-.063.007c.864-.096 1.645-.385 2.321-.823l-.021.013c.825-.539 1.47-1.29 1.867-2.176l.013-.032c.166-.383.295-.829.366-1.293l.004-.031c.084-.539.132-1.161.132-1.794 0-.086-.001-.171-.003-.256v.013q0-5.7 0-11.394zm-6.424 3.99v5.712c.001.025.001.054.001.083 0 .407-.09.794-.252 1.14l.007-.017c-.273.562-.771.979-1.373 1.137l-.015.003c-.316.094-.682.156-1.06.173h-.01c-.029.002-.062.002-.096.002-1.033 0-1.871-.838-1.871-1.871 0-.741.431-1.382 1.056-1.685l.011-.005c.293-.14.635-.252.991-.32l.027-.004c.378-.082.758-.153 1.134-.24.264-.045.468-.252.51-.513v-.003c.013-.057.02-.122.02-.189 0-.002 0-.003 0-.005q0-2.723 0-5.443c-.001-.066-.01-.13-.027-.19l.001.005c-.026-.134-.143-.235-.283-.235-.006 0-.012 0-.018.001h.001c-.178.013-.34.036-.499.07l.024-.004q-1.14.225-2.28.456l-3.7.748c-.016 0-.032.01-.048.013-.222.03-.392.219-.392.447 0 .015.001.03.002.045v-.002.13q0 3.9 0 7.801c.001.028.001.062.001.095 0 .408-.079.797-.224 1.152l.007-.021c-.264.614-.792 1.072-1.436 1.235l-.015.003c-.319.096-.687.158-1.067.172h-.008c-.031.002-.067.003-.104.003-.913 0-1.67-.665-1.815-1.536l-.001-.011c-.02-.102-.031-.218-.031-.338 0-.785.485-1.458 1.172-1.733l.013-.004c.315-.127.687-.234 1.072-.305l.036-.005c.287-.06.575-.116.86-.177.341-.05.6-.341.6-.693 0-.007 0-.015 0-.022v.001-.15q0-4.44 0-8.883c0-.002 0-.004 0-.007 0-.129.015-.254.044-.374l-.002.011c.066-.264.277-.466.542-.517l.004-.001c.255-.066.515-.112.774-.165.733-.15 1.466-.3 2.2-.444l2.27-.46c.67-.134 1.34-.27 2.01-.4.181-.042.407-.079.637-.104l.027-.002c.018-.002.04-.004.061-.004.27 0 .489.217.493.485.008.067.012.144.012.222v.001q0 2.865 0 5.732z"/>
   </svg>
 )
 
@@ -117,9 +110,150 @@ const InstagramIcon = ({ className }: { className?: string }) => (
 // Custom Apple Icon (brand SVG)
 const AppleIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-    <path d="m24 6.124c0-.029.001-.063.001-.097 0-.743-.088-1.465-.253-2.156l.013.063c-.312-1.291-1.1-2.359-2.163-3.031l-.02-.012c-.536-.35-1.168-.604-1.847-.723l-.03-.004c-.463-.084-1.003-.138-1.553-.15h-.011c-.04 0-.083-.01-.124-.013h-12.025c-.152.01-.3.017-.455.026-.791.016-1.542.161-2.242.415l.049-.015c-1.306.501-2.327 1.495-2.853 2.748l-.012.033c-.17.409-.297.885-.36 1.38l-.003.028c-.051.343-.087.751-.1 1.165v.016c0 .032-.007.062-.01.093v12.224c.01.14.017.283.027.424.02.861.202 1.673.516 2.416l-.016-.043c.609 1.364 1.774 2.387 3.199 2.792l.035.009c.377.111.817.192 1.271.227l.022.001c.555.053 1.11.06 1.667.06h11.028c.554 0 1.099-.037 1.633-.107l-.063.007c.864-.096 1.645-.385 2.321-.823l-.021.013c.825-.539 1.47-1.29 1.867-2.176l.013-.032c.166-.383.295-.829.366-1.293l.004-.031c.084-.539.132-1.161.132-1.794 0-.086-.001-.171-.003-.256v.013q0-5.7 0-11.394zm-6.424 3.99v5.712c.001.025.001.054.001.083 0 .407-.09.794-.252 1.14l.007-.017c-.273.562-.771.979-1.373 1.137l-.015.003c-.316.094-.682.156-1.06.173h-.01c-.029.002-.062.002-.096.002-1.033 0-1.871-.838-1.871-1.871 0-.741.431-1.382 1.056-1.685l.011-.005c.293-.14.635-.252.991-.32l.027-.004c.378-.082.758-.153 1.134-.24.264-.045.468-.252.51-.513v-.003c.013-.057.02-.122.02-.189 0-.002 0-.003 0-.005q0-2.723 0-5.443c-.001-.066-.01-.13-.027-.19l.001.005c-.026-.134-.143-.235-.283-.235-.006 0-.012 0-.018.001h.001c-.178.013-.34.036-.499.07l.024-.004q-1.14.225-2.28.456l-3.7.748c-.016 0-.032.01-.048.013-.222.03-.392.219-.392.447 0 .015.001.03.002.045v-.002.13q0 3.9 0 7.801c.001.028.001.062.001.095 0 .408-.079.797-.224 1.152l.007-.021c-.264.614-.792 1.072-1.436 1.235l-.015.003c-.319.096-.687.158-1.067.172h-.008c-.031.002-.067.003-.104.003-.913 0-1.67-.665-1.815-1.536l-.001-.011c-.02-.102-.031-.218-.031-.338 0-.785.485-1.458 1.172-1.733l.013-.004c.315-.127.687-.234 1.072-.305l.036-.005c.287-.06.575-.116.86-.177.341-.05.6-.341.6-.693 0-.007 0-.015 0-.022v.001-.15q0-4.44 0-8.883c0-.002 0-.004 0-.007 0-.129.015-.254.044-.374l-.002.011c.066-.264.277-.466.542-.517l.004-.001c.255-.066.515-.112.774-.165.733-.15 1.466-.3 2.2-.444l2.27-.46c.67-.134 1.34-.27 2.01-.4.181-.042.407-.079.637-.104l.027-.002c.018-.002.04-.004.061-.004.27 0 .489.217.493.485.008.067.012.144.012.222v.001q0 2.865 0 5.732z"/>
+    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
   </svg>
 )
+
+// World Map SVG paths by country code (simplified world map)
+const WORLD_MAP_PATHS: Record<string, string> = {
+  US: "M158.1,174.8l-2.4-1.1l-4.1,1l-2.5,1.7l-2.2-0.5l-3.3,0.2l-2-0.8l-0.9-2.3l-0.1-2.4l0.9-2l-0.9-1.5l-1.9-0.9l-0.9-1.7l-1-1l-2.2-0.7l0-2.1l-0.8-1.9l-1.2-0.4l-0.4-1.2l-1.9-0.9l-0.5-1.3l-2.3-0.5l-1.2,1l-2.5-0.1l-0.7-1.7l-1.9-0.2l-2.2-1.9l-0.2-1.5l-1.6-0.8l-0.7-1.6l1.8-2.1l0-1.9l1.3-1.9l2.5-0.3l1.7,0.7l0.5,1.1l0.9-0.1l1.9,1.9l0.3,1.7l1.5,0.7l2.4-0.4l0.3-1.6l-0.8-1.5l-1.8-1.9l0.2-1.3l-0.9-1.7l-0.3-2.1l0.5-1.9l-0.9-2.2l0.7-2.6l1.6-2.5l-0.3-1.3l0.9-1.5l-0.5-1.9l1.5-1.9l3.9-2.9l2.9-0.1l1.2,0.7l2.9,0.8l1.7,1.7l0.3,1.7l1.5,0.9l1.7-0.1l2.5,1.3l0.9,1.1l2.2,0.7l0.7,1.7l2.2,1.1l1.6,0.1l0.6,1.7l1.7,0.7l1.5,1.3l0.1,1.5l1.9,0.7l1.3,1.5l-0.5,1.9l0.7,1.9l-0.3,1.7l1.5,1.9l-0.3,2.1l0.9,1.1l0.3,2.5l-0.5,1.9l0.7,1.1l-0.5,2.7l1.1,1.7l-1.3,0.7l-2.5,0.1l-1.9,1.7l-1.1,0.5l-3.1,0.3l-0.9,0.9l-2.3,0.5l-0.5,1.1l-2.7,1.9l-1.3,0.1l-1.9,1.5z",
+  CA: "M60.7,107.4l-1.5-1.7l-2.9-1.9l-0.7-2.5l-2.3-1.3l-0.1-1.9l-1.7-1.5l1.1-1.3l-0.7-2.3l0.3-2.1l1.5-1.3l2.1-0.3l1.3-1.1l2.1,0.5l1.9-0.7l1.9,0.5l1.1-1.3l2.3,0.7l0.9,1.9l1.7-0.1l0.9,1.5l-0.7,2.1l1.5,1.1l-0.5,1.9l1.3,1.3l2.3,0.3l0.7,1.7l-0.1,2.3l1.7,1.1l2.1,0.7l0.3,1.7l1.9,0.9l1.1,1.7l2.3,0.5l1.5,1.3l2.7,0.1l1.5-0.7l2.3,1.5l1.9-0.3l1.7,1.1l1.9-0.5l2.1,0.9l0.7,1.7l2.5,0.5l1.3,1.5l2.3,0.1l0.9,1.5l2.5-0.1l1.5,0.9l2.3-0.7l1.9,0.5l1.7-1.1l2.7,0.3l1.1,1.3l2.1-0.5l0.9,1.7l2.7,0.3l1.1-1.1l2.5,0.7l0.7,1.5l2.3-0.1l1.5-1.3l-0.5-2.1l1.3-1.7l-0.9-1.9l1.7-1.1l-0.1-2.3l1.9-0.9l0.7-1.7l2.1-0.3l0.3-2.1l1.7-1.1l1.5,0.9l0.7-1.9l2.1-0.3l1.1-1.5l1.9,0.5l0.9-1.7l2.3,0.1l0.5-1.9l-1.3-1.5l0.9-2.1l-0.7-1.7l1.5-1.5l0.1-2.3l1.9-0.7l-0.3-2.1l1.7-1.3l0.7-2.3l-0.5-1.9l1.1-1.7l-1.1-1.7l0.5-2.3l-1.5-1.3l0.7-2.1l-0.9-1.5l0.3-2.7l1.5-1.1l-0.1-2.5l1.9-1.1l0.1-2.3l1.7-0.9l0.5-2.5l1.3-1.3l-0.3-2.1l1.1-1.7l-0.5-2.3l1.5-1.1l0.3-2.5l2.1-0.3l0.7-1.9l-1.3-1.7l0.9-1.9l-0.7-2.1l1.9-1.1l0.1-2.5l2.3-0.7l0.5-2.3l-1.1-1.5l1.3-1.7l-0.3-2.7l1.7-0.9l-0.1-2.7l2.1-0.5l0.9-2.1l-0.9-1.5l1.5-1.3l-0.5-2.5l2.3-0.3l0.3-2.3l1.9-0.7l-0.1-2.9l-1.7-1.1l0.5-2.1l-2.1-0.7l-0.7-1.9l-2.5-0.3l-0.9-2.1l-2.3-0.5l-0.5-1.7l-2.7-0.9l-1.1-1.9l-2.1-0.3l-0.9-2.3l-2.5-0.1l-0.5-1.7l-2.3-1.1l-1.5-1.7l-2.9-0.3l-0.7-1.9l-2.7-0.7l-1.3-1.5l-2.5-0.9l-0.9-1.7l-2.9-1.1l-1.7-1.3l-2.3-0.7l-1.5-1.9l-2.7-0.3l-0.7-2.1l-3.1-0.5l-0.9-1.7l-2.5-0.9l-1.5-1.5l-2.9-0.7l-1.1-1.7l-2.7-0.9l-1.7-1.3l-2.3-0.5l-1.5-2.1l-2.9-0.1l-0.7-1.9l-2.7-1.1l-1.9-1.1l-2.1-0.3l-1.7-1.7l-2.5-0.7l-1.5-1.3l-2.1-0.9l-2.3-1.5l-1.9-0.1l-1.7-1.9l-2.5-0.5l-1.3-1.7l-2.7-0.7l-1.5-1.1l-2.3-1.3l-2.1-0.5l-1.9-1.7l-2.7-0.3l-1.1-1.5l-2.5-0.9l3.9,12.1l2.7,2.7l2.1,0.5l0.7,2.1l2.3,1.1l1.1,2.3l2.5,0.5l0.9,2.1l2.7,0.9l0.5,2.3l2.1,1.3l0.7,2.5l2.3,0.7l1.3,2.1l2.5,0.1l1.1,2.3l2.7,0.5l0.7,2.5l2.1,0.9l1.3,2.3l2.5,0.3l0.9,2.1l2.3,1.1l0.5,2.5l2.7,0.7l1.1,2.1l2.1,0.5l1.5,2.3l2.3,0.1l0.9,2.5l2.5,0.9l0.5,2.3l-32.5-0.1l0.1,7.9l-1.5,2.1l0.3,2.5l-1.1,1.9l0.5,2.3l-1.7,1.7l0.1,2.7l-1.3,2.1l0.7,2.1l-0.9,2.5l0.3,2.3l-1.5,1.9l0.5,2.7l-1.1,2.1z",
+  MX: "M125.8,207.8l-0.7-1.7l-1.5-0.9l-0.3-2.1l-1.1-1.5l0.5-1.9l-0.9-1.7l-1.7-0.7l0.1-2.3l-1.3-1.1l0.7-1.9l-0.5-1.5l-1.5-0.9l0.3-2.1l-0.9-1.7l-1.7-0.5l-0.1-2.5l-1.1-1.3l0.9-1.7l-0.3-2.3l-1.9-0.7l-0.5-1.9l0.7-1.5l-1.3-1.1l0.5-2.3l-0.7-1.7l-1.5-0.9l0.1-2.1l-1.1-1.5l0.9-1.9l-0.5-1.7l-1.7-0.9l0.3-2.1l7.9,0.1l1.5,1.1l1.9,0.3l1.1,1.7l1.7,0.5l0.5,2.1l1.3,1.1l0.3,2.3l1.7,0.7l0.7,1.9l1.5,0.5l0.1,2.3l1.1,1.3l0.7,2.1l1.9,0.7l0.3,2.5l1.5,0.9l0.5,2.1l1.3,1.1l0.1,2.5l1.9,0.5l0.9,2.3l-0.5,1.9l1.1,1.3l0.3,2.7l-0.9,1.7l1.3,1.1l0.5,2.5l-0.7,1.9l0.9,1.7l-12.3,0.1z",
+  BR: "M290,290l-2-1l-1.5-1.5l-0.5-2l-1.5-1l-0.5-2l-1.5-1l-0.5-2l-1.5-1l-1-2l-1.5-0.5l-0.5-2l-2-1l-0.5-2l-1.5-1l-0.5-2l-1.5-1l-1-2l-1.5-0.5l-0.5-2l-2-1l0.5-1.5l1.5-0.5l1.5,0.5l1.5-0.5l1.5,0.5l2,0.5l1.5,1l1.5-0.5l1,1l2,0.5l1,1l1.5,0.5l1.5,1l2,0.5l1,1l1.5,0.5l1.5,1l2,0.5l1,1l1.5,0.5l1.5,1.5l2,0.5l1,1l2,0.5l1.5,1.5l2,0.5l1,1.5l-0.5,2l-1,1.5l0.5,2l-0.5,1.5l0.5,2l-1,1.5l0.5,2l-0.5,1.5l0.5,2l-0.5,2l-1,1.5l0.5,2l-0.5,1.5l-1.5,1.5l-0.5,2l-1,1.5l-1,2l-1.5,1l-0.5,2l-1.5,1l-0.5,2l-1.5,1l-1.5,1.5l-2,0.5l-1,1l-2-0.5l-1.5,1l-2-0.5l-1.5,0.5l-2-0.5l-1.5,0.5l-2-0.5l-1.5,0.5z",
+  GB: "M455,110l-1-1l-0.5-1.5l0.5-1.5l-0.5-1l0.5-1.5l1.5-0.5l1.5,0.5l1,1l1.5,0.5l0.5,1.5l-0.5,1.5l0.5,1l-1,1.5l-0.5,1.5l-1.5-0.5l-1-1l-1-1z",
+  FR: "M468,135l-1.5-0.5l-1-1.5l-0.5-2l-1.5-1l-0.5-1.5l0.5-1.5l-1-1.5l1-1.5l0.5-2l1.5-0.5l1.5,0.5l1.5,1l2,0.5l1,1.5l1.5,0.5l0.5,1.5l-0.5,1.5l0.5,1.5l-0.5,2l1,1l-0.5,2l-1.5,0.5l-1.5-0.5l-1.5,1l-1.5-1.5z",
+  DE: "M488,120l-0.5-1.5l0.5-1.5l-0.5-1l1-1.5l1.5,0.5l1.5,1l1.5-0.5l1,1.5l-0.5,1.5l0.5,1l-0.5,2l1,1l-0.5,1.5l-1.5,0.5l-1-1l-2,0.5l-1-1.5l-1.5-0.5l0.5-2z",
+  RU: "M550,80l2,1l1.5,1.5l2,0.5l1.5,2l2,0.5l1,1.5l2,0.5l1.5,1.5l2,0.5l1,2l2,0.5l1,1.5l2,1l1.5,1.5l2,0.5l1,2l2,0.5l1,1.5l2,1l1.5,1.5l2,0.5l1,2l2,0.5l1,1.5l2,1l1,1.5l2,0.5l1.5,2l-0.5,2l-1,1.5l0.5,2l-1,2l0.5,2l-1,1.5l0.5,2l-0.5,2l-1.5,1l0.5,2l-1,1.5l-1.5,1l-0.5,2l-1,1.5l-2,0.5l-1.5,1.5l-2-0.5l-1.5,1l-2-0.5l-1.5,1l-2-0.5l-1.5,1l-2-0.5l-1.5,0.5l-2-0.5l-1.5,1l-2-1l-1.5,0.5l-2-1l-1.5,0.5l-2-0.5l-1,0.5l-2-0.5l-1.5,1l-2-1l-1.5,0.5l-2-1l-1.5,0.5l-2-0.5l-1.5,0.5l-2-1l-1.5,0.5l-2-0.5l-1,0.5l-2-1l-1.5,0.5l-2-0.5l-1.5,0.5l-2-1l-1.5,0.5l-2-0.5l-1,0.5l-2-0.5l-1.5,0.5l-2-1l-1.5,0.5l-2-0.5l-1,0.5l-2-0.5l-1.5,0.5l-2-1l-1-2l1-1.5l-0.5-2l1-1.5l-0.5-2l1-1.5l-0.5-2l0.5-2l-1-1.5l0.5-2l-0.5-2l1.5-1.5l-0.5-2l1-1.5l-0.5-2l1-1.5l-0.5-2l1.5-1l0.5-2l-0.5-1.5l1.5-1.5l0.5-2l-1-1.5l1.5-1l-0.5-2l2-1l0.5-2l-0.5-1.5l1.5-1.5l1-2l1.5-0.5l2,1l1.5,1.5l2,0.5l1.5,2l2,0.5l1,1.5l2,0.5l1,1.5l2,0.5l1.5,2l2,0.5l1,2l2,1l1.5,1.5l2,0.5l1,2l2,0.5l1,1.5l2,1l1.5,1.5l2,0.5z",
+  CN: "M650,170l-2-0.5l-1.5-1.5l-2-0.5l-1.5-2l-2-0.5l-1-2l-2-0.5l-1-1.5l-2-1l-1.5-1.5l-2-0.5l-1-2l-2-0.5l-1-2l-1.5-1l-0.5-2l-2-1l-0.5-1.5l-1.5-1l-0.5-2l-2-1l0.5-2l-1-1.5l0.5-2l-1-1.5l0.5-2l1.5-1l0.5-2l1-1.5l-0.5-2l1.5-1l0.5-2l2-0.5l1.5,1l2-0.5l1.5,1l2,0.5l1.5,1.5l2,0.5l1,2l2,0.5l1,1l2,0.5l1.5,1.5l2,0.5l1.5,2l2,0.5l1,2l2,0.5l1,1l2,1l1.5,1.5l2,0.5l1.5,2l2,0.5l1,2l2,0.5l1,1.5l2,0.5l1.5,1.5l2,0.5l1.5,2l2,0.5l1,2l-0.5,2l-1.5,1.5l0.5,2l-1,1.5l0.5,2l-1.5,1l0.5,2l-1,1.5l-2,0.5l-1.5,1.5l-2-0.5l-1.5,1l-2-0.5l-1.5,0.5l-2-0.5l-1,1l-2-0.5l-1.5,0.5l-2-0.5l-1.5,1l-2-0.5l-1.5,0.5z",
+  IN: "M600,220l-1.5-1l-0.5-2l-1.5-1.5l-0.5-2l-1-1.5l0.5-2l-1-1.5l0.5-2l-1.5-1l0.5-2l-0.5-1.5l-1-1.5l1-2l-0.5-2l1.5-1.5l-0.5-2l1-1.5l-0.5-2l1.5-1l0.5-2l1.5-1l2,0.5l1.5,1l2,0.5l1.5,2l2,0.5l1,1.5l2,0.5l1.5,1.5l2,0.5l1.5,2l2,0.5l1,2l2,0.5l0.5,2l-0.5,2l1,1.5l-0.5,2l0.5,1.5l-1,2l0.5,2l-1,2l-1.5,1l0.5,2l-1,2l-1.5,0.5l-1.5,2l-2,0.5l-1,1.5l-2-0.5l-1.5,1l-2-0.5l-1.5,1l-2-0.5l-1.5,0.5z",
+  AU: "M730,320l-2-1l-1.5-2l-2-0.5l-1-2l-1.5-1l-0.5-2l-2-0.5l-1-2l-1.5-1l-0.5-2l-2-0.5l-1-2l-1.5-1.5l-0.5-2l-2-1l0.5-2l-1-1.5l0.5-2l1.5-1.5l0.5-2l1-1.5l1-2l1.5-1l0.5-2l1.5-1l1-2l2-0.5l1.5-2l2-0.5l1-2l2-0.5l1.5-2l2-0.5l1-1.5l2-0.5l1.5-1.5l2,0.5l1.5-1.5l2-0.5l1-2l2-0.5l1.5-2l2,0.5l1-1.5l2-0.5l1.5-1.5l2,0.5l1.5,1l2,0.5l1.5,2l2,0.5l1,1.5l2,1l1.5,1.5l2,0.5l1,2l2,0.5l1,2l2,0.5l1.5,1.5l2,0.5l1,2l-0.5,2l-1,1.5l0.5,2l-1,2l0.5,2l-1,1.5l0.5,2l-1.5,1l0.5,2l-1,2l-0.5,2l-1.5,1.5l0.5,2l-1,1.5l-1.5,1l-1.5,2l-2,0.5l-1,2l-2,0.5l-1.5,1.5l-2,0.5l-1,2l-2,0.5l-1.5,2l-2-0.5l-1.5,1.5l-2,0.5l-1,2l-2,0.5l-1.5,1.5l-2,0.5l-1,1.5l-2,0.5l-1.5,1l-2,0.5l-1.5,2l-2,0.5l-1,1.5l-2,1l-1.5,1z",
+  JP: "M770,152l-1-1.5l0.5-2l1-1.5l1.5,0.5l1.5,1l0.5,2l-0.5,2l-1,1l-1.5-0.5l-1-1z",
+  ZA: "M520,345l-1.5-1l-1.5-1.5l-2-0.5l-1-2l-1.5-1l-0.5-2l-1.5-1.5l-0.5-2l-1.5-1l0.5-2l-1-1.5l1-2l1.5-1.5l2,0.5l1.5,1l2,0.5l1,2l2,0.5l1,1.5l2,1l1.5,1.5l2,0.5l1,2l2,0.5l1,2l-0.5,2l-1,1.5l-0.5,2l-1.5,1.5l-2,0.5l-1.5,1l-2-0.5l-1,1z",
+}
+
+// Country code to name mapping
+const COUNTRY_NAMES: Record<string, string> = {
+  US: "United States", CA: "Canada", MX: "Mexico", BR: "Brazil", GB: "United Kingdom",
+  FR: "France", DE: "Germany", IT: "Italy", ES: "Spain", RU: "Russia", CN: "China",
+  IN: "India", AU: "Australia", JP: "Japan", KR: "South Korea", ZA: "South Africa",
+  NG: "Nigeria", EG: "Egypt", AR: "Argentina", SE: "Sweden", NO: "Norway", PL: "Poland",
+  NL: "Netherlands", BE: "Belgium", CH: "Switzerland", AT: "Austria", PT: "Portugal",
+  TR: "Turkey", GR: "Greece", SA: "Saudi Arabia", AE: "United Arab Emirates", IL: "Israel",
+  TH: "Thailand", VN: "Vietnam", MY: "Malaysia", SG: "Singapore", ID: "Indonesia",
+  PH: "Philippines", NZ: "New Zealand", CL: "Chile", CO: "Colombia", PE: "Peru",
+  VE: "Venezuela", PK: "Pakistan", BD: "Bangladesh", IR: "Iran", IQ: "Iraq"
+}
+
+// World Map Component
+interface WorldMapProps {
+  countryData: { code: string; name: string; views: number; orders: number; revenue: number }[]
+  analyticsMode: "store" | "onepage"
+}
+
+const WorldMap = ({ countryData, analyticsMode }: WorldMapProps) => {
+  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
+
+  // Create a map of country code to data for quick lookup
+  const countryDataMap = new Map(countryData.map(c => [c.code, c]))
+
+  // Calculate max views for color scaling
+  const maxViews = Math.max(...countryData.map(c => c.views), 1)
+
+  // Get color based on views (green gradient)
+  const getCountryColor = (code: string) => {
+    const data = countryDataMap.get(code)
+    if (!data) return "#e5e7eb" // Light gray for no data
+
+    const intensity = data.views / maxViews
+    // Gradient from light green to dark green
+    const r = Math.round(34 + (229 - 34) * (1 - intensity))
+    const g = Math.round(197 + (231 - 197) * (1 - intensity))
+    const b = Math.round(94 + (235 - 94) * (1 - intensity))
+    return `rgb(${r}, ${g}, ${b})`
+  }
+
+  const handleMouseMove = (e: React.MouseEvent, code: string) => {
+    setHoveredCountry(code)
+    const rect = (e.currentTarget as HTMLElement).closest('svg')?.getBoundingClientRect()
+    if (rect) {
+      setTooltipPosition({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top - 10
+      })
+    }
+  }
+
+  const getTooltipContent = (code: string) => {
+    const data = countryDataMap.get(code)
+    const name = data?.name || COUNTRY_NAMES[code] || code
+    if (data) {
+      return (
+        <div className="bg-[#1a1a2e] text-white px-3 py-2 rounded-lg shadow-lg text-[12px] min-w-[140px]">
+          <div className="font-semibold mb-1">{name}</div>
+          <div className="text-[#9ca3af]">{data.views.toLocaleString()} views</div>
+          {analyticsMode === "onepage" ? (
+            <>
+              <div className="text-[#9ca3af]">{data.orders.toLocaleString()} clicks</div>
+              <div className="text-[#9ca3af]">{data.revenue.toLocaleString()} subscribers</div>
+            </>
+          ) : (
+            <div className="text-[#9ca3af]">{data.orders.toLocaleString()} orders</div>
+          )}
+        </div>
+      )
+    }
+    return (
+      <div className="bg-[#1a1a2e] text-white px-3 py-2 rounded-lg shadow-lg text-[12px]">
+        <div className="font-semibold">{name}</div>
+        <div className="text-[#9ca3af]">No data</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative mb-4">
+      <p className="text-[11px] text-[#9ca3af] mb-2">The countries your visitors are based in</p>
+      <svg viewBox="0 0 900 450" className="w-full h-auto bg-[#1a1a2e] rounded-lg">
+        {/* Render all country paths */}
+        {Object.entries(WORLD_MAP_PATHS).map(([code, path]) => (
+          <path
+            key={code}
+            d={path}
+            fill={getCountryColor(code)}
+            stroke="#374151"
+            strokeWidth="0.5"
+            className="transition-all duration-200 cursor-pointer hover:opacity-80"
+            onMouseMove={(e) => handleMouseMove(e, code)}
+            onMouseLeave={() => setHoveredCountry(null)}
+          />
+        ))}
+
+        {/* Tooltip */}
+        {hoveredCountry && (
+          <foreignObject
+            x={Math.min(tooltipPosition.x, 750)}
+            y={Math.max(tooltipPosition.y - 70, 10)}
+            width="160"
+            height="100"
+            style={{ pointerEvents: 'none' }}
+          >
+            {getTooltipContent(hoveredCountry)}
+          </foreignObject>
+        )}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-2 mt-3">
+        <span className="text-[11px] text-[#9ca3af]">1</span>
+        <div className="w-32 h-2 rounded-full" style={{
+          background: 'linear-gradient(to right, #e5e7eb, #86efac, #22c55e, #16a34a)'
+        }} />
+        <span className="text-[11px] text-[#9ca3af]">{maxViews}</span>
+      </div>
+    </div>
+  )
+}
 
 interface Product {
   id: string
@@ -361,9 +495,12 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
   if (isZero) return null
 
   return (
-    <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
-      isPositive ? "text-emerald-600" : "text-rose-500"
-    }`}>
+    <span
+      className={`inline-flex items-center gap-0.5 text-[11px] font-medium cursor-help ${
+        isPositive ? "text-emerald-600" : "text-rose-500"
+      }`}
+      title={`${isPositive ? "+" : "-"}${value.toFixed(1)}% compared to previous period`}
+    >
       {isPositive ? (
         <TrendingUp className="h-3 w-3" />
       ) : (
@@ -437,6 +574,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     clicks: 0,
     subscribers: 0,
     ctr: 0,
+    // Previous period for percentage change
+    prevViews: 0,
+    prevClicks: 0,
+    prevSubscribers: 0,
+    // All-time stats
+    allTimeViews: 0,
+    allTimeClicks: 0,
+    allTimeSubscribers: 0,
   })
 
   const [trendData, setTrendData] = useState<TrendData[]>([])
@@ -504,6 +649,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           .eq("owner_id", userId)
           .maybeSingle()
 
+        // Initialize previous period and all-time variables
+        let prevViews = 0
+        let prevClicks = 0
+        let prevSubscribers = 0
+        let allTimeViews = 0
+        let allTimeClicks = 0
+        let allTimeSubscribers = 0
+
         if (onepage?.id) {
           // Fetch OnePage views (select * to handle missing columns gracefully)
           const { data: onePageViews, error: viewsError } = await supabase
@@ -549,6 +702,61 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
           leadEvents = onePageLeads || []
           periodSubscribers = leadEvents.length
+
+          // Calculate previous period dates (same duration, immediately before)
+          const periodDuration = end.getTime() - start.getTime()
+          const prevEnd = new Date(start.getTime() - 1)
+          const prevStart = new Date(prevEnd.getTime() - periodDuration)
+
+          // Fetch previous period OnePage views
+          const { data: prevOnePageViews } = await supabase
+            .from("onepage_views")
+            .select("id")
+            .eq("onepage_id", onepage.id)
+            .gte("created_at", prevStart.toISOString())
+            .lte("created_at", prevEnd.toISOString())
+
+          // Fetch previous period OnePage clicks
+          const { data: prevOnePageClicks } = await supabase
+            .from("onepage_clicks")
+            .select("id")
+            .eq("onepage_id", onepage.id)
+            .gte("created_at", prevStart.toISOString())
+            .lte("created_at", prevEnd.toISOString())
+
+          // Fetch previous period OnePage subscribers
+          const { data: prevOnePageLeads } = await supabase
+            .from("onepage_leads")
+            .select("id")
+            .eq("onepage_id", onepage.id)
+            .gte("created_at", prevStart.toISOString())
+            .lte("created_at", prevEnd.toISOString())
+
+          prevViews = prevOnePageViews?.length || 0
+          prevClicks = prevOnePageClicks?.length || 0
+          prevSubscribers = prevOnePageLeads?.length || 0
+
+          // Fetch all-time OnePage views (no date filter)
+          const { data: allTimeOnePageViews } = await supabase
+            .from("onepage_views")
+            .select("id")
+            .eq("onepage_id", onepage.id)
+
+          // Fetch all-time OnePage clicks (no date filter)
+          const { data: allTimeOnePageClicks } = await supabase
+            .from("onepage_clicks")
+            .select("id")
+            .eq("onepage_id", onepage.id)
+
+          // Fetch all-time OnePage subscribers (no date filter)
+          const { data: allTimeOnePageLeads } = await supabase
+            .from("onepage_leads")
+            .select("id")
+            .eq("onepage_id", onepage.id)
+
+          allTimeViews = allTimeOnePageViews?.length || 0
+          allTimeClicks = allTimeOnePageClicks?.length || 0
+          allTimeSubscribers = allTimeOnePageLeads?.length || 0
 
           // Aggregate country data for OnePage (views + clicks + subscribers)
           const onePageCountryStats: Record<string, { views: number; clicks: number; subscribers: number; name: string }> = {}
@@ -746,6 +954,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           clicks: periodClicks,
           subscribers: periodSubscribers,
           ctr: ctr,
+          // Previous period for percentage change
+          prevViews,
+          prevClicks,
+          prevSubscribers,
+          // All-time stats
+          allTimeViews,
+          allTimeClicks,
+          allTimeSubscribers,
         })
 
         // Set summary for OnePage
@@ -1781,9 +1997,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <Eye className="h-4 w-4 text-[#9ca3af]" />
                     </div>
                   </div>
-                  <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                    {isLoading ? <Skeleton className="h-7 w-16" /> : formatCompactNumber(onePageMetrics.views)}
+                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                      {isLoading ? <Skeleton className="h-7 w-16" /> : formatCompactNumber(onePageMetrics.views)}
+                    </span>
+                    {!isLoading && <PercentChangeIndicator current={onePageMetrics.views} previous={onePageMetrics.prevViews} />}
                   </div>
+                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(onePageMetrics.allTimeViews)} all time</p>
                 </>
               )}
             </div>
@@ -1805,9 +2025,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <MousePointerClick className="h-4 w-4 text-[#9ca3af]" />
                     </div>
                   </div>
-                  <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                    {isLoading ? <Skeleton className="h-7 w-14" /> : formatCompactNumber(onePageMetrics.clicks)}
+                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                      {isLoading ? <Skeleton className="h-7 w-14" /> : formatCompactNumber(onePageMetrics.clicks)}
+                    </span>
+                    {!isLoading && <PercentChangeIndicator current={onePageMetrics.clicks} previous={onePageMetrics.prevClicks} />}
                   </div>
+                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(onePageMetrics.allTimeClicks)} all time</p>
                 </>
               )}
             </div>
@@ -1820,9 +2044,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   <UserPlus className="h-4 w-4 text-[#9ca3af]" />
                 </div>
               </div>
-              <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                {isLoading ? <Skeleton className="h-7 w-12" /> : formatCompactNumber(onePageMetrics.subscribers)}
+              <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                  {isLoading ? <Skeleton className="h-7 w-12" /> : formatCompactNumber(onePageMetrics.subscribers)}
+                </span>
+                {!isLoading && <PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
               </div>
+              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(onePageMetrics.allTimeSubscribers)} all time</p>
             </div>
 
             {/* CTR */}
@@ -1836,6 +2064,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
                 {isLoading ? <Skeleton className="h-7 w-14" /> : `${onePageMetrics.ctr.toFixed(1)}%`}
               </div>
+              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Clicks / Views</p>
             </div>
           </div>
         )}
@@ -2589,7 +2818,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {mostClickedBlocks.length > 5 && (
                   <button
                     onClick={() => setShowAllMostClicked(!showAllMostClicked)}
-                    className="w-full py-2 mt-2 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e] hover:bg-[#f3f4f6] rounded-lg transition-all duration-200 ease-out"
+                    className="w-full py-2 mt-2 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e] hover:bg-[#f3f4f6] rounded-lg transition-all duration-200 ease-out cursor-pointer select-none active:scale-[0.98]"
                     style={{
                       opacity: 1,
                       animation: 'fadeIn 0.2s ease-out'
@@ -2633,29 +2862,34 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             {isLoading ? (
               <Skeleton className="h-[200px] w-full" />
             ) : countryData.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[#e5e7eb]">
-                      <th className="text-left text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Country</th>
-                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Views</th>
-                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">
-                        {analyticsMode === "onepage" ? "Clicks" : "Orders"}
-                      </th>
-                      <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">
-                        {analyticsMode === "onepage" ? "Subscribers" : "Revenue"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {countryData.map((country) => (
-                      <tr key={country.code} className="border-b border-[#f3f4f6] last:border-0">
-                        <td className="py-2.5">
-                          <div className="flex items-center gap-2">
-                            {country.code === "OTHER" ? (
-                              <Globe className="h-4 w-4 text-[#9ca3af]" />
-                            ) : (
-                              <span className="text-[16px]">{getCountryFlag(country.code)}</span>
+              <>
+                {/* World Map Visualization */}
+                <WorldMap countryData={countryData} analyticsMode={analyticsMode} />
+
+                {/* Country Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#e5e7eb]">
+                        <th className="text-left text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Country</th>
+                        <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">Views</th>
+                        <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">
+                          {analyticsMode === "onepage" ? "Clicks" : "Orders"}
+                        </th>
+                        <th className="text-right text-[11px] font-medium text-[#9ca3af] uppercase tracking-wider pb-2">
+                          {analyticsMode === "onepage" ? "Subscribers" : "Revenue"}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {countryData.map((country) => (
+                        <tr key={country.code} className="border-b border-[#f3f4f6] last:border-0">
+                          <td className="py-2.5">
+                            <div className="flex items-center gap-2">
+                              {country.code === "OTHER" ? (
+                                <Globe className="h-4 w-4 text-[#9ca3af]" />
+                              ) : (
+                                <span className="text-[16px]">{getCountryFlag(country.code)}</span>
                             )}
                             <span className="text-[13px] font-medium text-[#1a1a2e]">{country.name}</span>
                           </div>
@@ -2673,9 +2907,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : (
               <div className="py-6 text-center">
                 <Globe className="h-8 w-8 mx-auto mb-2 text-[#e5e7eb]" />
