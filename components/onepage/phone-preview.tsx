@@ -4152,8 +4152,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
       // Check if this is an Apple Music URL for special centering
       const isAppleMusic = isAppleMusicUrl(data.url)
-      // Use centered layout for icons (no thumbnail), left-aligned for thumbnails
+      // Use centered layout for both icons and thumbnails
       const hasIconOnly = iconPath && !data.thumbnail_url
+      const hasThumbnail = !!data.thumbnail_url
 
       return (
         <button
@@ -4161,8 +4162,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             s.button,
             "w-full font-medium flex items-center",
             hoverEffect,
-            // Icons use centered layout with absolute positioning, thumbnails use left-aligned
-            hasIconOnly ? "relative justify-center" : (data.thumbnail_url ? "gap-2 justify-start" : "justify-center"),
+            // Both icons and thumbnails use centered layout with absolute positioning
+            (hasIconOnly || hasThumbnail) ? "relative justify-center" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
           )}
           style={buttonStyles}
@@ -4171,7 +4172,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <img
               src={data.thumbnail_url}
               alt=""
-              className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0")}
+              className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute left-[12px]")}
               style={{ imageRendering: "auto" }}
             />
           ) : iconPath ? (
@@ -4190,7 +4191,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", hasIconOnly ? "text-center px-10" : (data.thumbnail_url ? "flex-1 text-center" : ""))}>
+          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? "text-center px-10" : "")}>
             <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (

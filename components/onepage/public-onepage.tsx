@@ -4149,9 +4149,9 @@ function PublicBlockRenderer({
               openSpotifyModal(data)
             }}
             className={cn(
-              "w-full flex items-center gap-3 py-[19.5px] sm:py-[21.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer text-left",
+              "w-full flex items-center py-[19.5px] sm:py-[21.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer",
               hoverEffect,
-              hasThumbnail ? "justify-start" : "justify-center",
+              hasThumbnail ? "relative justify-center" : "justify-center",
               getDefaultAnimationClass(data.animation_type)
             )}
             style={buttonStyles}
@@ -4160,7 +4160,7 @@ function PublicBlockRenderer({
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0"
+                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
               />
             ) : iconPath ? (
               <svg
@@ -4175,7 +4175,7 @@ function PublicBlockRenderer({
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className={cn("flex flex-col min-w-0", hasThumbnail ? "flex-1 text-center" : "")}>
+            <div className={cn("flex flex-col min-w-0", hasThumbnail ? "text-center px-12" : "")}>
               <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
@@ -4275,8 +4275,9 @@ function PublicBlockRenderer({
 
       // Check if this is an Apple Music URL for special centering
       const isAppleMusic = isAppleMusicUrl(data.url)
-      // Use centered layout for icons (no thumbnail), left-aligned for thumbnails
+      // Use centered layout for both icons and thumbnails
       const hasIconOnly = iconPath && !data.thumbnail_url
+      const hasThumbnail = !!data.thumbnail_url
 
       return (
         <a
@@ -4287,8 +4288,8 @@ function PublicBlockRenderer({
           className={cn(
             "w-full flex items-center py-[19.5px] sm:py-[21.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all",
             hoverEffect,
-            // Icons use centered layout with absolute positioning, thumbnails use left-aligned
-            hasIconOnly ? "relative justify-center" : (data.thumbnail_url ? "gap-3 justify-start" : "justify-center"),
+            // Both icons and thumbnails use centered layout with absolute positioning
+            (hasIconOnly || hasThumbnail) ? "relative justify-center" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
           )}
           style={buttonStyles}
@@ -4297,7 +4298,7 @@ function PublicBlockRenderer({
             <img
               src={data.thumbnail_url}
               alt=""
-              className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0"
+              className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
             />
           ) : iconPath ? (
             <svg
@@ -4312,7 +4313,7 @@ function PublicBlockRenderer({
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", hasIconOnly ? "text-center px-12" : (data.thumbnail_url ? "flex-1 text-center" : ""))}>
+          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? "text-center px-12" : "")}>
             <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
