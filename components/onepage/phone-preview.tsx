@@ -3162,8 +3162,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           bio: "text-[11px] max-w-[180px]",
           button: "py-[14.5px] px-[12px] text-[12px]",
           buttonThumb: "w-[25.5px] h-[25.5px]",
-          buttonIcon: 16.5,
+          buttonIcon: 15.5,
           buttonIconLeft: "12px",
+          buttonTextPadding: "pl-[42px] pr-[42px]",
           text: "text-[11px]",
           input: "px-[10px] py-[8px] text-[11px]",
           inputBtn: "px-[12px] py-[8px] text-[11px]",
@@ -3181,8 +3182,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           bio: "text-sm max-w-xs",
           button: "py-[16.5px] px-4 text-[15px]",
           buttonThumb: "w-[35px] h-[35px]",
-          buttonIcon: 35,
+          buttonIcon: 34,
           buttonIconLeft: "16px",
+          buttonTextPadding: "pl-[58px] pr-[58px]",
           text: "text-sm",
           input: "px-4 py-3 text-base",
           inputBtn: "px-5 py-3 text-base",
@@ -4044,7 +4046,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className={cn("flex flex-col min-w-0", hasThumbnailOrIcon ? "w-full text-center px-10" : "")}>
+            <div className={cn("flex flex-col min-w-0", hasThumbnailOrIcon ? `w-full text-center ${s.buttonTextPadding}` : "")}>
               <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
@@ -4120,7 +4122,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className="flex flex-col min-w-0 w-full text-center px-10">
+            <div className={cn("flex flex-col min-w-0 w-full text-center", s.buttonTextPadding)}>
               <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
@@ -4195,7 +4197,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? "w-full text-center px-10" : "")}>
+          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? `w-full text-center ${s.buttonTextPadding}` : "")}>
             <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (

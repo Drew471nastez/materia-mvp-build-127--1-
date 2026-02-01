@@ -212,53 +212,6 @@ interface ChartDataPoint {
   value: number
 }
 
-interface FunnelStep {
-  name: string
-  count: number
-  dropOffRate: number
-  conversionRate: number
-}
-
-interface FunnelData {
-  steps: FunnelStep[]
-  overallConversionRate: number
-  totalViews: number
-  totalPurchases: number
-}
-
-interface ProductInsight {
-  id: string
-  title: string
-  thumbnail_url: string | null
-  price_cents: number
-  views: number
-  clicks: number
-  checkoutStarts: number
-  orders: number
-  revenue: number
-  conversionRate: number
-}
-
-interface EventFeedItem {
-  id: string
-  type: string
-  label: string
-  icon: string
-  sessionId: string | null
-  timestamp: string
-  country: string | null
-  city: string | null
-  deviceType: string | null
-  browser: string | null
-  referrer: string | null
-  product: {
-    id: string
-    title: string
-    thumbnail: string | null
-  } | null
-  metadata: any
-}
-
 type AnalyticsMode = "store" | "onepage"
 type KPIType = "views" | "orders" | "revenue" | "conversion" | "clicks" | "subscribers" | "ctr" | null
 type ChartMetricFilter = "all" | "views" | "orders" | "revenue"
@@ -498,12 +451,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [mostClickedBlocks, setMostClickedBlocks] = useState<MostClickedBlock[]>([])
   const [showAllMostClicked, setShowAllMostClicked] = useState(false)
 
-  // Funnel, Product Insights, Events Feed, Export states
-  const [funnelData, setFunnelData] = useState<FunnelData | null>(null)
-  const [productInsights, setProductInsights] = useState<ProductInsight[]>([])
-  const [eventsFeed, setEventsFeed] = useState<EventFeedItem[]>([])
+  // Export state
   const [isExporting, setIsExporting] = useState(false)
-  const [showEventsFeed, setShowEventsFeed] = useState(false)
 
   const selectedTimeframeOption = timeframeOptions.find((o) => o.value === timeframe)
 
@@ -1309,64 +1258,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         }).sort((a, b) => b.views - a.views).slice(0, 5)
 
         setTopProducts(topProductsArray)
-      }
-
-      // Fetch funnel data, product insights, and events feed for Store mode
-      if (analyticsMode === "store") {
-        // Map timeframe to API format
-        const apiTimeframe = timeframe === "last_7_days" ? "7d"
-          : timeframe === "last_30_days" ? "30d"
-          : timeframe === "last_90_days" ? "90d"
-          : timeframe === "last_year" ? "1y"
-          : timeframe === "today" ? "today"
-          : timeframe === "yesterday" ? "yesterday"
-          : timeframe === "custom" ? "custom"
-          : "30d"
-
-        const apiParams = new URLSearchParams({
-          timeframe: apiTimeframe,
-          ...(selectedProduct !== "all" && { productId: selectedProduct }),
-          ...(timeframe === "custom" && customStart && { customStart }),
-          ...(timeframe === "custom" && customEnd && { customEnd }),
-        })
-
-        // Fetch funnel data
-        try {
-          const funnelResponse = await fetch(`/api/analytics/funnel?${apiParams}`)
-          if (funnelResponse.ok) {
-            const funnelJson = await funnelResponse.json()
-            setFunnelData(funnelJson)
-          }
-        } catch (e) {
-          console.error("Error fetching funnel data:", e)
-        }
-
-        // Fetch product insights
-        try {
-          const insightsParams = new URLSearchParams({
-            timeframe: apiTimeframe,
-            ...(timeframe === "custom" && customStart && { customStart }),
-            ...(timeframe === "custom" && customEnd && { customEnd }),
-          })
-          const insightsResponse = await fetch(`/api/analytics/product-insights?${insightsParams}`)
-          if (insightsResponse.ok) {
-            const insightsJson = await insightsResponse.json()
-            setProductInsights(insightsJson.products || [])
-          }
-        } catch (e) {
-          console.error("Error fetching product insights:", e)
-        }
-
-        // Fetch events feed
-        try {
-          const eventsResponse = await fetch(`/api/analytics/events-feed?limit=20`)
-          if (eventsResponse.ok) {
-            const eventsJson = await eventsResponse.json()
-            setEventsFeed(eventsJson.events || [])
-          }
-        } catch (e) {
-          console.error("Error fetching events feed:", e)
-        }
       }
 
       setLastUpdated(new Date())
@@ -2499,61 +2390,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </CardContent>
         </Card>
 
-        {/* Conversion Funnel - Only show for Store Analytics */}
-        {analyticsMode === "store" && funnelData && (
-          <Card className="border-[#e5e7eb] bg-white">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Conversion Funnel</CardTitle>
-                <span className="text-[12px] text-[#6b7280]">
-                  {funnelData.overallConversionRate.toFixed(1)}% overall conversion
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-[200px] w-full" />
-              ) : (
-                <div className="space-y-3">
-                  {funnelData.steps.map((step, index) => {
-                    const prevCount = index > 0 ? funnelData.steps[index - 1].count : step.count
-                    const widthPercent = funnelData.steps[0].count > 0
-                      ? Math.max(15, (step.count / funnelData.steps[0].count) * 100)
-                      : 15
-
-                    return (
-                      <div key={step.name} className="space-y-1">
-                        <div className="flex items-center justify-between text-[13px]">
-                          <span className="font-medium text-[#1a1a2e]">{step.name}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[#6b7280]">{step.count.toLocaleString()}</span>
-                            {index > 0 && step.dropOffRate > 0 && (
-                              <span className="text-[11px] text-rose-500">
-                                -{step.dropOffRate.toFixed(1)}%
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="relative h-8 bg-[#f3f4f6] rounded-lg overflow-hidden">
-                          <div
-                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg transition-all duration-500"
-                            style={{ width: `${widthPercent}%` }}
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-[11px] font-medium text-white mix-blend-difference">
-                              {step.conversionRate.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Traffic & Device Distribution */}
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="border-[#e5e7eb] bg-white">
@@ -3023,134 +2859,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </CardContent>
         </Card>
 
-        {/* Product Insights - Only show for Store Analytics */}
-        {analyticsMode === "store" && productInsights.length > 0 && (
-          <Card className="border-[#e5e7eb] bg-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Product Insights</CardTitle>
-              <CardDescription className="text-[12px] text-[#6b7280]">
-                Detailed metrics for each product
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-[200px] w-full" />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[13px]">
-                    <thead>
-                      <tr className="border-b border-[#e5e7eb]">
-                        <th className="text-left font-medium text-[#6b7280] pb-2 pr-4">Product</th>
-                        <th className="text-right font-medium text-[#6b7280] pb-2 px-2">Views</th>
-                        <th className="text-right font-medium text-[#6b7280] pb-2 px-2">Clicks</th>
-                        <th className="text-right font-medium text-[#6b7280] pb-2 px-2">Checkouts</th>
-                        <th className="text-right font-medium text-[#6b7280] pb-2 px-2">Orders</th>
-                        <th className="text-right font-medium text-[#6b7280] pb-2 px-2">Revenue</th>
-                        <th className="text-right font-medium text-[#6b7280] pb-2 pl-2">Conv.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {productInsights.map((product) => (
-                        <tr key={product.id} className="border-b border-[#f3f4f6] last:border-0">
-                          <td className="py-3 pr-4">
-                            <div className="flex items-center gap-2">
-                              {product.thumbnail_url ? (
-                                <img
-                                  src={product.thumbnail_url}
-                                  alt={product.title}
-                                  className="w-8 h-8 rounded object-cover"
-                                />
-                              ) : (
-                                <div className="w-8 h-8 rounded bg-[#f3f4f6] flex items-center justify-center">
-                                  <ShoppingBag className="h-4 w-4 text-[#9ca3af]" />
-                                </div>
-                              )}
-                              <span className="font-medium text-[#1a1a2e] truncate max-w-[150px]">{product.title}</span>
-                            </div>
-                          </td>
-                          <td className="text-right py-3 px-2 text-[#6b7280]">{product.views.toLocaleString()}</td>
-                          <td className="text-right py-3 px-2 text-[#6b7280]">{product.clicks.toLocaleString()}</td>
-                          <td className="text-right py-3 px-2 text-[#6b7280]">{product.checkoutStarts.toLocaleString()}</td>
-                          <td className="text-right py-3 px-2 text-[#1a1a2e] font-medium">{product.orders}</td>
-                          <td className="text-right py-3 px-2 text-[#1a1a2e] font-medium">${(product.revenue / 100).toFixed(2)}</td>
-                          <td className="text-right py-3 pl-2">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                              product.conversionRate >= 3 ? 'bg-emerald-100 text-emerald-700' :
-                              product.conversionRate >= 1 ? 'bg-amber-100 text-amber-700' :
-                              'bg-gray-100 text-gray-600'
-                            }`}>
-                              {product.conversionRate.toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Live Activity Feed - Only show for Store Analytics */}
-        {analyticsMode === "store" && (
-          <Card className="border-[#e5e7eb] bg-white">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Live Activity</CardTitle>
-                  <CardDescription className="text-[12px] text-[#6b7280]">
-                    Recent visitor activity
-                  </CardDescription>
-                </div>
-                <button
-                  onClick={() => setShowEventsFeed(!showEventsFeed)}
-                  className="text-[12px] text-[#8b5cf6] hover:text-[#7c3aed] font-medium"
-                >
-                  {showEventsFeed ? 'Hide' : 'Show'} Feed
-                </button>
-              </div>
-            </CardHeader>
-            {showEventsFeed && (
-              <CardContent>
-                {isLoading ? (
-                  <Skeleton className="h-[200px] w-full" />
-                ) : eventsFeed.length > 0 ? (
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {eventsFeed.map((event) => (
-                      <div
-                        key={event.id}
-                        className="flex items-start gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors"
-                      >
-                        <span className="text-lg">{event.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-medium text-[#1a1a2e]">{event.label}</span>
-                            {event.product && (
-                              <span className="text-[11px] text-[#6b7280] truncate">
-                                - {event.product.title}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[#9ca3af]">
-                            {event.country && <span>{event.country}</span>}
-                            {event.deviceType && <span>• {event.deviceType}</span>}
-                            <span>• {new Date(event.timestamp).toLocaleTimeString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-6 text-center">
-                    <Clock className="h-8 w-8 mx-auto mb-2 text-[#e5e7eb]" />
-                    <p className="text-[#9ca3af] text-[13px]">No recent activity</p>
-                  </div>
-                )}
-              </CardContent>
-            )}
-          </Card>
-        )}
       </div>
     </div>
   )

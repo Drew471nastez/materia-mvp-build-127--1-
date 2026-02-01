@@ -4160,11 +4160,11 @@ function PublicBlockRenderer({
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
+                className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
               />
             ) : iconPath ? (
               <svg
-                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
+                className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4224,11 +4224,11 @@ function PublicBlockRenderer({
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
+                className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
               />
             ) : iconPath ? (
               <svg
-                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
+                className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4297,11 +4297,11 @@ function PublicBlockRenderer({
             <img
               src={data.thumbnail_url}
               alt=""
-              className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
+              className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
             />
           ) : iconPath ? (
             <svg
-              className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
+              className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
               viewBox="0 0 24 24"
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
