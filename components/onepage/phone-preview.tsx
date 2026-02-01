@@ -3160,7 +3160,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           avatarFallback: "text-[16px]",
           title: "text-[16px]",
           bio: "text-[11px] max-w-[180px]",
-          button: "py-[11.5px] px-[12px] text-[12px]",
+          button: "py-[13.5px] px-[12px] text-[12px]",
           buttonThumb: "w-[24.5px] h-[24.5px]",
           text: "text-[11px]",
           input: "px-[10px] py-[8px] text-[11px]",
@@ -3177,7 +3177,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           avatarFallback: "text-2xl",
           title: "text-xl",
           bio: "text-sm max-w-xs",
-          button: "py-[13.5px] px-4 text-[15px]",
+          button: "py-[15.5px] px-4 text-[15px]",
           buttonThumb: "w-[32.5px] h-[32.5px]",
           text: "text-sm",
           input: "px-4 py-3 text-base",
@@ -4097,7 +4097,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute left-3")}
+                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute left-[12.5px]")}
                 style={{ imageRendering: "auto" }}
               />
             ) : iconPath ? (
@@ -4110,7 +4110,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 strokeWidth={isFilledIcon ? "0" : "2"}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="shrink-0 absolute left-3"
+                className="shrink-0 absolute left-[12.5px]"
                 style={{ color: iconColor }}
               >
                 <path d={iconPath} />
@@ -4184,7 +4184,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               strokeWidth={isFilledIcon ? "0" : "2"}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="shrink-0 absolute left-3"
+              className="shrink-0 absolute left-[12.5px]"
               style={{ color: iconColor }}
             >
               <path d={iconPath} />

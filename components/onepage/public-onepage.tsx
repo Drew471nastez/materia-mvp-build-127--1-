@@ -4149,7 +4149,7 @@ function PublicBlockRenderer({
               openSpotifyModal(data)
             }}
             className={cn(
-              "w-full flex items-center gap-3 py-[15.5px] sm:py-[17.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer text-left",
+              "w-full flex items-center gap-3 py-[17.5px] sm:py-[19.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer text-left",
               hoverEffect,
               hasThumbnail ? "justify-start" : "justify-center",
               getDefaultAnimationClass(data.animation_type)
@@ -4213,7 +4213,7 @@ function PublicBlockRenderer({
               openAppleMusicModal(data)
             }}
             className={cn(
-              "w-full relative flex items-center justify-center py-[15.5px] sm:py-[17.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer",
+              "w-full relative flex items-center justify-center py-[17.5px] sm:py-[19.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer",
               hoverEffect,
               getDefaultAnimationClass(data.animation_type)
             )}
@@ -4224,11 +4224,11 @@ function PublicBlockRenderer({
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-5"
+                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20.5px]"
               />
             ) : iconPath ? (
               <svg
-                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-5"
+                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20.5px]"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4285,7 +4285,7 @@ function PublicBlockRenderer({
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
           className={cn(
-            "w-full flex items-center py-[15.5px] sm:py-[17.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all",
+            "w-full flex items-center py-[17.5px] sm:py-[19.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all",
             hoverEffect,
             // Icons use centered layout with absolute positioning, thumbnails use left-aligned
             hasIconOnly ? "relative justify-center" : (data.thumbnail_url ? "gap-3 justify-start" : "justify-center"),
@@ -4301,7 +4301,7 @@ function PublicBlockRenderer({
             />
           ) : iconPath ? (
             <svg
-              className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-5"
+              className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20.5px]"
               viewBox="0 0 24 24"
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
