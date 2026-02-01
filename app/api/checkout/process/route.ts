@@ -122,15 +122,16 @@ export async function POST(request: Request) {
       domain: isLocalhost ? undefined : `.${mainDomain}`,
     })
 
-    // Create order - start with minimal required fields
+    // Create order - try multiple strategies
     console.log("[checkout/process] Creating order for email:", email.toLowerCase().trim())
+    console.log("[checkout/process] User ID:", user?.id || "guest (null)")
 
-    // First try with all fields
     let order = null
     let orderError = null
+    let insertStrategy = "unknown"
 
-    const fullOrderData = {
-      buyer_id: user?.id || null,
+    // Strategy 1: Full data with all fields
+    const fullOrderData: Record<string, any> = {
       buyer_first_name: firstName.trim(),
       buyer_last_name: lastName.trim(),
       buyer_email: email.toLowerCase().trim(),
@@ -141,38 +142,80 @@ export async function POST(request: Request) {
       status: "completed",
       provider: "free",
       fee_cents: 0,
-      access_token: user ? null : accessToken,
       session_fingerprint: sessionFingerprint,
       receipt_token: receiptToken,
-      payment_method: "free",
     }
 
+    // Only include buyer_id if user is logged in (to avoid NOT NULL constraint issues)
+    if (user?.id) {
+      fullOrderData.buyer_id = user.id
+    }
+    // For guests, don't include access_token in full data to reduce failure points
+    if (!user) {
+      fullOrderData.access_token = accessToken
+    }
+
+    console.log("[checkout/process] Attempting Strategy 1: Full insert")
     const result1 = await admin.from("orders").insert(fullOrderData).select().single()
     order = result1.data
     orderError = result1.error
+    insertStrategy = "full"
 
-    // If that fails, try with minimal fields only
+    // Strategy 2: Minimal fields with buyer_id if logged in
     if (orderError) {
-      console.log("[checkout/process] Full insert failed, trying minimal fields:", orderError.message)
+      console.log("[checkout/process] Strategy 1 failed:", orderError.message, orderError.code)
 
-      const minimalOrderData = {
-        buyer_id: user?.id || null,
+      const minimalOrderData: Record<string, any> = {
         product_id: product.id,
         amount_cents: 0,
         status: "completed",
       }
 
+      if (user?.id) {
+        minimalOrderData.buyer_id = user.id
+      }
+
+      console.log("[checkout/process] Attempting Strategy 2: Minimal insert")
       const result2 = await admin.from("orders").insert(minimalOrderData).select().single()
       order = result2.data
       orderError = result2.error
+      insertStrategy = "minimal"
+    }
+
+    // Strategy 3: Absolute minimum - just product_id (relies on defaults)
+    if (orderError) {
+      console.log("[checkout/process] Strategy 2 failed:", orderError.message, orderError.code)
+
+      // Check if it's a buyer_id constraint issue
+      if (orderError.message?.includes("buyer_id") || orderError.message?.includes("null") || orderError.code === "23502") {
+        console.log("[checkout/process] Detected buyer_id constraint issue - trying without buyer_id")
+
+        const absoluteMinimalData = {
+          product_id: product.id,
+          amount_cents: 0,
+          status: "completed",
+          buyer_email: email.toLowerCase().trim(),
+        }
+
+        console.log("[checkout/process] Attempting Strategy 3: Without buyer_id")
+        const result3 = await admin.from("orders").insert(absoluteMinimalData).select().single()
+        order = result3.data
+        orderError = result3.error
+        insertStrategy = "no_buyer_id"
+      }
     }
 
     if (orderError || !order) {
-      console.error("[checkout/process] Order creation failed:", orderError)
+      console.error("[checkout/process] All order creation strategies failed:", orderError)
+      // Return detailed error for debugging
       return NextResponse.json(
         {
           error: "Failed to create order",
-          details: orderError?.message,
+          details: orderError?.message || "Unknown error",
+          code: orderError?.code,
+          hint: orderError?.hint,
+          strategy: insertStrategy,
+          debug: "Please run the database migration to allow guest checkout. See fix_orders_complete.sql"
         },
         { status: 500 },
       )

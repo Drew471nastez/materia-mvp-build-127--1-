@@ -146,7 +146,10 @@ export default function CheckoutPageClient({ product, creator, userEmail, isLogg
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Checkout failed")
+        // Show detailed error info for debugging
+        const errorDetails = data.details ? ` (${data.details})` : ""
+        const errorCode = data.code ? ` [${data.code}]` : ""
+        throw new Error((data.error || "Checkout failed") + errorDetails + errorCode)
       }
 
       router.push(`${data.redirectUrl}?emailSent=1`)
