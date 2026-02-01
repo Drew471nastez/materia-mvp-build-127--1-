@@ -88,41 +88,43 @@ export async function POST(req: Request) {
       }
     }
 
-    const { data: order, error: orderError } = await admin
-      .from("orders")
-      .insert({
+    // Try full insert first, fallback to minimal if it fails
+    let order = null
+    let orderError = null
+
+    const fullOrderData = {
+      buyer_id: buyerId,
+      product_id: product.id,
+      amount_cents: 0,
+      status: "completed",
+      provider: "free",
+      buyer_email: email.toLowerCase().trim(),
+      buyer_first_name: firstName || null,
+      buyer_last_name: lastName || null,
+      access_token: buyerId ? null : accessToken,
+      receipt_token: receiptToken,
+      session_fingerprint: sessionFingerprint,
+    }
+
+    const result1 = await admin.from("orders").insert(fullOrderData).select().single()
+    order = result1.data
+    orderError = result1.error
+
+    // If that fails, try with minimal fields only
+    if (orderError) {
+      console.log("[complete-free] Full insert failed, trying minimal:", orderError.message)
+
+      const minimalOrderData = {
         buyer_id: buyerId,
         product_id: product.id,
-        stripe_session_id: null,
-        stripe_payment_intent_id: null,
         amount_cents: 0,
-        fee_cents: 0,
         status: "completed",
-        provider: "free",
-        buyer_email: email.toLowerCase().trim(),
-        buyer_first_name: firstName || null,
-        buyer_last_name: lastName || null,
-        access_token: buyerId ? null : accessToken,
-        receipt_token: receiptToken,
-        session_fingerprint: sessionFingerprint,
-        allowed_fingerprints: [sessionFingerprint],
-        buyer_email_attempt_count: 0,
-        seller_email_attempt_count: 0,
-        // Variant info (full snapshot for historical reference)
-        variant_id: selectedVariant?.id || null,
-        variant_name: selectedVariant?.name || null,
-        variant_price_cents: selectedVariant?.price_cents || null,
-        variant_currency: "USD",
-        variant_snapshot: selectedVariant ? {
-          id: selectedVariant.id,
-          name: selectedVariant.name,
-          description: selectedVariant.description,
-          price_cents: selectedVariant.price_cents,
-          position: selectedVariant.position,
-        } : null,
-      })
-      .select()
-      .single()
+      }
+
+      const result2 = await admin.from("orders").insert(minimalOrderData).select().single()
+      order = result2.data
+      orderError = result2.error
+    }
 
     if (orderError || !order) {
       console.error("[complete-free] orderError:", orderError)

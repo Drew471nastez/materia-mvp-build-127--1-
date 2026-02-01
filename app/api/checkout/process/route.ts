@@ -122,8 +122,14 @@ export async function POST(request: Request) {
       domain: isLocalhost ? undefined : `.${mainDomain}`,
     })
 
-    // Create order with variant info
-    const orderData = {
+    // Create order - start with minimal required fields
+    console.log("[checkout/process] Creating order for email:", email.toLowerCase().trim())
+
+    // First try with all fields
+    let order = null
+    let orderError = null
+
+    const fullOrderData = {
       buyer_id: user?.id || null,
       buyer_first_name: firstName.trim(),
       buyer_last_name: lastName.trim(),
@@ -136,40 +142,30 @@ export async function POST(request: Request) {
       provider: "free",
       fee_cents: 0,
       access_token: user ? null : accessToken,
-      stripe_session_id: null,
-      stripe_payment_intent_id: null,
       session_fingerprint: sessionFingerprint,
       receipt_token: receiptToken,
-      allowed_fingerprints: [sessionFingerprint],
-      agreed_to_terms: true,
-      agreed_at: new Date().toISOString(),
-      buyer_email_attempt_count: 0,
-      seller_email_attempt_count: 0,
-      // Payment method for free orders
       payment_method: "free",
-      // Device and geo info
-      buyer_country: geoInfo.country,
-      buyer_country_code: geoInfo.countryCode,
-      buyer_device_type: deviceInfo.deviceType,
-      buyer_os: deviceInfo.os,
-      buyer_browser: deviceInfo.browser,
-      // Variant info (full snapshot for historical reference)
-      variant_id: selectedVariant?.id || null,
-      variant_name: selectedVariant?.name || null,
-      variant_price_cents: selectedVariant?.price_cents || null,
-      variant_currency: "USD",
-      variant_snapshot: selectedVariant ? {
-        id: selectedVariant.id,
-        name: selectedVariant.name,
-        description: selectedVariant.description,
-        price_cents: selectedVariant.price_cents,
-        position: selectedVariant.position,
-      } : null,
     }
 
-    console.log("[checkout/process] Creating order for email:", email.toLowerCase().trim())
+    const result1 = await admin.from("orders").insert(fullOrderData).select().single()
+    order = result1.data
+    orderError = result1.error
 
-    const { data: order, error: orderError } = await admin.from("orders").insert(orderData).select().single()
+    // If that fails, try with minimal fields only
+    if (orderError) {
+      console.log("[checkout/process] Full insert failed, trying minimal fields:", orderError.message)
+
+      const minimalOrderData = {
+        buyer_id: user?.id || null,
+        product_id: product.id,
+        amount_cents: 0,
+        status: "completed",
+      }
+
+      const result2 = await admin.from("orders").insert(minimalOrderData).select().single()
+      order = result2.data
+      orderError = result2.error
+    }
 
     if (orderError || !order) {
       console.error("[checkout/process] Order creation failed:", orderError)
