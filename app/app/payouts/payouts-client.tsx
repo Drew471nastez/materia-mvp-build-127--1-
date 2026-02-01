@@ -357,46 +357,96 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
         </Alert>
       )}
 
-      {/* Stripe Connection Card */}
+      {/* Stripe Connection Card - Modern Design */}
       {!isStripeConnected && (
-        <div className={`rounded-2xl border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${isStripePending ? "border-yellow-200 bg-yellow-50" : "border-amber-200 bg-amber-50"}`}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-full ${isStripePending ? "bg-yellow-100" : "bg-amber-100"}`}>
-                  {isStripePending ? (
-                    <Clock className="h-6 w-6 text-yellow-600" />
-                  ) : (
-                    <AlertCircle className="h-6 w-6 text-amber-600" />
-                  )}
-                </div>
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="p-6">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-5">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                isStripePending
+                  ? "bg-gradient-to-br from-amber-50 to-amber-100"
+                  : "bg-gradient-to-br from-violet-50 to-violet-100"
+              }`}>
+                {isStripePending ? (
+                  <Clock className="h-6 w-6 text-amber-600" />
+                ) : (
+                  <CreditCard className="h-6 w-6 text-violet-600" />
+                )}
+              </div>
+              <div className="flex-1 space-y-3">
                 <div>
-                  <h3 className={`font-semibold ${isStripePending ? "text-yellow-800" : "text-amber-800"}`}>
+                  <h3 className="text-[16px] font-semibold text-[#1a1a2e]">
                     {isStripePending ? "Complete your Stripe setup" : "Connect Stripe to receive payouts"}
                   </h3>
-                  <p className={`text-sm mt-1 ${isStripePending ? "text-yellow-700" : "text-amber-700"}`}>
+                  <p className="text-[14px] text-[#6b7280] mt-1">
                     {isStripePending
                       ? "Your Stripe account needs additional verification to enable payouts."
                       : "Connect your bank account through Stripe to start receiving payments from your sales."}
                   </p>
                 </div>
-              </div>
-              <Button
-                onClick={handleConnectStripe}
-                disabled={isConnecting}
-                className={isStripePending ? "bg-yellow-600 hover:bg-yellow-700" : ""}
-              >
-                {isConnecting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Connecting...
-                  </>
-                ) : isStripePending ? (
-                  "Complete Setup"
-                ) : (
-                  "Connect Stripe"
+                {isStripePending && (
+                  <div className="flex items-center gap-2 text-[13px] text-amber-600">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span>Verification required</span>
+                  </div>
                 )}
-              </Button>
+                <div className="flex items-center gap-3 pt-1">
+                  <Button
+                    onClick={handleConnectStripe}
+                    disabled={isConnecting}
+                    className={`rounded-xl ${
+                      isStripePending
+                        ? "bg-amber-600 hover:bg-amber-700"
+                        : "bg-[#1a1a2e] hover:bg-[#2d2d44]"
+                    }`}
+                  >
+                    {isConnecting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : isStripePending ? (
+                      <>
+                        Complete Setup
+                        <ChevronRight className="ml-1 h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        Connect Stripe
+                        <ChevronRight className="ml-1 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                  <a
+                    href="https://stripe.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[13px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors"
+                  >
+                    Learn more
+                  </a>
+                </div>
+              </div>
             </div>
+          </div>
+          {!isStripePending && (
+            <div className="px-6 py-4 bg-[#f9fafb] border-t border-[#e5e7eb]/60">
+              <div className="flex items-center gap-4 text-[12px] text-[#6b7280]">
+                <div className="flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" />
+                  <span>Secure payments</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5" />
+                  <span>Instant setup</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span>Bank deposits</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

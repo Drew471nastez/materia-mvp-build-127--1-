@@ -451,9 +451,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [mostClickedBlocks, setMostClickedBlocks] = useState<MostClickedBlock[]>([])
   const [showAllMostClicked, setShowAllMostClicked] = useState(false)
 
-  // Export state
-  const [isExporting, setIsExporting] = useState(false)
-
   const selectedTimeframeOption = timeframeOptions.find((o) => o.value === timeframe)
 
   // Get timeframe dates
@@ -1286,49 +1283,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     }
   }
 
-  // Export analytics data
-  const handleExport = async (format: 'csv' | 'pdf', dataType: 'overview' | 'products' | 'events') => {
-    setIsExporting(true)
-    try {
-      const apiTimeframe = timeframe === "last_7_days" ? "7d"
-        : timeframe === "last_30_days" ? "30d"
-        : timeframe === "last_90_days" ? "90d"
-        : timeframe === "last_year" ? "1y"
-        : timeframe === "today" ? "today"
-        : timeframe === "yesterday" ? "yesterday"
-        : timeframe === "custom" ? "custom"
-        : "30d"
-
-      const params = new URLSearchParams({
-        format,
-        dataType,
-        timeframe: apiTimeframe,
-        ...(timeframe === "custom" && customStart && { customStart }),
-        ...(timeframe === "custom" && customEnd && { customEnd }),
-      })
-
-      const response = await fetch(`/api/analytics/export?${params}`)
-
-      if (response.ok) {
-        if (format === 'csv') {
-          const blob = await response.blob()
-          const url = window.URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `analytics-${dataType}-${apiTimeframe}.csv`
-          document.body.appendChild(a)
-          a.click()
-          window.URL.revokeObjectURL(url)
-          document.body.removeChild(a)
-        }
-      }
-    } catch (error) {
-      console.error("Export error:", error)
-    } finally {
-      setIsExporting(false)
-    }
-  }
-
   // Generate KPI chart data (same approach as Dashboard)
   const generateKpiChartData = useCallback(async (kpiType: KPIType) => {
     if (!kpiType) {
@@ -1765,37 +1719,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     ))}
                   </div>
                 )}
-              </div>
-
-              {/* Export Button */}
-              <div className="relative group">
-                <button
-                  disabled={isExporting}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  <Download className="h-4 w-4" />
-                  {isExporting ? "..." : "Export"}
-                </button>
-                <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 hidden group-hover:block">
-                  <button
-                    onClick={() => handleExport('csv', 'overview')}
-                    className="w-full text-left px-4 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb]"
-                  >
-                    Overview (CSV)
-                  </button>
-                  <button
-                    onClick={() => handleExport('csv', 'products')}
-                    className="w-full text-left px-4 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb]"
-                  >
-                    Products (CSV)
-                  </button>
-                  <button
-                    onClick={() => handleExport('csv', 'events')}
-                    className="w-full text-left px-4 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb]"
-                  >
-                    Events (CSV)
-                  </button>
-                </div>
               </div>
             </div>
           )}
