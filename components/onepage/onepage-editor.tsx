@@ -668,10 +668,10 @@ function EditorLayout() {
 
         {/* Preview Panel - Desktop with phone mockup */}
         <div
-          className="hidden md:flex items-center justify-center border-l bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 overflow-auto"
+          className="hidden md:block border-l bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 overflow-auto"
           style={{
-            width: '380px',
-            minWidth: '380px',
+            width: '414px',
+            minWidth: '414px',
             flexShrink: 0,
           }}
         >
@@ -679,7 +679,7 @@ function EditorLayout() {
             className="flex items-center justify-center"
             style={{
               minHeight: '100%',
-              padding: '20px 36px',
+              padding: '20px 28px',
             }}
           >
             <PhonePreview />
