@@ -1661,7 +1661,7 @@ export function LinksTab() {
           setTimeout(() => setAddButtonClicked(false), 300)
           setShowAddModal(true)
         }}
-        className="w-full h-11 bg-violet-500 hover:bg-violet-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group"
+        className="w-full h-11 bg-violet-500 hover:bg-violet-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group cursor-pointer select-none active:scale-[0.98]"
       >
         <Plus
           className={cn(

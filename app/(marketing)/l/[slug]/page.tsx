@@ -226,6 +226,23 @@ export default async function PublicOnePageRoute({ params }: Props) {
     const userAgent = headersList.get("user-agent") || ""
     const referrer = headersList.get("referer") || ""
 
+    // Get country from Vercel geo headers
+    const countryCode = headersList.get("x-vercel-ip-country") || ""
+    const countryNames: Record<string, string> = {
+      US: "United States", GB: "United Kingdom", CA: "Canada", AU: "Australia",
+      DE: "Germany", FR: "France", ES: "Spain", IT: "Italy", NL: "Netherlands",
+      BR: "Brazil", MX: "Mexico", JP: "Japan", KR: "South Korea", IN: "India",
+      CN: "China", RU: "Russia", PL: "Poland", SE: "Sweden", NO: "Norway",
+      DK: "Denmark", FI: "Finland", PT: "Portugal", BE: "Belgium", AT: "Austria",
+      CH: "Switzerland", IE: "Ireland", NZ: "New Zealand", SG: "Singapore",
+      HK: "Hong Kong", TW: "Taiwan", TH: "Thailand", MY: "Malaysia", PH: "Philippines",
+      ID: "Indonesia", VN: "Vietnam", ZA: "South Africa", AE: "United Arab Emirates",
+      SA: "Saudi Arabia", IL: "Israel", TR: "Turkey", EG: "Egypt", NG: "Nigeria",
+      KE: "Kenya", AR: "Argentina", CL: "Chile", CO: "Colombia", PE: "Peru",
+      RO: "Romania", UA: "Ukraine", CZ: "Czech Republic", HU: "Hungary", GR: "Greece",
+    }
+    const countryName = countryCode ? (countryNames[countryCode] || countryCode) : ""
+
     // Generate visitor ID from IP hash + user agent (for deduplication)
     const visitorId = crypto
       .createHash("sha256")
@@ -254,6 +271,8 @@ export default async function PublicOnePageRoute({ params }: Props) {
         referrer,
         user_agent: userAgent.slice(0, 500),
         ip_hash: ipHash,
+        country_code: countryCode || null,
+        country_name: countryName || null,
       })
     }
   } catch {
