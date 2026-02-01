@@ -1614,18 +1614,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           <div className="flex sm:hidden items-center bg-[#f3f4f6] rounded-full p-0.5">
             <button
               onClick={() => setAnalyticsMode("store")}
-              className={`px-3 py-1 text-[12px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1 text-[12px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
                 analyticsMode === "store" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
               }`}
             >
+              <ShoppingBag className="h-3.5 w-3.5" />
               Store
             </button>
             <button
               onClick={() => setAnalyticsMode("onepage")}
-              className={`px-3 py-1 text-[12px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1 text-[12px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
                 analyticsMode === "onepage" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
               }`}
             >
+              <Link2 className="h-3.5 w-3.5" />
               OnePage
             </button>
           </div>
@@ -1664,18 +1666,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             <div className="hidden sm:flex items-center bg-[#f3f4f6] rounded-full p-0.5">
               <button
                 onClick={() => setAnalyticsMode("store")}
-                className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
                   analyticsMode === "store" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
                 }`}
               >
+                <ShoppingBag className="h-3.5 w-3.5" />
                 Store
               </button>
               <button
                 onClick={() => setAnalyticsMode("onepage")}
-                className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium rounded-full transition-all duration-200 cursor-pointer ${
                   analyticsMode === "onepage" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
                 }`}
               >
+                <Link2 className="h-3.5 w-3.5" />
                 OnePage
               </button>
             </div>

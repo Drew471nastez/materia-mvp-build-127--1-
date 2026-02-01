@@ -135,6 +135,20 @@ const timeframeOptions: TimeframeOption[] = [
     },
   },
   {
+    value: "yesterday",
+    label: "Yesterday",
+    shortLabel: "Yesterday",
+    getDates: () => {
+      const start = new Date()
+      start.setDate(start.getDate() - 1)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date()
+      end.setDate(end.getDate() - 1)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    },
+  },
+  {
     value: "last_7_days",
     label: "Last 7 days",
     shortLabel: "7 days",

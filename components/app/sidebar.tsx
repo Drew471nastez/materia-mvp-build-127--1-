@@ -341,6 +341,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <ProfileDropdown onItemClick={onItemClick} />
       </div>
 
+      {/* Subtle divider under seller profile */}
+      <div className="mx-3 border-b border-neutral-200/60" />
+
       <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-3">
         <div className="space-y-0.5">
           {mainNavItems.map((item) => (

@@ -121,6 +121,19 @@ const timeframeOptions: TimeframeOption[] = [
     },
   },
   {
+    value: "yesterday",
+    label: "Yesterday",
+    getDates: () => {
+      const start = new Date()
+      start.setDate(start.getDate() - 1)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date()
+      end.setDate(end.getDate() - 1)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    },
+  },
+  {
     value: "last_48_hours",
     label: "Last 48 hours",
     getDates: () => {
@@ -235,6 +248,8 @@ const formatPeriodText = (timeframeValue: string): string => {
   switch (timeframeValue) {
     case "today":
       return "today"
+    case "yesterday":
+      return "yesterday"
     case "last_48_hours":
       return "in last 48h"
     case "last_7_days":
