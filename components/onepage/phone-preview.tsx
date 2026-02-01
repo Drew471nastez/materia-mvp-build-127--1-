@@ -4010,9 +4010,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             }}
             className={cn(
               s.button,
-              "w-full font-medium flex items-center gap-2",
+              "w-full font-medium flex items-center",
               hoverEffect,
-              hasThumbnailOrIcon ? "justify-start" : "justify-center",
+              hasThumbnailOrIcon ? "relative justify-center" : "justify-center",
               getDefaultAnimationClass(data.animation_type)
             )}
             style={buttonStyles}
@@ -4021,26 +4021,26 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0")}
+                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute left-[12px]")}
                 style={{ imageRendering: "auto" }}
               />
             ) : iconPath ? (
               <svg
-                width="17.5"
-                height="17.5"
+                width="16.5"
+                height="16.5"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
                 strokeWidth={isFilledIcon ? "0" : "2"}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="shrink-0"
+                className="shrink-0 absolute left-[12px]"
                 style={{ color: iconColor }}
               >
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className={cn("flex flex-col min-w-0", hasThumbnailOrIcon ? "flex-1 text-center" : "")}>
+            <div className={cn("flex flex-col min-w-0", hasThumbnailOrIcon ? "w-full text-center px-10" : "")}>
               <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
@@ -4116,7 +4116,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className="flex flex-col min-w-0 text-center px-10">
+            <div className="flex flex-col min-w-0 w-full text-center px-10">
               <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
@@ -4191,7 +4191,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? "text-center px-10" : "")}>
+          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? "w-full text-center px-10" : "")}>
             <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (

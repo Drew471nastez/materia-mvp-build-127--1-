@@ -4164,7 +4164,7 @@ function PublicBlockRenderer({
               />
             ) : iconPath ? (
               <svg
-                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0"
+                className="w-[38.5px] h-[38.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4175,7 +4175,7 @@ function PublicBlockRenderer({
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className={cn("flex flex-col min-w-0", hasThumbnail ? "text-center px-12" : "")}>
+            <div className={cn("flex flex-col min-w-0", hasThumbnail ? "w-full text-center px-12" : "")}>
               <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
@@ -4239,7 +4239,7 @@ function PublicBlockRenderer({
                 <path d={iconPath} />
               </svg>
             ) : null}
-            <div className="flex flex-col min-w-0 text-center px-12">
+            <div className="flex flex-col min-w-0 w-full text-center px-12">
               <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
@@ -4312,7 +4312,7 @@ function PublicBlockRenderer({
               <path d={iconPath} />
             </svg>
           ) : null}
-          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? "text-center px-12" : "")}>
+          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? "w-full text-center px-12" : "")}>
             <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
