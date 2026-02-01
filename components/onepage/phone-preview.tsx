@@ -3160,7 +3160,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           avatarFallback: "text-[16px]",
           title: "text-[16px]",
           bio: "text-[11px] max-w-[180px]",
-          button: "py-[10px] px-[12px] text-[13px]",
+          button: "py-[10px] px-[12px] text-[12px]",
           buttonThumb: "w-[26px] h-[26px]",
           text: "text-[11px]",
           input: "px-[10px] py-[8px] text-[11px]",
@@ -3177,7 +3177,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           avatarFallback: "text-2xl",
           title: "text-xl",
           bio: "text-sm max-w-xs",
-          button: "py-3 px-4 text-base",
+          button: "py-3 px-4 text-[15px]",
           buttonThumb: "w-[34px] h-[34px]",
           text: "text-sm",
           input: "px-4 py-3 text-base",
@@ -4041,7 +4041,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               </svg>
             ) : null}
             <div className={cn("flex flex-col min-w-0", hasThumbnailOrIcon ? "flex-1 text-center" : "")}>
-              <span className="truncate">{data.label || "My Link"}</span>
+              <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                 <span
@@ -4117,7 +4117,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               </svg>
             ) : null}
             <div className="flex flex-col min-w-0 text-center px-8">
-              <span className="truncate">{data.label || "My Link"}</span>
+              <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
                 <span
@@ -4191,7 +4191,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             </svg>
           ) : null}
           <div className={cn("flex flex-col min-w-0", hasIconOnly ? "text-center px-8" : (data.thumbnail_url ? "flex-1 text-center" : ""))}>
-            <span className="truncate">{data.label || "My Link"}</span>
+            <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
               <span
