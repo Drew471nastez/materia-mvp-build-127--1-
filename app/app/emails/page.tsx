@@ -27,6 +27,16 @@ import {
   Copy,
   RefreshCw,
   Download,
+  Zap,
+  Play,
+  Pause,
+  ShoppingCart,
+  UserPlus,
+  ChevronRight,
+  Settings,
+  MailPlus,
+  Timer,
+  Sparkles,
 } from "lucide-react"
 import { EmailEditor } from "@/components/email/email-editor"
 import {
@@ -40,8 +50,8 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 
-type TabType = "published" | "scheduled" | "drafts" | "subscribers"
-type ViewType = "list" | "editor" | "analytics"
+type TabType = "subscribers" | "flows" | "published" | "scheduled" | "drafts"
+type ViewType = "list" | "editor" | "analytics" | "flow-editor"
 
 interface EmailCampaign {
   id: string
@@ -91,11 +101,65 @@ interface CampaignStats {
   click_rate: number
 }
 
+interface EmailFlow {
+  id: string
+  name: string
+  description?: string
+  trigger_type: "purchase" | "new_subscriber" | "tag_added" | "manual"
+  trigger_config?: Record<string, any>
+  status: "active" | "paused" | "draft"
+  steps: FlowStep[]
+  created_at: string
+  updated_at: string
+  stats?: {
+    emails_sent: number
+    total_recipients: number
+    open_rate: number
+    click_rate: number
+  }
+}
+
+interface FlowStep {
+  id: string
+  type: "email" | "delay" | "condition"
+  order: number
+  config: {
+    // For email type
+    subject?: string
+    body?: string
+    preview_text?: string
+    // For delay type
+    delay_value?: number
+    delay_unit?: "minutes" | "hours" | "days"
+    // For condition type
+    condition_type?: string
+    condition_value?: any
+  }
+}
+
 const tabs = [
+  { id: "subscribers" as const, label: "Subscribers", icon: Users },
+  { id: "flows" as const, label: "Flows", icon: Zap },
   { id: "published" as const, label: "Sent", icon: Send },
   { id: "scheduled" as const, label: "Scheduled", icon: Clock },
   { id: "drafts" as const, label: "Drafts", icon: FileText },
-  { id: "subscribers" as const, label: "Subscribers", icon: Users },
+]
+
+const FLOW_TRIGGERS = [
+  {
+    id: "purchase",
+    name: "Purchase",
+    description: "When a customer purchases your product",
+    icon: ShoppingCart,
+    color: "bg-emerald-100 text-emerald-700",
+  },
+  {
+    id: "new_subscriber",
+    name: "New Subscriber",
+    description: "When someone subscribes to your email list",
+    icon: UserPlus,
+    color: "bg-blue-100 text-blue-700",
+  },
 ]
 
 export default function EmailsPage() {
@@ -133,9 +197,14 @@ export default function EmailsPage() {
   } | null>(null)
   const [statsTimeRange, setStatsTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
 
+  // Flows state
+  const [flows, setFlows] = useState<EmailFlow[]>([])
+  const [editingFlow, setEditingFlow] = useState<EmailFlow | null>(null)
+  const [showCreateFlowDialog, setShowCreateFlowDialog] = useState(false)
+
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "campaign" | "subscriber"; id: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "campaign" | "subscriber" | "flow"; id: string } | null>(null)
 
   useEffect(() => {
     loadData()
@@ -194,6 +263,14 @@ export default function EmailsPage() {
         .order("subscribed_at", { ascending: false })
 
       setSubscribers(data || [])
+    } else if (activeTab === "flows") {
+      const { data } = await supabase
+        .from("email_flows")
+        .select("*")
+        .eq("creator_id", creator.id)
+        .order("created_at", { ascending: false })
+
+      setFlows(data || [])
     } else {
       const statusMap: Record<string, string[]> = {
         published: ["sent"],
@@ -328,6 +405,8 @@ export default function EmailsPage() {
 
     if (deleteTarget.type === "campaign") {
       await supabase.from("email_campaigns").delete().eq("id", deleteTarget.id)
+    } else if (deleteTarget.type === "flow") {
+      await supabase.from("email_flows").delete().eq("id", deleteTarget.id)
     } else {
       await supabase.from("subscribers").update({ is_active: false, status: "unsubscribed" }).eq("id", deleteTarget.id)
     }
@@ -335,7 +414,90 @@ export default function EmailsPage() {
     setShowDeleteDialog(false)
     setDeleteTarget(null)
     loadData()
-    toast({ title: "Deleted", description: deleteTarget.type === "campaign" ? "Email deleted" : "Subscriber removed" })
+    toast({
+      title: "Deleted",
+      description: deleteTarget.type === "campaign"
+        ? "Email deleted"
+        : deleteTarget.type === "flow"
+          ? "Flow deleted"
+          : "Subscriber removed"
+    })
+  }
+
+  const handleCreateFlow = async (triggerType: string) => {
+    if (!creatorId) return
+
+    const supabase = createClient()
+    const triggerInfo = FLOW_TRIGGERS.find(t => t.id === triggerType)
+
+    const { data: newFlow, error } = await supabase
+      .from("email_flows")
+      .insert({
+        creator_id: creatorId,
+        name: `${triggerInfo?.name || 'New'} Flow`,
+        trigger_type: triggerType,
+        status: "draft",
+        steps: [],
+      })
+      .select()
+      .single()
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create flow",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setShowCreateFlowDialog(false)
+    setEditingFlow(newFlow)
+    setView("flow-editor")
+  }
+
+  const handleEditFlow = (flow: EmailFlow) => {
+    setEditingFlow(flow)
+    setView("flow-editor")
+  }
+
+  const handleToggleFlowStatus = async (flow: EmailFlow) => {
+    const supabase = createClient()
+    const newStatus = flow.status === "active" ? "paused" : "active"
+
+    await supabase
+      .from("email_flows")
+      .update({ status: newStatus })
+      .eq("id", flow.id)
+
+    loadData()
+    toast({
+      title: newStatus === "active" ? "Flow activated" : "Flow paused",
+      description: newStatus === "active"
+        ? "This flow will now send emails automatically"
+        : "This flow has been paused",
+    })
+  }
+
+  const handleSaveFlow = async (flowData: Partial<EmailFlow>) => {
+    if (!editingFlow) return
+
+    const supabase = createClient()
+
+    await supabase
+      .from("email_flows")
+      .update({
+        name: flowData.name,
+        description: flowData.description,
+        steps: flowData.steps,
+        trigger_config: flowData.trigger_config,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", editingFlow.id)
+
+    setView("list")
+    loadData()
+    toast({ title: "Flow saved", description: "Your flow has been updated." })
   }
 
   const handleViewStats = async (campaign: EmailCampaign) => {
@@ -396,6 +558,234 @@ export default function EmailsPage() {
       hour: "numeric",
       minute: "2-digit",
     })
+  }
+
+  const getTriggerInfo = (triggerType: string) => {
+    return FLOW_TRIGGERS.find(t => t.id === triggerType) || FLOW_TRIGGERS[0]
+  }
+
+  // Flow Editor View
+  if (view === "flow-editor" && editingFlow) {
+    const triggerInfo = getTriggerInfo(editingFlow.trigger_type)
+    const TriggerIcon = triggerInfo.icon
+
+    return (
+      <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
+        <div className="bg-white border-b sticky top-0 z-10">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => setView("list")} className="h-9 w-9">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex-1 min-w-0">
+                <Input
+                  value={editingFlow.name}
+                  onChange={(e) => setEditingFlow({ ...editingFlow, name: e.target.value })}
+                  className="text-xl font-semibold border-0 p-0 h-auto focus-visible:ring-0 bg-transparent"
+                  placeholder="Flow name"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handleToggleFlowStatus(editingFlow)}
+                  className={cn(
+                    "rounded-lg",
+                    editingFlow.status === "active" && "bg-green-50 border-green-200 text-green-700"
+                  )}
+                >
+                  {editingFlow.status === "active" ? (
+                    <>
+                      <Pause className="h-4 w-4 mr-2" />
+                      Pause
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Activate
+                    </>
+                  )}
+                </Button>
+                <Button onClick={() => handleSaveFlow(editingFlow)} className="rounded-lg bg-[#1a1a2e] hover:bg-[#2d2d44]">
+                  Save Flow
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+          {/* Trigger Card */}
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden mb-6">
+            <div className="p-5 border-b border-[#e5e7eb]/60 bg-gradient-to-r from-violet-50 to-purple-50">
+              <div className="flex items-center gap-3">
+                <div className={cn("p-2.5 rounded-xl", triggerInfo.color)}>
+                  <TriggerIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-[11px] uppercase tracking-wider text-violet-600 font-semibold mb-0.5">Trigger</div>
+                  <h3 className="font-semibold text-[#1a1a2e]">{triggerInfo.name}</h3>
+                  <p className="text-[13px] text-[#6b7280]">{triggerInfo.description}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Flow Steps */}
+          <div className="space-y-4">
+            {/* Connector Line */}
+            <div className="flex justify-center">
+              <div className="w-0.5 h-8 bg-[#e5e7eb]"></div>
+            </div>
+
+            {/* Steps */}
+            {(editingFlow.steps || []).map((step, index) => (
+              <div key={step.id}>
+                {step.type === "delay" ? (
+                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700">
+                        <Timer className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-[11px] uppercase tracking-wider text-amber-600 font-semibold mb-0.5">Wait</div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={step.config.delay_value || 1}
+                            onChange={(e) => {
+                              const newSteps = [...(editingFlow.steps || [])]
+                              newSteps[index].config.delay_value = parseInt(e.target.value) || 1
+                              setEditingFlow({ ...editingFlow, steps: newSteps })
+                            }}
+                            className="w-20 h-9"
+                          />
+                          <select
+                            value={step.config.delay_unit || "days"}
+                            onChange={(e) => {
+                              const newSteps = [...(editingFlow.steps || [])]
+                              newSteps[index].config.delay_unit = e.target.value as "minutes" | "hours" | "days"
+                              setEditingFlow({ ...editingFlow, steps: newSteps })
+                            }}
+                            className="h-9 px-3 border rounded-lg bg-white text-sm"
+                          >
+                            <option value="minutes">Minutes</option>
+                            <option value="hours">Hours</option>
+                            <option value="days">Days</option>
+                          </select>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-red-500"
+                        onClick={() => {
+                          const newSteps = (editingFlow.steps || []).filter((_, i) => i !== index)
+                          setEditingFlow({ ...editingFlow, steps: newSteps })
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+                    <div className="p-5">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700">
+                          <Mail className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-[11px] uppercase tracking-wider text-blue-600 font-semibold mb-2">Send Email</div>
+                          <Input
+                            value={step.config.subject || ""}
+                            onChange={(e) => {
+                              const newSteps = [...(editingFlow.steps || [])]
+                              newSteps[index].config.subject = e.target.value
+                              setEditingFlow({ ...editingFlow, steps: newSteps })
+                            }}
+                            placeholder="Email subject..."
+                            className="mb-3"
+                          />
+                          <textarea
+                            value={step.config.body || ""}
+                            onChange={(e) => {
+                              const newSteps = [...(editingFlow.steps || [])]
+                              newSteps[index].config.body = e.target.value
+                              setEditingFlow({ ...editingFlow, steps: newSteps })
+                            }}
+                            placeholder="Write your email content..."
+                            className="w-full min-h-[120px] p-3 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-gray-400 hover:text-red-500"
+                          onClick={() => {
+                            const newSteps = (editingFlow.steps || []).filter((_, i) => i !== index)
+                            setEditingFlow({ ...editingFlow, steps: newSteps })
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Connector */}
+                <div className="flex justify-center">
+                  <div className="w-0.5 h-8 bg-[#e5e7eb]"></div>
+                </div>
+              </div>
+            ))}
+
+            {/* Add Step Buttons */}
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const newStep: FlowStep = {
+                    id: `step_${Date.now()}`,
+                    type: "email",
+                    order: (editingFlow.steps || []).length,
+                    config: { subject: "", body: "" }
+                  }
+                  setEditingFlow({
+                    ...editingFlow,
+                    steps: [...(editingFlow.steps || []), newStep]
+                  })
+                }}
+                className="rounded-xl"
+              >
+                <MailPlus className="h-4 w-4 mr-2" />
+                Add Email
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const newStep: FlowStep = {
+                    id: `step_${Date.now()}`,
+                    type: "delay",
+                    order: (editingFlow.steps || []).length,
+                    config: { delay_value: 1, delay_unit: "days" }
+                  }
+                  setEditingFlow({
+                    ...editingFlow,
+                    steps: [...(editingFlow.steps || []), newStep]
+                  })
+                }}
+                className="rounded-xl"
+              >
+                <Timer className="h-4 w-4 mr-2" />
+                Add Delay
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Analytics View
@@ -718,7 +1108,7 @@ export default function EmailsPage() {
 
   // List View
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-gray-50/50">
+    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
@@ -733,8 +1123,8 @@ export default function EmailsPage() {
             </Button>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 mt-4 -mb-px overflow-x-auto">
+          {/* Tabs - Pill Style */}
+          <div className="flex gap-1 mt-4 p-1 bg-[#f3f4f6] rounded-xl overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
@@ -742,10 +1132,10 @@ export default function EmailsPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 whitespace-nowrap",
+                    "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap",
                     activeTab === tab.id
-                      ? "border-gray-900 text-gray-900 bg-gray-50"
-                      : "border-transparent text-gray-500 hover:text-gray-700",
+                      ? "bg-white text-[#1a1a2e] shadow-sm"
+                      : "text-[#6b7280] hover:text-[#1a1a2e]",
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -952,6 +1342,142 @@ export default function EmailsPage() {
           </div>
         )}
 
+        {activeTab === "flows" && (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Email Automations</h2>
+                <p className="text-[13px] text-[#6b7280]">Create automated email sequences triggered by events</p>
+              </div>
+              <Button
+                onClick={() => setShowCreateFlowDialog(true)}
+                className="rounded-xl bg-[#1a1a2e] hover:bg-[#2d2d44]"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Flow
+              </Button>
+            </div>
+
+            {/* Flows List */}
+            {loading ? (
+              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-12 text-center">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" />
+              </div>
+            ) : flows.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-violet-100 flex items-center justify-center mx-auto mb-4">
+                  <Zap className="h-8 w-8 text-violet-600" />
+                </div>
+                <h3 className="font-semibold text-[#1a1a2e] mb-2">No flows yet</h3>
+                <p className="text-[13px] text-[#6b7280] max-w-sm mx-auto mb-6">
+                  Create automated email sequences that trigger when customers make purchases or subscribe to your list.
+                </p>
+                <Button
+                  onClick={() => setShowCreateFlowDialog(true)}
+                  className="rounded-xl bg-[#1a1a2e] hover:bg-[#2d2d44]"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create your first flow
+                </Button>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {flows.map((flow) => {
+                  const triggerInfo = getTriggerInfo(flow.trigger_type)
+                  const TriggerIcon = triggerInfo.icon
+                  return (
+                    <div
+                      key={flow.id}
+                      className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleEditFlow(flow)}
+                    >
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3">
+                            <div className={cn("p-2.5 rounded-xl", triggerInfo.color)}>
+                              <TriggerIcon className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-[#1a1a2e]">{flow.name}</h3>
+                              <p className="text-[13px] text-[#6b7280] mt-0.5">{triggerInfo.description}</p>
+                            </div>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-xl">
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditFlow(flow); }}>
+                                <Settings className="h-4 w-4 mr-2" />
+                                Edit Flow
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleToggleFlowStatus(flow); }}>
+                                {flow.status === "active" ? (
+                                  <>
+                                    <Pause className="h-4 w-4 mr-2" />
+                                    Pause
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Activate
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDeleteTarget({ type: "flow", id: flow.id })
+                                  setShowDeleteDialog(true)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                      <div className="px-5 py-3 bg-[#f9fafb] border-t border-[#e5e7eb]/60 flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-[12px] text-[#6b7280]">
+                          <span>{(flow.steps || []).length} step{(flow.steps || []).length !== 1 ? "s" : ""}</span>
+                          {flow.stats && (
+                            <>
+                              <span>{flow.stats.emails_sent} emails sent</span>
+                              <span>{flow.stats.open_rate}% opens</span>
+                            </>
+                          )}
+                        </div>
+                        <span className={cn(
+                          "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium",
+                          flow.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : flow.status === "paused"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-gray-100 text-gray-600"
+                        )}>
+                          {flow.status === "active" && <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
+                          {flow.status.charAt(0).toUpperCase() + flow.status.slice(1)}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {(activeTab === "published" || activeTab === "scheduled" || activeTab === "drafts") && (
           <div className="space-y-4">
             {/* Analytics Overview for Sent Tab */}
@@ -1128,22 +1654,57 @@ export default function EmailsPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl">
           <DialogHeader>
             <DialogTitle>Confirm Delete</DialogTitle>
             <DialogDescription>
               {deleteTarget?.type === "campaign"
                 ? "Are you sure you want to delete this email? This action cannot be undone."
-                : "Are you sure you want to remove this subscriber? They will be unsubscribed from future emails."}
+                : deleteTarget?.type === "flow"
+                  ? "Are you sure you want to delete this flow? This action cannot be undone."
+                  : "Are you sure you want to remove this subscriber? They will be unsubscribed from future emails."}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="rounded-lg">
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button variant="destructive" onClick={handleDelete} className="rounded-lg">
               Delete
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Flow Dialog */}
+      <Dialog open={showCreateFlowDialog} onOpenChange={setShowCreateFlowDialog}>
+        <DialogContent className="sm:max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Create a new flow</DialogTitle>
+            <DialogDescription>
+              Choose a trigger to start your automated email sequence
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-4">
+            {FLOW_TRIGGERS.map((trigger) => {
+              const TriggerIcon = trigger.icon
+              return (
+                <button
+                  key={trigger.id}
+                  onClick={() => handleCreateFlow(trigger.id)}
+                  className="w-full flex items-center gap-4 p-4 bg-[#f9fafb] hover:bg-[#f3f4f6] rounded-xl border border-[#e5e7eb]/60 transition-colors text-left"
+                >
+                  <div className={cn("p-3 rounded-xl", trigger.color)}>
+                    <TriggerIcon className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-[#1a1a2e]">{trigger.name}</h3>
+                    <p className="text-[13px] text-[#6b7280]">{trigger.description}</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-[#9ca3af]" />
+                </button>
+              )
+            })}
           </div>
         </DialogContent>
       </Dialog>

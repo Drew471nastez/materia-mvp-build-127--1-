@@ -357,36 +357,36 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
         </Alert>
       )}
 
-      {/* Stripe Connection Card - Modern Design */}
+      {/* Stripe Connection Card - Purple Themed */}
       {!isStripeConnected && (
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-2xl shadow-lg overflow-hidden">
           <div className="p-6">
             <div className="flex flex-col sm:flex-row sm:items-start gap-5">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
                 isStripePending
-                  ? "bg-gradient-to-br from-amber-50 to-amber-100"
-                  : "bg-gradient-to-br from-violet-50 to-violet-100"
+                  ? "bg-white/20"
+                  : "bg-white/20"
               }`}>
                 {isStripePending ? (
-                  <Clock className="h-6 w-6 text-amber-600" />
+                  <Clock className="h-6 w-6 text-white" />
                 ) : (
-                  <CreditCard className="h-6 w-6 text-violet-600" />
+                  <CreditCard className="h-6 w-6 text-white" />
                 )}
               </div>
               <div className="flex-1 space-y-3">
                 <div>
-                  <h3 className="text-[16px] font-semibold text-[#1a1a2e]">
+                  <h3 className="text-[16px] font-semibold text-white">
                     {isStripePending ? "Complete your Stripe setup" : "Connect Stripe to receive payouts"}
                   </h3>
-                  <p className="text-[14px] text-[#6b7280] mt-1">
+                  <p className="text-[14px] text-white/80 mt-1">
                     {isStripePending
                       ? "Your Stripe account needs additional verification to enable payouts."
                       : "Connect your bank account through Stripe to start receiving payments from your sales."}
                   </p>
                 </div>
                 {isStripePending && (
-                  <div className="flex items-center gap-2 text-[13px] text-amber-600">
-                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <div className="flex items-center gap-2 text-[13px] text-amber-200">
+                    <div className="w-2 h-2 rounded-full bg-amber-300 animate-pulse" />
                     <span>Verification required</span>
                   </div>
                 )}
@@ -394,11 +394,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                   <Button
                     onClick={handleConnectStripe}
                     disabled={isConnecting}
-                    className={`rounded-xl ${
-                      isStripePending
-                        ? "bg-amber-600 hover:bg-amber-700"
-                        : "bg-[#1a1a2e] hover:bg-[#2d2d44]"
-                    }`}
+                    className="rounded-xl bg-white text-[#8b5cf6] hover:bg-white/90 font-medium"
                   >
                     {isConnecting ? (
                       <>
@@ -421,7 +417,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                     href="https://stripe.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[13px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors"
+                    className="text-[13px] text-white/70 hover:text-white transition-colors"
                   >
                     Learn more
                   </a>
@@ -430,8 +426,8 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
             </div>
           </div>
           {!isStripePending && (
-            <div className="px-6 py-4 bg-[#f9fafb] border-t border-[#e5e7eb]/60">
-              <div className="flex items-center gap-4 text-[12px] text-[#6b7280]">
+            <div className="px-6 py-4 bg-black/10 border-t border-white/10">
+              <div className="flex items-center gap-4 text-[12px] text-white/70">
                 <div className="flex items-center gap-1.5">
                   <Shield className="h-3.5 w-3.5" />
                   <span>Secure payments</span>
@@ -450,64 +446,6 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
         </div>
       )}
 
-      {/* Balance Overview Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        {/* Available Balance */}
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[13px] font-medium text-[#6b7280]">Available Balance</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <Wallet className="h-4 w-4 text-emerald-600" />
-            </div>
-          </div>
-          <div className="text-[28px] font-semibold text-emerald-600 tracking-tight">
-            {formatPrice(initialData.availableBalance)}
-          </div>
-          <p className="text-[12px] text-[#9ca3af] mt-1">Ready for payout</p>
-        </div>
-
-        {/* Pending */}
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[13px] font-medium text-[#6b7280]">Pending</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-              <Clock className="h-4 w-4 text-amber-600" />
-            </div>
-          </div>
-          <div className="text-[28px] font-semibold text-amber-600 tracking-tight">
-            {formatPrice(initialData.pendingAmount)}
-          </div>
-          <p className="text-[12px] text-[#9ca3af] mt-1">Processing (7 day hold)</p>
-        </div>
-
-        {/* Total Earnings */}
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[13px] font-medium text-[#6b7280]">Total Earnings</span>
-            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-              <DollarSign className="h-4 w-4 text-[#9ca3af]" />
-            </div>
-          </div>
-          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-            {formatPrice(initialData.totalEarnings)}
-          </div>
-          <p className="text-[12px] text-[#9ca3af] mt-1">Gross revenue all time</p>
-        </div>
-
-        {/* Net Earnings */}
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[13px] font-medium text-[#6b7280]">Net Earnings</span>
-            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-              <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
-            </div>
-          </div>
-          <div className="text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-            {formatPrice(initialData.netEarnings)}
-          </div>
-          <p className="text-[12px] text-[#9ca3af] mt-1">After {formatPrice(initialData.totalFees)} in fees</p>
-        </div>
-      </div>
 
       {/* Payout Account & Settings */}
       {isStripeConnected && (
