@@ -44,6 +44,7 @@ interface Product {
   type?: string
   price_cents?: number
   thumbnail_url?: string | null
+  view_count?: number
 }
 
 interface SalesClientProps {
@@ -1775,19 +1776,20 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       productId: string
       title: string
       coverImage?: string
-      type?: string
+      viewCount: number
       salesCount: number
       revenue: number
     }> = {}
 
     completedOrders.forEach(order => {
       const productId = order.product_id
+      const productData = products.find(p => p.id === productId)
       if (!productStats[productId]) {
         productStats[productId] = {
           productId,
           title: order.product?.title || "Unknown Product",
           coverImage: order.product?.thumbnail_url || undefined,
-          type: order.product?.type,
+          viewCount: productData?.view_count || 0,
           salesCount: 0,
           revenue: 0,
         }
@@ -2817,7 +2819,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     <tr className="border-b border-[#e5e7eb]">
                       <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider w-12">#</th>
                       <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</th>
-                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Type</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Views</th>
                       <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Sales</th>
                       <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Revenue</th>
                     </tr>
@@ -2861,7 +2863,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                             </div>
                           </td>
                           <td className="px-5 py-4">
-                            <span className="text-[13px] text-[#6b7280] capitalize">{product.type || productData?.type || "Digital"}</span>
+                            <span className="text-[13px] text-[#6b7280]">{product.viewCount.toLocaleString()}</span>
                           </td>
                           <td className="px-5 py-4 text-right">
                             <span className="text-[14px] font-medium text-[#1a1a2e]">{product.salesCount}</span>

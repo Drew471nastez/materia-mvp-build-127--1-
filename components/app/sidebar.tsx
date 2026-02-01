@@ -13,7 +13,7 @@ import {
   Mail,
   CreditCard,
   Menu,
-  Palette,
+  Store,
   Link2,
   HelpCircle,
   Zap,
@@ -152,7 +152,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/products", label: "Products", icon: Package },
     { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/app/onepage", label: "OnePage", icon: Link2, forceNavigation: true },
-    { href: "/store-builder", label: "Store Builder", icon: Palette, forceNavigation: true },
+    { href: "/store-builder", label: "Store Builder", icon: Store, forceNavigation: true },
     { href: "/app/emails", label: "Emails", icon: Mail },
     { href: "/app/payouts", label: "Payouts", icon: Wallet },
   ]

@@ -48,6 +48,27 @@ export default async function SalesPage() {
 
   const products = productsData || []
 
+  // Step 3b: Get view counts from product_analytics_daily
+  const productIds = products.map(p => p.id)
+  let viewCountsMap: Record<string, number> = {}
+
+  if (productIds.length > 0) {
+    const { data: analyticsData } = await adminSupabase
+      .from("product_analytics_daily")
+      .select("product_id, views_count")
+      .in("product_id", productIds)
+
+    // Sum up views per product
+    if (analyticsData) {
+      analyticsData.forEach(row => {
+        if (!viewCountsMap[row.product_id]) {
+          viewCountsMap[row.product_id] = 0
+        }
+        viewCountsMap[row.product_id] += row.views_count || 0
+      })
+    }
+  }
+
   // Step 4: Get ALL orders for these products
   let initialOrders: any[] = []
   let initialSummary = {
@@ -102,7 +123,8 @@ export default async function SalesPage() {
         title: p.title,
         type: p.type,
         price_cents: p.price_cents,
-        thumbnail_url: p.thumbnail_url || p.gallery_images?.[0] || null
+        thumbnail_url: p.thumbnail_url || p.gallery_images?.[0] || null,
+        view_count: viewCountsMap[p.id] || 0
       }))}
       initialSummary={initialSummary}
       initialOrders={initialOrders}
