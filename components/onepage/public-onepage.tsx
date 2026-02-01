@@ -3722,7 +3722,7 @@ function PublicBlockRenderer({
       const FILLED_ICONS = new Set([
         'instagram', 'twitter', 'youtube', 'tiktok', 'spotify', 'facebook', 'linkedin',
         'twitch', 'discord', 'telegram', 'whatsapp', 'pinterest', 'snapchat',
-        'github', 'apple-music', 'vimeo'
+        'github', 'vimeo'
       ])
 
       // Auto-detect icon from URL for WhatsApp, Telegram, and Vimeo
