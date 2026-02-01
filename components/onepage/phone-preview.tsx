@@ -3162,6 +3162,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           bio: "text-[11px] max-w-[180px]",
           button: "py-[14.5px] px-[12px] text-[12px]",
           buttonThumb: "w-[25.5px] h-[25.5px]",
+          buttonIcon: 16.5,
+          buttonIconLeft: "12px",
           text: "text-[11px]",
           input: "px-[10px] py-[8px] text-[11px]",
           inputBtn: "px-[12px] py-[8px] text-[11px]",
@@ -3178,7 +3180,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           title: "text-xl",
           bio: "text-sm max-w-xs",
           button: "py-[16.5px] px-4 text-[15px]",
-          buttonThumb: "w-[33.5px] h-[33.5px]",
+          buttonThumb: "w-[35px] h-[35px]",
+          buttonIcon: 35,
+          buttonIconLeft: "16px",
           text: "text-sm",
           input: "px-4 py-3 text-base",
           inputBtn: "px-5 py-3 text-base",
@@ -4021,21 +4025,21 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute left-[12px]")}
-                style={{ imageRendering: "auto" }}
+                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute")}
+                style={{ imageRendering: "auto", left: s.buttonIconLeft }}
               />
             ) : iconPath ? (
               <svg
-                width="16.5"
-                height="16.5"
+                width={s.buttonIcon}
+                height={s.buttonIcon}
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
                 strokeWidth={isFilledIcon ? "0" : "2"}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="shrink-0 absolute left-[12px]"
-                style={{ color: iconColor }}
+                className="shrink-0 absolute"
+                style={{ color: iconColor, left: s.buttonIconLeft }}
               >
                 <path d={iconPath} />
               </svg>
@@ -4097,21 +4101,21 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute left-[12px]")}
-                style={{ imageRendering: "auto" }}
+                className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute")}
+                style={{ imageRendering: "auto", left: s.buttonIconLeft }}
               />
             ) : iconPath ? (
               <svg
-                width="17.5"
-                height="17.5"
+                width={s.buttonIcon}
+                height={s.buttonIcon}
                 viewBox="0 0 24 24"
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
                 strokeWidth={isFilledIcon ? "0" : "2"}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="shrink-0 absolute left-[12px]"
-                style={{ color: iconColor }}
+                className="shrink-0 absolute"
+                style={{ color: iconColor, left: s.buttonIconLeft }}
               >
                 <path d={iconPath} />
               </svg>
@@ -4172,21 +4176,21 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <img
               src={data.thumbnail_url}
               alt=""
-              className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute left-[12px]")}
-              style={{ imageRendering: "auto" }}
+              className={cn(s.buttonThumb, "rounded-lg object-cover shrink-0 absolute")}
+              style={{ imageRendering: "auto", left: s.buttonIconLeft }}
             />
           ) : iconPath ? (
             <svg
-              width="16.5"
-              height="16.5"
+              width={s.buttonIcon}
+              height={s.buttonIcon}
               viewBox="0 0 24 24"
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
               strokeWidth={isFilledIcon ? "0" : "2"}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="shrink-0 absolute left-[12px]"
-              style={{ color: iconColor }}
+              className="shrink-0 absolute"
+              style={{ color: iconColor, left: s.buttonIconLeft }}
             >
               <path d={iconPath} />
             </svg>
