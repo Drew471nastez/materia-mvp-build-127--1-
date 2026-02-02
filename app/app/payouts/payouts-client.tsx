@@ -380,8 +380,8 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                   </p>
                 </div>
                 {isStripePending && (
-                  <div className="flex items-center gap-2 text-[13px] text-[#9ca3af]">
-                    <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                  <div className="flex items-center gap-2 text-[13px] text-[#b0b5bc]">
+                    <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
                     <span>Verification required</span>
                   </div>
                 )}

@@ -187,8 +187,25 @@ export function EmailEditor({
       }
     }
 
+    // Handle browser back button
+    const handlePopState = (e: PopStateEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        // Push state back to prevent navigation
+        window.history.pushState(null, "", window.location.href)
+        setShowUnsavedDialog(true)
+      }
+    }
+
+    // Push initial state to enable popstate detection
+    window.history.pushState(null, "", window.location.href)
+
     window.addEventListener("beforeunload", handleBeforeUnload)
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+    window.addEventListener("popstate", handlePopState)
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      window.removeEventListener("popstate", handlePopState)
+    }
   }, [hasUnsavedChanges])
 
   // Handle back button with confirmation
@@ -1277,7 +1294,7 @@ Tips:
             <Button variant="outline" onClick={() => setShowUnsavedDialog(false)} className="flex-1 rounded-xl h-11 cursor-pointer">
               Keep editing
             </Button>
-            <Button variant="destructive" onClick={() => { setShowUnsavedDialog(false); onBack(); }} className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 cursor-pointer">
+            <Button onClick={() => { setShowUnsavedDialog(false); onBack(); }} className="flex-1 rounded-xl h-11 bg-violet-600 hover:bg-violet-700 text-white cursor-pointer">
               Discard changes
             </Button>
           </div>

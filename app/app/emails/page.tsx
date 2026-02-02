@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -38,6 +38,18 @@ import {
   Timer,
   Sparkles,
   Type,
+  Bold,
+  Italic,
+  Strikethrough,
+  List,
+  ListOrdered,
+  Image as ImageIcon,
+  Square,
+  AlignLeft,
+  AlignCenter,
+  Undo,
+  Redo,
+  Quote,
 } from "lucide-react"
 import Link from "next/link"
 import { EmailEditor } from "@/components/email/email-editor"
@@ -600,7 +612,81 @@ export default function EmailsPage() {
     return FLOW_TRIGGERS.find(t => t.id === triggerType) || FLOW_TRIGGERS[0]
   }
 
-  // Flow Editor View - Cleaner single-email focused design
+  // Flow Editor View - Rich text editor matching normal email editor
+  const flowEditorRef = useRef<HTMLDivElement>(null)
+  const [flowEditorContent, setFlowEditorContent] = useState("")
+
+  // Rich text editor commands for flow editor
+  const flowExecCommand = useCallback((command: string, value?: string) => {
+    document.execCommand(command, false, value)
+    flowEditorRef.current?.focus()
+    if (flowEditorRef.current) {
+      setFlowEditorContent(flowEditorRef.current.innerHTML)
+    }
+  }, [])
+
+  const flowInsertHeading = () => flowExecCommand("formatBlock", "h2")
+  const flowInsertBold = () => flowExecCommand("bold")
+  const flowInsertItalic = () => flowExecCommand("italic")
+  const flowInsertStrikethrough = () => flowExecCommand("strikeThrough")
+  const flowInsertList = () => flowExecCommand("insertUnorderedList")
+  const flowInsertOrderedList = () => flowExecCommand("insertOrderedList")
+  const flowInsertQuote = () => flowExecCommand("formatBlock", "blockquote")
+  const flowAlignLeft = () => flowExecCommand("justifyLeft")
+  const flowAlignCenter = () => flowExecCommand("justifyCenter")
+  const flowUndoAction = () => flowExecCommand("undo")
+  const flowRedoAction = () => flowExecCommand("redo")
+
+  const flowInsertLink = () => {
+    const url = prompt("Enter URL:")
+    if (url) {
+      const fullUrl = url.startsWith("http") ? url : `https://${url}`
+      flowExecCommand("createLink", fullUrl)
+    }
+  }
+
+  const flowInsertButton = () => {
+    const buttonHtml = `
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="#" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">Click here</a>
+      </div>
+    `
+    flowExecCommand("insertHTML", buttonHtml)
+  }
+
+  const flowInsertImage = async () => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = "image/*"
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        try {
+          const formData = new FormData()
+          formData.append("file", file)
+          const response = await fetch("/api/email/upload-image", {
+            method: "POST",
+            body: formData,
+          })
+          const data = await response.json()
+          if (response.ok) {
+            const imgHtml = `<img src="${data.url}" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0;" />`
+            flowExecCommand("insertHTML", imgHtml)
+          }
+        } catch (err) {
+          // Fallback to base64
+          const reader = new FileReader()
+          reader.onload = () => {
+            const imgHtml = `<img src="${reader.result}" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0;" />`
+            flowExecCommand("insertHTML", imgHtml)
+          }
+          reader.readAsDataURL(file)
+        }
+      }
+    }
+    input.click()
+  }
+
   if (view === "flow-editor" && editingFlow) {
     const triggerInfo = getTriggerInfo(editingFlow.trigger_type)
     const TriggerIcon = triggerInfo.icon
@@ -629,6 +715,15 @@ export default function EmailsPage() {
         newSteps.push({ ...emailStep, config: { ...emailStep.config, ...updates } })
       }
       setEditingFlow({ ...editingFlow, steps: newSteps })
+    }
+
+    // Sync flow editor content with step body
+    const handleFlowEditorInput = () => {
+      if (flowEditorRef.current) {
+        const content = flowEditorRef.current.innerHTML
+        setFlowEditorContent(content)
+        updateEmailStep({ body: content })
+      }
     }
 
     return (
@@ -751,16 +846,76 @@ export default function EmailsPage() {
                 />
               </div>
 
-              {/* Email Body Card */}
+              {/* Email Body Card with Rich Text Editor */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50">
-                  <label className="text-sm font-medium text-gray-700">Email Content</label>
+                {/* Toolbar */}
+                <div className="px-4 py-2 border-b border-gray-100 bg-gray-50/50 flex items-center gap-1 flex-wrap">
+                  <button onClick={flowInsertHeading} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Heading">
+                    <Type className="h-4 w-4" />
+                  </button>
+                  <button onClick={flowInsertBold} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 font-bold cursor-pointer" title="Bold">
+                    <Bold className="h-4 w-4" />
+                  </button>
+                  <button onClick={flowInsertItalic} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Italic">
+                    <Italic className="h-4 w-4" />
+                  </button>
+                  <button onClick={flowInsertStrikethrough} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Strikethrough">
+                    <Strikethrough className="h-4 w-4" />
+                  </button>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <button onClick={flowInsertList} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Bullet List">
+                    <List className="h-4 w-4" />
+                  </button>
+                  <button onClick={flowInsertOrderedList} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Numbered List">
+                    <ListOrdered className="h-4 w-4" />
+                  </button>
+                  <button onClick={flowInsertQuote} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Quote">
+                    <Quote className="h-4 w-4" />
+                  </button>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <button onClick={flowAlignLeft} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Align Left">
+                    <AlignLeft className="h-4 w-4" />
+                  </button>
+                  <button onClick={flowAlignCenter} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Align Center">
+                    <AlignCenter className="h-4 w-4" />
+                  </button>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <button onClick={flowInsertLink} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Insert Link">
+                    <Link2 className="h-4 w-4" />
+                  </button>
+                  <button onClick={flowInsertImage} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Insert Image">
+                    <ImageIcon className="h-4 w-4" />
+                  </button>
+                  <button onClick={flowInsertButton} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Insert Button">
+                    <Square className="h-4 w-4" />
+                  </button>
+                  <div className="flex-1" />
+                  <button onClick={flowUndoAction} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Undo">
+                    <Undo className="h-4 w-4" />
+                  </button>
+                  <button onClick={flowRedoAction} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Redo">
+                    <Redo className="h-4 w-4" />
+                  </button>
                 </div>
-                <textarea
-                  value={emailStep.config.body || ""}
-                  onChange={(e) => updateEmailStep({ body: e.target.value })}
-                  placeholder={`Hi there!\n\nThank you for your purchase! I'm so excited for you to get started.\n\nIf you have any questions, just reply to this email - I'm here to help!\n\nBest,\n[Your name]`}
-                  className="w-full min-h-[350px] p-5 text-base leading-relaxed text-gray-700 resize-none focus:outline-none"
+
+                {/* Rich Text Editor */}
+                <div
+                  ref={flowEditorRef}
+                  contentEditable
+                  onInput={handleFlowEditorInput}
+                  className="min-h-[350px] p-5 text-base leading-relaxed text-gray-700 focus:outline-none prose prose-sm max-w-none"
+                  data-placeholder="Hi there!
+
+Thank you for your purchase! I'm so excited for you to get started.
+
+If you have any questions, just reply to this email - I'm here to help!
+
+Best,
+[Your name]"
+                  style={{
+                    minHeight: "350px",
+                  }}
+                  dangerouslySetInnerHTML={{ __html: emailStep.config.body || "" }}
                 />
               </div>
             </div>
@@ -812,11 +967,10 @@ export default function EmailsPage() {
                     {/* Email Body Preview */}
                     <div className="p-5">
                       <div
-                        className="text-gray-700 whitespace-pre-wrap"
+                        className="prose prose-sm max-w-none text-gray-700"
                         style={{ fontSize: "15px", lineHeight: "1.7" }}
-                      >
-                        {emailStep.config.body || <span className="text-gray-400 italic">Your email content will appear here...</span>}
-                      </div>
+                        dangerouslySetInnerHTML={{ __html: emailStep.config.body || '<span class="text-gray-400 italic">Your email content will appear here...</span>' }}
+                      />
                     </div>
 
                     {/* Email Footer Preview */}
@@ -845,6 +999,46 @@ export default function EmailsPage() {
             </div>
           </div>
         </div>
+
+        {/* CSS for rich text editor */}
+        <style jsx global>{`
+          [contenteditable]:empty:before {
+            content: attr(data-placeholder);
+            color: #9ca3af;
+            pointer-events: none;
+            display: block;
+            white-space: pre-wrap;
+          }
+          [contenteditable] h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0.75rem 0;
+            color: #1f2937;
+          }
+          [contenteditable] a {
+            color: #2563eb;
+            text-decoration: underline;
+          }
+          [contenteditable] ul, [contenteditable] ol {
+            padding-left: 1.5rem;
+            margin: 0.75rem 0;
+          }
+          [contenteditable] li {
+            margin-bottom: 0.25rem;
+          }
+          [contenteditable] img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+          }
+          [contenteditable] blockquote {
+            border-left: 3px solid #e5e7eb;
+            padding-left: 1rem;
+            margin: 0.75rem 0;
+            color: #6b7280;
+            font-style: italic;
+          }
+        `}</style>
       </div>
     )
   }
