@@ -679,7 +679,6 @@ export function EmailEditor({
       if (data) newSegment.id = data.id
     }
 
-    onSegmentsChange?.([...segments, newSegment])
     onAudienceChange(`segment:${newSegment.id}`)
     setShowSegmentDialog(false)
     setSegmentName("")

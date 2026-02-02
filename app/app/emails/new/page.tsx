@@ -20,7 +20,6 @@ export default function NewEmailPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [creatorId, setCreatorId] = useState<string | null>(null)
-  const [segments, setSegments] = useState<{ id: string; name: string; subscriber_ids?: string[] }[]>([])
   const [audienceType, setAudienceType] = useState("all")
   const [sellerInfo, setSellerInfo] = useState<{ name: string; username: string; avatarUrl: string } | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -51,22 +50,6 @@ export default function NewEmailPage() {
       }
 
       setCreatorId(creator.id)
-
-      // Load segments
-      const { data: segmentsData } = await supabase
-        .from("email_segments")
-        .select("id, name, filters")
-        .eq("creator_id", creator.id)
-        .order("name")
-
-      // Transform segments to include subscriber_ids from filters
-      const transformedSegments = (segmentsData || []).map(seg => ({
-        id: seg.id,
-        name: seg.name,
-        subscriber_ids: seg.filters?.subscriber_ids || []
-      }))
-
-      setSegments(transformedSegments)
 
       // Load profile info
       const { data: profile } = await supabase
@@ -131,17 +114,13 @@ export default function NewEmailPage() {
     setIsSaving(true)
     const supabase = createClient()
 
-    const segmentId = audienceType.startsWith("segment:") ? audienceType.replace("segment:", "") : null
-    const actualAudienceType = audienceType.startsWith("segment:") ? "segment" : audienceType
-
     await supabase.from("email_campaigns").insert({
       creator_id: creatorId,
       subject: data.subject,
       body: data.body,
       preview_text: data.previewText || null,
       status: "draft",
-      audience_type: actualAudienceType,
-      segment_id: segmentId,
+      audience_type: audienceType,
     })
 
     setIsSaving(false)
@@ -157,9 +136,6 @@ export default function NewEmailPage() {
     const supabase = createClient()
 
     try {
-      const segmentId = audienceType.startsWith("segment:") ? audienceType.replace("segment:", "") : null
-      const actualAudienceType = audienceType.startsWith("segment:") ? "segment" : audienceType
-
       const { data: newCampaign } = await supabase
         .from("email_campaigns")
         .insert({
@@ -168,8 +144,7 @@ export default function NewEmailPage() {
           body: data.body,
           preview_text: data.previewText || null,
           status: "draft",
-          audience_type: actualAudienceType,
-          segment_id: segmentId,
+          audience_type: audienceType,
         })
         .select()
         .single()
@@ -211,17 +186,13 @@ export default function NewEmailPage() {
     setIsSaving(true)
     const supabase = createClient()
 
-    const segmentId = audienceType.startsWith("segment:") ? audienceType.replace("segment:", "") : null
-    const actualAudienceType = audienceType.startsWith("segment:") ? "segment" : audienceType
-
     await supabase.from("email_campaigns").insert({
       creator_id: creatorId,
       subject: data.subject,
       body: data.body,
       preview_text: data.previewText || null,
       status: "scheduled",
-      audience_type: actualAudienceType,
-      segment_id: segmentId,
+      audience_type: audienceType,
       scheduled_at: new Date(data.scheduledAt).toISOString(),
     })
 
@@ -287,8 +258,6 @@ export default function NewEmailPage() {
         initialPreviewText=""
         audienceType={audienceType}
         onAudienceChange={setAudienceType}
-        segments={segments}
-        onSegmentsChange={setSegments}
         isSaving={isSaving}
         isSending={isSending}
         creatorId={creatorId || undefined}
