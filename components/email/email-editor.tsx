@@ -177,6 +177,9 @@ export function EmailEditor({
   const [selectedEmailFilter, setSelectedEmailFilter] = useState<string | null>(null)
   const [loadingEmailCampaigns, setLoadingEmailCampaigns] = useState(false)
 
+  // Timeframe filter state for segment creation
+  const [selectedTimeframe, setSelectedTimeframe] = useState<string>("")
+
   // Track unsaved changes
   useEffect(() => {
     const subjectChanged = subject !== initialSubject
@@ -704,6 +707,7 @@ export function EmailEditor({
     setShowSegmentDialog(false)
     setSegmentName("")
     setSelectedSubscriberIds([])
+    setSelectedTimeframe("")
     toast({ title: "Segment created", description: `Created segment "${segmentName}" with ${selectedSubscriberIds.length} subscribers` })
   }
 
@@ -885,7 +889,7 @@ Tips:
 
                 {/* Inline Button Edit Menu - Modern UI Dialog */}
                 <Dialog open={showButtonMenu} onOpenChange={(open) => { if (!open) { setShowButtonMenu(false); setSelectedButton(null); } }}>
-                  <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden">
+                  <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
                     {/* Header */}
                     <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-100">
                       <div className="flex items-center justify-between">
@@ -1355,7 +1359,9 @@ Tips:
                 </Label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Select
+                    value={selectedTimeframe}
                     onValueChange={(value) => {
+                      setSelectedTimeframe(value)
                       if (value === "all") selectAllSubscribers()
                       else if (value === "48h") selectPast48Hours()
                       else if (value === "7days") selectPast7Days()
@@ -1363,7 +1369,7 @@ Tips:
                       else if (value === "month") selectLastMonth()
                     }}
                   >
-                    <SelectTrigger className="h-11 rounded-xl bg-white flex-1">
+                    <SelectTrigger className="h-11 rounded-xl bg-white flex-1 cursor-pointer">
                       <SelectValue placeholder="Select timeframe..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -1375,7 +1381,7 @@ Tips:
                     </SelectContent>
                   </Select>
                   {selectedSubscriberIds.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={() => { setSelectedSubscriberIds([]); clearEmailFilter(); }} className="h-11 px-4 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer whitespace-nowrap">
+                    <Button variant="outline" size="sm" onClick={() => { setSelectedSubscriberIds([]); setSelectedTimeframe(""); clearEmailFilter(); }} className="h-11 px-4 rounded-xl text-gray-400 hover:text-gray-500 hover:bg-gray-100 cursor-pointer whitespace-nowrap">
                       <X className="h-4 w-4 mr-1.5" />Clear ({selectedSubscriberIds.length})
                     </Button>
                   )}
@@ -1431,7 +1437,7 @@ Tips:
 
           {/* Footer */}
           <div className="border-t border-gray-100 p-3 sm:p-4 bg-gray-50/50 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:justify-between flex-shrink-0">
-            <Button variant="ghost" onClick={() => setShowSegmentDialog(false)} className="rounded-xl cursor-pointer order-2 sm:order-1 h-10">Cancel</Button>
+            <Button variant="ghost" onClick={() => { setShowSegmentDialog(false); setSelectedSubscriberIds([]); setSelectedTimeframe(""); setSegmentName(""); }} className="rounded-xl cursor-pointer order-2 sm:order-1 h-10">Cancel</Button>
             <Button onClick={handleCreateSegment} disabled={!segmentName.trim() || selectedSubscriberIds.length === 0} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer px-6 order-1 sm:order-2 h-11">
               <Plus className="h-4 w-4 mr-2" />
               Create Segment ({selectedSubscriberIds.length})

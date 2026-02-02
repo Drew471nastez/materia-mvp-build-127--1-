@@ -1487,7 +1487,7 @@ Tips:
 
                   {/* Inline Button Edit Menu - Modern UI Dialog */}
                   <Dialog open={flowShowButtonMenu} onOpenChange={(open) => { if (!open) { setFlowShowButtonMenu(false); setFlowSelectedButton(null); } }}>
-                    <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden">
+                    <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
                       {/* Header */}
                       <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-100">
                         <div className="flex items-center justify-between">
