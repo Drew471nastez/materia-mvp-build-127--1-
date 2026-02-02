@@ -1485,23 +1485,20 @@ Tips:
                     </div>
                   )}
 
-                  {/* Inline Button Edit Menu - Modern UI */}
-                  {flowShowButtonMenu && flowSelectedButton && (
-                    <div
-                      className="flow-button-menu fixed bg-white rounded-2xl shadow-2xl border border-gray-100 z-[100] overflow-hidden"
-                      style={{ left: flowButtonMenuPosition.x, top: flowButtonMenuPosition.y, transform: 'translate(-50%, -100%)', minWidth: '320px' }}
-                    >
+                  {/* Inline Button Edit Menu - Modern UI Dialog */}
+                  <Dialog open={flowShowButtonMenu} onOpenChange={(open) => { if (!open) { setFlowShowButtonMenu(false); setFlowSelectedButton(null); } }}>
+                    <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden">
                       {/* Header */}
                       <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-100">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-900">Edit Button</span>
+                          <DialogTitle className="text-sm font-semibold text-gray-900">Edit Button</DialogTitle>
                           <button onClick={flowDeleteButton} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </div>
 
-                      <div className="p-4 space-y-4">
+                      <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
                         {/* Live Preview */}
                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                           <div style={{ textAlign: flowButtonAlign }}>
@@ -1510,10 +1507,12 @@ Tips:
                                 display: "inline-block",
                                 backgroundColor: flowButtonColor,
                                 color: "#ffffff",
-                                padding: "12px 24px",
+                                padding: "10px 20px",
                                 borderRadius: "8px",
                                 fontWeight: 600,
-                                fontSize: "14px",
+                                fontSize: "13px",
+                                maxWidth: "100%",
+                                wordBreak: "break-word",
                               }}
                             >
                               {flowButtonText || "Button Text"}
@@ -1546,8 +1545,8 @@ Tips:
                         {/* Color Picker */}
                         <div>
                           <label className="text-xs font-medium text-gray-700 block mb-2">Color</label>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1.5 bg-gray-50 rounded-xl p-1.5 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 bg-gray-50 rounded-xl p-1.5">
                               {["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#f59e0b", "#000000"].map((color) => (
                                 <button
                                   key={color}
@@ -1615,8 +1614,8 @@ Tips:
                           <Check className="h-4 w-4 mr-2" />Apply Changes
                         </Button>
                       </div>
-                    </div>
-                  )}
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </div>

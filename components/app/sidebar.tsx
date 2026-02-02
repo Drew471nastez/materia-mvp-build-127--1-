@@ -375,8 +375,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <p className="text-[13px] font-semibold text-neutral-900">Upgrade to Pro</p>
             <p className="text-[11px] text-neutral-600">Unlock more benefits</p>
           </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black group-hover:bg-neutral-800 transition-colors">
-            <Zap className="h-3.5 w-3.5 text-violet-500" strokeWidth={2} />
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
+            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
           </div>
         </Link>
       </div>
@@ -475,8 +475,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <p className="text-[13px] font-semibold text-neutral-900">Upgrade to Pro</p>
             <p className="text-[11px] text-neutral-600">Unlock more benefits</p>
           </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black group-hover:bg-neutral-800 transition-colors">
-            <Zap className="h-3.5 w-3.5 text-violet-500" strokeWidth={2} />
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
+            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
           </div>
         </Link>
       </div>

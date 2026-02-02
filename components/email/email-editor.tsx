@@ -883,23 +883,20 @@ Tips:
                   </div>
                 )}
 
-                {/* Inline Button Edit Menu - Modern UI */}
-                {showButtonMenu && selectedButton && (
-                  <div
-                    className="button-menu fixed bg-white rounded-2xl shadow-2xl border border-gray-100 z-[100] overflow-hidden"
-                    style={{ left: buttonMenuPosition.x, top: buttonMenuPosition.y, transform: 'translate(-50%, -100%)', minWidth: '320px' }}
-                  >
+                {/* Inline Button Edit Menu - Modern UI Dialog */}
+                <Dialog open={showButtonMenu} onOpenChange={(open) => { if (!open) { setShowButtonMenu(false); setSelectedButton(null); } }}>
+                  <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden">
                     {/* Header */}
                     <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-100">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-900">Edit Button</span>
-                        <button onClick={deleteButton} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                        <DialogTitle className="text-sm font-semibold text-gray-900">Edit Button</DialogTitle>
+                        <button onClick={deleteButton} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
 
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
                       {/* Live Preview */}
                       <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                         <div style={{ textAlign: buttonAlign }}>
@@ -908,10 +905,12 @@ Tips:
                               display: "inline-block",
                               backgroundColor: buttonColor,
                               color: "#ffffff",
-                              padding: "12px 24px",
+                              padding: "10px 20px",
                               borderRadius: "8px",
                               fontWeight: 600,
-                              fontSize: "14px",
+                              fontSize: "13px",
+                              maxWidth: "100%",
+                              wordBreak: "break-word",
                             }}
                           >
                             {buttonText || "Button Text"}
@@ -944,8 +943,8 @@ Tips:
                       {/* Color Picker */}
                       <div>
                         <label className="text-xs font-medium text-gray-700 block mb-2">Color</label>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1.5 bg-gray-50 rounded-xl p-1.5 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 bg-gray-50 rounded-xl p-1.5">
                             {["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#f59e0b", "#000000"].map((color) => (
                               <button
                                 key={color}
@@ -1013,8 +1012,8 @@ Tips:
                         <Check className="h-4 w-4 mr-2" />Apply Changes
                       </Button>
                     </div>
-                  </div>
-                )}
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
 
@@ -1334,20 +1333,20 @@ Tips:
 
       {/* Custom Segment Dialog */}
       <Dialog open={showSegmentDialog} onOpenChange={setShowSegmentDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col rounded-2xl p-0 overflow-hidden">
-          <div className="px-6 pt-6 pb-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-violet-50">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col rounded-2xl p-0 overflow-hidden">
+          <div className="px-4 sm:px-6 pt-5 pb-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-violet-50 flex-shrink-0">
             <DialogHeader>
-              <DialogTitle className="text-xl font-semibold text-gray-900">Manage Segments</DialogTitle>
-              <DialogDescription className="text-gray-600">Create custom segments to target specific groups of subscribers.</DialogDescription>
+              <DialogTitle className="text-lg sm:text-xl font-semibold text-gray-900">Manage Segments</DialogTitle>
+              <DialogDescription className="text-sm text-gray-600">Create custom segments to target specific groups of subscribers.</DialogDescription>
             </DialogHeader>
           </div>
 
-          <div className="flex-1 overflow-hidden flex flex-col p-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {/* Existing Segments Section */}
             {segments.length > 0 && (
-              <div className="mb-6">
-                <Label className="text-sm font-medium text-gray-700 mb-3 block">Your Segments</Label>
-                <div className="flex flex-wrap gap-2">
+              <div className="mb-5">
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">Your Segments</Label>
+                <div className="flex flex-wrap gap-2 max-h-[80px] overflow-y-auto p-1">
                   {segments.map((segment) => (
                     <div key={segment.id} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5">
                       <span className="text-sm font-medium text-blue-700">{segment.name}</span>
@@ -1371,7 +1370,7 @@ Tips:
             )}
 
             {/* Create New Segment Section */}
-            <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+            <div className="space-y-4">
               <div className="bg-gray-50 rounded-xl p-4">
                 <Label className="text-sm font-medium text-gray-700 mb-2 block">New Segment Name</Label>
                 <Input
@@ -1382,32 +1381,41 @@ Tips:
                 />
               </div>
 
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">Quick Filters</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  <Button variant="outline" size="sm" onClick={selectAllSubscribers} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
-                    <User className="h-3.5 w-3.5 mr-1.5" />All
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={selectPast48Hours} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
-                    <Clock className="h-3.5 w-3.5 mr-1.5" />48h
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={selectPast7Days} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
-                    <Clock className="h-3.5 w-3.5 mr-1.5" />7 days
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={selectPast30Days} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
-                    <Clock className="h-3.5 w-3.5 mr-1.5" />30 days
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={selectLastMonth} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
-                    <Clock className="h-3.5 w-3.5 mr-1.5" />Month
-                  </Button>
+              {/* Timeframe Filter Dropdown */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <Label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  Filter by Subscription Date
+                </Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Select
+                    onValueChange={(value) => {
+                      if (value === "all") selectAllSubscribers()
+                      else if (value === "48h") selectPast48Hours()
+                      else if (value === "7days") selectPast7Days()
+                      else if (value === "30days") selectPast30Days()
+                      else if (value === "month") selectLastMonth()
+                    }}
+                  >
+                    <SelectTrigger className="h-11 rounded-xl bg-white flex-1">
+                      <SelectValue placeholder="Select timeframe..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="all" className="cursor-pointer">All Subscribers</SelectItem>
+                      <SelectItem value="48h" className="cursor-pointer">Last 48 Hours</SelectItem>
+                      <SelectItem value="7days" className="cursor-pointer">Last 7 Days</SelectItem>
+                      <SelectItem value="30days" className="cursor-pointer">Last 30 Days</SelectItem>
+                      <SelectItem value="month" className="cursor-pointer">Last Month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {selectedSubscriberIds.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => { setSelectedSubscriberIds([]); clearEmailFilter(); }} className="h-11 px-4 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer whitespace-nowrap">
+                      <X className="h-4 w-4 mr-1.5" />Clear ({selectedSubscriberIds.length})
+                    </Button>
+                  )}
                 </div>
                 {selectedSubscriberIds.length > 0 && (
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-sm text-blue-600 font-medium">{selectedSubscriberIds.length} subscribers selected</span>
-                    <Button variant="ghost" size="sm" onClick={() => { setSelectedSubscriberIds([]); clearEmailFilter(); }} className="h-7 px-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer text-xs">
-                      <X className="h-3 w-3 mr-1" />Clear selection
-                    </Button>
-                  </div>
+                  <p className="mt-2 text-sm text-blue-600 font-medium">{selectedSubscriberIds.length} subscribers selected</p>
                 )}
               </div>
 
@@ -1445,49 +1453,54 @@ Tips:
                 </div>
               )}
 
+              {/* Subscriber Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input value={subscriberSearch} onChange={(e) => setSubscriberSearch(e.target.value)} placeholder="Search subscribers by email..." className="pl-10 h-11 rounded-xl bg-white" />
               </div>
 
-              <div className="flex-1 overflow-y-auto rounded-xl border border-gray-200 min-h-[200px] bg-white">
-                {loadingSubscribers ? (
-                  <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
-                ) : filteredSubscribers.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <User className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-                    <p className="text-sm font-medium">{subscribers.length === 0 ? "No subscribers yet" : "No matching subscribers"}</p>
-                    <p className="text-xs text-gray-400 mt-1">Subscribers will appear here once you have some</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-100">
-                    {filteredSubscribers.map((subscriber) => (
-                      <label key={subscriber.id} className={cn("flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors", selectedSubscriberIds.includes(subscriber.id) && "bg-blue-50 hover:bg-blue-100")}>
-                        <Checkbox checked={selectedSubscriberIds.includes(subscriber.id)} onCheckedChange={() => toggleSubscriber(subscriber.id)} className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900 truncate font-medium">{subscriber.email}</p>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                            {subscriber.name && <span>{subscriber.name}</span>}
-                            <span className={cn("px-1.5 py-0.5 rounded-full text-xs font-medium", subscriber.source === "onepage" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700")}>
-                              {subscriber.source === "onepage" ? "OnePage" : "Store"}
-                            </span>
-                            {subscriber.subscribed_at && (
-                              <span className="text-gray-400">Joined {new Date(subscriber.subscribed_at).toLocaleDateString()}</span>
-                            )}
+              {/* Subscriber List - Scrollable */}
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                <div className="max-h-[250px] sm:max-h-[300px] overflow-y-auto">
+                  {loadingSubscribers ? (
+                    <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+                  ) : filteredSubscribers.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <User className="h-10 w-10 mx-auto text-gray-300 mb-3" />
+                      <p className="text-sm font-medium">{subscribers.length === 0 ? "No subscribers yet" : "No matching subscribers"}</p>
+                      <p className="text-xs text-gray-400 mt-1">Subscribers will appear here once you have some</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {filteredSubscribers.map((subscriber) => (
+                        <label key={subscriber.id} className={cn("flex items-center gap-3 px-3 sm:px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors", selectedSubscriberIds.includes(subscriber.id) && "bg-blue-50 hover:bg-blue-100")}>
+                          <Checkbox checked={selectedSubscriberIds.includes(subscriber.id)} onCheckedChange={() => toggleSubscriber(subscriber.id)} className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900 truncate font-medium">{subscriber.email}</p>
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                              {subscriber.name && <span className="truncate max-w-[100px]">{subscriber.name}</span>}
+                              <span className={cn("px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap", subscriber.source === "onepage" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700")}>
+                                {subscriber.source === "onepage" ? "OnePage" : "Store"}
+                              </span>
+                              {subscriber.subscribed_at && (
+                                <span className="text-gray-400 whitespace-nowrap hidden sm:inline">Joined {new Date(subscriber.subscribed_at).toLocaleDateString()}</span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        {selectedSubscriberIds.includes(subscriber.id) && <Check className="h-4 w-4 text-blue-500 flex-shrink-0" />}
-                      </label>
-                    ))}
-                  </div>
-                )}
+                          {selectedSubscriberIds.includes(subscriber.id) && <Check className="h-4 w-4 text-blue-500 flex-shrink-0" />}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex items-center justify-between">
-            <Button variant="ghost" onClick={() => setShowSegmentDialog(false)} className="rounded-xl cursor-pointer">Cancel</Button>
-            <Button onClick={handleCreateSegment} disabled={!segmentName.trim() || selectedSubscriberIds.length === 0} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer px-6">
+          {/* Footer */}
+          <div className="border-t border-gray-100 p-3 sm:p-4 bg-gray-50/50 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:justify-between flex-shrink-0">
+            <Button variant="ghost" onClick={() => setShowSegmentDialog(false)} className="rounded-xl cursor-pointer order-2 sm:order-1 h-10">Cancel</Button>
+            <Button onClick={handleCreateSegment} disabled={!segmentName.trim() || selectedSubscriberIds.length === 0} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer px-6 order-1 sm:order-2 h-11">
               <Plus className="h-4 w-4 mr-2" />
               Create Segment ({selectedSubscriberIds.length})
             </Button>
