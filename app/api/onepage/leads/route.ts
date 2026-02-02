@@ -2,7 +2,10 @@ import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { triggerEmailFlows } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
+
+export const runtime = "nodejs"
 
 // Country code to name mapping
 const countryNames: Record<string, string> = {
@@ -150,7 +153,7 @@ export async function POST(request: Request) {
         .single()
 
       if (!existingSub) {
-        await adminSupabase.from("subscribers").insert({
+        const { error: subscriberInsertError } = await adminSupabase.from("subscribers").insert({
           email: subscriberEmail,
           name: name || null,
           source: "onepage",
@@ -164,6 +167,21 @@ export async function POST(request: Request) {
           unsubscribe_token: uuidv4(),
         })
         console.log("[leads] Added to subscribers")
+
+        // Trigger new_subscriber email flows if insert was successful
+        if (!subscriberInsertError) {
+          try {
+            await triggerEmailFlows(adminSupabase, {
+              triggerType: "new_subscriber",
+              creatorId,
+              recipientEmail: subscriberEmail,
+              recipientName: name || undefined,
+            })
+            console.log("[leads] Triggered new_subscriber email flows")
+          } catch (flowErr) {
+            console.error("[leads] Email flow trigger error (non-fatal):", flowErr)
+          }
+        }
       } else if (existingSub.status === "unsubscribed") {
         await adminSupabase
           .from("subscribers")

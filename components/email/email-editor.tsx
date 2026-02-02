@@ -165,8 +165,6 @@ export function EmailEditor({
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [showImageMenu, setShowImageMenu] = useState(false)
   const [imageMenuPosition, setImageMenuPosition] = useState({ x: 0, y: 0 })
-  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [savedSelection, setSavedSelection] = useState<Range | null>(null)
 
   // Email campaign filtering for segments
@@ -177,51 +175,9 @@ export function EmailEditor({
   // Timeframe filter state for segment creation
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>("")
 
-  // Track unsaved changes
-  useEffect(() => {
-    const subjectChanged = subject !== initialSubject
-    const contentChanged = editorContent !== initialBody && editorContent !== ""
-    setHasUnsavedChanges(subjectChanged || contentChanged)
-  }, [subject, editorContent, initialSubject, initialBody])
-
-  // Warn before page unload/refresh if there are unsaved changes
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault()
-        e.returnValue = "You have unsaved changes. Are you sure you want to leave?"
-        return e.returnValue
-      }
-    }
-
-    // Handle browser back button
-    const handlePopState = (e: PopStateEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault()
-        // Push state back to prevent navigation
-        window.history.pushState(null, "", window.location.href)
-        setShowUnsavedDialog(true)
-      }
-    }
-
-    // Push initial state to enable popstate detection
-    window.history.pushState(null, "", window.location.href)
-
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    window.addEventListener("popstate", handlePopState)
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload)
-      window.removeEventListener("popstate", handlePopState)
-    }
-  }, [hasUnsavedChanges])
-
-  // Handle back button with confirmation
+  // Parent page handles unsaved changes - just delegate to onBack
   const handleBack = () => {
-    if (hasUnsavedChanges) {
-      setShowUnsavedDialog(true)
-    } else {
-      onBack()
-    }
+    onBack()
   }
 
   // Initialize editor content
@@ -1316,27 +1272,6 @@ Tips:
                 </div>
               )}
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-
-      {/* Unsaved Changes Warning Dialog */}
-      <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
-        <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden">
-          <div className="p-6 text-center">
-            <DialogTitle className="text-lg font-semibold text-gray-900 mb-2">Unsaved changes</DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
-              You have unsaved changes in your email. If you leave now, your changes will be lost.
-            </DialogDescription>
-          </div>
-          <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex flex-col-reverse sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowUnsavedDialog(false)} className="flex-1 rounded-xl h-11 cursor-pointer">
-              Keep editing
-            </Button>
-            <Button onClick={() => { setShowUnsavedDialog(false); onBack(); }} className="flex-1 rounded-xl h-11 bg-gray-900 hover:bg-gray-800 text-white cursor-pointer">
-              Discard changes
-            </Button>
           </div>
         </DialogContent>
       </Dialog>

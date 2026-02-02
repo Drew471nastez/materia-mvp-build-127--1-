@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { sendLeadMagnetEmail } from "@/lib/email"
+import { sendLeadMagnetEmail, triggerEmailFlows } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -244,7 +244,7 @@ export async function POST(request: Request) {
         .single()
 
       if (!existingSubscriber) {
-        await adminSupabase.from("subscribers").insert({
+        const { error: subscriberInsertError } = await adminSupabase.from("subscribers").insert({
           email: normalizedEmail,
           name: name || null,
           source: "onepage_email_capture",
@@ -257,6 +257,20 @@ export async function POST(request: Request) {
           consent_timestamp: new Date().toISOString(),
           unsubscribe_token: unsubscribeToken,
         })
+
+        // Trigger new_subscriber email flows if insert was successful
+        if (!subscriberInsertError) {
+          try {
+            await triggerEmailFlows(adminSupabase, {
+              triggerType: "new_subscriber",
+              creatorId: onepage.seller_id,
+              recipientEmail: normalizedEmail,
+              recipientName: name || undefined,
+            })
+          } catch (flowErr) {
+            console.error("[email-capture] Email flow trigger error (non-fatal):", flowErr)
+          }
+        }
       } else if (existingSubscriber.status === "unsubscribed") {
         await adminSupabase
           .from("subscribers")

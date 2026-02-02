@@ -92,12 +92,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get subscribers based on audience type
-    let subscribersQuery = supabase
+    // Use admin client to bypass RLS and ensure all subscribers are fetched
+    let subscribersQuery = adminSupabase
       .from("subscribers")
       .select("id, email, name, unsubscribe_token, subscribed_at")
       .eq("creator_id", creator.id)
       .eq("status", "subscribed")
-      .eq("is_active", true)
 
     // Filter by audience type or timeframe
     if (campaign.audience_type === "onepage") {
