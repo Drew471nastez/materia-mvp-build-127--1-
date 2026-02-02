@@ -651,16 +651,16 @@ export function EmailEditor({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setShowTestDialog(true)} disabled={!hasContent} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100">
+              <Button variant="ghost" onClick={() => setShowTestDialog(true)} disabled={!hasContent} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
                 <Mail className="h-4 w-4 mr-2" />Send Test
               </Button>
-              <Button variant="ghost" onClick={handleSave} disabled={!subject.trim() || isSaving} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100">
+              <Button variant="ghost" onClick={handleSave} disabled={!subject.trim() || isSaving} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}Save Draft
               </Button>
-              <Button variant="ghost" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100">
+              <Button variant="ghost" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
                 <Clock className="h-4 w-4 mr-2" />Schedule
               </Button>
-              <Button onClick={handleSend} disabled={!hasContent || isSending} className="h-10 px-5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-sm">
+              <Button onClick={handleSend} disabled={!hasContent || isSending} className="h-10 px-5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-sm cursor-pointer">
                 {isSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}Send Email
               </Button>
             </div>
@@ -894,7 +894,7 @@ Tips:
               <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <Label className="text-sm font-medium text-gray-700">Live Preview</Label>
                 <Select value={audienceType} onValueChange={onAudienceChange}>
-                  <SelectTrigger className="h-9 w-auto min-w-[160px] rounded-lg border-gray-200 text-sm">
+                  <SelectTrigger className="h-9 w-auto min-w-[160px] rounded-lg border-gray-200 text-sm cursor-pointer">
                     <SelectValue placeholder="Send to..." />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -1263,21 +1263,24 @@ Tips:
 
       {/* Unsaved Changes Warning Dialog */}
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Unsaved Changes</DialogTitle>
-            <DialogDescription>
-              You have unsaved changes. Are you sure you want to leave? Your changes will be lost.
+        <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden">
+          <div className="p-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+              <FileText className="h-7 w-7 text-amber-600" />
+            </div>
+            <DialogTitle className="text-lg font-semibold text-gray-900 mb-2">Unsaved changes</DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              You have unsaved changes in your email. If you leave now, your changes will be lost.
             </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowUnsavedDialog(false)} className="rounded-xl">
-              Stay
+          </div>
+          <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex flex-col-reverse sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowUnsavedDialog(false)} className="flex-1 rounded-xl h-11 cursor-pointer">
+              Keep editing
             </Button>
-            <Button variant="destructive" onClick={() => { setShowUnsavedDialog(false); onBack(); }} className="rounded-xl">
-              Leave Without Saving
+            <Button variant="destructive" onClick={() => { setShowUnsavedDialog(false); onBack(); }} className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 cursor-pointer">
+              Discard changes
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

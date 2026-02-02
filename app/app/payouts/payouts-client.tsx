@@ -380,8 +380,8 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                   </p>
                 </div>
                 {isStripePending && (
-                  <div className="flex items-center gap-2 text-[13px] text-amber-600">
-                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <div className="flex items-center gap-2 text-[13px] text-[#9ca3af]">
+                    <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                     <span>Verification required</span>
                   </div>
                 )}
@@ -389,7 +389,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                   <Button
                     onClick={handleConnectStripe}
                     disabled={isConnecting}
-                    className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium"
+                    className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium cursor-pointer"
                   >
                     {isConnecting ? (
                       <>
