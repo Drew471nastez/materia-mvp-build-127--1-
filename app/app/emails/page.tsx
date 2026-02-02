@@ -412,11 +412,12 @@ export default function EmailsPage() {
           return sum + (c.audience_count || 0)
         }, 0)
 
+        // Query events by creator_id for RLS compatibility
         const { data: events } = await supabase
           .from("email_events")
           .select("event_type, campaign_id")
+          .eq("creator_id", creator.id)
           .gte("created_at", timeRangeDate.toISOString())
-          .in("campaign_id", (data || []).map((c: { id: string }) => c.id))
 
         // Get opens/clicks from events table
         const opened = events?.filter((e: { event_type: string }) => e.event_type === "opened").length || 0

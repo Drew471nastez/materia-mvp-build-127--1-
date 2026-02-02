@@ -40,6 +40,13 @@ export async function POST(request: NextRequest) {
 
     const adminSupabase = createAdminClient()
 
+    // Get creator_id from campaign
+    const { data: campaign } = await adminSupabase
+      .from("email_campaigns")
+      .select("creator_id")
+      .eq("id", campaign_id)
+      .single()
+
     // Check if click already recorded for this email/campaign/url
     const { data: existing } = await adminSupabase
       .from("email_events")
@@ -53,6 +60,7 @@ export async function POST(request: NextRequest) {
       // Record the click event
       await adminSupabase.from("email_events").insert({
         campaign_id,
+        creator_id: campaign?.creator_id || null,
         recipient_email: email || "unknown",
         event_type: "clicked",
         metadata: {
@@ -78,6 +86,13 @@ async function trackOpen(campaignId: string, email: string, request: NextRequest
     const userAgent = request.headers.get("user-agent") || null
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
 
+    // Get creator_id from campaign
+    const { data: campaign } = await adminSupabase
+      .from("email_campaigns")
+      .select("creator_id")
+      .eq("id", campaignId)
+      .single()
+
     // Check if this email has already been tracked as opened for this campaign
     const { data: existingOpen } = await adminSupabase
       .from("email_events")
@@ -91,6 +106,7 @@ async function trackOpen(campaignId: string, email: string, request: NextRequest
     if (!existingOpen) {
       await adminSupabase.from("email_events").insert({
         campaign_id: campaignId,
+        creator_id: campaign?.creator_id || null,
         recipient_email: email,
         event_type: "opened",
         metadata: {

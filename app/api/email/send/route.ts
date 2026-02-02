@@ -260,6 +260,7 @@ export async function POST(request: NextRequest) {
         // Log sent event with the correct schema
         await adminSupabase.from("email_events").insert({
           campaign_id,
+          creator_id: creator.id,
           recipient_email: subscriber.email,
           event_type: "sent",
           metadata: {
