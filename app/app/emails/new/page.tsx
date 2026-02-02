@@ -121,6 +121,7 @@ export default function NewEmailPage() {
       preview_text: data.previewText || null,
       status: "draft",
       audience_type: audienceType,
+      segment_id: null,
     })
 
     setIsSaving(false)
@@ -151,6 +152,7 @@ export default function NewEmailPage() {
           preview_text: data.previewText || null,
           status: "draft",
           audience_type: audienceType,
+          segment_id: null,
         })
         .select()
         .single()
@@ -212,6 +214,7 @@ export default function NewEmailPage() {
       preview_text: data.previewText || null,
       status: "scheduled",
       audience_type: audienceType,
+      segment_id: null,
       scheduled_at: new Date(data.scheduledAt).toISOString(),
     })
 
