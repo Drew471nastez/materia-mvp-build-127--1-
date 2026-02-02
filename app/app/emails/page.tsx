@@ -378,81 +378,43 @@ export default function EmailsPage() {
 
       setFlows(data || [])
     } else {
-      const statusMap: Record<string, string[]> = {
-        published: ["sent"],
-        scheduled: ["scheduled"],
-        drafts: ["draft"],
+      // Use API to fetch campaigns (bypasses RLS issues)
+      const statusMap: Record<string, string> = {
+        published: "sent",
+        scheduled: "scheduled",
+        drafts: "draft",
       }
+      const status = statusMap[activeTab] || "draft"
 
-      const { data } = await supabase
-        .from("email_campaigns")
-        .select("*")
-        .eq("creator_id", creator.id)
-        .in("status", statusMap[activeTab] || ["draft"])
-        .order("created_at", { ascending: false })
+      try {
+        const response = await fetch(`/api/email/campaigns?status=${status}&timeRange=${statsTimeRange}`)
+        if (response.ok) {
+          const result = await response.json()
+          setCampaigns(result.campaigns || [])
 
-      setCampaigns(data || [])
+          // Set stats for Sent tab
+          if (activeTab === "published") {
+            setOverviewStats({
+              total_sent: result.stats?.totalSent || 0,
+              total_opened: result.stats?.opened || 0,
+              total_clicked: result.stats?.clicked || 0,
+              total_unsubscribed: result.stats?.unsubscribed || 0,
+              open_rate: result.stats?.openRate || 0,
+              click_rate: result.stats?.clickRate || 0,
+            })
 
-      // Load overview stats for Sent tab
-      if (activeTab === "published") {
-        const timeRangeDate = new Date()
-        if (statsTimeRange === "7d") timeRangeDate.setDate(timeRangeDate.getDate() - 7)
-        else if (statsTimeRange === "30d") timeRangeDate.setDate(timeRangeDate.getDate() - 30)
-        else if (statsTimeRange === "90d") timeRangeDate.setDate(timeRangeDate.getDate() - 90)
-        else timeRangeDate.setFullYear(2000)
-
-        // Filter campaigns by time range and calculate total sent from audience_count
-        const filteredCampaigns = (data || []).filter((c: EmailCampaign) => {
-          const sentDate = c.sent_at ? new Date(c.sent_at) : new Date(c.created_at)
-          return sentDate >= timeRangeDate
-        })
-
-        // Calculate total sent from campaign audience_count (campaigns only, not flows)
-        const totalSent = filteredCampaigns.reduce((sum: number, c: EmailCampaign) => {
-          return sum + (c.audience_count || 0)
-        }, 0)
-
-        // Fetch event stats from API (uses admin client server-side to bypass RLS)
-        let opened = 0
-        let clicked = 0
-        let unsubscribed = 0
-        try {
-          const statsRes = await fetch(`/api/email/stats?timeRange=${statsTimeRange}`)
-          if (statsRes.ok) {
-            const statsData = await statsRes.json()
-            opened = statsData.stats?.opened || 0
-            clicked = statsData.stats?.clicked || 0
-            unsubscribed = statsData.stats?.unsubscribed || 0
+            setEmailUsage({
+              sent: result.monthlyUsage?.sent || 0,
+              limit: result.monthlyUsage?.limit || 3000,
+            })
           }
-        } catch (err) {
-          console.error("Failed to fetch email stats:", err)
+        } else {
+          console.error("Failed to fetch campaigns:", await response.text())
+          setCampaigns([])
         }
-
-        setOverviewStats({
-          total_sent: totalSent,
-          total_opened: opened,
-          total_clicked: clicked,
-          total_unsubscribed: unsubscribed,
-          open_rate: totalSent > 0 ? Math.round((opened / totalSent) * 100) : 0,
-          click_rate: totalSent > 0 ? Math.round((clicked / totalSent) * 100) : 0,
-        })
-
-        // Monthly Limit = total sent from campaigns this month (campaigns only, no flows)
-        const now = new Date()
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-        const campaignsThisMonth = (data || []).filter((c: EmailCampaign) => {
-          const sentDate = c.sent_at ? new Date(c.sent_at) : new Date(c.created_at)
-          return sentDate >= startOfMonth
-        })
-        const monthlyEmailsSent = campaignsThisMonth.reduce((sum: number, c: EmailCampaign) => {
-          return sum + (c.audience_count || 0)
-        }, 0)
-
-        setEmailUsage({
-          sent: monthlyEmailsSent,
-          limit: 3000, // Free plan limit
-        })
+      } catch (err) {
+        console.error("Failed to fetch campaigns:", err)
+        setCampaigns([])
       }
     }
 
