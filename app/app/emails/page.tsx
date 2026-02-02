@@ -166,6 +166,12 @@ const FLOW_TRIGGERS = [
     description: "When a customer purchases your product",
     icon: ShoppingCart,
     color: "bg-emerald-100 text-emerald-700",
+    defaultSubject: "Thank you for your purchase!",
+    defaultBody: `<p>Hi there!</p>
+<p>Thank you so much for purchasing! I'm really excited for you to dive in and start your journey.</p>
+<p>I created this product because I believe it can truly help you achieve your goals. I've put my heart into making this as valuable as possible, and I hope it serves you well.</p>
+<p>If you have any questions at all, just reply to this email - I read every message personally!</p>
+<p>Best,<br/>[Your name]</p>`,
   },
   {
     id: "new_subscriber",
@@ -173,6 +179,12 @@ const FLOW_TRIGGERS = [
     description: "When someone subscribes to your email list",
     icon: UserPlus,
     color: "bg-blue-100 text-blue-700",
+    defaultSubject: "Welcome to the community!",
+    defaultBody: `<p>Hey there!</p>
+<p>Welcome! I'm so glad you decided to join.</p>
+<p>I'm passionate about helping people like you succeed, and I'll be sharing my best tips, insights, and exclusive content with you.</p>
+<p>Feel free to reply to this email and introduce yourself - I'd love to hear from you!</p>
+<p>Talk soon,<br/>[Your name]</p>`,
   },
 ]
 
@@ -218,6 +230,9 @@ export default function EmailsPage() {
 
   // Store checkout buyers count (for Store KPI)
   const [checkoutBuyersCount, setCheckoutBuyersCount] = useState(0)
+
+  // Email usage tracking
+  const [emailUsage, setEmailUsage] = useState({ sent: 0, limit: 3000 })
 
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -358,6 +373,20 @@ export default function EmailsPage() {
             click_rate: sent > 0 ? Math.round((clicked / sent) * 100) : 0,
           })
         }
+
+        // Get current month email usage for quota tracking
+        const currentMonth = new Date().toISOString().slice(0, 7) // Format: YYYY-MM
+        const { data: usage } = await supabase
+          .from("email_usage")
+          .select("emails_sent")
+          .eq("creator_id", creator.id)
+          .eq("month_year", currentMonth)
+          .single()
+
+        setEmailUsage({
+          sent: usage?.emails_sent || 0,
+          limit: 3000, // Free plan limit
+        })
       }
     }
 
@@ -477,6 +506,19 @@ export default function EmailsPage() {
     const supabase = createClient()
     const triggerInfo = FLOW_TRIGGERS.find(t => t.id === triggerType)
 
+    // Create default email step with preset content
+    const defaultStep = {
+      id: `step_${Date.now()}`,
+      type: "email",
+      order: 0,
+      config: {
+        subject: triggerInfo?.defaultSubject || "Thank you!",
+        body: triggerInfo?.defaultBody || "<p>Thank you for being part of our community!</p>",
+        delay_value: 0,
+        delay_unit: "minutes",
+      }
+    }
+
     const { data: newFlow, error } = await supabase
       .from("email_flows")
       .insert({
@@ -484,7 +526,7 @@ export default function EmailsPage() {
         name: `${triggerInfo?.name || 'New'} Flow`,
         trigger_type: triggerType,
         status: "draft",
-        steps: [],
+        steps: [defaultStep],
       })
       .select()
       .single()
@@ -1781,7 +1823,7 @@ Best,
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div className="bg-white rounded-xl border p-4">
                     <div className="flex items-center gap-2 text-gray-500 mb-1">
                       <Send className="h-4 w-4" />
@@ -1811,6 +1853,49 @@ Best,
                       <span className="text-xs font-medium">Unsubscribed</span>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{overviewStats.total_unsubscribed}</p>
+                  </div>
+                  {/* Email Limit Progress */}
+                  <div className="bg-white rounded-xl border p-4">
+                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                      <Mail className="h-4 w-4" />
+                      <span className="text-xs font-medium">Monthly Limit</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-12 h-12">
+                        <svg className="w-12 h-12 -rotate-90" viewBox="0 0 36 36">
+                          <path
+                            className="text-gray-100"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            fill="none"
+                            d="M18 2.0845
+                              a 15.9155 15.9155 0 0 1 0 31.831
+                              a 15.9155 15.9155 0 0 1 0 -31.831"
+                          />
+                          <path
+                            className={cn(
+                              (emailUsage.sent / emailUsage.limit) > 0.9 ? "text-red-500" :
+                              (emailUsage.sent / emailUsage.limit) > 0.7 ? "text-amber-500" : "text-violet-500"
+                            )}
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            fill="none"
+                            strokeDasharray={`${Math.min((emailUsage.sent / emailUsage.limit) * 100, 100)}, 100`}
+                            d="M18 2.0845
+                              a 15.9155 15.9155 0 0 1 0 31.831
+                              a 15.9155 15.9155 0 0 1 0 -31.831"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-gray-700">{Math.round((emailUsage.sent / emailUsage.limit) * 100)}%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{emailUsage.sent.toLocaleString()}</p>
+                        <p className="text-[10px] text-gray-500">of {emailUsage.limit.toLocaleString()}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -677,7 +677,7 @@ export function EmailEditor({
               <Button variant="ghost" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
                 <Clock className="h-4 w-4 mr-2" />Schedule
               </Button>
-              <Button onClick={handleSend} disabled={!hasContent || isSending} className="h-10 px-5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-sm cursor-pointer">
+              <Button onClick={handleSend} disabled={!hasContent || isSending} className="h-10 px-5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm cursor-pointer">
                 {isSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}Send Email
               </Button>
             </div>
@@ -1282,9 +1282,6 @@ Tips:
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
         <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden">
           <div className="p-6 text-center">
-            <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-              <FileText className="h-7 w-7 text-amber-600" />
-            </div>
             <DialogTitle className="text-lg font-semibold text-gray-900 mb-2">Unsaved changes</DialogTitle>
             <DialogDescription className="text-sm text-gray-500">
               You have unsaved changes in your email. If you leave now, your changes will be lost.
@@ -1294,7 +1291,7 @@ Tips:
             <Button variant="outline" onClick={() => setShowUnsavedDialog(false)} className="flex-1 rounded-xl h-11 cursor-pointer">
               Keep editing
             </Button>
-            <Button onClick={() => { setShowUnsavedDialog(false); onBack(); }} className="flex-1 rounded-xl h-11 bg-violet-600 hover:bg-violet-700 text-white cursor-pointer">
+            <Button onClick={() => { setShowUnsavedDialog(false); onBack(); }} className="flex-1 rounded-xl h-11 bg-gray-900 hover:bg-gray-800 text-white cursor-pointer">
               Discard changes
             </Button>
           </div>

@@ -125,37 +125,62 @@ CREATE INDEX IF NOT EXISTS idx_flow_execution_log_status ON flow_execution_log(s
 CREATE INDEX IF NOT EXISTS idx_flow_execution_log_created_at ON flow_execution_log(created_at);
 
 -- =====================================================
--- 5. FUNCTION TO PROCESS SCHEDULED EMAILS
--- This function can be called by a cron job or edge function
+-- 5. EMAIL USAGE TRACKING (for monthly limits)
 -- =====================================================
-CREATE OR REPLACE FUNCTION process_scheduled_flow_emails()
-RETURNS TABLE (
-  processed_count INTEGER,
-  error_count INTEGER
-) AS $$
+CREATE TABLE IF NOT EXISTS email_usage (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id UUID NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
+  month_year TEXT NOT NULL, -- Format: '2024-01'
+  emails_sent INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(creator_id, month_year)
+);
+
+-- Index for email_usage
+CREATE INDEX IF NOT EXISTS idx_email_usage_creator_month ON email_usage(creator_id, month_year);
+
+-- RLS for email_usage
+ALTER TABLE email_usage ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own usage" ON email_usage;
+CREATE POLICY "Users can view their own usage" ON email_usage
+  FOR SELECT
+  USING (
+    creator_id IN (
+      SELECT id FROM creators WHERE user_id = auth.uid()
+    )
+  );
+
+-- Function to increment email usage
+CREATE OR REPLACE FUNCTION increment_email_usage(p_creator_id UUID, p_count INTEGER DEFAULT 1)
+RETURNS void AS $$
 DECLARE
-  v_processed INTEGER := 0;
-  v_errors INTEGER := 0;
-  v_email RECORD;
+  v_month_year TEXT;
 BEGIN
-  -- Find all pending emails that are due
-  FOR v_email IN
-    SELECT id, flow_id, recipient_email, subject
-    FROM scheduled_flow_emails
-    WHERE status = 'pending'
-      AND scheduled_for <= NOW()
-    ORDER BY scheduled_for ASC
-    LIMIT 50 -- Process in batches
-  LOOP
-    -- Mark as processing (will be picked up by external process)
-    UPDATE scheduled_flow_emails
-    SET status = 'processing', updated_at = NOW()
-    WHERE id = v_email.id;
+  v_month_year := to_char(NOW(), 'YYYY-MM');
 
-    v_processed := v_processed + 1;
-  END LOOP;
+  INSERT INTO email_usage (creator_id, month_year, emails_sent)
+  VALUES (p_creator_id, v_month_year, p_count)
+  ON CONFLICT (creator_id, month_year)
+  DO UPDATE SET
+    emails_sent = email_usage.emails_sent + p_count,
+    updated_at = NOW();
+END;
+$$ LANGUAGE plpgsql;
 
-  RETURN QUERY SELECT v_processed, v_errors;
+-- Function to get current month usage
+CREATE OR REPLACE FUNCTION get_email_usage(p_creator_id UUID)
+RETURNS INTEGER AS $$
+DECLARE
+  v_usage INTEGER;
+BEGIN
+  SELECT COALESCE(emails_sent, 0) INTO v_usage
+  FROM email_usage
+  WHERE creator_id = p_creator_id
+    AND month_year = to_char(NOW(), 'YYYY-MM');
+
+  RETURN COALESCE(v_usage, 0);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -191,6 +216,7 @@ GRANT ALL ON email_flows TO service_role;
 GRANT ALL ON scheduled_flow_emails TO service_role;
 GRANT ALL ON email_events TO service_role;
 GRANT ALL ON flow_execution_log TO service_role;
+GRANT ALL ON email_usage TO service_role;
 
 -- =====================================================
 -- 8. SAMPLE DATA / COMMENTS
@@ -199,7 +225,10 @@ COMMENT ON TABLE email_flows IS 'Stores email automation flows with their config
 COMMENT ON TABLE scheduled_flow_emails IS 'Queue for delayed/scheduled flow emails to be sent';
 COMMENT ON TABLE email_events IS 'Tracks all email events (sent, opened, clicked, etc.) for analytics';
 COMMENT ON TABLE flow_execution_log IS 'Logs flow execution for debugging and analytics';
+COMMENT ON TABLE email_usage IS 'Tracks monthly email sending quota per creator';
 
 COMMENT ON COLUMN email_flows.steps IS 'JSON array of flow steps. Each step has: id, type (email/delay), order, config (subject, body, delay_value, delay_unit)';
 COMMENT ON COLUMN email_flows.trigger_type IS 'When to trigger this flow: purchase, new_subscriber, tag_added, manual';
 COMMENT ON COLUMN scheduled_flow_emails.scheduled_for IS 'When this email should be sent (UTC timestamp)';
+COMMENT ON COLUMN email_usage.month_year IS 'Format: YYYY-MM (e.g., 2024-01)';
+COMMENT ON COLUMN email_usage.emails_sent IS 'Total emails sent this month. Free plan limit is 3000/month';
