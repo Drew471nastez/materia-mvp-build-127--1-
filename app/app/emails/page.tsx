@@ -50,6 +50,9 @@ import {
   Undo,
   Redo,
   Quote,
+  MousePointer2,
+  Minimize2,
+  Maximize2,
 } from "lucide-react"
 import Link from "next/link"
 import { EmailEditor } from "@/components/email/email-editor"
@@ -230,6 +233,26 @@ export default function EmailsPage() {
   const [flowHasUnsavedChanges, setFlowHasUnsavedChanges] = useState(false)
   const [showFlowUnsavedDialog, setShowFlowUnsavedDialog] = useState(false)
   const [initialFlowState, setInitialFlowState] = useState<string>("")
+
+  // Flow editor image/button menu state
+  const [flowSelectedImage, setFlowSelectedImage] = useState<HTMLImageElement | null>(null)
+  const [flowShowImageMenu, setFlowShowImageMenu] = useState(false)
+  const [flowImageMenuPosition, setFlowImageMenuPosition] = useState({ x: 0, y: 0 })
+  const [flowSelectedButton, setFlowSelectedButton] = useState<HTMLElement | null>(null)
+  const [flowShowButtonMenu, setFlowShowButtonMenu] = useState(false)
+  const [flowButtonMenuPosition, setFlowButtonMenuPosition] = useState({ x: 0, y: 0 })
+  const [flowButtonText, setFlowButtonText] = useState("")
+  const [flowButtonUrl, setFlowButtonUrl] = useState("")
+  const [flowButtonColor, setFlowButtonColor] = useState("#2563eb")
+  const [flowButtonAlign, setFlowButtonAlign] = useState<"left" | "center" | "right">("center")
+  const [flowShowProductDialog, setFlowShowProductDialog] = useState(false)
+  const [flowProducts, setFlowProducts] = useState<{ id: string; title: string; slug: string; price_cents: number; thumbnail_url?: string }[]>([])
+  const [flowLoadingProducts, setFlowLoadingProducts] = useState(false)
+  const [flowProductSearch, setFlowProductSearch] = useState("")
+  const [flowIsUploadingImage, setFlowIsUploadingImage] = useState(false)
+  const [flowShowLinkDialog, setFlowShowLinkDialog] = useState(false)
+  const [flowLinkUrl, setFlowLinkUrl] = useState("")
+  const [flowLinkText, setFlowLinkText] = useState("")
 
   // Store checkout buyers count (for Store KPI)
   const [checkoutBuyersCount, setCheckoutBuyersCount] = useState(0)
@@ -563,10 +586,27 @@ export default function EmailsPage() {
     const supabase = createClient()
     const newStatus = flow.status === "active" ? "paused" : "active"
 
-    await supabase
+    const { error } = await supabase
       .from("email_flows")
       .update({ status: newStatus })
       .eq("id", flow.id)
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update flow status",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Update editingFlow state if we're editing this flow
+    if (editingFlow && editingFlow.id === flow.id) {
+      const updatedFlow = { ...editingFlow, status: newStatus as "active" | "paused" | "draft" }
+      setEditingFlow(updatedFlow)
+      // Update initial state to prevent false unsaved changes warning
+      setInitialFlowState(JSON.stringify(updatedFlow))
+    }
 
     loadData()
     toast({
@@ -604,11 +644,17 @@ export default function EmailsPage() {
       setInitialFlowState(JSON.stringify(updatedFlow))
       setFlowHasUnsavedChanges(false)
 
+      // Show notification based on flow status
+      if (editingFlow.status === "active") {
+        toast({ title: "Flow is active", description: "Your flow has been saved and is now live." })
+      } else {
+        toast({ title: "Flow saved", description: "Your flow has been saved as a draft." })
+      }
+
       setView("list")
       setEditingFlow(null)
       window.history.pushState({}, "", "/app/emails")
       loadData()
-      toast({ title: "Flow saved", description: "Your flow has been updated." })
     } catch (error) {
       toast({
         title: "Error saving flow",
@@ -710,20 +756,103 @@ export default function EmailsPage() {
   const flowRedoAction = () => flowExecCommand("redo")
 
   const flowInsertLink = () => {
-    const url = prompt("Enter URL:")
-    if (url) {
-      const fullUrl = url.startsWith("http") ? url : `https://${url}`
-      flowExecCommand("createLink", fullUrl)
+    const selection = window.getSelection()
+    if (selection && selection.toString()) {
+      setFlowLinkText(selection.toString())
     }
+    setFlowShowLinkDialog(true)
+  }
+
+  const flowConfirmInsertLink = () => {
+    if (flowLinkUrl) {
+      const fullUrl = flowLinkUrl.startsWith("http") ? flowLinkUrl : `https://${flowLinkUrl}`
+      if (flowLinkText) {
+        flowExecCommand("insertHTML", `<a href="${fullUrl}" style="color: #2563eb; text-decoration: underline;">${flowLinkText}</a>`)
+      } else {
+        flowExecCommand("createLink", fullUrl)
+      }
+    }
+    setFlowShowLinkDialog(false)
+    setFlowLinkUrl("")
+    setFlowLinkText("")
   }
 
   const flowInsertButton = () => {
+    const buttonId = `btn-${Date.now()}`
     const buttonHtml = `
-      <div style="text-align: center; margin: 20px 0;">
-        <a href="#" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">Click here</a>
+      <div style="text-align: center; margin: 20px 0;" class="email-button-wrapper" data-button-id="${buttonId}">
+        <a href="#" class="email-cta-button" data-button-id="${buttonId}" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; cursor: pointer;">Click to edit</a>
       </div>
     `
     flowExecCommand("insertHTML", buttonHtml)
+    // Auto-select the button for editing
+    setTimeout(() => {
+      const btn = flowEditorRef.current?.querySelector(`[data-button-id="${buttonId}"]`) as HTMLElement
+      if (btn) {
+        flowSelectButton(btn)
+      }
+    }, 100)
+  }
+
+  const flowSelectButton = (btn: HTMLElement) => {
+    setFlowSelectedButton(btn)
+    const linkEl = btn.tagName === 'A' ? btn : btn.querySelector('a')
+    if (linkEl) {
+      setFlowButtonText(linkEl.textContent || "")
+      setFlowButtonUrl(linkEl.getAttribute('href') || "")
+      setFlowButtonColor(linkEl.style.backgroundColor || "#2563eb")
+    }
+    const wrapper = btn.closest('.email-button-wrapper') as HTMLElement
+    const align = wrapper?.style.textAlign || "center"
+    setFlowButtonAlign(align as "left" | "center" | "right")
+
+    const rect = btn.getBoundingClientRect()
+    const editorRect = flowEditorRef.current?.getBoundingClientRect()
+    if (editorRect) {
+      setFlowButtonMenuPosition({
+        x: rect.left - editorRect.left + rect.width / 2,
+        y: rect.top - editorRect.top - 10
+      })
+    }
+    setFlowShowButtonMenu(true)
+  }
+
+  const flowUpdateButton = () => {
+    if (flowSelectedButton && flowButtonText && flowButtonUrl) {
+      const linkEl = flowSelectedButton.tagName === 'A' ? flowSelectedButton : flowSelectedButton.querySelector('a')
+      const wrapper = flowSelectedButton.closest('.email-button-wrapper') as HTMLElement
+
+      if (linkEl) {
+        const fullUrl = flowButtonUrl.startsWith("http") ? flowButtonUrl : `https://${flowButtonUrl}`
+        linkEl.textContent = flowButtonText
+        linkEl.setAttribute('href', fullUrl)
+        linkEl.style.backgroundColor = flowButtonColor
+      }
+      if (wrapper) {
+        wrapper.style.textAlign = flowButtonAlign
+      }
+      if (flowEditorRef.current) {
+        setFlowEditorContent(flowEditorRef.current.innerHTML)
+      }
+    }
+    setFlowShowButtonMenu(false)
+    setFlowSelectedButton(null)
+  }
+
+  const flowDeleteButton = () => {
+    if (flowSelectedButton) {
+      const wrapper = flowSelectedButton.closest('.email-button-wrapper')
+      if (wrapper) {
+        wrapper.remove()
+      } else {
+        flowSelectedButton.remove()
+      }
+      if (flowEditorRef.current) {
+        setFlowEditorContent(flowEditorRef.current.innerHTML)
+      }
+    }
+    setFlowShowButtonMenu(false)
+    setFlowSelectedButton(null)
   }
 
   const flowInsertImage = async () => {
@@ -733,6 +862,7 @@ export default function EmailsPage() {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (file) {
+        setFlowIsUploadingImage(true)
         try {
           const formData = new FormData()
           formData.append("file", file)
@@ -742,22 +872,140 @@ export default function EmailsPage() {
           })
           const data = await response.json()
           if (response.ok) {
-            const imgHtml = `<img src="${data.url}" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0;" />`
+            const imgHtml = `<img src="${data.url}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
             flowExecCommand("insertHTML", imgHtml)
+            toast({ title: "Image uploaded", description: "Image added to your email" })
+          } else {
+            throw new Error(data.error || "Upload failed")
           }
         } catch (err) {
           // Fallback to base64
           const reader = new FileReader()
           reader.onload = () => {
-            const imgHtml = `<img src="${reader.result}" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0;" />`
+            const imgHtml = `<img src="${reader.result}" class="email-image" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; cursor: pointer;" data-size="normal" />`
             flowExecCommand("insertHTML", imgHtml)
           }
           reader.readAsDataURL(file)
+          toast({ title: "Using embedded image", description: "Image may not display properly in all email clients" })
+        } finally {
+          setFlowIsUploadingImage(false)
         }
       }
     }
     input.click()
   }
+
+  const flowResizeImage = (size: 'small' | 'medium' | 'large' | 'normal') => {
+    if (flowSelectedImage) {
+      const sizes = {
+        small: '200px',
+        medium: '350px',
+        large: '500px',
+        normal: '100%'
+      }
+      flowSelectedImage.style.maxWidth = sizes[size]
+      flowSelectedImage.setAttribute('data-size', size)
+      if (flowEditorRef.current) {
+        setFlowEditorContent(flowEditorRef.current.innerHTML)
+      }
+    }
+    setFlowShowImageMenu(false)
+  }
+
+  const flowDeleteImage = () => {
+    if (flowSelectedImage) {
+      flowSelectedImage.remove()
+      if (flowEditorRef.current) {
+        setFlowEditorContent(flowEditorRef.current.innerHTML)
+      }
+    }
+    setFlowShowImageMenu(false)
+    setFlowSelectedImage(null)
+  }
+
+  // Handle editor click for image/button selection
+  const handleFlowEditorClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (target.tagName === 'IMG') {
+      e.preventDefault()
+      const img = target as HTMLImageElement
+      setFlowSelectedImage(img)
+      const rect = img.getBoundingClientRect()
+      const editorRect = flowEditorRef.current?.getBoundingClientRect()
+      if (editorRect) {
+        setFlowImageMenuPosition({
+          x: rect.left - editorRect.left + rect.width / 2,
+          y: rect.top - editorRect.top - 10
+        })
+      }
+      setFlowShowImageMenu(true)
+      setFlowShowButtonMenu(false)
+      setFlowSelectedButton(null)
+    } else if (target.classList.contains('email-cta-button') || target.closest('.email-cta-button')) {
+      e.preventDefault()
+      const btn = target.classList.contains('email-cta-button') ? target : target.closest('.email-cta-button') as HTMLElement
+      if (btn) {
+        flowSelectButton(btn)
+        setFlowShowImageMenu(false)
+        setFlowSelectedImage(null)
+      }
+    } else {
+      setFlowShowImageMenu(false)
+      setFlowSelectedImage(null)
+      setFlowShowButtonMenu(false)
+      setFlowSelectedButton(null)
+    }
+  }
+
+  // Load products for flow editor
+  const flowLoadProducts = async () => {
+    if (!creatorId) return
+    setFlowLoadingProducts(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from("products")
+      .select("id, title, slug, price_cents, thumbnail_url")
+      .eq("creator_id", creatorId)
+      .eq("status", "published")
+      .order("title")
+    setFlowProducts(data || [])
+    setFlowLoadingProducts(false)
+  }
+
+  // Insert product link
+  const flowInsertProductLink = (product: { id: string; title: string; slug: string }) => {
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
+    const productUrl = `${baseUrl}/p/${product.slug}`
+    const linkHtml = `<a href="${productUrl}" style="color: #2563eb; text-decoration: underline; font-weight: 500;">${product.title}</a>`
+    flowExecCommand("insertHTML", linkHtml + " ")
+    setFlowShowProductDialog(false)
+    setFlowProductSearch("")
+  }
+
+  // Open product dialog
+  const flowOpenProductDialog = () => {
+    flowLoadProducts()
+    setFlowShowProductDialog(true)
+  }
+
+  // Filter products for flow editor
+  const flowFilteredProducts = flowProducts.filter((p) => p.title.toLowerCase().includes(flowProductSearch.toLowerCase()))
+
+  // Click outside handler for menus
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (flowShowImageMenu && !(e.target as HTMLElement).closest('.flow-image-menu')) {
+        setFlowShowImageMenu(false)
+        setFlowSelectedImage(null)
+      }
+      if (flowShowButtonMenu && !(e.target as HTMLElement).closest('.flow-button-menu')) {
+        setFlowShowButtonMenu(false)
+        setFlowSelectedButton(null)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [flowShowImageMenu, flowShowButtonMenu])
 
   // Track flow unsaved changes
   useEffect(() => {
@@ -767,33 +1015,36 @@ export default function EmailsPage() {
     }
   }, [editingFlow, initialFlowState])
 
-  // Flow editor browser back/refresh warning
+  // Flow editor browser back/refresh warning - ALWAYS show warning when in flow editor
   useEffect(() => {
-    if (view !== "flow-editor") return
+    if (view !== "flow-editor" || !editingFlow) return
 
+    // Always warn when trying to leave the flow editor
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (flowHasUnsavedChanges) {
-        e.preventDefault()
-        e.returnValue = "You have unsaved changes. Are you sure you want to leave?"
-        return e.returnValue
-      }
+      e.preventDefault()
+      e.returnValue = "You have unsaved changes. Are you sure you want to leave?"
+      return e.returnValue
     }
 
-    const handlePopState = () => {
-      if (flowHasUnsavedChanges) {
-        window.history.pushState(null, "", window.location.href)
-        setShowFlowUnsavedDialog(true)
-      }
+    // Handle browser back button - always show popup
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault()
+      // Push state again to prevent navigation
+      window.history.pushState({ flowEditor: true }, "", `/app/emails/flow/${editingFlow.id}`)
+      setShowFlowUnsavedDialog(true)
     }
 
-    window.history.pushState(null, "", window.location.href)
+    // Initialize history state for flow editor
+    window.history.pushState({ flowEditor: true }, "", `/app/emails/flow/${editingFlow.id}`)
+
     window.addEventListener("beforeunload", handleBeforeUnload)
     window.addEventListener("popstate", handlePopState)
+
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload)
       window.removeEventListener("popstate", handlePopState)
     }
-  }, [view, flowHasUnsavedChanges])
+  }, [view, editingFlow])
 
   const handleFlowBack = () => {
     if (flowHasUnsavedChanges) {
@@ -1080,31 +1331,157 @@ export default function EmailsPage() {
                   <Button variant="ghost" size="icon" onClick={flowInsertLink} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Insert Link">
                     <Link2 className="h-4 w-4 text-gray-500" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={flowInsertImage} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Insert Image">
-                    <ImageIcon className="h-4 w-4 text-gray-500" />
+                  <Button variant="ghost" size="icon" onClick={flowInsertImage} disabled={flowIsUploadingImage} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Insert Image">
+                    {flowIsUploadingImage ? <Loader2 className="h-4 w-4 text-gray-500 animate-spin" /> : <ImageIcon className="h-4 w-4 text-gray-500" />}
                   </Button>
                   <Button variant="ghost" size="icon" onClick={flowInsertButton} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Insert Button">
-                    <Square className="h-4 w-4 text-gray-500" />
+                    <MousePointer2 className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <Button variant="outline" size="sm" onClick={flowOpenProductDialog} className="h-8 px-3 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 cursor-pointer">
+                    <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />Product Link
                   </Button>
                 </div>
 
                 {/* Editor Area */}
-                <div
-                  ref={flowEditorRef}
-                  contentEditable
-                  onInput={handleFlowEditorInput}
-                  className="min-h-[400px] p-6 focus:outline-none text-base leading-relaxed text-gray-700"
-                  style={{ wordBreak: "break-word" }}
-                  data-placeholder="Start writing your email...
+                <div className="relative">
+                  <div
+                    ref={flowEditorRef}
+                    contentEditable
+                    dir="ltr"
+                    onInput={handleFlowEditorInput}
+                    onClick={handleFlowEditorClick}
+                    className="min-h-[400px] p-6 focus:outline-none text-base leading-relaxed text-gray-700"
+                    style={{ wordBreak: "break-word", direction: "ltr", textAlign: "left" }}
+                    data-placeholder="Start writing your email...
 
-Use the toolbar above to format your text, add images, or insert links.
+Use the toolbar above to format your text, add images, or insert product links.
 
 Tips:
 • Keep your message clear and concise
 • Add a clear call-to-action
 • Personalize with subscriber names"
-                  dangerouslySetInnerHTML={{ __html: emailStep.config.body || "" }}
-                />
+                    dangerouslySetInnerHTML={{ __html: emailStep.config.body || "" }}
+                  />
+
+                  {/* Image Edit Menu */}
+                  {flowShowImageMenu && flowSelectedImage && (
+                    <div
+                      className="flow-image-menu absolute bg-white rounded-xl shadow-lg border border-gray-200 p-2 flex items-center gap-1 z-10"
+                      style={{ left: flowImageMenuPosition.x, top: flowImageMenuPosition.y, transform: 'translate(-50%, -100%)' }}
+                    >
+                      <Button variant="ghost" size="sm" onClick={() => flowResizeImage('small')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs cursor-pointer">
+                        <Minimize2 className="h-3.5 w-3.5 mr-1" />Small
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => flowResizeImage('medium')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs cursor-pointer">
+                        <Square className="h-3.5 w-3.5 mr-1" />Medium
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => flowResizeImage('large')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs cursor-pointer">
+                        <Maximize2 className="h-3.5 w-3.5 mr-1" />Large
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => flowResizeImage('normal')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs cursor-pointer">
+                        Full
+                      </Button>
+                      <div className="w-px h-5 bg-gray-200 mx-1" />
+                      <Button variant="ghost" size="sm" onClick={flowDeleteImage} className="h-8 px-2 rounded-lg hover:bg-red-50 text-red-500 text-xs cursor-pointer">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Inline Button Edit Menu */}
+                  {flowShowButtonMenu && flowSelectedButton && (
+                    <div
+                      className="flow-button-menu absolute bg-white rounded-xl shadow-lg border border-gray-200 p-3 z-10"
+                      style={{ left: flowButtonMenuPosition.x, top: flowButtonMenuPosition.y, transform: 'translate(-50%, -100%)', minWidth: '280px' }}
+                    >
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 block mb-1">Button Text</label>
+                          <Input
+                            value={flowButtonText}
+                            onChange={(e) => setFlowButtonText(e.target.value)}
+                            placeholder="Click here"
+                            className="h-9 text-sm rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 block mb-1">URL</label>
+                          <Input
+                            value={flowButtonUrl}
+                            onChange={(e) => setFlowButtonUrl(e.target.value)}
+                            placeholder="https://example.com"
+                            className="h-9 text-sm rounded-lg"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <label className="text-xs font-medium text-gray-600 block mb-1">Color</label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="color"
+                                value={flowButtonColor}
+                                onChange={(e) => setFlowButtonColor(e.target.value)}
+                                className="h-9 w-12 cursor-pointer rounded border border-gray-200"
+                              />
+                              {["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#000"].map((color) => (
+                                <button
+                                  key={color}
+                                  onClick={() => setFlowButtonColor(color)}
+                                  className={cn(
+                                    "w-6 h-6 rounded border-2 transition-all cursor-pointer",
+                                    flowButtonColor === color ? "border-gray-900 scale-110" : "border-transparent"
+                                  )}
+                                  style={{ backgroundColor: color }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 block mb-1">Alignment</label>
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              variant={flowButtonAlign === "left" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setFlowButtonAlign("left")}
+                              className="h-8 px-3 rounded-lg text-xs cursor-pointer"
+                            >
+                              <AlignLeft className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={flowButtonAlign === "center" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setFlowButtonAlign("center")}
+                              className="h-8 px-3 rounded-lg text-xs cursor-pointer"
+                            >
+                              <AlignCenter className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={flowButtonAlign === "right" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setFlowButtonAlign("right")}
+                              className="h-8 px-3 rounded-lg text-xs cursor-pointer"
+                            >
+                              Right
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+                          <Button size="sm" onClick={flowUpdateButton} disabled={!flowButtonText || !flowButtonUrl} className="flex-1 h-8 rounded-lg text-xs bg-blue-500 hover:bg-blue-600 cursor-pointer">
+                            <Check className="h-3.5 w-3.5 mr-1" />Apply
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={flowDeleteButton} className="h-8 px-3 rounded-lg text-xs text-red-500 hover:bg-red-50 hover:text-red-600 cursor-pointer">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1161,6 +1538,9 @@ Tips:
                         <div className="text-xs text-gray-400">
                           Powered by Storelib
                         </div>
+                        <div className="text-[11px] text-gray-400 hover:text-gray-500">
+                          <a href="#" className="underline">Unsubscribe</a>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1185,6 +1565,98 @@ Tips:
               </Button>
               <Button onClick={() => { setShowFlowUnsavedDialog(false); setView("list"); setEditingFlow(null); window.history.pushState({}, "", "/app/emails"); }} className="flex-1 rounded-xl h-11 bg-gray-900 hover:bg-gray-800 text-white cursor-pointer">
                 Discard changes
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Product Link Dialog for Flow Editor */}
+        <Dialog open={flowShowProductDialog} onOpenChange={setFlowShowProductDialog}>
+          <DialogContent className="sm:max-w-[480px] rounded-2xl p-0 overflow-hidden">
+            <DialogHeader className="p-5 pb-3 border-b border-gray-100">
+              <DialogTitle className="text-lg font-semibold text-gray-900">Insert Product Link</DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                Select a product to insert a link to in your email
+              </DialogDescription>
+            </DialogHeader>
+            <div className="p-4">
+              <Input
+                placeholder="Search products..."
+                value={flowProductSearch}
+                onChange={(e) => setFlowProductSearch(e.target.value)}
+                className="h-10 rounded-lg mb-3"
+              />
+              <div className="max-h-[300px] overflow-y-auto space-y-2">
+                {flowLoadingProducts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  </div>
+                ) : flowFilteredProducts.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    {flowProducts.length === 0 ? "No published products found" : "No products match your search"}
+                  </div>
+                ) : (
+                  flowFilteredProducts.map((product) => (
+                    <button
+                      key={product.id}
+                      onClick={() => flowInsertProductLink(product)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-colors text-left cursor-pointer"
+                    >
+                      {product.thumbnail_url ? (
+                        <img src={product.thumbnail_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                          <ShoppingCart className="h-5 w-5 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{product.title}</p>
+                        <p className="text-sm text-gray-500">${(product.price_cents / 100).toFixed(2)}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Link Dialog for Flow Editor */}
+        <Dialog open={flowShowLinkDialog} onOpenChange={setFlowShowLinkDialog}>
+          <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden">
+            <DialogHeader className="p-5 pb-3 border-b border-gray-100">
+              <DialogTitle className="text-lg font-semibold text-gray-900">Insert Link</DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                Add a hyperlink to your email
+              </DialogDescription>
+            </DialogHeader>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1.5">Link Text</label>
+                <Input
+                  value={flowLinkText}
+                  onChange={(e) => setFlowLinkText(e.target.value)}
+                  placeholder="Click here"
+                  className="h-11 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1.5">URL</label>
+                <Input
+                  value={flowLinkUrl}
+                  onChange={(e) => setFlowLinkUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="h-11 rounded-xl"
+                />
+              </div>
+            </div>
+            <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex gap-2">
+              <Button variant="outline" onClick={() => { setFlowShowLinkDialog(false); setFlowLinkUrl(""); setFlowLinkText(""); }} className="flex-1 rounded-xl h-11 cursor-pointer">
+                Cancel
+              </Button>
+              <Button onClick={flowConfirmInsertLink} disabled={!flowLinkUrl} className="flex-1 rounded-xl h-11 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
+                Insert Link
               </Button>
             </div>
           </DialogContent>
