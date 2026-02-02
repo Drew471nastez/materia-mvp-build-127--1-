@@ -410,14 +410,12 @@ export function EmailEditor({
     const align = wrapper?.style.textAlign || "center"
     setButtonAlign(align as "left" | "center" | "right")
 
+    // Use viewport coordinates for fixed positioning
     const rect = btn.getBoundingClientRect()
-    const editorRect = editorRef.current?.getBoundingClientRect()
-    if (editorRect) {
-      setButtonMenuPosition({
-        x: rect.left - editorRect.left + rect.width / 2,
-        y: rect.top - editorRect.top - 10
-      })
-    }
+    setButtonMenuPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10
+    })
     setShowButtonMenu(true)
   }
 
@@ -478,14 +476,12 @@ export function EmailEditor({
       e.preventDefault()
       const img = target as HTMLImageElement
       setSelectedImage(img)
+      // Use viewport coordinates for fixed positioning
       const rect = img.getBoundingClientRect()
-      const editorRect = editorRef.current?.getBoundingClientRect()
-      if (editorRect) {
-        setImageMenuPosition({
-          x: rect.left - editorRect.left + rect.width / 2,
-          y: rect.top - editorRect.top - 10
-        })
-      }
+      setImageMenuPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top - 10
+      })
       setShowImageMenu(true)
       setShowButtonMenu(false)
       setSelectedButton(null)
@@ -533,9 +529,16 @@ export function EmailEditor({
     const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
     const productUrl = `${baseUrl}/p/${product.slug}`
     const linkHtml = `<a href="${productUrl}" style="color: #2563eb; text-decoration: underline; font-weight: 500;">${product.title}</a>`
-    execCommand("insertHTML", linkHtml + " ")
+
+    // Close dialog first
     setShowProductDialog(false)
     setProductSearch("")
+
+    // Focus editor and insert after a small delay to ensure focus is established
+    setTimeout(() => {
+      editorRef.current?.focus()
+      execCommand("insertHTML", linkHtml + " ")
+    }, 50)
   }
 
   const getEditorContent = () => {
@@ -597,6 +600,11 @@ export function EmailEditor({
 
   // Segment quick select functions
   const selectAllSubscribers = () => setSelectedSubscriberIds(subscribers.map((s) => s.id))
+  const selectPast48Hours = () => {
+    const fortyEightHoursAgo = new Date()
+    fortyEightHoursAgo.setHours(fortyEightHoursAgo.getHours() - 48)
+    setSelectedSubscriberIds(subscribers.filter((s) => s.subscribed_at && new Date(s.subscribed_at) >= fortyEightHoursAgo).map((s) => s.id))
+  }
   const selectPast7Days = () => {
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
@@ -606,6 +614,11 @@ export function EmailEditor({
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     setSelectedSubscriberIds(subscribers.filter((s) => s.subscribed_at && new Date(s.subscribed_at) >= thirtyDaysAgo).map((s) => s.id))
+  }
+  const selectLastMonth = () => {
+    const lastMonth = new Date()
+    lastMonth.setMonth(lastMonth.getMonth() - 1)
+    setSelectedSubscriberIds(subscribers.filter((s) => s.subscribed_at && new Date(s.subscribed_at) >= lastMonth).map((s) => s.id))
   }
 
   const handleCreateSegment = async () => {
@@ -786,7 +799,7 @@ Tips:
                 {/* Image Edit Menu */}
                 {showImageMenu && selectedImage && (
                   <div
-                    className="image-menu absolute bg-white rounded-xl shadow-lg border border-gray-200 p-2 flex items-center gap-1 z-10"
+                    className="image-menu fixed bg-white rounded-xl shadow-xl border border-gray-200 p-2 flex items-center gap-1 z-[100]"
                     style={{ left: imageMenuPosition.x, top: imageMenuPosition.y, transform: 'translate(-50%, -100%)' }}
                   >
                     <Button variant="ghost" size="sm" onClick={() => resizeImage('small')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs">
@@ -811,7 +824,7 @@ Tips:
                 {/* Inline Button Edit Menu */}
                 {showButtonMenu && selectedButton && (
                   <div
-                    className="button-menu absolute bg-white rounded-xl shadow-lg border border-gray-200 p-3 z-10"
+                    className="button-menu fixed bg-white rounded-xl shadow-xl border border-gray-200 p-3 z-[100]"
                     style={{ left: buttonMenuPosition.x, top: buttonMenuPosition.y, transform: 'translate(-50%, -100%)', minWidth: '280px' }}
                   >
                     <div className="space-y-3">
@@ -910,19 +923,25 @@ Tips:
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <Label className="text-sm font-medium text-gray-700">Live Preview</Label>
-                <Select value={audienceType} onValueChange={onAudienceChange}>
-                  <SelectTrigger className="h-9 w-auto min-w-[160px] rounded-lg border-gray-200 text-sm cursor-pointer">
-                    <SelectValue placeholder="Send to..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="all">All Subscribers</SelectItem>
-                    <SelectItem value="store_builder">Store Subscribers</SelectItem>
-                    <SelectItem value="onepage">OnePage Subscribers</SelectItem>
-                    {segments.map((segment) => (
-                      <SelectItem key={segment.id} value={`segment:${segment.id}`}>{segment.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select value={audienceType} onValueChange={onAudienceChange}>
+                    <SelectTrigger className="h-9 w-auto min-w-[160px] rounded-lg border-gray-200 text-sm cursor-pointer">
+                      <SelectValue placeholder="Send to..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="all">All Subscribers</SelectItem>
+                      <SelectItem value="store_builder">Store Subscribers</SelectItem>
+                      <SelectItem value="onepage">OnePage Subscribers</SelectItem>
+                      {segments.map((segment) => (
+                        <SelectItem key={segment.id} value={`segment:${segment.id}`}>{segment.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={() => setShowSegmentDialog(true)} className="h-9 px-3 rounded-lg text-xs cursor-pointer">
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Create segment
+                  </Button>
+                </div>
               </div>
 
               <div className="p-5 bg-gray-50/50 flex justify-center min-h-[500px]">
@@ -1226,11 +1245,13 @@ Tips:
             <div>
               <Label className="text-sm text-gray-600 mb-2 block">Quick Select</Label>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={selectAllSubscribers} className="h-8 rounded-lg">Select All</Button>
-                <Button variant="outline" size="sm" onClick={selectPast7Days} className="h-8 rounded-lg">Past 7 Days</Button>
-                <Button variant="outline" size="sm" onClick={selectPast30Days} className="h-8 rounded-lg">Past 30 Days</Button>
+                <Button variant="outline" size="sm" onClick={selectAllSubscribers} className="h-8 rounded-lg cursor-pointer">Select All</Button>
+                <Button variant="outline" size="sm" onClick={selectPast48Hours} className="h-8 rounded-lg cursor-pointer">Past 48 Hours</Button>
+                <Button variant="outline" size="sm" onClick={selectPast7Days} className="h-8 rounded-lg cursor-pointer">Past 7 Days</Button>
+                <Button variant="outline" size="sm" onClick={selectPast30Days} className="h-8 rounded-lg cursor-pointer">Past 30 Days</Button>
+                <Button variant="outline" size="sm" onClick={selectLastMonth} className="h-8 rounded-lg cursor-pointer">Last Month</Button>
                 {selectedSubscriberIds.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedSubscriberIds([])} className="h-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50">
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedSubscriberIds([])} className="h-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer">
                     <X className="h-3.5 w-3.5 mr-1" />Clear
                   </Button>
                 )}

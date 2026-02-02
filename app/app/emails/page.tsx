@@ -257,6 +257,7 @@ export default function EmailsPage() {
   const [flowTestEmail, setFlowTestEmail] = useState("")
   const [showFlowSaveNotification, setShowFlowSaveNotification] = useState(false)
   const [flowSaveNotificationMessage, setFlowSaveNotificationMessage] = useState("")
+  const flowEditorInitialized = useRef(false)
 
   // Store checkout buyers count (for Store KPI)
   const [checkoutBuyersCount, setCheckoutBuyersCount] = useState(0)
@@ -852,7 +853,7 @@ export default function EmailsPage() {
   }
 
   const flowUpdateButton = () => {
-    if (flowSelectedButton && flowButtonText && flowButtonUrl) {
+    if (flowSelectedButton && flowButtonText && flowButtonUrl && editingFlow) {
       const linkEl = flowSelectedButton.tagName === 'A' ? flowSelectedButton : flowSelectedButton.querySelector('a')
       const wrapper = flowSelectedButton.closest('.email-button-wrapper') as HTMLElement
 
@@ -860,13 +861,20 @@ export default function EmailsPage() {
         const fullUrl = flowButtonUrl.startsWith("http") ? flowButtonUrl : `https://${flowButtonUrl}`
         linkEl.textContent = flowButtonText
         linkEl.setAttribute('href', fullUrl)
-        linkEl.style.backgroundColor = flowButtonColor
+        ;(linkEl as HTMLElement).style.backgroundColor = flowButtonColor
       }
       if (wrapper) {
         wrapper.style.textAlign = flowButtonAlign
       }
+      // Sync the updated content to state
       if (flowEditorRef.current) {
-        setFlowEditorContent(flowEditorRef.current.innerHTML)
+        const content = flowEditorRef.current.innerHTML
+        setFlowEditorContent(content)
+        // Update the editing flow steps directly
+        const newSteps = (editingFlow.steps || []).map(s =>
+          s.type === "email" ? { ...s, config: { ...s.config, body: content } } : s
+        )
+        editingFlow.steps = newSteps
       }
     }
     setFlowShowButtonMenu(false)
@@ -1186,12 +1194,38 @@ export default function EmailsPage() {
       setEditingFlow({ ...editingFlow, steps: newSteps })
     }
 
-    // Sync flow editor content with step body
+    // Initialize editor content only once when editing starts
+    useEffect(() => {
+      if (flowEditorRef.current && !flowEditorInitialized.current && editingFlow) {
+        const step = (editingFlow.steps || []).find(s => s.type === "email")
+        if (step?.config.body) {
+          flowEditorRef.current.innerHTML = step.config.body
+        }
+        flowEditorInitialized.current = true
+      }
+    }, [editingFlow])
+
+    // Reset initialization flag when leaving editor
+    useEffect(() => {
+      return () => {
+        flowEditorInitialized.current = false
+      }
+    }, [])
+
+    // Sync flow editor content with step body - use debounced approach
     const handleFlowEditorInput = () => {
       if (flowEditorRef.current) {
         const content = flowEditorRef.current.innerHTML
         setFlowEditorContent(content)
-        updateEmailStep({ body: content })
+        // Update state without causing re-render of the editor
+        const newSteps = (editingFlow.steps || []).map(s =>
+          s.type === "email" ? { ...s, config: { ...s.config, body: content } } : s
+        )
+        if (!newSteps.some(s => s.type === "email")) {
+          newSteps.push({ ...emailStep, config: { ...emailStep.config, body: content } })
+        }
+        // Use a ref-based approach to avoid re-render
+        editingFlow.steps = newSteps
       }
     }
 
@@ -1200,16 +1234,6 @@ export default function EmailsPage() {
 
     return (
       <div className="min-h-screen bg-[#fafafa]">
-        {/* Smooth Save Notification */}
-        {showFlowSaveNotification && (
-          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="bg-gray-900 text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-400" />
-              <span className="text-sm font-medium">{flowSaveNotificationMessage}</span>
-            </div>
-          </div>
-        )}
-
         {/* Header - Matching email editor style */}
         <div className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-20">
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3">
@@ -1299,8 +1323,9 @@ export default function EmailsPage() {
                   <Input
                     type="number"
                     min="0"
-                    value={emailStep.config.delay_value || 0}
-                    onChange={(e) => updateEmailStep({ delay_value: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                    value={emailStep.config.delay_value === 0 || emailStep.config.delay_value === undefined ? "" : emailStep.config.delay_value}
+                    onChange={(e) => updateEmailStep({ delay_value: e.target.value === "" ? 0 : parseInt(e.target.value) || 0 })}
                     className="w-20 h-11 text-center rounded-xl"
                   />
                   <DropdownMenu>
@@ -1406,6 +1431,7 @@ export default function EmailsPage() {
                   <div
                     ref={flowEditorRef}
                     contentEditable
+                    suppressContentEditableWarning
                     onInput={handleFlowEditorInput}
                     onClick={handleFlowEditorClick}
                     className="min-h-[400px] p-6 focus:outline-none text-base leading-relaxed text-gray-700"
@@ -1418,7 +1444,6 @@ Tips:
 • Keep your message clear and concise
 • Add a clear call-to-action
 • Personalize with subscriber names"
-                    dangerouslySetInnerHTML={{ __html: emailStep.config.body || "" }}
                   />
 
                   {/* Image Edit Menu */}
@@ -2138,6 +2163,16 @@ Tips:
   // List View
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
+      {/* Global Save Notification - Shows across all views */}
+      {showFlowSaveNotification && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="bg-gray-900 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3">
+            <Check className="h-5 w-5 text-green-400" />
+            <span className="text-sm font-medium">{flowSaveNotificationMessage}</span>
+          </div>
+        </div>
+      )}
+
       {/* Announcement Bar - Pro */}
       <div className="bg-[#8b5cf6] text-white">
         <div className="py-2 px-4 md:py-2.5">
