@@ -621,23 +621,25 @@ export default function EmailsPage() {
                   variant="outline"
                   onClick={() => handleToggleFlowStatus(editingFlow)}
                   className={cn(
-                    "rounded-lg",
-                    editingFlow.status === "active" && "bg-green-50 border-green-200 text-green-700"
+                    "rounded-lg cursor-pointer",
+                    editingFlow.status === "active"
+                      ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                      : "border-violet-200 text-violet-600 hover:bg-violet-50"
                   )}
                 >
                   {editingFlow.status === "active" ? (
                     <>
                       <Pause className="h-4 w-4 mr-2" />
-                      Pause
+                      Pause Flow
                     </>
                   ) : (
                     <>
                       <Play className="h-4 w-4 mr-2" />
-                      Activate
+                      Activate Flow
                     </>
                   )}
                 </Button>
-                <Button onClick={() => handleSaveFlow(editingFlow)} className="rounded-lg bg-[#1a1a2e] hover:bg-[#2d2d44]">
+                <Button onClick={() => handleSaveFlow(editingFlow)} className="rounded-lg bg-violet-600 hover:bg-violet-700 cursor-pointer">
                   Save Flow
                 </Button>
               </div>
@@ -886,16 +888,33 @@ So as you think about your own goals - do you have any questions for me? I'm her
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="px-5 py-4 border-t bg-gray-50/50 flex items-center justify-end gap-3">
-                      <Button variant="outline" className="rounded-lg border-violet-200 text-violet-600 hover:bg-violet-50">
-                        Test Send
-                      </Button>
-                      <Button variant="outline" className="rounded-lg border-violet-200 text-violet-600 hover:bg-violet-50">
-                        Save Draft
-                      </Button>
-                      <Button className="rounded-lg bg-violet-600 hover:bg-violet-700 text-white">
-                        Publish
-                      </Button>
+                    <div className="px-5 py-4 border-t bg-gray-50/50 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" className="rounded-lg text-gray-500 hover:text-gray-700 cursor-pointer">
+                          <Mail className="h-4 w-4 mr-2" />
+                          Send Test Email
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium",
+                          step.config.subject && step.config.body
+                            ? "bg-green-100 text-green-700"
+                            : "bg-amber-100 text-amber-700"
+                        )}>
+                          {step.config.subject && step.config.body ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              Ready
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="h-3 w-3" />
+                              Draft
+                            </>
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1261,7 +1280,7 @@ So as you think about your own goals - do you have any questions for me? I'm her
               <h1 className="text-xl font-semibold text-gray-900">Emails</h1>
               <p className="text-sm text-gray-500 mt-0.5">Send updates and manage your subscribers</p>
             </div>
-            <Button onClick={handleNewEmail} className="bg-violet-600 hover:bg-violet-700 text-white h-9 px-4 rounded-lg group">
+            <Button onClick={handleNewEmail} className="bg-violet-600 hover:bg-violet-700 text-white h-9 px-4 rounded-lg group cursor-pointer">
               <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
               New email
             </Button>
@@ -1312,7 +1331,7 @@ So as you think about your own goals - do you have any questions for me? I'm her
               <div className="bg-white rounded-xl border p-4">
                 <p className="text-sm text-gray-500">Store</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {subscribers.filter((s) => s.source === "store_builder" && s.status === "subscribed").length + checkoutBuyersCount}
+                  {subscribers.filter((s) => s.source !== "onepage" && s.status === "subscribed").length + checkoutBuyersCount}
                 </p>
               </div>
               <div className="bg-white rounded-xl border p-4">
@@ -1362,7 +1381,7 @@ So as you think about your own goals - do you have any questions for me? I'm her
                   URL.revokeObjectURL(url)
                   toast({ title: "Export complete", description: `Exported ${activeSubscribers.length} subscribers to CSV` })
                 }}
-                className="h-10 px-4 rounded-lg"
+                className="h-10 px-4 rounded-lg cursor-pointer hover:bg-gray-50"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
@@ -1491,9 +1510,9 @@ So as you think about your own goals - do you have any questions for me? I'm her
               </div>
               <Button
                 onClick={() => setShowCreateFlowDialog(true)}
-                className="rounded-xl bg-[#1a1a2e] hover:bg-[#2d2d44]"
+                className="rounded-xl bg-violet-600 hover:bg-violet-700 cursor-pointer group"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
                 Create Flow
               </Button>
             </div>
@@ -1514,9 +1533,9 @@ So as you think about your own goals - do you have any questions for me? I'm her
                 </p>
                 <Button
                   onClick={() => setShowCreateFlowDialog(true)}
-                  className="rounded-xl bg-[#1a1a2e] hover:bg-[#2d2d44]"
+                  className="rounded-xl bg-violet-600 hover:bg-violet-700 cursor-pointer group"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
                   Create your first flow
                 </Button>
               </div>
@@ -1819,7 +1838,10 @@ So as you think about your own goals - do you have any questions for me? I'm her
       <Dialog open={showCreateFlowDialog} onOpenChange={setShowCreateFlowDialog}>
         <DialogContent className="sm:max-w-lg rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl">Create a new flow</DialogTitle>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Zap className="h-5 w-5 text-violet-600" />
+              Create a new flow
+            </DialogTitle>
             <DialogDescription>
               Choose a trigger to start your automated email sequence
             </DialogDescription>
@@ -1831,16 +1853,16 @@ So as you think about your own goals - do you have any questions for me? I'm her
                 <button
                   key={trigger.id}
                   onClick={() => handleCreateFlow(trigger.id)}
-                  className="w-full flex items-center gap-4 p-4 bg-[#f9fafb] hover:bg-[#f3f4f6] rounded-xl border border-[#e5e7eb]/60 transition-colors text-left"
+                  className="w-full flex items-center gap-4 p-4 bg-white hover:bg-violet-50 rounded-xl border border-[#e5e7eb] hover:border-violet-300 transition-all text-left cursor-pointer group"
                 >
-                  <div className={cn("p-3 rounded-xl", trigger.color)}>
+                  <div className={cn("p-3 rounded-xl transition-transform group-hover:scale-105", trigger.color)}>
                     <TriggerIcon className="h-6 w-6" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-[#1a1a2e]">{trigger.name}</h3>
+                    <h3 className="font-semibold text-[#1a1a2e] group-hover:text-violet-700 transition-colors">{trigger.name}</h3>
                     <p className="text-[13px] text-[#6b7280]">{trigger.description}</p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-[#9ca3af]" />
+                  <ChevronRight className="h-5 w-5 text-[#9ca3af] group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
                 </button>
               )
             })}
