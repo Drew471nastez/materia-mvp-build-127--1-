@@ -849,8 +849,22 @@ export default function EmailsPage() {
   }
 
   const flowInsertDivider = () => {
-    const dividerHtml = `<div style="margin: 24px 0; text-align: center;"><hr style="border: none; border-top: 1px solid #e5e7eb; margin: 0;" /></div>`
+    const dividerId = `divider-${Date.now()}`
+    const dividerHtml = `<div style="margin: 24px 0; text-align: center;"><hr style="border: none; border-top: 1px solid #e5e7eb; margin: 0;" /></div><p id="${dividerId}"><br></p>`
     flowExecCommand("insertHTML", dividerHtml)
+    // Move cursor to the paragraph after the divider
+    setTimeout(() => {
+      const newParagraph = flowEditorRef.current?.querySelector(`#${dividerId}`)
+      if (newParagraph) {
+        const range = document.createRange()
+        const selection = window.getSelection()
+        range.setStart(newParagraph, 0)
+        range.collapse(true)
+        selection?.removeAllRanges()
+        selection?.addRange(range)
+        newParagraph.removeAttribute('id')
+      }
+    }, 10)
   }
 
   const flowSelectButton = (btn: HTMLElement) => {
@@ -2033,17 +2047,12 @@ Tips:
       try {
         let campaignId = editingCampaign?.id
 
-        // Extract segment_id from audienceType if it's a segment
-        const segmentId = audienceType.startsWith("segment:") ? audienceType.replace("segment:", "") : (selectedSegment || null)
-        const actualAudienceType = audienceType.startsWith("segment:") ? "segment" : audienceType
-
         const campaignData = {
           creator_id: creatorId,
           subject: data.subject,
           body: data.body,
           preview_text: data.previewText || null,
-          audience_type: actualAudienceType,
-          segment_id: segmentId,
+          audience_type: audienceType,
         }
 
         if (editingCampaign) {
@@ -2101,18 +2110,13 @@ Tips:
       setIsSaving(true)
       const supabase = createClient()
 
-      // Extract segment_id from audienceType if it's a segment
-      const segmentId = audienceType.startsWith("segment:") ? audienceType.replace("segment:", "") : (selectedSegment || null)
-      const actualAudienceType = audienceType.startsWith("segment:") ? "segment" : audienceType
-
       const campaignData = {
         creator_id: creatorId,
         subject: data.subject,
         body: data.body,
         preview_text: data.previewText || null,
         status: "scheduled" as const,
-        audience_type: actualAudienceType,
-        segment_id: segmentId,
+        audience_type: audienceType,
         scheduled_at: new Date(data.scheduledAt).toISOString(),
       }
 
@@ -2179,8 +2183,6 @@ Tips:
         initialPreviewText={previewText}
         audienceType={audienceType}
         onAudienceChange={setAudienceType}
-        segments={segments.map(s => ({ id: s.id, name: s.name, subscriber_ids: s.filters?.subscriber_ids }))}
-        onSegmentsChange={(newSegments) => setSegments(newSegments.map(s => ({ id: s.id, name: s.name, description: "", filters: { subscriber_ids: s.subscriber_ids || [] }, subscriber_count: s.subscriber_ids?.length || 0 })))}
         isSaving={isSaving}
         isSending={isSending}
         creatorId={creatorId || undefined}

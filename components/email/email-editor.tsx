@@ -100,8 +100,6 @@ interface EmailEditorProps {
   initialPreviewText?: string
   audienceType: string
   onAudienceChange: (value: string) => void
-  segments: Segment[]
-  onSegmentsChange?: (segments: Segment[]) => void
   isSaving?: boolean
   isSending?: boolean
   creatorId?: string
@@ -125,8 +123,6 @@ export function EmailEditor({
   initialPreviewText = "",
   audienceType,
   onAudienceChange,
-  segments,
-  onSegmentsChange,
   isSaving = false,
   isSending = false,
   creatorId,
@@ -356,8 +352,22 @@ export function EmailEditor({
   const redoAction = () => execCommand("redo")
 
   const insertDivider = () => {
-    const dividerHtml = `<div style="margin: 24px 0; text-align: center;"><hr style="border: none; border-top: 1px solid #e5e7eb; margin: 0;" /></div>`
+    const dividerId = `divider-${Date.now()}`
+    const dividerHtml = `<div style="margin: 24px 0; text-align: center;"><hr style="border: none; border-top: 1px solid #e5e7eb; margin: 0;" /></div><p id="${dividerId}"><br></p>`
     execCommand("insertHTML", dividerHtml)
+    // Move cursor to the paragraph after the divider
+    setTimeout(() => {
+      const newParagraph = editorRef.current?.querySelector(`#${dividerId}`)
+      if (newParagraph) {
+        const range = document.createRange()
+        const selection = window.getSelection()
+        range.setStart(newParagraph, 0)
+        range.collapse(true)
+        selection?.removeAllRanges()
+        selection?.addRange(range)
+        newParagraph.removeAttribute('id')
+      }
+    }, 10)
   }
 
   const insertLink = () => {
@@ -1010,22 +1020,17 @@ Tips:
                 <Label className="text-sm font-medium text-gray-700">Live Preview</Label>
                 <div className="flex items-center gap-2">
                   <Select value={audienceType} onValueChange={onAudienceChange}>
-                    <SelectTrigger className="h-9 w-auto min-w-[160px] rounded-lg border-gray-200 text-sm cursor-pointer">
+                    <SelectTrigger className="h-9 w-auto min-w-[180px] rounded-lg border-gray-200 text-sm cursor-pointer">
                       <SelectValue placeholder="Send to..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                      <SelectItem value="all">All Subscribers</SelectItem>
-                      <SelectItem value="store_builder">Store Subscribers</SelectItem>
-                      <SelectItem value="onepage">OnePage Subscribers</SelectItem>
-                      {segments.map((segment) => (
-                        <SelectItem key={segment.id} value={`segment:${segment.id}`}>{segment.name}</SelectItem>
-                      ))}
+                      <SelectItem value="all" className="cursor-pointer">All Subscribers</SelectItem>
+                      <SelectItem value="last_24h" className="cursor-pointer">Last 24 Hours</SelectItem>
+                      <SelectItem value="last_7days" className="cursor-pointer">Last 7 Days</SelectItem>
+                      <SelectItem value="last_30days" className="cursor-pointer">Last Month</SelectItem>
+                      <SelectItem value="last_90days" className="cursor-pointer">Last 90 Days</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="sm" onClick={() => { loadSubscribers(); setShowSegmentDialog(true); }} className="h-9 px-3 rounded-lg text-xs cursor-pointer">
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Create segment
-                  </Button>
                 </div>
               </div>
 
@@ -1315,152 +1320,6 @@ Tips:
         </DialogContent>
       </Dialog>
 
-      {/* Custom Segment Dialog */}
-      <Dialog open={showSegmentDialog} onOpenChange={setShowSegmentDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col rounded-2xl p-0 overflow-hidden">
-          <div className="px-4 sm:px-6 pt-5 pb-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-violet-50 flex-shrink-0">
-            <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl font-semibold text-gray-900">Manage Segments</DialogTitle>
-              <DialogDescription className="text-sm text-gray-600">Create custom segments to target specific groups of subscribers.</DialogDescription>
-            </DialogHeader>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-            {/* Existing Segments Section */}
-            {segments.length > 0 && (
-              <div className="mb-5">
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">Your Segments</Label>
-                <div className="flex flex-wrap gap-2 max-h-[80px] overflow-y-auto p-1">
-                  {segments.map((segment) => (
-                    <div key={segment.id} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5">
-                      <span className="text-sm font-medium text-blue-700">{segment.name}</span>
-                      <button
-                        onClick={async () => {
-                          if (creatorId) {
-                            const supabase = createClient()
-                            await supabase.from("email_segments").delete().eq("id", segment.id)
-                            onSegmentsChange?.(segments.filter(s => s.id !== segment.id))
-                            toast({ title: "Segment deleted", description: `"${segment.name}" has been removed.` })
-                          }
-                        }}
-                        className="p-0.5 rounded-full hover:bg-blue-200 text-blue-500 hover:text-blue-700 transition-colors cursor-pointer"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Create New Segment Section */}
-            <div className="space-y-4">
-              <div className="bg-gray-50 rounded-xl p-4">
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">New Segment Name</Label>
-                <Input
-                  value={segmentName}
-                  onChange={(e) => setSegmentName(e.target.value)}
-                  placeholder="e.g., VIP Customers, Recent Signups..."
-                  className="h-11 rounded-xl bg-white border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
-                />
-              </div>
-
-              {/* Timeframe Filter Dropdown */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <Label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-gray-500" />
-                  Quick Select by Timeframe
-                </Label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Select
-                    value={selectedTimeframe}
-                    onValueChange={(value) => {
-                      setSelectedTimeframe(value)
-                      if (value === "all") selectAllSubscribers()
-                      else if (value === "24h") selectPast24Hours()
-                      else if (value === "48h") selectPast48Hours()
-                      else if (value === "7days") selectPast7Days()
-                      else if (value === "30days") selectPast30Days()
-                      else if (value === "month") selectLastMonth()
-                    }}
-                  >
-                    <SelectTrigger className="h-11 rounded-xl bg-white flex-1 cursor-pointer">
-                      <SelectValue placeholder="Select timeframe..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="all" className="cursor-pointer">All Subscribers</SelectItem>
-                      <SelectItem value="24h" className="cursor-pointer">Last 24 Hours</SelectItem>
-                      <SelectItem value="48h" className="cursor-pointer">Last 48 Hours</SelectItem>
-                      <SelectItem value="7days" className="cursor-pointer">Last 7 Days</SelectItem>
-                      <SelectItem value="30days" className="cursor-pointer">Last 30 Days</SelectItem>
-                      <SelectItem value="month" className="cursor-pointer">Last Month</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {selectedSubscriberIds.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={() => { setSelectedSubscriberIds([]); setSelectedTimeframe(""); clearEmailFilter(); }} className="h-11 px-4 rounded-xl text-gray-400 hover:text-gray-500 hover:bg-gray-100 cursor-pointer whitespace-nowrap">
-                      <X className="h-4 w-4 mr-1.5" />Clear ({selectedSubscriberIds.length})
-                    </Button>
-                  )}
-                </div>
-                {selectedSubscriberIds.length > 0 && (
-                  <p className="mt-2 text-sm text-blue-600 font-medium">{selectedSubscriberIds.length} subscribers selected</p>
-                )}
-              </div>
-
-              {/* Subscriber Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input value={subscriberSearch} onChange={(e) => setSubscriberSearch(e.target.value)} placeholder="Search subscribers by email..." className="pl-10 h-11 rounded-xl bg-white" />
-              </div>
-
-              {/* Subscriber List - Scrollable */}
-              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-                <div className="max-h-[250px] sm:max-h-[300px] overflow-y-auto">
-                  {loadingSubscribers ? (
-                    <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
-                  ) : filteredSubscribers.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <User className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-                      <p className="text-sm font-medium">{subscribers.length === 0 ? "No subscribers yet" : "No matching subscribers"}</p>
-                      <p className="text-xs text-gray-400 mt-1">Subscribers will appear here once you have some</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-100">
-                      {filteredSubscribers.map((subscriber) => (
-                        <label key={subscriber.id} className={cn("flex items-center gap-3 px-3 sm:px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors", selectedSubscriberIds.includes(subscriber.id) && "bg-blue-50 hover:bg-blue-100")}>
-                          <Checkbox checked={selectedSubscriberIds.includes(subscriber.id)} onCheckedChange={() => toggleSubscriber(subscriber.id)} className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-900 truncate font-medium">{subscriber.email}</p>
-                            <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 mt-0.5">
-                              {subscriber.name && <span className="truncate max-w-[100px]">{subscriber.name}</span>}
-                              <span className={cn("px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap", subscriber.source === "onepage" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700")}>
-                                {subscriber.source === "onepage" ? "OnePage" : "Store"}
-                              </span>
-                              {subscriber.subscribed_at && (
-                                <span className="text-gray-400 whitespace-nowrap hidden sm:inline">Joined {new Date(subscriber.subscribed_at).toLocaleDateString()}</span>
-                              )}
-                            </div>
-                          </div>
-                          {selectedSubscriberIds.includes(subscriber.id) && <Check className="h-4 w-4 text-blue-500 flex-shrink-0" />}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-gray-100 p-3 sm:p-4 bg-gray-50/50 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:justify-between flex-shrink-0">
-            <Button variant="ghost" onClick={() => { setShowSegmentDialog(false); setSelectedSubscriberIds([]); setSelectedTimeframe(""); setSegmentName(""); }} className="rounded-xl cursor-pointer order-2 sm:order-1 h-10">Cancel</Button>
-            <Button onClick={handleCreateSegment} disabled={!segmentName.trim() || selectedSubscriberIds.length === 0} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer px-6 order-1 sm:order-2 h-11">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Segment ({selectedSubscriberIds.length})
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Unsaved Changes Warning Dialog */}
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>

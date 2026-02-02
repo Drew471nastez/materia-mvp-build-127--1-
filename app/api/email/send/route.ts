@@ -94,50 +94,34 @@ export async function POST(request: NextRequest) {
     // Get subscribers based on audience type
     let subscribersQuery = supabase
       .from("subscribers")
-      .select("id, email, name, unsubscribe_token")
+      .select("id, email, name, unsubscribe_token, subscribed_at")
       .eq("creator_id", creator.id)
       .eq("status", "subscribed")
       .eq("is_active", true)
 
-    // Filter by audience type
+    // Filter by audience type or timeframe
     if (campaign.audience_type === "onepage") {
       subscribersQuery = subscribersQuery.eq("source", "onepage")
     } else if (campaign.audience_type === "store_builder") {
       subscribersQuery = subscribersQuery.eq("source", "store_builder")
+    } else if (campaign.audience_type === "last_24h") {
+      const cutoffDate = new Date()
+      cutoffDate.setHours(cutoffDate.getHours() - 24)
+      subscribersQuery = subscribersQuery.gte("subscribed_at", cutoffDate.toISOString())
+    } else if (campaign.audience_type === "last_7days") {
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - 7)
+      subscribersQuery = subscribersQuery.gte("subscribed_at", cutoffDate.toISOString())
+    } else if (campaign.audience_type === "last_30days") {
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - 30)
+      subscribersQuery = subscribersQuery.gte("subscribed_at", cutoffDate.toISOString())
+    } else if (campaign.audience_type === "last_90days") {
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - 90)
+      subscribersQuery = subscribersQuery.gte("subscribed_at", cutoffDate.toISOString())
     }
-
-    // If segment is specified, apply segment filters
-    let subscriberIds: string[] | null = null
-    if (campaign.segment_id) {
-      // Use admin client to bypass RLS for segment lookup
-      const { data: segment, error: segmentError } = await adminSupabase
-        .from("email_segments")
-        .select("filters, creator_id")
-        .eq("id", campaign.segment_id)
-        .single()
-
-      // Verify segment belongs to the creator
-      if (segmentError) {
-        console.error("Error fetching segment:", segmentError)
-      } else if (segment && segment.creator_id === creator.id && segment.filters) {
-        const filters = segment.filters as Record<string, any>
-        // Handle custom segment with subscriber_ids (from email editor segment builder)
-        if (filters.subscriber_ids && Array.isArray(filters.subscriber_ids) && filters.subscriber_ids.length > 0) {
-          subscriberIds = filters.subscriber_ids
-        }
-        if (filters.source) {
-          subscribersQuery = subscribersQuery.eq("source", filters.source)
-        }
-        if (filters.tags && Array.isArray(filters.tags) && filters.tags.length > 0) {
-          subscribersQuery = subscribersQuery.contains("tags", filters.tags)
-        }
-      }
-    }
-
-    // Apply subscriber_ids filter if present (for custom segments)
-    if (subscriberIds && subscriberIds.length > 0) {
-      subscribersQuery = subscribersQuery.in("id", subscriberIds)
-    }
+    // "all" audience_type doesn't need additional filtering
 
     const { data: subscribers, error: subscribersError } = await subscribersQuery
 
