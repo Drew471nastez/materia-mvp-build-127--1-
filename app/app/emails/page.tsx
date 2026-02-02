@@ -412,17 +412,21 @@ export default function EmailsPage() {
           return sum + (c.audience_count || 0)
         }, 0)
 
-        // Query events by creator_id for RLS compatibility
-        const { data: events } = await supabase
-          .from("email_events")
-          .select("event_type, campaign_id")
-          .eq("creator_id", creator.id)
-          .gte("created_at", timeRangeDate.toISOString())
-
-        // Get opens/clicks from events table
-        const opened = events?.filter((e: { event_type: string }) => e.event_type === "opened").length || 0
-        const clicked = events?.filter((e: { event_type: string }) => e.event_type === "clicked").length || 0
-        const unsubscribed = events?.filter((e: { event_type: string }) => e.event_type === "unsubscribed").length || 0
+        // Fetch event stats from API (uses admin client server-side to bypass RLS)
+        let opened = 0
+        let clicked = 0
+        let unsubscribed = 0
+        try {
+          const statsRes = await fetch(`/api/email/stats?timeRange=${statsTimeRange}`)
+          if (statsRes.ok) {
+            const statsData = await statsRes.json()
+            opened = statsData.stats?.opened || 0
+            clicked = statsData.stats?.clicked || 0
+            unsubscribed = statsData.stats?.unsubscribed || 0
+          }
+        } catch (err) {
+          console.error("Failed to fetch email stats:", err)
+        }
 
         setOverviewStats({
           total_sent: totalSent,
@@ -719,11 +723,8 @@ export default function EmailsPage() {
 
   const handleViewStats = async (campaign: EmailCampaign) => {
     setSelectedCampaignForStats(campaign)
-    const supabase = createClient()
 
-    // Get event counts
-    const { data: events } = await supabase.from("email_events").select("event_type").eq("campaign_id", campaign.id)
-
+    // Fetch campaign-specific stats from API (uses admin client server-side to bypass RLS)
     const counts = {
       sent: 0,
       delivered: 0,
@@ -733,10 +734,15 @@ export default function EmailsPage() {
       unsubscribed: 0,
     }
 
-    events?.forEach((event: { event_type: string }) => {
-      const type = event.event_type as keyof typeof counts
-      if (type in counts) counts[type]++
-    })
+    try {
+      const statsRes = await fetch(`/api/email/stats?campaignId=${campaign.id}`)
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        Object.assign(counts, statsData.stats || {})
+      }
+    } catch (err) {
+      console.error("Failed to fetch campaign stats:", err)
+    }
 
     const totalSent = campaign.audience_count || counts.sent || 1
     setSelectedCampaignStats({
