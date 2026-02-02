@@ -17,6 +17,7 @@ import {
   Send,
   Clock,
   FileText,
+  Users,
   Loader2,
   Monitor,
   Smartphone,
@@ -1232,70 +1233,130 @@ Tips:
 
       {/* Custom Segment Dialog */}
       <Dialog open={showSegmentDialog} onOpenChange={setShowSegmentDialog}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Create Custom Segment</DialogTitle>
-            <DialogDescription>Select subscribers to include in this segment.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4 flex-1 overflow-hidden flex flex-col">
-            <div>
-              <Label className="text-sm text-gray-600 mb-2 block">Segment Name</Label>
-              <Input value={segmentName} onChange={(e) => setSegmentName(e.target.value)} placeholder="e.g., VIP Customers" className="h-11 rounded-xl" />
-            </div>
-            <div>
-              <Label className="text-sm text-gray-600 mb-2 block">Quick Select</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={selectAllSubscribers} className="h-8 rounded-lg cursor-pointer">Select All</Button>
-                <Button variant="outline" size="sm" onClick={selectPast48Hours} className="h-8 rounded-lg cursor-pointer">Past 48 Hours</Button>
-                <Button variant="outline" size="sm" onClick={selectPast7Days} className="h-8 rounded-lg cursor-pointer">Past 7 Days</Button>
-                <Button variant="outline" size="sm" onClick={selectPast30Days} className="h-8 rounded-lg cursor-pointer">Past 30 Days</Button>
-                <Button variant="outline" size="sm" onClick={selectLastMonth} className="h-8 rounded-lg cursor-pointer">Last Month</Button>
-                {selectedSubscriberIds.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedSubscriberIds([])} className="h-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer">
-                    <X className="h-3.5 w-3.5 mr-1" />Clear
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col rounded-2xl p-0 overflow-hidden">
+          <div className="px-6 pt-6 pb-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-violet-50">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-gray-900">Manage Segments</DialogTitle>
+              <DialogDescription className="text-gray-600">Create custom segments to target specific groups of subscribers.</DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-hidden flex flex-col p-6">
+            {/* Existing Segments Section */}
+            {segments.length > 0 && (
+              <div className="mb-6">
+                <Label className="text-sm font-medium text-gray-700 mb-3 block">Your Segments</Label>
+                <div className="flex flex-wrap gap-2">
+                  {segments.map((segment) => (
+                    <div key={segment.id} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5">
+                      <span className="text-sm font-medium text-blue-700">{segment.name}</span>
+                      <button
+                        onClick={async () => {
+                          if (creatorId) {
+                            const supabase = createClient()
+                            await supabase.from("email_segments").delete().eq("id", segment.id)
+                            onSegmentsChange?.(segments.filter(s => s.id !== segment.id))
+                            toast({ title: "Segment deleted", description: `"${segment.name}" has been removed.` })
+                          }
+                        }}
+                        className="p-0.5 rounded-full hover:bg-blue-200 text-blue-500 hover:text-blue-700 transition-colors cursor-pointer"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Create New Segment Section */}
+            <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+              <div className="bg-gray-50 rounded-xl p-4">
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">New Segment Name</Label>
+                <Input
+                  value={segmentName}
+                  onChange={(e) => setSegmentName(e.target.value)}
+                  placeholder="e.g., VIP Customers, Recent Signups..."
+                  className="h-11 rounded-xl bg-white border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">Quick Filters</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <Button variant="outline" size="sm" onClick={selectAllSubscribers} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
+                    <User className="h-3.5 w-3.5 mr-1.5" />All
                   </Button>
+                  <Button variant="outline" size="sm" onClick={selectPast48Hours} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
+                    <Clock className="h-3.5 w-3.5 mr-1.5" />48h
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={selectPast7Days} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
+                    <Clock className="h-3.5 w-3.5 mr-1.5" />7 days
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={selectPast30Days} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
+                    <Clock className="h-3.5 w-3.5 mr-1.5" />30 days
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={selectLastMonth} className="h-9 rounded-lg cursor-pointer text-xs font-medium">
+                    <Clock className="h-3.5 w-3.5 mr-1.5" />Month
+                  </Button>
+                </div>
+                {selectedSubscriberIds.length > 0 && (
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-sm text-blue-600 font-medium">{selectedSubscriberIds.length} subscribers selected</span>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedSubscriberIds([])} className="h-7 px-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer text-xs">
+                      <X className="h-3 w-3 mr-1" />Clear selection
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input value={subscriberSearch} onChange={(e) => setSubscriberSearch(e.target.value)} placeholder="Search subscribers by email..." className="pl-10 h-11 rounded-xl bg-white" />
+              </div>
+
+              <div className="flex-1 overflow-y-auto rounded-xl border border-gray-200 min-h-[200px] bg-white">
+                {loadingSubscribers ? (
+                  <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+                ) : filteredSubscribers.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <User className="h-10 w-10 mx-auto text-gray-300 mb-3" />
+                    <p className="text-sm font-medium">{subscribers.length === 0 ? "No subscribers yet" : "No matching subscribers"}</p>
+                    <p className="text-xs text-gray-400 mt-1">Subscribers will appear here once you have some</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredSubscribers.map((subscriber) => (
+                      <label key={subscriber.id} className={cn("flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors", selectedSubscriberIds.includes(subscriber.id) && "bg-blue-50 hover:bg-blue-100")}>
+                        <Checkbox checked={selectedSubscriberIds.includes(subscriber.id)} onCheckedChange={() => toggleSubscriber(subscriber.id)} className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-900 truncate font-medium">{subscriber.email}</p>
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                            {subscriber.name && <span>{subscriber.name}</span>}
+                            <span className={cn("px-1.5 py-0.5 rounded-full text-xs font-medium", subscriber.source === "onepage" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700")}>
+                              {subscriber.source === "onepage" ? "OnePage" : "Store"}
+                            </span>
+                            {subscriber.subscribed_at && (
+                              <span className="text-gray-400">Joined {new Date(subscriber.subscribed_at).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                        </div>
+                        {selectedSubscriberIds.includes(subscriber.id) && <Check className="h-4 w-4 text-blue-500 flex-shrink-0" />}
+                      </label>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input value={subscriberSearch} onChange={(e) => setSubscriberSearch(e.target.value)} placeholder="Search subscribers..." className="pl-10 h-11 rounded-xl" />
-            </div>
-            <div className="flex-1 overflow-y-auto rounded-xl border border-gray-200 min-h-0">
-              {loadingSubscribers ? (
-                <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
-              ) : filteredSubscribers.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <User className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-                  <p className="text-sm">{subscribers.length === 0 ? "No subscribers found" : "No matching subscribers"}</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {filteredSubscribers.map((subscriber) => (
-                    <label key={subscriber.id} className={cn("flex items-center gap-3 px-3 py-3 hover:bg-gray-50 cursor-pointer transition-colors", selectedSubscriberIds.includes(subscriber.id) && "bg-blue-50 hover:bg-blue-50")}>
-                      <Checkbox checked={selectedSubscriberIds.includes(subscriber.id)} onCheckedChange={() => toggleSubscriber(subscriber.id)} className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 truncate font-medium">{subscriber.email}</p>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                          {subscriber.name && <span>{subscriber.name}</span>}
-                          <span className={cn("px-1.5 py-0.5 rounded-full text-xs", subscriber.source === "onepage" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600")}>
-                            {subscriber.source === "onepage" ? "OnePage" : "Store"}
-                          </span>
-                        </div>
-                      </div>
-                      {selectedSubscriberIds.includes(subscriber.id) && <Check className="h-4 w-4 text-blue-500 flex-shrink-0" />}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
-          <DialogFooter className="border-t border-gray-100 pt-4">
-            <Button variant="outline" onClick={() => setShowSegmentDialog(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={handleCreateSegment} disabled={!segmentName.trim() || selectedSubscriberIds.length === 0} className="bg-blue-500 hover:bg-blue-600 rounded-xl">
+
+          <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex items-center justify-between">
+            <Button variant="ghost" onClick={() => setShowSegmentDialog(false)} className="rounded-xl cursor-pointer">Cancel</Button>
+            <Button onClick={handleCreateSegment} disabled={!segmentName.trim() || selectedSubscriberIds.length === 0} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer px-6">
+              <Plus className="h-4 w-4 mr-2" />
               Create Segment ({selectedSubscriberIds.length})
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

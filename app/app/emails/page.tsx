@@ -273,6 +273,21 @@ export default function EmailsPage() {
     loadData()
   }, [activeTab, statsTimeRange])
 
+  // Initialize flow editor content when entering edit mode
+  useEffect(() => {
+    if (view === "flow-editor" && editingFlow && flowEditorRef.current && !flowEditorInitialized.current) {
+      const step = (editingFlow.steps || []).find(s => s.type === "email")
+      if (step?.config?.body) {
+        flowEditorRef.current.innerHTML = step.config.body
+      }
+      flowEditorInitialized.current = true
+    }
+    // Reset flag when leaving flow editor
+    if (view !== "flow-editor") {
+      flowEditorInitialized.current = false
+    }
+  }, [view, editingFlow])
+
   const loadData = async () => {
     setLoading(true)
     const supabase = createClient()
@@ -1193,24 +1208,6 @@ export default function EmailsPage() {
       }
       setEditingFlow({ ...editingFlow, steps: newSteps })
     }
-
-    // Initialize editor content only once when editing starts
-    useEffect(() => {
-      if (flowEditorRef.current && !flowEditorInitialized.current && editingFlow) {
-        const step = (editingFlow.steps || []).find(s => s.type === "email")
-        if (step?.config.body) {
-          flowEditorRef.current.innerHTML = step.config.body
-        }
-        flowEditorInitialized.current = true
-      }
-    }, [editingFlow])
-
-    // Reset initialization flag when leaving editor
-    useEffect(() => {
-      return () => {
-        flowEditorInitialized.current = false
-      }
-    }, [])
 
     // Sync flow editor content with step body - use debounced approach
     const handleFlowEditorInput = () => {
