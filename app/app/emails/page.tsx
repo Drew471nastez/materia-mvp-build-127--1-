@@ -258,6 +258,7 @@ export default function EmailsPage() {
   const [showFlowSaveNotification, setShowFlowSaveNotification] = useState(false)
   const [flowSaveNotificationMessage, setFlowSaveNotificationMessage] = useState("")
   const flowEditorInitialized = useRef(false)
+  const [flowSavedSelection, setFlowSavedSelection] = useState<Range | null>(null)
 
   // Store checkout buyers count (for Store KPI)
   const [checkoutBuyersCount, setCheckoutBuyersCount] = useState(0)
@@ -1037,15 +1038,31 @@ export default function EmailsPage() {
     setFlowShowProductDialog(false)
     setFlowProductSearch("")
 
-    // Focus editor and insert after a small delay to ensure focus is established
+    // Restore selection and insert at cursor position
     setTimeout(() => {
       flowEditorRef.current?.focus()
+
+      // Restore the saved selection if we have one
+      if (flowSavedSelection) {
+        const selection = window.getSelection()
+        if (selection) {
+          selection.removeAllRanges()
+          selection.addRange(flowSavedSelection)
+        }
+      }
+
       flowExecCommand("insertHTML", linkHtml + " ")
+      setFlowSavedSelection(null)
     }, 50)
   }
 
   // Open product dialog
   const flowOpenProductDialog = () => {
+    // Save the current selection before opening dialog
+    const selection = window.getSelection()
+    if (selection && selection.rangeCount > 0) {
+      setFlowSavedSelection(selection.getRangeAt(0).cloneRange())
+    }
     flowLoadProducts()
     setFlowShowProductDialog(true)
   }
@@ -1468,95 +1485,135 @@ Tips:
                     </div>
                   )}
 
-                  {/* Inline Button Edit Menu - Fixed positioning to avoid clipping */}
+                  {/* Inline Button Edit Menu - Modern UI */}
                   {flowShowButtonMenu && flowSelectedButton && (
                     <div
-                      className="flow-button-menu fixed bg-white rounded-xl shadow-xl border border-gray-200 p-3 z-[100]"
-                      style={{ left: flowButtonMenuPosition.x, top: flowButtonMenuPosition.y, transform: 'translate(-50%, -100%)', minWidth: '280px' }}
+                      className="flow-button-menu fixed bg-white rounded-2xl shadow-2xl border border-gray-100 z-[100] overflow-hidden"
+                      style={{ left: flowButtonMenuPosition.x, top: flowButtonMenuPosition.y, transform: 'translate(-50%, -100%)', minWidth: '320px' }}
                     >
-                      <div className="space-y-3">
+                      {/* Header */}
+                      <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-900">Edit Button</span>
+                          <button onClick={flowDeleteButton} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-4 space-y-4">
+                        {/* Live Preview */}
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <div style={{ textAlign: flowButtonAlign }}>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                backgroundColor: flowButtonColor,
+                                color: "#ffffff",
+                                padding: "12px 24px",
+                                borderRadius: "8px",
+                                fontWeight: 600,
+                                fontSize: "14px",
+                              }}
+                            >
+                              {flowButtonText || "Button Text"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Button Text Input */}
                         <div>
-                          <label className="text-xs font-medium text-gray-600 block mb-1">Button Text</label>
+                          <label className="text-xs font-medium text-gray-700 block mb-1.5">Button Text</label>
                           <Input
                             value={flowButtonText}
                             onChange={(e) => setFlowButtonText(e.target.value)}
                             placeholder="Click here"
-                            className="h-9 text-sm rounded-lg"
+                            className="h-10 text-sm rounded-xl border-gray-200 focus:border-violet-400 focus:ring-violet-400/20"
                           />
                         </div>
+
+                        {/* URL Input */}
                         <div>
-                          <label className="text-xs font-medium text-gray-600 block mb-1">URL</label>
+                          <label className="text-xs font-medium text-gray-700 block mb-1.5">Link URL</label>
                           <Input
                             value={flowButtonUrl}
                             onChange={(e) => setFlowButtonUrl(e.target.value)}
                             placeholder="https://example.com"
-                            className="h-9 text-sm rounded-lg"
+                            className="h-10 text-sm rounded-xl border-gray-200 focus:border-violet-400 focus:ring-violet-400/20"
                           />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <label className="text-xs font-medium text-gray-600 block mb-1">Color</label>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="color"
-                                value={flowButtonColor}
-                                onChange={(e) => setFlowButtonColor(e.target.value)}
-                                className="h-9 w-12 cursor-pointer rounded border border-gray-200"
-                              />
-                              {["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#000"].map((color) => (
+
+                        {/* Color Picker */}
+                        <div>
+                          <label className="text-xs font-medium text-gray-700 block mb-2">Color</label>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 bg-gray-50 rounded-xl p-1.5 flex-1">
+                              {["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#f59e0b", "#000000"].map((color) => (
                                 <button
                                   key={color}
                                   onClick={() => setFlowButtonColor(color)}
                                   className={cn(
-                                    "w-6 h-6 rounded border-2 transition-all cursor-pointer",
-                                    flowButtonColor === color ? "border-gray-900 scale-110" : "border-transparent"
+                                    "w-7 h-7 rounded-lg border-2 transition-all cursor-pointer hover:scale-110",
+                                    flowButtonColor === color ? "border-gray-900 ring-2 ring-gray-900/20 scale-110" : "border-white shadow-sm"
                                   )}
                                   style={{ backgroundColor: color }}
                                 />
                               ))}
                             </div>
+                            <input
+                              type="color"
+                              value={flowButtonColor}
+                              onChange={(e) => setFlowButtonColor(e.target.value)}
+                              className="h-9 w-9 cursor-pointer rounded-lg border border-gray-200 p-0.5"
+                            />
                           </div>
                         </div>
+
+                        {/* Alignment */}
                         <div>
-                          <label className="text-xs font-medium text-gray-600 block mb-1">Alignment</label>
-                          <div className="flex gap-1">
+                          <label className="text-xs font-medium text-gray-700 block mb-2">Alignment</label>
+                          <div className="flex gap-1.5 bg-gray-50 rounded-xl p-1.5">
                             <Button
                               type="button"
-                              variant={flowButtonAlign === "left" ? "default" : "outline"}
+                              variant={flowButtonAlign === "left" ? "default" : "ghost"}
                               size="sm"
                               onClick={() => setFlowButtonAlign("left")}
-                              className="h-8 px-3 rounded-lg text-xs cursor-pointer"
+                              className={cn("flex-1 h-9 rounded-lg text-xs cursor-pointer", flowButtonAlign === "left" ? "bg-white shadow-sm" : "hover:bg-white/50")}
                             >
-                              <AlignLeft className="h-3.5 w-3.5" />
+                              <AlignLeft className="h-4 w-4 mr-1.5" />Left
                             </Button>
                             <Button
                               type="button"
-                              variant={flowButtonAlign === "center" ? "default" : "outline"}
+                              variant={flowButtonAlign === "center" ? "default" : "ghost"}
                               size="sm"
                               onClick={() => setFlowButtonAlign("center")}
-                              className="h-8 px-3 rounded-lg text-xs cursor-pointer"
+                              className={cn("flex-1 h-9 rounded-lg text-xs cursor-pointer", flowButtonAlign === "center" ? "bg-white shadow-sm" : "hover:bg-white/50")}
                             >
-                              <AlignCenter className="h-3.5 w-3.5" />
+                              <AlignCenter className="h-4 w-4 mr-1.5" />Center
                             </Button>
                             <Button
                               type="button"
-                              variant={flowButtonAlign === "right" ? "default" : "outline"}
+                              variant={flowButtonAlign === "right" ? "default" : "ghost"}
                               size="sm"
                               onClick={() => setFlowButtonAlign("right")}
-                              className="h-8 px-3 rounded-lg text-xs cursor-pointer"
+                              className={cn("flex-1 h-9 rounded-lg text-xs cursor-pointer", flowButtonAlign === "right" ? "bg-white shadow-sm" : "hover:bg-white/50")}
                             >
                               Right
                             </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
-                          <Button size="sm" onClick={flowUpdateButton} disabled={!flowButtonText || !flowButtonUrl} className="flex-1 h-8 rounded-lg text-xs bg-blue-500 hover:bg-blue-600 cursor-pointer">
-                            <Check className="h-3.5 w-3.5 mr-1" />Apply
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={flowDeleteButton} className="h-8 px-3 rounded-lg text-xs text-red-500 hover:bg-red-50 hover:text-red-600 cursor-pointer">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                        <Button
+                          size="sm"
+                          onClick={flowUpdateButton}
+                          disabled={!flowButtonText || !flowButtonUrl}
+                          className="w-full h-10 rounded-xl text-sm bg-violet-600 hover:bg-violet-700 cursor-pointer disabled:opacity-50"
+                        >
+                          <Check className="h-4 w-4 mr-2" />Apply Changes
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -2148,7 +2205,8 @@ Tips:
         initialPreviewText={previewText}
         audienceType={audienceType}
         onAudienceChange={setAudienceType}
-        segments={segments.map(s => ({ id: s.id, name: s.name }))}
+        segments={segments.map(s => ({ id: s.id, name: s.name, subscriber_ids: s.filters?.subscriber_ids }))}
+        onSegmentsChange={(newSegments) => setSegments(newSegments.map(s => ({ id: s.id, name: s.name, description: "", filters: { subscriber_ids: s.subscriber_ids || [] }, subscriber_count: s.subscriber_ids?.length || 0 })))}
         isSaving={isSaving}
         isSending={isSending}
         creatorId={creatorId || undefined}

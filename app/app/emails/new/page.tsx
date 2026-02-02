@@ -20,7 +20,7 @@ export default function NewEmailPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [creatorId, setCreatorId] = useState<string | null>(null)
-  const [segments, setSegments] = useState<{ id: string; name: string }[]>([])
+  const [segments, setSegments] = useState<{ id: string; name: string; subscriber_ids?: string[] }[]>([])
   const [audienceType, setAudienceType] = useState("all")
   const [sellerInfo, setSellerInfo] = useState<{ name: string; username: string; avatarUrl: string } | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -55,11 +55,18 @@ export default function NewEmailPage() {
       // Load segments
       const { data: segmentsData } = await supabase
         .from("email_segments")
-        .select("id, name")
+        .select("id, name, filters")
         .eq("creator_id", creator.id)
         .order("name")
 
-      setSegments(segmentsData || [])
+      // Transform segments to include subscriber_ids from filters
+      const transformedSegments = (segmentsData || []).map(seg => ({
+        id: seg.id,
+        name: seg.name,
+        subscriber_ids: seg.filters?.subscriber_ids || []
+      }))
+
+      setSegments(transformedSegments)
 
       // Load profile info
       const { data: profile } = await supabase
@@ -281,6 +288,7 @@ export default function NewEmailPage() {
         audienceType={audienceType}
         onAudienceChange={setAudienceType}
         segments={segments}
+        onSegmentsChange={setSegments}
         isSaving={isSaving}
         isSending={isSending}
         creatorId={creatorId || undefined}
